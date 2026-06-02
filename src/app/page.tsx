@@ -1069,41 +1069,44 @@ function Sidebar() {
     <>
       {/* Mobile overlay */}
       {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
-      <aside className={`fixed lg:sticky top-0 left-0 z-50 lg:z-auto h-screen w-[240px] bg-white border-r border-edu-border flex flex-col transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="p-[18px] flex items-center gap-2.5 border-b border-edu-border">
+      <aside className={`fixed lg:sticky top-0 left-0 z-50 lg:z-auto h-screen w-[240px] flex flex-col transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} style={{ background: DARK }}>
+        <div className="p-[18px] flex items-center gap-2.5 border-b border-white/10">
           <BrandMark height={32} />
-          <div className="text-[11px] text-edu-muted font-medium">{getRoleLabel(userRole!)}</div>
+          <div className="text-[11px] text-white/50 font-medium">{getRoleLabel(userRole!)}</div>
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar py-2">
-          <div className="px-5 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-edu-muted">Navigation</div>
+          <div className="px-5 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-white/40">Navigation</div>
           <nav className="flex flex-col gap-0.5 px-3">
             {menuItems.map(item => (
               <button
                 key={item.label}
                 onClick={() => { setCurrentView(item.view); setSidebarOpen(false) }}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] font-medium transition relative ${
-                  currentView === item.view ? 'bg-edu-accent-soft text-edu-accent font-semibold' : 'text-edu-fg hover:bg-edu-surface2'
+                  currentView === item.view
+                    ? 'text-[oklch(72%_0.15_65)] font-semibold'
+                    : 'text-white/70 hover:text-white hover:bg-white/5'
                 }`}
+                style={currentView === item.view ? { background: 'oklch(72% 0.15 65 / 0.08)', borderLeft: '3px solid oklch(72% 0.15 65)' } : { borderLeft: '3px solid transparent' }}
               >
-                <span className={currentView === item.view ? 'text-edu-accent' : 'opacity-70'}>{item.icon}</span>
+                <span className={currentView === item.view ? 'text-[oklch(72%_0.15_65)]' : ''}>{item.icon}</span>
                 {item.label}
-                {item.badge && <span className="ml-auto bg-[oklch(58%_0.20_25)] text-white text-[10px] px-1.5 py-px rounded-full font-semibold">{item.badge}</span>}
+                {item.badge && <span className="ml-auto bg-[oklch(72%_0.15_65)] text-[oklch(15%_0.02_250)] text-[10px] px-1.5 py-px rounded-full font-semibold">{item.badge}</span>}
               </button>
             ))}
           </nav>
         </div>
 
-        <div className="p-3 border-t border-edu-border">
-          <div className="flex items-center gap-2.5 p-2.5 rounded-[10px] bg-edu-surface2">
-            <div className="w-9 h-9 rounded-full grid place-items-center text-white font-semibold text-[13px] shrink-0" style={{ background: `linear-gradient(135deg, oklch(55% 0.15 280), oklch(45% 0.15 320))` }}>
+        <div className="p-3 border-t border-white/10">
+          <div className="flex items-center gap-2.5 p-2.5 rounded-xl edu-glass">
+            <div className="w-9 h-9 rounded-full grid place-items-center text-white font-semibold text-[13px] shrink-0" style={{ background: `linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))` }}>
               {userData?.initials || '??'}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-semibold truncate">{userData?.name || 'Utilisateur'}</div>
-              <div className="text-[11px] text-edu-muted truncate">{userData?.schoolName || ''}</div>
+              <div className="text-[13px] font-semibold truncate text-white/90">{userData?.name || 'Utilisateur'}</div>
+              <div className="text-[11px] text-white/50 truncate">{userData?.schoolName || ''}</div>
             </div>
-            <button onClick={logout} className="text-edu-muted hover:text-edu-danger transition shrink-0"><LogOut size={16} /></button>
+            <button onClick={logout} className="text-white/40 hover:text-[oklch(58%_0.20_25)] transition shrink-0"><LogOut size={16} /></button>
           </div>
         </div>
       </aside>
@@ -1122,26 +1125,26 @@ function Topbar() {
   }
 
   return (
-    <header className="sticky top-0 z-20 bg-white border-b border-edu-border h-16 flex items-center justify-between px-4 sm:px-6">
+    <header className="sticky top-0 z-20 h-16 flex items-center justify-between px-4 sm:px-6" style={{ background: IVORY }}>
       <div className="flex items-center gap-4">
-        <button className="lg:hidden p-2 rounded-lg hover:bg-edu-surface2" onClick={() => setSidebarOpen(!sidebarOpen)}>
+        <button className="lg:hidden p-2 rounded-lg hover:bg-white/60 transition" onClick={() => setSidebarOpen(!sidebarOpen)}>
           {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
         </button>
         <div>
-          <div className="text-lg font-bold tracking-tight">{viewTitles[currentView] || 'Dashboard'}</div>
-          <div className="text-xs text-edu-muted hidden sm:block">EduGest · {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          <div className="text-lg font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>{viewTitles[currentView] || 'Dashboard'}</div>
+          <div className="text-xs hidden sm:block" style={{ color: TEXT_MUTED_LUXE }}>EduGest · {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <div className="hidden md:flex items-center gap-2 bg-edu-surface2 border border-edu-border rounded-lg px-3 py-1.5 w-[240px]">
-          <Search size={14} className="text-edu-muted" />
+        <div className="hidden md:flex items-center gap-2 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-1.5 w-[240px] focus-within:ring-2 focus-within:ring-[oklch(72%_0.15_65_/_0.3)] focus-within:border-[oklch(72%_0.15_65_/_0.5)] transition">
+          <Search size={14} style={{ color: TEXT_MUTED_LUXE }} />
           <input placeholder="Rechercher..." className="flex-1 border-0 bg-transparent outline-none text-[13px]" />
         </div>
-        <button className="w-9 h-9 rounded-lg bg-edu-surface2 border border-edu-border grid place-items-center hover:bg-edu-border transition relative">
+        <button className="w-9 h-9 rounded-xl bg-white border border-[oklch(90%_0.01_175)] grid place-items-center hover:shadow-sm transition relative">
           <Bell size={16} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-edu-danger border-2 border-white" />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2 border-white" style={{ background: GOLD }} />
         </button>
-        <button className="w-9 h-9 rounded-lg bg-edu-surface2 border border-edu-border grid place-items-center hover:bg-edu-border transition">
+        <button className="w-9 h-9 rounded-xl bg-white border border-[oklch(90%_0.01_175)] grid place-items-center hover:shadow-sm transition">
           <Settings size={16} />
         </button>
       </div>
@@ -1152,11 +1155,11 @@ function Topbar() {
 // ===== DASHBOARD LAYOUT =====
 function DashboardLayout() {
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[240px_1fr] bg-edu-bg">
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[240px_1fr]" style={{ background: IVORY }}>
       <Sidebar />
       <div className="flex flex-col min-w-0">
         <Topbar />
-        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
+        <main className="flex-1 p-6 sm:p-8 overflow-y-auto">
           <MainContent />
         </main>
       </div>
@@ -1209,14 +1212,14 @@ function StatCard({ label, value, delta, icon, color }: {
   label: string; value: string; delta?: string; icon: React.ReactNode; color: string
 }) {
   return (
-    <div className="bg-white border border-edu-border rounded-xl p-[18px] relative overflow-hidden">
+    <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 relative overflow-hidden shadow-sm hover:shadow-md transition" style={{ borderLeft: `4px solid ${color}` }}>
       <div className="absolute top-0 right-0 w-[60px] h-[60px] rounded-bl-[60px] opacity-50" style={{ background: `radial-gradient(closest-side, ${color}22, transparent)` }} />
       <div className="flex items-center justify-between mb-2.5">
-        <div className="text-xs text-edu-muted font-medium uppercase tracking-wider">{label}</div>
-        <div className="w-8 h-8 rounded-lg grid place-items-center" style={{ color, background: `${color}18` }}>{icon}</div>
+        <div className="text-xs font-medium uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>{label}</div>
+        <div className="w-10 h-10 rounded-full grid place-items-center" style={{ color: 'white', background: `linear-gradient(135deg, ${color}, oklch(72% 0.15 65))` }}>{icon}</div>
       </div>
-      <div className="text-[26px] font-bold tracking-tight tabular-nums">{value}</div>
-      {delta && <div className="text-xs text-edu-muted mt-0.5">{delta}</div>}
+      <div className="text-[28px] font-bold tracking-tight tabular-nums" style={{ color: TEXT_PRIMARY }}>{value}</div>
+      {delta && <div className="text-xs mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{delta}</div>}
     </div>
   )
 }
@@ -1231,34 +1234,37 @@ function SuperAdminDashboard() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Bonjour Admin 👋</h1>
-          <p className="text-[13px] text-edu-muted mt-0.5">Voici l&apos;état de la plateforme aujourd&apos;hui</p>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour Admin</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Voici l&apos;état de la plateforme aujourd&apos;hui</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
         <StatCard label="Écoles actives" value={formatNumber(stats?.totalSchools || 248)} delta="+12 ce mois" icon={<Building2 size={16} />} color={ACCENT} />
         <StatCard label="Utilisateurs" value={formatNumber(stats?.totalUsers || 4832)} delta="+324 ce mois" icon={<Users size={16} />} color={INFO} />
         <StatCard label="Élèves inscrits" value={formatNumber(stats?.totalStudents || 58412)} delta="+2 184 ce mois" icon={<GraduationCap size={16} />} color={SUCCESS} />
         <StatCard label="Revenus mensuels" value={formatCurrency(94200)} delta="+18% vs avril" icon={<DollarSign size={16} />} color={WARNING} />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-3.5 mb-5">
-        <div className="bg-white border border-edu-border rounded-xl p-5">
+      <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-6 mb-6">
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
           <div className="flex items-baseline justify-between mb-4">
             <div>
-              <div className="text-[15px] font-semibold">Évolution des inscriptions</div>
-              <div className="text-xs text-edu-muted">12 derniers mois · toutes écoles</div>
+              <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Évolution des inscriptions</div>
+              <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>12 derniers mois · toutes écoles</div>
             </div>
           </div>
           <div className="h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={ENROLLMENT_DATA}>
-                <CartesianGrid strokeDasharray="2 4" stroke={BORDER} />
-                <XAxis dataKey="month" tick={{ fontSize: 12, fill: MUTED }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: MUTED }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="2 4" stroke="oklch(90% 0.01 175)" />
+                <XAxis dataKey="month" tick={{ fontSize: 12, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
                 <Tooltip />
                 <Line type="monotone" dataKey="value" stroke={ACCENT} strokeWidth={2.5} dot={{ fill: ACCENT, r: 3 }} />
               </LineChart>
@@ -1266,10 +1272,10 @@ function SuperAdminDashboard() {
           </div>
         </div>
 
-        <div className="bg-white border border-edu-border rounded-xl p-5">
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
           <div className="mb-4">
-            <div className="text-[15px] font-semibold">Répartition abonnements</div>
-            <div className="text-xs text-edu-muted">Par formule</div>
+            <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Répartition abonnements</div>
+            <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Par formule</div>
           </div>
           <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -1283,7 +1289,7 @@ function SuperAdminDashboard() {
           </div>
           <div className="space-y-2 mt-2">
             {SUBSCRIPTION_DATA.map(s => (
-              <div key={s.name} className="flex items-center gap-2 text-[13px]">
+              <div key={s.name} className="flex items-center gap-2 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
                 <span className="w-2 h-2 rounded-sm" style={{ background: s.color }} />
                 {s.name} · {s.value}%
               </div>
@@ -1313,42 +1319,45 @@ function SecretaryDashboard() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Bonjour Secrétaire 👋</h1>
-          <p className="text-[13px] text-edu-muted mt-0.5">Gestion quotidienne du Complexe Scolaire Lumière</p>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour Secrétaire</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Gestion quotidienne du Complexe Scolaire Lumière</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
         <StatCard label="Total élèves" value={formatNumber((stats?.students as Record<string, number>)?.total || 1248)} delta="+24 cette semaine" icon={<Users size={16} />} color={ACCENT} />
         <StatCard label="Classes actives" value={String((stats?.classes as Record<string, unknown>)?.total || 42)} icon={<School size={16} />} color={INFO} />
         <StatCard label="Avertissements" value="27" icon={<AlertTriangle size={16} />} color={WARNING} />
         <StatCard label="Retards" value="64" icon={<Clock size={16} />} color={DANGER} />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-3.5 mb-5">
-        <div className="bg-white border border-edu-border rounded-xl p-5">
+      <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-6 mb-6">
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
           <div className="mb-4">
-            <div className="text-[15px] font-semibold">Élèves par classe</div>
-            <div className="text-xs text-edu-muted">Année scolaire 2025-2026</div>
+            <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Élèves par classe</div>
+            <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Année scolaire 2025-2026</div>
           </div>
           <div className="h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barData}>
-                <CartesianGrid strokeDasharray="2 4" stroke={BORDER} />
-                <XAxis dataKey="name" tick={{ fontSize: 12, fill: MUTED }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: MUTED }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="2 4" stroke="oklch(90% 0.01 175)" />
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
                 <Tooltip />
-                <Bar dataKey="élèves" fill={ACCENT} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="élèves" fill={ACCENT} radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white border border-edu-border rounded-xl p-5">
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
           <div className="mb-4">
-            <div className="text-[15px] font-semibold">Actions rapides</div>
+            <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Actions rapides</div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             {[
@@ -1357,9 +1366,9 @@ function SecretaryDashboard() {
               { icon: <CreditCard size={20} />, label: 'Paiement', view: 'payments' as ViewType, color: SUCCESS },
               { icon: <Megaphone size={20} />, label: 'Convocation', view: 'convocation' as ViewType, color: WARNING },
             ].map(a => (
-              <button key={a.label} onClick={() => setCurrentView(a.view)} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-edu-border hover:border-edu-accent/30 hover:bg-edu-accent-soft transition">
-                <span style={{ color: a.color }}>{a.icon}</span>
-                <span className="text-sm font-medium">{a.label}</span>
+              <button key={a.label} onClick={() => setCurrentView(a.view)} className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.3)] hover:shadow-md edu-card-lift transition">
+                <div className="w-10 h-10 rounded-full grid place-items-center" style={{ color: 'white', background: `linear-gradient(135deg, ${a.color}, oklch(72% 0.15 65))` }}>{a.icon}</div>
+                <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{a.label}</span>
               </button>
             ))}
           </div>
@@ -1373,24 +1382,27 @@ function SecretaryDashboard() {
 function CashierDashboard() {
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Bonjour Caissier 👋</h1>
-          <p className="text-[13px] text-edu-muted mt-0.5">Suivi financier du Complexe Scolaire Lumière</p>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour Caissier</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi financier du Complexe Scolaire Lumière</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
         <StatCard label="Encaissé T1" value={formatCurrency(312400)} delta="+12% vs T1 2024" icon={<DollarSign size={16} />} color={ACCENT} />
         <StatCard label="Encaissé T2" value={formatCurrency(286200)} icon={<DollarSign size={16} />} color={INFO} />
         <StatCard label="Recouvrement" value="87%" icon={<TrendingUp size={16} />} color={SUCCESS} />
         <StatCard label="Impayés" value={formatCurrency(42800)} delta="42 dossiers" icon={<AlertTriangle size={16} />} color={DANGER} />
       </div>
 
-      <div className="bg-white border border-edu-border rounded-xl p-5">
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
         <div className="mb-4">
-          <div className="text-[15px] font-semibold">Paiements par classe</div>
-          <div className="text-xs text-edu-muted">Taux de recouvrement par classe</div>
+          <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Paiements par classe</div>
+          <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Taux de recouvrement par classe</div>
         </div>
         <div className="space-y-3">
           {[
@@ -1402,11 +1414,11 @@ function CashierDashboard() {
           ].map(c => (
             <div key={c.name}>
               <div className="flex justify-between text-sm mb-1">
-                <span className="font-medium">{c.name}</span>
-                <span className="text-edu-muted">{formatNumber(c.paid)} / {formatNumber(c.total)} CDF · {c.rate}%</span>
+                <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{c.name}</span>
+                <span style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(c.paid)} / {formatNumber(c.total)} CDF · {c.rate}%</span>
               </div>
-              <div className="h-2 bg-edu-surface2 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all" style={{ width: `${c.rate}%`, background: c.rate >= 85 ? SUCCESS : c.rate >= 70 ? WARNING : DANGER }} />
+              <div className="h-2 bg-[oklch(92%_0.005_175)] rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: `${c.rate}%`, background: c.rate >= 85 ? `linear-gradient(90deg, ${SUCCESS}, oklch(72% 0.15 65))` : c.rate >= 70 ? `linear-gradient(90deg, ${WARNING}, oklch(72% 0.15 65))` : `linear-gradient(90deg, ${DANGER}, oklch(58% 0.15 45))` }} />
               </div>
             </div>
           ))}
@@ -1421,33 +1433,39 @@ function ParentDashboard() {
   const { setCurrentView } = useEduGestStore()
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Bonjour Papa Kazadi 👋</h1>
-          <p className="text-[13px] text-edu-muted mt-0.5">Suivi scolaire de vos enfants</p>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour Papa Kazadi</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi scolaire de vos enfants</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
         <StatCard label="Mes enfants" value="2" icon={<Users size={16} />} color={ACCENT} />
         <StatCard label="Notifications" value="5" icon={<Bell size={16} />} color={INFO} />
         <StatCard label="Devoirs à rendre" value="3" icon={<PenTool size={16} />} color={WARNING} />
       </div>
 
-      <h3 className="text-lg font-semibold mb-3">Mes enfants</h3>
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-1 h-6 rounded-full" style={{ background: GOLD }} />
+        <h3 className="text-lg font-semibold" style={{ color: TEXT_PRIMARY }}>Mes enfants</h3>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         {[
           { name: 'Kabongo Mutombo', class: '6eA', avg: '14.2/20', initials: 'KM', color: ACCENT },
           { name: 'Nzuzi Kazadi', class: '6eA', avg: '12.8/20', initials: 'NK', color: INFO },
         ].map(child => (
-          <div key={child.name} className="bg-white border border-edu-border rounded-xl p-5">
+          <div key={child.name} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-14 h-14 rounded-full grid place-items-center text-white font-bold text-lg" style={{ background: `linear-gradient(135deg, ${child.color}, ${ACCENT2})` }}>
+              <div className="w-14 h-14 rounded-full grid place-items-center text-white font-bold text-lg" style={{ background: `linear-gradient(135deg, ${child.color}, oklch(72% 0.15 65))` }}>
                 {child.initials}
               </div>
               <div>
-                <div className="font-semibold">{child.name}</div>
-                <div className="text-sm text-edu-muted">Classe {child.class} · Moyenne {child.avg}</div>
+                <div className="font-semibold" style={{ color: TEXT_PRIMARY }}>{child.name}</div>
+                <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Classe {child.class} · Moyenne {child.avg}</div>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -1457,7 +1475,7 @@ function ParentDashboard() {
                 { label: 'Paiements', view: 'payments' as ViewType, icon: <CreditCard size={14} /> },
                 { label: 'Discipline', view: 'discipline' as ViewType, icon: <Shield size={14} /> },
               ].map(chip => (
-                <button key={chip.label} onClick={() => setCurrentView(chip.view)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-edu-border hover:bg-edu-accent-soft hover:border-edu-accent/30 transition">
+                <button key={chip.label} onClick={() => setCurrentView(chip.view)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(95%_0.04_175)] hover:border-[oklch(72%_0.15_65_/_0.3)] transition" style={{ color: TEXT_PRIMARY }}>
                   {chip.icon} {chip.label}
                 </button>
               ))}
@@ -1466,8 +1484,11 @@ function ParentDashboard() {
         ))}
       </div>
 
-      <h3 className="text-lg font-semibold mb-3">Notifications récentes</h3>
-      <div className="bg-white border border-edu-border rounded-xl divide-y divide-edu-border">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-1 h-6 rounded-full" style={{ background: GOLD }} />
+        <h3 className="text-lg font-semibold" style={{ color: TEXT_PRIMARY }}>Notifications récentes</h3>
+      </div>
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl divide-y divide-[oklch(90%_0.01_175)] shadow-sm">
         {[
           { icon: <BookOpen size={16} className="text-edu-accent" />, text: 'Nouvelle note en Mathématiques — Kabongo: 16/20', time: 'Il y a 2h' },
           { icon: <CreditCard size={16} className="text-edu-success" />, text: 'Paiement T2 confirmé — Nzuzi Kazadi', time: 'Il y a 5h' },
@@ -1475,13 +1496,13 @@ function ParentDashboard() {
           { icon: <Shield size={16} className="text-edu-danger" />, text: 'Avertissement: Retard répété — Kabongo Mutombo', time: 'Il y a 2 jours' },
           { icon: <Megaphone size={16} className="text-edu-info" />, text: 'Réunion parents-professeurs le 15 octobre', time: 'Il y a 3 jours' },
         ].map((n, i) => (
-          <div key={i} className="flex items-start gap-3 p-4 hover:bg-edu-surface2/50 transition">
-            <div className="w-8 h-8 rounded-full bg-edu-surface2 grid place-items-center shrink-0">{n.icon}</div>
+          <div key={i} className="flex items-start gap-3 p-4 hover:bg-[oklch(97%_0.005_175)] transition">
+            <div className="w-8 h-8 rounded-full bg-[oklch(95%_0.04_175)] grid place-items-center shrink-0">{n.icon}</div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm">{n.text}</div>
-              <div className="text-xs text-edu-muted mt-0.5">{n.time}</div>
+              <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{n.text}</div>
+              <div className="text-xs mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{n.time}</div>
             </div>
-            {i === 0 && <span className="w-2 h-2 rounded-full bg-edu-accent mt-2 shrink-0" />}
+            {i === 0 && <span className="w-2 h-2 rounded-full mt-2 shrink-0" style={{ background: GOLD }} />}
           </div>
         ))}
       </div>
@@ -1493,13 +1514,16 @@ function ParentDashboard() {
 function TeacherDashboard() {
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Bonjour Professeur 👋</h1>
-          <p className="text-[13px] text-edu-muted mt-0.5">Gestion de vos classes et notes</p>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour Professeur</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Gestion de vos classes et notes</p>
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
         <StatCard label="Mes classes" value="4" icon={<School size={16} />} color={ACCENT} />
         <StatCard label="Élèves total" value="112" icon={<Users size={16} />} color={INFO} />
         <StatCard label="Devoirs actifs" value="3" icon={<PenTool size={16} />} color={WARNING} />
@@ -1513,13 +1537,16 @@ function TeacherDashboard() {
 function HeadTeacherDashboard() {
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Bonjour Prof. Principal 👋</h1>
-          <p className="text-[13px] text-edu-muted mt-0.5">Suivi de la classe 6eA</p>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour Prof. Principal</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi de la classe 6eA</p>
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
         <StatCard label="Élèves" value="32" icon={<Users size={16} />} color={ACCENT} />
         <StatCard label="Moy. classe" value="12.4/20" icon={<Target size={16} />} color={SUCCESS} />
         <StatCard label="Bulletins" value="32/32" delta="Tous générés" icon={<FileText size={16} />} color={INFO} />
@@ -1537,13 +1564,16 @@ function DirectionDashboard() {
 function DisciplineDashboardView() {
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard Discipline 👋</h1>
-          <p className="text-[13px] text-edu-muted mt-0.5">Suivi disciplinaire</p>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Dashboard Discipline</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi disciplinaire</p>
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
         <StatCard label="Liste Noire" value="3" icon={<Ban size={16} />} color={DANGER} />
         <StatCard label="Liste Grise" value="12" icon={<AlertTriangle size={16} />} color={WARNING} />
         <StatCard label="Liste Blanche" value="8" icon={<Award size={16} />} color={SUCCESS} />
@@ -1578,62 +1608,65 @@ function StudentsView() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Élèves</h1>
-          <p className="text-[13px] text-edu-muted mt-0.5">{formatNumber(filtered.length)} élèves inscrits</p>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Élèves</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filtered.length)} élèves inscrits</p>
         </div>
-        <button onClick={() => setShowAdd(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-medium transition hover:opacity-90" style={{ background: ACCENT }}>
+        <button onClick={() => setShowAdd(true)} className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
           <Plus size={14} /> Ajouter un élève
         </button>
       </div>
 
       <div className="flex items-center gap-3 mb-4">
-        <div className="flex items-center gap-2 bg-white border border-edu-border rounded-lg px-3 py-2 flex-1 max-w-md">
-          <Search size={14} className="text-edu-muted" />
+        <div className="flex items-center gap-2 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-2 flex-1 max-w-md focus-within:ring-2 focus-within:ring-[oklch(72%_0.15_65_/_0.3)] focus-within:border-[oklch(72%_0.15_65_/_0.5)] transition">
+          <Search size={14} style={{ color: TEXT_MUTED_LUXE }} />
           <input placeholder="Rechercher un élève..." value={search} onChange={e => setSearch(e.target.value)} className="flex-1 border-0 bg-transparent outline-none text-sm" />
         </div>
       </div>
 
-      <div className="bg-white border border-edu-border rounded-xl overflow-hidden">
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-edu-surface2">
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Élève</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Matricule</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Classe</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Parent</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Statut</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5"></th>
+              <tr style={{ background: IVORY }}>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élève</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Matricule</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Classe</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Parent</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Statut</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} className="text-center py-8 text-edu-muted">Chargement...</td></tr>
+                <tr><td colSpan={6} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-8 text-edu-muted">Aucun élève trouvé</td></tr>
+                <tr><td colSpan={6} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun élève trouvé</td></tr>
               ) : filtered.map(s => (
-                <tr key={s.id} className="hover:bg-edu-surface2/50 transition border-b border-edu-border last:border-0">
+                <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-edu-accent to-[oklch(45%_0.13_200)] grid place-items-center text-white font-semibold text-[11px] shrink-0">
+                      <div className="w-8 h-8 rounded-full grid place-items-center text-white font-semibold text-[11px] shrink-0" style={{ background: 'linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))' }}>
                         {getInitials(s.firstName + ' ' + s.lastName)}
                       </div>
                       <div>
-                        <div className="font-medium text-[13.5px]">{s.firstName} {s.lastName}</div>
-                        <div className="text-xs text-edu-muted">{s.gender === 'M' ? 'Garçon' : 'Fille'}</div>
+                        <div className="font-medium text-[13.5px]" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
+                        <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{s.gender === 'M' ? 'Garçon' : 'Fille'}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-[13px] font-mono text-edu-muted">{s.matricule}</td>
-                  <td className="px-3 py-3 text-[13px]">{s.class?.name || '—'}</td>
-                  <td className="px-3 py-3 text-[13px] text-edu-muted">{s.parent?.name || '—'}</td>
+                  <td className="px-3 py-3 text-[13px] font-mono" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</td>
+                  <td className="px-3 py-3 text-[13px]" style={{ color: TEXT_PRIMARY }}>{s.class?.name || '—'}</td>
+                  <td className="px-3 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.parent?.name || '—'}</td>
                   <td className="px-3 py-3"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${getStatusPill('Actif')}`}>Actif</span></td>
                   <td className="px-3 py-3">
                     <div className="flex gap-1">
-                      <button className="w-7 h-7 rounded grid place-items-center text-edu-muted hover:bg-edu-surface2 hover:text-edu-fg transition"><Eye size={14} /></button>
-                      <button className="w-7 h-7 rounded grid place-items-center text-edu-muted hover:bg-edu-surface2 hover:text-edu-fg transition"><Edit size={14} /></button>
+                      <button className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Eye size={14} /></button>
+                      <button className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Edit size={14} /></button>
                     </div>
                   </td>
                 </tr>
@@ -1646,9 +1679,9 @@ function StudentsView() {
       {/* Add Student Modal */}
       {showAdd && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowAdd(false)}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold">Ajouter un élève</h2>
+              <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>Ajouter un élève</h2>
               <button onClick={() => setShowAdd(false)}><X size={18} /></button>
             </div>
             <form onSubmit={async (e) => {
@@ -1676,14 +1709,14 @@ function StudentsView() {
               } catch { toast.error('Erreur réseau') }
             }} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-sm font-medium">Prénom</label><input name="firstName" required className="w-full mt-1 px-3 py-2 border border-edu-border rounded-lg text-sm outline-none focus:border-edu-accent" /></div>
-                <div><label className="text-sm font-medium">Nom</label><input name="lastName" required className="w-full mt-1 px-3 py-2 border border-edu-border rounded-lg text-sm outline-none focus:border-edu-accent" /></div>
+                <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Prénom</label><input name="firstName" required className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
+                <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Nom</label><input name="lastName" required className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-sm font-medium">Sexe</label><select name="gender" className="w-full mt-1 px-3 py-2 border border-edu-border rounded-lg text-sm outline-none"><option value="M">Masculin</option><option value="F">Féminin</option></select></div>
-                <div><label className="text-sm font-medium">Date de naissance</label><input name="dob" type="date" className="w-full mt-1 px-3 py-2 border border-edu-border rounded-lg text-sm outline-none" /></div>
+                <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Sexe</label><select name="gender" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"><option value="M">Masculin</option><option value="F">Féminin</option></select></div>
+                <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Date de naissance</label><input name="dob" type="date" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
               </div>
-              <button type="submit" className="w-full py-2.5 rounded-lg text-white font-medium text-sm" style={{ background: ACCENT }}>Ajouter l&apos;élève</button>
+              <button type="submit" className="w-full py-2.5 rounded-xl text-white font-semibold text-sm edu-gold-cta">Ajouter l&apos;élève</button>
             </form>
           </div>
         </div>
@@ -1703,21 +1736,24 @@ function ClassesView() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-5">Classes</h1>
-      {loading ? <div className="text-center py-8 text-edu-muted">Chargement...</div> : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Classes</h1>
+      </div>
+      {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {classes.map(c => (
-            <div key={c.id} className="bg-white border border-edu-border rounded-xl p-5 hover:border-edu-accent/30 transition">
+            <div key={c.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-bold">{c.name}</h3>
-                <span className="text-xs text-edu-muted bg-edu-surface2 px-2 py-1 rounded-full">{c.level || c.section || ''}</span>
+                <h3 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{c.name}</h3>
+                <span className="text-xs px-2 py-1 rounded-full" style={{ color: GOLD, background: GOLD_SOFT }}>{c.level || c.section || ''}</span>
               </div>
-              <div className="flex items-center justify-between text-sm text-edu-muted">
+              <div className="flex items-center justify-between text-sm" style={{ color: TEXT_MUTED_LUXE }}>
                 <span>{c._count?.students || 0} élèves</span>
                 <span>Capacité: {c.capacity}</span>
               </div>
-              <div className="mt-3 h-2 bg-edu-surface2 rounded-full overflow-hidden">
-                <div className="h-full rounded-full" style={{ width: `${Math.min(100, ((c._count?.students || 0) / c.capacity) * 100)}%`, background: (c._count?.students || 0) / c.capacity > 0.9 ? DANGER : ACCENT }} />
+              <div className="mt-3 h-2 bg-[oklch(92%_0.005_175)] rounded-full overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${Math.min(100, ((c._count?.students || 0) / c.capacity) * 100)}%`, background: (c._count?.students || 0) / c.capacity > 0.9 ? `linear-gradient(90deg, ${DANGER}, oklch(58% 0.15 45))` : `linear-gradient(90deg, ${ACCENT}, oklch(72% 0.15 65))` }} />
               </div>
             </div>
           ))}
@@ -1762,45 +1798,48 @@ function GradesView() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-5">Notes</h1>
-      <div className="flex flex-wrap items-center gap-3 mb-5">
-        <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="px-3 py-2 border border-edu-border rounded-lg text-sm bg-white outline-none">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Notes</h1>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 mb-5 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4 shadow-sm" style={{ background: IVORY }}>
+        <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
           <option value="">Toutes les classes</option>
           {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <select value={selectedTrimester} onChange={e => setSelectedTrimester(e.target.value)} className="px-3 py-2 border border-edu-border rounded-lg text-sm bg-white outline-none">
+        <select value={selectedTrimester} onChange={e => setSelectedTrimester(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
           <option value="T1">Trimestre 1</option>
           <option value="T2">Trimestre 2</option>
           <option value="T3">Trimestre 3</option>
         </select>
       </div>
 
-      <div className="bg-white border border-edu-border rounded-xl overflow-hidden">
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-edu-surface2">
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Élève</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Matière</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Note /20</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Coef.</th>
+              <tr style={{ background: IVORY }}>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élève</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Matière</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Note /20</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Coef.</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={4} className="text-center py-8 text-edu-muted">Chargement...</td></tr>
+                <tr><td colSpan={4} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
               ) : grades.length === 0 ? (
-                <tr><td colSpan={4} className="text-center py-8 text-edu-muted">Aucune note</td></tr>
+                <tr><td colSpan={4} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucune note</td></tr>
               ) : grades.slice(0, 30).map(g => (
-                <tr key={g.id} className="hover:bg-edu-surface2/50 transition border-b border-edu-border last:border-0">
-                  <td className="px-3 py-2.5 text-[13px] font-medium">{g.student?.firstName} {g.student?.lastName}</td>
-                  <td className="px-3 py-2.5 text-[13px] text-edu-muted">{g.subject?.name}</td>
+                <tr key={g.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
+                  <td className="px-3 py-2.5 text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{g.student?.firstName} {g.student?.lastName}</td>
+                  <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{g.subject?.name}</td>
                   <td className="px-3 py-2.5">
-                    <span className={`text-[13px] font-semibold ${g.score >= 10 ? 'text-edu-success' : 'text-edu-danger'}`}>
+                    <span className="text-[13px] font-semibold" style={{ color: g.score >= 10 ? GOLD : DANGER }}>
                       {g.score.toFixed(1)}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5 text-[13px] text-edu-muted">×{g.subject?.coefficient || 1}</td>
+                  <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>×{g.subject?.coefficient || 1}</td>
                 </tr>
               ))}
             </tbody>
@@ -1827,49 +1866,52 @@ function PaymentsView() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-5">Paiements</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Paiements</h1>
+      </div>
 
       {/* Payment Form */}
-      <div className="bg-white border border-edu-border rounded-xl p-5 mb-5">
-        <h3 className="font-semibold mb-4">Enregistrer un paiement</h3>
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 mb-6 shadow-sm" style={{ borderLeft: `4px solid ${GOLD}` }}>
+        <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Enregistrer un paiement</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-          <input placeholder="Rechercher un élève..." value={studentSearch} onChange={e => setStudentSearch(e.target.value)} className="px-3 py-2 border border-edu-border rounded-lg text-sm outline-none focus:border-edu-accent" />
-          <input placeholder="Montant (CDF)" value={amount} onChange={e => setAmount(e.target.value)} type="number" className="px-3 py-2 border border-edu-border rounded-lg text-sm outline-none focus:border-edu-accent" />
-          <select value={trimester} onChange={e => setTrimester(e.target.value)} className="px-3 py-2 border border-edu-border rounded-lg text-sm bg-white outline-none">
+          <input placeholder="Rechercher un élève..." value={studentSearch} onChange={e => setStudentSearch(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" />
+          <input placeholder="Montant (CDF)" value={amount} onChange={e => setAmount(e.target.value)} type="number" className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" />
+          <select value={trimester} onChange={e => setTrimester(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
             <option value="T1">Trimestre 1</option><option value="T2">Trimestre 2</option><option value="T3">Trimestre 3</option>
           </select>
-          <select value={method} onChange={e => setMethod(e.target.value)} className="px-3 py-2 border border-edu-border rounded-lg text-sm bg-white outline-none">
+          <select value={method} onChange={e => setMethod(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
             <option value="CASH">Espèces</option><option value="ORANGE_MONEY">Orange Money</option><option value="MPESA">M-Pesa</option><option value="AIRTEL_MONEY">Airtel Money</option>
           </select>
         </div>
-        <button className="px-5 py-2.5 rounded-lg text-white text-sm font-medium" style={{ background: ACCENT }}>
+        <button className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold">
           Enregistrer le paiement
         </button>
       </div>
 
-      <div className="bg-white border border-edu-border rounded-xl overflow-hidden">
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-edu-surface2">
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Élève</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Trimestre</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Montant</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Payé</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Statut</th>
+              <tr style={{ background: IVORY }}>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élève</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Trimestre</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Montant</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Payé</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Statut</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="text-center py-8 text-edu-muted">Chargement...</td></tr>
+                <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
               ) : payments.slice(0, 20).map(p => (
-                <tr key={p.id} className="hover:bg-edu-surface2/50 transition border-b border-edu-border last:border-0">
-                  <td className="px-3 py-2.5 text-[13px] font-medium">{p.student ? `${p.student.firstName} ${p.student.lastName}` : '—'}</td>
-                  <td className="px-3 py-2.5 text-[13px] text-edu-muted">{p.trimester}</td>
-                  <td className="px-3 py-2.5 text-[13px] tabular-nums">{formatNumber(p.amount)} CDF</td>
-                  <td className="px-3 py-2.5 text-[13px] tabular-nums">{formatNumber(p.paidAmount)} CDF</td>
+                <tr key={p.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
+                  <td className="px-3 py-2.5 text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{p.student ? `${p.student.firstName} ${p.student.lastName}` : '—'}</td>
+                  <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{p.trimester}</td>
+                  <td className="px-3 py-2.5 text-[13px] tabular-nums" style={{ color: TEXT_PRIMARY }}>{formatNumber(p.amount)} CDF</td>
+                  <td className="px-3 py-2.5 text-[13px] tabular-nums" style={{ color: TEXT_PRIMARY }}>{formatNumber(p.paidAmount)} CDF</td>
                   <td className="px-3 py-2.5">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${getStatusPill(p.status)}`}>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill(p.status)}`}>
                       {p.status === 'PAID' ? 'Payé' : p.status === 'PARTIAL' ? 'Partiel' : p.status === 'OVERDUE' ? 'En retard' : 'En attente'}
                     </span>
                   </td>
@@ -1895,9 +1937,12 @@ function DisciplineView() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-5">Discipline</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Discipline</h1>
+      </div>
 
-      <div className="flex gap-0.5 border-b border-edu-border mb-4">
+      <div className="flex gap-0.5 border-b border-[oklch(90%_0.01_175)] mb-5">
         {[
           { key: 'BLACKLIST' as const, label: 'Liste Noire', icon: <Ban size={14} />, color: DANGER },
           { key: 'GREYLIST' as const, label: 'Liste Grise', icon: <AlertTriangle size={14} />, color: WARNING },
@@ -1907,39 +1952,39 @@ function DisciplineView() {
             key={t.key}
             onClick={() => { setTab(t.key); setLoading(true) }}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-[13.5px] font-medium border-b-2 -mb-px transition ${
-              tab === t.key ? 'border-current' : 'border-transparent text-edu-muted hover:text-edu-fg'
+              tab === t.key ? 'border-current' : 'border-transparent hover:text-edu-fg'
             }`}
-            style={tab === t.key ? { color: t.color } : undefined}
+            style={tab === t.key ? { color: t.color, borderColor: t.color === WARNING ? GOLD : t.color } : { color: TEXT_MUTED_LUXE }}
           >
             {t.icon} {t.label}
           </button>
         ))}
       </div>
 
-      <div className="bg-white border border-edu-border rounded-xl overflow-hidden">
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-edu-surface2">
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Élève</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Motif</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Type</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Date</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Points</th>
+              <tr style={{ background: IVORY }}>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élève</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Motif</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Type</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Date</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Points</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="text-center py-8 text-edu-muted">Chargement...</td></tr>
+                <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
               ) : records.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-8 text-edu-muted">Aucun enregistrement</td></tr>
+                <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun enregistrement</td></tr>
               ) : records.map(r => (
-                <tr key={r.id} className="hover:bg-edu-surface2/50 transition border-b border-edu-border last:border-0">
-                  <td className="px-3 py-2.5 text-[13px] font-medium">{r.student ? `${r.student.firstName} ${r.student.lastName}` : '—'}</td>
-                  <td className="px-3 py-2.5 text-[13px] text-edu-muted">{r.title}</td>
-                  <td className="px-3 py-2.5 text-[13px]">{r.type}</td>
-                  <td className="px-3 py-2.5 text-[13px] text-edu-muted">{formatDate(r.createdAt)}</td>
-                  <td className="px-3 py-2.5"><span className={`text-[13px] font-semibold ${r.points > 0 ? 'text-edu-danger' : 'text-edu-success'}`}>{r.points > 0 ? '+' : ''}{r.points}</span></td>
+                <tr key={r.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
+                  <td className="px-3 py-2.5 text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{r.student ? `${r.student.firstName} ${r.student.lastName}` : '—'}</td>
+                  <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{r.title}</td>
+                  <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_PRIMARY }}>{r.type}</td>
+                  <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(r.createdAt)}</td>
+                  <td className="px-3 py-2.5"><span className="text-[13px] font-semibold" style={{ color: r.points > 0 ? DANGER : SUCCESS }}>{r.points > 0 ? '+' : ''}{r.points}</span></td>
                 </tr>
               ))}
             </tbody>
@@ -1989,53 +2034,56 @@ function CommunicationsView() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-5">Communications</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Communications</h1>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-6">
         {/* Compose */}
-        <div className="bg-white border border-edu-border rounded-xl p-5">
-          <h3 className="font-semibold mb-4">Nouvelle communication</h3>
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+          <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Nouvelle communication</h3>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <select value={type} onChange={e => setType(e.target.value)} className="px-3 py-2 border border-edu-border rounded-lg text-sm bg-white outline-none">
+              <select value={type} onChange={e => setType(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                 <option value="ANNOUNCEMENT">Annonce</option>
                 <option value="NOTIFICATION">Notification</option>
                 <option value="EVENT">Événement</option>
                 <option value="ALERT">Alerte</option>
               </select>
-              <select value={targetType} onChange={e => setTargetType(e.target.value)} className="px-3 py-2 border border-edu-border rounded-lg text-sm bg-white outline-none">
+              <select value={targetType} onChange={e => setTargetType(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                 <option value="ALL">Tout le monde</option>
                 <option value="PARENTS">Parents</option>
                 <option value="STAFF">Personnel</option>
                 <option value="CLASS">Classe</option>
               </select>
             </div>
-            <input placeholder="Titre" value={title} onChange={e => setTitle(e.target.value)} className="w-full px-3 py-2 border border-edu-border rounded-lg text-sm outline-none focus:border-edu-accent" />
-            <textarea placeholder="Contenu du message..." value={content} onChange={e => setContent(e.target.value)} rows={4} className="w-full px-3 py-2 border border-edu-border rounded-lg text-sm outline-none focus:border-edu-accent resize-none" />
-            <div className="flex items-center gap-4 text-sm">
-              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={whatsapp} onChange={e => setWhatsapp(e.target.checked)} className="accent-edu-accent" /> WhatsApp</label>
-              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={app} onChange={e => setApp(e.target.checked)} className="accent-edu-accent" /> App</label>
+            <input placeholder="Titre" value={title} onChange={e => setTitle(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" />
+            <textarea placeholder="Contenu du message..." value={content} onChange={e => setContent(e.target.value)} rows={4} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)] resize-none" />
+            <div className="flex items-center gap-4 text-sm" style={{ color: TEXT_PRIMARY }}>
+              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={whatsapp} onChange={e => setWhatsapp(e.target.checked)} className="accent-[oklch(72%_0.15_65)]" /> WhatsApp</label>
+              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={app} onChange={e => setApp(e.target.checked)} className="accent-[oklch(72%_0.15_65)]" /> App</label>
             </div>
-            <button onClick={handleSend} className="w-full py-2.5 rounded-lg text-white font-medium text-sm inline-flex items-center justify-center gap-2" style={{ background: ACCENT }}>
+            <button onClick={handleSend} className="edu-gold-cta w-full py-2.5 rounded-xl font-semibold text-sm inline-flex items-center justify-center gap-2">
               <Send size={14} /> Envoyer
             </button>
           </div>
         </div>
 
         {/* History */}
-        <div className="bg-white border border-edu-border rounded-xl p-5">
-          <h3 className="font-semibold mb-4">Historique</h3>
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+          <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Historique</h3>
           <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar">
-            {loading ? <div className="text-center py-4 text-edu-muted">Chargement...</div> :
+            {loading ? <div className="text-center py-4" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> :
               comms.map(c => (
-                <div key={c.id} className="p-3 rounded-lg border border-edu-border hover:bg-edu-surface2/50 transition">
+                <div key={c.id} className="p-3 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium text-sm">{c.title}</span>
-                    <span className="text-[11px] text-edu-muted">{formatDate(c.sentAt)}</span>
+                    <span className="font-medium text-sm" style={{ color: TEXT_PRIMARY }}>{c.title}</span>
+                    <span className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(c.sentAt)}</span>
                   </div>
-                  <p className="text-xs text-edu-muted line-clamp-2">{c.content}</p>
-                  <div className="flex items-center gap-2 mt-2 text-[11px] text-edu-muted">
-                    <span className={`px-1.5 py-0.5 rounded ${c.type === 'ANNOUNCEMENT' ? 'bg-edu-accent-soft text-edu-accent' : 'bg-edu-surface2'}`}>{c.type}</span>
+                  <p className="text-xs line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{c.content}</p>
+                  <div className="flex items-center gap-2 mt-2 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
+                    <span className={`px-1.5 py-0.5 rounded ${c.type === 'ANNOUNCEMENT' ? 'bg-[oklch(95%_0.04_175)] text-edu-accent' : 'bg-[oklch(95%_0.005_175)]'}`}>{c.type}</span>
                     {c.sentToWhatsapp && <span className="text-edu-success">WhatsApp</span>}
                     {c.sentToApp && <span className="text-edu-info">App</span>}
                   </div>
@@ -2060,18 +2108,21 @@ function HomeworkView() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-5">Devoirs</h1>
-      {loading ? <div className="text-center py-8 text-edu-muted">Chargement...</div> : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Devoirs</h1>
+      </div>
+      {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {homework.map(h => (
-            <div key={h.id} className="bg-white border border-edu-border rounded-xl p-5 hover:border-edu-accent/30 transition">
+            <div key={h.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
               <div className="flex items-start justify-between mb-2">
-                <h3 className="font-semibold">{h.title}</h3>
-                <span className="text-xs text-edu-muted bg-edu-surface2 px-2 py-1 rounded-full shrink-0">{h.subjectName}</span>
+                <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>{h.title}</h3>
+                <span className="text-xs px-2 py-1 rounded-full shrink-0" style={{ color: GOLD, background: GOLD_SOFT }}>{h.subjectName}</span>
               </div>
-              <p className="text-sm text-edu-muted mb-3 line-clamp-2">{h.description}</p>
-              <div className="flex items-center justify-between text-xs text-edu-muted">
-                <span className="flex items-center gap-1"><Calendar size={12} /> Échéance: {formatDate(h.dueDate)}</span>
+              <p className="text-sm mb-3 line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{h.description}</p>
+              <div className="flex items-center justify-between text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                <span className="flex items-center gap-1" style={{ color: GOLD }}><Calendar size={12} /> Échéance: {formatDate(h.dueDate)}</span>
                 <span>{h.teacherName}</span>
               </div>
             </div>
@@ -2087,23 +2138,27 @@ function ProfileView() {
   const { userData } = useEduGestStore()
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-5">Mon profil</h1>
-      <div className="bg-white border border-edu-border rounded-xl p-6 max-w-lg">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="w-16 h-16 rounded-full grid place-items-center text-white font-bold text-xl" style={{ background: `linear-gradient(135deg, oklch(55% 0.15 280), oklch(45% 0.15 320))` }}>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Mon profil</h1>
+      </div>
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl max-w-lg overflow-hidden shadow-sm">
+        <div className="h-24 relative" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
+        <div className="px-6 pb-6 -mt-10">
+          <div className="w-16 h-16 rounded-full grid place-items-center text-white font-bold text-xl border-4 border-white shadow-lg" style={{ background: `linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))` }}>
             {userData?.initials || '??'}
           </div>
-          <div>
-            <div className="text-lg font-bold">{userData?.name || 'Utilisateur'}</div>
-            <div className="text-sm text-edu-muted">{getRoleLabel(userData?.role || 'SECRETARY')}</div>
+          <div className="mt-3">
+            <div className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{userData?.name || 'Utilisateur'}</div>
+            <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{getRoleLabel(userData?.role || 'SECRETARY')}</div>
           </div>
+          <div className="space-y-3 mt-5">
+            <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Nom complet</label><input defaultValue={userData?.name} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
+            <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>École</label><input defaultValue={userData?.schoolName} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none bg-[oklch(97%_0.005_175)]" disabled /></div>
+            <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Rôle</label><input defaultValue={getRoleLabel(userData?.role || 'SECRETARY')} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none bg-[oklch(97%_0.005_175)]" disabled /></div>
+          </div>
+          <button className="edu-gold-cta mt-5 px-6 py-2.5 rounded-xl text-sm font-semibold">Sauvegarder</button>
         </div>
-        <div className="space-y-3">
-          <div><label className="text-sm font-medium">Nom complet</label><input defaultValue={userData?.name} className="w-full mt-1 px-3 py-2 border border-edu-border rounded-lg text-sm outline-none" /></div>
-          <div><label className="text-sm font-medium">École</label><input defaultValue={userData?.schoolName} className="w-full mt-1 px-3 py-2 border border-edu-border rounded-lg text-sm outline-none bg-edu-surface2" disabled /></div>
-          <div><label className="text-sm font-medium">Rôle</label><input defaultValue={getRoleLabel(userData?.role || 'SECRETARY')} className="w-full mt-1 px-3 py-2 border border-edu-border rounded-lg text-sm outline-none bg-edu-surface2" disabled /></div>
-        </div>
-        <button className="mt-4 px-5 py-2.5 rounded-lg text-white text-sm font-medium" style={{ background: ACCENT }}>Sauvegarder</button>
       </div>
     </div>
   )
@@ -2120,32 +2175,35 @@ function ClassPassingView() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-5">Passage de classe</h1>
-      <div className="bg-white border border-edu-border rounded-xl overflow-hidden">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Passage de classe</h1>
+      </div>
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-edu-surface2">
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Élève</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Classe actuelle</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Décision</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Action</th>
+              <tr style={{ background: IVORY }}>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élève</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Classe actuelle</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Décision</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Action</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={4} className="text-center py-8 text-edu-muted">Chargement...</td></tr>
+                <tr><td colSpan={4} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
               ) : students.slice(0, 20).map(s => (
-                <tr key={s.id} className="hover:bg-edu-surface2/50 transition border-b border-edu-border last:border-0">
-                  <td className="px-3 py-2.5 text-[13px] font-medium">{s.firstName} {s.lastName}</td>
-                  <td className="px-3 py-2.5 text-[13px] text-edu-muted">{s.class?.name || '—'}</td>
+                <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
+                  <td className="px-3 py-2.5 text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</td>
+                  <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.class?.name || '—'}</td>
                   <td className="px-3 py-2.5">
-                    <select className="px-2 py-1 border border-edu-border rounded text-sm bg-white outline-none">
+                    <select className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                       <option>En attente</option><option>Passage</option><option>Redouble</option>
                     </select>
                   </td>
                   <td className="px-3 py-2.5">
-                    <button className="text-edu-accent text-sm font-medium hover:underline">Valider</button>
+                    <button className="text-sm font-medium hover:underline" style={{ color: GOLD }}>Valider</button>
                   </td>
                 </tr>
               ))}
@@ -2175,29 +2233,32 @@ function BulletinView() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-5">Bulletins</h1>
-      {loading ? <div className="text-center py-8 text-edu-muted">Chargement...</div> : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bulletins</h1>
+      </div>
+      {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {Object.entries(studentGrades).slice(0, 12).map(([id, data]) => {
             const avg = data.grades.length > 0 ? data.grades.reduce((s, g) => s + g.score * (g.subject?.coefficient || 1), 0) / data.grades.reduce((s, g) => s + (g.subject?.coefficient || 1), 0) : 0
             return (
-              <div key={id} className="bg-white border border-edu-border rounded-xl p-5">
+              <div key={id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <div className="font-semibold">{data.student?.firstName} {data.student?.lastName}</div>
-                    <div className="text-xs text-edu-muted">{data.student?.matricule}</div>
+                    <div className="font-semibold" style={{ color: TEXT_PRIMARY }}>{data.student?.firstName} {data.student?.lastName}</div>
+                    <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{data.student?.matricule}</div>
                   </div>
-                  <div className={`text-2xl font-bold ${avg >= 10 ? 'text-edu-success' : 'text-edu-danger'}`}>{avg.toFixed(1)}</div>
+                  <div className="text-2xl font-bold" style={{ color: avg >= 10 ? GOLD : DANGER }}>{avg.toFixed(1)}</div>
                 </div>
                 <div className="space-y-1.5 text-xs">
                   {data.grades.slice(0, 5).map(g => (
                     <div key={g.id} className="flex justify-between">
-                      <span className="text-edu-muted">{g.subject?.name}</span>
-                      <span className={g.score >= 10 ? 'text-edu-success font-medium' : 'text-edu-danger font-medium'}>{g.score.toFixed(1)}/20</span>
+                      <span style={{ color: TEXT_MUTED_LUXE }}>{g.subject?.name}</span>
+                      <span className="font-medium" style={{ color: g.score >= 10 ? GOLD : DANGER }}>{g.score.toFixed(1)}/20</span>
                     </div>
                   ))}
                 </div>
-                <button className="mt-3 w-full py-1.5 rounded-lg text-sm font-medium border border-edu-border hover:bg-edu-surface2 transition inline-flex items-center justify-center gap-1.5">
+                <button className="mt-3 w-full py-1.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] hover:shadow-sm transition inline-flex items-center justify-center gap-1.5" style={{ color: TEXT_PRIMARY }}>
                   <FileText size={14} /> Voir bulletin
                 </button>
               </div>
@@ -2213,14 +2274,17 @@ function BulletinView() {
 function ConvocationView() {
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-5">Convocations</h1>
-      <div className="bg-white border border-edu-border rounded-xl p-6 max-w-lg">
-        <h3 className="font-semibold mb-4">Nouvelle convocation</h3>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Convocations</h1>
+      </div>
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 max-w-lg shadow-sm">
+        <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Nouvelle convocation</h3>
         <div className="space-y-3">
-          <div><label className="text-sm font-medium">Élève concerné</label><input placeholder="Rechercher un élève..." className="w-full mt-1 px-3 py-2 border border-edu-border rounded-lg text-sm outline-none" /></div>
-          <div><label className="text-sm font-medium">Motif</label><textarea placeholder="Motif de la convocation..." rows={3} className="w-full mt-1 px-3 py-2 border border-edu-border rounded-lg text-sm outline-none resize-none" /></div>
-          <div><label className="text-sm font-medium">Date</label><input type="date" className="w-full mt-1 px-3 py-2 border border-edu-border rounded-lg text-sm outline-none" /></div>
-          <button className="w-full py-2.5 rounded-lg text-white text-sm font-medium inline-flex items-center justify-center gap-2" style={{ background: ACCENT }}>
+          <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Élève concerné</label><input placeholder="Rechercher un élève..." className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
+          <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Motif</label><textarea placeholder="Motif de la convocation..." rows={3} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" /></div>
+          <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Date</label><input type="date" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
+          <button className="edu-gold-cta w-full py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2">
             <Send size={14} /> Envoyer la convocation
           </button>
         </div>
@@ -2240,55 +2304,58 @@ function SchoolsManagementView() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Écoles</h1>
-          <p className="text-[13px] text-edu-muted mt-0.5">{formatNumber(schools.length)} écoles</p>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Écoles</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(schools.length)} écoles</p>
         </div>
-        <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-medium" style={{ background: ACCENT }}>
+        <button className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
           <Plus size={14} /> Ajouter une école
         </button>
       </div>
 
-      <div className="bg-white border border-edu-border rounded-xl overflow-hidden">
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-edu-surface2">
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">École</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Abonnement</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Élèves</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5">Statut</th>
-                <th className="text-left text-[11px] font-semibold text-edu-muted uppercase tracking-wider px-3 py-2.5"></th>
+              <tr style={{ background: IVORY }}>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>École</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Abonnement</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élèves</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Statut</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="text-center py-8 text-edu-muted">Chargement...</td></tr>
+                <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
               ) : schools.map(s => (
-                <tr key={s.id} className="hover:bg-edu-surface2/50 transition border-b border-edu-border last:border-0">
+                <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-edu-accent to-[oklch(45%_0.13_200)] grid place-items-center text-white font-semibold text-[11px] shrink-0">
+                      <div className="w-8 h-8 rounded-full grid place-items-center text-white font-semibold text-[11px] shrink-0" style={{ background: 'linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))' }}>
                         {s.shortName.substring(0, 2)}
                       </div>
                       <div>
-                        <div className="font-medium text-[13.5px]">{s.name}</div>
-                        <div className="text-xs text-edu-muted">{s.city} · {s.province}</div>
+                        <div className="font-medium text-[13.5px]" style={{ color: TEXT_PRIMARY }}>{s.name}</div>
+                        <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{s.city} · {s.province}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-[13px]"><strong>{getSubscriptionLabel(s.subscriptionTier)}</strong> · {getSubscriptionPrice(s.subscriptionTier)}</td>
-                  <td className="px-3 py-3 text-[13px] font-semibold tabular-nums">{formatNumber(s._count?.students || s.studentCount)}</td>
+                  <td className="px-3 py-3 text-[13px]" style={{ color: TEXT_PRIMARY }}><strong>{getSubscriptionLabel(s.subscriptionTier)}</strong> · {getSubscriptionPrice(s.subscriptionTier)}</td>
+                  <td className="px-3 py-3 text-[13px] font-semibold tabular-nums" style={{ color: TEXT_PRIMARY }}>{formatNumber(s._count?.students || s.studentCount)}</td>
                   <td className="px-3 py-3">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${getStatusPill(s.isActive ? 'Actif' : 'Suspendu')}`}>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill(s.isActive ? 'Actif' : 'Suspendu')}`}>
                       {s.isActive ? 'Actif' : 'Suspendu'}
                     </span>
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex gap-1">
-                      <button className="w-7 h-7 rounded grid place-items-center text-edu-muted hover:bg-edu-surface2 hover:text-edu-fg transition"><Eye size={14} /></button>
-                      <button className="w-7 h-7 rounded grid place-items-center text-edu-muted hover:bg-edu-surface2 hover:text-edu-fg transition"><Edit size={14} /></button>
+                      <button className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Eye size={14} /></button>
+                      <button className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Edit size={14} /></button>
                     </div>
                   </td>
                 </tr>
