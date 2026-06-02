@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
 
 export async function GET(request: NextRequest) {
   try {
@@ -78,6 +79,10 @@ export async function POST(request: NextRequest) {
       parentId,
       schoolId,
       schoolYearId,
+      parentName,
+      parentEmail,
+      parentPhone,
+      parentPassword,
     } = body;
 
     if (!firstName || !lastName || !classId || !schoolId || !schoolYearId) {
@@ -85,6 +90,36 @@ export async function POST(request: NextRequest) {
         { error: 'Missing required fields: firstName, lastName, classId, schoolId, schoolYearId' },
         { status: 400 }
       );
+    }
+
+    // Resolve parentId: from explicit parentId, or by creating/linking a parent user
+    let resolvedParentId: string | null = parentId || null;
+
+    if (!resolvedParentId && parentName && parentPhone) {
+      // Check if a user with this phone already exists
+      const existingParent = await db.user.findUnique({
+        where: { phone: parentPhone },
+      });
+
+      if (existingParent) {
+        // Link to existing user as parent
+        resolvedParentId = existingParent.id;
+      } else {
+        // Create a new parent user
+        const hashedPassword = await bcrypt.hash(parentPassword || 'parent123', 10);
+        const newParent = await db.user.create({
+          data: {
+            name: parentName,
+            email: parentEmail || null,
+            phone: parentPhone,
+            password: hashedPassword,
+            role: 'PARENT',
+            schoolId,
+            isActive: true,
+          },
+        });
+        resolvedParentId = newParent.id;
+      }
     }
 
     // Get school short name for matricule generation
@@ -117,7 +152,7 @@ export async function POST(request: NextRequest) {
         address: address || null,
         phone: phone || null,
         classId,
-        parentId: parentId || null,
+        parentId: resolvedParentId,
         schoolId,
         schoolYearId,
       },

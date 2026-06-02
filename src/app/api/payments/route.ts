@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       studentId,
+      studentName,
       schoolId,
       amount,
       paidAmount,
@@ -76,16 +77,67 @@ export async function POST(request: NextRequest) {
       receiptNumber,
     } = body;
 
-    if (!studentId || !schoolId || !amount || !trimester) {
+    // If studentName is provided instead of studentId, try to find the student by name
+    let resolvedStudentId = studentId;
+    if (!resolvedStudentId && studentName) {
+      const nameParts = studentName.trim().split(/\s+/);
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ');
+      
+      const students = await db.student.findMany({
+        where: {
+          OR: [
+            { firstName: { contains: firstName }, lastName: { contains: lastName || firstName } },
+            { firstName: { contains: lastName || firstName }, lastName: { contains: firstName } },
+          ],
+        },
+        take: 5,
+        select: { id: true, firstName: true, lastName: true, matricule: true },
+      });
+      
+      if (students.length === 0) {
+        return NextResponse.json(
+          { error: 'Le nom de l\'élève a été mal écrit ou il n\'existe pas' },
+          { status: 404 }
+        );
+      }
+      
+      if (students.length > 1) {
+        return NextResponse.json({
+          error: 'Plusieurs élèves correspondent à ce nom. Veuillez être plus précis.',
+          suggestions: students.map(s => ({ id: s.id, name: `${s.firstName} ${s.lastName}`, matricule: s.matricule })),
+        }, { status: 400 });
+      }
+      
+      resolvedStudentId = students[0].id;
+    }
+
+    if (!resolvedStudentId || !schoolId || !amount || !trimester) {
       return NextResponse.json(
-        { error: 'Missing required fields: studentId, schoolId, amount, trimester' },
+        { error: 'Champs requis manquants: élève, école, montant, trimestre' },
         { status: 400 }
       );
     }
 
+    // Verify student exists
+    const student = await db.student.findUnique({
+      where: { id: resolvedStudentId },
+      select: { id: true, firstName: true, lastName: true, matricule: true },
+    });
+
+    if (!student) {
+      return NextResponse.json(
+        { error: 'Le nom de l\'élève a été mal écrit ou il n\'existe pas' },
+        { status: 404 }
+      );
+    }
+
+    // Generate receipt number if not provided
+    const receiptNum = receiptNumber || `REC-${Date.now().toString(36).toUpperCase()}`;
+
     const payment = await db.paymentRecord.create({
       data: {
-        studentId,
+        studentId: resolvedStudentId,
         schoolId,
         amount,
         paidAmount: paidAmount || 0,
@@ -93,12 +145,23 @@ export async function POST(request: NextRequest) {
         paymentMethod: paymentMethod || null,
         referenceNumber: referenceNumber || null,
         status: status || 'PENDING',
-        receiptNumber: receiptNumber || null,
+        receiptNumber: receiptNum,
         paidAt: status === 'PAID' ? new Date() : null,
       },
     });
 
-    return NextResponse.json({ data: payment }, { status: 201 });
+    // Return payment with student data for immediate use
+    return NextResponse.json({ 
+      data: {
+        ...payment,
+        student: {
+          id: student.id,
+          firstName: student.firstName,
+          lastName: student.lastName,
+          matricule: student.matricule,
+        },
+      } 
+    }, { status: 201 });
   } catch (error) {
     console.error('Error creating payment:', error);
     return NextResponse.json({ error: 'Failed to create payment' }, { status: 500 });

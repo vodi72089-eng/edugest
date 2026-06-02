@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useEduGestStore, ViewType, UserRole, UserData } from '@/lib/store'
 import { toast } from 'sonner'
 import {
@@ -809,6 +809,11 @@ function LoginView() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showWhatsappModal, setShowWhatsappModal] = useState(false)
+  const [waPhone, setWaPhone] = useState('')
+  const [waCode, setWaCode] = useState('')
+  const [waStep, setWaStep] = useState<'phone' | 'code'>('phone')
+  const [waLoading, setWaLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -969,9 +974,7 @@ function LoginView() {
           </div>
 
           <button
-            onClick={() => {
-              toast.info('Connexion WhatsApp bientôt disponible!')
-            }}
+            onClick={() => { setShowWhatsappModal(true); setWaStep('phone'); setWaPhone(''); setWaCode('') }}
             className="w-full py-3.5 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 transition hover:opacity-90"
             style={{ background: SUCCESS }}
           >
@@ -983,6 +986,133 @@ function LoginView() {
           </p>
         </div>
       </div>
+
+      {/* WhatsApp Login Modal */}
+      {showWhatsappModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowWhatsappModal(false)}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl grid place-items-center text-white" style={{ background: SUCCESS }}>
+                  <MessageSquare size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>WhatsApp</h2>
+                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Connexion sécurisée</p>
+                </div>
+              </div>
+              <button onClick={() => setShowWhatsappModal(false)}><X size={18} /></button>
+            </div>
+
+            {waStep === 'phone' ? (
+              <div className="space-y-4">
+                <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Entrez votre numéro WhatsApp pour recevoir un code de vérification.</p>
+                <div>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Numéro WhatsApp</label>
+                  <div className="flex items-center gap-2 mt-1 border border-[oklch(88%_0.01_175)] rounded-xl px-3 py-3 focus-within:ring-[3px] focus-within:ring-[oklch(95%_0.05_65)] focus-within:border-[oklch(72%_0.15_65)]">
+                    <Phone size={16} style={{ color: TEXT_MUTED_LUXE }} />
+                    <input
+                      type="tel"
+                      placeholder="+243 81 234 56 78"
+                      value={waPhone}
+                      onChange={e => setWaPhone(e.target.value)}
+                      className="flex-1 border-0 outline-none text-sm bg-transparent"
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!waPhone) { toast.error('Veuillez entrer votre numéro'); return }
+                    setWaLoading(true)
+                    try {
+                      const res = await fetch('/api/auth/whatsapp', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone: waPhone, action: 'send' }),
+                      })
+                      if (res.ok) {
+                        setWaStep('code')
+                        toast.success('Code de vérification envoyé!')
+                      } else {
+                        const json = await res.json()
+                        toast.error(json.error || 'Erreur lors de l\'envoi du code')
+                      }
+                    } catch { toast.error('Erreur réseau') }
+                    finally { setWaLoading(false) }
+                  }}
+                  disabled={waLoading}
+                  className="w-full py-3.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition hover:opacity-90"
+                  style={{ background: SUCCESS }}
+                >
+                  {waLoading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send size={16} />}
+                  Envoyer le code
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Entrez le code à 6 chiffres envoyé au <strong style={{ color: TEXT_PRIMARY }}>{waPhone}</strong></p>
+                <div>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Code de vérification</label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="000000"
+                    value={waCode}
+                    onChange={e => setWaCode(e.target.value.replace(/\D/g, ''))}
+                    className="w-full mt-1 px-4 py-3.5 border border-[oklch(88%_0.01_175)] rounded-xl text-center text-2xl font-bold tracking-[0.5em] outline-none focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] focus:border-[oklch(72%_0.15_65)]"
+                    style={{ color: TEXT_PRIMARY }}
+                  />
+                </div>
+                <button
+                  onClick={async () => {
+                    if (waCode.length !== 6) { toast.error('Veuillez entrer le code à 6 chiffres'); return }
+                    setWaLoading(true)
+                    try {
+                      const res = await fetch('/api/auth/whatsapp', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone: waPhone, code: waCode, action: 'verify' }),
+                      })
+                      const json = await res.json()
+                      if (res.ok && json.data) {
+                        const apiUser = json.data
+                        const role = mapApiRole(apiUser.role)
+                        if (role) {
+                          login(role, {
+                            name: apiUser.name,
+                            role,
+                            schoolId: apiUser.schoolId,
+                            schoolName: apiUser.school?.name || 'EduGest',
+                            initials: getInitials(apiUser.name),
+                          })
+                          toast.success(`Bienvenue, ${apiUser.name}!`)
+                          setShowWhatsappModal(false)
+                          return
+                        }
+                      }
+                      toast.error(json.error || 'Code invalide')
+                    } catch { toast.error('Erreur réseau') }
+                    finally { setWaLoading(false) }
+                  }}
+                  disabled={waLoading}
+                  className="w-full py-3.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition hover:opacity-90"
+                  style={{ background: SUCCESS }}
+                >
+                  {waLoading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle size={16} />}
+                  Vérifier
+                </button>
+                <button
+                  onClick={() => setWaStep('phone')}
+                  className="w-full text-sm font-medium py-2 hover:underline"
+                  style={{ color: GOLD }}
+                >
+                  Changer de numéro
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1000,6 +1130,7 @@ function Sidebar() {
       { icon: <TrendingUp size={16} />, label: 'Revenus', view: 'grades' },
       { icon: <AlertTriangle size={16} />, label: 'Dettes', view: 'discipline' },
       { icon: <BadgeDollarSign size={16} />, label: 'Tarifs', view: 'pricing' },
+      { icon: <MessageSquare size={16} />, label: 'WhatsApp Config', view: 'whatsapp-config' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
     SECRETARY: [
@@ -1171,6 +1302,148 @@ function DashboardLayout() {
 }
 
 // ===== MAIN CONTENT ROUTER =====
+// ===== WHATSAPP CONFIG VIEW =====
+function WhatsAppConfigView() {
+  const [config, setConfig] = useState<{ phoneNumber: string; apiKey: string; webhookUrl: string }>({ phoneNumber: '', apiKey: '', webhookUrl: '' })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/whatsapp-config')
+      .then(r => r.json())
+      .then(j => {
+        if (j.data) setConfig({ phoneNumber: j.data.phoneNumber || '', apiKey: j.data.apiKey || '', webhookUrl: j.data.webhookUrl || '' })
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/whatsapp-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      })
+      if (res.ok) {
+        toast.success('Configuration WhatsApp sauvegardée!')
+      } else {
+        const json = await res.json()
+        toast.error(json.error || 'Erreur lors de la sauvegarde')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setSaving(false) }
+  }
+
+  async function handleTest() {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res = await fetch('/api/whatsapp-config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'test' }),
+      })
+      const json = await res.json()
+      setTestResult({ ok: res.ok, msg: json.message || json.error || (res.ok ? 'Connexion réussie!' : 'Échec de la connexion') })
+    } catch { setTestResult({ ok: false, msg: 'Erreur réseau' }) }
+    finally { setTesting(false) }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>WhatsApp Config</h1>
+      </div>
+
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl max-w-xl shadow-sm overflow-hidden">
+        <div className="h-28 relative" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+          <div className="absolute inset-0 opacity-20" style={{ background: 'radial-gradient(ellipse at top right, oklch(72% 0.15 65 / 0.3), transparent 60%)' }} />
+          <div className="absolute bottom-4 left-6 flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl grid place-items-center text-white bg-white/20 backdrop-blur-sm">
+              <MessageSquare size={24} />
+            </div>
+            <div className="text-white">
+              <div className="font-bold text-lg">Configuration WhatsApp</div>
+              <div className="text-white/70 text-sm">API Business officielle</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="h-6 w-6 border-4 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Numéro officiel WhatsApp</label>
+                <div className="flex items-center gap-2 mt-1 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[oklch(72%_0.15_65_/_0.3)] focus-within:border-[oklch(72%_0.15_65_/_0.5)] transition">
+                  <Phone size={14} style={{ color: TEXT_MUTED_LUXE }} />
+                  <input
+                    placeholder="+243 81 234 56 78"
+                    value={config.phoneNumber}
+                    onChange={e => setConfig({ ...config, phoneNumber: e.target.value })}
+                    className="flex-1 border-0 bg-transparent outline-none text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Clé API</label>
+                <div className="flex items-center gap-2 mt-1 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[oklch(72%_0.15_65_/_0.3)] focus-within:border-[oklch(72%_0.15_65_/_0.5)] transition">
+                  <Lock size={14} style={{ color: TEXT_MUTED_LUXE }} />
+                  <input
+                    placeholder="EAAGm0PX4ZCps..."
+                    value={config.apiKey}
+                    onChange={e => setConfig({ ...config, apiKey: e.target.value })}
+                    type="password"
+                    className="flex-1 border-0 bg-transparent outline-none text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>URL Webhook</label>
+                <div className="flex items-center gap-2 mt-1 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[oklch(72%_0.15_65_/_0.3)] focus-within:border-[oklch(72%_0.15_65_/_0.5)] transition">
+                  <Globe size={14} style={{ color: TEXT_MUTED_LUXE }} />
+                  <input
+                    placeholder="https://votre-serveur.com/api/whatsapp/webhook"
+                    value={config.webhookUrl}
+                    onChange={e => setConfig({ ...config, webhookUrl: e.target.value })}
+                    className="flex-1 border-0 bg-transparent outline-none text-sm"
+                  />
+                </div>
+              </div>
+
+              {testResult && (
+                <div className={`p-3 rounded-xl text-sm flex items-center gap-2 ${testResult.ok ? 'bg-[oklch(95%_0.04_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(95%_0.05_25)] text-[oklch(45%_0.18_25)]'}`}>
+                  {testResult.ok ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}
+                  {testResult.msg}
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 pt-2">
+                <button onClick={handleSave} disabled={saving} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+                  {saving ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
+                  Sauvegarder
+                </button>
+                <button onClick={handleTest} disabled={testing} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition disabled:opacity-50" style={{ color: TEXT_PRIMARY }}>
+                  {testing ? <div className="h-4 w-4 border-2 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" /> : <Zap size={14} />}
+                  Tester la connexion
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function MainContent() {
   const { currentView, userRole } = useEduGestStore()
 
@@ -1189,6 +1462,7 @@ function MainContent() {
     case 'convocation': return <ConvocationView />
     case 'schools': return <SchoolsManagementView />
     case 'pricing': return <PricingDashboard />
+    case 'whatsapp-config': return <WhatsAppConfigView />
     default: return <RoleDashboard />
   }
 }
@@ -2093,6 +2367,14 @@ function StudentsView() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
+  const [classes, setClasses] = useState<ClassData[]>([])
+  const [selectedClassId, setSelectedClassId] = useState('')
+  const [showParentSection, setShowParentSection] = useState(false)
+  const [parentName, setParentName] = useState('')
+  const [parentEmail, setParentEmail] = useState('')
+  const [parentPhone, setParentPhone] = useState('')
+  const [parentPassword, setParentPassword] = useState('')
+  const [adding, setAdding] = useState(false)
   const { userData } = useEduGestStore()
 
   useEffect(() => {
@@ -2107,9 +2389,55 @@ function StudentsView() {
     load()
   }, [])
 
+  // Load classes when modal opens
+  useEffect(() => {
+    if (showAdd) {
+      fetch('/api/classes?limit=50')
+        .then(r => r.json())
+        .then(j => setClasses(j.data || []))
+        .catch(() => {})
+    }
+  }, [showAdd])
+
   const filtered = students.filter(s =>
     !search || s.firstName.toLowerCase().includes(search.toLowerCase()) || s.lastName.toLowerCase().includes(search.toLowerCase()) || s.matricule.toLowerCase().includes(search.toLowerCase())
   )
+
+  async function handleAddStudent(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setAdding(true)
+    const fd = new FormData(e.currentTarget)
+    try {
+      const body: Record<string, unknown> = {
+        firstName: fd.get('firstName'), lastName: fd.get('lastName'),
+        gender: fd.get('gender'), dateOfBirth: fd.get('dob'),
+        classId: selectedClassId || students[0]?.classId, schoolId: userData?.schoolId || 'demo',
+        schoolYearId: students[0]?.schoolYearId || 'demo',
+      }
+      if (showParentSection && parentName) {
+        body.parentName = parentName
+        body.parentEmail = parentEmail
+        body.parentPhone = parentPhone
+        body.parentPassword = parentPassword
+      }
+      const res = await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        toast.success('Élève ajouté avec succès!')
+        setShowAdd(false)
+        setParentName(''); setParentEmail(''); setParentPhone(''); setParentPassword('')
+        setSelectedClassId(''); setShowParentSection(false)
+        const json = await fetch('/api/students?limit=50').then(r => r.json())
+        setStudents(json.data || [])
+      } else {
+        toast.error('Erreur lors de l\'ajout')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setAdding(false) }
+  }
 
   return (
     <div>
@@ -2138,12 +2466,12 @@ function StudentsView() {
           <table className="w-full">
             <thead>
               <tr style={{ background: IVORY }}>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élève</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Matricule</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Classe</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Parent</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Statut</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}></th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Matricule</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Classe</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Parent</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Statut</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}></th>
               </tr>
             </thead>
             <tbody>
@@ -2153,25 +2481,25 @@ function StudentsView() {
                 <tr><td colSpan={6} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun élève trouvé</td></tr>
               ) : filtered.map(s => (
                 <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                  <td className="px-3 py-3">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full grid place-items-center text-white font-semibold text-[11px] shrink-0" style={{ background: 'linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))' }}>
+                      <div className="w-8 h-8 rounded-full grid place-items-center text-white font-semibold text-[11px] shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
                         {getInitials(s.firstName + ' ' + s.lastName)}
                       </div>
                       <div>
-                        <div className="font-medium text-[13.5px]" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
-                        <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{s.gender === 'M' ? 'Garçon' : 'Fille'}</div>
+                        <div className="font-medium text-[13px]" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
+                        <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.gender === 'M' ? 'Garçon' : 'Fille'}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-[13px] font-mono" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</td>
-                  <td className="px-3 py-3 text-[13px]" style={{ color: TEXT_PRIMARY }}>{s.class?.name || '—'}</td>
-                  <td className="px-3 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.parent?.name || '—'}</td>
-                  <td className="px-3 py-3"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${getStatusPill('Actif')}`}>Actif</span></td>
-                  <td className="px-3 py-3">
+                  <td className="px-4 py-3 text-[13px] font-mono" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</td>
+                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_PRIMARY }}>{s.class?.name || '—'}</td>
+                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.parent?.name || '—'}</td>
+                  <td className="px-4 py-3"><span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill('Actif')}`}>Actif</span></td>
+                  <td className="px-4 py-3">
                     <div className="flex gap-1">
-                      <button className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Eye size={14} /></button>
-                      <button className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Edit size={14} /></button>
+                      <button className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Eye size={14} /></button>
+                      <button className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Edit size={14} /></button>
                     </div>
                   </td>
                 </tr>
@@ -2189,30 +2517,7 @@ function StudentsView() {
               <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>Ajouter un élève</h2>
               <button onClick={() => setShowAdd(false)}><X size={18} /></button>
             </div>
-            <form onSubmit={async (e) => {
-              e.preventDefault()
-              const fd = new FormData(e.currentTarget)
-              try {
-                const res = await fetch('/api/students', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    firstName: fd.get('firstName'), lastName: fd.get('lastName'),
-                    gender: fd.get('gender'), dateOfBirth: fd.get('dob'),
-                    classId: students[0]?.classId, schoolId: userData?.schoolId || 'demo',
-                    schoolYearId: students[0]?.schoolYearId || 'demo',
-                  }),
-                })
-                if (res.ok) {
-                  toast.success('Élève ajouté avec succès!')
-                  setShowAdd(false)
-                  const json = await fetch('/api/students?limit=50').then(r => r.json())
-                  setStudents(json.data || [])
-                } else {
-                  toast.error('Erreur lors de l\'ajout')
-                }
-              } catch { toast.error('Erreur réseau') }
-            }} className="space-y-4">
+            <form onSubmit={handleAddStudent} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Prénom</label><input name="firstName" required className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
                 <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Nom</label><input name="lastName" required className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
@@ -2221,7 +2526,42 @@ function StudentsView() {
                 <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Sexe</label><select name="gender" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"><option value="M">Masculin</option><option value="F">Féminin</option></select></div>
                 <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Date de naissance</label><input name="dob" type="date" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
               </div>
-              <button type="submit" className="w-full py-2.5 rounded-xl text-white font-semibold text-sm edu-gold-cta">Ajouter l&apos;élève</button>
+              {/* Class selector */}
+              <div>
+                <label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Classe</label>
+                <select value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                  <option value="">Sélectionner une classe</option>
+                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}{c.section ? ` - ${c.section}` : ''}</option>)}
+                </select>
+              </div>
+
+              {/* Parent info section */}
+              <div className="border border-[oklch(90%_0.01_175)] rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowParentSection(!showParentSection)}
+                  className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium transition hover:bg-[oklch(97%_0.005_175)]"
+                  style={{ color: TEXT_PRIMARY }}
+                >
+                  <span className="flex items-center gap-2"><Users size={14} style={{ color: GOLD }} /> Informations du parent</span>
+                  <ChevronDown size={14} className={`transition-transform ${showParentSection ? 'rotate-180' : ''}`} />
+                </button>
+                {showParentSection && (
+                  <div className="px-4 pb-4 space-y-3 border-t border-[oklch(90%_0.01_175)]">
+                    <div className="pt-3">
+                      <input placeholder="Nom du parent" value={parentName} onChange={e => setParentName(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" />
+                    </div>
+                    <div><input placeholder="Email du parent" type="email" value={parentEmail} onChange={e => setParentEmail(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
+                    <div><input placeholder="Téléphone du parent (ex: +243 81...)" type="tel" value={parentPhone} onChange={e => setParentPhone(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
+                    <div><input placeholder="Mot de passe du parent" type="password" value={parentPassword} onChange={e => setParentPassword(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
+                  </div>
+                )}
+              </div>
+
+              <button type="submit" disabled={adding} className="w-full py-2.5 rounded-xl font-semibold text-sm edu-gold-cta inline-flex items-center justify-center gap-2 disabled:opacity-50">
+                {adding ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Plus size={14} />}
+                Ajouter l&apos;élève
+              </button>
             </form>
           </div>
         </div>
@@ -2360,14 +2700,92 @@ function PaymentsView() {
   const [payments, setPayments] = useState<PaymentData[]>([])
   const [loading, setLoading] = useState(true)
   const [studentSearch, setStudentSearch] = useState('')
+  const [selectedStudent, setSelectedStudent] = useState<{id: string; firstName: string; lastName: string; matricule: string} | null>(null)
+  const [studentSuggestions, setStudentSuggestions] = useState<{id: string; firstName: string; lastName: string; matricule: string}[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const [amount, setAmount] = useState('')
+  const [paidAmount, setPaidAmount] = useState('')
   const [trimester, setTrimester] = useState('T1')
   const [method, setMethod] = useState('CASH')
+  const [status, setStatus] = useState('PAID')
+  const [submitting, setSubmitting] = useState(false)
+  const [lastPaymentId, setLastPaymentId] = useState<string | null>(null)
   const { userData } = useEduGestStore()
 
   useEffect(() => {
     fetch('/api/payments?limit=30').then(r => r.json()).then(j => { setPayments(j.data || []); setLoading(false) }).catch(() => setLoading(false))
   }, [])
+
+  // Search students as user types
+  useEffect(() => {
+    if (studentSearch.length < 2) { setStudentSuggestions([]); setShowSuggestions(false); return }
+    const timer = setTimeout(() => {
+      fetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
+        .then(r => r.json())
+        .then(j => { setStudentSuggestions(j.data || []); setShowSuggestions(true) })
+        .catch(() => {})
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [studentSearch])
+
+  async function handlePayment() {
+    if (!selectedStudent && !studentSearch) { toast.error('Veuillez sélectionner un élève'); return }
+    if (!amount) { toast.error('Veuillez entrer le montant'); return }
+    setSubmitting(true)
+    try {
+      const body: Record<string, unknown> = {
+        schoolId: userData?.schoolId || '',
+        amount: parseInt(amount),
+        paidAmount: parseInt(paidAmount || '0'),
+        trimester,
+        paymentMethod: method,
+        status,
+      }
+      if (selectedStudent) {
+        body.studentId = selectedStudent.id
+      } else {
+        body.studentName = studentSearch
+      }
+      const res = await fetch('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success('Paiement enregistré avec succès!')
+        setLastPaymentId(json.data.id)
+        // Refresh list
+        const listRes = await fetch('/api/payments?limit=30')
+        const listJson = await listRes.json()
+        setPayments(listJson.data || [])
+        // Reset form
+        setStudentSearch(''); setSelectedStudent(null); setAmount(''); setPaidAmount('')
+      } else {
+        toast.error(json.error || 'Erreur lors de l\'enregistrement')
+        // If there are suggestions, show them
+        if (json.suggestions) {
+          setStudentSuggestions(json.suggestions.map((s: {id: string; name: string; matricule: string}) => ({
+            id: s.id, firstName: s.name.split(' ')[0], lastName: s.name.split(' ').slice(1).join(' '), matricule: s.matricule
+          })))
+          setShowSuggestions(true)
+        }
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setSubmitting(false) }
+  }
+
+  async function downloadReceipt(paymentId: string) {
+    try {
+      const res = await fetch(`/api/payments/receipt/${paymentId}`)
+      if (!res.ok) throw new Error()
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = `recu-${paymentId}.pdf`; a.click()
+      URL.revokeObjectURL(url)
+    } catch { toast.error('Erreur lors du téléchargement du reçu') }
+  }
 
   return (
     <div>
@@ -2379,46 +2797,113 @@ function PaymentsView() {
       {/* Payment Form */}
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 mb-6 shadow-sm" style={{ borderLeft: `4px solid ${GOLD}` }}>
         <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Enregistrer un paiement</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-          <input placeholder="Rechercher un élève..." value={studentSearch} onChange={e => setStudentSearch(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" />
-          <input placeholder="Montant (CDF)" value={amount} onChange={e => setAmount(e.target.value)} type="number" className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" />
-          <select value={trimester} onChange={e => setTrimester(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+          {/* Student search with autocomplete */}
+          <div className="relative sm:col-span-2 lg:col-span-1">
+            <div className="flex items-center gap-2 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[oklch(72%_0.15_65_/_0.3)] focus-within:border-[oklch(72%_0.15_65_/_0.5)] transition">
+              <Search size={14} style={{ color: TEXT_MUTED_LUXE }} />
+              <input
+                placeholder="Rechercher un élève par nom..."
+                value={selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : studentSearch}
+                onChange={e => { setStudentSearch(e.target.value); setSelectedStudent(null) }}
+                onFocus={() => studentSuggestions.length > 0 && setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                className="flex-1 border-0 bg-transparent outline-none text-sm"
+              />
+              {selectedStudent && (
+                <button onClick={() => { setSelectedStudent(null); setStudentSearch('') }} className="text-[oklch(45%_0.18_25)] hover:text-[oklch(35%_0.20_25)]">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            {/* Autocomplete dropdown */}
+            {showSuggestions && studentSuggestions.length > 0 && (
+              <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-[oklch(90%_0.01_175)] rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                {studentSuggestions.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => { setSelectedStudent(s); setStudentSearch(''); setShowSuggestions(false) }}
+                    className="w-full text-left px-3 py-2 hover:bg-[oklch(97%_0.005_175)] transition flex items-center gap-2 border-b border-[oklch(92%_0.005_250)] last:border-0"
+                  >
+                    <div className="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                      {getInitials(s.firstName + ' ' + s.lastName)}
+                    </div>
+                    <div>
+                      <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
+                      <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant total (CDF)</label><input placeholder="Montant" value={amount} onChange={e => setAmount(e.target.value)} type="number" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
+          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant payé (CDF)</label><input placeholder="Payé" value={paidAmount} onChange={e => setPaidAmount(e.target.value)} type="number" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
+          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Trimestre</label><select value={trimester} onChange={e => setTrimester(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
             <option value="T1">Trimestre 1</option><option value="T2">Trimestre 2</option><option value="T3">Trimestre 3</option>
-          </select>
-          <select value={method} onChange={e => setMethod(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+          </select></div>
+          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Méthode</label><select value={method} onChange={e => setMethod(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
             <option value="CASH">Espèces</option><option value="ORANGE_MONEY">Orange Money</option><option value="MPESA">M-Pesa</option><option value="AIRTEL_MONEY">Airtel Money</option>
-          </select>
+          </select></div>
+          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Statut</label><select value={status} onChange={e => setStatus(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+            <option value="PAID">Payé</option><option value="PARTIAL">Partiel</option><option value="PENDING">En attente</option><option value="OVERDUE">En retard</option>
+          </select></div>
         </div>
-        <button className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold">
-          Enregistrer le paiement
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={handlePayment} disabled={submitting} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+            {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <CreditCard size={14} />}
+            Enregistrer le paiement
+          </button>
+          {lastPaymentId && (
+            <button onClick={() => downloadReceipt(lastPaymentId)} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition" style={{ color: TEXT_PRIMARY }}>
+              <FileText size={14} /> Télécharger le reçu PDF
+            </button>
+          )}
+        </div>
       </div>
 
+      {/* Payments Table */}
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr style={{ background: IVORY }}>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élève</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Trimestre</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Montant</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Payé</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Statut</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Trimestre</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Montant</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Payé</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Statut</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Reçu</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
+                <tr><td colSpan={6} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
               ) : payments.slice(0, 20).map(p => (
                 <tr key={p.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                  <td className="px-3 py-2.5 text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{p.student ? `${p.student.firstName} ${p.student.lastName}` : '—'}</td>
-                  <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{p.trimester}</td>
-                  <td className="px-3 py-2.5 text-[13px] tabular-nums" style={{ color: TEXT_PRIMARY }}>{formatNumber(p.amount)} CDF</td>
-                  <td className="px-3 py-2.5 text-[13px] tabular-nums" style={{ color: TEXT_PRIMARY }}>{formatNumber(p.paidAmount)} CDF</td>
-                  <td className="px-3 py-2.5">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                        {p.student ? getInitials(`${p.student.firstName} ${p.student.lastName}`) : '??'}
+                      </div>
+                      <div>
+                        <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{p.student ? `${p.student.firstName} ${p.student.lastName}` : '—'}</div>
+                        <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{p.student?.matricule || ''}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{p.trimester}</td>
+                  <td className="px-4 py-3 text-[13px] tabular-nums font-medium" style={{ color: TEXT_PRIMARY }}>{formatNumber(p.amount)} CDF</td>
+                  <td className="px-4 py-3 text-[13px] tabular-nums font-medium" style={{ color: SUCCESS }}>{formatNumber(p.paidAmount)} CDF</td>
+                  <td className="px-4 py-3">
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill(p.status)}`}>
-                      {p.status === 'PAID' ? 'Payé' : p.status === 'PARTIAL' ? 'Partiel' : p.status === 'OVERDUE' ? 'En retard' : 'En attente'}
+                      {p.status === 'PAID' ? '✓ Payé' : p.status === 'PARTIAL' ? '◐ Partiel' : p.status === 'OVERDUE' ? '⚠ En retard' : '○ En attente'}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button onClick={() => downloadReceipt(p.id)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: GOLD }} title="Télécharger le reçu PDF">
+                      <FileText size={14} />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -2471,11 +2956,11 @@ function DisciplineView() {
           <table className="w-full">
             <thead>
               <tr style={{ background: IVORY }}>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élève</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Motif</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Type</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Date</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Points</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Motif</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Type</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Date</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Points</th>
               </tr>
             </thead>
             <tbody>
@@ -2485,11 +2970,21 @@ function DisciplineView() {
                 <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun enregistrement</td></tr>
               ) : records.map(r => (
                 <tr key={r.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                  <td className="px-3 py-2.5 text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{r.student ? `${r.student.firstName} ${r.student.lastName}` : '—'}</td>
-                  <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{r.title}</td>
-                  <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_PRIMARY }}>{r.type}</td>
-                  <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(r.createdAt)}</td>
-                  <td className="px-3 py-2.5"><span className="text-[13px] font-semibold" style={{ color: r.points > 0 ? DANGER : SUCCESS }}>{r.points > 0 ? '+' : ''}{r.points}</span></td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                        {r.student ? getInitials(`${r.student.firstName} ${r.student.lastName}`) : '??'}
+                      </div>
+                      <div>
+                        <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{r.student ? `${r.student.firstName} ${r.student.lastName}` : '—'}</div>
+                        <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{r.student?.matricule || ''}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{r.title}</td>
+                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_PRIMARY }}>{r.type}</td>
+                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(r.createdAt)}</td>
+                  <td className="px-4 py-3"><span className="text-[13px] font-semibold" style={{ color: r.points > 0 ? DANGER : SUCCESS }}>{r.points > 0 ? '+' : ''}{r.points}</span></td>
                 </tr>
               ))}
             </tbody>
@@ -2640,7 +3135,47 @@ function HomeworkView() {
 
 // ===== PROFILE VIEW =====
 function ProfileView() {
-  const { userData } = useEduGestStore()
+  const { userData, setUserData } = useEduGestStore()
+  const [name, setName] = useState(userData?.name || '')
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { toast.error('Veuillez sélectionner une image'); return }
+    if (file.size > 5 * 1024 * 1024) { toast.error('L\'image ne doit pas dépasser 5MB'); return }
+
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('userId', userData?.schoolId || 'demo')
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const json = await res.json()
+      if (res.ok) {
+        setProfileImageUrl(json.profileImageUrl)
+        toast.success('Photo de profil mise à jour!')
+      } else {
+        toast.error(json.error || 'Erreur lors de l\'upload')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setUploading(false) }
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      if (userData) {
+        setUserData({ ...userData, name, initials: getInitials(name) })
+      }
+      toast.success('Profil sauvegardé avec succès!')
+    } catch { toast.error('Erreur lors de la sauvegarde') }
+    finally { setSaving(false) }
+  }
+
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
@@ -2648,21 +3183,49 @@ function ProfileView() {
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Mon profil</h1>
       </div>
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl max-w-lg overflow-hidden shadow-sm">
-        <div className="h-24 relative" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
-        <div className="px-6 pb-6 -mt-10">
-          <div className="w-16 h-16 rounded-full grid place-items-center text-white font-bold text-xl border-4 border-white shadow-lg" style={{ background: `linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))` }}>
-            {userData?.initials || '??'}
+        <div className="h-28 relative" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+          <div className="absolute inset-0 opacity-20" style={{ background: 'radial-gradient(ellipse at top right, oklch(72% 0.15 65 / 0.3), transparent 60%)' }} />
+        </div>
+        <div className="px-6 pb-6 -mt-12">
+          {/* Clickable avatar */}
+          <div className="relative inline-block cursor-pointer group" onClick={() => fileInputRef.current?.click()}>
+            {profileImageUrl ? (
+              <img src={profileImageUrl} alt="Profile" className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg" />
+            ) : (
+              <div className="w-20 h-20 rounded-full grid place-items-center text-white font-bold text-2xl border-4 border-white shadow-lg group-hover:opacity-80 transition" style={{ background: `linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))` }}>
+                {userData?.initials || '??'}
+              </div>
+            )}
+            <div className="absolute bottom-0 right-0 w-7 h-7 rounded-full grid place-items-center border-2 border-white shadow-sm transition group-hover:scale-110" style={{ background: GOLD }}>
+              {uploading ? <div className="h-3 w-3 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Edit size={12} className="text-[oklch(15%_0.02_250)]" />}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload}
+            />
           </div>
           <div className="mt-3">
             <div className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{userData?.name || 'Utilisateur'}</div>
             <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{getRoleLabel(userData?.role || 'SECRETARY')}</div>
           </div>
           <div className="space-y-3 mt-5">
-            <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Nom complet</label><input defaultValue={userData?.name} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
-            <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>École</label><input defaultValue={userData?.schoolName} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none bg-[oklch(97%_0.005_175)]" disabled /></div>
-            <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Rôle</label><input defaultValue={getRoleLabel(userData?.role || 'SECRETARY')} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none bg-[oklch(97%_0.005_175)]" disabled /></div>
+            <div>
+              <label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Nom complet</label>
+              <input value={name} onChange={e => setName(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" />
+            </div>
+            <div>
+              <label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>École</label>
+              <input defaultValue={userData?.schoolName} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none bg-[oklch(97%_0.005_175)]" disabled />
+            </div>
+            <div>
+              <label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Rôle</label>
+              <input defaultValue={getRoleLabel(userData?.role || 'SECRETARY')} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none bg-[oklch(97%_0.005_175)]" disabled />
+            </div>
           </div>
-          <button className="edu-gold-cta mt-5 px-6 py-2.5 rounded-xl text-sm font-semibold">Sauvegarder</button>
+          <button onClick={handleSave} disabled={saving} className="edu-gold-cta mt-5 px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+            {saving ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
+            Sauvegarder
+          </button>
         </div>
       </div>
     </div>
@@ -2689,10 +3252,10 @@ function ClassPassingView() {
           <table className="w-full">
             <thead>
               <tr style={{ background: IVORY }}>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élève</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Classe actuelle</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Décision</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Action</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Classe actuelle</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Décision</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -2700,14 +3263,24 @@ function ClassPassingView() {
                 <tr><td colSpan={4} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
               ) : students.slice(0, 20).map(s => (
                 <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                  <td className="px-3 py-2.5 text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</td>
-                  <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.class?.name || '—'}</td>
-                  <td className="px-3 py-2.5">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                        {getInitials(s.firstName + ' ' + s.lastName)}
+                      </div>
+                      <div>
+                        <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
+                        <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.class?.name || '—'}</td>
+                  <td className="px-4 py-3">
                     <select className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                       <option>En attente</option><option>Passage</option><option>Redouble</option>
                     </select>
                   </td>
-                  <td className="px-3 py-2.5">
+                  <td className="px-4 py-3">
                     <button className="text-sm font-medium hover:underline" style={{ color: GOLD }}>Valider</button>
                   </td>
                 </tr>
@@ -2827,11 +3400,11 @@ function SchoolsManagementView() {
           <table className="w-full">
             <thead>
               <tr style={{ background: IVORY }}>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>École</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Abonnement</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élèves</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Statut</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}></th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>École</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Abonnement</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élèves</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Statut</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}></th>
               </tr>
             </thead>
             <tbody>
@@ -2839,28 +3412,28 @@ function SchoolsManagementView() {
                 <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
               ) : schools.map(s => (
                 <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                  <td className="px-3 py-3">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full grid place-items-center text-white font-semibold text-[11px] shrink-0" style={{ background: 'linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))' }}>
+                      <div className="w-8 h-8 rounded-full grid place-items-center text-white font-semibold text-[11px] shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
                         {s.shortName.substring(0, 2)}
                       </div>
                       <div>
-                        <div className="font-medium text-[13.5px]" style={{ color: TEXT_PRIMARY }}>{s.name}</div>
-                        <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{s.city} · {s.province}</div>
+                        <div className="font-medium text-[13px]" style={{ color: TEXT_PRIMARY }}>{s.name}</div>
+                        <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.city} · {s.province}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-[13px]" style={{ color: TEXT_PRIMARY }}><strong>{getSubscriptionLabel(s.subscriptionTier)}</strong> · {getSubscriptionPrice(s.subscriptionTier)}</td>
-                  <td className="px-3 py-3 text-[13px] font-semibold tabular-nums" style={{ color: TEXT_PRIMARY }}>{formatNumber(s._count?.students || s.studentCount)}</td>
-                  <td className="px-3 py-3">
+                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_PRIMARY }}><strong>{getSubscriptionLabel(s.subscriptionTier)}</strong> · {getSubscriptionPrice(s.subscriptionTier)}</td>
+                  <td className="px-4 py-3 text-[13px] font-semibold tabular-nums" style={{ color: TEXT_PRIMARY }}>{formatNumber(s._count?.students || s.studentCount)}</td>
+                  <td className="px-4 py-3">
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill(s.isActive ? 'Actif' : 'Suspendu')}`}>
                       {s.isActive ? 'Actif' : 'Suspendu'}
                     </span>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-4 py-3">
                     <div className="flex gap-1">
-                      <button className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Eye size={14} /></button>
-                      <button className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Edit size={14} /></button>
+                      <button className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Eye size={14} /></button>
+                      <button className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Edit size={14} /></button>
                     </div>
                   </td>
                 </tr>

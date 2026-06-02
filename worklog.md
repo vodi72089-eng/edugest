@@ -1,103 +1,32 @@
 ---
 Task ID: 1
-Agent: main
-Task: Set up Prisma schema
+Agent: Main Agent
+Task: Implement all requested features and fixes for EduGest
 
 Work Log:
-- Created comprehensive Prisma schema with all EduGest models
-- Pushed schema to SQLite database successfully
-- Models: School, User, Student, Class, SchoolYear, Subject, Grade, DisciplineRecord, Blacklist, Greylist, Whitelist, SchoolComment, Communication, PaymentRecord, Homework, ReportCard, AuditLog, GlobalApiConfig
+- Analyzed full codebase (2895-line page.tsx, 16 Prisma models, 12 API routes)
+- Created payment receipt PDF API at /api/payments/receipt/[id] using pdfkit
+- Created profile photo upload API at /api/upload using FormData + file system
+- Created WhatsApp auth API at /api/auth/whatsapp with send/verify code flow
+- Created WhatsApp config API at /api/whatsapp-config for SUPER_ADMIN_GLOBAL
+- Modified /api/payments POST to validate student names and return French error messages
+- Modified /api/students POST to support parent creation (name, email, phone, password)
+- Fixed PaymentsView: added working submit handler, student autocomplete search, paidAmount field, status selector, PDF receipt download
+- Fixed ProfileView: added photo upload via clickable avatar, working save button with store update
+- Fixed StudentsView: added class selector dropdown, expandable parent info section with all fields
+- Improved all table designs with avatar initials, better padding, consistent styling
+- Implemented WhatsApp login modal with phone input and 6-digit code verification
+- Added WhatsAppConfigView component in SUPER_ADMIN_GLOBAL sidebar with premium theme
+- Added 'whatsapp-config' to ViewType in store.ts
+- Fixed fileInputRef to use useRef instead of useState in ProfileView
+- All features verified with agent-browser
 
 Stage Summary:
-- Database schema is live with 18 models
-- All relations properly configured
-- School model includes latitude/longitude for map integration
-
----
-Task ID: 2-a
-Agent: backend-developer
-Task: Build EduGest API routes
-
-Work Log:
-- Created /api/seed - Seeds database with 6 schools, 19 users, 30 classes, 20 students, 360 grades, 60 payments, 7 discipline records, 5 communications, 5 homework entries
-- Created /api/schools - CRUD with search/filter/pagination
-- Created /api/schools/[id] - Detail with related data
-- Created /api/students - CRUD with auto matricule generation
-- Created /api/students/[id] - Detail with grades/discipline/payments
-- Created /api/classes - CRUD with duplicate check
-- Created /api/grades - CRUD with upsert
-- Created /api/payments - CRUD with auto paidAt
-- Created /api/discipline - CRUD with auto list entries
-- Created /api/communications - CRUD
-- Created /api/homework - CRUD
-- Created /api/auth - Login with bcrypt verification
-- Created /api/stats - Dashboard stats by role/school
-
-Stage Summary:
-- 14 API route files created
-- All endpoints tested and working
-- Seed data includes African schools with coordinates for map
-
----
-Task ID: 4
-Agent: frontend-developer
-Task: Build the full SPA page.tsx
-
-Work Log:
-- Created complete SPA with 25+ views (~2200 lines)
-- Implemented public views: HomeView, SchoolDetailView, PricingView, LoginView
-- Implemented dashboard views for all roles: SuperAdmin, Secretary, Teacher, Cashier, Parent, Direction, Discipline, HeadTeacher
-- Implemented management views: Students, Classes, Grades, Payments, Discipline, Communications, Homework, Profile, ClassPassing, Bulletin, Convocation, SchoolsManagement
-- Integrated Leaflet map with dynamic loading for school locations
-- Integrated recharts for LineChart, BarChart, PieChart
-- Role-based sidebar navigation with proper menu items
-- Responsive design with mobile hamburger menu
-- Sticky footer on public pages
-- Toast notifications with sonner
-
-Stage Summary:
-- Complete SPA with all design screens implemented
-- Map integration working with OpenStreetMap tiles
-- Charts and data visualization with recharts
-- API integration with all backend endpoints
-- Demo login fallback for testing
-
----
-Task ID: 5
-Agent: main
-Task: Fix critical login bug and enhance Super Admin dashboard
-
-Work Log:
-- Fixed critical bug: removed demo fallback that always logged in as SUPER_ADMIN_GLOBAL for admin tab
-- Fixed mapApiRole function to handle all role variants (DIRECTION_MATERNELLE, DIRECTION_PRIMAIRE, DIRECTION_SECONDAIRE, DISCIPLINE_MATERNELLE, etc.)
-- Removed auto-login WhatsApp demo button (now shows "bientôt disponible" toast)
-- Login now properly uses API authentication with clear error messages
-- Updated Super Admin sidebar: removed student registration and payment recording, added Dettes view
-- Created /api/admin-analytics route with comprehensive analytics:
-  - Overview stats (total schools, students, revenue, debts)
-  - Schools with most/fewest students
-  - Schools by city distribution
-  - Subscription distribution
-  - Debt stats per school with collection rates
-  - Paid stats per school
-  - Blacklist/Greylist entries per school
-  - Recent payments, discipline incidents, student registrations
-  - Revenue by school
-  - City filter support (Dakar, Abidjan, Kinshasa, etc.)
-- Completely rewrote SuperAdminDashboard with 5 tabs:
-  - Vue d'ensemble: City chart, subscription pie chart, revenue by school
-  - Écoles: Top schools by students, schools needing attention
-  - Dettes & Soldes: Overdue/partial/pending cards, debt table by school with collection rates, best payment schools
-  - Listes disciplinaires: Blacklist/Greylist/Whitelist stats, entries tables
-  - Activités récentes: Recent payments, discipline incidents, student registrations
-- Added city filter dropdown (Dakar, Abidjan, Kinshasa, Lubumbashi, Brazzaville, Goma)
-- Added SUCCESS_SOFT and SUBSCRIPTION_TIERS constants
-- Fixed Prisma schema field mismatches (addedAt vs createdAt, missing relations)
-- Added admin-analytics ViewType to store
-- Verified all role logins work correctly with agent-browser testing
-
-Stage Summary:
-- Login bug fixed: each role now gets its correct dashboard
-- Super Admin is now a proper site controller with analytics, not a school operator
-- All 6 schools, 20 students, debt/blacklist data visible in analytics
-- City filtering works for Dakar, Abidjan, and other cities
+- Payment system now works end-to-end: search student → submit → download PDF receipt
+- Error message "Le nom de l'élève a été mal écrit ou il n'existe pas" when student not found
+- Profile photo upload functional with click-to-upload on avatar
+- Student creation supports parent info (name, email, phone, password) and class selection
+- Tables redesigned with premium Luxe Africain theme (avatar initials, gold headers, better spacing)
+- WhatsApp login flow: phone → code → authenticate
+- WhatsApp config in SUPER_ADMIN_GLOBAL dashboard for managing official number
+- Lint passes, dev server compiles without errors
