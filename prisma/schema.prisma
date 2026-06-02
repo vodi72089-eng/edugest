@@ -1,0 +1,321 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model School {
+  id                String   @id @default(cuid())
+  name              String
+  shortName         String
+  email             String
+  phone             String
+  address           String
+  city              String
+  province          String
+  country           String
+  latitude          Float?
+  longitude         Float?
+  logo              String?
+  coverImage        String?
+  description       String?
+  history           String?
+  mission           String?
+  establishmentYear Int?
+  subscriptionTier  String   @default("FREEMIUM")
+  subscriptionStatus String  @default("ACTIVE")
+  maxStudents       Int      @default(100)
+  isActive          Boolean  @default(true)
+  averageRating     Float    @default(0)
+  totalReviews      Int      @default(0)
+  schoolType        String   @default("MIXTE")
+  schoolCategory    String   @default("PRIVEE")
+  studentCount      Int      @default(0)
+  classCount        Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  users             User[]
+  students          Student[]
+  classes           Class[]
+  schoolYears       SchoolYear[]
+  comments          SchoolComment[]
+  subjects          Subject[]
+  communications    Communication[]
+  paymentRecords    PaymentRecord[]
+  homeworks         Homework[]
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String?  @unique
+  phone           String   @unique
+  password        String?
+  name            String
+  role            String
+  schoolId        String
+  isActive        Boolean  @default(true)
+  lastLoginAt     DateTime?
+  profileImageUrl String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  school          School   @relation(fields: [schoolId], references: [id])
+  students        Student[] @relation("ParentChildren")
+}
+
+model Student {
+  id            String    @id @default(cuid())
+  matricule     String    @unique
+  firstName     String
+  lastName      String
+  dateOfBirth   DateTime?
+  gender        String?
+  address       String?
+  phone         String?
+  photoUrl      String?
+  classId       String
+  parentId      String?
+  schoolId      String
+  schoolYearId  String
+  isExcluded    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  class         Class     @relation(fields: [classId], references: [id])
+  parent        User?     @relation("ParentChildren", fields: [parentId], references: [id])
+  school        School    @relation(fields: [schoolId], references: [id])
+  schoolYear    SchoolYear @relation(fields: [schoolYearId], references: [id])
+  grades        Grade[]
+  disciplineRecords DisciplineRecord[]
+  blacklistEntries Blacklist[]
+  greylistEntries  Greylist[]
+  whitelistEntries Whitelist[]
+}
+
+model Class {
+  id            String    @id @default(cuid())
+  name          String
+  section       String?
+  level         String?
+  capacity      Int       @default(40)
+  schoolId      String
+  schoolYearId  String
+  headTeacherId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  school        School    @relation(fields: [schoolId], references: [id])
+  schoolYear    SchoolYear @relation(fields: [schoolYearId], references: [id])
+  students      Student[]
+  grades        Grade[]
+  subjects      Subject[]
+
+  @@unique([name, schoolYearId])
+}
+
+model SchoolYear {
+  id        String    @id @default(cuid())
+  label     String
+  startDate DateTime?
+  endDate   DateTime?
+  isActive  Boolean   @default(false)
+  schoolId  String
+  createdAt DateTime  @default(now())
+
+  school    School    @relation(fields: [schoolId], references: [id])
+  classes   Class[]
+  students  Student[]
+  subjects  Subject[]
+  grades    Grade[]
+}
+
+model Subject {
+  id           String   @id @default(cuid())
+  name         String
+  code         String?
+  coefficient  Int      @default(1)
+  schoolId     String
+  schoolYearId String
+  classId      String
+  createdAt    DateTime @default(now())
+
+  school       School   @relation(fields: [schoolId], references: [id])
+  schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
+  class        Class    @relation(fields: [classId], references: [id])
+  grades       Grade[]
+
+  @@unique([name, schoolYearId])
+}
+
+model Grade {
+  id           String   @id @default(cuid())
+  studentId    String
+  subjectId    String
+  classId      String
+  trimester    String
+  score        Float
+  comment      String?
+  schoolYearId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  student      Student  @relation(fields: [studentId], references: [id])
+  subject      Subject  @relation(fields: [subjectId], references: [id])
+  class        Class    @relation(fields: [classId], references: [id])
+  schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
+
+  @@unique([studentId, subjectId, trimester, schoolYearId])
+}
+
+model DisciplineRecord {
+  id             String   @id @default(cuid())
+  studentId      String
+  type           String
+  severity       String
+  title          String
+  description    String
+  points         Int
+  listType       String   @default("GREYLIST")
+  status         String   @default("PENDING")
+  schoolId       String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  student        Student  @relation(fields: [studentId], references: [id])
+}
+
+model Blacklist {
+  id        String   @id @default(cuid())
+  studentId String
+  schoolId  String
+  reason    String
+  addedAt   DateTime @default(now())
+  addedBy   String
+
+  student   Student  @relation(fields: [studentId], references: [id])
+}
+
+model Greylist {
+  id        String   @id @default(cuid())
+  studentId String
+  schoolId  String
+  reason    String
+  addedAt   DateTime @default(now())
+  addedBy   String
+
+  student   Student  @relation(fields: [studentId], references: [id])
+}
+
+model Whitelist {
+  id        String   @id @default(cuid())
+  studentId String
+  schoolId  String
+  reason    String?
+  addedAt   DateTime @default(now())
+  addedBy   String
+
+  student   Student  @relation(fields: [studentId], references: [id])
+}
+
+model SchoolComment {
+  id          String   @id @default(cuid())
+  schoolId    String
+  authorName  String
+  authorEmail String?
+  rating      Int
+  comment     String
+  isApproved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  school      School   @relation(fields: [schoolId], references: [id])
+}
+
+model Communication {
+  id            String   @id @default(cuid())
+  senderId      String
+  senderRole    String
+  schoolId      String
+  type          String
+  title         String
+  content       String
+  targetType    String
+  targetId      String?
+  sentToApp     Boolean  @default(true)
+  sentToWhatsapp Boolean @default(true)
+  sentAt        DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  school        School   @relation(fields: [schoolId], references: [id])
+}
+
+model PaymentRecord {
+  id             String   @id @default(cuid())
+  studentId      String
+  schoolId       String
+
+  school         School   @relation(fields: [schoolId], references: [id])
+  amount         Int
+  paidAmount     Int      @default(0)
+  trimester      String
+  paymentMethod  String?
+  referenceNumber String?
+  status         String   @default("PENDING")
+  paidAt         DateTime?
+  receiptNumber  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Homework {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  subjectName String
+  classId     String
+  teacherName String
+  dueDate     DateTime
+  schoolId    String
+
+  school      School   @relation(fields: [schoolId], references: [id])
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ReportCard {
+  id           String   @id @default(cuid())
+  studentId    String
+  trimester    String
+  schoolYearId String
+  average      Float?
+  decision     String?
+  isUnlocked   Boolean  @default(false)
+  generatedAt  DateTime @default(now())
+  pdfUrl       String?
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  userName   String
+  userRole   String
+  action     String
+  entityType String
+  entityId   String?
+  details    String?
+  createdAt  DateTime @default(now())
+}
+
+model GlobalApiConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedBy   String
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+}

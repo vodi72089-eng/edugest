@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bulletin — Mukendi Kalonji · T2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:oklch(98% 0.003 220);
+  --surface:oklch(100% 0 0);
+  --surface-2:oklch(96% 0.003 220);
+  --fg:oklch(20% 0.02 250);
+  --muted:oklch(52% 0.015 250);
+  --border:oklch(92% 0.005 250);
+  --accent:oklch(55% 0.15 175);
+  --accent-soft:oklch(95% 0.04 175);
+  --success:oklch(60% 0.15 145);
+  --warning:oklch(72% 0.15 65);
+  --danger:oklch(58% 0.20 25);
+  --info:oklch(60% 0.13 250);
+  --radius:12px;
+  --shadow:0 4px 16px -4px rgba(15,23,42,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font:14px/1.5 'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar-head{padding:18px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.brand-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,oklch(55% 0.15 175),oklch(45% 0.13 200));color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;box-shadow:0 2px 8px oklch(55% 0.15 175 / .25);flex-shrink:0}
+.brand-name{font-weight:700;font-size:15px}
+.brand-tag{font-size:11px;color:var(--muted);font-weight:500}
+.sidebar-school{padding:10px 16px;margin:8px 12px;background:var(--accent-soft);border-radius:8px;display:flex;align-items:center;gap:8px}
+.sidebar-school-logo{width:24px;height:24px;border-radius:5px;background:linear-gradient(135deg,oklch(55% 0.15 175),oklch(45% 0.13 200));color:#fff;font-weight:800;font-size:10px;display:grid;place-items:center;flex-shrink:0}
+.sidebar-school-name{font-size:12px;font-weight:600;line-height:1.2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-school-name small{display:block;font-size:10px;color:var(--muted);font-weight:500;margin-top:1px}
+.sidebar-section{padding:14px 20px 6px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.menu{display:flex;flex-direction:column;gap:2px;padding:0 12px}
+.menu-item{position:relative;display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--fg);transition:all .15s;cursor:pointer}
+.menu-item:hover{background:var(--surface-2)}
+.menu-item.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.menu-item.active::before{content:"";position:absolute;left:0;width:3px;height:20px;background:var(--accent);border-radius:0 2px 2px 0}
+.menu-item svg{width:16px;height:16px;flex-shrink:0;opacity:.7}
+.menu-item.active svg{opacity:1}
+.sidebar-foot{margin-top:auto;padding:12px;border-top:1px solid var(--border)}
+.profile-card{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:var(--surface-2)}
+.profile-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,oklch(58% 0.20 25),oklch(45% 0.18 0));display:grid;place-items:center;color:#fff;font-weight:600;font-size:13px;flex-shrink:0}
+.profile-name{font-size:13px;font-weight:600}
+.profile-role{font-size:11px;color:var(--muted)}
+.profile-out{margin-left:auto;color:var(--muted);width:16px;height:16px}
+
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20}
+.topbar-left{display:flex;align-items:center;gap:16px}
+.page-title{font-size:18px;font-weight:700;letter-spacing:-0.01em}
+.page-crumb{font-size:12px;color:var(--muted)}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.icon-btn{width:36px;height:36px;border-radius:9px;background:var(--surface-2);display:grid;place-items:center;color:var(--fg);position:relative;border:1px solid var(--border)}
+.icon-btn svg{width:16px;height:16px}
+
+.content{padding:24px;flex:1;overflow-y:auto;background:var(--bg)}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.page-head h1{font-size:24px;font-weight:700;letter-spacing:-0.02em}
+.page-head p{color:var(--muted);font-size:13px;margin-top:2px}
+
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:9px;font-weight:500;font-size:13.5px;border:1px solid transparent}
+.btn svg{width:14px;height:14px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-outline{background:var(--surface);color:var(--fg);border-color:var(--border)}
+
+.bulletin{
+  max-width:920px;margin:0 auto;
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:14px;
+  overflow:hidden;
+  box-shadow:0 10px 30px -8px rgba(15,23,42,.1),0 4px 8px -2px rgba(15,23,42,.05);
+}
+.b-head{
+  padding:32px 40px 24px;
+  background:linear-gradient(160deg,oklch(50% 0.13 175),oklch(35% 0.12 220));
+  color:#fff;
+  position:relative;overflow:hidden;
+}
+.b-head::before{content:"";position:absolute;inset:0;background-image:radial-gradient(oklch(100% 0 0 / .08) 1px,transparent 1px);background-size:24px 24px;pointer-events:none}
+.b-head-inner{position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap}
+.b-school{display:flex;align-items:center;gap:12px}
+.b-logo{width:56px;height:56px;border-radius:12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);display:grid;place-items:center;font-weight:800;font-size:24px;backdrop-filter:blur(8px)}
+.b-school-info h1{font-size:22px;font-weight:800;letter-spacing:-0.01em;margin-bottom:4px}
+.b-school-info p{font-size:13px;opacity:.85;line-height:1.4}
+.b-tag{background:rgba(255,255,255,.15);padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2)}
+
+.b-body{padding:28px 40px 8px}
+.b-info{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:18px;
+  padding-bottom:20px;
+  border-bottom:1px solid var(--border);
+}
+.b-info-item .b-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.b-info-item .b-value{font-size:15px;font-weight:600;margin-top:3px;letter-spacing:-0.005em}
+.b-info-item .b-sub{font-size:12px;color:var(--muted);margin-top:1px}
+
+.b-section{padding:24px 0;border-bottom:1px solid var(--border)}
+.b-section h2{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px}
+.b-section:last-of-type{border-bottom:0}
+
+table{width:100%;border-collapse:collapse}
+.b-table th{text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--surface-2);font-weight:700}
+.b-table th.right{text-align:right}
+.b-table td{padding:13px 12px;border-bottom:1px solid var(--border);font-size:14px;vertical-align:middle}
+.b-table tr:last-child td{border-bottom:0}
+.b-table .mat-name{font-weight:600;display:flex;align-items:center;gap:8px}
+.b-table .mat-coef{color:var(--muted);font-size:12.5px;margin-top:2px}
+.b-table .grade{font:700 16px/1 'JetBrains Mono',monospace;text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
+.b-table .grade.high{color:var(--success)}
+.b-table .grade.mid{color:var(--warning)}
+.b-table .grade.low{color:var(--danger)}
+.b-table .appreciate{font-size:13px;color:var(--muted);font-style:italic;line-height:1.5}
+
+.b-summary{
+  display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:20px;
+  margin-top:20px;
+  padding:24px;
+  background:linear-gradient(160deg,oklch(98% 0.005 175),oklch(98% 0.005 220));
+  border-radius:12px;
+  border:1px solid var(--border);
+}
+.b-summary-block{text-align:center}
+.b-summary-block .b-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600;margin-bottom:6px}
+.b-summary-block .b-big{font:800 36px/1 'Inter',sans-serif;letter-spacing:-0.03em;font-variant-numeric:tabular-nums}
+.b-summary-block .b-big.outline{color:var(--accent)}
+.b-summary-block .b-decision{display:inline-block;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;margin-top:8px}
+.b-decision.pass{background:oklch(94% 0.05 145);color:oklch(35% 0.13 145)}
+.b-summary-block.decision{background:oklch(96% 0.04 145);border-radius:10px;padding:14px 10px}
+
+.b-foot{
+  display:flex;justify-content:space-between;align-items:flex-end;
+  padding:24px 40px;
+  background:var(--surface-2);
+  border-top:1px solid var(--border);
+  gap:32px;flex-wrap:wrap;
+}
+.b-sign{text-align:center;flex:1;min-width:160px}
+.b-sign-line{border-top:1px solid var(--border);padding-top:8px;font-size:12px;color:var(--muted);margin-top:48px}
+.b-sign-name{font-size:13px;font-weight:600}
+.b-sign-role{font-size:11px;color:var(--muted)}
+
+.warning-block{
+  background:oklch(96% 0.06 65);
+  border:1px solid oklch(85% 0.10 65);
+  border-radius:10px;
+  padding:14px 18px;
+  display:flex;align-items:center;gap:12px;
+  margin-bottom:18px;
+}
+.warning-icon{width:36px;height:36px;border-radius:8px;background:oklch(55% 0.15 65);color:#fff;display:grid;place-items:center;flex-shrink:0}
+.warning-icon svg{width:18px;height:18px}
+.warning-text{flex:1;font-size:13.5px;color:oklch(30% 0.10 65);line-height:1.5}
+.warning-text strong{font-weight:700;color:oklch(25% 0.10 65);display:block;margin-bottom:2px}
+.warning-cta{padding:6px 14px;border-radius:7px;background:oklch(55% 0.15 65);color:#fff;font-size:12.5px;font-weight:600;white-space:nowrap}
+
+@media (max-width:760px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:-100%;z-index:100;transition:left .25s;width:240px}
+  .sidebar.open{left:0}
+  .content{padding:16px}
+  .b-head{padding:20px}
+  .b-body{padding:20px}
+  .b-foot{padding:20px;flex-direction:column}
+  .b-info{grid-template-columns:1fr 1fr;gap:14px}
+  .b-summary{grid-template-columns:1fr;padding:16px}
+  .b-table{font-size:13px}
+  .b-table th,.b-table td{padding:10px 8px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <div class="brand-mark">E</div>
+      <div><div class="brand-name">EduGest</div><div class="brand-tag">Espace parent</div></div>
+    </div>
+    <div class="sidebar-school">
+      <div class="sidebar-school-logo">CL</div>
+      <div class="sidebar-school-name">Complexe Lumière<small>Kinshasa</small></div>
+    </div>
+    <div class="sidebar-section">Suivi</div>
+    <nav class="menu">
+      <a class="menu-item" href="11-parent-dashboard.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Mes enfants
+      </a>
+      <a class="menu-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Notes
+      </a>
+      <a class="menu-item active" href="12-parent-bulletin.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Bulletins
+      </a>
+      <a class="menu-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        Paiements
+      </a>
+      <a class="menu-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+        Discipline
+      </a>
+      <a class="menu-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        Devoirs
+      </a>
+    </nav>
+    <div class="sidebar-section">Configuration</div>
+    <nav class="menu">
+      <a class="menu-item" href="18-profile.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Mon profil
+      </a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="profile-card">
+        <div class="profile-avatar">MK</div>
+        <div><div class="profile-name">Maman Kalonji</div><div class="profile-role">Parent</div></div>
+        <svg class="profile-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div>
+          <div class="page-title">Bulletins scolaires</div>
+          <div class="page-crumb">Suivi académique · Année 2025-2026</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button class="icon-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg>
+        </button>
+        <div style="width:1px;height:24px;background:var(--border);margin:0 4px"></div>
+        <div class="profile-avatar" style="width:32px;height:32px;font-size:12px;background:linear-gradient(135deg,oklch(58% 0.20 25),oklch(45% 0.18 0))">MK</div>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Bulletin · Trimestre 2</h1>
+          <p>Mukendi Kalonji · 3e A · Année scolaire 2025-2026</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            Plein écran
+          </button>
+          <button class="btn btn-primary" onclick="alert('Bulletin téléchargé en PDF !')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Télécharger PDF
+          </button>
+        </div>
+      </div>
+
+      <div class="warning-block">
+        <div class="warning-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        </div>
+        <div class="warning-text">
+          <strong>Paiement T2 en attente</strong>
+          Le bulletin complet sera définitivement validé une fois les frais de 250$ réglés. Acompte déjà reçu : 200$.
+        </div>
+        <a class="warning-cta" href="#">Régler maintenant</a>
+      </div>
+
+      <div class="bulletin">
+        <div class="b-head">
+          <div class="b-head-inner">
+            <div class="b-school">
+              <div class="b-logo">CL</div>
+              <div class="b-school-info">
+                <h1>Complexe Scolaire Lumière</h1>
+                <p>Av. de la Libération 24, Gombe, Kinshasa<br>RCCM: CD/KIN/RCCM/14-B-1234</p>
+              </div>
+            </div>
+            <div class="b-tag">Bulletin · Trimestre 2</div>
+          </div>
+        </div>
+
+        <div class="b-body">
+          <div class="b-info">
+            <div class="b-info-item">
+              <div class="b-label">Élève</div>
+              <div class="b-value">Mukendi Kalonji</div>
+              <div class="b-sub">CLU-2026-0184 · 15 ans</div>
+            </div>
+            <div class="b-info-item">
+              <div class="b-label">Classe</div>
+              <div class="b-value">3e A</div>
+              <div class="b-sub">Effectif : 24 élèves</div>
+            </div>
+            <div class="b-info-item">
+              <div class="b-label">Période</div>
+              <div class="b-value">Trimestre 2</div>
+              <div class="b-sub">Janvier → Mars 2026</div>
+            </div>
+            <div class="b-info-item">
+              <div class="b-label">Année scolaire</div>
+              <div class="b-value">2025-2026</div>
+              <div class="b-sub">Titulaire : M. Mwepu</div>
+            </div>
+          </div>
+
+          <div class="b-section">
+            <h2>Résultats par matière</h2>
+            <table class="b-table">
+              <thead>
+                <tr>
+                  <th>Matière</th>
+                  <th class="right">Coef.</th>
+                  <th class="right">Moy. classe</th>
+                  <th class="right">Note /20</th>
+                  <th>Appréciation</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <div class="mat-name">📐 Mathématiques</div>
+                    <div class="mat-coef">Prof. Mwepu</div>
+                  </td>
+                  <td class="right" style="font-variant-numeric:tabular-nums">5</td>
+                  <td class="right" style="font-variant-numeric:tabular-nums;color:var(--muted)">13.2</td>
+                  <td class="grade high">16.8</td>
+                  <td class="appreciate">Excellent travail. Élève brillant et impliqué.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="mat-name">🧪 Physique-Chimie</div>
+                    <div class="mat-coef">Mme Kabongo</div>
+                  </td>
+                  <td class="right" style="font-variant-numeric:tabular-nums">4</td>
+                  <td class="right" style="font-variant-numeric:tabular-nums;color:var(--muted)">12.5</td>
+                  <td class="grade high">15.5</td>
+                  <td class="appreciate">Très bonne progression depuis T1.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="mat-name">🌱 SVT</div>
+                    <div class="mat-coef">M. Ilunga</div>
+                  </td>
+                  <td class="right" style="font-variant-numeric:tabular-nums">3</td>
+                  <td class="right" style="font-variant-numeric:tabular-nums;color:var(--muted)">11.8</td>
+                  <td class="grade high">14.0</td>
+                  <td class="appreciate">Bon niveau. Continuez ainsi.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="mat-name">📚 Français</div>
+                    <div class="mat-coef">Mme Mwamba</div>
+                  </td>
+                  <td class="right" style="font-variant-numeric:tabular-nums">4</td>
+                  <td class="right" style="font-variant-numeric:tabular-nums;color:var(--muted)">12.8</td>
+                  <td class="grade high">14.5</td>
+                  <td class="appreciate">Expression écrite à améliorer. Bonne lecture.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="mat-name">🇬🇧 Anglais</div>
+                    <div class="mat-coef">M. Smith</div>
+                  </td>
+                  <td class="right" style="font-variant-numeric:tabular-nums">3</td>
+                  <td class="right" style="font-variant-numeric:tabular-nums;color:var(--muted)">11.5</td>
+                  <td class="grade mid">12.0</td>
+                  <td class="appreciate">Passable. Encouragements à fournir plus d'efforts à l'oral.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="mat-name">🌍 Histoire-Géographie</div>
+                    <div class="mat-coef">Mme Beya</div>
+                  </td>
+                  <td class="right" style="font-variant-numeric:tabular-nums">3</td>
+                  <td class="right" style="font-variant-numeric:tabular-nums;color:var(--muted)">12.0</td>
+                  <td class="grade high">15.0</td>
+                  <td class="appreciate">Excellent. Esprit d'analyse remarquable.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="mat-name">⚽ Éducation Physique</div>
+                    <div class="mat-coef">M. Kalume</div>
+                  </td>
+                  <td class="right" style="font-variant-numeric:tabular-nums">1</td>
+                  <td class="right" style="font-variant-numeric:tabular-nums;color:var(--muted)">14.5</td>
+                  <td class="grade high">17.0</td>
+                  <td class="appreciate">Excellent sportif. Meneur d'équipe.</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="mat-name">🎨 Arts plastiques</div>
+                    <div class="mat-coef">Mme Lumumba</div>
+                  </td>
+                  <td class="right" style="font-variant-numeric:tabular-nums">1</td>
+                  <td class="right" style="font-variant-numeric:tabular-nums;color:var(--muted)">13.5</td>
+                  <td class="grade high">16.0</td>
+                  <td class="appreciate">Très créatif. Belle sensibilité artistique.</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="b-summary">
+              <div class="b-summary-block">
+                <div class="b-label">Moyenne générale</div>
+                <div class="b-big outline">15.07</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:4px">sur 24 élèves · Rang 2ᵉ</div>
+              </div>
+              <div class="b-summary-block">
+                <div class="b-label">Moyenne T1 précédente</div>
+                <div class="b-big" style="color:var(--muted)">13.85</div>
+                <div style="font-size:11px;color:var(--success);font-weight:600;margin-top:4px">↑ +1.22 points</div>
+              </div>
+              <div class="b-summary-block decision">
+                <div class="b-label">Décision du conseil</div>
+                <div class="b-decision pass">✓ Passage en classe supérieure</div>
+                <div style="font-size:11px;color:oklch(30% 0.10 145);margin-top:6px">Félicitations du jury</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="b-section">
+            <h2>Appréciation générale du conseil de classe</h2>
+            <p style="font-size:14px;line-height:1.65;color:var(--fg)">Mukendi est un élève brillant, sérieux et appliqué. Ses résultats sont en constante progression depuis le début de l'année. Il fait preuve d'une grande maturité et d'un investissement remarquable dans son travail. Continue ainsi !</p>
+          </div>
+        </div>
+
+        <div class="b-foot">
+          <div class="b-sign">
+            <div class="b-sign-line">
+              <div class="b-sign-name">Mme Mwamba</div>
+              <div class="b-sign-role">Titulaire de la classe 3e A</div>
+            </div>
+          </div>
+          <div class="b-sign">
+            <div class="b-sign-line">
+              <div class="b-sign-name">M. Lumumba</div>
+              <div class="b-sign-role">Directeur pédagogique</div>
+            </div>
+          </div>
+          <div class="b-sign">
+            <div class="b-sign-line">
+              <div class="b-sign-name">Maman Kalonji</div>
+              <div class="b-sign-role">Parent · Reçu le 22/05/2026</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

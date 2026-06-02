@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Envoi de devoir — Complexe Lumière</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:oklch(98% 0.003 220);
+  --surface:oklch(100% 0 0);
+  --surface-2:oklch(96% 0.003 220);
+  --fg:oklch(20% 0.02 250);
+  --muted:oklch(52% 0.015 250);
+  --border:oklch(92% 0.005 250);
+  --accent:oklch(55% 0.15 175);
+  --accent-soft:oklch(95% 0.04 175);
+  --success:oklch(60% 0.15 145);
+  --warning:oklch(72% 0.15 65);
+  --radius:12px;
+  --shadow:0 4px 16px -4px rgba(15,23,42,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font:14px/1.5 'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+input,select,textarea{font:inherit;color:inherit}
+
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar-head{padding:18px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.brand-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,oklch(55% 0.15 175),oklch(45% 0.13 200));color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;box-shadow:0 2px 8px oklch(55% 0.15 175 / .25);flex-shrink:0}
+.brand-name{font-weight:700;font-size:15px}
+.brand-tag{font-size:11px;color:var(--muted);font-weight:500}
+.sidebar-school{padding:10px 16px;margin:8px 12px;background:var(--accent-soft);border-radius:8px;display:flex;align-items:center;gap:8px}
+.sidebar-school-logo{width:24px;height:24px;border-radius:5px;background:linear-gradient(135deg,oklch(55% 0.15 175),oklch(45% 0.13 200));color:#fff;font-weight:800;font-size:10px;display:grid;place-items:center;flex-shrink:0}
+.sidebar-school-name{font-size:12px;font-weight:600;line-height:1.2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-school-name small{display:block;font-size:10px;color:var(--muted);font-weight:500;margin-top:1px}
+.sidebar-section{padding:14px 20px 6px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.menu{display:flex;flex-direction:column;gap:2px;padding:0 12px}
+.menu-item{position:relative;display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--fg);transition:all .15s;cursor:pointer}
+.menu-item:hover{background:var(--surface-2)}
+.menu-item.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.menu-item.active::before{content:"";position:absolute;left:0;width:3px;height:20px;background:var(--accent);border-radius:0 2px 2px 0}
+.menu-item svg{width:16px;height:16px;flex-shrink:0;opacity:.7}
+.menu-item.active svg{opacity:1}
+.sidebar-foot{margin-top:auto;padding:12px;border-top:1px solid var(--border)}
+.profile-card{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:var(--surface-2)}
+.profile-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,oklch(72% 0.15 65),oklch(50% 0.16 30));display:grid;place-items:center;color:#fff;font-weight:600;font-size:13px;flex-shrink:0}
+.profile-name{font-size:13px;font-weight:600}
+.profile-role{font-size:11px;color:var(--muted)}
+.profile-out{margin-left:auto;color:var(--muted);width:16px;height:16px}
+
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20}
+.topbar-left{display:flex;align-items:center;gap:16px}
+.page-title{font-size:18px;font-weight:700;letter-spacing:-0.01em}
+.page-crumb{font-size:12px;color:var(--muted)}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.icon-btn{width:36px;height:36px;border-radius:9px;background:var(--surface-2);display:grid;place-items:center;color:var(--fg);position:relative;border:1px solid var(--border)}
+.icon-btn svg{width:16px;height:16px}
+.icon-btn .dot{position:absolute;top:7px;right:7px;width:8px;height:8px;border-radius:50%;background:var(--danger);border:2px solid var(--surface)}
+
+.content{padding:24px;flex:1;overflow-y:auto}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.page-head h1{font-size:24px;font-weight:700;letter-spacing:-0.02em}
+.page-head p{color:var(--muted);font-size:13px;margin-top:2px}
+
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:9px;font-weight:500;font-size:13.5px;border:1px solid transparent}
+.btn svg{width:14px;height:14px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-outline{background:var(--surface);color:var(--fg);border-color:var(--border)}
+
+.layout{display:grid;grid-template-columns:1fr 380px;gap:14px;align-items:start}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.card h2{font-size:16px;font-weight:700;letter-spacing:-0.01em;margin-bottom:16px}
+
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.field label{font-size:13px;font-weight:500}
+.field input,.field select,.field textarea{
+  width:100%;
+  border:1px solid var(--border);
+  background:var(--surface);
+  padding:10px 12px;border-radius:9px;
+  font-size:14px;
+  outline:0;
+  transition:border-color .15s,box-shadow .15s;
+}
+.field input:focus,.field select:focus,.field textarea:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px oklch(55% 0.15 175 / .12);
+}
+.field textarea{min-height:120px;resize:vertical;font-family:inherit;line-height:1.55}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.dropzone{
+  border:2px dashed var(--border);
+  border-radius:12px;
+  padding:32px 20px;
+  text-align:center;
+  background:var(--surface-2);
+  transition:all .15s;
+  cursor:pointer;
+}
+.dropzone:hover{border-color:var(--accent);background:oklch(96% 0.02 175)}
+.dropzone-icon{
+  width:56px;height:56px;border-radius:14px;
+  background:var(--accent-soft);color:var(--accent);
+  display:grid;place-items:center;margin:0 auto 12px;
+}
+.dropzone-icon svg{width:28px;height:28px}
+.dropzone h3{font-size:14px;font-weight:600;margin-bottom:4px}
+.dropzone p{font-size:12.5px;color:var(--muted);line-height:1.5}
+.dropzone .browse{color:var(--accent);font-weight:600}
+
+.preview{
+  position:sticky;top:88px;
+  background:linear-gradient(160deg,oklch(50% 0.13 175),oklch(35% 0.12 220));
+  color:#fff;
+  border-radius:14px;
+  padding:24px;
+  overflow:hidden;
+}
+.preview::before{
+  content:"";position:absolute;inset:0;
+  background-image:radial-gradient(oklch(100% 0 0 / .08) 1px,transparent 1px);
+  background-size:20px 20px;pointer-events:none;
+}
+.preview-tag{
+  display:inline-block;
+  background:rgba(255,255,255,.15);
+  padding:4px 10px;border-radius:999px;
+  font-size:11px;font-weight:600;letter-spacing:.04em;
+  text-transform:uppercase;margin-bottom:14px;position:relative;
+}
+.preview-title{font-size:18px;font-weight:700;letter-spacing:-0.01em;line-height:1.3;margin-bottom:10px;position:relative}
+.preview-meta{
+  display:flex;flex-wrap:wrap;gap:8px;
+  font-size:12px;opacity:.85;margin-bottom:16px;position:relative;
+}
+.preview-meta-item{display:inline-flex;align-items:center;gap:4px}
+.preview-body{
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:10px;padding:14px;
+  font-size:13px;line-height:1.6;margin-bottom:14px;
+  position:relative;backdrop-filter:blur(8px);
+}
+.preview-attach{
+  display:flex;align-items:center;gap:10px;
+  background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:8px;padding:10px 12px;
+  font-size:12.5px;position:relative;
+}
+.preview-attach-icon{
+  width:32px;height:32px;border-radius:7px;
+  background:rgba(255,255,255,.15);
+  display:grid;place-items:center;flex-shrink:0;
+}
+.preview-attach svg{width:16px;height:16px}
+.preview-attach-name{font-weight:600;line-height:1.3}
+.preview-attach-size{font-size:11px;opacity:.75;margin-top:1px}
+.preview-foot{position:relative;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.15);font-size:11px;opacity:.7}
+
+@media (max-width:1100px){
+  .layout{grid-template-columns:1fr}
+  .preview{position:static}
+}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:-100%;z-index:100;transition:left .25s;width:240px}
+  .sidebar.open{left:0}
+  .content{padding:16px}
+  .field-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <div class="brand-mark">E</div>
+      <div><div class="brand-name">EduGest</div><div class="brand-tag">Enseignant</div></div>
+    </div>
+    <div class="sidebar-school">
+      <div class="sidebar-school-logo">CL</div>
+      <div class="sidebar-school-name">Complexe Lumière<small>Kinshasa</small></div>
+    </div>
+    <div class="sidebar-section">Pédagogie</div>
+    <nav class="menu">
+      <a class="menu-item" href="20-teacher-class.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+        Ma classe
+      </a>
+      <a class="menu-item" href="08-teacher-grades.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Saisie des notes
+      </a>
+      <a class="menu-item active" href="19-teacher-homework.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        Devoirs
+      </a>
+    </nav>
+    <div class="sidebar-section">Configuration</div>
+    <nav class="menu">
+      <a class="menu-item" href="18-profile.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Mon profil
+      </a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="profile-card">
+        <div class="profile-avatar">PM</div>
+        <div><div class="profile-name">Prof. Mwepu</div><div class="profile-role">Mathématiques</div></div>
+        <svg class="profile-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div>
+          <div class="page-title">Envoi de devoir</div>
+          <div class="page-crumb">Mathématiques · 3e A · Nouveau devoir</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button class="icon-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg>
+          <span class="dot"></span>
+        </button>
+        <div style="width:1px;height:24px;background:var(--border);margin:0 4px"></div>
+        <div class="profile-avatar" style="width:32px;height:32px;font-size:12px;background:linear-gradient(135deg,oklch(72% 0.15 65),oklch(50% 0.16 30))">PM</div>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Envoyer un devoir</h1>
+          <p>Composez votre message, joignez un document, et envoyez-le à vos élèves</p>
+        </div>
+      </div>
+
+      <div class="layout">
+        <form class="card" onsubmit="event.preventDefault();sendHomework()">
+          <h2>Composition du devoir</h2>
+          <div class="field">
+            <label>Titre du devoir</label>
+            <input type="text" id="hwTitle" placeholder="ex. Exercices sur le théorème de Pythagore" required>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Matière</label>
+              <select><option>Mathématiques</option><option>Physique-Chimie</option><option>SVT</option></select>
+            </div>
+            <div class="field">
+              <label>Classe</label>
+              <select><option>3e A (24 élèves)</option><option>3e B (22 élèves)</option><option>4e A</option></select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Description / Consigne</label>
+            <textarea id="hwBody" placeholder="Décrivez la consigne, les exercices à faire, le matériel nécessaire..." required>Exercices 12, 14 et 16 page 87 du manuel. Pour les plus avancés, exercice 22 page 88. Présenter le travail sur feuille double avec nom, classe et date. Justifier toutes les étapes de calcul.</textarea>
+          </div>
+          <div class="field">
+            <label>Date limite de remise</label>
+            <input type="datetime-local" value="2026-05-28T17:00">
+          </div>
+
+          <h2 style="margin-top:8px">Pièce jointe</h2>
+          <div class="dropzone" onclick="document.getElementById('fileInput').click()">
+            <div class="dropzone-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+            </div>
+            <h3>Glissez un fichier ici</h3>
+            <p>ou <span class="browse">parcourez vos fichiers</span><br>Photo prise sur place, image depuis votre galerie, ou PDF</p>
+            <input type="file" id="fileInput" accept="image/*,.pdf" style="display:none">
+          </div>
+          <div id="filePreview" style="display:none;margin-top:12px;padding:12px 14px;background:var(--accent-soft);border-radius:10px;display:flex;align-items:center;gap:12px">
+            <div style="width:40px;height:40px;border-radius:8px;background:var(--accent);color:#fff;display:grid;place-items:center;flex-shrink:0">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:600;font-size:13.5px" id="fileName">exercices-pythagore.pdf</div>
+              <div style="font-size:12px;color:var(--muted)" id="fileSize">2.4 Mo</div>
+            </div>
+            <button type="button" style="color:var(--muted);width:24px;height:24px" onclick="document.getElementById('filePreview').style.display='none';document.getElementById('fileInput').value=''">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:24px;padding-top:18px;border-top:1px solid var(--border)">
+            <button type="button" class="btn btn-outline">Enregistrer brouillon</button>
+            <button type="submit" class="btn btn-primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              Envoyer aux élèves
+            </button>
+          </div>
+        </form>
+
+        <aside class="preview" style="position:sticky;top:88px">
+          <div class="preview-tag">Aperçu élève</div>
+          <div class="preview-title" id="previewTitle">Exercices sur le théorème de Pythagore</div>
+          <div class="preview-meta">
+            <span class="preview-meta-item">📐 Mathématiques</span>
+            <span class="preview-meta-item">👥 3e A</span>
+            <span class="preview-meta-item">📅 28 mai 17h00</span>
+          </div>
+          <div class="preview-body" id="previewBody">Exercices 12, 14 et 16 page 87 du manuel. Pour les plus avancés, exercice 22 page 88. Présenter le travail sur feuille double avec nom, classe et date.</div>
+          <div class="preview-attach" id="previewAttach" style="display:none">
+            <div class="preview-attach-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div class="preview-attach-name" id="previewAttachName">exercices-pythagore.pdf</div>
+              <div class="preview-attach-size">2.4 Mo</div>
+            </div>
+          </div>
+          <div class="preview-foot">Reçu par 24 élèves · Notification push + WhatsApp</div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+<script>
+document.getElementById('hwTitle').addEventListener('input',e=>{document.getElementById('previewTitle').textContent=e.target.value||'Titre du devoir'});
+document.getElementById('hwBody').addEventListener('input',e=>{document.getElementById('previewBody').textContent=e.target.value||'Description du devoir...'});
+document.getElementById('fileInput').addEventListener('change',e=>{
+  const f=e.target.files[0];
+  if(!f) return;
+  document.getElementById('fileName').textContent=f.name;
+  document.getElementById('fileSize').textContent=(f.size/1024/1024).toFixed(2)+' Mo';
+  document.getElementById('filePreview').style.display='flex';
+  document.getElementById('previewAttach').style.display='flex';
+  document.getElementById('previewAttachName').textContent=f.name;
+});
+function sendHomework(){
+  alert('Devoir envoyé à 24 élèves via l\'app + WhatsApp !');
+}
+</script>
+</body>
+</html>

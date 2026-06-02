@@ -1,0 +1,39 @@
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import { Toaster } from "sonner";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "EduGest — Gestion Scolaire",
+  description: "La plateforme de gestion scolaire multi-écoles qui simplifie la vie des directions, enseignants et parents.",
+  icons: {
+    icon: "/edugest-logo.png",
+  },
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="fr" suppressHydrationWarning>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+      >
+        {children}
+        <Toaster position="top-right" richColors />
+      </body>
+    </html>
+  );
+}

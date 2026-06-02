@@ -1,0 +1,166 @@
+@import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  /* EduGest custom colors */
+  --color-edu-accent: oklch(55% 0.15 175);
+  --color-edu-accent-soft: oklch(95% 0.04 175);
+  --color-edu-success: oklch(60% 0.15 145);
+  --color-edu-warning: oklch(72% 0.15 65);
+  --color-edu-danger: oklch(58% 0.20 25);
+  --color-edu-info: oklch(60% 0.13 250);
+  --color-edu-bg: oklch(98% 0.003 220);
+  --color-edu-surface: oklch(100% 0 0);
+  --color-edu-surface2: oklch(96% 0.003 220);
+  --color-edu-fg: oklch(20% 0.02 250);
+  --color-edu-muted: oklch(52% 0.015 250);
+  --color-edu-border: oklch(92% 0.005 250);
+}
+
+:root {
+  --radius: 0.625rem;
+  /* EduGest design tokens */
+  --edu-bg: oklch(98% 0.003 220);
+  --edu-surface: oklch(100% 0 0);
+  --edu-surface2: oklch(96% 0.003 220);
+  --edu-fg: oklch(20% 0.02 250);
+  --edu-muted: oklch(52% 0.015 250);
+  --edu-border: oklch(92% 0.005 250);
+  --edu-accent: oklch(55% 0.15 175);
+  --edu-accent2: oklch(45% 0.13 200);
+  --edu-accent-soft: oklch(95% 0.04 175);
+  --edu-success: oklch(60% 0.15 145);
+  --edu-warning: oklch(72% 0.15 65);
+  --edu-danger: oklch(58% 0.20 25);
+  --edu-info: oklch(60% 0.13 250);
+  --edu-shadow-sm: 0 1px 2px rgba(15,23,42,.04);
+  --edu-shadow: 0 4px 16px -4px rgba(15,23,42,.08), 0 1px 2px rgba(15,23,42,.04);
+  --edu-shadow-lg: 0 20px 40px -12px rgba(15,23,42,.12);
+  /* shadcn compat */
+  --background: oklch(98% 0.003 220);
+  --foreground: oklch(20% 0.02 250);
+  --card: oklch(100% 0 0);
+  --card-foreground: oklch(20% 0.02 250);
+  --popover: oklch(100% 0 0);
+  --popover-foreground: oklch(20% 0.02 250);
+  --primary: oklch(55% 0.15 175);
+  --primary-foreground: oklch(100% 0 0);
+  --secondary: oklch(96% 0.003 220);
+  --secondary-foreground: oklch(20% 0.02 250);
+  --muted: oklch(96% 0.003 220);
+  --muted-foreground: oklch(52% 0.015 250);
+  --accent: oklch(55% 0.15 175);
+  --accent-foreground: oklch(100% 0 0);
+  --destructive: oklch(58% 0.20 25);
+  --border: oklch(92% 0.005 250);
+  --input: oklch(92% 0.005 250);
+  --ring: oklch(55% 0.15 175);
+  --chart-1: oklch(55% 0.15 175);
+  --chart-2: oklch(60% 0.15 145);
+  --chart-3: oklch(72% 0.15 65);
+  --chart-4: oklch(60% 0.13 250);
+  --chart-5: oklch(58% 0.20 25);
+  --sidebar: oklch(100% 0 0);
+  --sidebar-foreground: oklch(20% 0.02 250);
+  --sidebar-primary: oklch(55% 0.15 175);
+  --sidebar-primary-foreground: oklch(100% 0 0);
+  --sidebar-accent: oklch(95% 0.04 175);
+  --sidebar-accent-foreground: oklch(55% 0.15 175);
+  --sidebar-border: oklch(92% 0.005 250);
+  --sidebar-ring: oklch(55% 0.15 175);
+}
+
+.dark {
+  --background: oklch(15% 0.02 250);
+  --foreground: oklch(95% 0.01 220);
+  --card: oklch(20% 0.02 250);
+  --card-foreground: oklch(95% 0.01 220);
+  --popover: oklch(20% 0.02 250);
+  --popover-foreground: oklch(95% 0.01 220);
+  --primary: oklch(55% 0.15 175);
+  --primary-foreground: oklch(100% 0 0);
+  --secondary: oklch(25% 0.01 250);
+  --secondary-foreground: oklch(95% 0.01 220);
+  --muted: oklch(25% 0.01 250);
+  --muted-foreground: oklch(65% 0.015 250);
+  --accent: oklch(55% 0.15 175);
+  --accent-foreground: oklch(100% 0 0);
+  --destructive: oklch(58% 0.20 25);
+  --border: oklch(30% 0.01 250);
+  --input: oklch(30% 0.01 250);
+  --ring: oklch(55% 0.15 175);
+  --sidebar: oklch(18% 0.02 250);
+  --sidebar-foreground: oklch(95% 0.01 220);
+  --sidebar-primary: oklch(55% 0.15 175);
+  --sidebar-primary-foreground: oklch(100% 0 0);
+  --sidebar-accent: oklch(28% 0.02 175);
+  --sidebar-accent-foreground: oklch(55% 0.15 175);
+  --sidebar-border: oklch(30% 0.01 250);
+  --sidebar-ring: oklch(55% 0.15 175);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* EduGest custom utility classes */
+.edu-accent { color: oklch(55% 0.15 175); }
+.edu-accent-bg { background: oklch(55% 0.15 175); }
+.edu-accent-soft-bg { background: oklch(95% 0.04 175); }
+.edu-success { color: oklch(60% 0.15 145); }
+.edu-warning { color: oklch(72% 0.15 65); }
+.edu-danger { color: oklch(58% 0.20 25); }
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: oklch(85% 0.01 250); border-radius: 3px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: oklch(75% 0.01 250); }
+
+/* Leaflet map overrides */
+.leaflet-container { border-radius: 10px; z-index: 1; }

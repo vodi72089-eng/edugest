@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mon profil — EduGest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:oklch(98% 0.003 220);
+  --surface:oklch(100% 0 0);
+  --surface-2:oklch(96% 0.003 220);
+  --fg:oklch(20% 0.02 250);
+  --muted:oklch(52% 0.015 250);
+  --border:oklch(92% 0.005 250);
+  --accent:oklch(55% 0.15 175);
+  --accent-soft:oklch(95% 0.04 175);
+  --success:oklch(60% 0.15 145);
+  --warning:oklch(72% 0.15 65);
+  --danger:oklch(58% 0.20 25);
+  --info:oklch(60% 0.13 250);
+  --radius:12px;
+  --shadow:0 4px 16px -4px rgba(15,23,42,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font:14px/1.5 'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+input,select,textarea{font:inherit;color:inherit}
+
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar-head{padding:18px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.brand-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,oklch(55% 0.15 175),oklch(45% 0.13 200));color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;box-shadow:0 2px 8px oklch(55% 0.15 175 / .25);flex-shrink:0}
+.brand-name{font-weight:700;font-size:15px}
+.brand-tag{font-size:11px;color:var(--muted);font-weight:500}
+.sidebar-school{padding:10px 16px;margin:8px 12px;background:var(--accent-soft);border-radius:8px;display:flex;align-items:center;gap:8px}
+.sidebar-school-logo{width:24px;height:24px;border-radius:5px;background:linear-gradient(135deg,oklch(55% 0.15 175),oklch(45% 0.13 200));color:#fff;font-weight:800;font-size:10px;display:grid;place-items:center;flex-shrink:0}
+.sidebar-school-name{font-size:12px;font-weight:600;line-height:1.2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-school-name small{display:block;font-size:10px;color:var(--muted);font-weight:500;margin-top:1px}
+.sidebar-section{padding:14px 20px 6px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.menu{display:flex;flex-direction:column;gap:2px;padding:0 12px}
+.menu-item{position:relative;display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--fg);transition:all .15s;cursor:pointer}
+.menu-item:hover{background:var(--surface-2)}
+.menu-item.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.menu-item.active::before{content:"";position:absolute;left:0;width:3px;height:20px;background:var(--accent);border-radius:0 2px 2px 0}
+.menu-item svg{width:16px;height:16px;flex-shrink:0;opacity:.7}
+.menu-item.active svg{opacity:1}
+.menu-item .badge{margin-left:auto;background:var(--danger);color:#fff;font-size:10px;padding:1px 6px;border-radius:999px;font-weight:600}
+.sidebar-foot{margin-top:auto;padding:12px;border-top:1px solid var(--border)}
+.profile-card{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:var(--surface-2)}
+.profile-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,oklch(20% 0.02 250),oklch(35% 0.04 250));display:grid;place-items:center;color:#fff;font-weight:600;font-size:13px;flex-shrink:0}
+.profile-name{font-size:13px;font-weight:600}
+.profile-role{font-size:11px;color:var(--muted)}
+.profile-out{margin-left:auto;color:var(--muted);width:16px;height:16px}
+
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20}
+.topbar-left{display:flex;align-items:center;gap:16px}
+.page-title{font-size:18px;font-weight:700;letter-spacing:-0.01em}
+.page-crumb{font-size:12px;color:var(--muted)}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.icon-btn{width:36px;height:36px;border-radius:9px;background:var(--surface-2);display:grid;place-items:center;color:var(--fg);position:relative;border:1px solid var(--border)}
+.icon-btn svg{width:16px;height:16px}
+
+.content{padding:24px;flex:1;overflow-y:auto}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.page-head h1{font-size:24px;font-weight:700;letter-spacing:-0.02em}
+.page-head p{color:var(--muted);font-size:13px;margin-top:2px}
+
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:9px;font-weight:500;font-size:13.5px;border:1px solid transparent;cursor:pointer}
+.btn svg{width:14px;height:14px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:oklch(48% 0.16 175)}
+.btn-outline{background:var(--surface);color:var(--fg);border-color:var(--border)}
+.btn-danger{background:oklch(96% 0.05 25);color:var(--danger);border:1px solid oklch(85% 0.10 25)}
+
+.layout{display:grid;grid-template-columns:300px 1fr;gap:18px;align-items:start}
+
+.profile-card-big{
+  background:linear-gradient(160deg,oklch(45% 0.15 175),oklch(30% 0.12 200));
+  border-radius:14px;padding:24px;text-align:center;
+  color:#fff;position:relative;overflow:hidden;
+}
+.profile-card-big::before{content:"";position:absolute;top:-30%;right:-30%;width:60%;height:80%;background:radial-gradient(ellipse,oklch(60% 0.18 175 / .4), transparent 60%)}
+.avatar-xl{
+  width:96px;height:96px;border-radius:50%;
+  background:linear-gradient(135deg,oklch(80% 0.10 50),oklch(60% 0.13 30));
+  display:grid;place-items:center;color:#fff;font-weight:800;font-size:36px;
+  margin:0 auto 14px;position:relative;
+  box-shadow:0 0 0 4px rgba(255,255,255,.15);
+}
+.avatar-camera{
+  position:absolute;bottom:0;right:0;
+  width:32px;height:32px;border-radius:50%;
+  background:#fff;color:var(--accent);
+  display:grid;place-items:center;
+  border:3px solid oklch(45% 0.15 175);
+  cursor:pointer;
+}
+.avatar-camera svg{width:14px;height:14px}
+.profile-name-big{font-size:18px;font-weight:700;letter-spacing:-0.01em;position:relative;z-index:1}
+.profile-role-big{font-size:13px;color:oklch(85% 0.04 175);margin-top:3px;position:relative;z-index:1}
+.profile-meta{position:relative;z-index:1;display:flex;justify-content:center;gap:14px;margin-top:14px;padding-top:14px;border-top:1px solid oklch(60% 0.04 175 / .3);font-size:11.5px;color:oklch(85% 0.04 175)}
+.profile-meta strong{display:block;color:#fff;font-size:14px;font-weight:700;margin-top:2px}
+
+.side-info{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-top:14px}
+.side-info h3{font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.side-info h3 svg{width:14px;height:14px;color:var(--accent)}
+.info-row{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--border);font-size:13px}
+.info-row:first-of-type{border-top:0}
+.info-row span{color:var(--muted)}
+.info-row strong{font-weight:600;text-align:right;max-width:60%}
+
+.tabs{
+  display:flex;gap:0;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:4px;margin-bottom:14px;
+  overflow-x:auto;
+}
+.tab{
+  padding:10px 18px;border-radius:9px;
+  font-size:13.5px;font-weight:600;color:var(--muted);
+  cursor:pointer;transition:all .15s;white-space:nowrap;
+  display:flex;align-items:center;gap:8px;
+}
+.tab svg{width:14px;height:14px}
+.tab:hover{color:var(--fg)}
+.tab.active{background:var(--accent-soft);color:var(--accent)}
+
+.section{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;display:none}
+.section.active{display:block}
+.section h2{font-size:15px;font-weight:700;letter-spacing:-0.01em;margin-bottom:4px}
+.section p.lead{color:var(--muted);font-size:13px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label{font-size:13px;font-weight:500}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field input,.field select,.field textarea{
+  width:100%;
+  border:1px solid var(--border);
+  background:var(--surface);
+  padding:10px 12px;border-radius:9px;
+  font-size:14px;
+  outline:0;
+  transition:all .15s;
+  font-family:inherit;
+}
+.field input:focus,.field select:focus,.field textarea:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px oklch(55% 0.15 175 / .12);
+}
+.field input:disabled,.field select:disabled{background:var(--surface-2);color:var(--muted);cursor:not-allowed}
+.field .hint{font-size:11.5px;color:var(--muted)}
+.field .hint strong{color:var(--success)}
+
+.actions{display:flex;gap:8px;justify-content:flex-end;padding-top:18px;border-top:1px solid var(--border);margin-top:8px}
+
+.notif-groups{display:flex;flex-direction:column;gap:8px}
+.notif-group{border:1px solid var(--border);border-radius:11px;padding:14px 16px}
+.notif-group-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.notif-group-name{font-size:13.5px;font-weight:600}
+.notif-group-desc{font-size:11.5px;color:var(--muted);margin-top:1px}
+.notif-channels{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.notif-ch{
+  border:1px solid var(--border);
+  background:var(--surface);
+  border-radius:8px;padding:10px 6px;
+  text-align:center;cursor:pointer;transition:all .15s;
+}
+.notif-ch:hover{border-color:oklch(85% 0.005 250)}
+.notif-ch.on{background:var(--accent-soft);border-color:var(--accent)}
+.notif-ch-icon{font-size:18px;margin-bottom:4px}
+.notif-ch-name{font-size:11px;font-weight:600}
+.notif-ch.on .notif-ch-name{color:var(--accent)}
+
+.toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px}
+.toggle input{display:none}
+.toggle-switch{
+  width:36px;height:20px;background:var(--border);
+  border-radius:999px;position:relative;transition:all .2s;
+  flex-shrink:0;
+}
+.toggle-switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.toggle input:checked + .toggle-switch{background:var(--accent)}
+.toggle input:checked + .toggle-switch::after{left:18px}
+
+.danger-zone{
+  border:1px solid oklch(85% 0.10 25);
+  background:oklch(98% 0.02 25);
+  border-radius:11px;padding:18px;margin-top:14px;
+}
+.danger-zone h3{font-size:13.5px;font-weight:700;color:var(--danger);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.danger-zone h3 svg{width:14px;height:14px}
+.danger-zone p{font-size:12.5px;color:var(--muted);margin-bottom:14px;line-height:1.5}
+.danger-zone .btn-danger{background:#fff}
+
+.session-row{
+  display:flex;align-items:center;gap:14px;padding:14px 0;
+  border-top:1px solid var(--border);
+}
+.session-row:first-of-type{border-top:0}
+.session-icon{
+  width:40px;height:40px;border-radius:10px;background:var(--surface-2);
+  display:grid;place-items:center;color:var(--muted);flex-shrink:0;
+}
+.session-icon svg{width:18px;height:18px}
+.session-info{flex:1;min-width:0}
+.session-name{font-size:13.5px;font-weight:600}
+.session-meta{font-size:11.5px;color:var(--muted);margin-top:1px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.session-tag{background:var(--surface-2);padding:1px 7px;border-radius:5px;font-size:10.5px;font-weight:600}
+.session-tag.this{background:oklch(95% 0.05 145);color:var(--success)}
+.session-act{font-size:12.5px;font-weight:600;cursor:pointer}
+.session-act.danger{color:var(--danger)}
+
+@media (max-width:960px){
+  .layout{grid-template-columns:1fr}
+  .tabs{padding:2px}
+  .tab{padding:9px 12px;font-size:12.5px}
+  .notif-channels{grid-template-columns:1fr 1fr}
+}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:-100%;z-index:100;transition:left .25s;width:240px}
+  .sidebar.open{left:0}
+  .content{padding:16px}
+  .field-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <div class="brand-mark">E</div>
+      <div><div class="brand-name">EduGest</div><div class="brand-tag">Direction</div></div>
+    </div>
+    <div class="sidebar-school">
+      <div class="sidebar-school-logo">CL</div>
+      <div class="sidebar-school-name">Complexe Lumière<small>Kinshasa</small></div>
+    </div>
+    <div class="sidebar-section">Pilotage</div>
+    <nav class="menu">
+      <a class="menu-item" href="06-secretary-dashboard.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+      <a class="menu-item" href="13-discipline-blacklist.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        Liste noire
+        <span class="badge">5</span>
+      </a>
+      <a class="menu-item" href="16-communications.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        Communications
+      </a>
+      <a class="menu-item" href="17-convocation.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Convocations
+      </a>
+      <a class="menu-item" href="15-grade-transition.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+        Passage de classe
+      </a>
+    </nav>
+    <div class="sidebar-section">Configuration</div>
+    <nav class="menu">
+      <a class="menu-item active" href="18-profile.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Mon profil
+      </a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="profile-card">
+        <div class="profile-avatar">PD</div>
+        <div><div class="profile-name">M. Lumumba</div><div class="profile-role">Direction</div></div>
+        <svg class="profile-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div>
+          <div class="page-title">Mon profil</div>
+          <div class="page-crumb">Direction · Compte & préférences</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button class="icon-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg>
+        </button>
+        <div style="width:1px;height:24px;background:var(--border);margin:0 4px"></div>
+        <div class="profile-avatar" style="width:32px;height:32px;font-size:12px;background:linear-gradient(135deg,oklch(20% 0.02 250),oklch(35% 0.04 250))">PD</div>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Mon compte</h1>
+          <p>Gérez vos informations personnelles, votre sécurité et vos préférences de notification</p>
+        </div>
+      </div>
+
+      <div class="layout">
+        <aside>
+          <div class="profile-card-big">
+            <div class="avatar-xl">
+              PD
+              <div class="avatar-camera">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </div>
+            </div>
+            <div class="profile-name-big">M. Patrice Lumumba</div>
+            <div class="profile-role-big">Directeur pédagogique</div>
+            <div class="profile-meta">
+              <div>Inscrit depuis<strong>Janvier 2023</strong></div>
+              <div>Dernière connexion<strong>Aujourd'hui 14:22</strong></div>
+            </div>
+          </div>
+
+          <div class="side-info">
+            <h3>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              Informations de base
+            </h3>
+            <div class="info-row"><span>Email</span><strong>p.lumumba@complexelumiere.cd</strong></div>
+            <div class="info-row"><span>Téléphone</span><strong>+243 81 234 56 78</strong></div>
+            <div class="info-row"><span>École</span><strong>Complexe Lumière</strong></div>
+            <div class="info-row"><span>Rôle</span><strong>Direction</strong></div>
+            <div class="info-row"><span>Matricule</span><strong>DIR-001</strong></div>
+            <div class="info-row"><span>Plan</span><strong>Enterprise</strong></div>
+          </div>
+        </aside>
+
+        <div>
+          <div class="tabs">
+            <div class="tab active" data-tab="identite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Identité</div>
+            <div class="tab" data-tab="securite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>Sécurité</div>
+            <div class="tab" data-tab="notifs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg>Notifications</div>
+            <div class="tab" data-tab="sessions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Sessions</div>
+          </div>
+
+          <div class="section active" data-section="identite">
+            <h2>Identité</h2>
+            <p class="lead">Ces informations sont visibles par votre école et l'équipe EduGest.</p>
+            <div class="field-row">
+              <div class="field"><label>Prénom</label><input type="text" value="Patrice"></div>
+              <div class="field"><label>Nom</label><input type="text" value="Lumumba"></div>
+            </div>
+            <div class="field-row">
+              <div class="field"><label>Date de naissance</label><input type="date" value="1978-04-12"></div>
+              <div class="field"><label>Genre</label><select><option>Homme</option><option>Femme</option><option>Autre</option></select></div>
+            </div>
+            <div class="field"><label>Email professionnel</label><input type="email" value="p.lumumba@complexelumiere.cd"></div>
+            <div class="field"><label>Téléphone</label><input type="tel" value="+243 81 234 56 78"></div>
+            <div class="field"><label>Adresse</label><input type="text" value="Avenue de la Liberation, Commune de Lemba, Kinshasa"></div>
+            <div class="field"><label>Bio (optionnel)</label><textarea style="min-height:80px;resize:vertical;padding:10px 12px;border:1px solid var(--border);border-radius:9px;width:100%;font-family:inherit;outline:0">20 ans d'expérience dans l'enseignement primaire et secondaire. Passionné par la pédagogie active et l'intégration du numérique en classe.</textarea></div>
+            <div class="actions"><button class="btn btn-outline">Annuler</button><button class="btn btn-primary">Enregistrer les modifications</button></div>
+          </div>
+
+          <div class="section" data-section="securite">
+            <h2>Sécurité</h2>
+            <p class="lead">Protégez votre compte avec un mot de passe fort et la vérification en deux étapes.</p>
+
+            <div class="field">
+              <label>Mot de passe actuel</label>
+              <input type="password" value="••••••••••">
+              <div class="hint">Dernière modification il y a 45 jours</div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Nouveau mot de passe</label>
+                <input type="password" placeholder="8 caractères minimum">
+                <div class="hint">Force : <strong>aucun</strong></div>
+              </div>
+              <div class="field">
+                <label>Confirmer</label>
+                <input type="password" placeholder="Retapez le mot de passe">
+              </div>
+            </div>
+
+            <div style="background:var(--surface-2);border-radius:11px;padding:16px;margin:18px 0;display:flex;align-items:center;gap:14px">
+              <div style="width:42px;height:42px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex-shrink:0">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              </div>
+              <div style="flex:1">
+                <div style="font-size:14px;font-weight:600">Authentification à deux facteurs (2FA)</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:2px">Sécurisez votre compte avec un code SMS ou via Google Authenticator</div>
+              </div>
+              <label class="toggle"><input type="checkbox" checked><span class="toggle-switch"></span></label>
+            </div>
+
+            <div class="actions"><button class="btn btn-outline">Annuler</button><button class="btn btn-primary">Mettre à jour</button></div>
+
+            <div class="danger-zone">
+              <h3>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>
+                Zone dangereuse
+              </h3>
+              <p>La suppression de votre compte est définitive. Toutes vos données seront effacées après 30 jours.</p>
+              <button class="btn btn-danger">Supprimer mon compte</button>
+            </div>
+          </div>
+
+          <div class="section" data-section="notifs">
+            <h2>Préférences de notification</h2>
+            <p class="lead">Choisissez comment et par quel canal vous souhaitez être notifié.</p>
+
+            <div class="notif-groups">
+              <div class="notif-group">
+                <div class="notif-group-head">
+                  <div>
+                    <div class="notif-group-name">Communications scolaires</div>
+                    <div class="notif-group-desc">Annonces, fermetures, événements de l'école</div>
+                  </div>
+                </div>
+                <div class="notif-channels">
+                  <div class="notif-ch on"><div class="notif-ch-icon">📲</div><div class="notif-ch-name">App</div></div>
+                  <div class="notif-ch on"><div class="notif-ch-icon">💬</div><div class="notif-ch-name">WhatsApp</div></div>
+                  <div class="notif-ch on"><div class="notif-ch-icon">✉️</div><div class="notif-ch-name">Email</div></div>
+                  <div class="notif-ch"><div class="notif-ch-icon">🔔</div><div class="notif-ch-name">Push</div></div>
+                </div>
+              </div>
+              <div class="notif-group">
+                <div class="notif-group-head">
+                  <div>
+                    <div class="notif-group-name">Paiements & finances</div>
+                    <div class="notif-group-desc">Reçus, rappels impayés, validations</div>
+                  </div>
+                </div>
+                <div class="notif-channels">
+                  <div class="notif-ch on"><div class="notif-ch-icon">📲</div><div class="notif-ch-name">App</div></div>
+                  <div class="notif-ch on"><div class="notif-ch-icon">💬</div><div class="notif-ch-name">WhatsApp</div></div>
+                  <div class="notif-ch on"><div class="notif-ch-icon">✉️</div><div class="notif-ch-name">Email</div></div>
+                  <div class="notif-ch on"><div class="notif-ch-icon">🔔</div><div class="notif-ch-name">Push</div></div>
+                </div>
+              </div>
+              <div class="notif-group">
+                <div class="notif-group-head">
+                  <div>
+                    <div class="notif-group-name">Discipline & convocations</div>
+                    <div class="notif-group-desc">Incidents, listes, convocations parents</div>
+                  </div>
+                </div>
+                <div class="notif-channels">
+                  <div class="notif-ch on"><div class="notif-ch-icon">📲</div><div class="notif-ch-name">App</div></div>
+                  <div class="notif-ch on"><div class="notif-ch-icon">💬</div><div class="notif-ch-name">WhatsApp</div></div>
+                  <div class="notif-ch"><div class="notif-ch-icon">✉️</div><div class="notif-ch-name">Email</div></div>
+                  <div class="notif-ch"><div class="notif-ch-icon">🔔</div><div class="notif-ch-name">Push</div></div>
+                </div>
+              </div>
+              <div class="notif-group">
+                <div class="notif-group-head">
+                  <div>
+                    <div class="notif-group-name">Rapports hebdomadaires</div>
+                    <div class="notif-group-desc">Synthèse de l'activité de l'école</div>
+                  </div>
+                </div>
+                <div class="notif-channels">
+                  <div class="notif-ch"><div class="notif-ch-icon">📲</div><div class="notif-ch-name">App</div></div>
+                  <div class="notif-ch"><div class="notif-ch-icon">💬</div><div class="notif-ch-name">WhatsApp</div></div>
+                  <div class="notif-ch on"><div class="notif-ch-icon">✉️</div><div class="notif-ch-name">Email</div></div>
+                  <div class="notif-ch"><div class="notif-ch-icon">🔔</div><div class="notif-ch-name">Push</div></div>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:18px;padding:14px 16px;background:var(--surface-2);border-radius:11px;display:flex;align-items:center;gap:14px">
+              <div style="flex:1">
+                <div style="font-size:14px;font-weight:600">Ne pas déranger</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:2px">Pause notifications entre 20h et 7h (heure de Kinshasa)</div>
+              </div>
+              <label class="toggle"><input type="checkbox" checked><span class="toggle-switch"></span></label>
+            </div>
+          </div>
+
+          <div class="section" data-section="sessions">
+            <h2>Sessions actives</h2>
+            <p class="lead">Appareils actuellement connectés à votre compte EduGest.</p>
+
+            <div class="session-row">
+              <div class="session-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+              <div class="session-info">
+                <div class="session-name">MacBook Pro · Kinshasa <span class="session-tag this">Cette session</span></div>
+                <div class="session-meta">Chrome 125 · macOS 14.4 · IP 196.12.45.78 · Active maintenant</div>
+              </div>
+              <span class="session-act" style="color:var(--muted)">—</span>
+            </div>
+            <div class="session-row">
+              <div class="session-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
+              <div class="session-info">
+                <div class="session-name">iPhone 15 Pro</div>
+                <div class="session-meta">App EduGest · iOS 17.5 · Dernière activité il y a 2h</div>
+              </div>
+              <span class="session-act danger">Déconnecter</span>
+            </div>
+            <div class="session-row">
+              <div class="session-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+              <div class="session-info">
+                <div class="session-name">Dell Latitude · Bureau direction</div>
+                <div class="session-meta">Firefox 126 · Windows 11 · IP 196.12.45.89 · Hier à 18h42</div>
+              </div>
+              <span class="session-act danger">Déconnecter</span>
+            </div>
+
+            <div class="actions"><button class="btn btn-danger">Déconnecter tous les autres appareils</button></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<script>
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  const k=t.dataset.tab;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));
+  document.querySelectorAll('.section').forEach(s=>s.classList.toggle('active',s.dataset.section===k));
+}));
+document.querySelectorAll('.notif-ch').forEach(c=>c.addEventListener('click',()=>c.classList.toggle('on')));
+</script>
+</body>
+</html>

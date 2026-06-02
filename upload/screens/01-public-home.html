@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EduGest — Trouvez votre école</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:oklch(98% 0.003 220);
+  --surface:oklch(100% 0 0);
+  --fg:oklch(20% 0.02 250);
+  --muted:oklch(52% 0.015 250);
+  --border:oklch(92% 0.005 250);
+  --accent:oklch(55% 0.15 175);
+  --accent-soft:oklch(95% 0.04 175);
+  --success:oklch(60% 0.15 145);
+  --warning:oklch(72% 0.15 65);
+  --danger:oklch(58% 0.20 25);
+  --info:oklch(60% 0.13 250);
+  --shadow-sm:0 1px 2px rgba(15,23,42,.04);
+  --shadow:0 4px 16px -4px rgba(15,23,42,.08), 0 1px 2px rgba(15,23,42,.04);
+  --shadow-lg:0 20px 40px -12px rgba(15,23,42,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font:15px/1.5 'Inter',system-ui,-apple-system,sans-serif;
+  background:var(--bg);color:var(--fg);
+  -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+input,select,textarea{font:inherit;color:inherit}
+
+/* === Header === */
+.header{
+  position:sticky;top:0;z-index:50;
+  background:rgba(255,255,255,.85);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+}
+.header-inner{
+  max-width:1280px;margin:0 auto;padding:0 24px;
+  height:64px;display:flex;align-items:center;justify-content:space-between;
+}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px}
+.brand-mark{
+  width:32px;height:32px;border-radius:8px;
+  background:linear-gradient(135deg,oklch(55% 0.15 175),oklch(45% 0.13 200));
+  color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;
+  box-shadow:0 2px 8px oklch(55% 0.15 175 / .25);
+}
+.nav-links{display:flex;gap:8px;align-items:center}
+.nav-link{
+  padding:8px 14px;border-radius:8px;
+  font-size:14px;font-weight:500;color:var(--muted);
+  transition:all .15s;
+}
+.nav-link:hover{color:var(--fg);background:var(--surface)}
+.nav-cta{
+  background:var(--accent);color:#fff;
+  padding:8px 16px;border-radius:8px;
+  font-weight:500;font-size:14px;margin-left:8px;
+  transition:all .15s;
+}
+.nav-cta:hover{background:oklch(50% 0.15 175);transform:translateY(-1px)}
+
+/* === Hero === */
+.hero{
+  background:linear-gradient(180deg,oklch(96% 0.015 175) 0%,oklch(98% 0.003 220) 100%);
+  padding:80px 0 56px;
+  position:relative;overflow:hidden;
+}
+.hero::before{
+  content:"";position:absolute;inset:0;
+  background-image:
+    radial-gradient(oklch(75% 0.1 175 / .25) 1px,transparent 1px),
+    radial-gradient(oklch(75% 0.1 175 / .18) 1px,transparent 1px);
+  background-size:32px 32px,32px 32px;
+  background-position:0 0,16px 16px;
+  mask-image:radial-gradient(ellipse at top,black,transparent 70%);
+  -webkit-mask-image:radial-gradient(ellipse at top,black,transparent 70%);
+  pointer-events:none;
+}
+.shell{max-width:1280px;margin:0 auto;padding:0 24px;position:relative}
+.hero-inner{text-align:center;max-width:760px;margin:0 auto}
+.hero h1{
+  font-size:clamp(36px,5vw,56px);
+  font-weight:800;letter-spacing:-0.03em;line-height:1.05;
+  margin-bottom:16px;
+}
+.hero h1 .accent{color:var(--accent)}
+.hero p{
+  font-size:17px;color:var(--muted);line-height:1.55;
+  margin-bottom:32px;
+}
+
+/* === Search === */
+.search-bar{
+  display:flex;align-items:center;gap:8px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:6px;
+  max-width:760px;margin:0 auto;
+  box-shadow:var(--shadow);
+}
+.search-input{
+  flex:1;display:flex;align-items:center;gap:10px;
+  padding:0 12px;
+}
+.search-input input{
+  flex:1;border:0;outline:0;background:none;
+  font-size:15px;padding:12px 0;
+}
+.search-input input::placeholder{color:oklch(70% 0.01 250)}
+.search-icon{color:var(--muted);width:18px;height:18px;flex-shrink:0}
+.search-select{
+  border:0;background:var(--bg);
+  padding:10px 14px;border-radius:9px;
+  font-size:13px;color:var(--fg);
+  cursor:pointer;outline:0;
+  border-right:1px solid var(--border);
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;
+  padding-right:28px;
+}
+.search-btn{
+  background:var(--accent);color:#fff;
+  padding:12px 22px;border-radius:9px;
+  font-weight:500;font-size:14px;
+  transition:all .15s;
+}
+.search-btn:hover{background:oklch(50% 0.15 175)}
+
+/* === Filters === */
+.filters{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:24px 0 12px;
+  max-width:1280px;margin:0 auto;
+}
+.chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 12px;border-radius:999px;
+  font:500 13px/1 'Inter',sans-serif;
+  background:var(--surface);
+  border:1px solid var(--border);
+  color:var(--fg);
+  transition:all .15s;cursor:pointer;
+}
+.chip:hover{border-color:oklch(80% 0.04 175)}
+.chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.chip-count{
+  background:oklch(94% 0.005 250);
+  padding:1px 7px;border-radius:999px;
+  font:500 11px/1.4 'JetBrains Mono',monospace;
+  color:var(--muted);
+}
+.chip.active .chip-count{background:rgba(255,255,255,.2);color:#fff}
+.filters-right{margin-left:auto;font-size:13px;color:var(--muted)}
+
+/* === Schools grid === */
+.results{
+  max-width:1280px;margin:0 auto;padding:16px 24px 80px;
+}
+.results-head{
+  display:flex;align-items:baseline;justify-content:space-between;
+  margin-bottom:16px;
+}
+.results-count{font-size:14px;color:var(--muted)}
+.results-count strong{color:var(--fg);font-weight:600}
+.sort-select{
+  border:1px solid var(--border);
+  background:var(--surface);
+  padding:7px 30px 7px 12px;border-radius:8px;
+  font-size:13px;
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;
+}
+.schools{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+  gap:16px;
+}
+.school{
+  display:block;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:14px;
+  overflow:hidden;
+  transition:all .2s;
+  box-shadow:var(--shadow-sm);
+}
+.school:hover{
+  transform:translateY(-2px);
+  box-shadow:var(--shadow);
+  border-color:oklch(80% 0.04 175);
+}
+.school-cover{
+  height:120px;
+  position:relative;
+  background:linear-gradient(135deg, var(--c1, oklch(55% 0.15 175)), var(--c2, oklch(45% 0.13 200)));
+  display:flex;align-items:flex-end;padding:12px;
+}
+.school-logo{
+  width:48px;height:48px;border-radius:10px;
+  background:#fff;
+  display:grid;place-items:center;
+  font-weight:800;font-size:18px;color:var(--fg);
+  box-shadow:0 2px 8px rgba(0,0,0,.15);
+  position:relative;top:24px;
+}
+.school-type{
+  position:absolute;top:12px;right:12px;
+  background:rgba(255,255,255,.95);
+  padding:4px 10px;border-radius:999px;
+  font:500 11px/1 'Inter',sans-serif;color:var(--fg);
+  backdrop-filter:blur(8px);
+}
+.school-body{padding:32px 18px 18px}
+.school-name{
+  font-size:16px;font-weight:600;letter-spacing:-0.005em;
+  margin-bottom:4px;
+}
+.school-loc{
+  font-size:13px;color:var(--muted);
+  display:flex;align-items:center;gap:4px;
+  margin-bottom:14px;
+}
+.school-stats{
+  display:flex;gap:14px;
+  padding:12px 0;
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  margin-bottom:14px;
+}
+.school-stat{font-size:12px;color:var(--muted)}
+.school-stat strong{display:block;font-size:15px;color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums;margin-bottom:2px}
+.school-foot{
+  display:flex;align-items:center;justify-content:space-between;
+}
+.school-rating{
+  display:flex;align-items:center;gap:4px;
+  font-size:13px;font-weight:500;
+}
+.star{color:oklch(72% 0.15 65)}
+.school-cta{
+  background:var(--accent);color:#fff;
+  padding:7px 14px;border-radius:8px;
+  font:500 13px/1 'Inter',sans-serif;
+}
+.school:hover .school-cta{background:oklch(50% 0.15 175)}
+
+/* === Footer === */
+.footer{
+  border-top:1px solid var(--border);
+  background:var(--surface);
+  padding:48px 0 24px;
+}
+.footer-grid{
+  max-width:1280px;margin:0 auto;padding:0 24px;
+  display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:40px;
+}
+.footer-brand p{color:var(--muted);font-size:13px;margin-top:12px;max-width:280px;line-height:1.55}
+.footer h4{font-size:13px;font-weight:600;margin-bottom:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.footer ul{list-style:none;display:flex;flex-direction:column;gap:8px}
+.footer a{font-size:13px;color:var(--fg);transition:color .15s}
+.footer a:hover{color:var(--accent)}
+.footer-bottom{
+  max-width:1280px;margin:32px auto 0;padding:24px 24px 0;
+  border-top:1px solid var(--border);
+  display:flex;justify-content:space-between;
+  font-size:12px;color:var(--muted);
+}
+
+@media (max-width:860px){
+  .footer-grid{grid-template-columns:1fr 1fr}
+  .search-bar{flex-direction:column;align-items:stretch;padding:8px}
+  .search-select{border-right:0;border-bottom:1px solid var(--border);border-radius:9px;background-position:right 12px center;width:100%}
+  .nav-links .nav-link{display:none}
+  .filters-right{display:none}
+}
+@media (max-width:520px){
+  .footer-grid{grid-template-columns:1fr}
+  .schools{grid-template-columns:1fr}
+  .hero{padding:48px 0 32px}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">E</span>
+      <span>EduGest</span>
+    </a>
+    <nav class="nav-links">
+      <a class="nav-link" href="01-public-home.html">Écoles</a>
+      <a class="nav-link" href="14-pricing.html">Tarifs</a>
+      <a class="nav-link" href="02-school-public.html">À propos</a>
+      <a class="nav-cta" href="03-login.html">Se connecter</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="shell hero-inner">
+    <h1>Trouvez <span class="accent">votre école</span></h1>
+    <p>Plus de 240 établissements partenaires à travers l'Afrique francophone. Comparez, contactez et inscrivez votre enfant en quelques clics.</p>
+
+    <div class="search-bar">
+      <div class="search-input">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="text" placeholder="Rechercher une école par nom..." />
+      </div>
+      <select class="search-select">
+        <option>Toutes provinces</option>
+        <option>Kinshasa</option>
+        <option>Kongo Central</option>
+        <option>Katanga</option>
+        <option>Équateur</option>
+        <option>Senegal</option>
+        <option>Côte d'Ivoire</option>
+      </select>
+      <button class="search-btn">Rechercher</button>
+    </div>
+  </div>
+</section>
+
+<div class="filters">
+  <button class="chip active">Toutes <span class="chip-count">248</span></button>
+  <button class="chip">Maternelle</button>
+  <button class="chip">Primaire</button>
+  <button class="chip">Secondaire</button>
+  <button class="chip">Mixte</button>
+  <button class="chip">Privée</button>
+  <button class="chip">Publique</button>
+  <div class="filters-right">Affichage 1–12 sur 248</div>
+</div>
+
+<section class="results">
+  <div class="results-head">
+    <div class="results-count"><strong>248 écoles</strong> correspondent à votre recherche</div>
+    <select class="sort-select">
+      <option>Trier : Pertinence</option>
+      <option>Note décroissante</option>
+      <option>Plus d'élèves</option>
+      <option>Plus récentes</option>
+    </select>
+  </div>
+
+  <div class="schools">
+    <a class="school" href="02-school-public.html" style="--c1:oklch(55% 0.15 175);--c2:oklch(45% 0.13 200)">
+      <div class="school-cover">
+        <span class="school-type">Mixte · Privée</span>
+        <div class="school-logo" style="color:oklch(45% 0.13 175)">CL</div>
+      </div>
+      <div class="school-body">
+        <div class="school-name">Complexe Scolaire Lumière</div>
+        <div class="school-loc">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Kinshasa · Gombe
+        </div>
+        <div class="school-stats">
+          <div class="school-stat"><strong>1 248</strong>élèves</div>
+          <div class="school-stat"><strong>42</strong>classes</div>
+          <div class="school-stat"><strong>2008</strong>fondée</div>
+        </div>
+        <div class="school-foot">
+          <div class="school-rating">
+            <span class="star">★</span> 4.8 <span style="color:var(--muted);font-weight:400">· 124 avis</span>
+          </div>
+          <span class="school-cta">Voir l'école →</span>
+        </div>
+      </div>
+    </a>
+
+    <a class="school" href="02-school-public.html" style="--c1:oklch(60% 0.13 250);--c2:oklch(45% 0.15 280)">
+      <div class="school-cover">
+        <span class="school-type">Secondaire · Privée</span>
+        <div class="school-logo" style="color:oklch(45% 0.13 250)">EA</div>
+      </div>
+      <div class="school-body">
+        <div class="school-name">École Académie de l'Avenir</div>
+        <div class="school-loc">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Lubumbashi · Katanga
+        </div>
+        <div class="school-stats">
+          <div class="school-stat"><strong>892</strong>élèves</div>
+          <div class="school-stat"><strong>28</strong>classes</div>
+          <div class="school-stat"><strong>2012</strong>fondée</div>
+        </div>
+        <div class="school-foot">
+          <div class="school-rating">
+            <span class="star">★</span> 4.6 <span style="color:var(--muted);font-weight:400">· 78 avis</span>
+          </div>
+          <span class="school-cta">Voir l'école →</span>
+        </div>
+      </div>
+    </a>
+
+    <a class="school" href="02-school-public.html" style="--c1:oklch(60% 0.15 65);--c2:oklch(50% 0.16 30)">
+      <div class="school-cover">
+        <span class="school-type">Primaire · Privée</span>
+        <div class="school-logo" style="color:oklch(50% 0.13 65)">SE</div>
+      </div>
+      <div class="school-body">
+        <div class="school-name">Les Petits Explorateurs</div>
+        <div class="school-loc">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Dakar · Almadies
+        </div>
+        <div class="school-stats">
+          <div class="school-stat"><strong>324</strong>élèves</div>
+          <div class="school-stat"><strong>14</strong>classes</div>
+          <div class="school-stat"><strong>2018</strong>fondée</div>
+        </div>
+        <div class="school-foot">
+          <div class="school-rating">
+            <span class="star">★</span> 4.9 <span style="color:var(--muted);font-weight:400">· 56 avis</span>
+          </div>
+          <span class="school-cta">Voir l'école →</span>
+        </div>
+      </div>
+    </a>
+
+    <a class="school" href="02-school-public.html" style="--c1:oklch(58% 0.15 145);--c2:oklch(40% 0.15 175)">
+      <div class="school-cover">
+        <span class="school-type">Mixte · Privée</span>
+        <div class="school-logo" style="color:oklch(40% 0.13 145)">IS</div>
+      </div>
+      <div class="school-body">
+        <div class="school-name">Institut Saint-Michel</div>
+        <div class="school-loc">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Abidjan · Cocody
+        </div>
+        <div class="school-stats">
+          <div class="school-stat"><strong>1 564</strong>élèves</div>
+          <div class="school-stat"><strong>48</strong>classes</div>
+          <div class="school-stat"><strong>1998</strong>fondée</div>
+        </div>
+        <div class="school-foot">
+          <div class="school-rating">
+            <span class="star">★</span> 4.7 <span style="color:var(--muted);font-weight:400">· 142 avis</span>
+          </div>
+          <span class="school-cta">Voir l'école →</span>
+        </div>
+      </div>
+    </a>
+
+    <a class="school" href="02-school-public.html" style="--c1:oklch(55% 0.20 25);--c2:oklch(45% 0.18 0)">
+      <div class="school-cover">
+        <span class="school-type">Secondaire · Privée</span>
+        <div class="school-logo" style="color:oklch(45% 0.18 25)">CG</div>
+      </div>
+      <div class="school-body">
+        <div class="school-name">Collège du Génie</div>
+        <div class="school-loc">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Brazzaville · Centre
+        </div>
+        <div class="school-stats">
+          <div class="school-stat"><strong>682</strong>élèves</div>
+          <div class="school-stat"><strong>24</strong>classes</div>
+          <div class="school-stat"><strong>2015</strong>fondée</div>
+        </div>
+        <div class="school-foot">
+          <div class="school-rating">
+            <span class="star">★</span> 4.5 <span style="color:var(--muted);font-weight:400">· 64 avis</span>
+          </div>
+          <span class="school-cta">Voir l'école →</span>
+        </div>
+      </div>
+    </a>
+
+    <a class="school" href="02-school-public.html" style="--c1:oklch(60% 0.15 295);--c2:oklch(45% 0.15 320)">
+      <div class="school-cover">
+        <span class="school-type">Maternelle · Privée</span>
+        <div class="school-logo" style="color:oklch(45% 0.15 295)">EM</div>
+      </div>
+      <div class="school-body">
+        <div class="school-name">École Montessori Étoile</div>
+        <div class="school-loc">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Kinshasa · Binza
+        </div>
+        <div class="school-stats">
+          <div class="school-stat"><strong>156</strong>élèves</div>
+          <div class="school-stat"><strong>8</strong>classes</div>
+          <div class="school-stat"><strong>2020</strong>fondée</div>
+        </div>
+        <div class="school-foot">
+          <div class="school-rating">
+            <span class="star">★</span> 4.9 <span style="color:var(--muted);font-weight:400">· 38 avis</span>
+          </div>
+          <span class="school-cta">Voir l'école →</span>
+        </div>
+      </div>
+    </a>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <div class="brand"><span class="brand-mark">E</span><span>EduGest</span></div>
+      <p>La plateforme de gestion scolaire multi-écoles qui simplifie la vie des directions, enseignants et parents.</p>
+    </div>
+    <div>
+      <h4>Produit</h4>
+      <ul>
+        <li><a href="01-public-home.html">Trouver une école</a></li>
+        <li><a href="14-pricing.html">Tarifs</a></li>
+        <li><a href="03-login.html">Connexion</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Rôles</h4>
+      <ul>
+        <li><a href="04-super-admin-dashboard.html">Super Admin</a></li>
+        <li><a href="06-secretary-dashboard.html">Secrétaire</a></li>
+        <li><a href="11-parent-dashboard.html">Parent</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Contact</h4>
+      <ul>
+        <li>support@edugest.app</li>
+        <li>+243 81 234 56 78</li>
+        <li>Kinshasa · RDC</li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div>© 2026 EduGest · Tous droits réservés</div>
+    <div>Conditions · Confidentialité · Cookies</div>
+  </div>
+</footer>
+
+<script>
+// Filter chips
+document.querySelectorAll('.chip').forEach(chip=>{
+  chip.addEventListener('click',()=>{
+    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

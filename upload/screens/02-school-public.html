@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Complexe Scolaire Lumière — EduGest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:oklch(98% 0.003 220);
+  --surface:oklch(100% 0 0);
+  --fg:oklch(20% 0.02 250);
+  --muted:oklch(52% 0.015 250);
+  --border:oklch(92% 0.005 250);
+  --accent:oklch(55% 0.15 175);
+  --accent-soft:oklch(95% 0.04 175);
+  --success:oklch(60% 0.15 145);
+  --warning:oklch(72% 0.15 65);
+  --danger:oklch(58% 0.20 25);
+  --info:oklch(60% 0.13 250);
+  --shadow-sm:0 1px 2px rgba(15,23,42,.04);
+  --shadow:0 4px 16px -4px rgba(15,23,42,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font:15px/1.5 'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+input,textarea,select{font:inherit;color:inherit}
+
+.header{
+  position:sticky;top:0;z-index:50;
+  background:rgba(255,255,255,.85);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+}
+.header-inner{
+  max-width:1280px;margin:0 auto;padding:0 24px;height:64px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px}
+.brand-mark{
+  width:32px;height:32px;border-radius:8px;
+  background:linear-gradient(135deg,oklch(55% 0.15 175),oklch(45% 0.13 200));
+  color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;
+}
+.nav-links{display:flex;gap:8px;align-items:center}
+.nav-link{padding:8px 14px;border-radius:8px;font-size:14px;font-weight:500;color:var(--muted)}
+.nav-link:hover{color:var(--fg);background:var(--surface)}
+.nav-cta{background:var(--accent);color:#fff;padding:8px 16px;border-radius:8px;font-weight:500;font-size:14px;margin-left:8px}
+
+.cover{
+  height:280px;
+  background:linear-gradient(135deg,oklch(55% 0.15 175),oklch(40% 0.13 200));
+  position:relative;
+}
+.cover::after{
+  content:"";position:absolute;inset:0;
+  background-image:radial-gradient(oklch(100% 0 0 / .12) 1px,transparent 1px);
+  background-size:24px 24px;
+  pointer-events:none;
+}
+.cover-content{
+  position:absolute;bottom:0;left:0;right:0;
+  background:linear-gradient(0deg,rgba(0,0,0,.5),transparent);
+  padding:48px 0 24px;
+}
+.cover-inner{max-width:1280px;margin:0 auto;padding:0 24px;display:flex;align-items:flex-end;gap:20px}
+.school-logo{
+  width:88px;height:88px;border-radius:18px;
+  background:#fff;display:grid;place-items:center;
+  font-weight:800;font-size:32px;color:oklch(45% 0.13 175);
+  box-shadow:0 4px 16px rgba(0,0,0,.25);
+  flex-shrink:0;
+}
+.cover-info{flex:1;color:#fff}
+.cover-name{font-size:32px;font-weight:700;letter-spacing:-0.02em;margin-bottom:4px}
+.cover-meta{font-size:14px;opacity:.9;display:flex;gap:16px;flex-wrap:wrap}
+.cover-meta-item{display:inline-flex;align-items:center;gap:6px}
+
+.shell{max-width:1280px;margin:0 auto;padding:0 24px}
+.layout{
+  display:grid;grid-template-columns:1fr 320px;
+  gap:32px;padding:32px 24px 64px;
+  max-width:1280px;margin:0 auto;
+}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;box-shadow:var(--shadow-sm)}
+.card h2{font-size:18px;font-weight:700;letter-spacing:-0.01em;margin-bottom:14px}
+.card+.card{margin-top:16px}
+
+.tag{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font:500 12px/1.2 'Inter',sans-serif}
+.tag-mix{background:oklch(95% 0.04 175);color:oklch(40% 0.13 175)}
+.tag-pub{background:oklch(95% 0.05 65);color:oklch(40% 0.13 65)}
+
+.about p{color:var(--muted);line-height:1.65;margin-bottom:12px}
+.about p:last-child{margin:0}
+
+.stats-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:16px;margin-top:16px;
+}
+.stat-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:18px;
+  position:relative;
+  overflow:hidden;
+}
+.stat-card::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:3px;
+  background:var(--c,var(--accent));
+}
+.stat-num{font-size:24px;font-weight:700;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.stat-label{font-size:12px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.04em}
+
+.review{
+  padding:16px 0;border-top:1px solid var(--border);
+}
+.review:first-of-type{border-top:0;padding-top:0}
+.review-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.review-avatar{
+  width:36px;height:36px;border-radius:50%;
+  background:linear-gradient(135deg,var(--c1,oklch(55% 0.15 175)),var(--c2,oklch(45% 0.13 200)));
+  display:grid;place-items:center;color:#fff;font-weight:600;font-size:13px;
+}
+.review-name{font-weight:600;font-size:14px}
+.review-date{font-size:12px;color:var(--muted)}
+.review-stars{color:oklch(72% 0.15 65);font-size:13px;letter-spacing:1px;margin-bottom:6px}
+.review-body{font-size:14px;color:var(--muted);line-height:1.55}
+
+.form-row{display:flex;gap:10px;margin-bottom:14px}
+.field{flex:1;display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;font-weight:500;color:var(--fg)}
+.field input,.field textarea,.field select{
+  width:100%;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:9px;
+  font-size:14px;
+  background:var(--surface);
+  transition:border-color .15s,box-shadow .15s;
+  outline:0;
+}
+.field input:focus,.field textarea:focus,.field select:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px oklch(55% 0.15 175 / .12);
+}
+.field textarea{min-height:80px;resize:vertical;font-family:inherit}
+.field-row{display:flex;align-items:center;gap:4px;padding:10px 0}
+.star-pick{font-size:22px;cursor:pointer;color:oklch(85% 0.01 80);transition:color .1s;user-select:none}
+.star-pick.filled{color:oklch(72% 0.15 65)}
+
+.btn{padding:11px 20px;border-radius:10px;font-weight:500;font-size:14px;display:inline-flex;align-items:center;gap:8px;border:1px solid transparent}
+.btn-primary{background:var(--accent);color:#fff;width:100%;justify-content:center}
+.btn-primary:hover{background:oklch(50% 0.15 175)}
+.btn-outline{background:transparent;color:var(--fg);border-color:var(--border)}
+.btn-outline:hover{background:var(--bg)}
+.btn-wa{background:oklch(60% 0.15 145);color:#fff;width:100%;justify-content:center}
+.btn-wa:hover{background:oklch(55% 0.15 145)}
+
+.aside{}
+.aside-card{padding:20px}
+.aside-info{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-top:1px solid var(--border)}
+.aside-info:first-of-type{border-top:0;padding-top:0}
+.aside-icon{
+  width:36px;height:36px;border-radius:9px;
+  background:var(--accent-soft);color:var(--accent);
+  display:grid;place-items:center;flex-shrink:0;
+}
+.aside-label{font-size:12px;color:var(--muted);margin-bottom:2px}
+.aside-value{font-size:14px;font-weight:500}
+.map-frame{
+  width:100%;height:200px;border-radius:10px;border:1px solid var(--border);
+  background:oklch(95% 0.01 220);
+  display:grid;place-items:center;color:var(--muted);font-size:13px;
+  position:relative;overflow:hidden;
+}
+.map-frame::before{
+  content:"";position:absolute;inset:0;
+  background-image:
+    linear-gradient(oklch(90% 0.005 220) 1px,transparent 1px),
+    linear-gradient(90deg,oklch(90% 0.005 220) 1px,transparent 1px);
+  background-size:20px 20px;
+}
+.map-pin{
+  position:relative;
+  background:#fff;padding:6px 12px;border-radius:999px;
+  font-weight:500;font-size:12px;color:var(--fg);
+  box-shadow:0 4px 12px rgba(0,0,0,.15);
+  display:flex;align-items:center;gap:6px;
+}
+.map-pin::before{
+  content:"";position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);
+  width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:6px solid #fff;
+}
+.cta-block{
+  background:linear-gradient(135deg,oklch(55% 0.15 175),oklch(45% 0.13 200));
+  color:#fff;border-radius:14px;padding:24px;text-align:center;
+  position:relative;overflow:hidden;
+}
+.cta-block::before{
+  content:"";position:absolute;inset:0;
+  background-image:radial-gradient(oklch(100% 0 0 / .15) 1px,transparent 1px);
+  background-size:20px 20px;pointer-events:none;
+}
+.cta-block h3{font-size:18px;font-weight:700;margin-bottom:6px;position:relative}
+.cta-block p{font-size:13px;opacity:.9;margin-bottom:16px;position:relative}
+
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .cover{height:200px}
+  .cover-inner{flex-direction:column;align-items:flex-start;gap:12px}
+  .school-logo{width:64px;height:64px;font-size:24px;border-radius:14px}
+  .cover-name{font-size:24px}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">E</span><span>EduGest</span>
+    </a>
+    <nav class="nav-links">
+      <a class="nav-link" href="01-public-home.html">← Toutes les écoles</a>
+      <a class="nav-cta" href="03-login.html">Se connecter</a>
+    </nav>
+  </div>
+</header>
+
+<div class="cover">
+  <div class="cover-content">
+    <div class="cover-inner">
+      <div class="school-logo">CL</div>
+      <div class="cover-info">
+        <div class="cover-name">Complexe Scolaire Lumière</div>
+        <div class="cover-meta">
+          <span class="cover-meta-item">📍 Av. de la Libération, Gombe, Kinshasa</span>
+          <span class="cover-meta-item">📞 +243 81 234 56 78</span>
+          <span class="cover-meta-item">✉ contact@lumiere.cd</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+  <main>
+    <div class="card about">
+      <h2>À propos de l'école</h2>
+      <p>Fondé en 2008, le Complexe Scolaire Lumière accueille aujourd'hui plus de 1 200 élèves de la maternelle à la terminale. Notre pédagogie bilingue (français-anglais) prépare les élèves aux meilleurs lycées et universités, en privilégiant l'excellence académique et l'épanouissement personnel.</p>
+      <p>Notre équipe pédagogique — 84 enseignants diplômés — accompagne chaque élève dans un cadre moderne : 42 salles de classe climatisées, laboratoire de sciences, bibliothèque de 8 000 ouvrages, deux terrains de sport et une salle polyvalente.</p>
+    </div>
+
+    <div class="card">
+      <h2>Statistiques</h2>
+      <div class="stats-grid">
+        <div class="stat-card" style="--c:var(--accent)">
+          <div class="stat-num">1 248</div>
+          <div class="stat-label">Élèves inscrits</div>
+        </div>
+        <div class="stat-card" style="--c:oklch(60% 0.15 145)">
+          <div class="stat-num">42</div>
+          <div class="stat-label">Classes actives</div>
+        </div>
+        <div class="stat-card" style="--c:oklch(60% 0.15 65)">
+          <div class="stat-num">84</div>
+          <div class="stat-label">Enseignants</div>
+        </div>
+        <div class="stat-card" style="--c:oklch(60% 0.13 250)">
+          <div class="stat-num">17 ans</div>
+          <div class="stat-label">Existence</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Programme pédagogique</h2>
+      <p style="color:var(--muted);line-height:1.65;margin-bottom:14px">De la maternelle à la terminale, avec une spécialisation progressive :</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <span class="tag tag-mix">Maternelle bilingue</span>
+        <span class="tag tag-mix">Primaire</span>
+        <span class="tag tag-mix">Collège</span>
+        <span class="tag tag-mix">Lycée — Scientifique</span>
+        <span class="tag tag-mix">Lycée — Littéraire</span>
+        <span class="tag tag-pub">Préparation BAC international</span>
+        <span class="tag tag-pub">Anglais renforcé</span>
+        <span class="tag tag-pub">Informatique dès la 6e</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Avis des visiteurs <span style="color:var(--muted);font-weight:400;font-size:14px;margin-left:6px">· 124 avis</span></h2>
+      <div id="reviews">
+        <div class="review">
+          <div class="review-head">
+            <div class="review-avatar" style="--c1:oklch(55% 0.15 175);--c2:oklch(45% 0.13 200)">MK</div>
+            <div>
+              <div class="review-name">Maman Kalume</div>
+              <div class="review-date">Parent · il y a 2 semaines</div>
+            </div>
+          </div>
+          <div class="review-stars">★ ★ ★ ★ ★</div>
+          <div class="review-body">Mon fils est en 4e et adore l'école. Les enseignants sont disponibles et le suivi WhatsApp avec la direction est un vrai plus. Je recommande.</div>
+        </div>
+        <div class="review">
+          <div class="review-head">
+            <div class="review-avatar" style="--c1:oklch(60% 0.15 65);--c2:oklch(50% 0.16 30)">PN</div>
+            <div>
+              <div class="review-name">Papa Numbi</div>
+              <div class="review-date">Parent · il y a 1 mois</div>
+            </div>
+          </div>
+          <div class="review-stars">★ ★ ★ ★ ☆</div>
+          <div class="review-body">Très bonne école, mais les frais ont augmenté cette année. Le paiement par Orange Money reste très pratique.</div>
+        </div>
+        <div class="review">
+          <div class="review-head">
+            <div class="review-avatar" style="--c1:oklch(60% 0.15 145);--c2:oklch(45% 0.15 175)">AT</div>
+            <div>
+              <div class="review-name">Anonyme</div>
+              <div class="review-date">Visiteur · il y a 2 mois</div>
+            </div>
+          </div>
+          <div class="review-stars">★ ★ ★ ★ ★</div>
+          <div class="review-body">J'ai visité l'école pour inscrire ma fille. Les locaux sont impeccables, la direction très accueillante.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Laisser un avis</h2>
+      <form onsubmit="event.preventDefault();submitReview()">
+        <div class="form-row">
+          <div class="field"><label>Votre nom</label><input type="text" placeholder="ex. Maman Mbuyi" required></div>
+          <div class="field" style="max-width:140px">
+            <label>Note</label>
+            <div class="field-row" id="stars">
+              <span class="star-pick" data-v="1">★</span>
+              <span class="star-pick" data-v="2">★</span>
+              <span class="star-pick" data-v="3">★</span>
+              <span class="star-pick" data-v="4">★</span>
+              <span class="star-pick" data-v="5">★</span>
+            </div>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:14px"><label>Votre commentaire</label><textarea placeholder="Partagez votre expérience..." required></textarea></div>
+        <button type="submit" class="btn btn-primary">Publier l'avis</button>
+      </form>
+    </div>
+  </main>
+
+  <aside class="aside">
+    <div class="card cta-block">
+      <h3>Espace privé</h3>
+      <p>Parents, enseignants, direction : accédez à votre tableau de bord</p>
+      <a class="btn btn-primary" href="03-login.html" style="background:#fff;color:var(--accent)">Accéder à l'espace →</a>
+    </div>
+
+    <div class="card aside-card">
+      <h2 style="font-size:15px">Coordonnées</h2>
+      <div class="aside-info">
+        <div class="aside-icon">📍</div>
+        <div>
+          <div class="aside-label">Adresse</div>
+          <div class="aside-value">Av. de la Libération 24<br>Gombe, Kinshasa</div>
+        </div>
+      </div>
+      <div class="aside-info">
+        <div class="aside-icon">📞</div>
+        <div>
+          <div class="aside-label">Téléphone</div>
+          <div class="aside-value">+243 81 234 56 78</div>
+        </div>
+      </div>
+      <div class="aside-info">
+        <div class="aside-icon">✉</div>
+        <div>
+          <div class="aside-label">Email</div>
+          <div class="aside-value">contact@lumiere.cd</div>
+        </div>
+      </div>
+      <div class="aside-info">
+        <div class="aside-icon">🕐</div>
+        <div>
+          <div class="aside-label">Horaires</div>
+          <div class="aside-value">Lun–Ven · 7h–17h</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card aside-card">
+      <h2 style="font-size:15px">Localisation</h2>
+      <div class="map-frame">
+        <div class="map-pin">📍 Complexe Lumière</div>
+      </div>
+    </div>
+
+    <div class="card aside-card" style="padding:0;overflow:hidden">
+      <a class="btn btn-wa" href="03-login.html" style="border-radius:0">💬 Discuter sur WhatsApp</a>
+    </div>
+  </aside>
+</div>
+
+<script>
+let currentRating=0;
+const stars=document.querySelectorAll('.star-pick');
+stars.forEach(s=>{
+  s.addEventListener('click',()=>{
+    currentRating=parseInt(s.dataset.v);
+    stars.forEach(x=>x.classList.toggle('filled',parseInt(x.dataset.v)<=currentRating));
+  });
+  s.addEventListener('mouseenter',()=>{
+    const v=parseInt(s.dataset.v);
+    stars.forEach(x=>x.classList.toggle('filled',parseInt(x.dataset.v)<=v));
+  });
+});
+document.getElementById('stars').addEventListener('mouseleave',()=>{
+  stars.forEach(x=>x.classList.toggle('filled',parseInt(x.dataset.v)<=currentRating));
+});
+function submitReview(){
+  const reviews=document.getElementById('reviews');
+  const stars='★'.repeat(currentRating||5)+'☆'.repeat(5-(currentRating||5));
+  const d=document.createElement('div');
+  d.className='review';
+  d.innerHTML=`<div class="review-head"><div class="review-avatar" style="--c1:oklch(55% 0.15 295);--c2:oklch(45% 0.15 320)">VO</div><div><div class="review-name">Vous</div><div class="review-date">à l'instant</div></div></div><div class="review-stars">${stars}</div><div class="review-body">Merci pour votre avis !</div>`;
+  reviews.prepend(d);
+  event.target.reset();
+  currentRating=0;
+  document.querySelectorAll('.star-pick').forEach(x=>x.classList.remove('filled'));
+}
+</script>
+</body>
+</html>

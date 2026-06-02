@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dashboard Caissier — Complexe Lumière</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:oklch(98% 0.003 220);
+  --surface:oklch(100% 0 0);
+  --surface-2:oklch(96% 0.003 220);
+  --fg:oklch(20% 0.02 250);
+  --muted:oklch(52% 0.015 250);
+  --border:oklch(92% 0.005 250);
+  --accent:oklch(55% 0.15 175);
+  --accent-soft:oklch(95% 0.04 175);
+  --success:oklch(60% 0.15 145);
+  --warning:oklch(72% 0.15 65);
+  --danger:oklch(58% 0.20 25);
+  --info:oklch(60% 0.13 250);
+  --radius:12px;
+  --shadow:0 4px 16px -4px rgba(15,23,42,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font:14px/1.5 'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar-head{padding:18px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.brand-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,oklch(55% 0.15 175),oklch(45% 0.13 200));color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;box-shadow:0 2px 8px oklch(55% 0.15 175 / .25);flex-shrink:0}
+.brand-name{font-weight:700;font-size:15px}
+.brand-tag{font-size:11px;color:var(--muted);font-weight:500}
+.sidebar-school{padding:10px 16px;margin:8px 12px;background:var(--accent-soft);border-radius:8px;display:flex;align-items:center;gap:8px}
+.sidebar-school-logo{width:24px;height:24px;border-radius:5px;background:linear-gradient(135deg,oklch(55% 0.15 175),oklch(45% 0.13 200));color:#fff;font-weight:800;font-size:10px;display:grid;place-items:center;flex-shrink:0}
+.sidebar-school-name{font-size:12px;font-weight:600;line-height:1.2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-school-name small{display:block;font-size:10px;color:var(--muted);font-weight:500;margin-top:1px}
+.sidebar-section{padding:14px 20px 6px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.menu{display:flex;flex-direction:column;gap:2px;padding:0 12px}
+.menu-item{position:relative;display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--fg);transition:all .15s;cursor:pointer}
+.menu-item:hover{background:var(--surface-2)}
+.menu-item.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.menu-item.active::before{content:"";position:absolute;left:0;width:3px;height:20px;background:var(--accent);border-radius:0 2px 2px 0}
+.menu-item svg{width:16px;height:16px;flex-shrink:0;opacity:.7}
+.menu-item.active svg{opacity:1}
+.menu-item .badge{margin-left:auto;background:var(--danger);color:#fff;font-size:10px;padding:1px 6px;border-radius:999px;font-weight:600}
+.sidebar-foot{margin-top:auto;padding:12px;border-top:1px solid var(--border)}
+.profile-card{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:var(--surface-2)}
+.profile-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,oklch(60% 0.15 145),oklch(45% 0.15 175));display:grid;place-items:center;color:#fff;font-weight:600;font-size:13px;flex-shrink:0}
+.profile-name{font-size:13px;font-weight:600}
+.profile-role{font-size:11px;color:var(--muted)}
+.profile-out{margin-left:auto;color:var(--muted);width:16px;height:16px}
+
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20}
+.topbar-left{display:flex;align-items:center;gap:16px}
+.page-title{font-size:18px;font-weight:700;letter-spacing:-0.01em}
+.page-crumb{font-size:12px;color:var(--muted)}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.icon-btn{width:36px;height:36px;border-radius:9px;background:var(--surface-2);display:grid;place-items:center;color:var(--fg);position:relative;border:1px solid var(--border)}
+.icon-btn svg{width:16px;height:16px}
+.icon-btn .dot{position:absolute;top:7px;right:7px;width:8px;height:8px;border-radius:50%;background:var(--danger);border:2px solid var(--surface)}
+
+.content{padding:24px;flex:1;overflow-y:auto}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.page-head h1{font-size:24px;font-weight:700;letter-spacing:-0.02em}
+.page-head p{color:var(--muted);font-size:13px;margin-top:2px}
+
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:9px;font-weight:500;font-size:13.5px;border:1px solid transparent}
+.btn svg{width:14px;height:14px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-outline{background:var(--surface);color:var(--fg);border-color:var(--border)}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden}
+.stat::after{content:"";position:absolute;top:0;right:0;width:60px;height:60px;background:radial-gradient(closest-side,var(--c-soft,var(--accent-soft)),transparent);border-radius:0 0 0 60px}
+.stat-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.stat-label{font-size:12px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.stat-icon{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--c,var(--accent));background:var(--c-soft,var(--accent-soft))}
+.stat-icon svg{width:16px;height:16px}
+.stat-num{font-size:26px;font-weight:700;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.stat-delta{font-size:12px;color:var(--muted);margin-top:2px}
+.stat-delta .up{color:var(--success);font-weight:600}
+.stat-delta .down{color:var(--danger);font-weight:600}
+
+.row2{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;margin-bottom:20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.card-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px}
+.card-title{font-size:15px;font-weight:600;letter-spacing:-0.005em}
+.card-sub{font-size:12px;color:var(--muted)}
+
+.quick-actions{display:grid;grid-template-columns:1fr;gap:10px}
+.qa{padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);display:flex;align-items:center;gap:10px;transition:all .15s;cursor:pointer}
+.qa:hover{border-color:oklch(80% 0.04 175);background:oklch(98% 0.01 175);transform:translateY(-1px)}
+.qa-icon{width:36px;height:36px;border-radius:8px;background:var(--c-soft,var(--accent-soft));color:var(--c,var(--accent));display:grid;place-items:center;flex-shrink:0}
+.qa-icon svg{width:18px;height:18px}
+.qa-text{font-size:13.5px;font-weight:600}
+.qa-sub{font-size:11.5px;color:var(--muted);margin-top:1px}
+
+.progress-list{display:flex;flex-direction:column;gap:14px}
+.progress-item{display:flex;align-items:center;gap:12px}
+.progress-info{flex:1;min-width:0}
+.progress-name{font-size:13.5px;font-weight:500;margin-bottom:4px}
+.progress-bar{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px}
+.progress-num{font:600 14px/1 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;min-width:64px;text-align:right}
+
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--surface-2)}
+td{padding:12px;border-bottom:1px solid var(--border);font-size:13.5px}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--surface-2)}
+.cell-flex{display:flex;align-items:center;gap:10px}
+.cell-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--c1,oklch(55% 0.15 175)),var(--c2,oklch(45% 0.13 200)));display:grid;place-items:center;color:#fff;font-weight:600;font-size:10px;flex-shrink:0}
+.cell-mono{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font:500 11px/1.2 'Inter',sans-serif}
+.pill::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+.pill-ok{background:oklch(94% 0.05 145);color:oklch(40% 0.13 145)}
+.pill-warn{background:oklch(94% 0.06 65);color:oklch(45% 0.13 65)}
+.pill-om{background:oklch(94% 0.06 65);color:oklch(45% 0.13 65)}
+.pill-mp{background:oklch(94% 0.05 145);color:oklch(40% 0.13 145)}
+.pill-cash{background:oklch(94% 0.005 250);color:var(--muted)}
+
+@media (max-width:1100px){
+  .row2{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:-100%;z-index:100;transition:left .25s;width:240px}
+  .sidebar.open{left:0}
+  .content{padding:16px}
+  .stats{grid-template-columns:1fr 1fr}
+  table{min-width:680px}
+  .table-wrap{overflow-x:auto}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <div class="brand-mark">E</div>
+      <div><div class="brand-name">EduGest</div><div class="brand-tag">Caissier</div></div>
+    </div>
+    <div class="sidebar-school">
+      <div class="sidebar-school-logo">CL</div>
+      <div class="sidebar-school-name">Complexe Lumière<small>Kinshasa</small></div>
+    </div>
+    <div class="sidebar-section">Trésorerie</div>
+    <nav class="menu">
+      <a class="menu-item active" href="09-cashier-dashboard.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+      <a class="menu-item" href="10-cashier-payment.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        Enregistrer paiement
+      </a>
+      <a class="menu-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Voir les dettes
+        <span class="badge">84</span>
+      </a>
+      <a class="menu-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Situation financière
+      </a>
+    </nav>
+    <div class="sidebar-section">Configuration</div>
+    <nav class="menu">
+      <a class="menu-item" href="18-profile.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Mon profil
+      </a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="profile-card">
+        <div class="profile-avatar">JN</div>
+        <div><div class="profile-name">Joseph Nzita</div><div class="profile-role">Caissier</div></div>
+        <svg class="profile-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div>
+          <div class="page-title">Trésorerie</div>
+          <div class="page-crumb">Complexe Lumière · Année scolaire 2025-2026</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button class="icon-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg>
+          <span class="dot"></span>
+        </button>
+        <div style="width:1px;height:24px;background:var(--border);margin:0 4px"></div>
+        <div class="profile-avatar" style="width:32px;height:32px;font-size:12px;background:linear-gradient(135deg,oklch(60% 0.15 145),oklch(45% 0.15 175))">JN</div>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Tableau de bord financier</h1>
+          <p>Suivi des encaissements, taux de recouvrement et impayés</p>
+        </div>
+        <a class="btn btn-primary" href="10-cashier-payment.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Enregistrer un paiement
+        </a>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="stat-head"><div class="stat-label">Encaissé T1</div><div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div></div><div class="stat-num">312 400$</div><div class="stat-delta">T1 · 2025-2026</div></div>
+        <div class="stat" style="--c:var(--accent);--c-soft:var(--accent-soft)"><div class="stat-head"><div class="stat-label">Encaissé T2</div><div class="stat-icon" style="--c:var(--accent);--c-soft:var(--accent-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div></div><div class="stat-num">286 200$</div><div class="stat-delta">En cours · 76% collecté</div></div>
+        <div class="stat" style="--c:oklch(60% 0.13 250);--c-soft:oklch(95% 0.05 250)"><div class="stat-head"><div class="stat-label">Recouvrement global</div><div class="stat-icon" style="--c:oklch(60% 0.13 250);--c-soft:oklch(95% 0.05 250)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12A10 10 0 1112 2a10 10 0 0110 10z"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div></div><div class="stat-num">87%</div><div class="stat-delta"><span class="up">+3%</span> vs an dernier</div></div>
+        <div class="stat" style="--c:var(--danger);--c-soft:oklch(95% 0.05 25)"><div class="stat-head"><div class="stat-label">Impayés</div><div class="stat-icon" style="--c:var(--danger);--c-soft:oklch(95% 0.05 25)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div></div><div class="stat-num">42 800$</div><div class="stat-delta"><span class="down">84 élèves</span></div></div>
+      </div>
+
+      <div class="row2">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Paiements par classe · T2</div>
+              <div class="card-sub">Total collecté vs attendu</div>
+            </div>
+            <select style="border:1px solid var(--border);background:var(--surface);padding:6px 10px;border-radius:8px;font-size:12px">
+              <option>Trimestre 2</option><option>Trimestre 1</option>
+            </select>
+          </div>
+          <div class="progress-list">
+            <div class="progress-item">
+              <div class="cell-avatar" style="--c1:oklch(55% 0.15 175);--c2:oklch(45% 0.13 200);width:36px;height:36px">M1</div>
+              <div class="progress-info">
+                <div class="progress-name">Maternelle 1</div>
+                <div class="progress-bar"><div class="progress-fill" style="width:88%;background:oklch(55% 0.15 175)"></div></div>
+              </div>
+              <div class="progress-num" style="color:var(--success)">94%</div>
+            </div>
+            <div class="progress-item">
+              <div class="cell-avatar" style="--c1:oklch(60% 0.13 250);--c2:oklch(45% 0.15 280);width:36px;height:36px">CP1</div>
+              <div class="progress-info">
+                <div class="progress-name">CP1 · Cours Préparatoire</div>
+                <div class="progress-bar"><div class="progress-fill" style="width:82%;background:oklch(60% 0.13 250)"></div></div>
+              </div>
+              <div class="progress-num" style="color:var(--accent)">82%</div>
+            </div>
+            <div class="progress-item">
+              <div class="cell-avatar" style="--c1:oklch(58% 0.15 145);--c2:oklch(40% 0.15 175);width:36px;height:36px">3A</div>
+              <div class="progress-info">
+                <div class="progress-name">3e A · Collège</div>
+                <div class="progress-bar"><div class="progress-fill" style="width:74%;background:oklch(58% 0.15 145)"></div></div>
+              </div>
+              <div class="progress-num" style="color:oklch(40% 0.13 145)">74%</div>
+            </div>
+            <div class="progress-item">
+              <div class="cell-avatar" style="--c1:oklch(60% 0.15 65);--c2:oklch(50% 0.16 30);width:36px;height:36px">5A</div>
+              <div class="progress-info">
+                <div class="progress-name">5e A · Collège</div>
+                <div class="progress-bar"><div class="progress-fill" style="width:68%;background:oklch(60% 0.15 65)"></div></div>
+              </div>
+              <div class="progress-num" style="color:oklch(45% 0.13 65)">68%</div>
+            </div>
+            <div class="progress-item">
+              <div class="cell-avatar" style="--c1:oklch(55% 0.20 25);--c2:oklch(45% 0.18 0);width:36px;height:36px">2A</div>
+              <div class="progress-info">
+                <div class="progress-name">2nde A · Lycée</div>
+                <div class="progress-bar"><div class="progress-fill" style="width:62%;background:oklch(55% 0.20 25)"></div></div>
+              </div>
+              <div class="progress-num" style="color:oklch(45% 0.18 25)">62%</div>
+            </div>
+            <div class="progress-item">
+              <div class="cell-avatar" style="--c1:oklch(60% 0.15 295);--c2:oklch(45% 0.15 320);width:36px;height:36px">TS</div>
+              <div class="progress-info">
+                <div class="progress-name">Terminale S · Lycée</div>
+                <div class="progress-bar"><div class="progress-fill" style="width:54%;background:oklch(60% 0.15 295)"></div></div>
+              </div>
+              <div class="progress-num" style="color:oklch(45% 0.15 295)">54%</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Actions rapides</div>
+              <div class="card-sub">Raccourcis fréquents</div>
+            </div>
+          </div>
+          <div class="quick-actions">
+            <a class="qa" href="10-cashier-payment.html" style="--c:var(--accent);--c-soft:var(--accent-soft)">
+              <div class="qa-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+              <div><div class="qa-text">Enregistrer paiement</div><div class="qa-sub">Saisie rapide avec recherche élève</div></div>
+            </a>
+            <a class="qa" href="#" style="--c:oklch(58% 0.20 25);--c-soft:oklch(95% 0.05 25)">
+              <div class="qa-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+              <div><div class="qa-text">Voir les dettes</div><div class="qa-sub">84 élèves en retard · 42 800$</div></div>
+            </a>
+            <a class="qa" href="#" style="--c:oklch(60% 0.13 250);--c-soft:oklch(95% 0.05 250)">
+              <div class="qa-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+              <div><div class="qa-text">Situation financière</div><div class="qa-sub">Rapport détaillé · Bilan annuel</div></div>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Dernières transactions</div>
+            <div class="card-sub">Paiements reçus aujourd'hui</div>
+          </div>
+          <select style="border:1px solid var(--border);background:var(--surface);padding:6px 12px;border-radius:8px;font-size:12.5px">
+            <option>Aujourd'hui</option><option>Cette semaine</option><option>Ce mois</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Élève</th><th>Classe</th><th>Montant</th><th>Méthode</th><th>Référence</th><th>Heure</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><div class="cell-flex"><div class="cell-avatar" style="--c1:oklch(55% 0.15 175);--c2:oklch(45% 0.13 200)">MK</div><div>Mukendi Kalonji</div></div></td>
+                <td>3e A</td>
+                <td class="cell-mono" style="color:var(--success)">+ 250$</td>
+                <td><span class="pill pill-om">Orange Money</span></td>
+                <td class="cell-mono" style="color:var(--muted)">OM-2026-8421</td>
+                <td style="color:var(--muted)">14:32</td>
+              </tr>
+              <tr>
+                <td><div class="cell-flex"><div class="cell-avatar" style="--c1:oklch(60% 0.13 250);--c2:oklch(45% 0.15 280)">NT</div><div>Ndaya Tshala</div></div></td>
+                <td>6e B</td>
+                <td class="cell-mono" style="color:var(--success)">+ 180$</td>
+                <td><span class="pill pill-mp">M-Pesa</span></td>
+                <td class="cell-mono" style="color:var(--muted)">MP-7782-1034</td>
+                <td style="color:var(--muted)">13:48</td>
+              </tr>
+              <tr>
+                <td><div class="cell-flex"><div class="cell-avatar" style="--c1:oklch(58% 0.15 145);--c2:oklch(40% 0.15 175)">IM</div><div>Ilunga Mukenge</div></div></td>
+                <td>2nde A</td>
+                <td class="cell-mono" style="color:var(--success)">+ 320$</td>
+                <td><span class="pill pill-cash">Espèces</span></td>
+                <td style="color:var(--muted)">—</td>
+                <td style="color:var(--muted)">12:15</td>
+              </tr>
+              <tr>
+                <td><div class="cell-flex"><div class="cell-avatar" style="--c1:oklch(60% 0.15 65);--c2:oklch(50% 0.16 30)">EM</div><div>Eyenga Mbuyi</div></div></td>
+                <td>4e C</td>
+                <td class="cell-mono" style="color:var(--success)">+ 200$</td>
+                <td><span class="pill pill-om">Orange Money</span></td>
+                <td class="cell-mono" style="color:var(--muted)">OM-2026-8418</td>
+                <td style="color:var(--muted)">11:42</td>
+              </tr>
+              <tr>
+                <td><div class="cell-flex"><div class="cell-avatar" style="--c1:oklch(55% 0.20 25);--c2:oklch(45% 0.18 0)">KM</div><div>Kabasu Mayulu</div></div></td>
+                <td>5e A</td>
+                <td class="cell-mono" style="color:var(--success)">+ 100$</td>
+                <td><span class="pill pill-mp">M-Pesa</span></td>
+                <td class="cell-mono" style="color:var(--muted)">MP-7782-1029</td>
+                <td style="color:var(--muted)">10:58</td>
+              </tr>
+              <tr>
+                <td><div class="cell-flex"><div class="cell-avatar" style="--c1:oklch(60% 0.15 295);--c2:oklch(45% 0.15 320)">KB</div><div>Kasongo Beya</div></div></td>
+                <td>Tle S</td>
+                <td class="cell-mono" style="color:var(--success)">+ 280$</td>
+                <td><span class="pill pill-cash">Espèces</span></td>
+                <td style="color:var(--muted)">—</td>
+                <td style="color:var(--muted)">09:34</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>
