@@ -976,7 +976,7 @@ function LoginView() {
           </button>
 
           <p className="text-center text-[13px] mt-6" style={{ color: TEXT_MUTED_LUXE }}>
-            Pas encore de compte ? <button onClick={() => setCurrentView('pricing')} className="font-medium hover:underline" style={{ color: GOLD }}>Découvrir les formules</button>
+            Pas encore de compte ? <button onClick={() => setCurrentView('pricing')} className="font-medium hover:underline" style={{ color: GOLD }}>Créer mon école</button>
           </p>
         </div>
       </div>
