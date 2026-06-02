@@ -198,16 +198,14 @@ function getStatusPill(status: string) {
 // ===== BRAND Mark =====
 function BrandMark({ size = 32, className = '' }: { size?: number; className?: string }) {
   return (
-    <div
-      className={`rounded-lg flex items-center justify-center font-extrabold text-white ${className}`}
-      style={{
-        width: size, height: size, fontSize: size * 0.47,
-        background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT2})`,
-        boxShadow: `0 2px 8px oklch(55% 0.15 175 / .25)`,
-      }}
-    >
-      E
-    </div>
+    <img
+      src="/edugest-logo.png"
+      alt="EduGest Logo"
+      width={size}
+      height={size}
+      className={`rounded-lg object-contain ${className}`}
+      style={{ width: size, height: size }}
+    />
   )
 }
 

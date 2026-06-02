@@ -52,3 +52,24 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# Database
+/db/
+
+# Uploads
+/upload/
+
+# Agent context
+/agent-ctx/
+
+# Examples
+/examples/
+
+# Download
+/download/
+
+# Mini services
+/mini-services/
+
+# Caddyfile
+Caddyfile
