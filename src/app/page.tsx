@@ -88,6 +88,17 @@ const INFO = 'oklch(60% 0.13 250)'
 const MUTED = 'oklch(52% 0.015 250)'
 const BORDER = 'oklch(92% 0.005 250)'
 
+// LUXE AFRICAIN Design Tokens
+const GOLD = 'oklch(72% 0.15 65)'
+const GOLD_SOFT = 'oklch(95% 0.05 65)'
+const GOLD_GLOW = 'oklch(72% 0.15 65 / 0.35)'
+const DARK = 'oklch(15% 0.02 250)'
+const DARK_ALT = 'oklch(20% 0.03 175)'
+const IVORY = 'oklch(97% 0.005 175)'
+const IVORY_WARM = 'oklch(96% 0.008 175)'
+const TEXT_PRIMARY = 'oklch(15% 0.02 250)'
+const TEXT_MUTED_LUXE = 'oklch(45% 0.02 250)'
+
 const PROVINCES = ['Toutes provinces', 'Kinshasa', 'Haut-Katanga', 'Dakar', 'Abidjan', 'Brazzaville', 'Nord-Kivu']
 const FILTER_CHIPS = [
   { key: 'all', label: 'Toutes', count: 248 },
@@ -208,29 +219,37 @@ function BrandMark({ size = 36, className = '' }: { size?: number; className?: s
 }
 
 // ===== PUBLIC HEADER =====
-function PublicHeader() {
+function PublicHeader({ dark = false }: { dark?: boolean }) {
   const { setCurrentView } = useEduGestStore()
   const [mobileMenu, setMobileMenu] = useState(false)
+  const textColor = dark ? 'text-white/90' : 'text-edu-fg'
+  const mutedColor = dark ? 'text-white/60' : 'text-edu-muted'
+  const hoverColor = dark ? 'hover:text-white' : 'hover:text-edu-fg'
+  const mobileBg = dark ? 'bg-[oklch(15%_0.02_250)]/95' : 'bg-white'
+  const borderColor = dark ? 'border-white/10' : 'border-edu-border'
+
   return (
-    <header className="sticky top-0 z-50 bg-white/85 backdrop-blur-xl border-b border-edu-border">
-      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+    <header className={`sticky top-0 z-50 ${dark ? 'bg-transparent' : 'bg-white/85 backdrop-blur-xl border-b border-edu-border'}`}>
+      <div className="container-premium h-16 flex items-center justify-between">
         <button onClick={() => setCurrentView('home')} className="flex items-center gap-2.5 font-bold text-base">
           <BrandMark />
         </button>
         <nav className="hidden sm:flex items-center gap-1">
-          <button onClick={() => setCurrentView('home')} className="px-3.5 py-2 rounded-lg text-sm font-medium text-edu-muted hover:text-edu-fg hover:bg-edu-surface2 transition">Écoles</button>
-          <button onClick={() => setCurrentView('pricing')} className="px-3.5 py-2 rounded-lg text-sm font-medium text-edu-muted hover:text-edu-fg hover:bg-edu-surface2 transition">Tarifs</button>
-          <button onClick={() => setCurrentView('login')} className="ml-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition hover:-translate-y-px" style={{ background: ACCENT }}>Se connecter</button>
+          <button onClick={() => setCurrentView('home')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Écoles</button>
+          <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Fonctionnalités</button>
+          <button onClick={() => setCurrentView('pricing')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Tarifs</button>
+          <button onClick={() => setCurrentView('login')} className="ml-3 edu-gold-cta px-5 py-2 rounded-xl text-sm font-semibold">Se connecter</button>
         </nav>
-        <button className="sm:hidden p-2" onClick={() => setMobileMenu(!mobileMenu)}>
+        <button className={`sm:hidden p-2 ${textColor}`} onClick={() => setMobileMenu(!mobileMenu)}>
           {mobileMenu ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
       {mobileMenu && (
-        <div className="sm:hidden border-t border-edu-border bg-white p-4 flex flex-col gap-2">
-          <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className="text-left px-3 py-2 rounded-lg text-sm font-medium text-edu-muted hover:bg-edu-surface2">Écoles</button>
-          <button onClick={() => { setCurrentView('pricing'); setMobileMenu(false) }} className="text-left px-3 py-2 rounded-lg text-sm font-medium text-edu-muted hover:bg-edu-surface2">Tarifs</button>
-          <button onClick={() => { setCurrentView('login'); setMobileMenu(false) }} className="px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ background: ACCENT }}>Se connecter</button>
+        <div className={`sm:hidden border-t ${borderColor} ${mobileBg} backdrop-blur-xl p-4 flex flex-col gap-2`}>
+          <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Écoles</button>
+          <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Fonctionnalités</button>
+          <button onClick={() => { setCurrentView('pricing'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Tarifs</button>
+          <button onClick={() => { setCurrentView('login'); setMobileMenu(false) }} className="edu-gold-cta px-4 py-2 rounded-xl text-sm font-semibold text-center">Se connecter</button>
         </div>
       )}
     </header>
@@ -241,38 +260,38 @@ function PublicHeader() {
 function Footer() {
   const { setCurrentView } = useEduGestStore()
   return (
-    <footer className="border-t border-edu-border bg-white mt-auto">
-      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+    <footer style={{ background: DARK }} className="mt-auto text-white">
+      <div className="container-premium py-16 sm:py-20 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
         <div>
-          <div className="mb-3"><BrandMark size={32} /></div>
-          <p className="text-sm text-edu-muted leading-relaxed max-w-[280px]">
-            La plateforme de gestion scolaire multi-écoles qui simplifie la vie des directions, enseignants et parents.
+          <div className="mb-4"><BrandMark size={36} /></div>
+          <p className="text-sm text-white/50 leading-relaxed max-w-[280px]">
+            La plateforme de gestion scolaire multi-écoles qui simplifie la vie des directions, enseignants et parents en Afrique francophone.
           </p>
         </div>
         <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-edu-muted mb-3.5">Produit</h4>
-          <ul className="space-y-2">
-            <li><button onClick={() => setCurrentView('home')} className="text-sm text-edu-fg hover:text-edu-accent transition">Trouver une école</button></li>
-            <li><button onClick={() => setCurrentView('pricing')} className="text-sm text-edu-fg hover:text-edu-accent transition">Tarifs</button></li>
-            <li><button onClick={() => setCurrentView('login')} className="text-sm text-edu-fg hover:text-edu-accent transition">Connexion</button></li>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Produit</h4>
+          <ul className="space-y-3">
+            <li><button onClick={() => setCurrentView('home')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Trouver une école<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
+            <li><button onClick={() => setCurrentView('pricing')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Tarifs<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
+            <li><button onClick={() => setCurrentView('login')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Connexion<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
           </ul>
         </div>
         <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-edu-muted mb-3.5">Rôles</h4>
-          <ul className="space-y-2 text-sm text-edu-fg">
-            <li>Super Admin</li><li>Secrétaire</li><li>Parent</li>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Rôles</h4>
+          <ul className="space-y-3 text-sm text-white/70">
+            <li>Super Admin</li><li>Secrétaire</li><li>Parent</li><li>Enseignant</li>
           </ul>
         </div>
         <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-edu-muted mb-3.5">Contact</h4>
-          <ul className="space-y-2 text-sm text-edu-muted">
-            <li>support@edugest.app</li><li>+243 81 234 56 78</li><li>Kinshasa · RDC</li>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Contact</h4>
+          <ul className="space-y-3 text-sm text-white/50">
+            <li>support@edugest.app</li><li>+243 81 234 56 78</li><li>Kinshasa · Dakar · Abidjan</li>
           </ul>
         </div>
       </div>
-      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 pt-6 border-t border-edu-border flex flex-col sm:flex-row justify-between text-xs text-edu-muted pb-6">
+      <div className="container-premium pt-6 border-t border-white/10 flex flex-col sm:flex-row justify-between text-xs text-white/40 pb-8">
         <span>© 2026 EduGest · Tous droits réservés</span>
-        <span>Conditions · Confidentialité · Cookies</span>
+        <span className="mt-2 sm:mt-0">Conditions · Confidentialité · Cookies</span>
       </div>
     </footer>
   )
@@ -369,151 +388,223 @@ function HomeView() {
     return true
   })
 
-  return (
-    <div className="min-h-screen flex flex-col bg-edu-bg">
-      <PublicHeader />
+  const FEATURES = [
+    { icon: <GraduationCap size={24} />, title: 'Gestion Scolaire Intégrale', desc: 'Notes, bulletins, emploi du temps — tout en un seul endroit' },
+    { icon: <MessageSquare size={24} />, title: 'Communication Instantanée', desc: 'WhatsApp, SMS, notifications push pour rester connecté' },
+    { icon: <CreditCard size={24} />, title: 'Paiements Simplifiés', desc: 'Mobile Money, virement, espèces — encaissez facilement' },
+    { icon: <Building2 size={24} />, title: 'Multi-Écoles', desc: 'Gérez plusieurs établissements depuis un tableau de bord unique' },
+    { icon: <Shield size={24} />, title: 'Sécurité & Conformité', desc: 'Données protégées, conformes aux normes africaines' },
+    { icon: <BarChart3 size={24} />, title: 'Analytique Avancée', desc: 'Tableaux de bord et rapports en temps réel' },
+  ]
 
-      {/* Hero */}
-      <section className="relative overflow-hidden py-16 sm:py-20" style={{ background: 'linear-gradient(180deg, oklch(96% 0.015 175) 0%, oklch(98% 0.003 220) 100%)' }}>
-        <div className="absolute inset-0 opacity-40" style={{
-          backgroundImage: 'radial-gradient(oklch(75% 0.1 175 / .25) 1px, transparent 1px), radial-gradient(oklch(75% 0.1 175 / .18) 1px, transparent 1px)',
-          backgroundSize: '32px 32px, 32px 32px',
-          backgroundPosition: '0 0, 16px 16px',
-          maskImage: 'radial-gradient(ellipse at top, black, transparent 70%)',
-          WebkitMaskImage: 'radial-gradient(ellipse at top, black, transparent 70%)',
-        }} />
-        <div className="relative max-w-[760px] mx-auto px-4 text-center">
-          <h1 className="text-4xl sm:text-5xl lg:text-[56px] font-extrabold tracking-tight leading-[1.05] mb-4">
-            Trouvez <span className="edu-accent">votre école</span>
+  return (
+    <div className="min-h-screen flex flex-col">
+      {/* ===== HERO SECTION ===== */}
+      <section className="relative overflow-hidden edu-hero-dark">
+        {/* Kente pattern overlay */}
+        <div className="absolute inset-0 edu-kente opacity-60" />
+        {/* Radial glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] opacity-20" style={{ background: 'radial-gradient(ellipse at center, oklch(55% 0.15 175 / 0.4), transparent 70%)' }} />
+
+        {/* Floating nav */}
+        <PublicHeader dark />
+
+        <div className="relative container-premium py-20 sm:py-32 text-center">
+          {/* Display Headline */}
+          <h1 className="text-[40px] sm:text-[45px] lg:text-[56px] font-extrabold tracking-tight leading-[1.1] text-white mb-5">
+            Rejoignez l&apos;excellence{' '}
+            <span style={{ color: GOLD }}>éducative</span>
           </h1>
-          <p className="text-base sm:text-[17px] text-edu-muted leading-relaxed mb-8 max-w-[600px] mx-auto">
-            Plus de 240 établissements partenaires à travers l&apos;Afrique francophone. Comparez, contactez et inscrivez votre enfant en quelques clics.
+          <p className="text-base sm:text-lg text-white/60 leading-relaxed mb-10 max-w-[600px] mx-auto">
+            La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants pour un avenir meilleur.
           </p>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white border border-edu-border rounded-[14px] p-1.5 max-w-[760px] mx-auto shadow-[0_4px_16px_-4px_rgba(15,23,42,.08)]">
-            <div className="flex items-center gap-2.5 px-3 flex-1">
-              <Search size={18} className="text-edu-muted shrink-0" />
+
+          {/* Glass morphism search bar */}
+          <div className="edu-glass rounded-2xl p-2 max-w-[780px] mx-auto shadow-lg flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="flex items-center gap-2.5 px-4 flex-1">
+              <Search size={18} className="text-white/50 shrink-0" />
               <input
                 type="text" placeholder="Rechercher une école par nom..."
                 value={search} onChange={e => setSearch(e.target.value)}
-                className="flex-1 border-0 outline-none bg-transparent text-sm py-3 placeholder:text-[oklch(70%_0.01_250)]"
+                className="flex-1 border-0 outline-none bg-transparent text-sm py-3 text-white placeholder:text-white/35"
               />
             </div>
             <select
               value={province} onChange={e => setProvince(e.target.value)}
-              className="border-0 bg-edu-bg py-2.5 px-3 rounded-[9px] text-[13px] border-r border-edu-border outline-none cursor-pointer"
+              className="border-0 bg-white/10 py-2.5 px-3 rounded-xl text-[13px] text-white/70 border-r border-white/10 outline-none cursor-pointer"
             >
-              {PROVINCES.map(p => <option key={p}>{p}</option>)}
+              {PROVINCES.map(p => <option key={p} value={p} className="text-edu-fg">{p}</option>)}
             </select>
-            <button className="px-5 py-3 rounded-[9px] text-white text-sm font-medium transition hover:opacity-90" style={{ background: ACCENT }}>
+            <button className="edu-gold-cta px-6 py-3 rounded-xl text-sm font-semibold">
               Rechercher
             </button>
+          </div>
+
+          {/* Stats badges */}
+          <div className="mt-10 flex flex-wrap justify-center gap-4 sm:gap-6">
+            {[
+              { value: '240+', label: 'Établissements' },
+              { value: '50 000+', label: 'Familles' },
+              { value: '98%', label: 'Satisfaction' },
+            ].map(stat => (
+              <div key={stat.label} className="edu-glass rounded-xl px-5 py-3 sm:px-6 sm:py-4 text-center min-w-[120px]">
+                <div className="text-xl sm:text-2xl font-extrabold text-white">{stat.value}</div>
+                <div className="text-[11px] sm:text-xs text-white/50 mt-0.5">{stat.label}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Filters */}
-      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-6 pb-3 flex items-center gap-2 flex-wrap">
-        {FILTER_CHIPS.map(chip => (
-          <button
-            key={chip.key}
-            onClick={() => setActiveFilter(chip.key)}
-            className={`inline-flex items-center gap-1.5 px-3 py-[7px] rounded-full text-[13px] font-medium transition border cursor-pointer ${
-              activeFilter === chip.key
-                ? 'text-white border-transparent'
-                : 'bg-white border-edu-border text-edu-fg hover:border-[oklch(80%_0.04_175)]'
-            }`}
-            style={activeFilter === chip.key ? { background: ACCENT } : undefined}
-          >
-            {chip.label}
-            {chip.count !== undefined && (
-              <span className={`text-[11px] font-medium px-1.5 py-px rounded-full ${
-                activeFilter === chip.key ? 'bg-white/20 text-white' : 'bg-[oklch(94%_0.005_250)] text-edu-muted'
-              }`}>{chip.count}</span>
-            )}
-          </button>
-        ))}
-        <div className="ml-auto hidden sm:block text-[13px] text-edu-muted">
-          Affichage {filteredSchools.length > 0 ? '1' : '0'}–{Math.min(12, filteredSchools.length)} sur {filteredSchools.length}
+      {/* ===== TRUST SIGNALS BAR ===== */}
+      <section style={{ background: IVORY }} className="border-y border-[oklch(88%_0.01_175)]">
+        <div className="container-premium py-4 text-center">
+          <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>240+</strong> Établissements &nbsp;•&nbsp;{' '}
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>50,000+</strong> Familles &nbsp;•&nbsp;{' '}
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>98%</strong> Satisfaction
+          </p>
         </div>
-        <button
-          onClick={() => setShowMap(!showMap)}
-          className="ml-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium border border-edu-border bg-white hover:border-[oklch(80%_0.04_175)] transition"
-        >
-          <MapPin size={14} /> {showMap ? 'Masquer carte' : 'Voir carte'}
-        </button>
-      </div>
+      </section>
 
-      {/* Map */}
-      {showMap && (
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 mb-6">
-          <SchoolMap schools={filteredSchools} />
-        </div>
-      )}
-
-      {/* School Cards */}
-      <section className="max-w-[1280px] mx-auto px-4 sm:px-6 pb-16 flex-1">
-        <div className="flex items-baseline justify-between mb-4">
-          <div className="text-sm text-edu-muted">
-            <strong className="text-edu-fg font-semibold">{filteredSchools.length} écoles</strong> correspondent à votre recherche
+      {/* ===== SEARCH / FILTER SECTION ===== */}
+      <section className="edu-ivory-texture flex-1">
+        {/* Filter chips */}
+        <div className="container-premium pt-8 pb-3 flex items-center gap-2 flex-wrap">
+          {FILTER_CHIPS.map(chip => (
+            <button
+              key={chip.key}
+              onClick={() => setActiveFilter(chip.key)}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition cursor-pointer border ${
+                activeFilter === chip.key
+                  ? 'text-white border-transparent shadow-md'
+                  : 'bg-white border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm'
+              }`}
+              style={activeFilter === chip.key ? { background: ACCENT } : undefined}
+            >
+              {chip.label}
+              {chip.count !== undefined && (
+                <span className={`text-[11px] font-medium px-1.5 py-px rounded-full ${
+                  activeFilter === chip.key ? 'bg-white/20 text-white' : 'bg-[oklch(90%_0.005_250)] text-edu-muted'
+                }`}>{chip.count}</span>
+              )}
+            </button>
+          ))}
+          <div className="ml-auto hidden sm:block text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
+            Affichage {filteredSchools.length > 0 ? '1' : '0'}–{Math.min(12, filteredSchools.length)} sur {filteredSchools.length}
           </div>
+          <button
+            onClick={() => setShowMap(!showMap)}
+            className="edu-glass-light ml-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition hover:shadow-md"
+          >
+            <MapPin size={14} /> {showMap ? 'Masquer carte' : 'Voir carte'}
+          </button>
         </div>
 
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className="bg-white border border-edu-border rounded-[14px] overflow-hidden animate-pulse">
-                <div className="h-[120px] bg-edu-surface2" />
-                <div className="p-5 pt-8 space-y-3"><div className="h-4 bg-edu-surface2 rounded w-3/4" /><div className="h-3 bg-edu-surface2 rounded w-1/2" /></div>
+        {/* Map */}
+        {showMap && (
+          <div className="container-premium mb-6">
+            <div className="rounded-2xl overflow-hidden shadow-lg">
+              <SchoolMap schools={filteredSchools} />
+            </div>
+          </div>
+        )}
+
+        {/* School Cards */}
+        <div className="container-premium pb-16">
+          <div className="flex items-baseline justify-between mb-5">
+            <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
+              <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{filteredSchools.length} écoles</strong> correspondent à votre recherche
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden animate-pulse">
+                  <div className="h-[120px] bg-[oklch(94%_0.005_175)]" />
+                  <div className="p-6 sm:p-10 pt-10 space-y-3"><div className="h-4 bg-[oklch(94%_0.005_175)] rounded w-3/4" /><div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-1/2" /></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+              {filteredSchools.map((school, idx) => (
+                <button
+                  key={school.id}
+                  onClick={() => { setSelectedSchoolId(school.id); setCurrentView('school-detail') }}
+                  className="block text-left bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden edu-card-lift group"
+                >
+                  <div className={`h-[120px] relative bg-gradient-to-br ${COVER_GRADIENTS[idx % COVER_GRADIENTS.length]} flex items-end p-4`}>
+                    {/* Mesh gradient overlay */}
+                    <div className="absolute inset-0 opacity-20" style={{ background: 'radial-gradient(ellipse at top right, oklch(72% 0.15 65 / 0.3), transparent 60%)' }} />
+                    <span className="absolute top-3 right-3 edu-glass px-3 py-1 rounded-full text-[11px] font-medium text-white">
+                      {getSchoolTypeLabel(school.schoolType, school.schoolCategory)}
+                    </span>
+                    <div className={`w-12 h-12 rounded-xl bg-white grid place-items-center font-extrabold text-lg shadow-md relative top-6 ${LOGO_COLORS[idx % LOGO_COLORS.length]}`}>
+                      {school.shortName.substring(0, 2)}
+                    </div>
+                  </div>
+                  <div className="p-6 sm:p-10 pt-10">
+                    <div className="text-base font-semibold tracking-tight mb-1" style={{ color: TEXT_PRIMARY }}>{school.name}</div>
+                    <div className="text-[13px] flex items-center gap-1 mb-4" style={{ color: TEXT_MUTED_LUXE }}>
+                      <MapPin size={12} /> {school.city} · {school.province}
+                    </div>
+                    <div className="flex gap-4 py-3 border-t border-b border-[oklch(88%_0.01_175)] mb-4">
+                      <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</strong>élèves
+                      </div>
+                      <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</strong>classes
+                      </div>
+                      <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</strong>fondée
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 text-[13px] font-medium">
+                        <Star size={14} style={{ color: GOLD }} className="fill-current" />
+                        <span style={{ color: TEXT_PRIMARY }}>{school.averageRating?.toFixed(1) || '—'}</span>
+                        <span className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>· {school.totalReviews} avis</span>
+                      </div>
+                      <span className="edu-gold-cta text-[13px] font-semibold px-4 py-2 rounded-xl">
+                        Voir l&apos;école →
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ===== FEATURES SHOWCASE ===== */}
+      <section id="features-section" style={{ background: IVORY }} className="py-16 sm:py-[120px]">
+        <div className="container-premium text-center">
+          {/* Ornament divider */}
+          <div className="edu-ornament mb-4">
+            <span style={{ color: GOLD }}>◆</span>
+          </div>
+          <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
+            Pourquoi choisir <span style={{ color: GOLD }}>EduGest</span>
+          </h2>
+          <p className="text-base max-w-[500px] mx-auto mb-12" style={{ color: TEXT_MUTED_LUXE }}>
+            Une plateforme conçue pour les réalités africaines, avec les outils qu&apos;il vous faut.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            {FEATURES.map((feature, idx) => (
+              <div key={idx} className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl p-8 text-left edu-card-lift group">
+                <div className="edu-icon-gradient w-12 h-12 rounded-xl mb-5 group-hover:scale-110 transition-transform duration-300">
+                  {feature.icon}
+                </div>
+                <h3 className="text-[17px] sm:text-[21px] font-bold mb-2" style={{ color: TEXT_PRIMARY }}>{feature.title}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>{feature.desc}</p>
               </div>
             ))}
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredSchools.map((school, idx) => (
-              <button
-                key={school.id}
-                onClick={() => { setSelectedSchoolId(school.id); setCurrentView('school-detail') }}
-                className="block text-left bg-white border border-edu-border rounded-[14px] overflow-hidden transition hover:-translate-y-0.5 hover:shadow-[0_4px_16px_-4px_rgba(15,23,42,.08)] hover:border-[oklch(80%_0.04_175)] group"
-              >
-                <div className={`h-[120px] relative bg-gradient-to-br ${COVER_GRADIENTS[idx % COVER_GRADIENTS.length]} flex items-end p-3`}>
-                  <span className="absolute top-3 right-3 bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded-full text-[11px] font-medium">
-                    {getSchoolTypeLabel(school.schoolType, school.schoolCategory)}
-                  </span>
-                  <div className={`w-12 h-12 rounded-[10px] bg-white grid place-items-center font-extrabold text-lg shadow-md relative top-6 ${LOGO_COLORS[idx % LOGO_COLORS.length]}`}>
-                    {school.shortName.substring(0, 2)}
-                  </div>
-                </div>
-                <div className="p-5 pt-8">
-                  <div className="text-base font-semibold tracking-tight mb-1">{school.name}</div>
-                  <div className="text-[13px] text-edu-muted flex items-center gap-1 mb-3.5">
-                    <MapPin size={12} /> {school.city} · {school.province}
-                  </div>
-                  <div className="flex gap-3.5 py-3 border-t border-b border-edu-border mb-3.5">
-                    <div className="text-xs text-edu-muted">
-                      <strong className="block text-[15px] text-edu-fg font-semibold tabular-nums mb-0.5">{formatNumber(school._count?.students || school.studentCount)}</strong>élèves
-                    </div>
-                    <div className="text-xs text-edu-muted">
-                      <strong className="block text-[15px] text-edu-fg font-semibold tabular-nums mb-0.5">{school._count?.classes || school.classCount}</strong>classes
-                    </div>
-                    <div className="text-xs text-edu-muted">
-                      <strong className="block text-[15px] text-edu-fg font-semibold tabular-nums mb-0.5">{school.establishmentYear || '—'}</strong>fondée
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1 text-[13px] font-medium">
-                      <Star size={14} className="fill-[oklch(72%_0.15_65)] text-[oklch(72%_0.15_65)]" />
-                      {school.averageRating?.toFixed(1) || '—'}
-                      <span className="text-edu-muted font-normal text-xs">· {school.totalReviews} avis</span>
-                    </div>
-                    <span className="text-[13px] font-medium text-white px-3.5 py-[7px] rounded-lg transition" style={{ background: ACCENT }}>
-                      Voir l&apos;école →
-                    </span>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
+        </div>
       </section>
 
       <Footer />
@@ -540,15 +631,15 @@ function SchoolDetailView() {
     load()
   }, [selectedSchoolId])
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-edu-accent border-t-transparent rounded-full" /></div>
+  if (loading) return <div className="min-h-screen flex items-center justify-center" style={{ background: IVORY }}><div className="animate-spin h-8 w-8 border-4 border-edu-accent border-t-transparent rounded-full" /></div>
 
   if (!school) return (
-    <div className="min-h-screen flex flex-col bg-edu-bg">
+    <div className="min-h-screen flex flex-col" style={{ background: IVORY }}>
       <PublicHeader />
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-edu-muted mb-4">École non trouvée</p>
-          <button onClick={() => setCurrentView('home')} className="text-edu-accent font-medium">← Retour à l&apos;accueil</button>
+          <p style={{ color: TEXT_MUTED_LUXE }} className="mb-4">École non trouvée</p>
+          <button onClick={() => setCurrentView('home')} className="font-medium" style={{ color: GOLD }}>← Retour à l&apos;accueil</button>
         </div>
       </div>
       <Footer />
@@ -556,77 +647,79 @@ function SchoolDetailView() {
   )
 
   return (
-    <div className="min-h-screen flex flex-col bg-edu-bg">
+    <div className="min-h-screen flex flex-col" style={{ background: IVORY }}>
       <PublicHeader />
-      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-8 flex-1">
-        <button onClick={() => setCurrentView('home')} className="inline-flex items-center gap-1.5 text-sm text-edu-muted hover:text-edu-fg mb-6 transition">
+      <div className="container-premium py-8 flex-1">
+        <button onClick={() => setCurrentView('home')} className="inline-flex items-center gap-1.5 text-sm mb-6 transition hover:opacity-80" style={{ color: TEXT_MUTED_LUXE }}>
           <ArrowLeft size={14} /> Retour aux écoles
         </button>
 
-        <div className="bg-white border border-edu-border rounded-2xl overflow-hidden">
+        <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
           <div className={`h-48 bg-gradient-to-br ${COVER_GRADIENTS[0]} relative`}>
-            <span className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium">
+            {/* Darker overlay for hero */}
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, oklch(15% 0.02 250 / 0.3), oklch(15% 0.02 250 / 0.5))' }} />
+            <span className="absolute top-4 right-4 edu-glass px-3 py-1 rounded-full text-xs font-medium text-white">
               {getSchoolTypeLabel(school.schoolType, school.schoolCategory)}
             </span>
           </div>
-          <div className="px-6 sm:px-8 pb-8 -mt-12 relative">
-            <div className="w-20 h-20 rounded-2xl bg-white grid place-items-center text-2xl font-extrabold shadow-lg border border-edu-border text-[oklch(45%_0.13_175)]">
+          <div className="px-6 sm:px-10 pb-10 -mt-12 relative">
+            <div className="w-20 h-20 rounded-2xl bg-white grid place-items-center text-2xl font-extrabold shadow-lg border border-[oklch(88%_0.01_175)]" style={{ color: ACCENT }}>
               {school.shortName.substring(0, 2)}
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold mt-4 tracking-tight">{school.name}</h1>
-            <div className="flex items-center gap-2 text-sm text-edu-muted mt-2">
+            <h1 className="text-[21px] sm:text-[29px] font-bold mt-4 tracking-tight" style={{ color: TEXT_PRIMARY }}>{school.name}</h1>
+            <div className="flex items-center gap-2 text-sm mt-2" style={{ color: TEXT_MUTED_LUXE }}>
               <MapPin size={14} /> {school.address}, {school.city} · {school.province}, {school.country}
             </div>
-            <div className="flex items-center gap-4 mt-3 text-sm">
-              <span className="flex items-center gap-1"><Star size={14} className="fill-[oklch(72%_0.15_65)] text-[oklch(72%_0.15_65)]" /> {school.averageRating?.toFixed(1)} ({school.totalReviews} avis)</span>
-              <span className="text-edu-muted">·</span>
-              <span className="text-edu-muted">{school._count?.students || school.studentCount} élèves</span>
-              <span className="text-edu-muted">·</span>
-              <span className="text-edu-muted">{school._count?.classes || school.classCount} classes</span>
-              <span className="text-edu-muted">·</span>
-              <span className="text-edu-muted">Fondée en {school.establishmentYear}</span>
+            <div className="flex items-center gap-4 mt-3 text-sm flex-wrap">
+              <span className="flex items-center gap-1"><Star size={14} style={{ color: GOLD }} className="fill-current" /> <strong style={{ color: TEXT_PRIMARY }}>{school.averageRating?.toFixed(1)}</strong> <span style={{ color: TEXT_MUTED_LUXE }}>({school.totalReviews} avis)</span></span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>·</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>{school._count?.students || school.studentCount} élèves</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>·</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>{school._count?.classes || school.classCount} classes</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>·</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>Fondée en {school.establishmentYear}</span>
             </div>
 
             {school.description && (
-              <div className="mt-6">
-                <h3 className="font-semibold mb-2">À propos</h3>
-                <p className="text-sm text-edu-muted leading-relaxed">{school.description}</p>
+              <div className="mt-8">
+                <h3 className="font-semibold mb-2" style={{ color: TEXT_PRIMARY }}>À propos</h3>
+                <p className="text-sm leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>{school.description}</p>
               </div>
             )}
 
-            <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="bg-edu-surface2 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold">{formatNumber(school._count?.students || school.studentCount)}</div>
-                <div className="text-xs text-edu-muted mt-1">Élèves</div>
+            <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
+                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</div>
+                <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Élèves</div>
               </div>
-              <div className="bg-edu-surface2 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold">{school._count?.classes || school.classCount}</div>
-                <div className="text-xs text-edu-muted mt-1">Classes</div>
+              <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
+                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</div>
+                <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Classes</div>
               </div>
-              <div className="bg-edu-surface2 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold">{school.establishmentYear || '—'}</div>
-                <div className="text-xs text-edu-muted mt-1">Fondée</div>
+              <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
+                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</div>
+                <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Fondée</div>
               </div>
-              <div className="bg-edu-surface2 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold">{getSubscriptionLabel(school.subscriptionTier)}</div>
-                <div className="text-xs text-edu-muted mt-1">Abonnement</div>
+              <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
+                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{getSubscriptionLabel(school.subscriptionTier)}</div>
+                <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Abonnement</div>
               </div>
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">
-              <div className="flex items-center gap-2 text-sm"><Mail size={14} className="text-edu-muted" /> {school.email}</div>
-              <div className="flex items-center gap-2 text-sm"><Phone size={14} className="text-edu-muted" /> {school.phone}</div>
+              <div className="flex items-center gap-2 text-sm" style={{ color: TEXT_MUTED_LUXE }}><Mail size={14} /> {school.email}</div>
+              <div className="flex items-center gap-2 text-sm" style={{ color: TEXT_MUTED_LUXE }}><Phone size={14} /> {school.phone}</div>
             </div>
 
             {school.latitude && school.longitude && (
               <div className="mt-8">
-                <h3 className="font-semibold mb-3">Localisation</h3>
-                <SchoolMap schools={[school]} />
+                <h3 className="font-semibold mb-3" style={{ color: TEXT_PRIMARY }}>Localisation</h3>
+                <div className="rounded-2xl overflow-hidden shadow-sm"><SchoolMap schools={[school]} /></div>
               </div>
             )}
 
             <div className="mt-8">
-              <button onClick={() => setCurrentView('login')} className="px-6 py-3 rounded-xl text-white font-medium transition hover:-translate-y-px" style={{ background: ACCENT }}>
+              <button onClick={() => setCurrentView('login')} className="edu-gold-cta px-8 py-3.5 rounded-xl font-semibold text-sm">
                 Contacter cette école
               </button>
             </div>
@@ -651,38 +744,50 @@ function PricingView() {
   ]
 
   return (
-    <div className="min-h-screen flex flex-col bg-edu-bg">
+    <div className="min-h-screen flex flex-col" style={{ background: IVORY }}>
       <PublicHeader />
-      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-16 flex-1">
+      <div className="container-premium py-16 sm:py-[120px] flex-1">
         <div className="text-center mb-12">
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3">Tarifs <span className="edu-accent">transparents</span></h1>
-          <p className="text-edu-muted max-w-[500px] mx-auto">Choisissez la formule adaptée à votre établissement. Évoluez à tout moment.</p>
+          {/* Ornament divider */}
+          <div className="edu-ornament mb-4">
+            <span style={{ color: GOLD }}>◆</span>
+          </div>
+          <h1 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
+            Tarifs <span style={{ color: GOLD }}>transparents</span>
+          </h1>
+          <p className="max-w-[500px] mx-auto" style={{ color: TEXT_MUTED_LUXE }}>Choisissez la formule adaptée à votre établissement. Évoluez à tout moment.</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
           {tiers.map(tier => (
-            <div key={tier.name} className={`bg-white border rounded-2xl p-6 relative transition hover:-translate-y-1 hover:shadow-lg ${tier.popular ? 'border-edu-accent ring-2 ring-edu-accent/20' : 'border-edu-border'}`}>
+            <div key={tier.name} className={`bg-white border rounded-2xl p-8 sm:p-10 relative edu-card-lift ${
+              tier.popular
+                ? 'border-[oklch(72%_0.15_65)] shadow-[0_0_24px_oklch(72%_0.15_65_/_0.12)]'
+                : 'border-[oklch(88%_0.01_175)]'
+            }`}>
               {tier.popular && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ background: ACCENT }}>Populaire</span>
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 edu-gold-cta px-4 py-1 rounded-full text-xs font-semibold">Populaire</span>
               )}
-              <h3 className="text-lg font-bold">{tier.name}</h3>
-              <p className="text-sm text-edu-muted mt-1 mb-4">{tier.desc}</p>
+              <h3 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{tier.name}</h3>
+              <p className="text-sm mt-1 mb-5" style={{ color: TEXT_MUTED_LUXE }}>{tier.desc}</p>
               <div className="mb-6">
-                <span className="text-3xl font-extrabold">{tier.price}</span>
-                <span className="text-sm text-edu-muted">{tier.period}</span>
+                <span className="text-3xl font-extrabold" style={{ color: TEXT_PRIMARY }}>{tier.price}</span>
+                <span className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{tier.period}</span>
               </div>
-              <ul className="space-y-2.5 mb-6">
+              <ul className="space-y-3 mb-6">
                 {tier.features.map(f => (
-                  <li key={f} className="flex items-center gap-2 text-sm">
+                  <li key={f} className="flex items-center gap-2 text-sm" style={{ color: TEXT_PRIMARY }}>
                     <CheckCircle size={14} style={{ color: tier.color }} /> {f}
                   </li>
                 ))}
               </ul>
               <button
                 onClick={() => setCurrentView('login')}
-                className={`w-full py-2.5 rounded-xl text-sm font-medium transition ${
-                  tier.popular ? 'text-white hover:opacity-90' : 'border border-edu-border text-edu-fg hover:bg-edu-surface2'
+                className={`w-full py-3 rounded-xl text-sm font-semibold transition ${
+                  tier.popular
+                    ? 'edu-gold-cta'
+                    : 'border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm'
                 }`}
-                style={tier.popular ? { background: ACCENT } : undefined}
+                style={tier.popular ? undefined : { color: TEXT_PRIMARY }}
               >
                 {tier.price === 'Sur mesure' ? 'Nous contacter' : 'Commencer'}
               </button>
@@ -759,21 +864,18 @@ function LoginView() {
 
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
-      {/* Left brand side */}
-      <div className="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden text-white" style={{ background: 'linear-gradient(160deg, oklch(50% 0.13 175) 0%, oklch(35% 0.12 220) 100%)' }}>
-        <div className="absolute inset-0 opacity-10" style={{
-          backgroundImage: 'radial-gradient(white 1px, transparent 1px)',
-          backgroundSize: '32px 32px',
-        }} />
-        <div className="absolute -top-24 -right-24 w-[480px] h-[480px] rounded-full opacity-25" style={{ background: 'radial-gradient(oklch(75% 0.1 175), transparent 70%)' }} />
+      {/* Left brand side - dark with Kente pattern */}
+      <div className="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden text-white edu-hero-dark">
+        <div className="absolute inset-0 edu-kente opacity-60" />
+        <div className="absolute -top-24 -right-24 w-[480px] h-[480px] rounded-full opacity-20" style={{ background: 'radial-gradient(oklch(72% 0.15 65), transparent 70%)' }} />
         <div className="relative flex items-center gap-2.5 font-bold text-lg">
           <BrandMark size={40} />
         </div>
         <div className="relative max-w-[460px]">
           <h2 className="text-[34px] font-extrabold tracking-tight leading-[1.15] mb-3.5">
-            Bienvenue sur la plateforme de gestion scolaire préférée en Afrique francophone.
+            Bienvenue sur la plateforme de gestion scolaire préférée en <span style={{ color: GOLD }}>Afrique francophone</span>.
           </h2>
-          <p className="text-base opacity-85 leading-relaxed">
+          <p className="text-base opacity-75 leading-relaxed">
             Notes, paiements, communications, bulletins — tout est centralisé pour vous faire gagner du temps.
           </p>
           <div className="mt-6 space-y-3.5">
@@ -783,78 +885,79 @@ function LoginView() {
               { icon: <CreditCard size={16} />, title: 'Paiement mobile', desc: 'Orange Money, M-Pesa, Airtel Money acceptés' },
             ].map((f, i) => (
               <div key={i} className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-white/12 border border-white/15 flex items-center justify-center shrink-0">{f.icon}</div>
-                <div className="text-[13px] opacity-90 leading-relaxed"><strong className="block opacity-100">{f.title}</strong>{f.desc}</div>
+                <div className="w-8 h-8 rounded-lg bg-white/10 border border-white/12 flex items-center justify-center shrink-0">{f.icon}</div>
+                <div className="text-[13px] opacity-80 leading-relaxed"><strong className="block opacity-100">{f.title}</strong>{f.desc}</div>
               </div>
             ))}
           </div>
-          <div className="mt-8 bg-white/8 border border-white/12 rounded-[14px] p-4 backdrop-blur-sm">
+          <div className="mt-8 edu-glass rounded-2xl p-5">
             <p className="text-sm leading-relaxed mb-3">&ldquo;EduGest nous a fait gagner 12h par semaine sur la gestion des notes et paiements. Les parents adorent les notifications WhatsApp.&rdquo;</p>
-            <div className="flex items-center gap-2.5 text-xs opacity-85">
+            <div className="flex items-center gap-2.5 text-xs opacity-75">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[oklch(70%_0.15_65)] to-[oklch(55%_0.13_30)] grid place-items-center font-semibold text-xs">MK</div>
               Mme Kabongo · Directrice, Complexe Lumière
             </div>
           </div>
         </div>
-        <div className="relative text-[13px] opacity-70">© 2026 EduGest · Kinshasa · Dakar · Abidjan</div>
+        <div className="relative text-[13px] opacity-50">© 2026 EduGest · Kinshasa · Dakar · Abidjan</div>
       </div>
 
-      {/* Right form side */}
-      <div className="flex items-center justify-center p-6 sm:p-12 bg-edu-bg">
-        <div className="w-full max-w-[400px]">
-          <button onClick={() => setCurrentView('home')} className="inline-flex items-center gap-1.5 text-[13px] text-edu-muted hover:text-edu-fg mb-6 transition">
+      {/* Right form side - ivory luxury */}
+      <div className="flex items-center justify-center p-6 sm:p-12" style={{ background: IVORY }}>
+        <div className="w-full max-w-[420px]">
+          <button onClick={() => setCurrentView('home')} className="inline-flex items-center gap-1.5 text-[13px] mb-6 transition hover:opacity-80" style={{ color: TEXT_MUTED_LUXE }}>
             <ArrowLeft size={14} /> Retour à l&apos;accueil
           </button>
           <div className="mb-6">
-            <h1 className="text-[28px] font-bold tracking-tight mb-1.5">
+            <h1 className="text-[28px] font-bold tracking-tight mb-1.5" style={{ color: TEXT_PRIMARY }}>
               {tab === 'parent' ? 'Connexion Parent' : 'Connexion Administration'}
             </h1>
-            <p className="text-sm text-edu-muted">
+            <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
               {tab === 'parent' ? 'Accédez au suivi scolaire de vos enfants' : 'Personnel de l\'école, direction, enseignants'}
             </p>
           </div>
 
-          <div className="flex bg-white border border-edu-border rounded-[11px] p-1 mb-6">
-            <button onClick={() => setTab('parent')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition ${tab === 'parent' ? 'text-white' : 'text-edu-muted hover:text-edu-fg'}`} style={tab === 'parent' ? { background: ACCENT, boxShadow: `0 2px 8px oklch(55% 0.15 175 / .25)` } : undefined}>
+          {/* Tab switcher */}
+          <div className="flex bg-white border border-[oklch(88%_0.01_175)] rounded-xl p-1 mb-6">
+            <button onClick={() => setTab('parent')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition ${tab === 'parent' ? 'text-white' : ''}`} style={tab === 'parent' ? { background: GOLD, boxShadow: `0 2px 8px oklch(72% 0.15 65 / .25)` } : { color: TEXT_MUTED_LUXE }}>
               Parent
             </button>
-            <button onClick={() => setTab('admin')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition ${tab === 'admin' ? 'text-white' : 'text-edu-muted hover:text-edu-fg'}`} style={tab === 'admin' ? { background: ACCENT, boxShadow: `0 2px 8px oklch(55% 0.15 175 / .25)` } : undefined}>
+            <button onClick={() => setTab('admin')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition ${tab === 'admin' ? 'text-white' : ''}`} style={tab === 'admin' ? { background: GOLD, boxShadow: `0 2px 8px oklch(72% 0.15 65 / .25)` } : { color: TEXT_MUTED_LUXE }}>
               Administration
             </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium">{tab === 'parent' ? 'Email ou numéro WhatsApp' : 'Email professionnel'}</label>
+              <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{tab === 'parent' ? 'Email ou numéro WhatsApp' : 'Email professionnel'}</label>
               <input
                 type="text" value={email} onChange={e => setEmail(e.target.value)}
                 placeholder={tab === 'parent' ? 'ex. parent@email.com ou +243 81...' : 'ex. direction@ecole.cd'}
-                className="w-full px-3.5 py-3 border border-edu-border rounded-[9px] text-sm bg-white outline-none transition focus:border-edu-accent focus:ring-[3px] focus:ring-edu-accent-soft"
+                className="w-full px-4 py-3.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]"
                 required
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium">Mot de passe</label>
+              <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Mot de passe</label>
               <input
                 type="password" value={password} onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-3 border border-edu-border rounded-[9px] text-sm bg-white outline-none transition focus:border-edu-accent focus:ring-[3px] focus:ring-edu-accent-soft"
+                className="w-full px-4 py-3.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]"
                 required
               />
             </div>
             <div className="flex items-center justify-between text-[13px]">
-              <label className="flex items-center gap-2 cursor-pointer text-edu-muted">
-                <input type="checkbox" className="accent-edu-accent" /> Se souvenir de moi
+              <label className="flex items-center gap-2 cursor-pointer" style={{ color: TEXT_MUTED_LUXE }}>
+                <input type="checkbox" className="accent-[oklch(72%_0.15_65)]" /> Se souvenir de moi
               </label>
-              <button type="button" className="text-edu-accent font-medium hover:underline">Mot de passe oublié ?</button>
+              <button type="button" className="font-medium hover:underline" style={{ color: GOLD }}>Mot de passe oublié ?</button>
             </div>
-            <button type="submit" disabled={loading} className="w-full py-3 rounded-[10px] text-white font-medium text-sm flex items-center justify-center gap-2 transition hover:-translate-y-px disabled:opacity-50" style={{ background: ACCENT, boxShadow: `0 2px 8px oklch(55% 0.15 175 / .25)` }}>
-              {loading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Se connecter'}
+            <button type="submit" disabled={loading} className="edu-gold-cta w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+              {loading ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : 'Se connecter'}
             </button>
           </form>
 
-          <div className="flex items-center gap-3 my-5 text-edu-muted text-xs uppercase tracking-wider">
-            <div className="flex-1 h-px bg-edu-border" /> ou <div className="flex-1 h-px bg-edu-border" />
+          <div className="flex items-center gap-3 my-5 text-xs uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>
+            <div className="flex-1 h-px bg-[oklch(88%_0.01_175)]" /> ou <div className="flex-1 h-px bg-[oklch(88%_0.01_175)]" />
           </div>
 
           <button
@@ -866,14 +969,14 @@ function LoginView() {
               }
               toast.success('Connexion WhatsApp réussie!')
             }}
-            className="w-full py-3 rounded-[10px] text-white font-medium text-sm flex items-center justify-center gap-2 transition hover:opacity-90"
+            className="w-full py-3.5 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 transition hover:opacity-90"
             style={{ background: SUCCESS }}
           >
             <MessageSquare size={18} /> Se connecter avec WhatsApp
           </button>
 
-          <p className="text-center text-[13px] text-edu-muted mt-6">
-            Pas encore de compte ? <button onClick={() => setCurrentView('pricing')} className="text-edu-accent font-medium hover:underline">Découvrir les formules</button>
+          <p className="text-center text-[13px] mt-6" style={{ color: TEXT_MUTED_LUXE }}>
+            Pas encore de compte ? <button onClick={() => setCurrentView('pricing')} className="font-medium hover:underline" style={{ color: GOLD }}>Découvrir les formules</button>
           </p>
         </div>
       </div>

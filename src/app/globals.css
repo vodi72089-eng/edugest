@@ -156,6 +156,140 @@
 .edu-warning { color: oklch(72% 0.15 65); }
 .edu-danger { color: oklch(58% 0.20 25); }
 
+/* ===== LUXE AFRICAIN Design System ===== */
+
+/* Premium Color Tokens */
+:root {
+  --edu-gold: oklch(72% 0.15 65);
+  --edu-gold-soft: oklch(95% 0.05 65);
+  --edu-gold-glow: oklch(72% 0.15 65 / 0.35);
+  --edu-dark: oklch(15% 0.02 250);
+  --edu-dark-alt: oklch(20% 0.03 175);
+  --edu-ivory: oklch(97% 0.005 175);
+  --edu-ivory-warm: oklch(96% 0.008 175);
+  --edu-text-primary: oklch(15% 0.02 250);
+  --edu-text-muted: oklch(45% 0.02 250);
+}
+
+/* Gold utility */
+.edu-gold { color: var(--edu-gold); }
+.edu-gold-bg { background: var(--edu-gold); }
+
+/* Glass morphism utility */
+.edu-glass {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.edu-glass-light {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* Kente-inspired geometric pattern overlay */
+.edu-kente {
+  background-image:
+    repeating-linear-gradient(
+      60deg,
+      transparent,
+      transparent 20px,
+      rgba(255, 255, 255, 0.03) 20px,
+      rgba(255, 255, 255, 0.03) 21px
+    ),
+    repeating-linear-gradient(
+      -60deg,
+      transparent,
+      transparent 20px,
+      rgba(255, 255, 255, 0.03) 20px,
+      rgba(255, 255, 255, 0.03) 21px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 20px,
+      rgba(255, 255, 255, 0.02) 20px,
+      rgba(255, 255, 255, 0.02) 21px
+    );
+}
+
+/* Ornament divider (thin line with diamond center) */
+.edu-ornament {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: center;
+}
+.edu-ornament::before,
+.edu-ornament::after {
+  content: '';
+  flex: 1;
+  max-width: 80px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, oklch(80% 0.04 175), transparent);
+}
+.edu-ornament::after {
+  background: linear-gradient(90deg, transparent, oklch(80% 0.04 175), transparent);
+}
+
+/* Container premium */
+.container-premium {
+  max-width: 1320px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+@media (min-width: 640px) {
+  .container-premium {
+    padding-left: 64px;
+    padding-right: 64px;
+  }
+}
+
+/* Gold CTA hover glow */
+.edu-gold-cta {
+  background: var(--edu-gold);
+  color: oklch(15% 0.02 250);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 12px oklch(72% 0.15 65 / 0.2);
+}
+.edu-gold-cta:hover {
+  box-shadow: 0 4px 24px oklch(72% 0.15 65 / 0.4);
+  transform: translateY(-1px);
+}
+
+/* Ivory dot micro-texture */
+.edu-ivory-texture {
+  background-color: var(--edu-ivory);
+  background-image: radial-gradient(oklch(88% 0.01 175) 0.5px, transparent 0.5px);
+  background-size: 16px 16px;
+}
+
+/* Hero dark gradient */
+.edu-hero-dark {
+  background: linear-gradient(160deg, oklch(15% 0.02 250) 0%, oklch(20% 0.03 175) 100%);
+}
+
+/* Feature icon gradient circle */
+.edu-icon-gradient {
+  background: linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65));
+  color: white;
+  display: grid;
+  place-items: center;
+}
+
+/* Premium card hover lift */
+.edu-card-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.edu-card-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.12);
+}
+
 /* Custom scrollbar */
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -163,4 +297,4 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: oklch(75% 0.01 250); }
 
 /* Leaflet map overrides */
-.leaflet-container { border-radius: 10px; z-index: 1; }
+.leaflet-container { border-radius: 12px; z-index: 1; }
