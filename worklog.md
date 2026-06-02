@@ -61,3 +61,43 @@ Stage Summary:
 - Charts and data visualization with recharts
 - API integration with all backend endpoints
 - Demo login fallback for testing
+
+---
+Task ID: 5
+Agent: main
+Task: Fix critical login bug and enhance Super Admin dashboard
+
+Work Log:
+- Fixed critical bug: removed demo fallback that always logged in as SUPER_ADMIN_GLOBAL for admin tab
+- Fixed mapApiRole function to handle all role variants (DIRECTION_MATERNELLE, DIRECTION_PRIMAIRE, DIRECTION_SECONDAIRE, DISCIPLINE_MATERNELLE, etc.)
+- Removed auto-login WhatsApp demo button (now shows "bientôt disponible" toast)
+- Login now properly uses API authentication with clear error messages
+- Updated Super Admin sidebar: removed student registration and payment recording, added Dettes view
+- Created /api/admin-analytics route with comprehensive analytics:
+  - Overview stats (total schools, students, revenue, debts)
+  - Schools with most/fewest students
+  - Schools by city distribution
+  - Subscription distribution
+  - Debt stats per school with collection rates
+  - Paid stats per school
+  - Blacklist/Greylist entries per school
+  - Recent payments, discipline incidents, student registrations
+  - Revenue by school
+  - City filter support (Dakar, Abidjan, Kinshasa, etc.)
+- Completely rewrote SuperAdminDashboard with 5 tabs:
+  - Vue d'ensemble: City chart, subscription pie chart, revenue by school
+  - Écoles: Top schools by students, schools needing attention
+  - Dettes & Soldes: Overdue/partial/pending cards, debt table by school with collection rates, best payment schools
+  - Listes disciplinaires: Blacklist/Greylist/Whitelist stats, entries tables
+  - Activités récentes: Recent payments, discipline incidents, student registrations
+- Added city filter dropdown (Dakar, Abidjan, Kinshasa, Lubumbashi, Brazzaville, Goma)
+- Added SUCCESS_SOFT and SUBSCRIPTION_TIERS constants
+- Fixed Prisma schema field mismatches (addedAt vs createdAt, missing relations)
+- Added admin-analytics ViewType to store
+- Verified all role logins work correctly with agent-browser testing
+
+Stage Summary:
+- Login bug fixed: each role now gets its correct dashboard
+- Super Admin is now a proper site controller with analytics, not a school operator
+- All 6 schools, 20 students, debt/blacklist data visible in analytics
+- City filtering works for Dakar, Abidjan, and other cities

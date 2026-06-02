@@ -18,6 +18,7 @@ export type ViewType =
   | 'convocation'
   | 'schools'
   | 'bulletin'
+  | 'admin-analytics'
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'
