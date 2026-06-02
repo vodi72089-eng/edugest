@@ -196,14 +196,12 @@ function getStatusPill(status: string) {
 }
 
 // ===== BRAND Mark =====
-function BrandMark({ size = 32, className = '' }: { size?: number; className?: string }) {
+function BrandMark({ size = 36, className = '' }: { size?: number; className?: string }) {
   return (
     <img
       src="/edugest-logo.png"
-      alt="EduGest Logo"
-      width={size}
-      height={size}
-      className={`rounded-lg object-contain ${className}`}
+      alt="EduGest"
+      className={`object-contain ${className}`}
       style={{ width: size, height: size }}
     />
   )
@@ -217,7 +215,7 @@ function PublicHeader() {
     <header className="sticky top-0 z-50 bg-white/85 backdrop-blur-xl border-b border-edu-border">
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <button onClick={() => setCurrentView('home')} className="flex items-center gap-2.5 font-bold text-base">
-          <BrandMark /> <span>EduGest</span>
+          <BrandMark />
         </button>
         <nav className="hidden sm:flex items-center gap-1">
           <button onClick={() => setCurrentView('home')} className="px-3.5 py-2 rounded-lg text-sm font-medium text-edu-muted hover:text-edu-fg hover:bg-edu-surface2 transition">Écoles</button>
@@ -246,7 +244,7 @@ function Footer() {
     <footer className="border-t border-edu-border bg-white mt-auto">
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
         <div>
-          <div className="flex items-center gap-2.5 font-bold text-base mb-3"><BrandMark /> EduGest</div>
+          <div className="mb-3"><BrandMark size={32} /></div>
           <p className="text-sm text-edu-muted leading-relaxed max-w-[280px]">
             La plateforme de gestion scolaire multi-écoles qui simplifie la vie des directions, enseignants et parents.
           </p>
@@ -769,7 +767,7 @@ function LoginView() {
         }} />
         <div className="absolute -top-24 -right-24 w-[480px] h-[480px] rounded-full opacity-25" style={{ background: 'radial-gradient(oklch(75% 0.1 175), transparent 70%)' }} />
         <div className="relative flex items-center gap-2.5 font-bold text-lg">
-          <BrandMark size={36} /> EduGest
+          <BrandMark size={40} />
         </div>
         <div className="relative max-w-[460px]">
           <h2 className="text-[34px] font-extrabold tracking-tight leading-[1.15] mb-3.5">
@@ -970,11 +968,8 @@ function Sidebar() {
       {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
       <aside className={`fixed lg:sticky top-0 left-0 z-50 lg:z-auto h-screen w-[240px] bg-white border-r border-edu-border flex flex-col transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="p-[18px] flex items-center gap-2.5 border-b border-edu-border">
-          <BrandMark />
-          <div>
-            <div className="font-bold text-[15px] tracking-tight">EduGest</div>
-            <div className="text-[11px] text-edu-muted font-medium">{getRoleLabel(userRole!)}</div>
-          </div>
+          <BrandMark size={32} />
+          <div className="text-[11px] text-edu-muted font-medium">{getRoleLabel(userRole!)}</div>
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar py-2">
