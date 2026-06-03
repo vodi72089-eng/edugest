@@ -36,11 +36,13 @@ export type UserRole =
   | 'PARENT'
 
 export interface UserData {
+  id: string
   name: string
   role: UserRole
   schoolId: string
   schoolName: string
   initials: string
+  profileImageUrl?: string | null
 }
 
 interface EduGestStore {

@@ -30,3 +30,35 @@ Stage Summary:
 - WhatsApp login flow: phone → code → authenticate
 - WhatsApp config in SUPER_ADMIN_GLOBAL dashboard for managing official number
 - Lint passes, dev server compiles without errors
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix profile change functionality (le changement de profil ne marche pas)
+
+Work Log:
+- Investigated profile change bug via video upload and code exploration
+- Identified 6 root causes: missing /api/upload route, missing /api/profile route, handleSave() only updating local state, wrong userId (schoolId instead of id), profileImageUrl not in UserData interface, non-functional Settings button
+- Created /api/upload/route.ts - Profile photo upload API with file validation, disk storage, and DB update
+- Created /api/profile/route.ts - Profile data update API (GET and PUT) with name validation
+- Added id and profileImageUrl fields to UserData interface in store.ts
+- Updated both login flows (email and WhatsApp) to pass id and profileImageUrl to the store
+- Fixed handlePhotoUpload to use userData.id instead of userData.schoolId
+- Fixed handleSave to call PUT /api/profile and persist changes to database
+- Added useEffect to sync profileImageUrl from store on mount/navigation
+- Updated store on successful photo upload so sidebar avatar reflects changes immediately
+- Updated sidebar avatar to show profile image when available (instead of just initials)
+- Made Settings gear button in topbar navigate to profile view
+- Verified all API routes work via curl (upload: 200, profile PUT: 200, profile GET: 200)
+- Verified browser end-to-end: login → profile view → name change → save → DB updated
+- Verified profile photo persists across login sessions (profileImageUrl stored in DB)
+- Lint passes cleanly
+
+Stage Summary:
+- Profile name changes now persist to database via PUT /api/profile API
+- Profile photo uploads now work via POST /api/upload API (saves to disk + DB)
+- Sidebar avatar updates immediately when photo is uploaded
+- Profile photo persists across login sessions
+- Settings gear button in topbar now navigates to profile page
+- All 6 original bugs fixed
+

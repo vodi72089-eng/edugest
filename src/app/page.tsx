@@ -831,11 +831,13 @@ function LoginView() {
         const role = mapApiRole(apiUser.role)
         if (role) {
           login(role, {
+            id: apiUser.id,
             name: apiUser.name,
             role,
             schoolId: apiUser.schoolId,
             schoolName: apiUser.school?.name || 'EduGest',
             initials: getInitials(apiUser.name),
+            profileImageUrl: apiUser.profileImageUrl || null,
           })
           toast.success(`Bienvenue, ${apiUser.name}!`)
           return
@@ -1079,11 +1081,13 @@ function LoginView() {
                         const role = mapApiRole(apiUser.role)
                         if (role) {
                           login(role, {
+                            id: apiUser.id,
                             name: apiUser.name,
                             role,
                             schoolId: apiUser.schoolId,
                             schoolName: apiUser.school?.name || 'EduGest',
                             initials: getInitials(apiUser.name),
+                            profileImageUrl: apiUser.profileImageUrl || null,
                           })
                           toast.success(`Bienvenue, ${apiUser.name}!`)
                           setShowWhatsappModal(false)
@@ -1233,9 +1237,13 @@ function Sidebar() {
 
         <div className="p-3 border-t border-white/10">
           <div className="flex items-center gap-2.5 p-2.5 rounded-xl edu-glass">
-            <div className="w-9 h-9 rounded-full grid place-items-center text-white font-semibold text-[13px] shrink-0" style={{ background: `linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))` }}>
-              {userData?.initials || '??'}
-            </div>
+            {userData?.profileImageUrl ? (
+              <img src={userData.profileImageUrl} alt="Avatar" className="w-9 h-9 rounded-full object-cover shrink-0 border border-white/20" />
+            ) : (
+              <div className="w-9 h-9 rounded-full grid place-items-center text-white font-semibold text-[13px] shrink-0" style={{ background: `linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))` }}>
+                {userData?.initials || '??'}
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <div className="text-[13px] font-semibold truncate text-white/90">{userData?.name || 'Utilisateur'}</div>
               <div className="text-[11px] text-white/50 truncate">{userData?.schoolName || ''}</div>
@@ -1250,7 +1258,7 @@ function Sidebar() {
 
 // ===== TOPBAR =====
 function Topbar() {
-  const { currentView, sidebarOpen, setSidebarOpen } = useEduGestStore()
+  const { currentView, sidebarOpen, setSidebarOpen, setCurrentView } = useEduGestStore()
   const viewTitles: Record<string, string> = {
     dashboard: 'Dashboard', students: 'Élèves', classes: 'Classes', grades: 'Notes',
     payments: 'Paiements', discipline: 'Discipline', communications: 'Communications',
@@ -1278,7 +1286,7 @@ function Topbar() {
           <Bell size={16} />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2 border-white" style={{ background: GOLD }} />
         </button>
-        <button className="w-9 h-9 rounded-xl bg-white border border-[oklch(90%_0.01_175)] grid place-items-center hover:shadow-sm transition">
+        <button onClick={() => setCurrentView('profile')} className="w-9 h-9 rounded-xl bg-white border border-[oklch(90%_0.01_175)] grid place-items-center hover:shadow-sm transition" title="Mon profil">
           <Settings size={16} />
         </button>
       </div>
@@ -3137,10 +3145,17 @@ function HomeworkView() {
 function ProfileView() {
   const { userData, setUserData } = useEduGestStore()
   const [name, setName] = useState(userData?.name || '')
-  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null)
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(userData?.profileImageUrl || null)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  // Sync profileImageUrl from store when userData changes
+  useEffect(() => {
+    if (userData?.profileImageUrl) {
+      setProfileImageUrl(userData.profileImageUrl)
+    }
+  }, [userData?.profileImageUrl])
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -3148,15 +3163,22 @@ function ProfileView() {
     if (!file.type.startsWith('image/')) { toast.error('Veuillez sélectionner une image'); return }
     if (file.size > 5 * 1024 * 1024) { toast.error('L\'image ne doit pas dépasser 5MB'); return }
 
+    if (!userData?.id) {
+      toast.error('Session invalide. Veuillez vous reconnecter.')
+      return
+    }
+
     setUploading(true)
     try {
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('userId', userData?.schoolId || 'demo')
+      formData.append('userId', userData.id)
       const res = await fetch('/api/upload', { method: 'POST', body: formData })
       const json = await res.json()
       if (res.ok) {
         setProfileImageUrl(json.profileImageUrl)
+        // Also update the store so the sidebar avatar reflects the change
+        setUserData({ ...userData, profileImageUrl: json.profileImageUrl })
         toast.success('Photo de profil mise à jour!')
       } else {
         toast.error(json.error || 'Erreur lors de l\'upload')
@@ -3166,13 +3188,36 @@ function ProfileView() {
   }
 
   async function handleSave() {
+    if (!userData?.id) {
+      toast.error('Session invalide. Veuillez vous reconnecter.')
+      return
+    }
+
+    if (!name.trim()) {
+      toast.error('Le nom ne peut pas être vide')
+      return
+    }
+
     setSaving(true)
     try {
-      if (userData) {
-        setUserData({ ...userData, name, initials: getInitials(name) })
+      const res = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: userData.id, name: name.trim() }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        // Update the store with the new name and initials
+        setUserData({
+          ...userData,
+          name: name.trim(),
+          initials: getInitials(name.trim()),
+        })
+        toast.success('Profil sauvegardé avec succès!')
+      } else {
+        toast.error(json.error || 'Erreur lors de la sauvegarde')
       }
-      toast.success('Profil sauvegardé avec succès!')
-    } catch { toast.error('Erreur lors de la sauvegarde') }
+    } catch { toast.error('Erreur réseau') }
     finally { setSaving(false) }
   }
 

@@ -1,17 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join } from 'path';
-
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-
-function getExtension(filename: string): string {
-  const parts = filename.split('.');
-  if (parts.length < 2) return '';
-  return parts[parts.length - 1].toLowerCase();
-}
+import { writeFile, mkdir } from 'fs/promises';
+import path from 'path';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,71 +10,64 @@ export async function POST(request: NextRequest) {
     const userId = formData.get('userId') as string | null;
 
     if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+      return NextResponse.json({ error: 'Aucun fichier fourni' }, { status: 400 });
     }
 
     if (!userId) {
-      return NextResponse.json({ error: 'No userId provided' }, { status: 400 });
+      return NextResponse.json({ error: 'ID utilisateur requis' }, { status: 400 });
     }
 
     // Validate file type
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { error: `Invalid file type. Allowed types: ${ALLOWED_EXTENSIONS.join(', ')}` },
-        { status: 400 }
-      );
+    if (!file.type.startsWith('image/')) {
+      return NextResponse.json({ error: 'Le fichier doit être une image' }, { status: 400 });
     }
 
-    const extension = getExtension(file.name);
-    if (!extension || !ALLOWED_EXTENSIONS.includes(extension)) {
-      return NextResponse.json(
-        { error: `Invalid file extension. Allowed extensions: ${ALLOWED_EXTENSIONS.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
-    // Validate file size
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: 'File size exceeds 5MB limit' },
-        { status: 400 }
-      );
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: "L'image ne doit pas dépasser 5MB" }, { status: 400 });
     }
 
     // Verify user exists
     const user = await db.user.findUnique({ where: { id: userId } });
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
     }
 
-    // Create uploads directory if it doesn't exist
-    const uploadDir = join(process.cwd(), 'public', 'uploads', 'profiles');
-    if (!existsSync(uploadDir)) {
-      mkdirSync(uploadDir, { recursive: true });
-    }
+    // Read file buffer
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
 
-    // Generate filename: {userId}-{timestamp}.{ext}
-    const timestamp = Date.now();
-    const filename = `${userId}-${timestamp}.${extension}`;
-    const filepath = join(uploadDir, filename);
+    // Create upload directory if it doesn't exist
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'profiles');
+    await mkdir(uploadDir, { recursive: true });
+
+    // Generate unique filename
+    const ext = file.name.split('.').pop() || 'jpg';
+    const filename = `${userId}-${Date.now()}.${ext}`;
+    const filepath = path.join(uploadDir, filename);
 
     // Write file to disk
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    writeFileSync(filepath, buffer);
+    await writeFile(filepath, buffer);
 
     // Build the public URL
     const profileImageUrl = `/uploads/profiles/${filename}`;
 
-    // Update user's profileImageUrl in the database
+    // Update user in database
     await db.user.update({
       where: { id: userId },
       data: { profileImageUrl },
     });
 
-    return NextResponse.json({ profileImageUrl }, { status: 200 });
+    return NextResponse.json({
+      success: true,
+      profileImageUrl,
+      message: 'Photo de profil mise à jour',
+    });
   } catch (error) {
     console.error('Error uploading profile photo:', error);
-    return NextResponse.json({ error: 'Failed to upload profile photo' }, { status: 500 });
+    return NextResponse.json(
+      { error: "Erreur lors du téléchargement de l'image" },
+      { status: 500 }
+    );
   }
 }
