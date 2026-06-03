@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useEduGestStore, ViewType, UserRole, UserData } from '@/lib/store'
 import { toast } from 'sonner'
+import ReceiptPreview from '@/components/ReceiptPreview'
 import {
   Search, Bell, Settings, Plus, ChevronRight, Users, GraduationCap,
   DollarSign, MessageSquare, BookOpen, Shield, LogOut, Menu, X,
@@ -75,6 +76,22 @@ interface CommunicationData {
 interface HomeworkData {
   id: string; title: string; description: string; subjectName: string;
   classId: string; teacherName: string; dueDate: string; schoolId: string;
+}
+
+// Receipt preview types (matching ReceiptPreview component)
+interface ReceiptPayment {
+  id: string; amount: number; paidAmount: number; trimester: string;
+  paymentMethod: string | null; referenceNumber: string | null;
+  status: string; paidAt: string | null; receiptNumber: string | null; createdAt: string;
+}
+
+interface ReceiptStudent {
+  firstName: string; lastName: string; matricule: string;
+}
+
+interface ReceiptSchool {
+  name: string; shortName: string; email: string; phone: string;
+  address: string; city: string; province: string; country: string;
 }
 
 // ===== CONSTANTS =====
@@ -2783,15 +2800,58 @@ function PaymentsView() {
     finally { setSubmitting(false) }
   }
 
+  const [receiptPreview, setReceiptPreview] = useState<{
+    payment: ReceiptPayment; student: ReceiptStudent; school: ReceiptSchool
+  } | null>(null)
+
   async function downloadReceipt(paymentId: string) {
     try {
+      // Fetch full payment data for the receipt preview
       const res = await fetch(`/api/payments/receipt/${paymentId}`)
       if (!res.ok) throw new Error()
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url; a.download = `recu-${paymentId}.pdf`; a.click()
-      URL.revokeObjectURL(url)
+      // The server returns a PDF — we'll also fetch data for the preview
+      // First try the data endpoint
+      const dataRes = await fetch(`/api/payments?limit=30`)
+      const dataJson = await dataRes.json()
+      const payment = (dataJson.data || []).find((p: PaymentData) => p.id === paymentId)
+      if (payment && payment.student && userData) {
+        setReceiptPreview({
+          payment: {
+            id: payment.id,
+            amount: payment.amount,
+            paidAmount: payment.paidAmount,
+            trimester: payment.trimester,
+            paymentMethod: payment.paymentMethod || null,
+            referenceNumber: payment.receiptNumber || null,
+            status: payment.status,
+            paidAt: payment.paidAt || null,
+            receiptNumber: payment.receiptNumber || null,
+            createdAt: payment.createdAt,
+          },
+          student: {
+            firstName: payment.student.firstName,
+            lastName: payment.student.lastName,
+            matricule: payment.student.matricule,
+          },
+          school: {
+            name: userData.schoolName,
+            shortName: userData.schoolName.substring(0, 3).toUpperCase(),
+            email: '',
+            phone: '',
+            address: '',
+            city: '',
+            province: '',
+            country: '',
+          },
+        })
+      } else {
+        // Fallback: download the server-generated PDF directly
+        const blob = await res.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url; a.download = `recu-${paymentId}.pdf`; a.click()
+        URL.revokeObjectURL(url)
+      }
     } catch { toast.error('Erreur lors du téléchargement du reçu') }
   }
 
@@ -2919,6 +2979,16 @@ function PaymentsView() {
           </table>
         </div>
       </div>
+
+      {/* Receipt Preview Modal */}
+      {receiptPreview && (
+        <ReceiptPreview
+          payment={receiptPreview.payment}
+          student={receiptPreview.student}
+          school={receiptPreview.school}
+          onClose={() => setReceiptPreview(null)}
+        />
+      )}
     </div>
   )
 }
