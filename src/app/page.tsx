@@ -832,6 +832,26 @@ function LoginView() {
   const [waStep, setWaStep] = useState<'phone' | 'code'>('phone')
   const [waLoading, setWaLoading] = useState(false)
 
+  // Vérifie que le rôle correspond à l'onglet sélectionné
+  // SUPER_ADMIN_GLOBAL peut se connecter depuis n'importe quel onglet
+  function validateRoleForTab(role: UserRole | null): { valid: boolean; message?: string } {
+    if (!role) return { valid: false, message: 'Rôle non reconnu. Contactez l\'administration.' }
+    // SUPER_ADMIN_GLOBAL peut se connecter partout
+    if (role === 'SUPER_ADMIN_GLOBAL') return { valid: true }
+    if (tab === 'parent') {
+      // L'onglet Parent n'accepte que le rôle PARENT
+      if (role !== 'PARENT') {
+        return { valid: false, message: 'Ce compte n\'est pas un compte parent. Veuillez utiliser l\'onglet Administration.' }
+      }
+    } else {
+      // L'onglet Administration n'accepte PAS le rôle PARENT
+      if (role === 'PARENT') {
+        return { valid: false, message: 'Ce compte est un compte parent. Veuillez utiliser l\'onglet Parent.' }
+      }
+    }
+    return { valid: true }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!email || !password) return
@@ -846,6 +866,11 @@ function LoginView() {
       if (json.data) {
         const apiUser = json.data
         const role = mapApiRole(apiUser.role)
+        const validation = validateRoleForTab(role)
+        if (!validation.valid) {
+          toast.error(validation.message || 'Accès non autorisé pour ce type de compte.')
+          return
+        }
         if (role) {
           login(role, {
             id: apiUser.id,
@@ -1096,6 +1121,11 @@ function LoginView() {
                       if (res.ok && json.data) {
                         const apiUser = json.data
                         const role = mapApiRole(apiUser.role)
+                        const validation = validateRoleForTab(role)
+                        if (!validation.valid) {
+                          toast.error(validation.message || 'Accès non autorisé pour ce type de compte.')
+                          return
+                        }
                         if (role) {
                           login(role, {
                             id: apiUser.id,
