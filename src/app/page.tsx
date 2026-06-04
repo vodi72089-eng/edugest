@@ -16,7 +16,7 @@ import {
   Info, Zap, Globe, Lock, Award, Ban, CircleDot, ListChecks,
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
-  ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen
+  ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -27,10 +27,10 @@ import {
 interface SchoolData {
   id: string; name: string; shortName: string; email: string; phone: string;
   address: string; city: string; province: string; country: string;
-  latitude?: number; longitude?: number; description?: string;
-  establishmentYear?: number; subscriptionTier: string; maxStudents: number;
-  schoolType: string; schoolCategory: string; averageRating: number;
-  totalReviews: number; studentCount: number; classCount: number;
+  latitude?: number; longitude?: number; logo?: string; coverImage?: string;
+  description?: string; establishmentYear?: number; subscriptionTier: string;
+  maxStudents: number; schoolType: string; schoolCategory: string;
+  averageRating: number; totalReviews: number; studentCount: number; classCount: number;
   isActive: boolean; _count?: { students: number; classes: number; users: number };
 }
 
@@ -380,6 +380,8 @@ function HomeView() {
   const [province, setProvince] = useState('Toutes provinces')
   const [activeFilter, setActiveFilter] = useState('all')
   const [showMap, setShowMap] = useState(false)
+  const [typewriterLine1, setTypewriterLine1] = useState('')
+  const [typewriterLine2, setTypewriterLine2] = useState('')
 
   useEffect(() => {
     async function loadData() {
@@ -395,6 +397,157 @@ function HomeView() {
       }
     }
     loadData()
+  }, [])
+
+  // Typewriter animation
+  useEffect(() => {
+    const title1 = "Rejoignez"
+    const title2 = "l'excellence éducative"
+    let charIndex = 0
+    let currentLine = 1
+    let timeoutId: ReturnType<typeof setTimeout>
+
+    function type() {
+      if (currentLine === 1) {
+        if (charIndex < title1.length) {
+          setTypewriterLine1(title1.substring(0, charIndex + 1))
+          charIndex++
+          timeoutId = setTimeout(type, 80 + Math.random() * 60)
+        } else {
+          currentLine = 2
+          charIndex = 0
+          timeoutId = setTimeout(type, 400)
+        }
+      } else {
+        if (charIndex < title2.length) {
+          setTypewriterLine2(title2.substring(0, charIndex + 1))
+          charIndex++
+          timeoutId = setTimeout(type, 80 + Math.random() * 60)
+        }
+      }
+    }
+
+    timeoutId = setTimeout(type, 800)
+    return () => clearTimeout(timeoutId)
+  }, [])
+
+  // Floating parallax icons
+  useEffect(() => {
+    const container = document.getElementById('stitch-parallax-container')
+    if (!container) return
+
+    const educationIcons = [
+      '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>',
+      '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>',
+      '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>',
+      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"></path><path d="M3 22h18"></path><path d="M14 22a7 7 0 1 0 0-14h-1"></path><path d="M9 14h2"></path><path d="M9 12a2 2 0 1 1-4 0V7a2 2 0 1 1 4 0v5Z"></path><path d="M12 7V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4"></path></svg>',
+    ]
+
+    const elements: { el: HTMLDivElement; x: number; y: number; originX: number; originY: number; vx: number; vy: number; depth: number; scale: number; rotation: number; rotationSpeed: number; phase: number }[] = []
+    const numIcons = 20
+    let mouseX = window.innerWidth / 2
+    let mouseY = window.innerHeight / 2
+    let targetMouseX = mouseX
+    let targetMouseY = mouseY
+    let animFrameId: number
+
+    for (let i = 0; i < numIcons; i++) {
+      const el = document.createElement('div')
+      el.style.position = 'absolute'
+      el.style.pointerEvents = 'none'
+      el.style.userSelect = 'none'
+      el.style.zIndex = '1'
+      el.style.willChange = 'transform'
+      el.innerHTML = educationIcons[i % educationIcons.length]
+
+      const startX = Math.random() * window.innerWidth
+      const startY = Math.random() * (window.innerHeight * 0.9)
+      const depth = 0.02 + Math.random() * 0.1
+      const sizeScale = 0.7 + Math.random() * 1.3
+
+      const colorRoll = Math.random()
+      if (colorRoll > 0.85) el.style.color = '#f5a623'
+      else if (colorRoll > 0.70) el.style.color = '#10b981'
+      else el.style.color = 'rgba(255,255,255,0.25)'
+
+      el.style.opacity = (0.05 + Math.random() * 0.15).toString()
+
+      container.appendChild(el)
+      elements.push({
+        el, x: startX, y: startY, originX: startX, originY: startY,
+        vx: 0, vy: 0, depth, scale: sizeScale,
+        rotation: Math.random() * 360,
+        rotationSpeed: (Math.random() - 0.5) * 0.3,
+        phase: Math.random() * Math.PI * 2,
+      })
+    }
+
+    // Fade icons in
+    setTimeout(() => {
+      elements.forEach(item => {
+        const baseOp = parseFloat(item.el.style.opacity)
+        item.el.style.opacity = (baseOp * 1.5).toString()
+      })
+    }, 500)
+
+    const handleMouseMove = (e: MouseEvent) => {
+      targetMouseX = e.clientX
+      targetMouseY = e.clientY
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+
+    function lerp(start: number, end: number, amt: number) {
+      return (1 - amt) * start + amt * end
+    }
+
+    function update() {
+      mouseX = lerp(mouseX, targetMouseX, 0.08)
+      mouseY = lerp(mouseY, targetMouseY, 0.08)
+      const time = Date.now() * 0.001
+
+      elements.forEach(item => {
+        const dx = targetMouseX - (item.x + (targetMouseX - window.innerWidth / 2) * item.depth)
+        const dy = targetMouseY - (item.y + (targetMouseY - window.innerHeight / 2) * item.depth)
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        const mouseRange = 400
+        const attractionStrength = 0.08
+
+        if (dist < mouseRange) {
+          const force = (1 - dist / mouseRange) * attractionStrength
+          item.vx += dx * force * 0.2
+          item.vy += dy * force * 0.2
+        }
+
+        item.vx += (item.originX - item.x) * 0.01
+        item.vy += (item.originY - item.y) * 0.01
+        item.vx *= 0.92
+        item.vy *= 0.92
+        item.x += item.vx
+        item.y += item.vy
+
+        const driftX = Math.sin(time + item.phase) * 0.6
+        const driftY = Math.cos(time + item.phase * 0.7) * 0.6
+        const px = (mouseX - window.innerWidth / 2) * item.depth
+        const py = (mouseY - window.innerHeight / 2) * item.depth
+        item.rotation += item.rotationSpeed
+
+        item.el.style.transform = `translate3d(${item.x + px + driftX}px, ${item.y + py + driftY}px, 0) rotate(${item.rotation}deg) scale(${item.scale})`
+      })
+
+      animFrameId = requestAnimationFrame(update)
+    }
+    update()
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      cancelAnimationFrame(animFrameId)
+      // Clean up icons
+      while (container.firstChild) container.removeChild(container.firstChild)
+    }
   }, [])
 
   const filteredSchools = schools.filter(s => {
@@ -420,61 +573,89 @@ function HomeView() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* ===== HERO SECTION ===== */}
-      <section className="relative overflow-hidden edu-hero-dark">
-        {/* Kente pattern overlay */}
-        <div className="absolute inset-0 edu-kente opacity-60" />
-        {/* Radial glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] opacity-20" style={{ background: 'radial-gradient(ellipse at center, oklch(55% 0.15 175 / 0.4), transparent 70%)' }} />
+      {/* ===== HERO SECTION — Institutional Excellence ===== */}
+      <section className="relative w-full min-h-[700px] sm:min-h-[900px] flex flex-col overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+        {/* Parallax floating icons container */}
+        <div id="stitch-parallax-container" className="absolute inset-0 pointer-events-none overflow-hidden z-0" />
+
+        {/* Gradient overlay at bottom */}
+        <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-[#0a0f0d] via-[#0b1613]/50 to-transparent pointer-events-none z-10" />
 
         {/* Floating nav */}
-        <PublicHeader dark />
+        <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-5 sm:py-6 w-full">
+          <button onClick={() => setCurrentView('home')} className="flex items-center shrink-0 min-w-max">
+            <BrandMark height={56} className="brightness-110 hover:scale-105 transition-all duration-300" />
+          </button>
+          <div className="hidden md:flex items-center gap-12">
+            <button onClick={() => setCurrentView('home')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Écoles</button>
+            <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Fonctionnalités</button>
+            <button onClick={() => setCurrentView('pricing')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Tarifs</button>
+          </div>
+          <button onClick={() => setCurrentView('login')} className="bg-[#f5a623] hover:bg-[#ffb643] hover:shadow-[0_0_30px_rgba(245,166,35,0.4)] text-[#0a0f0d] px-8 sm:px-10 py-3 sm:py-3.5 rounded-full font-extrabold text-sm transition-all shadow-[0_10px_30px_rgba(245,166,35,0.2)] active:scale-95 cursor-pointer">
+            Se connecter
+          </button>
+        </nav>
 
-        <div className="relative container-premium py-20 sm:py-32 text-center">
-          {/* Display Headline */}
-          <h1 className="text-[40px] sm:text-[45px] lg:text-[56px] font-extrabold tracking-tight leading-[1.1] text-white mb-5">
-            Rejoignez l&apos;excellence{' '}
-            <span style={{ color: GOLD }}>éducative</span>
-          </h1>
-          <p className="text-base sm:text-lg text-white/60 leading-relaxed mb-10 max-w-[600px] mx-auto">
-            La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants pour un avenir meilleur.
-          </p>
-
-          {/* Glass morphism search bar */}
-          <div className="edu-glass rounded-2xl p-2 max-w-[780px] mx-auto shadow-lg flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <div className="flex items-center gap-2.5 px-4 flex-1">
-              <Search size={18} className="text-white/50 shrink-0" />
-              <input
-                type="text" placeholder="Rechercher une école par nom..."
-                value={search} onChange={e => setSearch(e.target.value)}
-                className="flex-1 border-0 outline-none bg-transparent text-sm py-3 text-white placeholder:text-white/35"
-              />
-            </div>
-            <select
-              value={province} onChange={e => setProvince(e.target.value)}
-              className="border-0 bg-white/10 py-2.5 px-3 rounded-xl text-[13px] text-white/70 border-r border-white/10 outline-none cursor-pointer"
-            >
-              {PROVINCES.map(p => <option key={p} value={p} className="text-edu-fg">{p}</option>)}
-            </select>
-            <button className="edu-gold-cta px-6 py-3 rounded-xl text-sm font-semibold">
-              Rechercher
-            </button>
+        {/* Main hero content */}
+        <main className="relative z-10 flex flex-col items-center justify-center flex-grow px-4 text-center mt-[-40px]">
+          {/* Typewriter title */}
+          <div className="mb-10 sm:mb-14 flex flex-col items-center relative">
+            <h1 className="text-5xl sm:text-6xl md:text-[6.5rem] font-black text-white leading-[1.05] tracking-tighter mb-6 sm:mb-8 relative inline-block mx-auto select-none" style={{ minHeight: '140px' }}>
+              <span id="typewriter-line-1" className="inline-block relative">{typewriterLine1}<span className="animate-pulse">|</span></span>
+              <br />
+              <span className="italic font-playfair inline-block relative" style={{ color: '#f5a623', textShadow: '0 0 25px rgba(245, 166, 35, 0.5), 0 0 50px rgba(245, 166, 35, 0.2)' }}>{typewriterLine2}</span>
+            </h1>
+            <p className="text-gray-300 text-base sm:text-lg md:text-xl max-w-2xl mx-auto font-medium leading-relaxed opacity-80">
+              La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants pour un avenir meilleur.
+            </p>
           </div>
 
-          {/* Stats badges */}
-          <div className="mt-10 flex flex-wrap justify-center gap-4 sm:gap-6">
+          {/* Glass morphism search bar */}
+          <div className="w-full max-w-4xl mb-16 sm:mb-24 relative z-20">
+            <div className="p-2 rounded-2xl flex flex-col md:flex-row items-center gap-3 shadow-2xl border-white/10" style={{ background: 'rgba(26, 37, 32, 0.4)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)' }}>
+              <div className="flex items-center flex-grow w-full px-4 sm:px-6 gap-4">
+                <Search size={20} className="text-gray-400 shrink-0" />
+                <input
+                  type="text" placeholder="Rechercher une école par nom..."
+                  value={search} onChange={e => setSearch(e.target.value)}
+                  className="w-full bg-transparent border-none text-white py-4 text-base sm:text-lg font-medium placeholder-gray-500 tracking-tight outline-none"
+                />
+              </div>
+              <div className="hidden md:block h-10 w-px bg-white/10 mx-1" />
+              <div className="flex items-center w-full md:w-auto gap-3 px-2 md:px-0">
+                <div className="relative flex-grow md:flex-grow-0">
+                  <select
+                    value={province} onChange={e => setProvince(e.target.value)}
+                    className="w-full md:w-48 bg-white/5 text-white border border-white/10 rounded-xl px-5 py-4 text-sm font-bold cursor-pointer hover:bg-white/10 transition-all appearance-none outline-none backdrop-blur-md"
+                  >
+                    {PROVINCES.map(p => <option key={p} value={p} className="bg-[#0a0f0d] text-white">{p}</option>)}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                  </div>
+                </div>
+                <button className="w-full md:w-auto bg-[#f5a623] text-[#0a0f0d] px-10 py-4 rounded-xl font-extrabold text-sm uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)] whitespace-nowrap cursor-pointer">
+                  Rechercher
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats cards with tilt */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-3xl px-4 relative z-20">
             {[
-              { value: '240+', label: 'Établissements' },
-              { value: '50 000+', label: 'Familles' },
-              { value: '98%', label: 'Satisfaction' },
-            ].map(stat => (
-              <div key={stat.label} className="edu-glass rounded-xl px-5 py-3 sm:px-6 sm:py-4 text-center min-w-[120px]">
-                <div className="text-xl sm:text-2xl font-extrabold text-white">{stat.value}</div>
-                <div className="text-[11px] sm:text-xs text-white/50 mt-0.5">{stat.label}</div>
+              { value: '240+', label: 'Établissements', glow: 'bg-[#f5a623]/5 group-hover:bg-[#f5a623]/10', pos: '-top-10 -right-10' },
+              { value: '50 000+', label: 'Familles', glow: 'bg-emerald-500/5 group-hover:bg-emerald-500/10', pos: '-bottom-10 -left-10' },
+              { value: '98%', label: 'Satisfaction', glow: 'bg-cyan-500/5 group-hover:bg-cyan-500/10', pos: 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' },
+            ].map((stat) => (
+              <div key={stat.label} className="p-5 rounded-2xl flex flex-col items-center justify-center group cursor-default border-white/5 overflow-hidden relative" style={{ background: 'rgba(26, 37, 32, 0.4)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)', transformStyle: 'preserve-3d', transition: 'transform 0.4s cubic-bezier(0.23, 1, 0.32, 1)' }}>
+                <div className={`absolute ${stat.pos} w-32 h-32 ${stat.glow} blur-3xl rounded-full transition-colors`} />
+                <span className="text-3xl font-black text-white tracking-tighter mb-1.5 group-hover:text-[#f5a623] transition-colors duration-500">{stat.value}</span>
+                <span className="text-[9px] text-gray-400 uppercase tracking-[0.3em] font-extrabold group-hover:text-white transition-colors duration-500">{stat.label}</span>
               </div>
             ))}
           </div>
-        </div>
+        </main>
       </section>
 
       {/* ===== TRUST SIGNALS BAR ===== */}
@@ -562,9 +743,13 @@ function HomeView() {
                     <span className="absolute top-3 right-3 edu-glass px-3 py-1 rounded-full text-[11px] font-medium text-white">
                       {getSchoolTypeLabel(school.schoolType, school.schoolCategory)}
                     </span>
-                    <div className={`w-12 h-12 rounded-xl bg-white grid place-items-center font-extrabold text-lg shadow-md relative top-6 ${LOGO_COLORS[idx % LOGO_COLORS.length]}`}>
-                      {school.shortName.substring(0, 2)}
-                    </div>
+                    {school.logo ? (
+                      <img src={school.logo} alt={school.shortName} className={`w-12 h-12 rounded-xl object-cover shadow-md relative top-6 bg-white`} />
+                    ) : (
+                      <div className={`w-12 h-12 rounded-xl bg-white grid place-items-center font-extrabold text-lg shadow-md relative top-6 ${LOGO_COLORS[idx % LOGO_COLORS.length]}`}>
+                        {school.shortName.substring(0, 2)}
+                      </div>
+                    )}
                   </div>
                   <div className="p-6 sm:p-10 pt-10">
                     <div className="text-base font-semibold tracking-tight mb-1" style={{ color: TEXT_PRIMARY }}>{school.name}</div>
@@ -3539,7 +3724,11 @@ function SchoolsManagementView() {
     schoolCategory: 'PRIVEE', maxStudents: 200, establishmentYear: new Date().getFullYear(),
     description: '', mission: '', subscriptionTier: 'FREEMIUM',
     latitude: null as number | null, longitude: null as number | null,
+    logo: '', coverImage: '',
   })
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement | null>(null)
 
   function loadSchools() {
     setLoading(true)
@@ -3547,6 +3736,44 @@ function SchoolsManagementView() {
   }
 
   useEffect(() => { loadSchools() }, [])
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Veuillez sélectionner une image')
+      return
+    }
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('L\'image ne doit pas dépasser 5MB')
+      return
+    }
+    // Show preview immediately
+    const reader = new FileReader()
+    reader.onload = (ev) => setLogoPreview(ev.target?.result as string)
+    reader.readAsDataURL(file)
+    // Upload to server
+    setUploadingLogo(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('category', 'schools')
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      if (res.ok) {
+        const data = await res.json()
+        setForm(prev => ({ ...prev, logo: data.url }))
+        toast.success('Logo importé avec succès')
+      } else {
+        toast.error('Erreur lors de l\'import du logo')
+      }
+    } catch {
+      toast.error('Erreur réseau lors de l\'import')
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
 
   async function handleAddSchool(e: React.FormEvent) {
     e.preventDefault()
@@ -3592,7 +3819,8 @@ function SchoolsManagementView() {
 
         toast.success(`École ajoutée avec succès !${price > 0 ? ` Paiement de ${price}$ en liquide enregistré.` : ''}`)
         setShowAddModal(false)
-        setForm({ name: '', shortName: '', email: '', phone: '', address: '', city: '', province: '', country: 'RDC', schoolType: 'MIXTE', schoolCategory: 'PRIVEE', maxStudents: 200, establishmentYear: new Date().getFullYear(), description: '', mission: '', subscriptionTier: 'FREEMIUM', latitude: null, longitude: null })
+        setForm({ name: '', shortName: '', email: '', phone: '', address: '', city: '', province: '', country: 'RDC', schoolType: 'MIXTE', schoolCategory: 'PRIVEE', maxStudents: 200, establishmentYear: new Date().getFullYear(), description: '', mission: '', subscriptionTier: 'FREEMIUM', latitude: null, longitude: null, logo: '', coverImage: '' })
+        setLogoPreview(null)
         loadSchools()
       } else {
         const json = await res.json()
@@ -3637,6 +3865,52 @@ function SchoolsManagementView() {
               <button onClick={() => setShowAddModal(false)} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition"><X size={18} /></button>
             </div>
             <form onSubmit={handleAddSchool} className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Import du logo */}
+              <div className="flex items-start gap-5">
+                <div className="shrink-0">
+                  <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={uploadingLogo}
+                    className="relative w-24 h-24 rounded-2xl border-2 border-dashed border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] transition-all grid place-items-center overflow-hidden group"
+                    style={{ background: logoPreview ? 'transparent' : 'oklch(97% 0.005 175)' }}
+                  >
+                    {logoPreview ? (
+                      <>
+                        <img src={logoPreview} alt="Logo preview" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center">
+                          <Camera size={20} className="text-white" />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1">
+                        {uploadingLogo ? (
+                          <div className="h-6 w-6 border-2 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <ImagePlus size={24} style={{ color: TEXT_MUTED_LUXE }} />
+                        )}
+                        <span className="text-[10px] font-medium" style={{ color: TEXT_MUTED_LUXE }}>Logo</span>
+                      </div>
+                    )}
+                  </button>
+                </div>
+                <div className="flex-1 min-w-0 pt-1">
+                  <label className="text-[13px] font-semibold" style={{ color: TEXT_PRIMARY }}>Logo de l&apos;école</label>
+                  <p className="text-[11px] mt-0.5 mb-2" style={{ color: TEXT_MUTED_LUXE }}>Importez le logo de l&apos;établissement (JPG, PNG, SVG — max 5MB)</p>
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={uploadingLogo}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium border border-[oklch(88%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition disabled:opacity-50"
+                    style={{ color: TEXT_MUTED_LUXE }}
+                  >
+                    <Upload size={12} />
+                    {uploadingLogo ? 'Import en cours...' : logoPreview ? 'Changer le logo' : 'Importer un logo'}
+                  </button>
+                </div>
+              </div>
+
               {/* Carte interactive pour la localisation */}
               <SchoolMap
                 latitude={form.latitude}
@@ -3787,9 +4061,13 @@ function SchoolsManagementView() {
                 <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full grid place-items-center text-white font-semibold text-[11px] shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                        {s.shortName.substring(0, 2)}
-                      </div>
+                      {s.logo ? (
+                        <img src={s.logo} alt={s.shortName} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full grid place-items-center text-white font-semibold text-[11px] shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                          {s.shortName.substring(0, 2)}
+                        </div>
+                      )}
                       <div>
                         <div className="font-medium text-[13px]" style={{ color: TEXT_PRIMARY }}>{s.name}</div>
                         <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.city} · {s.province}</div>

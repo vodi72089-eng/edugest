@@ -87,6 +87,8 @@ export async function POST(request: NextRequest) {
       establishmentYear,
       mission,
       subscriptionTier,
+      logo,
+      coverImage,
     } = body;
 
     if (!name || !shortName || !email || !phone || !city || !province || !country) {
@@ -115,6 +117,8 @@ export async function POST(request: NextRequest) {
         establishmentYear: establishmentYear || null,
         mission: mission || null,
         subscriptionTier: subscriptionTier || 'FREEMIUM',
+        logo: logo || null,
+        coverImage: coverImage || null,
       },
     });
 
