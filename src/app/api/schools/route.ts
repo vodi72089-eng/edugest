@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
       maxStudents,
       establishmentYear,
       mission,
+      subscriptionTier,
     } = body;
 
     if (!name || !shortName || !email || !phone || !city || !province || !country) {
@@ -113,6 +114,7 @@ export async function POST(request: NextRequest) {
         maxStudents: maxStudents || 100,
         establishmentYear: establishmentYear || null,
         mission: mission || null,
+        subscriptionTier: subscriptionTier || 'FREEMIUM',
       },
     });
 

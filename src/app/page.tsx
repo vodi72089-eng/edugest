@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useEduGestStore, ViewType, UserRole, UserData } from '@/lib/store'
 import { toast } from 'sonner'
 import ReceiptPreview from '@/components/ReceiptPreview'
+import dynamic from 'next/dynamic'
+const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
 import {
   Search, Bell, Settings, Plus, ChevronRight, Users, GraduationCap,
   DollarSign, MessageSquare, BookOpen, Shield, LogOut, Menu, X,
@@ -317,7 +319,7 @@ function Footer() {
 }
 
 // ===== MAP COMPONENT =====
-function SchoolMap({ schools }: { schools: SchoolData[] }) {
+function SchoolsOverviewMap({ schools }: { schools: SchoolData[] }) {
   const [mounted, setMounted] = useState(false)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
   const [L, setL] = useState<typeof import('leaflet') | null>(null)
@@ -524,7 +526,7 @@ function HomeView() {
         {showMap && (
           <div className="container-premium mb-6">
             <div className="rounded-2xl overflow-hidden shadow-lg">
-              <SchoolMap schools={filteredSchools} />
+              <SchoolsOverviewMap schools={filteredSchools} />
             </div>
           </div>
         )}
@@ -733,7 +735,7 @@ function SchoolDetailView() {
             {school.latitude && school.longitude && (
               <div className="mt-8">
                 <h3 className="font-semibold mb-3" style={{ color: TEXT_PRIMARY }}>Localisation</h3>
-                <div className="rounded-2xl overflow-hidden shadow-sm"><SchoolMap schools={[school]} /></div>
+                <div className="rounded-2xl overflow-hidden shadow-sm"><SchoolsOverviewMap schools={[school]} /></div>
               </div>
             )}
 
@@ -3535,7 +3537,8 @@ function SchoolsManagementView() {
     name: '', shortName: '', email: '', phone: '', address: '',
     city: '', province: '', country: 'RDC', schoolType: 'MIXTE',
     schoolCategory: 'PRIVEE', maxStudents: 200, establishmentYear: new Date().getFullYear(),
-    description: '', mission: '',
+    description: '', mission: '', subscriptionTier: 'FREEMIUM',
+    latitude: null as number | null, longitude: null as number | null,
   })
 
   function loadSchools() {
@@ -3553,15 +3556,43 @@ function SchoolsManagementView() {
     }
     setSaving(true)
     try {
+      // 1. Créer l'école
       const res = await fetch('/api/schools', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
       if (res.ok) {
-        toast.success('École ajoutée avec succès !')
+        const schoolData = await res.json()
+        const schoolId = schoolData.data?.id
+
+        // 2. Si l'abonnement est payant, enregistrer le paiement en liquide
+        const tierPrices: Record<string, number> = {
+          ESSENTIEL: 100, STANDARD: 250, PREMIUM: 500, ENTERPRISE: 1000, CORPORATE: 0,
+        }
+        const price = tierPrices[form.subscriptionTier] || 0
+        if (price > 0 && schoolId) {
+          try {
+            await fetch('/api/payments/subscription', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                schoolId,
+                amount: price,
+                subscriptionTier: form.subscriptionTier,
+                paymentMethod: 'CASH',
+                description: `Abonnement ${getSubscriptionLabel(form.subscriptionTier)} - ${getSubscriptionPrice(form.subscriptionTier)} - Paiement en liquide`,
+              }),
+            })
+          } catch {
+            // Payment recording failed, but school was created
+            console.warn('Failed to record subscription payment')
+          }
+        }
+
+        toast.success(`École ajoutée avec succès !${price > 0 ? ` Paiement de ${price}$ en liquide enregistré.` : ''}`)
         setShowAddModal(false)
-        setForm({ name: '', shortName: '', email: '', phone: '', address: '', city: '', province: '', country: 'RDC', schoolType: 'MIXTE', schoolCategory: 'PRIVEE', maxStudents: 200, establishmentYear: new Date().getFullYear(), description: '', mission: '' })
+        setForm({ name: '', shortName: '', email: '', phone: '', address: '', city: '', province: '', country: 'RDC', schoolType: 'MIXTE', schoolCategory: 'PRIVEE', maxStudents: 200, establishmentYear: new Date().getFullYear(), description: '', mission: '', subscriptionTier: 'FREEMIUM', latitude: null, longitude: null })
         loadSchools()
       } else {
         const json = await res.json()
@@ -3606,6 +3637,25 @@ function SchoolsManagementView() {
               <button onClick={() => setShowAddModal(false)} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition"><X size={18} /></button>
             </div>
             <form onSubmit={handleAddSchool} className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Carte interactive pour la localisation */}
+              <SchoolMap
+                latitude={form.latitude}
+                longitude={form.longitude}
+                onLocationChange={(lat, lng, address) => {
+                  setForm(prev => ({
+                    ...prev,
+                    latitude: lat,
+                    longitude: lng,
+                    ...(address ? {
+                      address: address.address || prev.address,
+                      city: address.city || prev.city,
+                      province: address.province || prev.province,
+                      country: address.country || prev.country,
+                    } : {}),
+                  }))
+                }}
+              />
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom de l&apos;école *</label>
@@ -3625,19 +3675,19 @@ function SchoolsManagementView() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Adresse</label>
-                  <input type="text" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="123 Ave. Lumumba" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                  <input type="text" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Remplie auto. par la carte" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Ville *</label>
-                  <input type="text" required value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder="Kinshasa" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                  <input type="text" required value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder="Remplie auto. par la carte" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Province *</label>
-                  <input type="text" required value={form.province} onChange={e => setForm({ ...form, province: e.target.value })} placeholder="Kinshasa" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                  <input type="text" required value={form.province} onChange={e => setForm({ ...form, province: e.target.value })} placeholder="Remplie auto. par la carte" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Pays *</label>
-                  <input type="text" required value={form.country} onChange={e => setForm({ ...form, country: e.target.value })} placeholder="RDC" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                  <input type="text" required value={form.country} onChange={e => setForm({ ...form, country: e.target.value })} placeholder="Remplie auto. par la carte" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Type d&apos;école</label>
@@ -3663,6 +3713,40 @@ function SchoolsManagementView() {
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Année de fondation</label>
                   <input type="number" value={form.establishmentYear} onChange={e => setForm({ ...form, establishmentYear: parseInt(e.target.value) || undefined })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
+              </div>
+              {/* Abonnement */}
+              <div className="bg-[oklch(97%_0.005_175)] border border-[oklch(90%_0.01_175)] rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <CreditCard size={16} style={{ color: GOLD }} />
+                  <label className="text-[13px] font-semibold" style={{ color: TEXT_PRIMARY }}>Abonnement & Paiement</label>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Formule d&apos;abonnement</label>
+                    <select value={form.subscriptionTier} onChange={e => setForm({ ...form, subscriptionTier: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
+                      <option value="FREEMIUM">Freemium — 0$/mois</option>
+                      <option value="ESSENTIEL">Essentiel — 100$/mois</option>
+                      <option value="STANDARD">Standard — 250$/mois</option>
+                      <option value="PREMIUM">Professionnel — 500$/mois</option>
+                      <option value="ENTERPRISE">Enterprise — 1 000$/mois</option>
+                      <option value="CORPORATE">Corporate — Sur mesure</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Mode de paiement</label>
+                    <div className="flex items-center gap-2 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl bg-white">
+                      <DollarSign size={16} style={{ color: SUCCESS }} />
+                      <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Liquide (Cash)</span>
+                      <span className="text-[11px] ml-auto" style={{ color: TEXT_MUTED_LUXE }}>Encaissé par l&apos;admin</span>
+                    </div>
+                  </div>
+                </div>
+                {form.subscriptionTier !== 'FREEMIUM' && (
+                  <div className="flex items-center gap-2 text-[12px] px-3 py-2 rounded-lg" style={{ background: `${GOLD}15`, color: GOLD }}>
+                    <AlertCircle size={14} />
+                    <span>Le paiement de <strong>{getSubscriptionPrice(form.subscriptionTier)}</strong> sera enregistré comme reçu en liquide lors de la création.</span>
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Description</label>
