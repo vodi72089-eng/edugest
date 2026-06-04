@@ -14,7 +14,7 @@ import {
   Info, Zap, Globe, Lock, Award, Ban, CircleDot, ListChecks,
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
-  ChevronUp, ExternalLink, Check, Minus
+  ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -1304,13 +1304,14 @@ function Sidebar() {
 }
 
 // ===== TOPBAR =====
-function Topbar() {
+function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; onToggleSidebar: () => void }) {
   const { currentView, sidebarOpen, setSidebarOpen, setCurrentView } = useEduGestStore()
   const viewTitles: Record<string, string> = {
     dashboard: 'Dashboard', students: 'Élèves', classes: 'Classes', grades: 'Notes',
     payments: 'Paiements', discipline: 'Discipline', communications: 'Communications',
     homework: 'Devoirs', profile: 'Mon profil', pricing: 'Tarifs', 'class-passing': 'Passage de classe',
     bulletin: 'Bulletins', convocation: 'Convocation', schools: 'Écoles',
+    'admin-analytics': 'Statistiques', 'whatsapp-config': 'WhatsApp',
   }
 
   return (
@@ -1318,6 +1319,13 @@ function Topbar() {
       <div className="flex items-center gap-4">
         <button className="lg:hidden p-2 rounded-lg hover:bg-white/60 transition" onClick={() => setSidebarOpen(!sidebarOpen)}>
           {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
+        </button>
+        <button
+          onClick={onToggleSidebar}
+          className="hidden lg:flex p-2 rounded-lg hover:bg-white/60 transition items-center gap-1.5"
+          title={sidebarVisible ? 'Masquer le menu' : 'Afficher le menu'}
+        >
+          {sidebarVisible ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
         </button>
         <div>
           <div className="text-lg font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>{viewTitles[currentView] || 'Dashboard'}</div>
@@ -1343,11 +1351,12 @@ function Topbar() {
 
 // ===== DASHBOARD LAYOUT =====
 function DashboardLayout() {
+  const [sidebarVisible, setSidebarVisible] = useState(true)
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[240px_1fr]" style={{ background: IVORY }}>
-      <Sidebar />
+      {sidebarVisible && <Sidebar />}
       <div className="flex flex-col min-w-0">
-        <Topbar />
+        <Topbar sidebarVisible={sidebarVisible} onToggleSidebar={() => setSidebarVisible(v => !v)} />
         <main className="flex-1 p-6 sm:p-8 overflow-y-auto">
           <MainContent />
         </main>
@@ -3520,10 +3529,50 @@ function ConvocationView() {
 function SchoolsManagementView() {
   const [schools, setSchools] = useState<SchoolData[]>([])
   const [loading, setLoading] = useState(true)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    name: '', shortName: '', email: '', phone: '', address: '',
+    city: '', province: '', country: 'RDC', schoolType: 'MIXTE',
+    schoolCategory: 'PRIVEE', maxStudents: 200, establishmentYear: new Date().getFullYear(),
+    description: '', mission: '',
+  })
 
-  useEffect(() => {
+  function loadSchools() {
+    setLoading(true)
     fetch('/api/schools?limit=30').then(r => r.json()).then(j => { setSchools(j.data || []); setLoading(false) }).catch(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { loadSchools() }, [])
+
+  async function handleAddSchool(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.name || !form.shortName || !form.email || !form.phone || !form.city || !form.province || !form.country) {
+      toast.error('Veuillez remplir tous les champs obligatoires')
+      return
+    }
+    setSaving(true)
+    try {
+      const res = await fetch('/api/schools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      if (res.ok) {
+        toast.success('École ajoutée avec succès !')
+        setShowAddModal(false)
+        setForm({ name: '', shortName: '', email: '', phone: '', address: '', city: '', province: '', country: 'RDC', schoolType: 'MIXTE', schoolCategory: 'PRIVEE', maxStudents: 200, establishmentYear: new Date().getFullYear(), description: '', mission: '' })
+        loadSchools()
+      } else {
+        const json = await res.json()
+        toast.error(json.error || 'Erreur lors de l\'ajout')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div>
@@ -3535,10 +3584,105 @@ function SchoolsManagementView() {
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(schools.length)} écoles</p>
         </div>
-        <button className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
+        <button onClick={() => setShowAddModal(true)} className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
           <Plus size={14} /> Ajouter une école
         </button>
       </div>
+
+      {/* Add School Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-[oklch(90%_0.01_175)] shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl grid place-items-center text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                  <Building2 size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>Ajouter une école</h2>
+                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Créer un nouvel établissement</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAddModal(false)} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition"><X size={18} /></button>
+            </div>
+            <form onSubmit={handleAddSchool} className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom de l&apos;école *</label>
+                  <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Complexe Scolaire Lumière" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Sigle / Abréviation *</label>
+                  <input type="text" required value={form.shortName} onChange={e => setForm({ ...form, shortName: e.target.value })} placeholder="Ex: CSL" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Email professionnel *</label>
+                  <input type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="contact@ecole.cd" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone *</label>
+                  <input type="tel" required value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+243 81 234 56 78" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Adresse</label>
+                  <input type="text" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="123 Ave. Lumumba" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Ville *</label>
+                  <input type="text" required value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder="Kinshasa" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Province *</label>
+                  <input type="text" required value={form.province} onChange={e => setForm({ ...form, province: e.target.value })} placeholder="Kinshasa" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Pays *</label>
+                  <input type="text" required value={form.country} onChange={e => setForm({ ...form, country: e.target.value })} placeholder="RDC" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Type d&apos;école</label>
+                  <select value={form.schoolType} onChange={e => setForm({ ...form, schoolType: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
+                    <option value="MIXTE">Mixte</option>
+                    <option value="FILLE">Filles</option>
+                    <option value="GARCON">Garçons</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Catégorie</label>
+                  <select value={form.schoolCategory} onChange={e => setForm({ ...form, schoolCategory: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
+                    <option value="PRIVEE">Privée</option>
+                    <option value="PUBLIQUE">Publique</option>
+                    <option value="CONVENTIONNEE">Conventionnée</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Capacité max</label>
+                  <input type="number" value={form.maxStudents} onChange={e => setForm({ ...form, maxStudents: parseInt(e.target.value) || 100 })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Année de fondation</label>
+                  <input type="number" value={form.establishmentYear} onChange={e => setForm({ ...form, establishmentYear: parseInt(e.target.value) || undefined })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Description</label>
+                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Brève description de l'établissement..." className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] resize-none" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Mission</label>
+                <textarea value={form.mission} onChange={e => setForm({ ...form, mission: e.target.value })} rows={2} placeholder="Mission de l'établissement..." className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] resize-none" />
+              </div>
+              <div className="sticky bottom-0 bg-white border-t border-[oklch(90%_0.01_175)] flex items-center justify-end gap-3 p-4 -mx-6 -mb-6 mt-4">
+                <button type="button" onClick={() => setShowAddModal(false)} className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+                <button type="submit" disabled={saving} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+                  {saving ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
+                  Créer l&apos;école
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
