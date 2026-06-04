@@ -382,6 +382,7 @@ function HomeView() {
   const [showMap, setShowMap] = useState(false)
   const [typewriterLine1, setTypewriterLine1] = useState('')
   const [typewriterLine2, setTypewriterLine2] = useState('')
+  const [typewriterActiveLine, setTypewriterActiveLine] = useState<1 | 2 | null>(1)
 
   useEffect(() => {
     async function loadData() {
@@ -411,18 +412,25 @@ function HomeView() {
       if (currentLine === 1) {
         if (charIndex < title1.length) {
           setTypewriterLine1(title1.substring(0, charIndex + 1))
+          setTypewriterActiveLine(1)
           charIndex++
           timeoutId = setTimeout(type, 80 + Math.random() * 60)
         } else {
           currentLine = 2
           charIndex = 0
+          setTypewriterActiveLine(2)
           timeoutId = setTimeout(type, 400)
         }
       } else {
         if (charIndex < title2.length) {
           setTypewriterLine2(title2.substring(0, charIndex + 1))
+          setTypewriterActiveLine(2)
           charIndex++
           timeoutId = setTimeout(type, 80 + Math.random() * 60)
+        } else {
+          // Typing complete — keep cursor briefly then hide
+          setTypewriterActiveLine(2)
+          setTimeout(() => setTypewriterActiveLine(null), 1500)
         }
       }
     }
@@ -601,9 +609,9 @@ function HomeView() {
           {/* Typewriter title */}
           <div className="mb-10 sm:mb-14 flex flex-col items-center relative">
             <h1 className="text-5xl sm:text-6xl md:text-[6.5rem] font-black text-white leading-[1.05] tracking-tighter mb-6 sm:mb-8 relative inline-block mx-auto select-none" style={{ minHeight: '140px' }}>
-              <span id="typewriter-line-1" className="inline-block relative">{typewriterLine1}<span className="animate-pulse">|</span></span>
+              <span id="typewriter-line-1" className="inline-block relative">{typewriterLine1}{typewriterActiveLine === 1 && <span className="animate-pulse">|</span>}</span>
               <br />
-              <span className="italic font-playfair inline-block relative" style={{ color: '#f5a623', textShadow: '0 0 25px rgba(245, 166, 35, 0.5), 0 0 50px rgba(245, 166, 35, 0.2)' }}>{typewriterLine2}</span>
+              <span className="italic font-playfair inline-block relative" style={{ color: '#f5a623', textShadow: '0 0 25px rgba(245, 166, 35, 0.5), 0 0 50px rgba(245, 166, 35, 0.2)' }}>{typewriterLine2}{typewriterActiveLine === 2 && <span className="animate-pulse">|</span>}</span>
             </h1>
             <p className="text-gray-300 text-base sm:text-lg md:text-xl max-w-2xl mx-auto font-medium leading-relaxed opacity-80">
               La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants pour un avenir meilleur.
