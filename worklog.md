@@ -88,4 +88,39 @@ Stage Summary:
 - Alternative approach: server-side pdfkit still available at /api/payments/receipt/[id]
 - All code pushed to GitHub repository
 
+---
+Task ID: 4
+Agent: Main Agent
+Task: Add logo upload for school creation + implement new institutional hero section
+
+Work Log:
+- Created /api/upload/route.ts - File upload API with image type validation, 5MB max size, UUID filenames, organized by category (profiles/schools/general)
+- Updated /api/schools/route.ts POST to accept logo and coverImage fields (already existed in Prisma schema but were never used)
+- Added logo upload section to school creation modal: clickable logo area with preview, file input, upload button with loading state
+- Added handleLogoUpload function with client-side preview + server upload
+- Updated SchoolData interface to include logo and coverImage fields
+- Updated school table rows in SchoolsManagementView to display actual logo images when available
+- Updated school cards in HomeView to display actual logo images when available
+- Implemented new institutional hero section replacing the old one:
+  - Dark institutional gradient background (#0a0f0d → #0b1613 → #0d1f1a)
+  - Typewriter animation for title "Rejoignez l'excellence éducative" with blinking cursor
+  - Floating parallax education icons (8 different SVG icons, 20 elements) with mouse-follow physics
+  - Glass morphism search bar with province filter dropdown
+  - Stats cards with glow effects (240+ Établissements, 50 000+ Familles, 98% Satisfaction)
+  - Gold CTA button (#f5a623) for "Se connecter"
+  - Gradient fade at bottom
+- Added Playfair Display font (italic 700) via next/font/google
+- Added .font-playfair CSS utility class
+- Updated layout.tsx to include Playfair Display font variable
+- Added uploads/schools/*.png to .gitignore
+- All features verified with agent-browser
+- Pushed to GitHub
+
+Stage Summary:
+- School logo upload works end-to-end: select file → preview → upload to /api/upload → URL saved with school
+- API tested with curl: POST /api/upload returns URL, POST /api/schools accepts logo field
+- School cards and table now show actual logos when available (fallback to initials)
+- New hero section with typewriter animation, floating parallax icons, institutional dark theme
+- Playfair Display italic font for "l'excellence éducative" text
+- Lint passes, dev server compiles without errors
 
