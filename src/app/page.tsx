@@ -16,7 +16,7 @@ import {
   Info, Zap, Globe, Lock, Award, Ban, CircleDot, ListChecks,
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
-  ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera
+  ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -946,23 +946,115 @@ function SchoolDetailView() {
 }
 
 // ===== PRICING VIEW =====
+// ===== PRICING PLAN TYPE =====
+interface PricingPlanData {
+  id: string; tier: string; name: string; price: number; originalPrice: number | null;
+  period: string; description: string; features: string; color: string;
+  isPopular: boolean; isActive: boolean; sortOrder: number;
+  updatedAt: string; createdAt: string;
+}
+
 function PricingView() {
-  const { setCurrentView } = useEduGestStore()
-  const tiers = [
-    { name: 'Freemium', price: '0$', period: '/mois', desc: 'Pour découvrir EduGest', features: ['1 admin', '100 élèves max', '0 msg WhatsApp', 'Gestion basique'], color: MUTED },
-    { name: 'Essentiel', price: '100$', period: '/mois', desc: 'Pour les petites structures', features: ['1 admin', 'Professeurs illimités', '500 msg WhatsApp/mois', 'Notes & bulletins'], color: INFO },
-    { name: 'Standard', price: '250$', period: '/mois', desc: 'Le choix des écoles', features: ['5 admins', '10 professeurs', 'WhatsApp illimité', 'Paiements mobiles', 'Communications'], color: ACCENT, popular: true },
-    { name: 'Professionnel', price: '500$', period: '/mois', desc: 'Pour les grands établissements', features: ['Admins illimités', 'Profs illimités', 'App mobile dédiée', 'Support prioritaire', 'API accès'], color: WARNING },
-    { name: 'Enterprise', price: '1 000$', period: '/mois', desc: 'Multi-écoles', features: ['3 écoles incluses', 'Serveur dédié', 'Formation équipe', 'SLA garanti'], color: SUCCESS },
-    { name: 'Corporate', price: 'Sur mesure', period: '', desc: 'Groupes scolaires', features: ['Écoles illimitées', 'On-premise', 'Marque blanche', 'Intégration sur mesure'], color: DANGER },
-  ]
+  const { setCurrentView, userRole } = useEduGestStore()
+  const [plans, setPlans] = useState<PricingPlanData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editingPlan, setEditingPlan] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<{ price: string; originalPrice: string; name: string; description: string; features: string; period: string }>({ price: '', originalPrice: '', name: '', description: '', features: '', period: '' })
+  const [saving, setSaving] = useState(false)
+
+  const isAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
+
+  useEffect(() => {
+    async function loadPlans() {
+      try {
+        const res = await fetch('/api/pricing')
+        const json = await res.json()
+        setPlans(json.data || [])
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadPlans()
+  }, [])
+
+  function formatPrice(price: number) {
+    if (price === -1) return 'Sur mesure'
+    return price.toLocaleString('fr-FR') + '$'
+  }
+
+  function startEdit(plan: PricingPlanData) {
+    setEditingPlan(plan.id)
+    setEditForm({
+      price: plan.price === -1 ? '' : String(plan.price),
+      originalPrice: plan.originalPrice != null ? String(plan.originalPrice) : '',
+      name: plan.name,
+      description: plan.description,
+      features: plan.features,
+      period: plan.period,
+    })
+  }
+
+  async function saveEdit(planId: string) {
+    setSaving(true)
+    try {
+      const priceVal = editForm.price === '' ? -1 : parseInt(editForm.price, 10)
+      const originalPriceVal = editForm.originalPrice === '' ? null : parseInt(editForm.originalPrice, 10)
+      const res = await fetch('/api/pricing', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: planId,
+          price: priceVal,
+          originalPrice: originalPriceVal,
+          name: editForm.name,
+          description: editForm.description,
+          features: editForm.features,
+          period: editForm.period,
+        }),
+      })
+      const json = await res.json()
+      if (json.data) {
+        setPlans(prev => prev.map(p => p.id === planId ? json.data : p))
+        toast.success(`Prix de ${editForm.name} mis à jour !`)
+      } else {
+        toast.error('Erreur lors de la mise à jour')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setSaving(false)
+      setEditingPlan(null)
+    }
+  }
+
+  async function resetPrices() {
+    if (!confirm('Réinitialiser tous les prix aux valeurs par défaut ?')) return
+    try {
+      const res = await fetch('/api/pricing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset' }),
+      })
+      const json = await res.json()
+      setPlans(json.data || [])
+      toast.success('Prix réinitialisés !')
+    } catch {
+      toast.error('Erreur lors de la réinitialisation')
+    }
+  }
+
+  const tierColors: Record<string, string> = {
+    FREEMIUM: MUTED, ESSENTIEL: INFO, STANDARD: ACCENT,
+    PREMIUM: WARNING, ENTERPRISE: SUCCESS, CORPORATE: DANGER,
+  }
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: IVORY }}>
       <PublicHeader />
       <div className="container-premium py-16 sm:py-[120px] flex-1">
         <div className="text-center mb-12">
-          {/* Ornament divider */}
           <div className="edu-ornament mb-4">
             <span style={{ color: GOLD }}>◆</span>
           </div>
@@ -970,44 +1062,129 @@ function PricingView() {
             Tarifs <span style={{ color: GOLD }}>transparents</span>
           </h1>
           <p className="max-w-[500px] mx-auto" style={{ color: TEXT_MUTED_LUXE }}>Choisissez la formule adaptée à votre établissement. Évoluez à tout moment.</p>
+          {isAdmin && (
+            <button onClick={resetPrices} className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm transition" style={{ color: TEXT_MUTED_LUXE }}>
+              <RotateCcw size={14} /> Réinitialiser les prix
+            </button>
+          )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-          {tiers.map(tier => (
-            <div key={tier.name} className={`bg-white border rounded-2xl p-8 sm:p-10 relative edu-card-lift ${
-              tier.popular
-                ? 'border-[oklch(72%_0.15_65)] shadow-[0_0_24px_oklch(72%_0.15_65_/_0.12)]'
-                : 'border-[oklch(88%_0.01_175)]'
-            }`}>
-              {tier.popular && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 edu-gold-cta px-4 py-1 rounded-full text-xs font-semibold">Populaire</span>
-              )}
-              <h3 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{tier.name}</h3>
-              <p className="text-sm mt-1 mb-5" style={{ color: TEXT_MUTED_LUXE }}>{tier.desc}</p>
-              <div className="mb-6">
-                <span className="text-3xl font-extrabold" style={{ color: TEXT_PRIMARY }}>{tier.price}</span>
-                <span className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{tier.period}</span>
+
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl p-8 sm:p-10 animate-pulse">
+                <div className="h-5 bg-[oklch(94%_0.005_175)] rounded w-1/2 mb-3" />
+                <div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-3/4 mb-5" />
+                <div className="h-8 bg-[oklch(94%_0.005_175)] rounded w-1/3 mb-6" />
+                <div className="space-y-3"><div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-full" /><div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-4/5" /><div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-3/5" /></div>
               </div>
-              <ul className="space-y-3 mb-6">
-                {tier.features.map(f => (
-                  <li key={f} className="flex items-center gap-2 text-sm" style={{ color: TEXT_PRIMARY }}>
-                    <CheckCircle size={14} style={{ color: tier.color }} /> {f}
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={() => setCurrentView('login')}
-                className={`w-full py-3 rounded-xl text-sm font-semibold transition ${
-                  tier.popular
-                    ? 'edu-gold-cta'
-                    : 'border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm'
-                }`}
-                style={tier.popular ? undefined : { color: TEXT_PRIMARY }}
-              >
-                {tier.price === 'Sur mesure' ? 'Nous contacter' : 'Commencer'}
-              </button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            {plans.map(plan => {
+              const color = plan.color || tierColors[plan.tier] || MUTED
+              const featureList = plan.features ? plan.features.split(',').map(f => f.trim()) : []
+              const isCustom = plan.price === -1
+              const hasDiscount = plan.originalPrice != null && plan.originalPrice > plan.price && plan.price >= 0
+              const discountPct = hasDiscount ? Math.round((1 - plan.price / plan.originalPrice!) * 100) : 0
+              const isEditing = editingPlan === plan.id
+
+              return (
+                <div key={plan.id} className={`bg-white border rounded-2xl p-8 sm:p-10 relative edu-card-lift ${
+                  plan.isPopular
+                    ? 'border-[oklch(72%_0.15_65)] shadow-[0_0_24px_oklch(72%_0.15_65_/_0.12)]'
+                    : 'border-[oklch(88%_0.01_175)]'
+                }`}>
+                  {plan.isPopular && (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 edu-gold-cta px-4 py-1 rounded-full text-xs font-semibold">Populaire</span>
+                  )}
+                  {hasDiscount && !isEditing && (
+                    <span className="absolute -top-3 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold">-{discountPct}%</span>
+                  )}
+
+                  {isEditing ? (
+                    /* ===== EDIT MODE ===== */
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Nom du plan</label>
+                        <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Prix ($/mois) — laisser vide pour « Sur mesure »</label>
+                        <input type="number" value={editForm.price} onChange={e => setEditForm(f => ({ ...f, price: e.target.value }))} placeholder="Ex: 250" className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Prix original barré (optionnel, pour réduction)</label>
+                        <input type="number" value={editForm.originalPrice} onChange={e => setEditForm(f => ({ ...f, originalPrice: e.target.value }))} placeholder="Ex: 350" className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Période</label>
+                        <input value={editForm.period} onChange={e => setEditForm(f => ({ ...f, period: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Description</label>
+                        <input value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Fonctionnalités (séparées par virgules)</label>
+                        <textarea value={editForm.features} onChange={e => setEditForm(f => ({ ...f, features: e.target.value }))} rows={3} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)] resize-none" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={() => saveEdit(plan.id)} disabled={saving} className="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50" style={{ background: GOLD, color: DARK }}>
+                          {saving ? <div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> : <><Check size={14} /> Enregistrer</>}
+                        </button>
+                        <button onClick={() => setEditingPlan(null)} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:bg-gray-50 transition" style={{ color: TEXT_MUTED_LUXE }}>
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* ===== DISPLAY MODE ===== */
+                    <>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{plan.name}</h3>
+                          <p className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>{plan.description}</p>
+                        </div>
+                        {isAdmin && (
+                          <button onClick={() => startEdit(plan)} className="shrink-0 ml-2 p-2 rounded-lg border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm transition group" title="Modifier le prix">
+                            <Edit size={14} style={{ color: TEXT_MUTED_LUXE }} className="group-hover:text-[oklch(72%_0.15_65)]" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="my-5">
+                        {hasDiscount && (
+                          <span className="text-base line-through mr-2" style={{ color: TEXT_MUTED_LUXE }}>{formatPrice(plan.originalPrice!)}</span>
+                        )}
+                        <span className="text-3xl font-extrabold" style={{ color: hasDiscount ? DANGER : TEXT_PRIMARY }}>{formatPrice(plan.price)}</span>
+                        <span className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{plan.period}</span>
+                      </div>
+                      <ul className="space-y-3 mb-6">
+                        {featureList.map(f => (
+                          <li key={f} className="flex items-center gap-2 text-sm" style={{ color: TEXT_PRIMARY }}>
+                            <CheckCircle size={14} style={{ color }} /> {f}
+                          </li>
+                        ))}
+                      </ul>
+                      <button
+                        onClick={() => setCurrentView('login')}
+                        className={`w-full py-3 rounded-xl text-sm font-semibold transition ${
+                          plan.isPopular
+                            ? 'edu-gold-cta'
+                            : 'border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm'
+                        }`}
+                        style={plan.isPopular ? undefined : { color: TEXT_PRIMARY }}
+                      >
+                        {isCustom ? 'Nous contacter' : 'Commencer'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
       <Footer />
     </div>
