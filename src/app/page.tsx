@@ -1026,6 +1026,10 @@ function LoginView() {
   const [waCode, setWaCode] = useState('')
   const [waStep, setWaStep] = useState<'phone' | 'code'>('phone')
   const [waLoading, setWaLoading] = useState(false)
+  const [typewriterLine1, setTypewriterLine1] = useState('')
+  const [typewriterLine2, setTypewriterLine2] = useState('')
+  const [typewriterActiveLine, setTypewriterActiveLine] = useState<1 | 2 | null>(1)
+  const parallaxRef = useRef<HTMLDivElement | null>(null)
 
   // Vérifie que le rôle correspond à l'onglet sélectionné
   // SUPER_ADMIN_GLOBAL peut se connecter depuis n'importe quel onglet
@@ -1114,18 +1118,184 @@ function LoginView() {
     return map[role] || null
   }
 
+  // Typewriter animation for login brand side
+  useEffect(() => {
+    const title1 = "Bienvenue"
+    const title2 = "sur EduGest"
+    let charIndex = 0
+    let currentLine = 1
+    let timeoutId: ReturnType<typeof setTimeout>
+
+    function type() {
+      if (currentLine === 1) {
+        if (charIndex < title1.length) {
+          setTypewriterLine1(title1.substring(0, charIndex + 1))
+          setTypewriterActiveLine(1)
+          charIndex++
+          timeoutId = setTimeout(type, 80 + Math.random() * 60)
+        } else {
+          currentLine = 2
+          charIndex = 0
+          setTypewriterActiveLine(2)
+          timeoutId = setTimeout(type, 400)
+        }
+      } else {
+        if (charIndex < title2.length) {
+          setTypewriterLine2(title2.substring(0, charIndex + 1))
+          setTypewriterActiveLine(2)
+          charIndex++
+          timeoutId = setTimeout(type, 80 + Math.random() * 60)
+        } else {
+          setTypewriterActiveLine(2)
+          setTimeout(() => setTypewriterActiveLine(null), 1500)
+        }
+      }
+    }
+
+    timeoutId = setTimeout(type, 600)
+    return () => clearTimeout(timeoutId)
+  }, [])
+
+  // Floating parallax icons for login brand side
+  useEffect(() => {
+    const container = parallaxRef.current
+    if (!container) return
+
+    const educationIcons = [
+      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>',
+      '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>',
+      '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>',
+      '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"></path><path d="M3 22h18"></path><path d="M14 22a7 7 0 1 0 0-14h-1"></path><path d="M9 14h2"></path><path d="M9 12a2 2 0 1 1-4 0V7a2 2 0 1 1 4 0v5Z"></path><path d="M12 7V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4"></path></svg>',
+    ]
+
+    const elements: { el: HTMLDivElement; x: number; y: number; originX: number; originY: number; vx: number; vy: number; depth: number; scale: number; rotation: number; rotationSpeed: number; phase: number }[] = []
+    const numIcons = 14
+    let mouseX = container.clientWidth / 2
+    let mouseY = container.clientHeight / 2
+    let targetMouseX = mouseX
+    let targetMouseY = mouseY
+    let animFrameId: number
+
+    for (let i = 0; i < numIcons; i++) {
+      const el = document.createElement('div')
+      el.style.position = 'absolute'
+      el.style.pointerEvents = 'none'
+      el.style.userSelect = 'none'
+      el.style.zIndex = '1'
+      el.style.willChange = 'transform'
+      el.innerHTML = educationIcons[i % educationIcons.length]
+
+      const startX = Math.random() * container.clientWidth
+      const startY = Math.random() * container.clientHeight
+      const depth = 0.02 + Math.random() * 0.08
+      const sizeScale = 0.6 + Math.random() * 1.0
+
+      const colorRoll = Math.random()
+      if (colorRoll > 0.85) el.style.color = '#f5a623'
+      else if (colorRoll > 0.70) el.style.color = '#10b981'
+      else el.style.color = 'rgba(255,255,255,0.2)'
+
+      el.style.opacity = (0.04 + Math.random() * 0.12).toString()
+
+      container.appendChild(el)
+      elements.push({
+        el, x: startX, y: startY, originX: startX, originY: startY,
+        vx: 0, vy: 0, depth, scale: sizeScale,
+        rotation: Math.random() * 360,
+        rotationSpeed: (Math.random() - 0.5) * 0.3,
+        phase: Math.random() * Math.PI * 2,
+      })
+    }
+
+    setTimeout(() => {
+      elements.forEach(item => {
+        const baseOp = parseFloat(item.el.style.opacity)
+        item.el.style.opacity = (baseOp * 1.5).toString()
+      })
+    }, 400)
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = container.getBoundingClientRect()
+      targetMouseX = e.clientX - rect.left
+      targetMouseY = e.clientY - rect.top
+    }
+    container.addEventListener('mousemove', handleMouseMove)
+
+    function lerp(start: number, end: number, amt: number) {
+      return (1 - amt) * start + amt * end
+    }
+
+    function update() {
+      mouseX = lerp(mouseX, targetMouseX, 0.08)
+      mouseY = lerp(mouseY, targetMouseY, 0.08)
+      const time = Date.now() * 0.001
+
+      elements.forEach(item => {
+        const dx = targetMouseX - (item.x + (targetMouseX - container.clientWidth / 2) * item.depth)
+        const dy = targetMouseY - (item.y + (targetMouseY - container.clientHeight / 2) * item.depth)
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        const mouseRange = 300
+        const attractionStrength = 0.06
+
+        if (dist < mouseRange) {
+          const force = (1 - dist / mouseRange) * attractionStrength
+          item.vx += dx * force * 0.2
+          item.vy += dy * force * 0.2
+        }
+
+        item.vx += (item.originX - item.x) * 0.01
+        item.vy += (item.originY - item.y) * 0.01
+        item.vx *= 0.92
+        item.vy *= 0.92
+        item.x += item.vx
+        item.y += item.vy
+
+        const driftX = Math.sin(time + item.phase) * 0.5
+        const driftY = Math.cos(time + item.phase * 0.7) * 0.5
+        const px = (mouseX - container.clientWidth / 2) * item.depth
+        const py = (mouseY - container.clientHeight / 2) * item.depth
+        item.rotation += item.rotationSpeed
+
+        item.el.style.transform = `translate3d(${item.x + px + driftX}px, ${item.y + py + driftY}px, 0) rotate(${item.rotation}deg) scale(${item.scale})`
+      })
+
+      animFrameId = requestAnimationFrame(update)
+    }
+    update()
+
+    return () => {
+      container.removeEventListener('mousemove', handleMouseMove)
+      cancelAnimationFrame(animFrameId)
+      while (container.firstChild) container.removeChild(container.firstChild)
+    }
+  }, [])
+
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
-      {/* Left brand side - dark with Kente pattern */}
-      <div className="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden text-white edu-hero-dark">
-        <div className="absolute inset-0 edu-kente opacity-60" />
-        <div className="absolute -top-24 -right-24 w-[480px] h-[480px] rounded-full opacity-20" style={{ background: 'radial-gradient(oklch(72% 0.15 65), transparent 70%)' }} />
-        <div className="relative flex items-center gap-2.5 font-bold text-lg">
-          <BrandMark height={48} />
+      {/* Left brand side — Institutional animated background */}
+      <div className="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden text-white" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+        {/* Parallax floating icons container */}
+        <div ref={parallaxRef} className="absolute inset-0 pointer-events-none overflow-hidden z-0" />
+        {/* Gradient overlay at bottom */}
+        <div className="absolute bottom-0 left-0 w-full h-36 bg-gradient-to-t from-[#0a0f0d] via-[#0b1613]/50 to-transparent pointer-events-none z-10" />
+        {/* Radial glow */}
+        <div className="absolute top-0 right-0 w-[400px] h-[400px] opacity-15 pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(245, 166, 35, 0.3), transparent 70%)' }} />
+
+        {/* Logo */}
+        <div className="relative flex items-center gap-2.5 font-bold text-lg z-20">
+          <BrandMark height={48} className="brightness-110" />
         </div>
-        <div className="relative max-w-[460px]">
-          <h2 className="text-[34px] font-extrabold tracking-tight leading-[1.15] mb-3.5">
-            Bienvenue sur la plateforme de gestion scolaire préférée en <span style={{ color: GOLD }}>Afrique francophone</span>.
+
+        {/* Typewriter title + content */}
+        <div className="relative max-w-[460px] z-20">
+          <h2 className="text-[34px] font-extrabold tracking-tight leading-[1.15] mb-3.5 select-none" style={{ minHeight: '100px' }}>
+            <span className="inline-block relative">{typewriterLine1}{typewriterActiveLine === 1 && <span className="animate-pulse">|</span>}</span>
+            <br />
+            <span className="italic font-playfair inline-block relative" style={{ color: '#f5a623', textShadow: '0 0 25px rgba(245, 166, 35, 0.5), 0 0 50px rgba(245, 166, 35, 0.2)' }}>{typewriterLine2}{typewriterActiveLine === 2 && <span className="animate-pulse">|</span>}</span>
           </h2>
           <p className="text-base opacity-75 leading-relaxed">
             Notes, paiements, communications, bulletins — tout est centralisé pour vous faire gagner du temps.
@@ -1142,15 +1312,15 @@ function LoginView() {
               </div>
             ))}
           </div>
-          <div className="mt-8 edu-glass rounded-2xl p-5">
+          <div className="mt-8 p-5 rounded-2xl" style={{ background: 'rgba(26, 37, 32, 0.4)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)' }}>
             <p className="text-sm leading-relaxed mb-3">&ldquo;EduGest nous a fait gagner 12h par semaine sur la gestion des notes et paiements. Les parents adorent les notifications WhatsApp.&rdquo;</p>
             <div className="flex items-center gap-2.5 text-xs opacity-75">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[oklch(70%_0.15_65)] to-[oklch(55%_0.13_30)] grid place-items-center font-semibold text-xs">MK</div>
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#f5a623] to-[oklch(55%_0.13_30)] grid place-items-center font-semibold text-xs text-white">MK</div>
               Mme Kabongo · Directrice, Complexe Lumière
             </div>
           </div>
         </div>
-        <div className="relative text-[13px] opacity-50">© 2026 EduGest · Kinshasa · Dakar · Abidjan</div>
+        <div className="relative text-[13px] opacity-50 z-20">© 2026 EduGest · Kinshasa · Dakar · Abidjan</div>
       </div>
 
       {/* Right form side - ivory luxury */}
