@@ -1029,21 +1029,16 @@ function LoginView() {
   const [typewriterLine1, setTypewriterLine1] = useState('')
   const [typewriterLine2, setTypewriterLine2] = useState('')
   const [typewriterActiveLine, setTypewriterActiveLine] = useState<1 | 2 | null>(1)
-  const parallaxRef = useRef<HTMLDivElement | null>(null)
 
   // Vérifie que le rôle correspond à l'onglet sélectionné
-  // SUPER_ADMIN_GLOBAL peut se connecter depuis n'importe quel onglet
   function validateRoleForTab(role: UserRole | null): { valid: boolean; message?: string } {
     if (!role) return { valid: false, message: 'Rôle non reconnu. Contactez l\'administration.' }
-    // SUPER_ADMIN_GLOBAL peut se connecter partout
     if (role === 'SUPER_ADMIN_GLOBAL') return { valid: true }
     if (tab === 'parent') {
-      // L'onglet Parent n'accepte que le rôle PARENT
       if (role !== 'PARENT') {
         return { valid: false, message: 'Ce compte n\'est pas un compte parent. Veuillez utiliser l\'onglet Administration.' }
       }
     } else {
-      // L'onglet Administration n'accepte PAS le rôle PARENT
       if (role === 'PARENT') {
         return { valid: false, message: 'Ce compte est un compte parent. Veuillez utiliser l\'onglet Parent.' }
       }
@@ -1084,7 +1079,6 @@ function LoginView() {
           return
         }
       }
-      // If API returned an error, show it
       if (json.error) {
         toast.error(json.error === 'Invalid credentials' ? 'Email ou mot de passe incorrect' : json.error)
       } else {
@@ -1118,10 +1112,10 @@ function LoginView() {
     return map[role] || null
   }
 
-  // Typewriter animation for login brand side
+  // Typewriter animation — same as hero
   useEffect(() => {
-    const title1 = "Bienvenue"
-    const title2 = "sur EduGest"
+    const title1 = "Rejoignez"
+    const title2 = "l'excellence éducative"
     let charIndex = 0
     let currentLine = 1
     let timeoutId: ReturnType<typeof setTimeout>
@@ -1152,30 +1146,30 @@ function LoginView() {
       }
     }
 
-    timeoutId = setTimeout(type, 600)
+    timeoutId = setTimeout(type, 800)
     return () => clearTimeout(timeoutId)
   }, [])
 
-  // Floating parallax icons for login brand side
+  // Floating parallax icons — full screen, same as hero
   useEffect(() => {
-    const container = parallaxRef.current
+    const container = document.getElementById('login-parallax-container')
     if (!container) return
 
     const educationIcons = [
-      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>',
-      '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
-      '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>',
-      '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>',
-      '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
-      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>',
-      '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>',
-      '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"></path><path d="M3 22h18"></path><path d="M14 22a7 7 0 1 0 0-14h-1"></path><path d="M9 14h2"></path><path d="M9 12a2 2 0 1 1-4 0V7a2 2 0 1 1 4 0v5Z"></path><path d="M12 7V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>',
+      '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>',
+      '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>',
+      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"></path><path d="M3 22h18"></path><path d="M14 22a7 7 0 1 0 0-14h-1"></path><path d="M9 14h2"></path><path d="M9 12a2 2 0 1 1-4 0V7a2 2 0 1 1 4 0v5Z"></path><path d="M12 7V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4"></path></svg>',
     ]
 
     const elements: { el: HTMLDivElement; x: number; y: number; originX: number; originY: number; vx: number; vy: number; depth: number; scale: number; rotation: number; rotationSpeed: number; phase: number }[] = []
-    const numIcons = 14
-    let mouseX = container.clientWidth / 2
-    let mouseY = container.clientHeight / 2
+    const numIcons = 20
+    let mouseX = window.innerWidth / 2
+    let mouseY = window.innerHeight / 2
     let targetMouseX = mouseX
     let targetMouseY = mouseY
     let animFrameId: number
@@ -1189,17 +1183,17 @@ function LoginView() {
       el.style.willChange = 'transform'
       el.innerHTML = educationIcons[i % educationIcons.length]
 
-      const startX = Math.random() * container.clientWidth
-      const startY = Math.random() * container.clientHeight
-      const depth = 0.02 + Math.random() * 0.08
-      const sizeScale = 0.6 + Math.random() * 1.0
+      const startX = Math.random() * window.innerWidth
+      const startY = Math.random() * (window.innerHeight * 0.9)
+      const depth = 0.02 + Math.random() * 0.1
+      const sizeScale = 0.7 + Math.random() * 1.3
 
       const colorRoll = Math.random()
       if (colorRoll > 0.85) el.style.color = '#f5a623'
       else if (colorRoll > 0.70) el.style.color = '#10b981'
-      else el.style.color = 'rgba(255,255,255,0.2)'
+      else el.style.color = 'rgba(255,255,255,0.25)'
 
-      el.style.opacity = (0.04 + Math.random() * 0.12).toString()
+      el.style.opacity = (0.05 + Math.random() * 0.15).toString()
 
       container.appendChild(el)
       elements.push({
@@ -1211,19 +1205,19 @@ function LoginView() {
       })
     }
 
+    // Fade icons in
     setTimeout(() => {
       elements.forEach(item => {
         const baseOp = parseFloat(item.el.style.opacity)
         item.el.style.opacity = (baseOp * 1.5).toString()
       })
-    }, 400)
+    }, 500)
 
     const handleMouseMove = (e: MouseEvent) => {
-      const rect = container.getBoundingClientRect()
-      targetMouseX = e.clientX - rect.left
-      targetMouseY = e.clientY - rect.top
+      targetMouseX = e.clientX
+      targetMouseY = e.clientY
     }
-    container.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mousemove', handleMouseMove)
 
     function lerp(start: number, end: number, amt: number) {
       return (1 - amt) * start + amt * end
@@ -1235,11 +1229,11 @@ function LoginView() {
       const time = Date.now() * 0.001
 
       elements.forEach(item => {
-        const dx = targetMouseX - (item.x + (targetMouseX - container.clientWidth / 2) * item.depth)
-        const dy = targetMouseY - (item.y + (targetMouseY - container.clientHeight / 2) * item.depth)
+        const dx = targetMouseX - (item.x + (targetMouseX - window.innerWidth / 2) * item.depth)
+        const dy = targetMouseY - (item.y + (targetMouseY - window.innerHeight / 2) * item.depth)
         const dist = Math.sqrt(dx * dx + dy * dy)
-        const mouseRange = 300
-        const attractionStrength = 0.06
+        const mouseRange = 400
+        const attractionStrength = 0.08
 
         if (dist < mouseRange) {
           const force = (1 - dist / mouseRange) * attractionStrength
@@ -1254,10 +1248,10 @@ function LoginView() {
         item.x += item.vx
         item.y += item.vy
 
-        const driftX = Math.sin(time + item.phase) * 0.5
-        const driftY = Math.cos(time + item.phase * 0.7) * 0.5
-        const px = (mouseX - container.clientWidth / 2) * item.depth
-        const py = (mouseY - container.clientHeight / 2) * item.depth
+        const driftX = Math.sin(time + item.phase) * 0.6
+        const driftY = Math.cos(time + item.phase * 0.7) * 0.6
+        const px = (mouseX - window.innerWidth / 2) * item.depth
+        const py = (mouseY - window.innerHeight / 2) * item.depth
         item.rotation += item.rotationSpeed
 
         item.el.style.transform = `translate3d(${item.x + px + driftX}px, ${item.y + py + driftY}px, 0) rotate(${item.rotation}deg) scale(${item.scale})`
@@ -1268,164 +1262,158 @@ function LoginView() {
     update()
 
     return () => {
-      container.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mousemove', handleMouseMove)
       cancelAnimationFrame(animFrameId)
       while (container.firstChild) container.removeChild(container.firstChild)
     }
   }, [])
 
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
-      {/* Left brand side — Institutional animated background */}
-      <div className="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden text-white" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
-        {/* Parallax floating icons container */}
-        <div ref={parallaxRef} className="absolute inset-0 pointer-events-none overflow-hidden z-0" />
-        {/* Gradient overlay at bottom */}
-        <div className="absolute bottom-0 left-0 w-full h-36 bg-gradient-to-t from-[#0a0f0d] via-[#0b1613]/50 to-transparent pointer-events-none z-10" />
-        {/* Radial glow */}
-        <div className="absolute top-0 right-0 w-[400px] h-[400px] opacity-15 pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(245, 166, 35, 0.3), transparent 70%)' }} />
+    <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+      {/* Full-screen parallax floating icons — same as hero */}
+      <div id="login-parallax-container" className="absolute inset-0 pointer-events-none overflow-hidden z-0" />
+      {/* Gradient overlays */}
+      <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-[#0a0f0d] via-[#0b1613]/50 to-transparent pointer-events-none z-10" />
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] opacity-15 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, rgba(245, 166, 35, 0.3), transparent 70%)' }} />
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] opacity-10 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, rgba(16, 185, 129, 0.2), transparent 70%)' }} />
 
-        {/* Logo */}
-        <div className="relative flex items-center gap-2.5 font-bold text-lg z-20">
-          <BrandMark height={48} className="brightness-110" />
-        </div>
+      {/* Top nav bar */}
+      <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-5 w-full">
+        <button onClick={() => setCurrentView('home')} className="flex items-center shrink-0 min-w-max">
+          <BrandMark height={48} className="brightness-110 hover:scale-105 transition-all duration-300" />
+        </button>
+        <button onClick={() => setCurrentView('home')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em] flex items-center gap-1.5">
+          <ArrowLeft size={14} /> Retour
+        </button>
+      </nav>
 
-        {/* Typewriter title + content */}
-        <div className="relative max-w-[460px] z-20">
-          <h2 className="text-[34px] font-extrabold tracking-tight leading-[1.15] mb-3.5 select-none" style={{ minHeight: '100px' }}>
+      {/* Main content: typewriter title + glass login card */}
+      <main className="relative z-20 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-4 sm:py-8 gap-8 sm:gap-10">
+        {/* Typewriter title — same as hero */}
+        <div className="text-center flex flex-col items-center">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-white leading-[1.05] tracking-tighter mb-4 sm:mb-5 relative inline-block mx-auto select-none" style={{ minHeight: '120px' }}>
             <span className="inline-block relative">{typewriterLine1}{typewriterActiveLine === 1 && <span className="animate-pulse">|</span>}</span>
             <br />
             <span className="italic font-playfair inline-block relative" style={{ color: '#f5a623', textShadow: '0 0 25px rgba(245, 166, 35, 0.5), 0 0 50px rgba(245, 166, 35, 0.2)' }}>{typewriterLine2}{typewriterActiveLine === 2 && <span className="animate-pulse">|</span>}</span>
-          </h2>
-          <p className="text-base opacity-75 leading-relaxed">
-            Notes, paiements, communications, bulletins — tout est centralisé pour vous faire gagner du temps.
+          </h1>
+          <p className="text-gray-300 text-sm sm:text-base md:text-lg max-w-lg mx-auto font-medium leading-relaxed opacity-80">
+            La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants.
           </p>
-          <div className="mt-6 space-y-3.5">
-            {[
-              { icon: <CheckCircle size={16} />, title: 'Multi-écoles', desc: 'Gérez plusieurs établissements depuis un seul compte' },
-              { icon: <MessageSquare size={16} />, title: 'Notifications WhatsApp', desc: 'Alertes instantanées pour les parents' },
-              { icon: <CreditCard size={16} />, title: 'Paiement mobile', desc: 'Orange Money, M-Pesa, Airtel Money acceptés' },
-            ].map((f, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-white/10 border border-white/12 flex items-center justify-center shrink-0">{f.icon}</div>
-                <div className="text-[13px] opacity-80 leading-relaxed"><strong className="block opacity-100">{f.title}</strong>{f.desc}</div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-8 p-5 rounded-2xl" style={{ background: 'rgba(26, 37, 32, 0.4)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)' }}>
-            <p className="text-sm leading-relaxed mb-3">&ldquo;EduGest nous a fait gagner 12h par semaine sur la gestion des notes et paiements. Les parents adorent les notifications WhatsApp.&rdquo;</p>
-            <div className="flex items-center gap-2.5 text-xs opacity-75">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#f5a623] to-[oklch(55%_0.13_30)] grid place-items-center font-semibold text-xs text-white">MK</div>
-              Mme Kabongo · Directrice, Complexe Lumière
-            </div>
-          </div>
         </div>
-        <div className="relative text-[13px] opacity-50 z-20">© 2026 EduGest · Kinshasa · Dakar · Abidjan</div>
-      </div>
 
-      {/* Right form side - ivory luxury */}
-      <div className="flex items-center justify-center p-6 sm:p-12" style={{ background: IVORY }}>
-        <div className="w-full max-w-[420px]">
-          <button onClick={() => setCurrentView('home')} className="inline-flex items-center gap-1.5 text-[13px] mb-6 transition hover:opacity-80" style={{ color: TEXT_MUTED_LUXE }}>
-            <ArrowLeft size={14} /> Retour à l&apos;accueil
-          </button>
-          <div className="mb-6">
-            <h1 className="text-[28px] font-bold tracking-tight mb-1.5" style={{ color: TEXT_PRIMARY }}>
-              {tab === 'parent' ? 'Connexion Parent' : 'Connexion Administration'}
-            </h1>
-            <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
-              {tab === 'parent' ? 'Accédez au suivi scolaire de vos enfants' : 'Personnel de l\'école, direction, enseignants'}
-            </p>
-          </div>
-
+        {/* Glass morphism login card */}
+        <div className="w-full max-w-[440px] rounded-2xl p-6 sm:p-8" style={{ background: 'rgba(26, 37, 32, 0.55)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5), 0 0 80px rgba(245, 166, 35, 0.05)' }}>
           {/* Tab switcher */}
-          <div className="flex bg-white border border-[oklch(88%_0.01_175)] rounded-xl p-1 mb-6">
-            <button onClick={() => setTab('parent')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition ${tab === 'parent' ? 'text-white' : ''}`} style={tab === 'parent' ? { background: GOLD, boxShadow: `0 2px 8px oklch(72% 0.15 65 / .25)` } : { color: TEXT_MUTED_LUXE }}>
+          <div className="flex rounded-xl p-1 mb-6" style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+            <button onClick={() => setTab('parent')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === 'parent' ? 'text-[#0a0f0d] shadow-lg' : 'text-white/60 hover:text-white/80'}`} style={tab === 'parent' ? { background: '#f5a623', boxShadow: '0 4px 16px rgba(245, 166, 35, 0.35)' } : undefined}>
               Parent
             </button>
-            <button onClick={() => setTab('admin')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition ${tab === 'admin' ? 'text-white' : ''}`} style={tab === 'admin' ? { background: GOLD, boxShadow: `0 2px 8px oklch(72% 0.15 65 / .25)` } : { color: TEXT_MUTED_LUXE }}>
+            <button onClick={() => setTab('admin')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === 'admin' ? 'text-[#0a0f0d] shadow-lg' : 'text-white/60 hover:text-white/80'}`} style={tab === 'admin' ? { background: '#f5a623', boxShadow: '0 4px 16px rgba(245, 166, 35, 0.35)' } : undefined}>
               Administration
             </button>
           </div>
 
+          <div className="mb-5">
+            <h2 className="text-xl font-bold text-white tracking-tight mb-1">
+              {tab === 'parent' ? 'Connexion Parent' : 'Connexion Administration'}
+            </h2>
+            <p className="text-sm text-white/50">
+              {tab === 'parent' ? 'Accédez au suivi scolaire de vos enfants' : 'Personnel de l\'école, direction, enseignants'}
+            </p>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{tab === 'parent' ? 'Email ou numéro WhatsApp' : 'Email professionnel'}</label>
+              <label className="text-[13px] font-medium text-white/70">{tab === 'parent' ? 'Email ou numéro WhatsApp' : 'Email professionnel'}</label>
               <input
                 type="text" value={email} onChange={e => setEmail(e.target.value)}
                 placeholder={tab === 'parent' ? 'ex. parent@email.com ou +243 81...' : 'ex. direction@ecole.cd'}
-                className="w-full px-4 py-3.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]"
+                className="w-full px-4 py-3.5 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)] focus:border-[rgba(245,166,35,0.5)]"
+                style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
                 required
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Mot de passe</label>
+              <label className="text-[13px] font-medium text-white/70">Mot de passe</label>
               <input
                 type="password" value={password} onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-4 py-3.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]"
+                className="w-full px-4 py-3.5 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)] focus:border-[rgba(245,166,35,0.5)]"
+                style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
                 required
               />
             </div>
             <div className="flex items-center justify-between text-[13px]">
-              <label className="flex items-center gap-2 cursor-pointer" style={{ color: TEXT_MUTED_LUXE }}>
-                <input type="checkbox" className="accent-[oklch(72%_0.15_65)]" /> Se souvenir de moi
+              <label className="flex items-center gap-2 cursor-pointer text-white/50">
+                <input type="checkbox" className="accent-[#f5a623] rounded" /> Se souvenir de moi
               </label>
-              <button type="button" className="font-medium hover:underline" style={{ color: GOLD }}>Mot de passe oublié ?</button>
+              <button type="button" className="font-medium hover:underline text-[#f5a623]/80 hover:text-[#f5a623]">Mot de passe oublié ?</button>
             </div>
-            <button type="submit" disabled={loading} className="edu-gold-cta w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
-              {loading ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : 'Se connecter'}
+            <button type="submit" disabled={loading} className="w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all hover:shadow-[0_0_30px_rgba(245,166,35,0.4)] active:scale-[0.98]" style={{ background: '#f5a623', color: '#0a0f0d', boxShadow: '0 4px 16px rgba(245, 166, 35, 0.25)' }}>
+              {loading ? <div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> : 'Se connecter'}
             </button>
           </form>
 
-          <div className="flex items-center gap-3 my-5 text-xs uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>
-            <div className="flex-1 h-px bg-[oklch(88%_0.01_175)]" /> ou <div className="flex-1 h-px bg-[oklch(88%_0.01_175)]" />
+          <div className="flex items-center gap-3 my-5 text-xs uppercase tracking-wider text-white/40">
+            <div className="flex-1 h-px bg-white/10" /> ou <div className="flex-1 h-px bg-white/10" />
           </div>
 
           <button
             onClick={() => { setShowWhatsappModal(true); setWaStep('phone'); setWaPhone(''); setWaCode('') }}
-            className="w-full py-3.5 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 transition hover:opacity-90"
-            style={{ background: SUCCESS }}
+            className="w-full py-3.5 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 transition hover:opacity-90 hover:shadow-lg"
+            style={{ background: 'oklch(60% 0.15 145)', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)' }}
           >
             <MessageSquare size={18} /> Se connecter avec WhatsApp
           </button>
 
-          <p className="text-center text-[13px] mt-6" style={{ color: TEXT_MUTED_LUXE }}>
-            Pas encore de compte ? <button onClick={() => setCurrentView('pricing')} className="font-medium hover:underline" style={{ color: GOLD }}>Créer mon école</button>
+          <p className="text-center text-[13px] mt-5 text-white/50">
+            Pas encore de compte ? <button onClick={() => setCurrentView('pricing')} className="font-medium hover:underline text-[#f5a623]/80 hover:text-[#f5a623]">Créer mon école</button>
           </p>
         </div>
+
+        {/* Trust indicators below form */}
+        <div className="flex items-center gap-6 sm:gap-8 text-white/30 text-xs font-medium">
+          <div className="flex items-center gap-1.5"><Shield size={14} /> Sécurisé</div>
+          <div className="flex items-center gap-1.5"><Globe size={14} /> Afrique</div>
+          <div className="flex items-center gap-1.5"><Award size={14} /> Certifié</div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <div className="relative z-20 text-center text-[13px] text-white/30 py-5">
+        © 2026 EduGest · Kinshasa · Dakar · Abidjan
       </div>
 
       {/* WhatsApp Login Modal */}
       {showWhatsappModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowWhatsappModal(false)}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowWhatsappModal(false)}>
+          <div className="rounded-2xl p-6 w-full max-w-sm shadow-2xl" style={{ background: 'rgba(26, 37, 32, 0.9)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.1)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl grid place-items-center text-white" style={{ background: SUCCESS }}>
                   <MessageSquare size={20} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>WhatsApp</h2>
-                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Connexion sécurisée</p>
+                  <h2 className="text-lg font-bold text-white">WhatsApp</h2>
+                  <p className="text-xs text-white/50">Connexion sécurisée</p>
                 </div>
               </div>
-              <button onClick={() => setShowWhatsappModal(false)}><X size={18} /></button>
+              <button onClick={() => setShowWhatsappModal(false)} className="text-white/50 hover:text-white transition"><X size={18} /></button>
             </div>
 
             {waStep === 'phone' ? (
               <div className="space-y-4">
-                <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Entrez votre numéro WhatsApp pour recevoir un code de vérification.</p>
+                <p className="text-sm text-white/60">Entrez votre numéro WhatsApp pour recevoir un code de vérification.</p>
                 <div>
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Numéro WhatsApp</label>
-                  <div className="flex items-center gap-2 mt-1 border border-[oklch(88%_0.01_175)] rounded-xl px-3 py-3 focus-within:ring-[3px] focus-within:ring-[oklch(95%_0.05_65)] focus-within:border-[oklch(72%_0.15_65)]">
-                    <Phone size={16} style={{ color: TEXT_MUTED_LUXE }} />
+                  <label className="text-[13px] font-medium text-white/70">Numéro WhatsApp</label>
+                  <div className="flex items-center gap-2 mt-1 px-3 py-3 rounded-xl focus-within:ring-[3px] focus-within:ring-[rgba(245,166,35,0.2)] focus-within:border-[rgba(245,166,35,0.5)]" style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                    <Phone size={16} className="text-white/40" />
                     <input
                       type="tel"
                       placeholder="+243 81 234 56 78"
                       value={waPhone}
                       onChange={e => setWaPhone(e.target.value)}
-                      className="flex-1 border-0 outline-none text-sm bg-transparent"
+                      className="flex-1 border-0 outline-none text-sm bg-transparent text-white placeholder-white/30"
                     />
                   </div>
                 </div>
@@ -1459,17 +1447,17 @@ function LoginView() {
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Entrez le code à 6 chiffres envoyé au <strong style={{ color: TEXT_PRIMARY }}>{waPhone}</strong></p>
+                <p className="text-sm text-white/60">Entrez le code à 6 chiffres envoyé au <strong className="text-white">{waPhone}</strong></p>
                 <div>
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Code de vérification</label>
+                  <label className="text-[13px] font-medium text-white/70">Code de vérification</label>
                   <input
                     type="text"
                     maxLength={6}
                     placeholder="000000"
                     value={waCode}
                     onChange={e => setWaCode(e.target.value.replace(/\D/g, ''))}
-                    className="w-full mt-1 px-4 py-3.5 border border-[oklch(88%_0.01_175)] rounded-xl text-center text-2xl font-bold tracking-[0.5em] outline-none focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] focus:border-[oklch(72%_0.15_65)]"
-                    style={{ color: TEXT_PRIMARY }}
+                    className="w-full mt-1 px-4 py-3.5 rounded-xl text-center text-2xl font-bold tracking-[0.5em] outline-none focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)] text-white"
+                    style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
                   />
                 </div>
                 <button
@@ -1519,8 +1507,7 @@ function LoginView() {
                 </button>
                 <button
                   onClick={() => setWaStep('phone')}
-                  className="w-full text-sm font-medium py-2 hover:underline"
-                  style={{ color: GOLD }}
+                  className="w-full text-sm font-medium py-2 hover:underline text-[#f5a623]/80 hover:text-[#f5a623]"
                 >
                   Changer de numéro
                 </button>
