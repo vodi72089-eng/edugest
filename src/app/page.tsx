@@ -1353,7 +1353,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
 function DashboardLayout() {
   const [sidebarVisible, setSidebarVisible] = useState(true)
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[240px_1fr]" style={{ background: IVORY }}>
+    <div className={`min-h-screen grid grid-cols-1 ${sidebarVisible ? 'lg:grid-cols-[240px_1fr]' : ''}`} style={{ background: IVORY }}>
       {sidebarVisible && <Sidebar />}
       <div className="flex flex-col min-w-0">
         <Topbar sidebarVisible={sidebarVisible} onToggleSidebar={() => setSidebarVisible(v => !v)} />
