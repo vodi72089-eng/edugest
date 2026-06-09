@@ -179,3 +179,33 @@ Stage Summary:
 - School creators now correctly receive SUPER_ADMIN_GLOBAL role (confirmed via browser test)
 - All fields pass latitude/longitude to API for storage in database
 
+---
+Task ID: 7
+Agent: Main Agent
+Task: Add Personnel management for Super Admin (create secretary, teacher, etc.)
+
+Work Log:
+- Analyzed user's screenshots showing the Super Admin dashboard with no way to create staff accounts
+- Identified missing feature: no Personnel/User management view for SUPER_ADMIN_GLOBAL
+- Created /api/users/route.ts with full CRUD: GET (list/filter), POST (create), PUT (update), DELETE (soft-delete/deactivate)
+- Added 'personnel' ViewType to store.ts
+- Added "Personnel" menu item to SUPER_ADMIN_GLOBAL sidebar with UsersRound icon
+- Created PersonnelView component (~360 lines) with:
+  - Role summary cards (11 roles: Secrétaire, Caissier, Enseignant, Prof. Principal, Dir. Maternelle/Primaire/Secondaire, Disc. Maternelle/Primaire/Secondaire, Parent)
+  - Clickable role filter cards showing count per role
+  - Search bar for name/email/phone
+  - Full users table with avatar, name, contact, role badge, status toggle, last login, actions
+  - Add member modal with: name, visual role selector (grid of 11 role cards), email, phone, password
+  - Edit member modal (pre-filled form)
+  - Activate/deactivate toggle per user
+- Added PersonnelView to the router (case 'personnel')
+- Tested with curl: POST /api/users creates SECRETARY and TEACHER accounts successfully (201)
+- Tested with Agent Browser: Personnel page shows role summary cards, user table with all 3 users, add member modal works
+
+Stage Summary:
+- Super Admin can now create and manage staff accounts (Secrétaire, Caissier, Enseignant, etc.)
+- Full CRUD API at /api/users with duplicate email/phone validation
+- PersonnelView with role cards, search, table, and modal forms
+- Staff accounts are created with bcrypt-hashed passwords (default: password123)
+- Lint passes, dev server running without errors
+

@@ -2045,6 +2045,7 @@ function Sidebar() {
     SUPER_ADMIN_GLOBAL: [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <Building2 size={16} />, label: 'Écoles', view: 'schools' },
+      { icon: <UsersRound size={16} />, label: 'Personnel', view: 'personnel' as ViewType },
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
       { icon: <School size={16} />, label: 'Classes', view: 'classes' },
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
@@ -2398,6 +2399,7 @@ function MainContent() {
     case 'bulletin': return <BulletinView />
     case 'convocation': return <ConvocationView />
     case 'schools': return <SchoolsManagementView />
+    case 'personnel': return <PersonnelView />
     case 'pricing': return <PricingDashboard />
     case 'whatsapp-config': return <WhatsAppConfigView />
     default: return <RoleDashboard />
@@ -4394,6 +4396,369 @@ function ConvocationView() {
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ===== PERSONNEL VIEW =====
+function PersonnelView() {
+  const { userData } = useEduGestStore()
+  const [users, setUsers] = useState<Array<{
+    id: string; name: string; email: string | null; phone: string;
+    role: string; isActive: boolean; profileImageUrl: string | null;
+    lastLoginAt: string | null; createdAt: string; schoolId: string;
+  }>>([])
+  const [loading, setLoading] = useState(true)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [editingUser, setEditingUser] = useState<typeof users[0] | null>(null)
+  const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
+  const [form, setForm] = useState({
+    name: '', email: '', phone: '', password: '', role: 'SECRETARY',
+  })
+
+  const ROLES = [
+    { value: 'SECRETARY', label: 'Secrétaire', color: 'oklch(60% 0.13 250)' },
+    { value: 'CASHIER', label: 'Caissier', color: 'oklch(72% 0.15 65)' },
+    { value: 'TEACHER', label: 'Enseignant', color: 'oklch(60% 0.15 145)' },
+    { value: 'HEAD_TEACHER', label: 'Prof. Principal', color: 'oklch(55% 0.15 175)' },
+    { value: 'DIRECTION_MATERNELLE', label: 'Dir. Maternelle', color: 'oklch(60% 0.13 280)' },
+    { value: 'DIRECTION_PRIMAIRE', label: 'Dir. Primaire', color: 'oklch(55% 0.15 175)' },
+    { value: 'DIRECTION_SECONDAIRE', label: 'Dir. Secondaire', color: 'oklch(45% 0.13 200)' },
+    { value: 'DISCIPLINE_MATERNELLE', label: 'Disc. Maternelle', color: 'oklch(58% 0.20 25)' },
+    { value: 'DISCIPLINE_PRIMAIRE', label: 'Disc. Primaire', color: 'oklch(58% 0.18 30)' },
+    { value: 'DISCIPLINE_SECONDAIRE', label: 'Disc. Secondaire', color: 'oklch(50% 0.16 0)' },
+    { value: 'PARENT', label: 'Parent', color: 'oklch(52% 0.015 250)' },
+  ]
+
+  function loadUsers() {
+    setLoading(true)
+    const params = new URLSearchParams({ schoolId: userData?.schoolId || '', limit: '50' })
+    if (roleFilter) params.set('role', roleFilter)
+    if (search) params.set('search', search)
+    fetch(`/api/users?${params}`).then(r => r.json()).then(j => { setUsers(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+  }
+
+  useEffect(() => { loadUsers() }, [roleFilter])
+
+  async function handleAddUser(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.name || !form.role) {
+      toast.error('Veuillez remplir le nom et le rôle')
+      return
+    }
+    if (!form.email && !form.phone) {
+      toast.error('Veuillez fournir un email ou un téléphone')
+      return
+    }
+    setSaving(true)
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, schoolId: userData?.schoolId }),
+      })
+      if (res.ok) {
+        toast.success(`${getRoleLabel(form.role as UserRole)} créé avec succès !`)
+        setShowAddModal(false)
+        setForm({ name: '', email: '', phone: '', password: '', role: 'SECRETARY' })
+        loadUsers()
+      } else {
+        const json = await res.json()
+        toast.error(json.error || 'Erreur lors de la création')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleEditUser(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editingUser) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingUser.id,
+          name: form.name,
+          email: form.email || null,
+          phone: form.phone,
+          role: form.role,
+          password: form.password || undefined,
+        }),
+      })
+      if (res.ok) {
+        toast.success('Utilisateur modifié avec succès !')
+        setEditingUser(null)
+        setForm({ name: '', email: '', phone: '', password: '', role: 'SECRETARY' })
+        loadUsers()
+      } else {
+        const json = await res.json()
+        toast.error(json.error || 'Erreur lors de la modification')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleToggleActive(user: typeof users[0]) {
+    try {
+      const res = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: user.id, isActive: !user.isActive }),
+      })
+      if (res.ok) {
+        toast.success(user.isActive ? 'Compte désactivé' : 'Compte réactivé')
+        loadUsers()
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    }
+  }
+
+  function openEditModal(user: typeof users[0]) {
+    setEditingUser(user)
+    setForm({
+      name: user.name,
+      email: user.email || '',
+      phone: user.phone,
+      password: '',
+      role: user.role,
+    })
+  }
+
+  function closeModal() {
+    setShowAddModal(false)
+    setEditingUser(null)
+    setForm({ name: '', email: '', phone: '', password: '', role: 'SECRETARY' })
+  }
+
+  const activeUsers = users.filter(u => u.isActive)
+  const inactiveUsers = users.filter(u => !u.isActive)
+  const roleCounts = ROLES.map(r => ({
+    ...r,
+    count: users.filter(u => u.role === r.value && u.isActive).length,
+  }))
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Personnel</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>
+            {formatNumber(activeUsers.length)} membres actifs · {formatNumber(inactiveUsers.length)} inactifs
+          </p>
+        </div>
+        <button onClick={() => setShowAddModal(true)} className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
+          <UserPlus size={14} /> Ajouter un membre
+        </button>
+      </div>
+
+      {/* Role summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 mb-6">
+        {roleCounts.map(r => (
+          <button
+            key={r.value}
+            onClick={() => setRoleFilter(roleFilter === r.value ? '' : r.value)}
+            className={`p-3 rounded-xl border text-left transition ${roleFilter === r.value ? 'border-[oklch(72%_0.15_65)] shadow-md' : 'border-[oklch(90%_0.01_175)] hover:border-[oklch(80%_0.02_175)]'}`}
+            style={{ background: roleFilter === r.value ? GOLD_SOFT : 'white' }}
+          >
+            <div className="text-2xl font-bold" style={{ color: r.color }}>{r.count}</div>
+            <div className="text-[11px] font-medium truncate" style={{ color: TEXT_MUTED_LUXE }}>{r.label}</div>
+          </button>
+        ))}
+      </div>
+
+      {/* Search bar */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: MUTED }} />
+          <input
+            value={search} onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && loadUsers()}
+            placeholder="Rechercher par nom, email, téléphone..."
+            className="w-full pl-9 pr-4 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]"
+          />
+        </div>
+        <button onClick={loadUsers} className="px-4 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm font-medium hover:bg-[oklch(97%_0.005_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>
+          Rechercher
+        </button>
+      </div>
+
+      {/* Users table */}
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden">
+        {loading ? (
+          <div className="p-12 text-center">
+            <div className="h-8 w-8 border-3 border-[oklch(90%_0.01_175)] border-t-[oklch(72%_0.15_65)] rounded-full animate-spin mx-auto" />
+          </div>
+        ) : users.length === 0 ? (
+          <div className="p-12 text-center">
+            <UsersRound size={48} className="mx-auto mb-3" style={{ color: MUTED }} />
+            <p className="font-medium" style={{ color: TEXT_PRIMARY }}>Aucun membre du personnel</p>
+            <p className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>Ajoutez votre premier membre en cliquant sur le bouton ci-dessus</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[oklch(90%_0.01_175)]" style={{ background: IVORY }}>
+                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Membre</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Contact</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Rôle</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Statut</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Dernière connexion</th>
+                  <th className="text-right px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(user => {
+                  const roleInfo = ROLES.find(r => r.value === user.role)
+                  return (
+                    <tr key={user.id} className="border-b border-[oklch(94%_0.005_250)] hover:bg-[oklch(99%_0.003_175)] transition">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold text-white shrink-0" style={{ background: roleInfo?.color || ACCENT }}>
+                            {getInitials(user.name)}
+                          </div>
+                          <div>
+                            <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{user.name}</div>
+                            <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Créé le {formatDate(user.createdAt)}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{user.email || '—'}</div>
+                        <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{user.phone}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold text-white" style={{ background: roleInfo?.color || ACCENT }}>
+                          {roleInfo?.label || user.role}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => handleToggleActive(user)} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium cursor-pointer transition ${user.isActive ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.05_25)] text-[oklch(45%_0.18_25)]'}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${user.isActive ? 'bg-[oklch(55%_0.15_145)]' : 'bg-[oklch(55%_0.18_25)]'}`} />
+                          {user.isActive ? 'Actif' : 'Inactif'}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-sm" style={{ color: TEXT_MUTED_LUXE }}>
+                        {user.lastLoginAt ? formatDate(user.lastLoginAt) : 'Jamais'}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => openEditModal(user)} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition" title="Modifier">
+                            <Edit size={14} style={{ color: TEXT_MUTED_LUXE }} />
+                          </button>
+                          <button onClick={() => handleToggleActive(user)} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition" title={user.isActive ? 'Désactiver' : 'Réactiver'}>
+                            {user.isActive ? <Ban size={14} style={{ color: DANGER }} /> : <CheckCircle size={14} style={{ color: SUCCESS }} />}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Add/Edit User Modal */}
+      {(showAddModal || editingUser) && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={closeModal}>
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-[oklch(90%_0.01_175)] shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl grid place-items-center text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                  <UserPlus size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>
+                    {editingUser ? 'Modifier le membre' : 'Ajouter un membre'}
+                  </h2>
+                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                    {editingUser ? 'Modifier les informations du membre' : 'Créer un nouveau compte personnel'}
+                  </p>
+                </div>
+              </div>
+              <button onClick={closeModal} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition"><X size={18} /></button>
+            </div>
+            <form onSubmit={editingUser ? handleEditUser : handleAddUser} className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Name */}
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom complet *</label>
+                <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Marie Tshibangu" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+              </div>
+
+              {/* Role selector */}
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Rôle / Poste *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {ROLES.map(r => (
+                    <button
+                      key={r.value}
+                      type="button"
+                      onClick={() => setForm({ ...form, role: r.value })}
+                      className={`p-3 rounded-xl border text-left transition ${form.role === r.value ? 'border-[oklch(72%_0.15_65)] shadow-sm' : 'border-[oklch(88%_0.01_175)] hover:border-[oklch(80%_0.02_175)]'}`}
+                      style={{ background: form.role === r.value ? GOLD_SOFT : 'white' }}
+                    >
+                      <div className="text-sm font-semibold" style={{ color: form.role === r.value ? GOLD : TEXT_PRIMARY }}>{r.label}</div>
+                      <div className="w-2 h-2 rounded-full mt-1" style={{ background: r.color }} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Email */}
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Email</label>
+                <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="marie@ecole.cd" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+              </div>
+
+              {/* Phone */}
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone</label>
+                <input type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+243 81 234 56 78" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+              </div>
+
+              {/* Password */}
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>
+                  Mot de passe {editingUser ? '(laisser vide pour ne pas changer)' : '(défaut: password123)'}
+                </label>
+                <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+              </div>
+
+              {/* Submit */}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button type="button" onClick={closeModal} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>
+                  Annuler
+                </button>
+                <button type="submit" disabled={saving} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+                  {saving ? (
+                    <><div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Enregistrement...</>
+                  ) : editingUser ? (
+                    <><Check size={14} /> Enregistrer</>
+                  ) : (
+                    <><UserPlus size={14} /> Créer le compte</>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

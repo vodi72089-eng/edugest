@@ -21,6 +21,7 @@ export type ViewType =
   | 'bulletin'
   | 'admin-analytics'
   | 'whatsapp-config'
+  | 'personnel'
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'
