@@ -124,3 +124,30 @@ Stage Summary:
 - Playfair Display italic font for "l'excellence éducative" text
 - Lint passes, dev server compiles without errors
 
+---
+Task ID: 5
+Agent: Main Agent
+Task: Git pull remote changes and resolve merge conflicts
+
+Work Log:
+- Executed `git pull` - found divergent branches requiring merge
+- Resolved 5 conflict files: page.tsx, globals.css, api/schools/route.ts, api/upload/route.ts, worklog.md
+- page.tsx: accepted incoming version with new institutional hero + typewriter animation + floating parallax icons
+- globals.css: merged both - kept all animation keyframes (15+ keyframes, utility classes, particles) AND added font-playfair from remote
+- api/schools/route.ts: merged both - kept admin user creation (bcryptjs) AND added logo/coverImage/subscriptionTier from remote
+- api/upload/route.ts: kept file from remote (needed for logo/profile uploads)
+- worklog.md: accepted incoming version
+- Added CreateSchoolView component to page.tsx (2-step form: school info → admin account)
+- Fixed "Créer mon école" button to navigate to 'create-school' instead of 'pricing'
+- Fixed pricing "Commencer" buttons to navigate to 'create-school' instead of 'login'
+- Added 'create-school' route to main Home component router
+- Committed merge successfully
+- Lint passes with zero errors
+- Browser verified: home page loads, login page works, create-school form loads
+
+Stage Summary:
+- Merge completed successfully combining remote (institutional hero, logo upload, receipt PDF, profile photo) and local (animations, admin creation) changes
+- All animation keyframes preserved (entrance animations, decorative animations, particles, hover interactions, skeleton loaders, sidebar items, bell shake, tab indicators)
+- CreateSchoolView re-added with logo upload, 2-step form, subscription tier selector, auto-login
+- School creation flow: Login → "Créer mon école" → 2-step form → auto-login → dashboard
+

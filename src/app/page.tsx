@@ -1168,7 +1168,7 @@ function PricingView() {
                         ))}
                       </ul>
                       <button
-                        onClick={() => setCurrentView('login')}
+                        onClick={() => setCurrentView('create-school')}
                         className={`w-full py-3 rounded-xl text-sm font-semibold transition ${
                           plan.isPopular
                             ? 'edu-gold-cta'
@@ -1187,6 +1187,307 @@ function PricingView() {
         )}
       </div>
       <Footer />
+    </div>
+  )
+}
+
+// ===== CREATE SCHOOL VIEW =====
+function CreateSchoolView() {
+  const { setCurrentView, login } = useEduGestStore()
+  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [loading, setLoading] = useState(false)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [form, setForm] = useState({
+    name: '', shortName: '', email: '', phone: '', address: '', city: '',
+    province: 'Kinshasa', country: 'RD Congo', description: '', schoolType: 'MIXTE',
+    schoolCategory: 'PRIVEE', maxStudents: '200', establishmentYear: '', mission: '',
+    subscriptionTier: 'FREEMIUM',
+    adminName: '', adminEmail: '', adminPhone: '', adminPassword: '',
+  })
+
+  const updateForm = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }))
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLogoUploading(true)
+    try {
+      // Client-side preview
+      const reader = new FileReader()
+      reader.onload = (ev) => setLogoPreview(ev.target?.result as string)
+      reader.readAsDataURL(file)
+      // Server upload
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('category', 'schools')
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const json = await res.json()
+      if (json.url) updateForm('logo', json.url)
+    } catch (err) {
+      console.error('Logo upload error', err)
+    } finally {
+      setLogoUploading(false)
+    }
+  }
+
+  async function handleSubmit() {
+    if (!form.name || !form.shortName || !form.email || !form.phone || !form.city || !form.province || !form.country) {
+      toast.error('Veuillez remplir tous les champs obligatoires')
+      return
+    }
+    if (step === 1) { setStep(2); return }
+    if (step === 2) {
+      if (!form.adminName || !form.adminEmail) {
+        toast.error('Veuillez remplir les informations du compte administrateur')
+        return
+      }
+    }
+    setLoading(true)
+    try {
+      const res = await fetch('/api/schools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          maxStudents: parseInt(form.maxStudents) || 200,
+          establishmentYear: form.establishmentYear ? parseInt(form.establishmentYear) : null,
+          latitude: null, longitude: null,
+          logo: form.logo || null,
+        }),
+      })
+      const json = await res.json()
+      if (json.data?.school) {
+        // Auto-login with admin credentials
+        const loginRes = await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: form.adminEmail, password: form.adminPassword || 'admin123' }),
+        })
+        const loginJson = await loginRes.json()
+        if (loginJson.data) {
+          const apiUser = loginJson.data
+          const roleMap: Record<string, UserRole> = {
+            SUPER_ADMIN_GLOBAL: 'SUPER_ADMIN_GLOBAL', SECRETARY: 'SECRETARY',
+            CASHIER: 'CASHIER', TEACHER: 'TEACHER', HEAD_TEACHER: 'HEAD_TEACHER', PARENT: 'PARENT',
+          }
+          const role = roleMap[apiUser.role] || 'SECRETARY'
+          login(role, {
+            id: apiUser.id, name: apiUser.name, role,
+            schoolId: apiUser.schoolId, schoolName: json.data.school.name,
+            initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
+            profileImageUrl: null,
+          })
+          toast.success('École créée avec succès ! Bienvenue !')
+          setStep(3)
+        } else {
+          toast.success('École créée ! Connectez-vous avec vos identifiants.')
+          setCurrentView('login')
+        }
+      } else {
+        toast.error(json.error || 'Erreur lors de la création')
+      }
+    } catch (e) {
+      toast.error('Erreur réseau')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Success screen
+  if (step === 3) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+        <div className="max-w-md w-full text-center">
+          <div className="w-20 h-20 rounded-full mx-auto mb-6 grid place-items-center" style={{ background: 'oklch(60% 0.15 145)' }}>
+            <CheckCircle size={40} className="text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-3">École créée avec succès !</h1>
+          <p className="text-white/60 mb-8">Votre école <strong className="text-[#f5a623]">{form.name}</strong> est prête. Vous êtes maintenant connecté en tant qu&apos;administrateur.</p>
+          <button onClick={() => setCurrentView('dashboard')} className="bg-[#f5a623] hover:bg-[#ffb643] text-[#0a0f0d] px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)]">
+            Accéder au tableau de bord
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+      {/* Nav */}
+      <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 py-5">
+        <button onClick={() => setCurrentView('home')} className="flex items-center"><BrandMark height={48} className="brightness-110" /></button>
+        <button onClick={() => setCurrentView('login')} className="text-white/50 hover:text-white text-sm font-medium transition flex items-center gap-2">
+          <ArrowLeft size={16} /> Retour
+        </button>
+      </nav>
+
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-8">
+        <div className="w-full max-w-2xl">
+          {/* Step indicator */}
+          <div className="flex items-center gap-3 mb-8">
+            {[
+              { n: 1, label: 'Informations' },
+              { n: 2, label: 'Compte admin' },
+            ].map(s => (
+              <div key={s.n} className="flex items-center gap-2">
+                <div className={`w-8 h-8 rounded-full grid place-items-center text-xs font-bold transition ${step >= s.n ? 'bg-[#f5a623] text-[#0a0f0d]' : 'bg-white/10 text-white/40'}`}>{s.n}</div>
+                <span className={`text-xs font-medium ${step >= s.n ? 'text-white' : 'text-white/40'}`}>{s.label}</span>
+                {s.n < 2 && <div className={`w-12 h-px ${step > s.n ? 'bg-[#f5a623]' : 'bg-white/10'}`} />}
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-2xl p-6 sm:p-8" style={{ background: 'rgba(26, 37, 32, 0.4)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)' }}>
+            {step === 1 && (
+              <>
+                <h2 className="text-xl font-bold text-white mb-1">Créer votre école</h2>
+                <p className="text-white/50 text-sm mb-6">Renseignez les informations de votre établissement</p>
+
+                {/* Logo upload */}
+                <div className="mb-6 flex items-center gap-4">
+                  <label className="w-20 h-20 rounded-xl border-2 border-dashed border-white/20 hover:border-[#f5a623]/50 flex items-center justify-center cursor-pointer transition group overflow-hidden">
+                    {logoPreview ? (
+                      <img src={logoPreview} alt="Logo" className="w-full h-full object-cover rounded-xl" />
+                    ) : logoUploading ? (
+                      <div className="h-5 w-5 border-2 border-white/30 border-t-[#f5a623] rounded-full animate-spin" />
+                    ) : (
+                      <div className="text-center text-white/30 group-hover:text-white/50 transition">
+                        <ImagePlus size={20} />
+                        <span className="text-[9px] block mt-1">Logo</span>
+                      </div>
+                    )}
+                    <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                  </label>
+                  <div className="text-xs text-white/40">Logo de l&apos;école<br /><span className="text-white/25">JPG, PNG max 5MB</span></div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Nom de l&apos;école *</label>
+                    <input value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Ex: Complexe Scolaire Lumière" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Sigle *</label>
+                    <input value={form.shortName} onChange={e => updateForm('shortName', e.target.value)} placeholder="Ex: CSL" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Email *</label>
+                    <input type="email" value={form.email} onChange={e => updateForm('email', e.target.value)} placeholder="contact@ecole.cd" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Téléphone *</label>
+                    <input value={form.phone} onChange={e => updateForm('phone', e.target.value)} placeholder="+243 81 234 56 78" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Ville *</label>
+                    <input value={form.city} onChange={e => updateForm('city', e.target.value)} placeholder="Kinshasa" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Province *</label>
+                    <select value={form.province} onChange={e => updateForm('province', e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition appearance-none cursor-pointer">
+                      {PROVINCES.filter(p => p !== 'Toutes provinces').map(p => <option key={p} value={p} className="bg-[#0a0f0d] text-white">{p}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Pays *</label>
+                    <select value={form.country} onChange={e => updateForm('country', e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition appearance-none cursor-pointer">
+                      <option value="RD Congo" className="bg-[#0a0f0d]">RD Congo</option>
+                      <option value="Sénégal" className="bg-[#0a0f0d]">Sénégal</option>
+                      <option value="Côte d'Ivoire" className="bg-[#0a0f0d]">Côte d&apos;Ivoire</option>
+                      <option value="Congo" className="bg-[#0a0f0d]">Congo</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Type</label>
+                    <select value={form.schoolType} onChange={e => updateForm('schoolType', e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition appearance-none cursor-pointer">
+                      <option value="MIXTE" className="bg-[#0a0f0d]">Mixte</option>
+                      <option value="FILLES" className="bg-[#0a0f0d]">Filles</option>
+                      <option value="GARCONS" className="bg-[#0a0f0d]">Garçons</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Catégorie</label>
+                    <select value={form.schoolCategory} onChange={e => updateForm('schoolCategory', e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition appearance-none cursor-pointer">
+                      <option value="PRIVEE" className="bg-[#0a0f0d]">Privée</option>
+                      <option value="PUBLIQUE" className="bg-[#0a0f0d]">Publique</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Capacité max</label>
+                    <input type="number" value={form.maxStudents} onChange={e => updateForm('maxStudents', e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Description</label>
+                    <textarea value={form.description} onChange={e => updateForm('description', e.target.value)} rows={3} placeholder="Décrivez votre école..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition resize-none" />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {step === 2 && (
+              <>
+                <h2 className="text-xl font-bold text-white mb-1">Compte administrateur</h2>
+                <p className="text-white/50 text-sm mb-6">Créez votre compte pour gérer l&apos;école</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Nom complet *</label>
+                    <input value={form.adminName} onChange={e => updateForm('adminName', e.target.value)} placeholder="Jean Mukendi" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Email *</label>
+                    <input type="email" value={form.adminEmail} onChange={e => updateForm('adminEmail', e.target.value)} placeholder="admin@ecole.cd" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Téléphone</label>
+                    <input value={form.adminPhone} onChange={e => updateForm('adminPhone', e.target.value)} placeholder="+243 81 234 56 78" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Mot de passe</label>
+                    <input type="password" value={form.adminPassword} onChange={e => updateForm('adminPassword', e.target.value)} placeholder="Laissez vide pour le mot de passe par défaut" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                </div>
+
+                {/* Subscription tier selector */}
+                <div className="mt-6">
+                  <label className="text-xs font-medium text-white/60 mb-3 block">Formule d&apos;abonnement</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {SUBSCRIPTION_TIERS.slice(0, 5).map(tier => (
+                      <button
+                        key={tier}
+                        type="button"
+                        onClick={() => updateForm('subscriptionTier', tier)}
+                        className={`p-3 rounded-xl border text-left transition ${form.subscriptionTier === tier ? 'border-[#f5a623]/50 bg-[#f5a623]/10' : 'border-white/10 bg-white/5 hover:border-white/20'}`}
+                      >
+                        <div className="text-sm font-bold text-white">{getSubscriptionLabel(tier)}</div>
+                        <div className="text-xs text-white/40 mt-0.5">{getSubscriptionPrice(tier)}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center justify-between mt-8">
+              {step > 1 && (
+                <button onClick={() => setStep((step - 1) as 1 | 2)} className="text-white/50 hover:text-white text-sm font-medium transition flex items-center gap-2">
+                  <ArrowLeft size={16} /> Retour
+                </button>
+              )}
+              <div className="flex-1" />
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="bg-[#f5a623] hover:bg-[#ffb643] text-[#0a0f0d] px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)] disabled:opacity-50 flex items-center gap-2"
+              >
+                {loading ? <><div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> Création...</> : step === 1 ? 'Suivant' : 'Créer l\'école'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   )
 }
@@ -1544,7 +1845,7 @@ function LoginView() {
           </button>
 
           <p className="text-center text-[13px] mt-5 text-white/50">
-            Pas encore de compte ? <button onClick={() => setCurrentView('pricing')} className="font-medium hover:underline text-[#f5a623]/80 hover:text-[#f5a623]">Créer mon école</button>
+            Pas encore de compte ? <button onClick={() => setCurrentView('create-school')} className="font-medium hover:underline text-[#f5a623]/80 hover:text-[#f5a623]">Créer mon école</button>
           </p>
         </div>
 
@@ -4451,6 +4752,7 @@ export default function Home() {
   if (!userRole) {
     switch (currentView) {
       case 'login': return <LoginView />
+      case 'create-school': return <CreateSchoolView />
       case 'pricing': return <PricingView />
       case 'school-detail': return <SchoolDetailView />
       default: return <HomeView />
