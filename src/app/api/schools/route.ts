@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
           email: adminEmail || null,
           phone: adminPhone || adminPhone || phone,
           password: hashedPassword,
-          role: 'SECRETARY',
+          role: 'SUPER_ADMIN_GLOBAL',
           schoolId: school.id,
           isActive: true,
         },

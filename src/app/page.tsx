@@ -1271,7 +1271,7 @@ function CreateSchoolView() {
             SUPER_ADMIN_GLOBAL: 'SUPER_ADMIN_GLOBAL', SECRETARY: 'SECRETARY',
             CASHIER: 'CASHIER', TEACHER: 'TEACHER', HEAD_TEACHER: 'HEAD_TEACHER', PARENT: 'PARENT',
           }
-          const role = roleMap[apiUser.role] || 'SECRETARY'
+          const role = roleMap[apiUser.role] || 'SUPER_ADMIN_GLOBAL'
           login(role, {
             id: apiUser.id, name: apiUser.name, role,
             schoolId: apiUser.schoolId, schoolName: json.data.school.name,
@@ -1572,7 +1572,7 @@ function LoginView() {
   function mapApiRole(role: string): UserRole | null {
     const map: Record<string, UserRole> = {
       SUPER_ADMIN_GLOBAL: 'SUPER_ADMIN_GLOBAL',
-      SCHOOL_ADMIN: 'SECRETARY',
+      SCHOOL_ADMIN: 'SUPER_ADMIN_GLOBAL',
       SECRETARY: 'SECRETARY',
       CASHIER: 'CASHIER',
       DIRECTION_MATERNELLE: 'DIRECTION_MATERNELLE',
@@ -2006,11 +2006,16 @@ function Sidebar() {
   const menus: Record<string, MenuItem[]> = {
     SUPER_ADMIN_GLOBAL: [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
-      { icon: <Building2 size={16} />, label: 'Écoles', view: 'schools', badge: 12 },
-      { icon: <CreditCard size={16} />, label: 'Abonnements', view: 'payments' },
-      { icon: <TrendingUp size={16} />, label: 'Revenus', view: 'grades' },
-      { icon: <AlertTriangle size={16} />, label: 'Dettes', view: 'discipline' },
-      { icon: <BadgeDollarSign size={16} />, label: 'Tarifs', view: 'pricing' },
+      { icon: <Building2 size={16} />, label: 'Écoles', view: 'schools' },
+      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
+      { icon: <School size={16} />, label: 'Classes', view: 'classes' },
+      { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
+      { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
+      { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
+      { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
+      { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
       { icon: <MessageSquare size={16} />, label: 'WhatsApp Config', view: 'whatsapp-config' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
