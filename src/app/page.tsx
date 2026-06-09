@@ -422,24 +422,33 @@ function HomeView() {
       <section className="relative overflow-hidden edu-hero-dark">
         {/* Kente pattern overlay */}
         <div className="absolute inset-0 edu-kente opacity-60" />
-        {/* Radial glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] opacity-20" style={{ background: 'radial-gradient(ellipse at center, oklch(55% 0.15 175 / 0.4), transparent 70%)' }} />
+        {/* Radial glow - breathing animation */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] edu-animate-glow-breathe" style={{ background: 'radial-gradient(ellipse at center, oklch(55% 0.15 175 / 0.4), transparent 70%)' }} />
+        {/* Floating particles */}
+        <div className="edu-particle edu-particle-1" />
+        <div className="edu-particle edu-particle-2" />
+        <div className="edu-particle edu-particle-3" />
+        <div className="edu-particle edu-particle-4" />
+        <div className="edu-particle edu-particle-5" />
+        {/* Decorative spinning ring */}
+        <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full border border-white/5 edu-animate-spin-slow" />
+        <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full border border-[oklch(72%_0.15_65)]/5 edu-animate-spin-slow" style={{ animationDirection: 'reverse' }} />
 
         {/* Floating nav */}
         <PublicHeader dark />
 
         <div className="relative container-premium py-20 sm:py-32 text-center">
-          {/* Display Headline */}
-          <h1 className="text-[40px] sm:text-[45px] lg:text-[56px] font-extrabold tracking-tight leading-[1.1] text-white mb-5">
+          {/* Display Headline - animated entrance */}
+          <h1 className="text-[40px] sm:text-[45px] lg:text-[56px] font-extrabold tracking-tight leading-[1.1] text-white mb-5 edu-animate-fade-in-up">
             Rejoignez l&apos;excellence{' '}
-            <span style={{ color: GOLD }}>éducative</span>
+            <span style={{ color: GOLD }} className="edu-animate-pulse-glow inline-block rounded-lg">éducative</span>
           </h1>
-          <p className="text-base sm:text-lg text-white/60 leading-relaxed mb-10 max-w-[600px] mx-auto">
+          <p className="text-base sm:text-lg text-white/60 leading-relaxed mb-10 max-w-[600px] mx-auto edu-animate-fade-in-up edu-delay-200">
             La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants pour un avenir meilleur.
           </p>
 
           {/* Glass morphism search bar */}
-          <div className="edu-glass rounded-2xl p-2 max-w-[780px] mx-auto shadow-lg flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="edu-glass rounded-2xl p-2 max-w-[780px] mx-auto shadow-lg flex flex-col sm:flex-row items-stretch sm:items-center gap-2 edu-animate-fade-in-up edu-delay-400">
             <div className="flex items-center gap-2.5 px-4 flex-1">
               <Search size={18} className="text-white/50 shrink-0" />
               <input
@@ -454,20 +463,20 @@ function HomeView() {
             >
               {PROVINCES.map(p => <option key={p} value={p} className="text-edu-fg">{p}</option>)}
             </select>
-            <button className="edu-gold-cta px-6 py-3 rounded-xl text-sm font-semibold">
+            <button className="edu-gold-cta px-6 py-3 rounded-xl text-sm font-semibold edu-animate-pulse-glow">
               Rechercher
             </button>
           </div>
 
-          {/* Stats badges */}
+          {/* Stats badges - staggered entrance */}
           <div className="mt-10 flex flex-wrap justify-center gap-4 sm:gap-6">
             {[
               { value: '240+', label: 'Établissements' },
               { value: '50 000+', label: 'Familles' },
               { value: '98%', label: 'Satisfaction' },
-            ].map(stat => (
-              <div key={stat.label} className="edu-glass rounded-xl px-5 py-3 sm:px-6 sm:py-4 text-center min-w-[120px]">
-                <div className="text-xl sm:text-2xl font-extrabold text-white">{stat.value}</div>
+            ].map((stat, idx) => (
+              <div key={stat.label} className={`edu-glass rounded-xl px-5 py-3 sm:px-6 sm:py-4 text-center min-w-[120px] edu-animate-scale-in edu-delay-${(idx + 6) * 100}`}>
+                <div className="text-xl sm:text-2xl font-extrabold text-white edu-stat-number">{stat.value}</div>
                 <div className="text-[11px] sm:text-xs text-white/50 mt-0.5">{stat.label}</div>
               </div>
             ))}
@@ -476,7 +485,7 @@ function HomeView() {
       </section>
 
       {/* ===== TRUST SIGNALS BAR ===== */}
-      <section style={{ background: IVORY }} className="border-y border-[oklch(88%_0.01_175)]">
+      <section style={{ background: IVORY }} className="border-y border-[oklch(88%_0.01_175)] edu-animate-fade-in edu-delay-800">
         <div className="container-premium py-4 text-center">
           <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
             <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>240+</strong> Établissements &nbsp;•&nbsp;{' '}
@@ -531,7 +540,7 @@ function HomeView() {
 
         {/* School Cards */}
         <div className="container-premium pb-16">
-          <div className="flex items-baseline justify-between mb-5">
+          <div className="flex items-baseline justify-between mb-5 edu-animate-fade-in-up">
             <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
               <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{filteredSchools.length} écoles</strong> correspondent à votre recherche
             </div>
@@ -540,9 +549,12 @@ function HomeView() {
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
               {[1, 2, 3, 4, 5, 6].map(i => (
-                <div key={i} className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden animate-pulse">
-                  <div className="h-[120px] bg-[oklch(94%_0.005_175)]" />
-                  <div className="p-6 sm:p-10 pt-10 space-y-3"><div className="h-4 bg-[oklch(94%_0.005_175)] rounded w-3/4" /><div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-1/2" /></div>
+                <div key={i} className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden">
+                  <div className="h-[120px] edu-skeleton" />
+                  <div className="p-6 sm:p-10 pt-10 space-y-3">
+                    <div className="h-4 edu-skeleton w-3/4" />
+                    <div className="h-3 edu-skeleton w-1/2" />
+                  </div>
                 </div>
               ))}
             </div>
@@ -552,15 +564,17 @@ function HomeView() {
                 <button
                   key={school.id}
                   onClick={() => { setSelectedSchoolId(school.id); setCurrentView('school-detail') }}
-                  className="block text-left bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden edu-card-lift group"
+                  className={`block text-left bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden edu-card-lift edu-hover-border group edu-animate-fade-in-up ${idx < 6 ? `edu-delay-${(idx % 6) * 100 + 100}` : ''}`}
                 >
                   <div className={`h-[120px] relative bg-gradient-to-br ${COVER_GRADIENTS[idx % COVER_GRADIENTS.length]} flex items-end p-4`}>
                     {/* Mesh gradient overlay */}
                     <div className="absolute inset-0 opacity-20" style={{ background: 'radial-gradient(ellipse at top right, oklch(72% 0.15 65 / 0.3), transparent 60%)' }} />
+                    {/* Shimmer effect on hover */}
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 edu-animate-shimmer" />
                     <span className="absolute top-3 right-3 edu-glass px-3 py-1 rounded-full text-[11px] font-medium text-white">
                       {getSchoolTypeLabel(school.schoolType, school.schoolCategory)}
                     </span>
-                    <div className={`w-12 h-12 rounded-xl bg-white grid place-items-center font-extrabold text-lg shadow-md relative top-6 ${LOGO_COLORS[idx % LOGO_COLORS.length]}`}>
+                    <div className={`w-12 h-12 rounded-xl bg-white grid place-items-center font-extrabold text-lg shadow-md relative top-6 group-hover:scale-110 transition-transform duration-300 ${LOGO_COLORS[idx % LOGO_COLORS.length]}`}>
                       {school.shortName.substring(0, 2)}
                     </div>
                   </div>
@@ -571,13 +585,13 @@ function HomeView() {
                     </div>
                     <div className="flex gap-4 py-3 border-t border-b border-[oklch(88%_0.01_175)] mb-4">
                       <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</strong>élèves
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5 edu-stat-number" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</strong>élèves
                       </div>
                       <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</strong>classes
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5 edu-stat-number edu-delay-100" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</strong>classes
                       </div>
                       <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</strong>fondée
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5 edu-stat-number edu-delay-200" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</strong>fondée
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
@@ -586,7 +600,7 @@ function HomeView() {
                         <span style={{ color: TEXT_PRIMARY }}>{school.averageRating?.toFixed(1) || '—'}</span>
                         <span className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>· {school.totalReviews} avis</span>
                       </div>
-                      <span className="edu-gold-cta text-[13px] font-semibold px-4 py-2 rounded-xl">
+                      <span className="edu-gold-cta text-[13px] font-semibold px-4 py-2 rounded-xl group-hover:scale-105 transition-transform duration-200">
                         Voir l&apos;école →
                       </span>
                     </div>
@@ -602,19 +616,19 @@ function HomeView() {
       <section id="features-section" style={{ background: IVORY }} className="py-16 sm:py-[120px]">
         <div className="container-premium text-center">
           {/* Ornament divider */}
-          <div className="edu-ornament mb-4">
-            <span style={{ color: GOLD }}>◆</span>
+          <div className="edu-ornament edu-ornament-draw mb-4">
+            <span style={{ color: GOLD }} className="edu-animate-float">◆</span>
           </div>
-          <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
+          <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3 edu-animate-fade-in-up" style={{ color: TEXT_PRIMARY }}>
             Pourquoi choisir <span style={{ color: GOLD }}>EduGest</span>
           </h2>
-          <p className="text-base max-w-[500px] mx-auto mb-12" style={{ color: TEXT_MUTED_LUXE }}>
+          <p className="text-base max-w-[500px] mx-auto mb-12 edu-animate-fade-in-up edu-delay-200" style={{ color: TEXT_MUTED_LUXE }}>
             Une plateforme conçue pour les réalités africaines, avec les outils qu&apos;il vous faut.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {FEATURES.map((feature, idx) => (
-              <div key={idx} className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl p-8 text-left edu-card-lift group">
+              <div key={idx} className={`bg-white border border-[oklch(88%_0.01_175)] rounded-2xl p-8 text-left edu-card-lift edu-hover-border group edu-animate-fade-in-up edu-delay-${(idx + 1) * 100}`}>
                 <div className="edu-icon-gradient w-12 h-12 rounded-xl mb-5 group-hover:scale-110 transition-transform duration-300">
                   {feature.icon}
                 </div>
@@ -666,30 +680,32 @@ function SchoolDetailView() {
   )
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: IVORY }}>
+    <div className="min-h-screen flex flex-col edu-page-enter" style={{ background: IVORY }}>
       <PublicHeader />
       <div className="container-premium py-8 flex-1">
-        <button onClick={() => setCurrentView('home')} className="inline-flex items-center gap-1.5 text-sm mb-6 transition hover:opacity-80" style={{ color: TEXT_MUTED_LUXE }}>
+        <button onClick={() => setCurrentView('home')} className="inline-flex items-center gap-1.5 text-sm mb-6 transition hover:opacity-80 edu-animate-fade-in-left" style={{ color: TEXT_MUTED_LUXE }}>
           <ArrowLeft size={14} /> Retour aux écoles
         </button>
 
-        <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden shadow-sm edu-animate-fade-in-up">
           <div className={`h-48 bg-gradient-to-br ${COVER_GRADIENTS[0]} relative`}>
             {/* Darker overlay for hero */}
             <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, oklch(15% 0.02 250 / 0.3), oklch(15% 0.02 250 / 0.5))' }} />
+            {/* Decorative spinning element */}
+            <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full border border-white/5 edu-animate-spin-slow" />
             <span className="absolute top-4 right-4 edu-glass px-3 py-1 rounded-full text-xs font-medium text-white">
               {getSchoolTypeLabel(school.schoolType, school.schoolCategory)}
             </span>
           </div>
           <div className="px-6 sm:px-10 pb-10 -mt-12 relative">
-            <div className="w-20 h-20 rounded-2xl bg-white grid place-items-center text-2xl font-extrabold shadow-lg border border-[oklch(88%_0.01_175)]" style={{ color: ACCENT }}>
+            <div className="w-20 h-20 rounded-2xl bg-white grid place-items-center text-2xl font-extrabold shadow-lg border border-[oklch(88%_0.01_175)] edu-animate-bounce-in" style={{ color: ACCENT }}>
               {school.shortName.substring(0, 2)}
             </div>
-            <h1 className="text-[21px] sm:text-[29px] font-bold mt-4 tracking-tight" style={{ color: TEXT_PRIMARY }}>{school.name}</h1>
-            <div className="flex items-center gap-2 text-sm mt-2" style={{ color: TEXT_MUTED_LUXE }}>
+            <h1 className="text-[21px] sm:text-[29px] font-bold mt-4 tracking-tight edu-animate-fade-in-up edu-delay-100" style={{ color: TEXT_PRIMARY }}>{school.name}</h1>
+            <div className="flex items-center gap-2 text-sm mt-2 edu-animate-fade-in-up edu-delay-200" style={{ color: TEXT_MUTED_LUXE }}>
               <MapPin size={14} /> {school.address}, {school.city} · {school.province}, {school.country}
             </div>
-            <div className="flex items-center gap-4 mt-3 text-sm flex-wrap">
+            <div className="flex items-center gap-4 mt-3 text-sm flex-wrap edu-animate-fade-in-up edu-delay-300">
               <span className="flex items-center gap-1"><Star size={14} style={{ color: GOLD }} className="fill-current" /> <strong style={{ color: TEXT_PRIMARY }}>{school.averageRating?.toFixed(1)}</strong> <span style={{ color: TEXT_MUTED_LUXE }}>({school.totalReviews} avis)</span></span>
               <span style={{ color: TEXT_MUTED_LUXE }}>·</span>
               <span style={{ color: TEXT_MUTED_LUXE }}>{school._count?.students || school.studentCount} élèves</span>
@@ -707,20 +723,20 @@ function SchoolDetailView() {
             )}
 
             <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
-                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</div>
+              <div className="rounded-xl p-5 text-center edu-animate-scale-in edu-delay-300" style={{ background: IVORY }}>
+                <div className="text-2xl font-bold edu-stat-number" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</div>
                 <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Élèves</div>
               </div>
-              <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
-                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</div>
+              <div className="rounded-xl p-5 text-center edu-animate-scale-in edu-delay-400" style={{ background: IVORY }}>
+                <div className="text-2xl font-bold edu-stat-number edu-delay-100" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</div>
                 <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Classes</div>
               </div>
-              <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
-                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</div>
+              <div className="rounded-xl p-5 text-center edu-animate-scale-in edu-delay-500" style={{ background: IVORY }}>
+                <div className="text-2xl font-bold edu-stat-number edu-delay-200" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</div>
                 <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Fondée</div>
               </div>
-              <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
-                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{getSubscriptionLabel(school.subscriptionTier)}</div>
+              <div className="rounded-xl p-5 text-center edu-animate-scale-in edu-delay-600" style={{ background: IVORY }}>
+                <div className="text-2xl font-bold edu-stat-number edu-delay-300" style={{ color: TEXT_PRIMARY }}>{getSubscriptionLabel(school.subscriptionTier)}</div>
                 <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Abonnement</div>
               </div>
             </div>
@@ -738,7 +754,7 @@ function SchoolDetailView() {
             )}
 
             <div className="mt-8">
-              <button onClick={() => setCurrentView('login')} className="edu-gold-cta px-8 py-3.5 rounded-xl font-semibold text-sm">
+              <button onClick={() => setCurrentView('login')} className="edu-gold-cta px-8 py-3.5 rounded-xl font-semibold text-sm edu-animate-pulse-glow">
                 Contacter cette école
               </button>
             </div>
@@ -1692,9 +1708,9 @@ function Sidebar() {
               <button
                 key={item.label}
                 onClick={() => { setCurrentView(item.view); setSidebarOpen(false) }}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] font-medium transition relative ${
+                className={`edu-sidebar-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] font-medium transition relative ${
                   currentView === item.view
-                    ? 'text-[oklch(72%_0.15_65)] font-semibold'
+                    ? 'text-[oklch(72%_0.15_65)] font-semibold active'
                     : 'text-white/70 hover:text-white hover:bg-white/5'
                 }`}
                 style={currentView === item.view ? { background: 'oklch(72% 0.15 65 / 0.08)', borderLeft: '3px solid oklch(72% 0.15 65)' } : { borderLeft: '3px solid transparent' }}
@@ -1754,9 +1770,9 @@ function Topbar() {
           <Search size={14} style={{ color: TEXT_MUTED_LUXE }} />
           <input placeholder="Rechercher..." className="flex-1 border-0 bg-transparent outline-none text-[13px]" />
         </div>
-        <button className="w-9 h-9 rounded-xl bg-white border border-[oklch(90%_0.01_175)] grid place-items-center hover:shadow-sm transition relative">
+        <button className="w-9 h-9 rounded-xl bg-white border border-[oklch(90%_0.01_175)] grid place-items-center hover:shadow-sm transition relative edu-bell-shake">
           <Bell size={16} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2 border-white" style={{ background: GOLD }} />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2 border-white edu-animate-pulse-glow" style={{ background: GOLD }} />
         </button>
         <button onClick={() => setCurrentView('profile')} className="w-9 h-9 rounded-xl bg-white border border-[oklch(90%_0.01_175)] grid place-items-center hover:shadow-sm transition" title="Mon profil">
           <Settings size={16} />
@@ -1774,7 +1790,9 @@ function DashboardLayout() {
       <div className="flex flex-col min-w-0">
         <Topbar />
         <main className="flex-1 p-6 sm:p-8 overflow-y-auto">
-          <MainContent />
+          <div className="edu-page-enter">
+            <MainContent />
+          </div>
         </main>
       </div>
     </div>
