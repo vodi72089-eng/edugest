@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useEduGestStore, ViewType, UserRole, UserData } from '@/lib/store'
 import { toast } from 'sonner'
 import dynamic from 'next/dynamic'
@@ -208,6 +208,147 @@ function getStatusPill(status: string) {
   if (status === 'PARTIAL' || status === 'À renouveler') return 'bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]'
   if (status === 'OVERDUE' || status === 'Suspendu') return 'bg-[oklch(94%_0.05_25)] text-[oklch(45%_0.18_25)]'
   return 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'
+}
+
+// ===== SEARCH AUTOCOMPLETE COMPONENT =====
+interface AutocompleteItem {
+  id: string
+  label: string
+  sublabel?: string
+  photoUrl?: string
+}
+
+function SearchAutocomplete({
+  label,
+  placeholder,
+  items,
+  selectedId,
+  onSelect,
+  onClear,
+  searchQuery,
+  onSearchChange,
+  loading = false,
+  emptyMessage = 'Aucun résultat',
+  itemTypeName = 'résultat',
+  className = '',
+}: {
+  label?: string
+  placeholder?: string
+  items: AutocompleteItem[]
+  selectedId: string | null
+  onSelect: (item: AutocompleteItem) => void
+  onClear: () => void
+  searchQuery: string
+  onSearchChange: (value: string) => void
+  loading?: boolean
+  emptyMessage?: string
+  itemTypeName?: string
+  className?: string
+}) {
+  const [showDropdown, setShowDropdown] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const selectedItem = selectedId ? items.find(i => i.id === selectedId) : null
+  const displayValue = selectedItem ? selectedItem.label : searchQuery
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleSelect = (item: AutocompleteItem) => {
+    onSelect(item)
+    setShowDropdown(false)
+  }
+
+  const handleClear = () => {
+    onClear()
+    setShowDropdown(false)
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onSearchChange(e.target.value)
+    setShowDropdown(true)
+  }
+
+  return (
+    <div className={`relative ${className}`} ref={containerRef}>
+      {label && (
+        <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>{label}</label>
+      )}
+      <div className="flex items-center gap-2 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-[oklch(72%_0.15_65_/_0.3)] focus-within:border-[oklch(72%_0.15_65_/_0.5)] transition">
+        <Search size={14} style={{ color: TEXT_MUTED_LUXE }} />
+        <input
+          placeholder={placeholder || 'Rechercher...'}
+          value={displayValue}
+          onChange={handleInputChange}
+          onFocus={() => { if (items.length > 0 || searchQuery.length >= 2) setShowDropdown(true) }}
+          className="flex-1 border-0 bg-transparent outline-none text-sm"
+        />
+        {(selectedId || searchQuery) && (
+          <button onClick={handleClear} className="text-[oklch(45%_0.18_25)] hover:text-[oklch(35%_0.20_25)] shrink-0">
+            <X size={14} />
+          </button>
+        )}
+      </div>
+      {/* Selected item chip */}
+      {selectedId && selectedItem && (
+        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium" style={{ background: GOLD_SOFT, color: GOLD }}>
+          <div className="w-6 h-6 rounded-full grid place-items-center text-white text-[9px] font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+            {getInitials(selectedItem.label)}
+          </div>
+          {selectedItem.label}
+          {selectedItem.sublabel && <span className="text-[10px] opacity-70">({selectedItem.sublabel})</span>}
+        </div>
+      )}
+      {/* Autocomplete dropdown */}
+      {showDropdown && (
+        <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-[oklch(90%_0.01_175)] rounded-xl shadow-xl max-h-56 overflow-y-auto">
+          {loading ? (
+            <div className="px-4 py-4 text-center text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
+              <div className="h-5 w-5 border-2 border-[oklch(90%_0.01_175)] border-t-[oklch(72%_0.15_65)] rounded-full animate-spin mx-auto mb-2" />
+              Recherche...
+            </div>
+          ) : items.length === 0 ? (
+            <div className="px-4 py-4 text-center text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
+              {searchQuery.length < 2 ? 'Tapez au moins 2 caractères...' : emptyMessage}
+            </div>
+          ) : (
+            <>
+              <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider border-b border-[oklch(92%_0.005_250)]" style={{ color: TEXT_MUTED_LUXE }}>
+                {items.length} {itemTypeName}{items.length > 1 ? 's' : ''} trouvé{items.length > 1 ? 's' : ''}
+              </div>
+              {items.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => handleSelect(item)}
+                  className="w-full text-left px-3 py-2.5 hover:bg-[oklch(97%_0.02_65)] transition flex items-center gap-3 border-b border-[oklch(94%_0.005_250)] last:border-0 cursor-pointer group"
+                >
+                  {item.photoUrl ? (
+                    <img src={item.photoUrl} alt={item.label} className="w-8 h-8 rounded-full object-cover shrink-0 group-hover:scale-110 transition" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0 group-hover:scale-110 transition" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                      {getInitials(item.label)}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-semibold group-hover:text-[oklch(55%_0.15_65)] transition" style={{ color: TEXT_PRIMARY }}>{item.label}</div>
+                    {item.sublabel && <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{item.sublabel}</div>}
+                  </div>
+                  <ChevronRight size={14} className="text-[oklch(80%_0.01_175)] group-hover:text-[oklch(72%_0.15_65)] transition shrink-0" />
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ===== BRAND Mark =====
@@ -3447,9 +3588,15 @@ function StudentsView() {
   const [students, setStudents] = useState<StudentData[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [studentSearch, setStudentSearch] = useState('')
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
+  const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [classes, setClasses] = useState<ClassData[]>([])
   const [selectedClassId, setSelectedClassId] = useState('')
+  const [classSearch, setClassSearch] = useState('')
+  const [selectedClassSearchId, setSelectedClassSearchId] = useState<string | null>(null)
   const [showParentSection, setShowParentSection] = useState(false)
   const [parentName, setParentName] = useState('')
   const [parentEmail, setParentEmail] = useState('')
@@ -3481,9 +3628,38 @@ function StudentsView() {
     }
   }, [showAdd])
 
-  const filtered = students.filter(s =>
-    !search || s.firstName.toLowerCase().includes(search.toLowerCase()) || s.lastName.toLowerCase().includes(search.toLowerCase()) || s.matricule.toLowerCase().includes(search.toLowerCase())
-  )
+  // Student search autocomplete
+  useEffect(() => {
+    if (studentSearch.length < 2) return
+    const timer = setTimeout(() => {
+      setStudentSearchLoading(true)
+      fetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
+        .then(r => r.json())
+        .then(j => {
+          setStudentSuggestions((j.data || []).map((s: StudentData) => ({
+            id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule, photoUrl: s.photoUrl
+          })))
+          setStudentSearchLoading(false)
+        })
+        .catch(() => setStudentSearchLoading(false))
+    }, 300)
+    return () => { clearTimeout(timer); setStudentSearchLoading(false) }
+  }, [studentSearch])
+
+  // Class search autocomplete for add modal - computed from local data
+  const classSuggestions = useMemo(() => {
+    if (classSearch.length < 1) return classes.map(c => ({ id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves · Cap. ${c.capacity}` }))
+    return classes.filter(c => c.name.toLowerCase().includes(classSearch.toLowerCase())).map(c => ({
+      id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves · Cap. ${c.capacity}`
+    }))
+  }, [classSearch, classes])
+
+  // Filter students by search or selected student
+  const filtered = selectedStudentId
+    ? students.filter(s => s.id === selectedStudentId)
+    : students.filter(s =>
+        !search || s.firstName.toLowerCase().includes(search.toLowerCase()) || s.lastName.toLowerCase().includes(search.toLowerCase()) || s.matricule.toLowerCase().includes(search.toLowerCase())
+      )
 
   async function handleAddStudent(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -3537,10 +3713,19 @@ function StudentsView() {
       </div>
 
       <div className="flex items-center gap-3 mb-4">
-        <div className="flex items-center gap-2 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-2 flex-1 max-w-md focus-within:ring-2 focus-within:ring-[oklch(72%_0.15_65_/_0.3)] focus-within:border-[oklch(72%_0.15_65_/_0.5)] transition">
-          <Search size={14} style={{ color: TEXT_MUTED_LUXE }} />
-          <input placeholder="Rechercher un élève..." value={search} onChange={e => setSearch(e.target.value)} className="flex-1 border-0 bg-transparent outline-none text-sm" />
-        </div>
+        <SearchAutocomplete
+          label="Rechercher un élève *"
+          placeholder="Tapez le nom de l'élève..."
+          items={studentSuggestions}
+          selectedId={selectedStudentId}
+          onSelect={(item) => { setSelectedStudentId(item.id); setSearch('') }}
+          onClear={() => { setSelectedStudentId(null); setStudentSearch('') }}
+          searchQuery={studentSearch}
+          onSearchChange={setStudentSearch}
+          loading={studentSearchLoading}
+          itemTypeName="élève"
+          className="flex-1 max-w-md"
+        />
       </div>
 
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
@@ -3609,13 +3794,17 @@ function StudentsView() {
                 <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Date de naissance</label><input name="dob" type="date" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
               </div>
               {/* Class selector */}
-              <div>
-                <label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Classe</label>
-                <select value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                  <option value="">Sélectionner une classe</option>
-                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}{c.section ? ` - ${c.section}` : ''}</option>)}
-                </select>
-              </div>
+              <SearchAutocomplete
+                label="Classe *"
+                placeholder="Tapez le nom de la classe..."
+                items={classSuggestions}
+                selectedId={selectedClassSearchId}
+                onSelect={(item) => { setSelectedClassSearchId(item.id); setSelectedClassId(item.id) }}
+                onClear={() => { setSelectedClassSearchId(null); setSelectedClassId(''); setClassSearch('') }}
+                searchQuery={classSearch}
+                onSearchChange={setClassSearch}
+                itemTypeName="classe"
+              />
 
               {/* Parent info section */}
               <div className="border border-[oklch(90%_0.01_175)] rounded-xl overflow-hidden">
@@ -3656,20 +3845,54 @@ function StudentsView() {
 function ClassesView() {
   const [classes, setClasses] = useState<ClassData[]>([])
   const [loading, setLoading] = useState(true)
+  const [classSearch, setClassSearch] = useState('')
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/classes?limit=50').then(r => r.json()).then(j => { setClasses(j.data || []); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
+  // Class search autocomplete - computed from local data
+  const classSuggestions = useMemo(() => {
+    if (classSearch.length < 1) return classes.map(c => ({ id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves · Cap. ${c.capacity}${c.section ? ` · ${c.section}` : ''}` }))
+    return classes.filter(c => c.name.toLowerCase().includes(classSearch.toLowerCase()) || (c.section || '').toLowerCase().includes(classSearch.toLowerCase())).map(c => ({
+      id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves · Cap. ${c.capacity}${c.section ? ` · ${c.section}` : ''}`
+    }))
+  }, [classSearch, classes])
+
+  const filteredClasses = selectedClassId
+    ? classes.filter(c => c.id === selectedClassId)
+    : classSearch.length >= 2
+      ? classes.filter(c => c.name.toLowerCase().includes(classSearch.toLowerCase()) || (c.section || '').toLowerCase().includes(classSearch.toLowerCase()))
+      : classes
+
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Classes</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Classes</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filteredClasses.length)} classes</p>
+        </div>
+        <SearchAutocomplete
+          placeholder="Tapez le nom de la classe..."
+          items={classSuggestions}
+          selectedId={selectedClassId}
+          onSelect={(item) => setSelectedClassId(item.id)}
+          onClear={() => { setSelectedClassId(null); setClassSearch('') }}
+          searchQuery={classSearch}
+          onSearchChange={setClassSearch}
+          itemTypeName="classe"
+          className="w-full max-w-sm"
+        />
       </div>
-      {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : (
+      {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : filteredClasses.length === 0 ? (
+        <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucune classe trouvée</div>
+      ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {classes.map(c => (
+          {filteredClasses.map(c => (
             <div key={c.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{c.name}</h3>
@@ -3700,6 +3923,10 @@ function GradesView() {
   const [selectedTrimester, setSelectedTrimester] = useState('T1')
   const [selectedChildId, setSelectedChildId] = useState('')
   const [myChildren, setMyChildren] = useState<StudentData[]>([])
+  const [childSearch, setChildSearch] = useState('')
+  const [classSearch, setClassSearch] = useState('')
+  const [selectedClassSearchId, setSelectedClassSearchId] = useState<string | null>(null)
+  const [selectedChildSearchId, setSelectedChildSearchId] = useState<string | null>(null)
   const isParent = userRole === 'PARENT'
 
   useEffect(() => {
@@ -3742,6 +3969,21 @@ function GradesView() {
   }
 
   // Group grades by student for parent view
+  // Child search autocomplete for parent - computed from local data
+  const childSuggestions = useMemo(() => {
+    if (!isParent) return []
+    if (childSearch.length < 1) return myChildren.map(c => ({ id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: c.matricule }))
+    return myChildren.filter(c =>
+      `${c.firstName} ${c.lastName}`.toLowerCase().includes(childSearch.toLowerCase()) || c.matricule.toLowerCase().includes(childSearch.toLowerCase())
+    ).map(c => ({ id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: c.matricule }))
+  }, [childSearch, myChildren, isParent])
+
+  // Class search autocomplete for admin - computed from local data
+  const classSuggestions = useMemo(() => {
+    if (isParent) return []
+    if (classSearch.length < 1) return classes.map(c => ({ id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves` }))
+    return classes.filter(c => c.name.toLowerCase().includes(classSearch.toLowerCase())).map(c => ({ id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves` }))
+  }, [classSearch, classes, isParent])
   const gradesByStudent = isParent ? Object.entries(
     grades.reduce((acc, g) => {
       const key = g.studentId
@@ -3757,23 +3999,42 @@ function GradesView() {
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Notes</h1>
       </div>
-      <div className="flex flex-wrap items-center gap-3 mb-5 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4 shadow-sm" style={{ background: IVORY }}>
+      <div className="flex flex-wrap items-start gap-3 mb-5 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4 shadow-sm" style={{ background: IVORY }}>
         {isParent ? (
-          <select value={selectedChildId} onChange={e => setSelectedChildId(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-            <option value="">Tous mes enfants</option>
-            {myChildren.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
-          </select>
+          <SearchAutocomplete
+            label="Mes enfants"
+            placeholder="Tapez le nom de l'enfant..."
+            items={childSuggestions}
+            selectedId={selectedChildSearchId}
+            onSelect={(item) => { setSelectedChildSearchId(item.id); setSelectedChildId(item.id) }}
+            onClear={() => { setSelectedChildSearchId(null); setSelectedChildId(''); setChildSearch('') }}
+            searchQuery={childSearch}
+            onSearchChange={setChildSearch}
+            itemTypeName="enfant"
+            className="w-full max-w-xs"
+          />
         ) : (
-          <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-            <option value="">Toutes les classes</option>
-            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <SearchAutocomplete
+            label="Filtrer par classe"
+            placeholder="Tapez le nom de la classe..."
+            items={classSuggestions}
+            selectedId={selectedClassSearchId}
+            onSelect={(item) => { setSelectedClassSearchId(item.id); setSelectedClass(item.id) }}
+            onClear={() => { setSelectedClassSearchId(null); setSelectedClass(''); setClassSearch('') }}
+            searchQuery={classSearch}
+            onSearchChange={setClassSearch}
+            itemTypeName="classe"
+            className="w-full max-w-xs"
+          />
         )}
-        <select value={selectedTrimester} onChange={e => setSelectedTrimester(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-          <option value="T1">Trimestre 1</option>
-          <option value="T2">Trimestre 2</option>
-          <option value="T3">Trimestre 3</option>
-        </select>
+        <div className={isParent ? 'mt-6' : 'mt-6'}>
+          <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Trimestre</label>
+          <select value={selectedTrimester} onChange={e => setSelectedTrimester(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+            <option value="T1">Trimestre 1</option>
+            <option value="T2">Trimestre 2</option>
+            <option value="T3">Trimestre 3</option>
+          </select>
+        </div>
       </div>
 
       {isParent && gradesByStudent.length > 0 ? (
@@ -3864,9 +4125,10 @@ function PaymentsView() {
   const [payments, setPayments] = useState<PaymentData[]>([])
   const [loading, setLoading] = useState(true)
   const [studentSearch, setStudentSearch] = useState('')
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [selectedStudent, setSelectedStudent] = useState<{id: string; firstName: string; lastName: string; matricule: string} | null>(null)
-  const [studentSuggestions, setStudentSuggestions] = useState<{id: string; firstName: string; lastName: string; matricule: string}[]>([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false)
   const [amount, setAmount] = useState('')
   const [paidAmount, setPaidAmount] = useState('')
   const [trimester, setTrimester] = useState('T1')
@@ -3906,14 +4168,21 @@ function PaymentsView() {
 
   // Search students as user types
   useEffect(() => {
-    if (studentSearch.length < 2) { setStudentSuggestions([]); setShowSuggestions(false); return }
+    if (studentSearch.length < 2) return
     const timer = setTimeout(() => {
+      setStudentSearchLoading(true)
       fetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
         .then(r => r.json())
-        .then(j => { setStudentSuggestions(j.data || []); setShowSuggestions(true) })
-        .catch(() => {})
+        .then(j => {
+          const data = j.data || []
+          setStudentSuggestions(data.map((s: StudentData) => ({
+            id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule, photoUrl: s.photoUrl
+          })))
+          setStudentSearchLoading(false)
+        })
+        .catch(() => setStudentSearchLoading(false))
     }, 300)
-    return () => clearTimeout(timer)
+    return () => { clearTimeout(timer); setStudentSearchLoading(false) }
   }, [studentSearch])
 
   async function handlePayment() {
@@ -4003,59 +4272,19 @@ function PaymentsView() {
         <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Enregistrer un paiement</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
           {/* Student search with autocomplete */}
-          <div className="relative sm:col-span-2 lg:col-span-1">
-            <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Rechercher un élève *</label>
-            <div className="flex items-center gap-2 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-[oklch(72%_0.15_65_/_0.3)] focus-within:border-[oklch(72%_0.15_65_/_0.5)] transition">
-              <Search size={14} style={{ color: TEXT_MUTED_LUXE }} />
-              <input
-                placeholder="Tapez le nom de l'élève..."
-                value={selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : studentSearch}
-                onChange={e => { setStudentSearch(e.target.value); setSelectedStudent(null) }}
-                onFocus={() => { if (studentSearch.length >= 2) setShowSuggestions(true) }}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
-                className="flex-1 border-0 bg-transparent outline-none text-sm"
-              />
-              {selectedStudent && (
-                <button onClick={() => { setSelectedStudent(null); setStudentSearch('') }} className="text-[oklch(45%_0.18_25)] hover:text-[oklch(35%_0.20_25)]">
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-            {/* Selected student chip */}
-            {selectedStudent && (
-              <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium" style={{ background: GOLD_SOFT, color: GOLD }}>
-                <div className="w-6 h-6 rounded-full grid place-items-center text-white text-[9px] font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                  {getInitials(selectedStudent.firstName + ' ' + selectedStudent.lastName)}
-                </div>
-                {selectedStudent.firstName} {selectedStudent.lastName}
-                <span className="text-[10px] opacity-70">({selectedStudent.matricule})</span>
-              </div>
-            )}
-            {/* Autocomplete dropdown */}
-            {showSuggestions && studentSuggestions.length > 0 && (
-              <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-[oklch(90%_0.01_175)] rounded-xl shadow-xl max-h-56 overflow-y-auto">
-                <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider border-b border-[oklch(92%_0.005_250)]" style={{ color: TEXT_MUTED_LUXE }}>
-                  {studentSuggestions.length} élève{studentSuggestions.length > 1 ? 's' : ''} trouvé{studentSuggestions.length > 1 ? 's' : ''}
-                </div>
-                {studentSuggestions.map(s => (
-                  <button
-                    key={s.id}
-                    onClick={() => { setSelectedStudent(s); setStudentSearch(''); setShowSuggestions(false) }}
-                    className="w-full text-left px-3 py-2.5 hover:bg-[oklch(97%_0.02_65)] transition flex items-center gap-3 border-b border-[oklch(94%_0.005_250)] last:border-0 cursor-pointer group"
-                  >
-                    <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0 group-hover:scale-110 transition" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                      {getInitials(s.firstName + ' ' + s.lastName)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[13px] font-semibold group-hover:text-[oklch(55%_0.15_65)] transition" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
-                      <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</div>
-                    </div>
-                    <ChevronRight size={14} className="text-[oklch(80%_0.01_175)] group-hover:text-[oklch(72%_0.15_65)] transition shrink-0" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <SearchAutocomplete
+            label="Rechercher un élève *"
+            placeholder="Tapez le nom de l'élève..."
+            items={studentSuggestions}
+            selectedId={selectedStudentId}
+            onSelect={(item) => { setSelectedStudentId(item.id); setSelectedStudent({ id: item.id, firstName: item.label.split(' ')[0], lastName: item.label.split(' ').slice(1).join(' ') || '', matricule: item.sublabel || '' }); setStudentSearch('') }}
+            onClear={() => { setSelectedStudentId(null); setSelectedStudent(null); setStudentSearch('') }}
+            searchQuery={studentSearch}
+            onSearchChange={(v) => { setStudentSearch(v); setSelectedStudent(null); setSelectedStudentId(null) }}
+            loading={studentSearchLoading}
+            itemTypeName="élève"
+            className="sm:col-span-2 lg:col-span-1"
+          />
           <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant total (CDF)</label><input placeholder="Montant" value={amount} onChange={e => setAmount(e.target.value)} type="number" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
           <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant payé (CDF)</label><input placeholder="Payé" value={paidAmount} onChange={e => setPaidAmount(e.target.value)} type="number" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
           <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Trimestre</label><select value={trimester} onChange={e => setTrimester(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
@@ -4178,6 +4407,8 @@ function DisciplineView() {
   const [tab, setTab] = useState<'BLACKLIST' | 'GREYLIST' | 'WHITELIST'>('GREYLIST')
   const [selectedChildId, setSelectedChildId] = useState('')
   const [myChildren, setMyChildren] = useState<StudentData[]>([])
+  const [childSearch, setChildSearch] = useState('')
+  const [selectedChildSearchId, setSelectedChildSearchId] = useState<string | null>(null)
   const isParent = userRole === 'PARENT'
 
   useEffect(() => {
@@ -4188,6 +4419,15 @@ function DisciplineView() {
         .catch(() => {})
     }
   }, [isParent, userData?.id])
+
+  // Child search autocomplete for parent - computed from local data
+  const childSuggestions = useMemo(() => {
+    if (!isParent) return []
+    if (childSearch.length < 1) return myChildren.map(c => ({ id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: c.matricule }))
+    return myChildren.filter(c =>
+      `${c.firstName} ${c.lastName}`.toLowerCase().includes(childSearch.toLowerCase()) || c.matricule.toLowerCase().includes(childSearch.toLowerCase())
+    ).map(c => ({ id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: c.matricule }))
+  }, [childSearch, myChildren, isParent])
 
   useEffect(() => {
     let cancelled = false
@@ -4213,11 +4453,18 @@ function DisciplineView() {
       </div>
 
       {isParent && myChildren.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 mb-4">
-          <select value={selectedChildId} onChange={e => setSelectedChildId(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-            <option value="">Tous mes enfants</option>
-            {myChildren.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
-          </select>
+        <div className="mb-4 max-w-xs">
+          <SearchAutocomplete
+            label="Mes enfants"
+            placeholder="Tapez le nom de l'enfant..."
+            items={childSuggestions}
+            selectedId={selectedChildSearchId}
+            onSelect={(item) => { setSelectedChildSearchId(item.id); setSelectedChildId(item.id) }}
+            onClear={() => { setSelectedChildSearchId(null); setSelectedChildId(''); setChildSearch('') }}
+            searchQuery={childSearch}
+            onSearchChange={setChildSearch}
+            itemTypeName="enfant"
+          />
         </div>
       )}
 
@@ -4728,16 +4975,61 @@ function ProfileView() {
 function ClassPassingView() {
   const [students, setStudents] = useState<StudentData[]>([])
   const [loading, setLoading] = useState(true)
+  const [studentSearch, setStudentSearch] = useState('')
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
+  const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false)
 
   useEffect(() => {
     fetch('/api/students?limit=50').then(r => r.json()).then(j => { setStudents(j.data || []); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
+  // Student search autocomplete
+  useEffect(() => {
+    if (studentSearch.length < 2) return
+    const timer = setTimeout(() => {
+      setStudentSearchLoading(true)
+      fetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
+        .then(r => r.json())
+        .then(j => {
+          setStudentSuggestions((j.data || []).map((s: StudentData) => ({
+            id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: `${s.matricule} · ${s.class?.name || ''}`, photoUrl: s.photoUrl
+          })))
+          setStudentSearchLoading(false)
+        })
+        .catch(() => setStudentSearchLoading(false))
+    }, 300)
+    return () => { clearTimeout(timer); setStudentSearchLoading(false) }
+  }, [studentSearch])
+
+  const filteredStudents = selectedStudentId
+    ? students.filter(s => s.id === selectedStudentId)
+    : studentSearch.length >= 2
+      ? students.filter(s => `${s.firstName} ${s.lastName}`.toLowerCase().includes(studentSearch.toLowerCase()) || s.matricule.toLowerCase().includes(studentSearch.toLowerCase()))
+      : students
+
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Passage de classe</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Passage de classe</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filteredStudents.length)} élèves</p>
+        </div>
+        <SearchAutocomplete
+          placeholder="Tapez le nom de l'élève..."
+          items={studentSuggestions}
+          selectedId={selectedStudentId}
+          onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
+          onClear={() => { setSelectedStudentId(null); setStudentSearch('') }}
+          searchQuery={studentSearch}
+          onSearchChange={setStudentSearch}
+          loading={studentSearchLoading}
+          itemTypeName="élève"
+          className="w-full max-w-sm"
+        />
       </div>
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
@@ -4753,7 +5045,7 @@ function ClassPassingView() {
             <tbody>
               {loading ? (
                 <tr><td colSpan={4} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
-              ) : students.slice(0, 20).map(s => (
+              ) : filteredStudents.slice(0, 50).map(s => (
                 <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
@@ -4789,10 +5081,32 @@ function ClassPassingView() {
 function BulletinView() {
   const [grades, setGrades] = useState<GradeData[]>([])
   const [loading, setLoading] = useState(true)
+  const [studentSearch, setStudentSearch] = useState('')
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
+  const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false)
 
   useEffect(() => {
     fetch('/api/grades?limit=50&trimester=T1').then(r => r.json()).then(j => { setGrades(j.data || []); setLoading(false) }).catch(() => setLoading(false))
   }, [])
+
+  // Student search autocomplete
+  useEffect(() => {
+    if (studentSearch.length < 2) return
+    const timer = setTimeout(() => {
+      setStudentSearchLoading(true)
+      fetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
+        .then(r => r.json())
+        .then(j => {
+          setStudentSuggestions((j.data || []).map((s: StudentData) => ({
+            id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule, photoUrl: s.photoUrl
+          })))
+          setStudentSearchLoading(false)
+        })
+        .catch(() => setStudentSearchLoading(false))
+    }, 300)
+    return () => { clearTimeout(timer); setStudentSearchLoading(false) }
+  }, [studentSearch])
 
   // Group grades by student
   const studentGrades = grades.reduce<Record<string, { student: GradeData['student']; grades: GradeData[] }>>((acc, g) => {
@@ -4801,15 +5115,45 @@ function BulletinView() {
     return acc
   }, {})
 
+  // Filter by selected student
+  const filteredStudentGrades = selectedStudentId
+    ? studentGrades[selectedStudentId]
+      ? { [selectedStudentId]: studentGrades[selectedStudentId] }
+      : {}
+    : studentSearch.length >= 2
+      ? Object.fromEntries(Object.entries(studentGrades).filter(([_, data]) =>
+          `${data.student?.firstName} ${data.student?.lastName}`.toLowerCase().includes(studentSearch.toLowerCase())
+        ))
+      : studentGrades
+
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bulletins</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bulletins</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(Object.keys(filteredStudentGrades).length)} bulletins</p>
+        </div>
+        <SearchAutocomplete
+          placeholder="Tapez le nom de l'élève..."
+          items={studentSuggestions}
+          selectedId={selectedStudentId}
+          onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
+          onClear={() => { setSelectedStudentId(null); setStudentSearch('') }}
+          searchQuery={studentSearch}
+          onSearchChange={setStudentSearch}
+          loading={studentSearchLoading}
+          itemTypeName="élève"
+          className="w-full max-w-sm"
+        />
       </div>
-      {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : (
+      {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : Object.keys(filteredStudentGrades).length === 0 ? (
+        <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun bulletin trouvé</div>
+      ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Object.entries(studentGrades).slice(0, 12).map(([id, data]) => {
+          {Object.entries(filteredStudentGrades).slice(0, 12).map(([id, data]) => {
             const avg = data.grades.length > 0 ? data.grades.reduce((s, g) => s + g.score * (g.subject?.coefficient || 1), 0) / data.grades.reduce((s, g) => s + (g.subject?.coefficient || 1), 0) : 0
             return (
               <div key={id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
@@ -4842,6 +5186,31 @@ function BulletinView() {
 
 // ===== CONVOCATION VIEW =====
 function ConvocationView() {
+  const [studentSearch, setStudentSearch] = useState('')
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
+  const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false)
+  const [motif, setMotif] = useState('')
+  const [date, setDate] = useState('')
+
+  // Student search autocomplete
+  useEffect(() => {
+    if (studentSearch.length < 2) return
+    const timer = setTimeout(() => {
+      setStudentSearchLoading(true)
+      fetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
+        .then(r => r.json())
+        .then(j => {
+          setStudentSuggestions((j.data || []).map((s: StudentData) => ({
+            id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule, photoUrl: s.photoUrl
+          })))
+          setStudentSearchLoading(false)
+        })
+        .catch(() => setStudentSearchLoading(false))
+    }, 300)
+    return () => { clearTimeout(timer); setStudentSearchLoading(false) }
+  }, [studentSearch])
+
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
@@ -4851,9 +5220,20 @@ function ConvocationView() {
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 max-w-lg shadow-sm">
         <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Nouvelle convocation</h3>
         <div className="space-y-3">
-          <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Élève concerné</label><input placeholder="Rechercher un élève..." className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
-          <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Motif</label><textarea placeholder="Motif de la convocation..." rows={3} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" /></div>
-          <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Date</label><input type="date" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
+          <SearchAutocomplete
+            label="Élève concerné"
+            placeholder="Tapez le nom de l'élève..."
+            items={studentSuggestions}
+            selectedId={selectedStudentId}
+            onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
+            onClear={() => { setSelectedStudentId(null); setStudentSearch('') }}
+            searchQuery={studentSearch}
+            onSearchChange={setStudentSearch}
+            loading={studentSearchLoading}
+            itemTypeName="élève"
+          />
+          <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Motif</label><textarea placeholder="Motif de la convocation..." value={motif} onChange={e => setMotif(e.target.value)} rows={3} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" /></div>
+          <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
           <button className="edu-gold-cta w-full py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2">
             <Send size={14} /> Envoyer la convocation
           </button>
@@ -4877,6 +5257,10 @@ function PersonnelView() {
   const [showPersonnelPassword, setShowPersonnelPassword] = useState(false)
   const [editingUser, setEditingUser] = useState<typeof users[0] | null>(null)
   const [search, setSearch] = useState('')
+  const [personnelSearch, setPersonnelSearch] = useState('')
+  const [selectedPersonnelId, setSelectedPersonnelId] = useState<string | null>(null)
+  const [personnelSuggestions, setPersonnelSuggestions] = useState<AutocompleteItem[]>([])
+  const [personnelSearchLoading, setPersonnelSearchLoading] = useState(false)
   const [roleFilter, setRoleFilter] = useState('')
   const [form, setForm] = useState({
     name: '', email: '', phone: '', password: '', role: 'SECRETARY',
@@ -4905,6 +5289,27 @@ function PersonnelView() {
   }
 
   useEffect(() => { loadUsers() }, [roleFilter])
+
+  // Personnel search autocomplete
+  useEffect(() => {
+    if (personnelSearch.length < 2) return
+    const timer = setTimeout(() => {
+      setPersonnelSearchLoading(true)
+      const params = new URLSearchParams({ schoolId: userData?.schoolId || '', limit: '8' })
+      if (roleFilter) params.set('role', roleFilter)
+      params.set('search', personnelSearch)
+      fetch(`/api/users?${params}`)
+        .then(r => r.json())
+        .then(j => {
+          setPersonnelSuggestions((j.data || []).map((u: typeof users[0]) => ({
+            id: u.id, label: u.name, sublabel: u.email || u.phone || ''
+          })))
+          setPersonnelSearchLoading(false)
+        })
+        .catch(() => setPersonnelSearchLoading(false))
+    }, 300)
+    return () => { clearTimeout(timer); setPersonnelSearchLoading(false) }
+  }, [personnelSearch, roleFilter, userData?.schoolId])
 
   async function handleAddUser(e: React.FormEvent) {
     e.preventDefault()
@@ -5046,18 +5451,18 @@ function PersonnelView() {
 
       {/* Search bar */}
       <div className="flex items-center gap-3 mb-4">
-        <div className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: MUTED }} />
-          <input
-            value={search} onChange={e => setSearch(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && loadUsers()}
-            placeholder="Rechercher par nom, email, téléphone..."
-            className="w-full pl-9 pr-4 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]"
-          />
-        </div>
-        <button onClick={loadUsers} className="px-4 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm font-medium hover:bg-[oklch(97%_0.005_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>
-          Rechercher
-        </button>
+        <SearchAutocomplete
+          placeholder="Rechercher par nom, email, téléphone..."
+          items={personnelSuggestions}
+          selectedId={selectedPersonnelId}
+          onSelect={(item) => { setSelectedPersonnelId(item.id); setSearch(item.label); loadUsers() }}
+          onClear={() => { setSelectedPersonnelId(null); setSearch(''); setPersonnelSearch(''); loadUsers() }}
+          searchQuery={personnelSearch}
+          onSearchChange={setPersonnelSearch}
+          loading={personnelSearchLoading}
+          itemTypeName="membre"
+          className="flex-1"
+        />
       </div>
 
       {/* Users table */}
