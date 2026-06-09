@@ -258,3 +258,30 @@ Stage Summary:
 - Photo uploads work for children via /api/upload + /api/students/[id] update
 - Parent credentials: parent@email.com / admin123, nsimba@email.com / admin123
 
+
+---
+Task ID: 1
+Agent: main
+Task: Fix discipline view - children overview, inverted points
+
+Work Log:
+- Analyzed uploaded screenshot showing discipline page with inverted points
+- Fixed seed data: BLACKLIST points changed from +10 to -10, WHITELIST from -5/-3 to +5/+3, GREYLIST from positive to negative
+- Fixed display logic: changed `r.points > 0 ? DANGER : SUCCESS` to `r.points > 0 ? SUCCESS : DANGER`
+- Updated existing database records: flipped signs for BLACKLIST, WHITELIST, and GREYLIST entries
+- Added children overview section in parent DisciplineView with:
+  - "Tous mes enfants" card as first card
+  - Individual child cards with name, matricule, photo/avatar
+  - Discipline count badges (blacklist/greylist/whitelist) per child
+  - Total points display with correct color (red=negative, green=positive)
+  - Selected child indicator bar with "Voir tous" button
+  - Search autocomplete for children
+- Verified all changes with agent browser testing
+
+Stage Summary:
+- BLACKLIST records now show negative points in RED
+- WHITELIST records now show positive points in GREEN
+- GREYLIST records now show negative points in RED
+- Parent discipline view shows all children cards before discipline table
+- Child cards are clickable to filter discipline records
+- "Tous mes enfants" card shows all records when clicked

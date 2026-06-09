@@ -357,13 +357,13 @@ export async function GET() {
 
     // ----- Discipline Records -----
     const disciplineData = [
-      { studentIdx: 0, type: 'RETARD', severity: 'LOW', title: 'Retard répété', description: 'Arrivée en retard 3 fois ce mois', points: 2, listType: 'GREYLIST' },
-      { studentIdx: 2, type: 'ABSENCE', severity: 'MEDIUM', title: 'Absence non justifiée', description: 'Absence de 3 jours sans justification', points: 5, listType: 'GREYLIST' },
-      { studentIdx: 3, type: 'TRICHERIE', severity: 'HIGH', title: 'Tricherie en examen', description: 'Copie détectée lors du contrôle de maths', points: 10, listType: 'BLACKLIST' },
-      { studentIdx: 5, type: 'VIOLENCE', severity: 'HIGH', title: 'Bagarre', description: 'Participation à une bagarre dans la cour', points: 10, listType: 'BLACKLIST' },
-      { studentIdx: 8, type: 'RETARD', severity: 'LOW', title: 'Retard occasionnel', description: 'Arrivée en retard 1 fois', points: 1, listType: 'GREYLIST' },
-      { studentIdx: 10, type: 'EXCELLENCE', severity: 'LOW', title: 'Excellent résultats', description: 'Meilleure moyenne de la classe T1', points: -5, listType: 'WHITELIST' },
-      { studentIdx: 14, type: 'EXCELLENCE', severity: 'LOW', title: 'Comportement exemplaire', description: 'Citoyen modèle du mois', points: -3, listType: 'WHITELIST' },
+      { studentIdx: 0, type: 'RETARD', severity: 'LOW', title: 'Retard répété', description: 'Arrivée en retard 3 fois ce mois', points: -2, listType: 'GREYLIST' },
+      { studentIdx: 2, type: 'ABSENCE', severity: 'MEDIUM', title: 'Absence non justifiée', description: 'Absence de 3 jours sans justification', points: -5, listType: 'GREYLIST' },
+      { studentIdx: 3, type: 'TRICHERIE', severity: 'HIGH', title: 'Tricherie en examen', description: 'Copie détectée lors du contrôle de maths', points: -10, listType: 'BLACKLIST' },
+      { studentIdx: 5, type: 'VIOLENCE', severity: 'HIGH', title: 'Bagarre', description: 'Participation à une bagarre dans la cour', points: -10, listType: 'BLACKLIST' },
+      { studentIdx: 8, type: 'RETARD', severity: 'LOW', title: 'Retard occasionnel', description: 'Arrivée en retard 1 fois', points: -1, listType: 'GREYLIST' },
+      { studentIdx: 10, type: 'EXCELLENCE', severity: 'LOW', title: 'Excellent résultats', description: 'Meilleure moyenne de la classe T1', points: 5, listType: 'WHITELIST' },
+      { studentIdx: 14, type: 'EXCELLENCE', severity: 'LOW', title: 'Comportement exemplaire', description: 'Citoyen modèle du mois', points: 3, listType: 'WHITELIST' },
     ];
 
     for (const d of disciplineData) {

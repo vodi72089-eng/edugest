@@ -4409,6 +4409,7 @@ function DisciplineView() {
   const [myChildren, setMyChildren] = useState<StudentData[]>([])
   const [childSearch, setChildSearch] = useState('')
   const [selectedChildSearchId, setSelectedChildSearchId] = useState<string | null>(null)
+  const [allDisciplineRecords, setAllDisciplineRecords] = useState<DisciplineData[]>([])
   const isParent = userRole === 'PARENT'
 
   useEffect(() => {
@@ -4419,6 +4420,30 @@ function DisciplineView() {
         .catch(() => {})
     }
   }, [isParent, userData?.id])
+
+  // Fetch ALL discipline records for parent's children (for overview counts)
+  useEffect(() => {
+    if (isParent && userData?.id) {
+      const params = new URLSearchParams()
+      params.set('parentId', userData.id)
+      params.set('limit', '200')
+      fetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { setAllDisciplineRecords(j.data || []) }).catch(() => {})
+    }
+  }, [isParent, userData?.id])
+
+  // Compute per-child discipline counts
+  const childDisciplineCounts = useMemo(() => {
+    const counts: Record<string, { blacklist: number; greylist: number; whitelist: number; totalPoints: number }> = {}
+    for (const r of allDisciplineRecords) {
+      if (!r.student) continue
+      if (!counts[r.student.id]) counts[r.student.id] = { blacklist: 0, greylist: 0, whitelist: 0, totalPoints: 0 }
+      if (r.listType === 'BLACKLIST') counts[r.student.id].blacklist++
+      if (r.listType === 'GREYLIST') counts[r.student.id].greylist++
+      if (r.listType === 'WHITELIST') counts[r.student.id].whitelist++
+      counts[r.student.id].totalPoints += r.points
+    }
+    return counts
+  }, [allDisciplineRecords])
 
   // Child search autocomplete for parent - computed from local data
   const childSuggestions = useMemo(() => {
@@ -4445,6 +4470,8 @@ function DisciplineView() {
     return () => { cancelled = true }
   }, [tab, isParent, userData?.id, selectedChildId])
 
+  const selectedChildName = selectedChildId ? myChildren.find(c => c.id === selectedChildId) : null
+
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
@@ -4452,19 +4479,116 @@ function DisciplineView() {
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Discipline</h1>
       </div>
 
+      {/* Parent: Children Overview Cards */}
       {isParent && myChildren.length > 0 && (
-        <div className="mb-4 max-w-xs">
-          <SearchAutocomplete
-            label="Mes enfants"
-            placeholder="Tapez le nom de l'enfant..."
-            items={childSuggestions}
-            selectedId={selectedChildSearchId}
-            onSelect={(item) => { setSelectedChildSearchId(item.id); setSelectedChildId(item.id) }}
-            onClear={() => { setSelectedChildSearchId(null); setSelectedChildId(''); setChildSearch('') }}
-            searchQuery={childSearch}
-            onSearchChange={setChildSearch}
-            itemTypeName="enfant"
-          />
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Users size={16} style={{ color: GOLD }} />
+            <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Mes enfants</h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+            {/* "Tous mes enfants" card */}
+            <button
+              onClick={() => { setSelectedChildId(''); setSelectedChildSearchId(null); setChildSearch('') }}
+              className={`text-left p-4 rounded-2xl border-2 transition-all duration-200 edu-card-lift ${
+                !selectedChildId ? 'border-[oklch(72%_0.15_65)] shadow-md' : 'border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.4)]'
+              }`}
+              style={{ background: !selectedChildId ? GOLD_SOFT : 'white' }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-full grid place-items-center shrink-0" style={{ background: `linear-gradient(135deg, ${GOLD}, ${ACCENT})` }}>
+                  <Users size={18} className="text-white" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate" style={{ color: TEXT_PRIMARY }}>Tous mes enfants</div>
+                  <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{myChildren.length} enfant{myChildren.length > 1 ? 's' : ''}</div>
+                </div>
+              </div>
+            </button>
+            {/* Individual child cards */}
+            {myChildren.map(child => {
+              const fullName = `${child.firstName} ${child.lastName}`
+              const initials = getInitials(fullName)
+              const counts = childDisciplineCounts[child.id] || { blacklist: 0, greylist: 0, whitelist: 0, totalPoints: 0 }
+              const isSelected = selectedChildId === child.id
+              return (
+                <button
+                  key={child.id}
+                  onClick={() => { setSelectedChildId(child.id); setSelectedChildSearchId(child.id); setChildSearch('') }}
+                  className={`text-left p-4 rounded-2xl border-2 transition-all duration-200 edu-card-lift ${
+                    isSelected ? 'border-[oklch(72%_0.15_65)] shadow-md' : 'border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.4)]'
+                  }`}
+                  style={{ background: isSelected ? GOLD_SOFT : 'white' }}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    {child.photoUrl ? (
+                      <img src={child.photoUrl} alt={fullName} className="w-11 h-11 rounded-full object-cover border-2 border-[oklch(90%_0.01_175)] shrink-0" />
+                    ) : (
+                      <div className="w-11 h-11 rounded-full grid place-items-center text-white font-bold text-sm shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, oklch(72% 0.15 65))` }}>
+                        {initials}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm truncate" style={{ color: TEXT_PRIMARY }}>{fullName}</div>
+                      <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{child.matricule}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    {counts.blacklist > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: 'oklch(95% 0.04 25)', color: DANGER }}>
+                        <Ban size={9} /> {counts.blacklist}
+                      </span>
+                    )}
+                    {counts.greylist > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: 'oklch(95% 0.04 85)', color: WARNING }}>
+                        <AlertTriangle size={9} /> {counts.greylist}
+                      </span>
+                    )}
+                    {counts.whitelist > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: 'oklch(95% 0.04 145)', color: SUCCESS }}>
+                        <Award size={9} /> {counts.whitelist}
+                      </span>
+                    )}
+                    {counts.blacklist === 0 && counts.greylist === 0 && counts.whitelist === 0 && (
+                      <span className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>Aucun enregistrement</span>
+                    )}
+                    <span className="ml-auto text-[11px] font-bold" style={{ color: counts.totalPoints > 0 ? SUCCESS : counts.totalPoints < 0 ? DANGER : TEXT_MUTED_LUXE }}>
+                      {counts.totalPoints > 0 ? '+' : ''}{counts.totalPoints} pts
+                    </span>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+          {/* Search autocomplete */}
+          <div className="max-w-xs">
+            <SearchAutocomplete
+              label="Rechercher un enfant"
+              placeholder="Tapez le nom de l'enfant..."
+              items={childSuggestions}
+              selectedId={selectedChildSearchId}
+              onSelect={(item) => { setSelectedChildSearchId(item.id); setSelectedChildId(item.id) }}
+              onClear={() => { setSelectedChildSearchId(null); setSelectedChildId(''); setChildSearch('') }}
+              searchQuery={childSearch}
+              onSearchChange={setChildSearch}
+              itemTypeName="enfant"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Selected child indicator */}
+      {isParent && selectedChildName && (
+        <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl" style={{ background: GOLD_SOFT }}>
+          <div className="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+            {getInitials(`${selectedChildName.firstName} ${selectedChildName.lastName}`)}
+          </div>
+          <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>
+            Discipline de <strong>{selectedChildName.firstName} {selectedChildName.lastName}</strong>
+          </span>
+          <button onClick={() => { setSelectedChildId(''); setSelectedChildSearchId(null); setChildSearch('') }} className="ml-auto text-[11px] font-medium hover:underline" style={{ color: GOLD }}>
+            Voir tous
+          </button>
         </div>
       )}
 
@@ -4522,7 +4646,7 @@ function DisciplineView() {
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{r.title}</td>
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_PRIMARY }}>{r.type}</td>
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(r.createdAt)}</td>
-                  <td className="px-4 py-3"><span className="text-[13px] font-semibold" style={{ color: r.points > 0 ? DANGER : SUCCESS }}>{r.points > 0 ? '+' : ''}{r.points}</span></td>
+                  <td className="px-4 py-3"><span className="text-[13px] font-semibold" style={{ color: r.points > 0 ? SUCCESS : DANGER }}>{r.points > 0 ? '+' : ''}{r.points}</span></td>
                 </tr>
               ))}
             </tbody>
