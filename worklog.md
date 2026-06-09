@@ -285,3 +285,42 @@ Stage Summary:
 - Parent discipline view shows all children cards before discipline table
 - Child cards are clickable to filter discipline records
 - "Tous mes enfants" card shows all records when clicked
+
+---
+Task ID: 2
+Agent: main
+Task: Add admin school settings page + parent school reviews/comments
+
+Work Log:
+- Added 'settings' and 'school-reviews' to ViewType in store.ts
+- Created SchoolComment API at /api/school-comments with GET (list), POST (create), PUT (approve), DELETE (remove)
+- API auto-recalculates school averageRating and totalReviews on approve/delete
+- Created SettingsView component for admin with:
+  - Cover image and logo upload (hover to change)
+  - Full form: name, shortName, email, phone, address, city, province, country
+  - Description, history, mission textareas
+  - School type (Mixte/Garçons/Filles) and category (Privée/Publique) selects
+  - Establishment year and max students fields
+  - Statistics sidebar (students, classes, rating, reviews, subscription)
+  - Pending comments moderation (approve/delete)
+  - Save button with toast notification
+- Created SchoolReviewsView for parents with:
+  - School header card with logo, cover, name, location
+  - Average rating display with star visualization
+  - 5-star to 1-star bar chart distribution
+  - Interactive star rating selector (hover effects)
+  - Comment textarea with submit button
+  - Existing reviews list with author avatars and dates
+  - Approval notice message
+- Added "Paramètres" sidebar item for SUPER_ADMIN_GLOBAL and SECRETARY
+- Added "Avis école" sidebar item for PARENT
+- Added router cases in MainContent for 'settings' and 'school-reviews'
+- Added Save, MessageCircle, Trash2 lucide icons
+
+Stage Summary:
+- Admin can fully edit school profile (logo, cover, all fields)
+- Admin can moderate parent reviews (approve/delete)
+- Parents can submit reviews with star rating and comments
+- Reviews require admin approval before being visible
+- School average rating auto-updates on approval
+- All features verified working via agent browser

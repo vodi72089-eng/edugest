@@ -15,7 +15,7 @@ import {
   Info, Zap, Globe, Lock, Award, Ban, CircleDot, ListChecks,
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
-  ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download
+  ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -2196,6 +2196,7 @@ function Sidebar() {
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
       { icon: <MessageSquare size={16} />, label: 'WhatsApp Config', view: 'whatsapp-config' as ViewType },
+      { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
     SECRETARY: [
@@ -2204,6 +2205,7 @@ function Sidebar() {
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
+      { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
     CASHIER: [
@@ -2220,6 +2222,7 @@ function Sidebar() {
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
+      { icon: <Star size={16} />, label: 'Avis école', view: 'school-reviews' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
     TEACHER: [
@@ -2542,6 +2545,8 @@ function MainContent() {
     case 'personnel': return <PersonnelView />
     case 'pricing': return <PricingDashboard />
     case 'whatsapp-config': return <WhatsAppConfigView />
+    case 'settings': return <SettingsView />
+    case 'school-reviews': return <SchoolReviewsView />
     default: return <RoleDashboard />
   }
 }
@@ -6140,6 +6145,585 @@ function SchoolsManagementView() {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ===== SETTINGS VIEW (Admin - School Settings) =====
+function SettingsView() {
+  const { userData, userRole } = useEduGestStore()
+  const [school, setSchool] = useState<SchoolData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [uploadingCover, setUploadingCover] = useState(false)
+  const [comments, setComments] = useState<{ id: string; authorName: string; rating: number; comment: string; isApproved: boolean; createdAt: string }[]>([])
+  const logoInputRef = useRef<HTMLInputElement | null>(null)
+  const coverInputRef = useRef<HTMLInputElement | null>(null)
+
+  // Form fields
+  const [name, setName] = useState('')
+  const [shortName, setShortName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [address, setAddress] = useState('')
+  const [city, setCity] = useState('')
+  const [province, setProvince] = useState('')
+  const [country, setCountry] = useState('')
+  const [description, setDescription] = useState('')
+  const [history, setHistory] = useState('')
+  const [mission, setMission] = useState('')
+  const [establishmentYear, setEstablishmentYear] = useState('')
+  const [schoolType, setSchoolType] = useState('MIXTE')
+  const [schoolCategory, setSchoolCategory] = useState('PRIVEE')
+  const [maxStudents, setMaxStudents] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
+  const [coverUrl, setCoverUrl] = useState('')
+
+  useEffect(() => {
+    if (userData?.schoolId) {
+      fetch(`/api/schools/${userData.schoolId}`)
+        .then(r => r.json())
+        .then(j => {
+          const s = j.data
+          if (s) {
+            setSchool(s)
+            setName(s.name || '')
+            setShortName(s.shortName || '')
+            setEmail(s.email || '')
+            setPhone(s.phone || '')
+            setAddress(s.address || '')
+            setCity(s.city || '')
+            setProvince(s.province || '')
+            setCountry(s.country || '')
+            setDescription(s.description || '')
+            setHistory(s.history || '')
+            setMission(s.mission || '')
+            setEstablishmentYear(s.establishmentYear ? String(s.establishmentYear) : '')
+            setSchoolType(s.schoolType || 'MIXTE')
+            setSchoolCategory(s.schoolCategory || 'PRIVEE')
+            setMaxStudents(String(s.maxStudents || 100))
+            setLogoUrl(s.logo || '')
+            setCoverUrl(s.coverImage || '')
+          }
+          setLoading(false)
+        })
+        .catch(() => setLoading(false))
+      // Fetch pending comments
+      fetch(`/api/school-comments?schoolId=${userData.schoolId}&approved=false`)
+        .then(r => r.json())
+        .then(j => setComments(j.data || []))
+        .catch(() => {})
+    }
+  }, [userData?.schoolId])
+
+  async function handleSave() {
+    if (!userData?.schoolId) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/schools/${userData.schoolId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name, shortName, email, phone, address, city, province, country,
+          description, history, mission,
+          establishmentYear: establishmentYear ? parseInt(establishmentYear) : null,
+          schoolType, schoolCategory,
+          maxStudents: parseInt(maxStudents) || 100,
+        }),
+      })
+      if (res.ok) {
+        const j = await res.json()
+        setSchool(j.data)
+        toast.success('Paramètres mis à jour avec succès !')
+      } else {
+        toast.error('Erreur lors de la mise à jour')
+      }
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setSaving(false)
+  }
+
+  async function handleImageUpload(file: File, type: 'logo' | 'coverImage') {
+    if (type === 'logo') setUploadingLogo(true)
+    else setUploadingCover(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('category', 'schools')
+      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData })
+      if (uploadRes.ok) {
+        const uploadJson = await uploadRes.json()
+        const url = uploadJson.url
+        const res = await fetch(`/api/schools/${userData?.schoolId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [type]: url }),
+        })
+        if (res.ok) {
+          if (type === 'logo') setLogoUrl(url)
+          else setCoverUrl(url)
+          toast.success(type === 'logo' ? 'Logo mis à jour !' : 'Image de couverture mise à jour !')
+        }
+      }
+    } catch {
+      toast.error('Erreur lors du téléchargement')
+    }
+    if (type === 'logo') setUploadingLogo(false)
+    else setUploadingCover(false)
+  }
+
+  async function handleApproveComment(id: string) {
+    try {
+      const res = await fetch('/api/school-comments', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, isApproved: true }),
+      })
+      if (res.ok) {
+        setComments(prev => prev.filter(c => c.id !== id))
+        toast.success('Commentaire approuvé !')
+      }
+    } catch {
+      toast.error('Erreur')
+    }
+  }
+
+  async function handleDeleteComment(id: string) {
+    try {
+      const res = await fetch(`/api/school-comments?id=${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setComments(prev => prev.filter(c => c.id !== id))
+        toast.success('Commentaire supprimé')
+      }
+    } catch {
+      toast.error('Erreur')
+    }
+  }
+
+  if (loading) return <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div>
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Paramètres de l&apos;école</h1>
+      </div>
+
+      {/* Cover Image */}
+      <div className="mb-6 rounded-2xl overflow-hidden border border-[oklch(90%_0.01_175)] shadow-sm">
+        <div className="relative h-40 sm:h-52" style={{ background: coverUrl ? `url(${coverUrl}) center/cover` : `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+          <div className="absolute bottom-4 left-5 flex items-center gap-4">
+            {/* Logo */}
+            <div className="relative group">
+              {logoUrl ? (
+                <img src={logoUrl} alt="Logo" className="w-20 h-20 rounded-2xl object-cover border-4 border-white shadow-lg" />
+              ) : (
+                <div className="w-20 h-20 rounded-2xl grid place-items-center text-white text-2xl font-bold border-4 border-white shadow-lg" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                  {getInitials(name || 'S')}
+                </div>
+              )}
+              <button
+                onClick={() => logoInputRef.current?.click()}
+                className="absolute inset-0 rounded-2xl bg-black/50 grid place-items-center opacity-0 group-hover:opacity-100 transition cursor-pointer"
+              >
+                {uploadingLogo ? <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Camera size={20} className="text-white" />}
+              </button>
+              <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(f, 'logo') }} />
+            </div>
+            <div>
+              <h2 className="text-white text-xl font-bold drop-shadow">{name || 'Mon École'}</h2>
+              <p className="text-white/80 text-sm">{city}{province ? `, ${province}` : ''} · {schoolCategory === 'PRIVEE' ? 'Privée' : 'Publique'}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => coverInputRef.current?.click()}
+            className="absolute top-4 right-4 px-3 py-1.5 rounded-xl bg-white/90 text-xs font-medium flex items-center gap-1.5 hover:bg-white transition shadow-sm"
+            style={{ color: TEXT_PRIMARY }}
+          >
+            {uploadingCover ? <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <ImagePlus size={13} />}
+            Changer la couverture
+          </button>
+          <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(f, 'coverImage') }} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main form */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Informations générales */}
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+            <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+              <Building2 size={16} style={{ color: GOLD }} /> Informations générales
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom de l&apos;école *</label>
+                <input value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Abréviation</label>
+                <input value={shortName} onChange={e => setShortName(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Email</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Téléphone</label>
+                <input value={phone} onChange={e => setPhone(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Type d&apos;école</label>
+                <select value={schoolType} onChange={e => setSchoolType(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                  <option value="MIXTE">Mixte</option>
+                  <option value="GARCONS">Garçons</option>
+                  <option value="FILLES">Filles</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Catégorie</label>
+                <select value={schoolCategory} onChange={e => setSchoolCategory(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                  <option value="PRIVEE">Privée</option>
+                  <option value="PUBLIQUE">Publique</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Année de fondation</label>
+                <input type="number" value={establishmentYear} onChange={e => setEstablishmentYear(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Max élèves</label>
+                <input type="number" value={maxStudents} onChange={e => setMaxStudents(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+              </div>
+            </div>
+          </div>
+
+          {/* Adresse */}
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+            <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+              <MapPin size={16} style={{ color: GOLD }} /> Adresse
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Adresse</label>
+                <input value={address} onChange={e => setAddress(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Ville</label>
+                <input value={city} onChange={e => setCity(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Province</label>
+                <input value={province} onChange={e => setProvince(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Pays</label>
+                <input value={country} onChange={e => setCountry(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+              </div>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+            <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+              <FileText size={16} style={{ color: GOLD }} /> Descriptif
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Description</label>
+                <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Historique</label>
+                <textarea value={history} onChange={e => setHistory(e.target.value)} rows={3} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Mission</label>
+                <textarea value={mission} onChange={e => setMission(e.target.value)} rows={3} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" />
+              </div>
+            </div>
+          </div>
+
+          {/* Save button */}
+          <button onClick={handleSave} disabled={saving} className="edu-gold-cta px-8 py-3 rounded-xl font-semibold text-sm inline-flex items-center justify-center gap-2 disabled:opacity-50">
+            {saving ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Save size={16} />}
+            Enregistrer les modifications
+          </button>
+        </div>
+
+        {/* Sidebar - Stats + Comments */}
+        <div className="space-y-6">
+          {/* School Stats */}
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+            <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Statistiques</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span style={{ color: TEXT_MUTED_LUXE }}>Élèves inscrits</span>
+                <span className="font-semibold" style={{ color: TEXT_PRIMARY }}>{school?.studentCount || 0}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span style={{ color: TEXT_MUTED_LUXE }}>Classes</span>
+                <span className="font-semibold" style={{ color: TEXT_PRIMARY }}>{school?.classCount || 0}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span style={{ color: TEXT_MUTED_LUXE }}>Note moyenne</span>
+                <span className="font-semibold flex items-center gap-1" style={{ color: GOLD }}>
+                  <Star size={13} fill={GOLD} /> {school?.averageRating || 0}/5
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span style={{ color: TEXT_MUTED_LUXE }}>Avis</span>
+                <span className="font-semibold" style={{ color: TEXT_PRIMARY }}>{school?.totalReviews || 0}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span style={{ color: TEXT_MUTED_LUXE }}>Abonnement</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>{school?.subscriptionTier || 'FREEMIUM'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Pending Comments */}
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+            <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+              <MessageCircle size={16} style={{ color: GOLD }} /> Commentaires en attente
+              {comments.length > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: DANGER }}>{comments.length}</span>}
+            </h3>
+            {comments.length === 0 ? (
+              <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Aucun commentaire en attente</p>
+            ) : (
+              <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
+                {comments.map(c => (
+                  <div key={c.id} className="p-3 rounded-xl border border-[oklch(90%_0.01_175)]">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{c.authorName}</span>
+                      <div className="flex items-center gap-0.5">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star key={i} size={10} fill={i < c.rating ? GOLD : 'none'} style={{ color: i < c.rating ? GOLD : 'oklch(85%_0.01_175)' }} />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-xs mb-2" style={{ color: TEXT_MUTED_LUXE }}>{c.comment}</p>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleApproveComment(c.id)} className="flex-1 py-1 rounded-lg text-[11px] font-semibold text-white" style={{ background: SUCCESS }}>Approuver</button>
+                      <button onClick={() => handleDeleteComment(c.id)} className="py-1 px-2 rounded-lg text-[11px] font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: DANGER }}>
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ===== SCHOOL REVIEWS VIEW (Parent) =====
+function SchoolReviewsView() {
+  const { userData } = useEduGestStore()
+  const [school, setSchool] = useState<SchoolData | null>(null)
+  const [comments, setComments] = useState<{ id: string; authorName: string; rating: number; comment: string; createdAt: string }[]>([])
+  const [loading, setLoading] = useState(true)
+  const [rating, setRating] = useState(0)
+  const [hoverRating, setHoverRating] = useState(0)
+  const [comment, setComment] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (userData?.schoolId) {
+      fetch(`/api/schools/${userData.schoolId}`)
+        .then(r => r.json())
+        .then(j => { if (j.data) setSchool(j.data); setLoading(false) })
+        .catch(() => setLoading(false))
+      fetch(`/api/school-comments?schoolId=${userData.schoolId}`)
+        .then(r => r.json())
+        .then(j => setComments(j.data || []))
+        .catch(() => {})
+    }
+  }, [userData?.schoolId])
+
+  async function handleSubmitReview() {
+    if (!userData?.schoolId || rating === 0 || !comment.trim()) {
+      toast.error('Veuillez donner une note et un commentaire')
+      return
+    }
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/school-comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schoolId: userData.schoolId,
+          authorName: userData?.name || 'Parent',
+          authorEmail: userData?.email || '',
+          rating,
+          comment: comment.trim(),
+        }),
+      })
+      if (res.ok) {
+        toast.success('Votre avis a été soumis ! Il sera visible après approbation.')
+        setRating(0)
+        setComment('')
+      } else {
+        toast.error('Erreur lors de l\'envoi')
+      }
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setSubmitting(false)
+  }
+
+  if (loading) return <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div>
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Avis sur l&apos;école</h1>
+      </div>
+
+      {/* School Header Card */}
+      {school && (
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm mb-6">
+          <div className="relative h-32" style={{ background: school.coverImage ? `url(${school.coverImage}) center/cover` : `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+            <div className="absolute bottom-4 left-5 flex items-center gap-3">
+              {school.logo ? (
+                <img src={school.logo} alt="Logo" className="w-14 h-14 rounded-xl object-cover border-3 border-white shadow-md" />
+              ) : (
+                <div className="w-14 h-14 rounded-xl grid place-items-center text-white text-lg font-bold border-3 border-white shadow-md" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                  {getInitials(school.name)}
+                </div>
+              )}
+              <div>
+                <h2 className="text-white text-lg font-bold drop-shadow">{school.name}</h2>
+                <p className="text-white/80 text-sm">{school.city}, {school.province}</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-5 flex items-center gap-6">
+            <div className="text-center">
+              <div className="text-3xl font-bold" style={{ color: GOLD }}>{school.averageRating || 0}</div>
+              <div className="flex items-center gap-0.5 justify-center mt-1">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star key={i} size={14} fill={i < Math.round(school.averageRating || 0) ? GOLD : 'none'} style={{ color: i < Math.round(school.averageRating || 0) ? GOLD : 'oklch(85%_0.01_175)' }} />
+                ))}
+              </div>
+              <div className="text-[11px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>{school.totalReviews || 0} avis</div>
+            </div>
+            <div className="flex-1 space-y-1.5">
+              {[5, 4, 3, 2, 1].map(star => {
+                const count = comments.filter(c => c.rating === star).length
+                const pct = comments.length > 0 ? (count / comments.length) * 100 : 0
+                return (
+                  <div key={star} className="flex items-center gap-2 text-xs">
+                    <span className="w-3 text-right" style={{ color: TEXT_MUTED_LUXE }}>{star}</span>
+                    <Star size={10} fill={GOLD} style={{ color: GOLD }} />
+                    <div className="flex-1 h-2 rounded-full bg-[oklch(95%_0.01_175)]">
+                      <div className="h-2 rounded-full transition-all" style={{ width: `${pct}%`, background: GOLD }} />
+                    </div>
+                    <span className="w-6 text-right" style={{ color: TEXT_MUTED_LUXE }}>{count}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Write a review */}
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+          <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+            <MessageCircle size={16} style={{ color: GOLD }} /> Donner votre avis
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-medium mb-2 block" style={{ color: TEXT_MUTED_LUXE }}>Votre note *</label>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <button
+                    key={i}
+                    onMouseEnter={() => setHoverRating(i + 1)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    onClick={() => setRating(i + 1)}
+                    className="transition-transform hover:scale-110"
+                  >
+                    <Star
+                      size={28}
+                      fill={(hoverRating || rating) > i ? GOLD : 'none'}
+                      style={{ color: (hoverRating || rating) > i ? GOLD : 'oklch(85%_0.01_175)', cursor: 'pointer' }}
+                    />
+                  </button>
+                ))}
+                {rating > 0 && <span className="ml-2 text-sm font-semibold" style={{ color: GOLD }}>{rating}/5</span>}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Votre commentaire *</label>
+              <textarea
+                value={comment}
+                onChange={e => setComment(e.target.value)}
+                rows={4}
+                placeholder="Partagez votre expérience avec cette école..."
+                className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none"
+              />
+            </div>
+            <button
+              onClick={handleSubmitReview}
+              disabled={submitting || rating === 0 || !comment.trim()}
+              className="edu-gold-cta w-full py-2.5 rounded-xl font-semibold text-sm inline-flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Send size={14} />}
+              Soumettre mon avis
+            </button>
+            <p className="text-[11px] text-center" style={{ color: TEXT_MUTED_LUXE }}>Votre avis sera visible après approbation par l&apos;administration</p>
+          </div>
+        </div>
+
+        {/* Existing reviews */}
+        <div className="lg:col-span-2">
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+            <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Avis des parents ({comments.length})</h3>
+            {comments.length === 0 ? (
+              <div className="text-center py-8">
+                <MessageCircle size={32} className="mx-auto mb-3" style={{ color: TEXT_MUTED_LUXE }} />
+                <p className="font-medium" style={{ color: TEXT_PRIMARY }}>Aucun avis pour le moment</p>
+                <p className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>Soyez le premier à donner votre avis !</p>
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar">
+                {comments.map(c => (
+                  <div key={c.id} className="p-4 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-9 h-9 rounded-full grid place-items-center text-white text-xs font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                          {getInitials(c.authorName)}
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{c.authorName}</div>
+                          <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(c.createdAt)}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star key={i} size={12} fill={i < c.rating ? GOLD : 'none'} style={{ color: i < c.rating ? GOLD : 'oklch(85%_0.01_175)' }} />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{c.comment}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

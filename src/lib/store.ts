@@ -22,6 +22,8 @@ export type ViewType =
   | 'admin-analytics'
   | 'whatsapp-config'
   | 'personnel'
+  | 'settings'
+  | 'school-reviews'
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'
