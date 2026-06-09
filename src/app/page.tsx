@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useEduGestStore, ViewType, UserRole, UserData } from '@/lib/store'
 import { toast } from 'sonner'
 import ReceiptPreview from '@/components/ReceiptPreview'
+import dynamic from 'next/dynamic'
+const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
 import {
   Search, Bell, Settings, Plus, ChevronRight, Users, GraduationCap,
   DollarSign, MessageSquare, BookOpen, Shield, LogOut, Menu, X,
@@ -14,7 +16,7 @@ import {
   Info, Zap, Globe, Lock, Award, Ban, CircleDot, ListChecks,
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
-  ChevronUp, ExternalLink, Check, Minus
+  ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -25,10 +27,10 @@ import {
 interface SchoolData {
   id: string; name: string; shortName: string; email: string; phone: string;
   address: string; city: string; province: string; country: string;
-  latitude?: number; longitude?: number; description?: string;
-  establishmentYear?: number; subscriptionTier: string; maxStudents: number;
-  schoolType: string; schoolCategory: string; averageRating: number;
-  totalReviews: number; studentCount: number; classCount: number;
+  latitude?: number; longitude?: number; logo?: string; coverImage?: string;
+  description?: string; establishmentYear?: number; subscriptionTier: string;
+  maxStudents: number; schoolType: string; schoolCategory: string;
+  averageRating: number; totalReviews: number; studentCount: number; classCount: number;
   isActive: boolean; _count?: { students: number; classes: number; users: number };
 }
 
@@ -317,7 +319,7 @@ function Footer() {
 }
 
 // ===== MAP COMPONENT =====
-function SchoolMap({ schools }: { schools: SchoolData[] }) {
+function SchoolsOverviewMap({ schools }: { schools: SchoolData[] }) {
   const [mounted, setMounted] = useState(false)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
   const [L, setL] = useState<typeof import('leaflet') | null>(null)
@@ -378,6 +380,9 @@ function HomeView() {
   const [province, setProvince] = useState('Toutes provinces')
   const [activeFilter, setActiveFilter] = useState('all')
   const [showMap, setShowMap] = useState(false)
+  const [typewriterLine1, setTypewriterLine1] = useState('')
+  const [typewriterLine2, setTypewriterLine2] = useState('')
+  const [typewriterActiveLine, setTypewriterActiveLine] = useState<1 | 2 | null>(1)
 
   useEffect(() => {
     async function loadData() {
@@ -393,6 +398,164 @@ function HomeView() {
       }
     }
     loadData()
+  }, [])
+
+  // Typewriter animation
+  useEffect(() => {
+    const title1 = "Rejoignez"
+    const title2 = "l'excellence éducative"
+    let charIndex = 0
+    let currentLine = 1
+    let timeoutId: ReturnType<typeof setTimeout>
+
+    function type() {
+      if (currentLine === 1) {
+        if (charIndex < title1.length) {
+          setTypewriterLine1(title1.substring(0, charIndex + 1))
+          setTypewriterActiveLine(1)
+          charIndex++
+          timeoutId = setTimeout(type, 80 + Math.random() * 60)
+        } else {
+          currentLine = 2
+          charIndex = 0
+          setTypewriterActiveLine(2)
+          timeoutId = setTimeout(type, 400)
+        }
+      } else {
+        if (charIndex < title2.length) {
+          setTypewriterLine2(title2.substring(0, charIndex + 1))
+          setTypewriterActiveLine(2)
+          charIndex++
+          timeoutId = setTimeout(type, 80 + Math.random() * 60)
+        } else {
+          // Typing complete — keep cursor briefly then hide
+          setTypewriterActiveLine(2)
+          setTimeout(() => setTypewriterActiveLine(null), 1500)
+        }
+      }
+    }
+
+    timeoutId = setTimeout(type, 800)
+    return () => clearTimeout(timeoutId)
+  }, [])
+
+  // Floating parallax icons
+  useEffect(() => {
+    const container = document.getElementById('stitch-parallax-container')
+    if (!container) return
+
+    const educationIcons = [
+      '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>',
+      '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>',
+      '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>',
+      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"></path><path d="M3 22h18"></path><path d="M14 22a7 7 0 1 0 0-14h-1"></path><path d="M9 14h2"></path><path d="M9 12a2 2 0 1 1-4 0V7a2 2 0 1 1 4 0v5Z"></path><path d="M12 7V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4"></path></svg>',
+    ]
+
+    const elements: { el: HTMLDivElement; x: number; y: number; originX: number; originY: number; vx: number; vy: number; depth: number; scale: number; rotation: number; rotationSpeed: number; phase: number }[] = []
+    const numIcons = 20
+    let mouseX = window.innerWidth / 2
+    let mouseY = window.innerHeight / 2
+    let targetMouseX = mouseX
+    let targetMouseY = mouseY
+    let animFrameId: number
+
+    for (let i = 0; i < numIcons; i++) {
+      const el = document.createElement('div')
+      el.style.position = 'absolute'
+      el.style.pointerEvents = 'none'
+      el.style.userSelect = 'none'
+      el.style.zIndex = '1'
+      el.style.willChange = 'transform'
+      el.innerHTML = educationIcons[i % educationIcons.length]
+
+      const startX = Math.random() * window.innerWidth
+      const startY = Math.random() * (window.innerHeight * 0.9)
+      const depth = 0.02 + Math.random() * 0.1
+      const sizeScale = 0.7 + Math.random() * 1.3
+
+      const colorRoll = Math.random()
+      if (colorRoll > 0.85) el.style.color = '#f5a623'
+      else if (colorRoll > 0.70) el.style.color = '#10b981'
+      else el.style.color = 'rgba(255,255,255,0.25)'
+
+      el.style.opacity = (0.05 + Math.random() * 0.15).toString()
+
+      container.appendChild(el)
+      elements.push({
+        el, x: startX, y: startY, originX: startX, originY: startY,
+        vx: 0, vy: 0, depth, scale: sizeScale,
+        rotation: Math.random() * 360,
+        rotationSpeed: (Math.random() - 0.5) * 0.3,
+        phase: Math.random() * Math.PI * 2,
+      })
+    }
+
+    // Fade icons in
+    setTimeout(() => {
+      elements.forEach(item => {
+        const baseOp = parseFloat(item.el.style.opacity)
+        item.el.style.opacity = (baseOp * 1.5).toString()
+      })
+    }, 500)
+
+    const handleMouseMove = (e: MouseEvent) => {
+      targetMouseX = e.clientX
+      targetMouseY = e.clientY
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+
+    function lerp(start: number, end: number, amt: number) {
+      return (1 - amt) * start + amt * end
+    }
+
+    function update() {
+      mouseX = lerp(mouseX, targetMouseX, 0.08)
+      mouseY = lerp(mouseY, targetMouseY, 0.08)
+      const time = Date.now() * 0.001
+
+      elements.forEach(item => {
+        const dx = targetMouseX - (item.x + (targetMouseX - window.innerWidth / 2) * item.depth)
+        const dy = targetMouseY - (item.y + (targetMouseY - window.innerHeight / 2) * item.depth)
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        const mouseRange = 400
+        const attractionStrength = 0.08
+
+        if (dist < mouseRange) {
+          const force = (1 - dist / mouseRange) * attractionStrength
+          item.vx += dx * force * 0.2
+          item.vy += dy * force * 0.2
+        }
+
+        item.vx += (item.originX - item.x) * 0.01
+        item.vy += (item.originY - item.y) * 0.01
+        item.vx *= 0.92
+        item.vy *= 0.92
+        item.x += item.vx
+        item.y += item.vy
+
+        const driftX = Math.sin(time + item.phase) * 0.6
+        const driftY = Math.cos(time + item.phase * 0.7) * 0.6
+        const px = (mouseX - window.innerWidth / 2) * item.depth
+        const py = (mouseY - window.innerHeight / 2) * item.depth
+        item.rotation += item.rotationSpeed
+
+        item.el.style.transform = `translate3d(${item.x + px + driftX}px, ${item.y + py + driftY}px, 0) rotate(${item.rotation}deg) scale(${item.scale})`
+      })
+
+      animFrameId = requestAnimationFrame(update)
+    }
+    update()
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      cancelAnimationFrame(animFrameId)
+      // Clean up icons
+      while (container.firstChild) container.removeChild(container.firstChild)
+    }
   }, [])
 
   const filteredSchools = schools.filter(s => {
@@ -418,74 +581,93 @@ function HomeView() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* ===== HERO SECTION ===== */}
-      <section className="relative overflow-hidden edu-hero-dark">
-        {/* Kente pattern overlay */}
-        <div className="absolute inset-0 edu-kente opacity-60" />
-        {/* Radial glow - breathing animation */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] edu-animate-glow-breathe" style={{ background: 'radial-gradient(ellipse at center, oklch(55% 0.15 175 / 0.4), transparent 70%)' }} />
-        {/* Floating particles */}
-        <div className="edu-particle edu-particle-1" />
-        <div className="edu-particle edu-particle-2" />
-        <div className="edu-particle edu-particle-3" />
-        <div className="edu-particle edu-particle-4" />
-        <div className="edu-particle edu-particle-5" />
-        {/* Decorative spinning ring */}
-        <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full border border-white/5 edu-animate-spin-slow" />
-        <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full border border-[oklch(72%_0.15_65)]/5 edu-animate-spin-slow" style={{ animationDirection: 'reverse' }} />
+      {/* ===== HERO SECTION — Institutional Excellence ===== */}
+      <section className="relative w-full min-h-[700px] sm:min-h-[900px] flex flex-col overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+        {/* Parallax floating icons container */}
+        <div id="stitch-parallax-container" className="absolute inset-0 pointer-events-none overflow-hidden z-0" />
+
+        {/* Gradient overlay at bottom */}
+        <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-[#0a0f0d] via-[#0b1613]/50 to-transparent pointer-events-none z-10" />
 
         {/* Floating nav */}
-        <PublicHeader dark />
+        <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-5 sm:py-6 w-full">
+          <button onClick={() => setCurrentView('home')} className="flex items-center shrink-0 min-w-max">
+            <BrandMark height={56} className="brightness-110 hover:scale-105 transition-all duration-300" />
+          </button>
+          <div className="hidden md:flex items-center gap-12">
+            <button onClick={() => setCurrentView('home')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Écoles</button>
+            <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Fonctionnalités</button>
+            <button onClick={() => setCurrentView('pricing')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Tarifs</button>
+          </div>
+          <button onClick={() => setCurrentView('login')} className="bg-[#f5a623] hover:bg-[#ffb643] hover:shadow-[0_0_30px_rgba(245,166,35,0.4)] text-[#0a0f0d] px-8 sm:px-10 py-3 sm:py-3.5 rounded-full font-extrabold text-sm transition-all shadow-[0_10px_30px_rgba(245,166,35,0.2)] active:scale-95 cursor-pointer">
+            Se connecter
+          </button>
+        </nav>
 
-        <div className="relative container-premium py-20 sm:py-32 text-center">
-          {/* Display Headline - animated entrance */}
-          <h1 className="text-[40px] sm:text-[45px] lg:text-[56px] font-extrabold tracking-tight leading-[1.1] text-white mb-5 edu-animate-fade-in-up">
-            Rejoignez l&apos;excellence{' '}
-            <span style={{ color: GOLD }} className="edu-animate-pulse-glow inline-block rounded-lg">éducative</span>
-          </h1>
-          <p className="text-base sm:text-lg text-white/60 leading-relaxed mb-10 max-w-[600px] mx-auto edu-animate-fade-in-up edu-delay-200">
-            La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants pour un avenir meilleur.
-          </p>
-
-          {/* Glass morphism search bar */}
-          <div className="edu-glass rounded-2xl p-2 max-w-[780px] mx-auto shadow-lg flex flex-col sm:flex-row items-stretch sm:items-center gap-2 edu-animate-fade-in-up edu-delay-400">
-            <div className="flex items-center gap-2.5 px-4 flex-1">
-              <Search size={18} className="text-white/50 shrink-0" />
-              <input
-                type="text" placeholder="Rechercher une école par nom..."
-                value={search} onChange={e => setSearch(e.target.value)}
-                className="flex-1 border-0 outline-none bg-transparent text-sm py-3 text-white placeholder:text-white/35"
-              />
-            </div>
-            <select
-              value={province} onChange={e => setProvince(e.target.value)}
-              className="border-0 bg-white/10 py-2.5 px-3 rounded-xl text-[13px] text-white/70 border-r border-white/10 outline-none cursor-pointer"
-            >
-              {PROVINCES.map(p => <option key={p} value={p} className="text-edu-fg">{p}</option>)}
-            </select>
-            <button className="edu-gold-cta px-6 py-3 rounded-xl text-sm font-semibold edu-animate-pulse-glow">
-              Rechercher
-            </button>
+        {/* Main hero content */}
+        <main className="relative z-10 flex flex-col items-center justify-center flex-grow px-4 text-center mt-[-40px]">
+          {/* Typewriter title */}
+          <div className="mb-10 sm:mb-14 flex flex-col items-center relative">
+            <h1 className="text-5xl sm:text-6xl md:text-[6.5rem] font-black text-white leading-[1.05] tracking-tighter mb-6 sm:mb-8 relative inline-block mx-auto select-none" style={{ minHeight: '140px' }}>
+              <span id="typewriter-line-1" className="inline-block relative">{typewriterLine1}{typewriterActiveLine === 1 && <span className="animate-pulse">|</span>}</span>
+              <br />
+              <span className="italic font-playfair inline-block relative" style={{ color: '#f5a623', textShadow: '0 0 25px rgba(245, 166, 35, 0.5), 0 0 50px rgba(245, 166, 35, 0.2)' }}>{typewriterLine2}{typewriterActiveLine === 2 && <span className="animate-pulse">|</span>}</span>
+            </h1>
+            <p className="text-gray-300 text-base sm:text-lg md:text-xl max-w-2xl mx-auto font-medium leading-relaxed opacity-80">
+              La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants pour un avenir meilleur.
+            </p>
           </div>
 
-          {/* Stats badges - staggered entrance */}
-          <div className="mt-10 flex flex-wrap justify-center gap-4 sm:gap-6">
+          {/* Glass morphism search bar */}
+          <div className="w-full max-w-4xl mb-16 sm:mb-24 relative z-20">
+            <div className="p-2 rounded-2xl flex flex-col md:flex-row items-center gap-3 shadow-2xl border-white/10" style={{ background: 'rgba(26, 37, 32, 0.4)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)' }}>
+              <div className="flex items-center flex-grow w-full px-4 sm:px-6 gap-4">
+                <Search size={20} className="text-gray-400 shrink-0" />
+                <input
+                  type="text" placeholder="Rechercher une école par nom..."
+                  value={search} onChange={e => setSearch(e.target.value)}
+                  className="w-full bg-transparent border-none text-white py-4 text-base sm:text-lg font-medium placeholder-gray-500 tracking-tight outline-none"
+                />
+              </div>
+              <div className="hidden md:block h-10 w-px bg-white/10 mx-1" />
+              <div className="flex items-center w-full md:w-auto gap-3 px-2 md:px-0">
+                <div className="relative flex-grow md:flex-grow-0">
+                  <select
+                    value={province} onChange={e => setProvince(e.target.value)}
+                    className="w-full md:w-48 bg-white/5 text-white border border-white/10 rounded-xl px-5 py-4 text-sm font-bold cursor-pointer hover:bg-white/10 transition-all appearance-none outline-none backdrop-blur-md"
+                  >
+                    {PROVINCES.map(p => <option key={p} value={p} className="bg-[#0a0f0d] text-white">{p}</option>)}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                  </div>
+                </div>
+                <button className="w-full md:w-auto bg-[#f5a623] text-[#0a0f0d] px-10 py-4 rounded-xl font-extrabold text-sm uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)] whitespace-nowrap cursor-pointer">
+                  Rechercher
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats cards with tilt */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-3xl px-4 relative z-20">
             {[
-              { value: '240+', label: 'Établissements' },
-              { value: '50 000+', label: 'Familles' },
-              { value: '98%', label: 'Satisfaction' },
-            ].map((stat, idx) => (
-              <div key={stat.label} className={`edu-glass rounded-xl px-5 py-3 sm:px-6 sm:py-4 text-center min-w-[120px] edu-animate-scale-in edu-delay-${(idx + 6) * 100}`}>
-                <div className="text-xl sm:text-2xl font-extrabold text-white edu-stat-number">{stat.value}</div>
-                <div className="text-[11px] sm:text-xs text-white/50 mt-0.5">{stat.label}</div>
+              { value: '240+', label: 'Établissements', glow: 'bg-[#f5a623]/5 group-hover:bg-[#f5a623]/10', pos: '-top-10 -right-10' },
+              { value: '50 000+', label: 'Familles', glow: 'bg-emerald-500/5 group-hover:bg-emerald-500/10', pos: '-bottom-10 -left-10' },
+              { value: '98%', label: 'Satisfaction', glow: 'bg-cyan-500/5 group-hover:bg-cyan-500/10', pos: 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' },
+            ].map((stat) => (
+              <div key={stat.label} className="p-5 rounded-2xl flex flex-col items-center justify-center group cursor-default border-white/5 overflow-hidden relative" style={{ background: 'rgba(26, 37, 32, 0.4)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)', transformStyle: 'preserve-3d', transition: 'transform 0.4s cubic-bezier(0.23, 1, 0.32, 1)' }}>
+                <div className={`absolute ${stat.pos} w-32 h-32 ${stat.glow} blur-3xl rounded-full transition-colors`} />
+                <span className="text-3xl font-black text-white tracking-tighter mb-1.5 group-hover:text-[#f5a623] transition-colors duration-500">{stat.value}</span>
+                <span className="text-[9px] text-gray-400 uppercase tracking-[0.3em] font-extrabold group-hover:text-white transition-colors duration-500">{stat.label}</span>
               </div>
             ))}
           </div>
-        </div>
+        </main>
       </section>
 
       {/* ===== TRUST SIGNALS BAR ===== */}
-      <section style={{ background: IVORY }} className="border-y border-[oklch(88%_0.01_175)] edu-animate-fade-in edu-delay-800">
+      <section style={{ background: IVORY }} className="border-y border-[oklch(88%_0.01_175)]">
         <div className="container-premium py-4 text-center">
           <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
             <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>240+</strong> Établissements &nbsp;•&nbsp;{' '}
@@ -533,14 +715,14 @@ function HomeView() {
         {showMap && (
           <div className="container-premium mb-6">
             <div className="rounded-2xl overflow-hidden shadow-lg">
-              <SchoolMap schools={filteredSchools} />
+              <SchoolsOverviewMap schools={filteredSchools} />
             </div>
           </div>
         )}
 
         {/* School Cards */}
         <div className="container-premium pb-16">
-          <div className="flex items-baseline justify-between mb-5 edu-animate-fade-in-up">
+          <div className="flex items-baseline justify-between mb-5">
             <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
               <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{filteredSchools.length} écoles</strong> correspondent à votre recherche
             </div>
@@ -549,12 +731,9 @@ function HomeView() {
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
               {[1, 2, 3, 4, 5, 6].map(i => (
-                <div key={i} className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden">
-                  <div className="h-[120px] edu-skeleton" />
-                  <div className="p-6 sm:p-10 pt-10 space-y-3">
-                    <div className="h-4 edu-skeleton w-3/4" />
-                    <div className="h-3 edu-skeleton w-1/2" />
-                  </div>
+                <div key={i} className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden animate-pulse">
+                  <div className="h-[120px] bg-[oklch(94%_0.005_175)]" />
+                  <div className="p-6 sm:p-10 pt-10 space-y-3"><div className="h-4 bg-[oklch(94%_0.005_175)] rounded w-3/4" /><div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-1/2" /></div>
                 </div>
               ))}
             </div>
@@ -564,19 +743,21 @@ function HomeView() {
                 <button
                   key={school.id}
                   onClick={() => { setSelectedSchoolId(school.id); setCurrentView('school-detail') }}
-                  className={`block text-left bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden edu-card-lift edu-hover-border group edu-animate-fade-in-up ${idx < 6 ? `edu-delay-${(idx % 6) * 100 + 100}` : ''}`}
+                  className="block text-left bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden edu-card-lift group"
                 >
                   <div className={`h-[120px] relative bg-gradient-to-br ${COVER_GRADIENTS[idx % COVER_GRADIENTS.length]} flex items-end p-4`}>
                     {/* Mesh gradient overlay */}
                     <div className="absolute inset-0 opacity-20" style={{ background: 'radial-gradient(ellipse at top right, oklch(72% 0.15 65 / 0.3), transparent 60%)' }} />
-                    {/* Shimmer effect on hover */}
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 edu-animate-shimmer" />
                     <span className="absolute top-3 right-3 edu-glass px-3 py-1 rounded-full text-[11px] font-medium text-white">
                       {getSchoolTypeLabel(school.schoolType, school.schoolCategory)}
                     </span>
-                    <div className={`w-12 h-12 rounded-xl bg-white grid place-items-center font-extrabold text-lg shadow-md relative top-6 group-hover:scale-110 transition-transform duration-300 ${LOGO_COLORS[idx % LOGO_COLORS.length]}`}>
-                      {school.shortName.substring(0, 2)}
-                    </div>
+                    {school.logo ? (
+                      <img src={school.logo} alt={school.shortName} className={`w-12 h-12 rounded-xl object-cover shadow-md relative top-6 bg-white`} />
+                    ) : (
+                      <div className={`w-12 h-12 rounded-xl bg-white grid place-items-center font-extrabold text-lg shadow-md relative top-6 ${LOGO_COLORS[idx % LOGO_COLORS.length]}`}>
+                        {school.shortName.substring(0, 2)}
+                      </div>
+                    )}
                   </div>
                   <div className="p-6 sm:p-10 pt-10">
                     <div className="text-base font-semibold tracking-tight mb-1" style={{ color: TEXT_PRIMARY }}>{school.name}</div>
@@ -585,13 +766,13 @@ function HomeView() {
                     </div>
                     <div className="flex gap-4 py-3 border-t border-b border-[oklch(88%_0.01_175)] mb-4">
                       <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5 edu-stat-number" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</strong>élèves
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</strong>élèves
                       </div>
                       <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5 edu-stat-number edu-delay-100" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</strong>classes
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</strong>classes
                       </div>
                       <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5 edu-stat-number edu-delay-200" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</strong>fondée
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</strong>fondée
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
@@ -600,7 +781,7 @@ function HomeView() {
                         <span style={{ color: TEXT_PRIMARY }}>{school.averageRating?.toFixed(1) || '—'}</span>
                         <span className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>· {school.totalReviews} avis</span>
                       </div>
-                      <span className="edu-gold-cta text-[13px] font-semibold px-4 py-2 rounded-xl group-hover:scale-105 transition-transform duration-200">
+                      <span className="edu-gold-cta text-[13px] font-semibold px-4 py-2 rounded-xl">
                         Voir l&apos;école →
                       </span>
                     </div>
@@ -616,19 +797,19 @@ function HomeView() {
       <section id="features-section" style={{ background: IVORY }} className="py-16 sm:py-[120px]">
         <div className="container-premium text-center">
           {/* Ornament divider */}
-          <div className="edu-ornament edu-ornament-draw mb-4">
-            <span style={{ color: GOLD }} className="edu-animate-float">◆</span>
+          <div className="edu-ornament mb-4">
+            <span style={{ color: GOLD }}>◆</span>
           </div>
-          <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3 edu-animate-fade-in-up" style={{ color: TEXT_PRIMARY }}>
+          <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
             Pourquoi choisir <span style={{ color: GOLD }}>EduGest</span>
           </h2>
-          <p className="text-base max-w-[500px] mx-auto mb-12 edu-animate-fade-in-up edu-delay-200" style={{ color: TEXT_MUTED_LUXE }}>
+          <p className="text-base max-w-[500px] mx-auto mb-12" style={{ color: TEXT_MUTED_LUXE }}>
             Une plateforme conçue pour les réalités africaines, avec les outils qu&apos;il vous faut.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {FEATURES.map((feature, idx) => (
-              <div key={idx} className={`bg-white border border-[oklch(88%_0.01_175)] rounded-2xl p-8 text-left edu-card-lift edu-hover-border group edu-animate-fade-in-up edu-delay-${(idx + 1) * 100}`}>
+              <div key={idx} className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl p-8 text-left edu-card-lift group">
                 <div className="edu-icon-gradient w-12 h-12 rounded-xl mb-5 group-hover:scale-110 transition-transform duration-300">
                   {feature.icon}
                 </div>
@@ -680,32 +861,30 @@ function SchoolDetailView() {
   )
 
   return (
-    <div className="min-h-screen flex flex-col edu-page-enter" style={{ background: IVORY }}>
+    <div className="min-h-screen flex flex-col" style={{ background: IVORY }}>
       <PublicHeader />
       <div className="container-premium py-8 flex-1">
-        <button onClick={() => setCurrentView('home')} className="inline-flex items-center gap-1.5 text-sm mb-6 transition hover:opacity-80 edu-animate-fade-in-left" style={{ color: TEXT_MUTED_LUXE }}>
+        <button onClick={() => setCurrentView('home')} className="inline-flex items-center gap-1.5 text-sm mb-6 transition hover:opacity-80" style={{ color: TEXT_MUTED_LUXE }}>
           <ArrowLeft size={14} /> Retour aux écoles
         </button>
 
-        <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden shadow-sm edu-animate-fade-in-up">
+        <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
           <div className={`h-48 bg-gradient-to-br ${COVER_GRADIENTS[0]} relative`}>
             {/* Darker overlay for hero */}
             <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, oklch(15% 0.02 250 / 0.3), oklch(15% 0.02 250 / 0.5))' }} />
-            {/* Decorative spinning element */}
-            <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full border border-white/5 edu-animate-spin-slow" />
             <span className="absolute top-4 right-4 edu-glass px-3 py-1 rounded-full text-xs font-medium text-white">
               {getSchoolTypeLabel(school.schoolType, school.schoolCategory)}
             </span>
           </div>
           <div className="px-6 sm:px-10 pb-10 -mt-12 relative">
-            <div className="w-20 h-20 rounded-2xl bg-white grid place-items-center text-2xl font-extrabold shadow-lg border border-[oklch(88%_0.01_175)] edu-animate-bounce-in" style={{ color: ACCENT }}>
+            <div className="w-20 h-20 rounded-2xl bg-white grid place-items-center text-2xl font-extrabold shadow-lg border border-[oklch(88%_0.01_175)]" style={{ color: ACCENT }}>
               {school.shortName.substring(0, 2)}
             </div>
-            <h1 className="text-[21px] sm:text-[29px] font-bold mt-4 tracking-tight edu-animate-fade-in-up edu-delay-100" style={{ color: TEXT_PRIMARY }}>{school.name}</h1>
-            <div className="flex items-center gap-2 text-sm mt-2 edu-animate-fade-in-up edu-delay-200" style={{ color: TEXT_MUTED_LUXE }}>
+            <h1 className="text-[21px] sm:text-[29px] font-bold mt-4 tracking-tight" style={{ color: TEXT_PRIMARY }}>{school.name}</h1>
+            <div className="flex items-center gap-2 text-sm mt-2" style={{ color: TEXT_MUTED_LUXE }}>
               <MapPin size={14} /> {school.address}, {school.city} · {school.province}, {school.country}
             </div>
-            <div className="flex items-center gap-4 mt-3 text-sm flex-wrap edu-animate-fade-in-up edu-delay-300">
+            <div className="flex items-center gap-4 mt-3 text-sm flex-wrap">
               <span className="flex items-center gap-1"><Star size={14} style={{ color: GOLD }} className="fill-current" /> <strong style={{ color: TEXT_PRIMARY }}>{school.averageRating?.toFixed(1)}</strong> <span style={{ color: TEXT_MUTED_LUXE }}>({school.totalReviews} avis)</span></span>
               <span style={{ color: TEXT_MUTED_LUXE }}>·</span>
               <span style={{ color: TEXT_MUTED_LUXE }}>{school._count?.students || school.studentCount} élèves</span>
@@ -723,20 +902,20 @@ function SchoolDetailView() {
             )}
 
             <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="rounded-xl p-5 text-center edu-animate-scale-in edu-delay-300" style={{ background: IVORY }}>
-                <div className="text-2xl font-bold edu-stat-number" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</div>
+              <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
+                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</div>
                 <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Élèves</div>
               </div>
-              <div className="rounded-xl p-5 text-center edu-animate-scale-in edu-delay-400" style={{ background: IVORY }}>
-                <div className="text-2xl font-bold edu-stat-number edu-delay-100" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</div>
+              <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
+                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</div>
                 <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Classes</div>
               </div>
-              <div className="rounded-xl p-5 text-center edu-animate-scale-in edu-delay-500" style={{ background: IVORY }}>
-                <div className="text-2xl font-bold edu-stat-number edu-delay-200" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</div>
+              <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
+                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</div>
                 <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Fondée</div>
               </div>
-              <div className="rounded-xl p-5 text-center edu-animate-scale-in edu-delay-600" style={{ background: IVORY }}>
-                <div className="text-2xl font-bold edu-stat-number edu-delay-300" style={{ color: TEXT_PRIMARY }}>{getSubscriptionLabel(school.subscriptionTier)}</div>
+              <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
+                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{getSubscriptionLabel(school.subscriptionTier)}</div>
                 <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Abonnement</div>
               </div>
             </div>
@@ -749,12 +928,12 @@ function SchoolDetailView() {
             {school.latitude && school.longitude && (
               <div className="mt-8">
                 <h3 className="font-semibold mb-3" style={{ color: TEXT_PRIMARY }}>Localisation</h3>
-                <div className="rounded-2xl overflow-hidden shadow-sm"><SchoolMap schools={[school]} /></div>
+                <div className="rounded-2xl overflow-hidden shadow-sm"><SchoolsOverviewMap schools={[school]} /></div>
               </div>
             )}
 
             <div className="mt-8">
-              <button onClick={() => setCurrentView('login')} className="edu-gold-cta px-8 py-3.5 rounded-xl font-semibold text-sm edu-animate-pulse-glow">
+              <button onClick={() => setCurrentView('login')} className="edu-gold-cta px-8 py-3.5 rounded-xl font-semibold text-sm">
                 Contacter cette école
               </button>
             </div>
@@ -766,479 +945,116 @@ function SchoolDetailView() {
   )
 }
 
-// ===== CREATE SCHOOL VIEW =====
-function CreateSchoolView() {
-  const { setCurrentView, login } = useEduGestStore()
-  const [step, setStep] = useState<1 | 2 | 3>(1)
-  const [loading, setLoading] = useState(false)
-  const [createdSchool, setCreatedSchool] = useState<SchoolData | null>(null)
+// ===== PRICING VIEW =====
+// ===== PRICING PLAN TYPE =====
+interface PricingPlanData {
+  id: string; tier: string; name: string; price: number; originalPrice: number | null;
+  period: string; description: string; features: string; color: string;
+  isPopular: boolean; isActive: boolean; sortOrder: number;
+  updatedAt: string; createdAt: string;
+}
 
-  // School fields
-  const [name, setName] = useState('')
-  const [shortName, setShortName] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [address, setAddress] = useState('')
-  const [city, setCity] = useState('')
-  const [province, setProvince] = useState('Kinshasa')
-  const [country, setCountry] = useState('RDC')
-  const [schoolType, setSchoolType] = useState('MIXTE')
-  const [schoolCategory, setSchoolCategory] = useState('PRIVEE')
-  const [description, setDescription] = useState('')
-  const [establishmentYear, setEstablishmentYear] = useState('')
-  const [maxStudents, setMaxStudents] = useState('500')
+function PricingView() {
+  const { setCurrentView, userRole } = useEduGestStore()
+  const [plans, setPlans] = useState<PricingPlanData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editingPlan, setEditingPlan] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<{ price: string; originalPrice: string; name: string; description: string; features: string; period: string }>({ price: '', originalPrice: '', name: '', description: '', features: '', period: '' })
+  const [saving, setSaving] = useState(false)
 
-  // Admin fields
-  const [adminName, setAdminName] = useState('')
-  const [adminEmail, setAdminEmail] = useState('')
-  const [adminPhone, setAdminPhone] = useState('')
-  const [adminPassword, setAdminPassword] = useState('')
+  const isAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
 
-  // Subscription
-  const [subscriptionTier, setSubscriptionTier] = useState('FREEMIUM')
-
-  const SCHOOL_TYPES = [
-    { value: 'MATERNELLE', label: 'Maternelle' },
-    { value: 'PRIMAIRE', label: 'Primaire' },
-    { value: 'SECONDAIRE', label: 'Secondaire' },
-    { value: 'MIXTE', label: 'Mixte' },
-  ]
-
-  const SCHOOL_CATEGORIES = [
-    { value: 'PRIVEE', label: 'Privée' },
-    { value: 'PUBLIQUE', label: 'Publique' },
-  ]
-
-  const COUNTRIES = [
-    { value: 'RDC', label: 'RD Congo' },
-    { value: 'Sénégal', label: 'Sénégal' },
-    { value: 'Côte d\'Ivoire', label: 'Côte d\'Ivoire' },
-    { value: 'Congo', label: 'Congo' },
-    { value: 'Cameroun', label: 'Cameroun' },
-    { value: 'Gabon', label: 'Gabon' },
-  ]
-
-  const SUBSCRIPTION_OPTIONS = [
-    { value: 'FREEMIUM', label: 'Freemium', price: '0$/mois', desc: 'Pour découvrir', color: MUTED },
-    { value: 'ESSENTIEL', label: 'Essentiel', price: '100$/mois', desc: 'Petites structures', color: INFO },
-    { value: 'STANDARD', label: 'Standard', price: '250$/mois', desc: 'Le choix des écoles', color: ACCENT, popular: true },
-    { value: 'PREMIUM', label: 'Professionnel', price: '500$/mois', desc: 'Grands établissements', color: WARNING },
-  ]
-
-  function validateStep1(): boolean {
-    if (!name || !shortName || !email || !phone || !city || !province || !country) {
-      toast.error('Veuillez remplir tous les champs obligatoires')
-      return false
+  useEffect(() => {
+    async function loadPlans() {
+      try {
+        const res = await fetch('/api/pricing')
+        const json = await res.json()
+        setPlans(json.data || [])
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setLoading(false)
+      }
     }
-    return true
+    loadPlans()
+  }, [])
+
+  function formatPrice(price: number) {
+    if (price === -1) return 'Sur mesure'
+    return price.toLocaleString('fr-FR') + '$'
   }
 
-  function validateStep2(): boolean {
-    if (!adminName || !adminEmail || !adminPhone || !adminPassword) {
-      toast.error('Veuillez remplir tous les champs du compte administrateur')
-      return false
-    }
-    if (adminPassword.length < 6) {
-      toast.error('Le mot de passe doit contenir au moins 6 caractères')
-      return false
-    }
-    return true
+  function startEdit(plan: PricingPlanData) {
+    setEditingPlan(plan.id)
+    setEditForm({
+      price: plan.price === -1 ? '' : String(plan.price),
+      originalPrice: plan.originalPrice != null ? String(plan.originalPrice) : '',
+      name: plan.name,
+      description: plan.description,
+      features: plan.features,
+      period: plan.period,
+    })
   }
 
-  async function handleSubmit() {
-    setLoading(true)
+  async function saveEdit(planId: string) {
+    setSaving(true)
     try {
-      const res = await fetch('/api/schools', {
-        method: 'POST',
+      const priceVal = editForm.price === '' ? -1 : parseInt(editForm.price, 10)
+      const originalPriceVal = editForm.originalPrice === '' ? null : parseInt(editForm.originalPrice, 10)
+      const res = await fetch('/api/pricing', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name,
-          shortName,
-          email,
-          phone,
-          address,
-          city,
-          province,
-          country,
-          description: description || null,
-          schoolType,
-          schoolCategory,
-          maxStudents: parseInt(maxStudents) || 500,
-          establishmentYear: parseInt(establishmentYear) || null,
-          adminName,
-          adminEmail,
-          adminPhone,
-          adminPassword,
+          id: planId,
+          price: priceVal,
+          originalPrice: originalPriceVal,
+          name: editForm.name,
+          description: editForm.description,
+          features: editForm.features,
+          period: editForm.period,
         }),
       })
       const json = await res.json()
-
-      if (!res.ok) {
-        toast.error(json.error || 'Erreur lors de la création')
-        return
+      if (json.data) {
+        setPlans(prev => prev.map(p => p.id === planId ? json.data : p))
+        toast.success(`Prix de ${editForm.name} mis à jour !`)
+      } else {
+        toast.error('Erreur lors de la mise à jour')
       }
-
-      setCreatedSchool(json.data?.school)
-      toast.success('École créée avec succès !')
-
-      // Auto-login the admin user
-      if (json.data?.adminUser) {
-        const loginRes = await fetch('/api/auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: adminEmail, password: adminPassword }),
-        })
-        const loginJson = await loginRes.json()
-        if (loginJson.data) {
-          const apiUser = loginJson.data
-          const roleMap: Record<string, UserRole> = {
-            SUPER_ADMIN_GLOBAL: 'SUPER_ADMIN_GLOBAL',
-            SECRETARY: 'SECRETARY',
-            CASHIER: 'CASHIER',
-            TEACHER: 'TEACHER',
-            PARENT: 'PARENT',
-          }
-          const role = roleMap[apiUser.role] || 'SECRETARY'
-          login(role, {
-            id: apiUser.id,
-            name: apiUser.name,
-            role,
-            schoolId: apiUser.schoolId,
-            schoolName: json.data?.school?.name || name,
-            initials: getInitials(apiUser.name),
-            profileImageUrl: apiUser.profileImageUrl || null,
-          })
-        }
-      }
-
-      setStep(3)
-    } catch (e) {
-      toast.error('Erreur réseau. Vérifiez votre connexion.')
+    } catch {
+      toast.error('Erreur réseau')
     } finally {
-      setLoading(false)
+      setSaving(false)
+      setEditingPlan(null)
     }
   }
 
-  return (
-    <div className="min-h-screen flex flex-col" style={{ background: IVORY }}>
-      <PublicHeader />
-      <div className="container-premium py-8 sm:py-12 flex-1">
-        <button onClick={() => setCurrentView('login')} className="inline-flex items-center gap-1.5 text-[13px] mb-6 transition hover:opacity-80" style={{ color: TEXT_MUTED_LUXE }}>
-          <ArrowLeft size={14} /> Retour à la connexion
-        </button>
+  async function resetPrices() {
+    if (!confirm('Réinitialiser tous les prix aux valeurs par défaut ?')) return
+    try {
+      const res = await fetch('/api/pricing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset' }),
+      })
+      const json = await res.json()
+      setPlans(json.data || [])
+      toast.success('Prix réinitialisés !')
+    } catch {
+      toast.error('Erreur lors de la réinitialisation')
+    }
+  }
 
-        {step === 3 && createdSchool ? (
-          /* ===== SUCCESS SCREEN ===== */
-          <div className="max-w-lg mx-auto text-center">
-            <div className="w-20 h-20 rounded-full mx-auto mb-6 grid place-items-center" style={{ background: SUCCESS_SOFT }}>
-              <CheckCircle size={40} style={{ color: SUCCESS }} />
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
-              École créée avec succès ! 🎉
-            </h1>
-            <p className="text-base mb-6" style={{ color: TEXT_MUTED_LUXE }}>
-              <strong style={{ color: TEXT_PRIMARY }}>{createdSchool.name}</strong> a été ajoutée à EduGest.
-              Vous êtes maintenant connecté en tant qu&apos;administrateur.
-            </p>
-            <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl p-6 mb-6 text-left">
-              <h3 className="font-semibold mb-3" style={{ color: TEXT_PRIMARY }}>Récapitulatif</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span style={{ color: TEXT_MUTED_LUXE }}>Nom</span><span style={{ color: TEXT_PRIMARY }}>{createdSchool.name}</span></div>
-                <div className="flex justify-between"><span style={{ color: TEXT_MUTED_LUXE }}>Abréviation</span><span style={{ color: TEXT_PRIMARY }}>{createdSchool.shortName}</span></div>
-                <div className="flex justify-between"><span style={{ color: TEXT_MUTED_LUXE }}>Ville</span><span style={{ color: TEXT_PRIMARY }}>{createdSchool.city}, {createdSchool.province}</span></div>
-                <div className="flex justify-between"><span style={{ color: TEXT_MUTED_LUXE }}>Type</span><span style={{ color: TEXT_PRIMARY }}>{getSchoolTypeLabel(createdSchool.schoolType, createdSchool.schoolCategory)}</span></div>
-                <div className="flex justify-between"><span style={{ color: TEXT_MUTED_LUXE }}>Admin</span><span style={{ color: TEXT_PRIMARY }}>{adminName}</span></div>
-                <div className="flex justify-between"><span style={{ color: TEXT_MUTED_LUXE }}>Email admin</span><span style={{ color: TEXT_PRIMARY }}>{adminEmail}</span></div>
-              </div>
-            </div>
-            <div className="bg-[oklch(95%_0.05_65)] border border-[oklch(88%_0.04_65)] rounded-xl p-4 mb-6 text-sm" style={{ color: WARNING }}>
-              <div className="flex items-start gap-2">
-                <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                <div>
-                  <strong>Important :</strong> Notez vos identifiants de connexion.<br />
-                  Email : <strong>{adminEmail}</strong><br />
-                  Mot de passe : celui que vous avez défini
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => {/* Already logged in, will show dashboard via store */}}
-              className="edu-gold-cta w-full py-3.5 rounded-xl font-semibold text-sm"
-            >
-              Accéder au tableau de bord →
-            </button>
-          </div>
-        ) : (
-          /* ===== CREATION FORM ===== */
-          <div className="max-w-2xl mx-auto">
-            <div className="text-center mb-8">
-              <div className="edu-ornament mb-4">
-                <span style={{ color: GOLD }}>◆</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-2" style={{ color: TEXT_PRIMARY }}>
-                Créer <span style={{ color: GOLD }}>mon école</span>
-              </h1>
-              <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
-                Inscrivez votre établissement sur EduGest et commencez à gérer efficacement
-              </p>
-            </div>
-
-            {/* Step indicator */}
-            <div className="flex items-center justify-center gap-2 mb-8">
-              {[
-                { n: 1, label: 'Informations' },
-                { n: 2, label: 'Compte admin' },
-              ].map((s, i) => (
-                <div key={s.n} className="flex items-center gap-2">
-                  <button
-                    onClick={() => { if (s.n < step) setStep(s.n as 1 | 2) }}
-                    className={`w-9 h-9 rounded-full grid place-items-center text-sm font-bold transition ${
-                      step >= s.n ? 'text-white' : 'bg-white border-2 border-[oklch(88%_0.01_175)] text-edu-muted'
-                    }`}
-                    style={step >= s.n ? { background: GOLD } : undefined}
-                  >
-                    {step > s.n ? <Check size={16} /> : s.n}
-                  </button>
-                  <span className={`text-sm font-medium ${step >= s.n ? '' : ''}`} style={{ color: step >= s.n ? TEXT_PRIMARY : TEXT_MUTED_LUXE }}>
-                    {s.label}
-                  </span>
-                  {i === 0 && <div className="w-8 h-0.5 mx-2" style={{ background: step > 1 ? GOLD : BORDER }} />}
-                </div>
-              ))}
-            </div>
-
-            <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl shadow-sm overflow-hidden">
-              {/* Step 1: School info */}
-              {step === 1 && (
-                <div className="p-6 sm:p-8 space-y-5">
-                  <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>Informations de l&apos;école</h2>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="sm:col-span-2">
-                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom complet <span style={{ color: DANGER }}>*</span></label>
-                      <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Complexe Scolaire La Lumière"
-                        className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" required />
-                    </div>
-                    <div>
-                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Abréviation <span style={{ color: DANGER }}>*</span></label>
-                      <input type="text" value={shortName} onChange={e => setShortName(e.target.value.toUpperCase())} placeholder="Ex: CSL" maxLength={6}
-                        className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" required />
-                    </div>
-                    <div>
-                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Année de fondation</label>
-                      <input type="number" value={establishmentYear} onChange={e => setEstablishmentYear(e.target.value)} placeholder="Ex: 2005"
-                        className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                    </div>
-                    <div>
-                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Email <span style={{ color: DANGER }}>*</span></label>
-                      <div className="flex items-center gap-2 mt-1 border border-[oklch(88%_0.01_175)] rounded-xl px-3 py-3 focus-within:ring-[3px] focus-within:ring-[oklch(95%_0.05_65)] focus-within:border-[oklch(72%_0.15_65)] transition">
-                        <Mail size={14} style={{ color: TEXT_MUTED_LUXE }} />
-                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="ecole@email.com"
-                          className="flex-1 border-0 bg-transparent outline-none text-sm" required />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone <span style={{ color: DANGER }}>*</span></label>
-                      <div className="flex items-center gap-2 mt-1 border border-[oklch(88%_0.01_175)] rounded-xl px-3 py-3 focus-within:ring-[3px] focus-within:ring-[oklch(95%_0.05_65)] focus-within:border-[oklch(72%_0.15_65)] transition">
-                        <Phone size={14} style={{ color: TEXT_MUTED_LUXE }} />
-                        <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+243 81 234 56 78"
-                          className="flex-1 border-0 bg-transparent outline-none text-sm" required />
-                      </div>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Adresse</label>
-                      <div className="flex items-center gap-2 mt-1 border border-[oklch(88%_0.01_175)] rounded-xl px-3 py-3 focus-within:ring-[3px] focus-within:ring-[oklch(95%_0.05_65)] focus-within:border-[oklch(72%_0.15_65)] transition">
-                        <MapPin size={14} style={{ color: TEXT_MUTED_LUXE }} />
-                        <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Av. Independence"
-                          className="flex-1 border-0 bg-transparent outline-none text-sm" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Ville <span style={{ color: DANGER }}>*</span></label>
-                      <input type="text" value={city} onChange={e => setCity(e.target.value)} placeholder="Kinshasa"
-                        className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" required />
-                    </div>
-                    <div>
-                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Province <span style={{ color: DANGER }}>*</span></label>
-                      <select value={province} onChange={e => setProvince(e.target.value)}
-                        className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] cursor-pointer">
-                        {PROVINCES.filter(p => p !== 'Toutes provinces').map(p => <option key={p} value={p}>{p}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Pays <span style={{ color: DANGER }}>*</span></label>
-                      <select value={country} onChange={e => setCountry(e.target.value)}
-                        className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] cursor-pointer">
-                        {COUNTRIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Capacité max</label>
-                      <input type="number" value={maxStudents} onChange={e => setMaxStudents(e.target.value)} placeholder="500"
-                        className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                    </div>
-                    <div>
-                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Type d&apos;école</label>
-                      <div className="flex gap-2 mt-1">
-                        {SCHOOL_TYPES.map(t => (
-                          <button key={t.value} type="button" onClick={() => setSchoolType(t.value)}
-                            className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition ${
-                              schoolType === t.value ? 'text-white shadow-md' : 'bg-white border border-[oklch(88%_0.01_175)]'
-                            }`}
-                            style={schoolType === t.value ? { background: GOLD } : { color: TEXT_MUTED_LUXE }}
-                          >
-                            {t.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Catégorie</label>
-                      <div className="flex gap-2 mt-1">
-                        {SCHOOL_CATEGORIES.map(c => (
-                          <button key={c.value} type="button" onClick={() => setSchoolCategory(c.value)}
-                            className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition ${
-                              schoolCategory === c.value ? 'text-white shadow-md' : 'bg-white border border-[oklch(88%_0.01_175)]'
-                            }`}
-                            style={schoolCategory === c.value ? { background: GOLD } : { color: TEXT_MUTED_LUXE }}
-                          >
-                            {c.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Description</label>
-                      <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Décrivez brièvement votre établissement..." rows={3}
-                        className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] resize-none" />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-2">
-                    <button onClick={() => validateStep1() && setStep(2)} className="edu-gold-cta px-8 py-3 rounded-xl font-semibold text-sm flex items-center gap-2">
-                      Continuer <ChevronRight size={16} />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 2: Admin account info */}
-              {step === 2 && (
-                <div className="p-6 sm:p-8 space-y-5">
-                  <div className="rounded-xl p-4 mb-2" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-white/20 grid place-items-center text-white">
-                        <Shield size={20} />
-                      </div>
-                      <div>
-                        <h2 className="text-lg font-bold text-white">Informations du compte administrateur</h2>
-                        <p className="text-sm text-white/70">Ce compte vous permettra de gérer votre école</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="sm:col-span-2">
-                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom complet <span style={{ color: DANGER }}>*</span></label>
-                      <div className="flex items-center gap-2 mt-1 border border-[oklch(88%_0.01_175)] rounded-xl px-3 py-3 focus-within:ring-[3px] focus-within:ring-[oklch(95%_0.05_65)] focus-within:border-[oklch(72%_0.15_65)] transition">
-                        <UserCircle size={14} style={{ color: TEXT_MUTED_LUXE }} />
-                        <input type="text" value={adminName} onChange={e => setAdminName(e.target.value)} placeholder="Jean Mukendi"
-                          className="flex-1 border-0 bg-transparent outline-none text-sm" required />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Email professionnel <span style={{ color: DANGER }}>*</span></label>
-                      <div className="flex items-center gap-2 mt-1 border border-[oklch(88%_0.01_175)] rounded-xl px-3 py-3 focus-within:ring-[3px] focus-within:ring-[oklch(95%_0.05_65)] focus-within:border-[oklch(72%_0.15_65)] transition">
-                        <Mail size={14} style={{ color: TEXT_MUTED_LUXE }} />
-                        <input type="email" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} placeholder="admin@ecole.com"
-                          className="flex-1 border-0 bg-transparent outline-none text-sm" required />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone <span style={{ color: DANGER }}>*</span></label>
-                      <div className="flex items-center gap-2 mt-1 border border-[oklch(88%_0.01_175)] rounded-xl px-3 py-3 focus-within:ring-[3px] focus-within:ring-[oklch(95%_0.05_65)] focus-within:border-[oklch(72%_0.15_65)] transition">
-                        <Phone size={14} style={{ color: TEXT_MUTED_LUXE }} />
-                        <input type="tel" value={adminPhone} onChange={e => setAdminPhone(e.target.value)} placeholder="+243 81 234 56 78"
-                          className="flex-1 border-0 bg-transparent outline-none text-sm" required />
-                      </div>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Mot de passe <span style={{ color: DANGER }}>*</span></label>
-                      <div className="flex items-center gap-2 mt-1 border border-[oklch(88%_0.01_175)] rounded-xl px-3 py-3 focus-within:ring-[3px] focus-within:ring-[oklch(95%_0.05_65)] focus-within:border-[oklch(72%_0.15_65)] transition">
-                        <Lock size={14} style={{ color: TEXT_MUTED_LUXE }} />
-                        <input type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} placeholder="Minimum 6 caractères"
-                          className="flex-1 border-0 bg-transparent outline-none text-sm" required />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Subscription selection */}
-                  <div className="pt-4">
-                    <h3 className="text-[13px] font-medium mb-3" style={{ color: TEXT_PRIMARY }}>Choisir votre formule</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {SUBSCRIPTION_OPTIONS.map(opt => (
-                        <button key={opt.value} type="button" onClick={() => setSubscriptionTier(opt.value)}
-                          className={`relative p-3 rounded-xl text-left transition border-2 ${
-                            subscriptionTier === opt.value
-                              ? 'border-[oklch(72%_0.15_65)] shadow-md'
-                              : 'border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.5)]'
-                          }`}
-                        >
-                          {opt.popular && (
-                            <span className="absolute -top-2 left-3 text-[10px] font-bold px-2 py-0.5 rounded-full text-white" style={{ background: GOLD }}>Populaire</span>
-                          )}
-                          <div className="text-sm font-bold" style={{ color: opt.color }}>{opt.label}</div>
-                          <div className="text-lg font-extrabold mt-1" style={{ color: TEXT_PRIMARY }}>{opt.price}</div>
-                          <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{opt.desc}</div>
-                          {subscriptionTier === opt.value && (
-                            <div className="absolute top-2 right-2 w-5 h-5 rounded-full grid place-items-center text-white" style={{ background: GOLD }}>
-                              <Check size={12} />
-                            </div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between pt-2">
-                    <button onClick={() => setStep(1)} className="px-6 py-3 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:bg-white/60 transition" style={{ color: TEXT_MUTED_LUXE }}>
-                      ← Retour
-                    </button>
-                    <button onClick={() => validateStep2() && handleSubmit()} disabled={loading}
-                      className="edu-gold-cta px-8 py-3 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-50">
-                      {loading ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <CheckCircle size={16} />}
-                      Créer mon école
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-      <Footer />
-    </div>
-  )
-}
-
-// ===== PRICING VIEW =====
-function PricingView() {
-  const { setCurrentView } = useEduGestStore()
-  const tiers = [
-    { name: 'Freemium', price: '0$', period: '/mois', desc: 'Pour découvrir EduGest', features: ['1 admin', '100 élèves max', '0 msg WhatsApp', 'Gestion basique'], color: MUTED },
-    { name: 'Essentiel', price: '100$', period: '/mois', desc: 'Pour les petites structures', features: ['1 admin', 'Professeurs illimités', '500 msg WhatsApp/mois', 'Notes & bulletins'], color: INFO },
-    { name: 'Standard', price: '250$', period: '/mois', desc: 'Le choix des écoles', features: ['5 admins', '10 professeurs', 'WhatsApp illimité', 'Paiements mobiles', 'Communications'], color: ACCENT, popular: true },
-    { name: 'Professionnel', price: '500$', period: '/mois', desc: 'Pour les grands établissements', features: ['Admins illimités', 'Profs illimités', 'App mobile dédiée', 'Support prioritaire', 'API accès'], color: WARNING },
-    { name: 'Enterprise', price: '1 000$', period: '/mois', desc: 'Multi-écoles', features: ['3 écoles incluses', 'Serveur dédié', 'Formation équipe', 'SLA garanti'], color: SUCCESS },
-    { name: 'Corporate', price: 'Sur mesure', period: '', desc: 'Groupes scolaires', features: ['Écoles illimitées', 'On-premise', 'Marque blanche', 'Intégration sur mesure'], color: DANGER },
-  ]
+  const tierColors: Record<string, string> = {
+    FREEMIUM: MUTED, ESSENTIEL: INFO, STANDARD: ACCENT,
+    PREMIUM: WARNING, ENTERPRISE: SUCCESS, CORPORATE: DANGER,
+  }
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: IVORY }}>
       <PublicHeader />
       <div className="container-premium py-16 sm:py-[120px] flex-1">
         <div className="text-center mb-12">
-          {/* Ornament divider */}
           <div className="edu-ornament mb-4">
             <span style={{ color: GOLD }}>◆</span>
           </div>
@@ -1246,44 +1062,129 @@ function PricingView() {
             Tarifs <span style={{ color: GOLD }}>transparents</span>
           </h1>
           <p className="max-w-[500px] mx-auto" style={{ color: TEXT_MUTED_LUXE }}>Choisissez la formule adaptée à votre établissement. Évoluez à tout moment.</p>
+          {isAdmin && (
+            <button onClick={resetPrices} className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm transition" style={{ color: TEXT_MUTED_LUXE }}>
+              <RotateCcw size={14} /> Réinitialiser les prix
+            </button>
+          )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-          {tiers.map(tier => (
-            <div key={tier.name} className={`bg-white border rounded-2xl p-8 sm:p-10 relative edu-card-lift ${
-              tier.popular
-                ? 'border-[oklch(72%_0.15_65)] shadow-[0_0_24px_oklch(72%_0.15_65_/_0.12)]'
-                : 'border-[oklch(88%_0.01_175)]'
-            }`}>
-              {tier.popular && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 edu-gold-cta px-4 py-1 rounded-full text-xs font-semibold">Populaire</span>
-              )}
-              <h3 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{tier.name}</h3>
-              <p className="text-sm mt-1 mb-5" style={{ color: TEXT_MUTED_LUXE }}>{tier.desc}</p>
-              <div className="mb-6">
-                <span className="text-3xl font-extrabold" style={{ color: TEXT_PRIMARY }}>{tier.price}</span>
-                <span className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{tier.period}</span>
+
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl p-8 sm:p-10 animate-pulse">
+                <div className="h-5 bg-[oklch(94%_0.005_175)] rounded w-1/2 mb-3" />
+                <div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-3/4 mb-5" />
+                <div className="h-8 bg-[oklch(94%_0.005_175)] rounded w-1/3 mb-6" />
+                <div className="space-y-3"><div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-full" /><div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-4/5" /><div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-3/5" /></div>
               </div>
-              <ul className="space-y-3 mb-6">
-                {tier.features.map(f => (
-                  <li key={f} className="flex items-center gap-2 text-sm" style={{ color: TEXT_PRIMARY }}>
-                    <CheckCircle size={14} style={{ color: tier.color }} /> {f}
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={() => setCurrentView('create-school')}
-                className={`w-full py-3 rounded-xl text-sm font-semibold transition ${
-                  tier.popular
-                    ? 'edu-gold-cta'
-                    : 'border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm'
-                }`}
-                style={tier.popular ? undefined : { color: TEXT_PRIMARY }}
-              >
-                {tier.price === 'Sur mesure' ? 'Nous contacter' : 'Commencer'}
-              </button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            {plans.map(plan => {
+              const color = plan.color || tierColors[plan.tier] || MUTED
+              const featureList = plan.features ? plan.features.split(',').map(f => f.trim()) : []
+              const isCustom = plan.price === -1
+              const hasDiscount = plan.originalPrice != null && plan.originalPrice > plan.price && plan.price >= 0
+              const discountPct = hasDiscount ? Math.round((1 - plan.price / plan.originalPrice!) * 100) : 0
+              const isEditing = editingPlan === plan.id
+
+              return (
+                <div key={plan.id} className={`bg-white border rounded-2xl p-8 sm:p-10 relative edu-card-lift ${
+                  plan.isPopular
+                    ? 'border-[oklch(72%_0.15_65)] shadow-[0_0_24px_oklch(72%_0.15_65_/_0.12)]'
+                    : 'border-[oklch(88%_0.01_175)]'
+                }`}>
+                  {plan.isPopular && (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 edu-gold-cta px-4 py-1 rounded-full text-xs font-semibold">Populaire</span>
+                  )}
+                  {hasDiscount && !isEditing && (
+                    <span className="absolute -top-3 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold">-{discountPct}%</span>
+                  )}
+
+                  {isEditing ? (
+                    /* ===== EDIT MODE ===== */
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Nom du plan</label>
+                        <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Prix ($/mois) — laisser vide pour « Sur mesure »</label>
+                        <input type="number" value={editForm.price} onChange={e => setEditForm(f => ({ ...f, price: e.target.value }))} placeholder="Ex: 250" className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Prix original barré (optionnel, pour réduction)</label>
+                        <input type="number" value={editForm.originalPrice} onChange={e => setEditForm(f => ({ ...f, originalPrice: e.target.value }))} placeholder="Ex: 350" className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Période</label>
+                        <input value={editForm.period} onChange={e => setEditForm(f => ({ ...f, period: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Description</label>
+                        <input value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Fonctionnalités (séparées par virgules)</label>
+                        <textarea value={editForm.features} onChange={e => setEditForm(f => ({ ...f, features: e.target.value }))} rows={3} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)] resize-none" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={() => saveEdit(plan.id)} disabled={saving} className="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50" style={{ background: GOLD, color: DARK }}>
+                          {saving ? <div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> : <><Check size={14} /> Enregistrer</>}
+                        </button>
+                        <button onClick={() => setEditingPlan(null)} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:bg-gray-50 transition" style={{ color: TEXT_MUTED_LUXE }}>
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* ===== DISPLAY MODE ===== */
+                    <>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{plan.name}</h3>
+                          <p className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>{plan.description}</p>
+                        </div>
+                        {isAdmin && (
+                          <button onClick={() => startEdit(plan)} className="shrink-0 ml-2 p-2 rounded-lg border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm transition group" title="Modifier le prix">
+                            <Edit size={14} style={{ color: TEXT_MUTED_LUXE }} className="group-hover:text-[oklch(72%_0.15_65)]" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="my-5">
+                        {hasDiscount && (
+                          <span className="text-base line-through mr-2" style={{ color: TEXT_MUTED_LUXE }}>{formatPrice(plan.originalPrice!)}</span>
+                        )}
+                        <span className="text-3xl font-extrabold" style={{ color: hasDiscount ? DANGER : TEXT_PRIMARY }}>{formatPrice(plan.price)}</span>
+                        <span className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{plan.period}</span>
+                      </div>
+                      <ul className="space-y-3 mb-6">
+                        {featureList.map(f => (
+                          <li key={f} className="flex items-center gap-2 text-sm" style={{ color: TEXT_PRIMARY }}>
+                            <CheckCircle size={14} style={{ color }} /> {f}
+                          </li>
+                        ))}
+                      </ul>
+                      <button
+                        onClick={() => setCurrentView('login')}
+                        className={`w-full py-3 rounded-xl text-sm font-semibold transition ${
+                          plan.isPopular
+                            ? 'edu-gold-cta'
+                            : 'border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm'
+                        }`}
+                        style={plan.isPopular ? undefined : { color: TEXT_PRIMARY }}
+                      >
+                        {isCustom ? 'Nous contacter' : 'Commencer'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
       <Footer />
     </div>
@@ -1302,6 +1203,25 @@ function LoginView() {
   const [waCode, setWaCode] = useState('')
   const [waStep, setWaStep] = useState<'phone' | 'code'>('phone')
   const [waLoading, setWaLoading] = useState(false)
+  const [typewriterLine1, setTypewriterLine1] = useState('')
+  const [typewriterLine2, setTypewriterLine2] = useState('')
+  const [typewriterActiveLine, setTypewriterActiveLine] = useState<1 | 2 | null>(1)
+
+  // Vérifie que le rôle correspond à l'onglet sélectionné
+  function validateRoleForTab(role: UserRole | null): { valid: boolean; message?: string } {
+    if (!role) return { valid: false, message: 'Rôle non reconnu. Contactez l\'administration.' }
+    if (role === 'SUPER_ADMIN_GLOBAL') return { valid: true }
+    if (tab === 'parent') {
+      if (role !== 'PARENT') {
+        return { valid: false, message: 'Ce compte n\'est pas un compte parent. Veuillez utiliser l\'onglet Administration.' }
+      }
+    } else {
+      if (role === 'PARENT') {
+        return { valid: false, message: 'Ce compte est un compte parent. Veuillez utiliser l\'onglet Parent.' }
+      }
+    }
+    return { valid: true }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -1317,6 +1237,11 @@ function LoginView() {
       if (json.data) {
         const apiUser = json.data
         const role = mapApiRole(apiUser.role)
+        const validation = validateRoleForTab(role)
+        if (!validation.valid) {
+          toast.error(validation.message || 'Accès non autorisé pour ce type de compte.')
+          return
+        }
         if (role) {
           login(role, {
             id: apiUser.id,
@@ -1331,7 +1256,6 @@ function LoginView() {
           return
         }
       }
-      // If API returned an error, show it
       if (json.error) {
         toast.error(json.error === 'Invalid credentials' ? 'Email ou mot de passe incorrect' : json.error)
       } else {
@@ -1365,148 +1289,308 @@ function LoginView() {
     return map[role] || null
   }
 
+  // Typewriter animation — same as hero
+  useEffect(() => {
+    const title1 = "Rejoignez"
+    const title2 = "l'excellence éducative"
+    let charIndex = 0
+    let currentLine = 1
+    let timeoutId: ReturnType<typeof setTimeout>
+
+    function type() {
+      if (currentLine === 1) {
+        if (charIndex < title1.length) {
+          setTypewriterLine1(title1.substring(0, charIndex + 1))
+          setTypewriterActiveLine(1)
+          charIndex++
+          timeoutId = setTimeout(type, 80 + Math.random() * 60)
+        } else {
+          currentLine = 2
+          charIndex = 0
+          setTypewriterActiveLine(2)
+          timeoutId = setTimeout(type, 400)
+        }
+      } else {
+        if (charIndex < title2.length) {
+          setTypewriterLine2(title2.substring(0, charIndex + 1))
+          setTypewriterActiveLine(2)
+          charIndex++
+          timeoutId = setTimeout(type, 80 + Math.random() * 60)
+        } else {
+          setTypewriterActiveLine(2)
+          setTimeout(() => setTypewriterActiveLine(null), 1500)
+        }
+      }
+    }
+
+    timeoutId = setTimeout(type, 800)
+    return () => clearTimeout(timeoutId)
+  }, [])
+
+  // Floating parallax icons — full screen, same as hero
+  useEffect(() => {
+    const container = document.getElementById('login-parallax-container')
+    if (!container) return
+
+    const educationIcons = [
+      '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>',
+      '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>',
+      '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>',
+      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"></path><path d="M3 22h18"></path><path d="M14 22a7 7 0 1 0 0-14h-1"></path><path d="M9 14h2"></path><path d="M9 12a2 2 0 1 1-4 0V7a2 2 0 1 1 4 0v5Z"></path><path d="M12 7V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4"></path></svg>',
+    ]
+
+    const elements: { el: HTMLDivElement; x: number; y: number; originX: number; originY: number; vx: number; vy: number; depth: number; scale: number; rotation: number; rotationSpeed: number; phase: number }[] = []
+    const numIcons = 20
+    let mouseX = window.innerWidth / 2
+    let mouseY = window.innerHeight / 2
+    let targetMouseX = mouseX
+    let targetMouseY = mouseY
+    let animFrameId: number
+
+    for (let i = 0; i < numIcons; i++) {
+      const el = document.createElement('div')
+      el.style.position = 'absolute'
+      el.style.pointerEvents = 'none'
+      el.style.userSelect = 'none'
+      el.style.zIndex = '1'
+      el.style.willChange = 'transform'
+      el.innerHTML = educationIcons[i % educationIcons.length]
+
+      const startX = Math.random() * window.innerWidth
+      const startY = Math.random() * (window.innerHeight * 0.9)
+      const depth = 0.02 + Math.random() * 0.1
+      const sizeScale = 0.7 + Math.random() * 1.3
+
+      const colorRoll = Math.random()
+      if (colorRoll > 0.85) el.style.color = '#f5a623'
+      else if (colorRoll > 0.70) el.style.color = '#10b981'
+      else el.style.color = 'rgba(255,255,255,0.25)'
+
+      el.style.opacity = (0.05 + Math.random() * 0.15).toString()
+
+      container.appendChild(el)
+      elements.push({
+        el, x: startX, y: startY, originX: startX, originY: startY,
+        vx: 0, vy: 0, depth, scale: sizeScale,
+        rotation: Math.random() * 360,
+        rotationSpeed: (Math.random() - 0.5) * 0.3,
+        phase: Math.random() * Math.PI * 2,
+      })
+    }
+
+    // Fade icons in
+    setTimeout(() => {
+      elements.forEach(item => {
+        const baseOp = parseFloat(item.el.style.opacity)
+        item.el.style.opacity = (baseOp * 1.5).toString()
+      })
+    }, 500)
+
+    const handleMouseMove = (e: MouseEvent) => {
+      targetMouseX = e.clientX
+      targetMouseY = e.clientY
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+
+    function lerp(start: number, end: number, amt: number) {
+      return (1 - amt) * start + amt * end
+    }
+
+    function update() {
+      mouseX = lerp(mouseX, targetMouseX, 0.08)
+      mouseY = lerp(mouseY, targetMouseY, 0.08)
+      const time = Date.now() * 0.001
+
+      elements.forEach(item => {
+        const dx = targetMouseX - (item.x + (targetMouseX - window.innerWidth / 2) * item.depth)
+        const dy = targetMouseY - (item.y + (targetMouseY - window.innerHeight / 2) * item.depth)
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        const mouseRange = 400
+        const attractionStrength = 0.08
+
+        if (dist < mouseRange) {
+          const force = (1 - dist / mouseRange) * attractionStrength
+          item.vx += dx * force * 0.2
+          item.vy += dy * force * 0.2
+        }
+
+        item.vx += (item.originX - item.x) * 0.01
+        item.vy += (item.originY - item.y) * 0.01
+        item.vx *= 0.92
+        item.vy *= 0.92
+        item.x += item.vx
+        item.y += item.vy
+
+        const driftX = Math.sin(time + item.phase) * 0.6
+        const driftY = Math.cos(time + item.phase * 0.7) * 0.6
+        const px = (mouseX - window.innerWidth / 2) * item.depth
+        const py = (mouseY - window.innerHeight / 2) * item.depth
+        item.rotation += item.rotationSpeed
+
+        item.el.style.transform = `translate3d(${item.x + px + driftX}px, ${item.y + py + driftY}px, 0) rotate(${item.rotation}deg) scale(${item.scale})`
+      })
+
+      animFrameId = requestAnimationFrame(update)
+    }
+    update()
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      cancelAnimationFrame(animFrameId)
+      while (container.firstChild) container.removeChild(container.firstChild)
+    }
+  }, [])
+
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
-      {/* Left brand side - dark with Kente pattern */}
-      <div className="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden text-white edu-hero-dark">
-        <div className="absolute inset-0 edu-kente opacity-60" />
-        <div className="absolute -top-24 -right-24 w-[480px] h-[480px] rounded-full opacity-20" style={{ background: 'radial-gradient(oklch(72% 0.15 65), transparent 70%)' }} />
-        <div className="relative flex items-center gap-2.5 font-bold text-lg">
-          <BrandMark height={48} />
-        </div>
-        <div className="relative max-w-[460px]">
-          <h2 className="text-[34px] font-extrabold tracking-tight leading-[1.15] mb-3.5">
-            Bienvenue sur la plateforme de gestion scolaire préférée en <span style={{ color: GOLD }}>Afrique francophone</span>.
-          </h2>
-          <p className="text-base opacity-75 leading-relaxed">
-            Notes, paiements, communications, bulletins — tout est centralisé pour vous faire gagner du temps.
+    <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+      {/* Full-screen parallax floating icons — same as hero */}
+      <div id="login-parallax-container" className="absolute inset-0 pointer-events-none overflow-hidden z-0" />
+      {/* Gradient overlays */}
+      <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-[#0a0f0d] via-[#0b1613]/50 to-transparent pointer-events-none z-10" />
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] opacity-15 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, rgba(245, 166, 35, 0.3), transparent 70%)' }} />
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] opacity-10 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, rgba(16, 185, 129, 0.2), transparent 70%)' }} />
+
+      {/* Top nav bar */}
+      <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-5 w-full">
+        <button onClick={() => setCurrentView('home')} className="flex items-center shrink-0 min-w-max">
+          <BrandMark height={48} className="brightness-110 hover:scale-105 transition-all duration-300" />
+        </button>
+        <button onClick={() => setCurrentView('home')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em] flex items-center gap-1.5">
+          <ArrowLeft size={14} /> Retour
+        </button>
+      </nav>
+
+      {/* Main content: typewriter title + glass login card */}
+      <main className="relative z-20 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-4 sm:py-8 gap-8 sm:gap-10">
+        {/* Typewriter title — same as hero */}
+        <div className="text-center flex flex-col items-center">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-white leading-[1.05] tracking-tighter mb-4 sm:mb-5 relative inline-block mx-auto select-none" style={{ minHeight: '120px' }}>
+            <span className="inline-block relative">{typewriterLine1}{typewriterActiveLine === 1 && <span className="animate-pulse">|</span>}</span>
+            <br />
+            <span className="italic font-playfair inline-block relative" style={{ color: '#f5a623', textShadow: '0 0 25px rgba(245, 166, 35, 0.5), 0 0 50px rgba(245, 166, 35, 0.2)' }}>{typewriterLine2}{typewriterActiveLine === 2 && <span className="animate-pulse">|</span>}</span>
+          </h1>
+          <p className="text-gray-300 text-sm sm:text-base md:text-lg max-w-lg mx-auto font-medium leading-relaxed opacity-80">
+            La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants.
           </p>
-          <div className="mt-6 space-y-3.5">
-            {[
-              { icon: <CheckCircle size={16} />, title: 'Multi-écoles', desc: 'Gérez plusieurs établissements depuis un seul compte' },
-              { icon: <MessageSquare size={16} />, title: 'Notifications WhatsApp', desc: 'Alertes instantanées pour les parents' },
-              { icon: <CreditCard size={16} />, title: 'Paiement mobile', desc: 'Orange Money, M-Pesa, Airtel Money acceptés' },
-            ].map((f, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-white/10 border border-white/12 flex items-center justify-center shrink-0">{f.icon}</div>
-                <div className="text-[13px] opacity-80 leading-relaxed"><strong className="block opacity-100">{f.title}</strong>{f.desc}</div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-8 edu-glass rounded-2xl p-5">
-            <p className="text-sm leading-relaxed mb-3">&ldquo;EduGest nous a fait gagner 12h par semaine sur la gestion des notes et paiements. Les parents adorent les notifications WhatsApp.&rdquo;</p>
-            <div className="flex items-center gap-2.5 text-xs opacity-75">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[oklch(70%_0.15_65)] to-[oklch(55%_0.13_30)] grid place-items-center font-semibold text-xs">MK</div>
-              Mme Kabongo · Directrice, Complexe Lumière
-            </div>
-          </div>
         </div>
-        <div className="relative text-[13px] opacity-50">© 2026 EduGest · Kinshasa · Dakar · Abidjan</div>
-      </div>
 
-      {/* Right form side - ivory luxury */}
-      <div className="flex items-center justify-center p-6 sm:p-12" style={{ background: IVORY }}>
-        <div className="w-full max-w-[420px]">
-          <button onClick={() => setCurrentView('home')} className="inline-flex items-center gap-1.5 text-[13px] mb-6 transition hover:opacity-80" style={{ color: TEXT_MUTED_LUXE }}>
-            <ArrowLeft size={14} /> Retour à l&apos;accueil
-          </button>
-          <div className="mb-6">
-            <h1 className="text-[28px] font-bold tracking-tight mb-1.5" style={{ color: TEXT_PRIMARY }}>
-              {tab === 'parent' ? 'Connexion Parent' : 'Connexion Administration'}
-            </h1>
-            <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
-              {tab === 'parent' ? 'Accédez au suivi scolaire de vos enfants' : 'Personnel de l\'école, direction, enseignants'}
-            </p>
-          </div>
-
+        {/* Glass morphism login card */}
+        <div className="w-full max-w-[440px] rounded-2xl p-6 sm:p-8" style={{ background: 'rgba(26, 37, 32, 0.55)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5), 0 0 80px rgba(245, 166, 35, 0.05)' }}>
           {/* Tab switcher */}
-          <div className="flex bg-white border border-[oklch(88%_0.01_175)] rounded-xl p-1 mb-6">
-            <button onClick={() => setTab('parent')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition ${tab === 'parent' ? 'text-white' : ''}`} style={tab === 'parent' ? { background: GOLD, boxShadow: `0 2px 8px oklch(72% 0.15 65 / .25)` } : { color: TEXT_MUTED_LUXE }}>
+          <div className="flex rounded-xl p-1 mb-6" style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+            <button onClick={() => setTab('parent')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === 'parent' ? 'text-[#0a0f0d] shadow-lg' : 'text-white/60 hover:text-white/80'}`} style={tab === 'parent' ? { background: '#f5a623', boxShadow: '0 4px 16px rgba(245, 166, 35, 0.35)' } : undefined}>
               Parent
             </button>
-            <button onClick={() => setTab('admin')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition ${tab === 'admin' ? 'text-white' : ''}`} style={tab === 'admin' ? { background: GOLD, boxShadow: `0 2px 8px oklch(72% 0.15 65 / .25)` } : { color: TEXT_MUTED_LUXE }}>
+            <button onClick={() => setTab('admin')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === 'admin' ? 'text-[#0a0f0d] shadow-lg' : 'text-white/60 hover:text-white/80'}`} style={tab === 'admin' ? { background: '#f5a623', boxShadow: '0 4px 16px rgba(245, 166, 35, 0.35)' } : undefined}>
               Administration
             </button>
           </div>
 
+          <div className="mb-5">
+            <h2 className="text-xl font-bold text-white tracking-tight mb-1">
+              {tab === 'parent' ? 'Connexion Parent' : 'Connexion Administration'}
+            </h2>
+            <p className="text-sm text-white/50">
+              {tab === 'parent' ? 'Accédez au suivi scolaire de vos enfants' : 'Personnel de l\'école, direction, enseignants'}
+            </p>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{tab === 'parent' ? 'Email ou numéro WhatsApp' : 'Email professionnel'}</label>
+              <label className="text-[13px] font-medium text-white/70">{tab === 'parent' ? 'Email ou numéro WhatsApp' : 'Email professionnel'}</label>
               <input
                 type="text" value={email} onChange={e => setEmail(e.target.value)}
                 placeholder={tab === 'parent' ? 'ex. parent@email.com ou +243 81...' : 'ex. direction@ecole.cd'}
-                className="w-full px-4 py-3.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]"
+                className="w-full px-4 py-3.5 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)] focus:border-[rgba(245,166,35,0.5)]"
+                style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
                 required
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Mot de passe</label>
+              <label className="text-[13px] font-medium text-white/70">Mot de passe</label>
               <input
                 type="password" value={password} onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-4 py-3.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]"
+                className="w-full px-4 py-3.5 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)] focus:border-[rgba(245,166,35,0.5)]"
+                style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
                 required
               />
             </div>
             <div className="flex items-center justify-between text-[13px]">
-              <label className="flex items-center gap-2 cursor-pointer" style={{ color: TEXT_MUTED_LUXE }}>
-                <input type="checkbox" className="accent-[oklch(72%_0.15_65)]" /> Se souvenir de moi
+              <label className="flex items-center gap-2 cursor-pointer text-white/50">
+                <input type="checkbox" className="accent-[#f5a623] rounded" /> Se souvenir de moi
               </label>
-              <button type="button" className="font-medium hover:underline" style={{ color: GOLD }}>Mot de passe oublié ?</button>
+              <button type="button" className="font-medium hover:underline text-[#f5a623]/80 hover:text-[#f5a623]">Mot de passe oublié ?</button>
             </div>
-            <button type="submit" disabled={loading} className="edu-gold-cta w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
-              {loading ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : 'Se connecter'}
+            <button type="submit" disabled={loading} className="w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all hover:shadow-[0_0_30px_rgba(245,166,35,0.4)] active:scale-[0.98]" style={{ background: '#f5a623', color: '#0a0f0d', boxShadow: '0 4px 16px rgba(245, 166, 35, 0.25)' }}>
+              {loading ? <div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> : 'Se connecter'}
             </button>
           </form>
 
-          <div className="flex items-center gap-3 my-5 text-xs uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>
-            <div className="flex-1 h-px bg-[oklch(88%_0.01_175)]" /> ou <div className="flex-1 h-px bg-[oklch(88%_0.01_175)]" />
+          <div className="flex items-center gap-3 my-5 text-xs uppercase tracking-wider text-white/40">
+            <div className="flex-1 h-px bg-white/10" /> ou <div className="flex-1 h-px bg-white/10" />
           </div>
 
           <button
             onClick={() => { setShowWhatsappModal(true); setWaStep('phone'); setWaPhone(''); setWaCode('') }}
-            className="w-full py-3.5 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 transition hover:opacity-90"
-            style={{ background: SUCCESS }}
+            className="w-full py-3.5 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 transition hover:opacity-90 hover:shadow-lg"
+            style={{ background: 'oklch(60% 0.15 145)', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)' }}
           >
             <MessageSquare size={18} /> Se connecter avec WhatsApp
           </button>
 
-          <p className="text-center text-[13px] mt-6" style={{ color: TEXT_MUTED_LUXE }}>
-            Pas encore de compte ? <button onClick={() => setCurrentView('create-school')} className="font-medium hover:underline" style={{ color: GOLD }}>Créer mon école</button>
+          <p className="text-center text-[13px] mt-5 text-white/50">
+            Pas encore de compte ? <button onClick={() => setCurrentView('pricing')} className="font-medium hover:underline text-[#f5a623]/80 hover:text-[#f5a623]">Créer mon école</button>
           </p>
         </div>
+
+        {/* Trust indicators below form */}
+        <div className="flex items-center gap-6 sm:gap-8 text-white/30 text-xs font-medium">
+          <div className="flex items-center gap-1.5"><Shield size={14} /> Sécurisé</div>
+          <div className="flex items-center gap-1.5"><Globe size={14} /> Afrique</div>
+          <div className="flex items-center gap-1.5"><Award size={14} /> Certifié</div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <div className="relative z-20 text-center text-[13px] text-white/30 py-5">
+        © 2026 EduGest · Kinshasa · Dakar · Abidjan
       </div>
 
       {/* WhatsApp Login Modal */}
       {showWhatsappModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowWhatsappModal(false)}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowWhatsappModal(false)}>
+          <div className="rounded-2xl p-6 w-full max-w-sm shadow-2xl" style={{ background: 'rgba(26, 37, 32, 0.9)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.1)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl grid place-items-center text-white" style={{ background: SUCCESS }}>
                   <MessageSquare size={20} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>WhatsApp</h2>
-                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Connexion sécurisée</p>
+                  <h2 className="text-lg font-bold text-white">WhatsApp</h2>
+                  <p className="text-xs text-white/50">Connexion sécurisée</p>
                 </div>
               </div>
-              <button onClick={() => setShowWhatsappModal(false)}><X size={18} /></button>
+              <button onClick={() => setShowWhatsappModal(false)} className="text-white/50 hover:text-white transition"><X size={18} /></button>
             </div>
 
             {waStep === 'phone' ? (
               <div className="space-y-4">
-                <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Entrez votre numéro WhatsApp pour recevoir un code de vérification.</p>
+                <p className="text-sm text-white/60">Entrez votre numéro WhatsApp pour recevoir un code de vérification.</p>
                 <div>
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Numéro WhatsApp</label>
-                  <div className="flex items-center gap-2 mt-1 border border-[oklch(88%_0.01_175)] rounded-xl px-3 py-3 focus-within:ring-[3px] focus-within:ring-[oklch(95%_0.05_65)] focus-within:border-[oklch(72%_0.15_65)]">
-                    <Phone size={16} style={{ color: TEXT_MUTED_LUXE }} />
+                  <label className="text-[13px] font-medium text-white/70">Numéro WhatsApp</label>
+                  <div className="flex items-center gap-2 mt-1 px-3 py-3 rounded-xl focus-within:ring-[3px] focus-within:ring-[rgba(245,166,35,0.2)] focus-within:border-[rgba(245,166,35,0.5)]" style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                    <Phone size={16} className="text-white/40" />
                     <input
                       type="tel"
                       placeholder="+243 81 234 56 78"
                       value={waPhone}
                       onChange={e => setWaPhone(e.target.value)}
-                      className="flex-1 border-0 outline-none text-sm bg-transparent"
+                      className="flex-1 border-0 outline-none text-sm bg-transparent text-white placeholder-white/30"
                     />
                   </div>
                 </div>
@@ -1540,17 +1624,17 @@ function LoginView() {
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Entrez le code à 6 chiffres envoyé au <strong style={{ color: TEXT_PRIMARY }}>{waPhone}</strong></p>
+                <p className="text-sm text-white/60">Entrez le code à 6 chiffres envoyé au <strong className="text-white">{waPhone}</strong></p>
                 <div>
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Code de vérification</label>
+                  <label className="text-[13px] font-medium text-white/70">Code de vérification</label>
                   <input
                     type="text"
                     maxLength={6}
                     placeholder="000000"
                     value={waCode}
                     onChange={e => setWaCode(e.target.value.replace(/\D/g, ''))}
-                    className="w-full mt-1 px-4 py-3.5 border border-[oklch(88%_0.01_175)] rounded-xl text-center text-2xl font-bold tracking-[0.5em] outline-none focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] focus:border-[oklch(72%_0.15_65)]"
-                    style={{ color: TEXT_PRIMARY }}
+                    className="w-full mt-1 px-4 py-3.5 rounded-xl text-center text-2xl font-bold tracking-[0.5em] outline-none focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)] text-white"
+                    style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
                   />
                 </div>
                 <button
@@ -1567,6 +1651,11 @@ function LoginView() {
                       if (res.ok && json.data) {
                         const apiUser = json.data
                         const role = mapApiRole(apiUser.role)
+                        const validation = validateRoleForTab(role)
+                        if (!validation.valid) {
+                          toast.error(validation.message || 'Accès non autorisé pour ce type de compte.')
+                          return
+                        }
                         if (role) {
                           login(role, {
                             id: apiUser.id,
@@ -1595,8 +1684,7 @@ function LoginView() {
                 </button>
                 <button
                   onClick={() => setWaStep('phone')}
-                  className="w-full text-sm font-medium py-2 hover:underline"
-                  style={{ color: GOLD }}
+                  className="w-full text-sm font-medium py-2 hover:underline text-[#f5a623]/80 hover:text-[#f5a623]"
                 >
                   Changer de numéro
                 </button>
@@ -1708,9 +1796,9 @@ function Sidebar() {
               <button
                 key={item.label}
                 onClick={() => { setCurrentView(item.view); setSidebarOpen(false) }}
-                className={`edu-sidebar-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] font-medium transition relative ${
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] font-medium transition relative ${
                   currentView === item.view
-                    ? 'text-[oklch(72%_0.15_65)] font-semibold active'
+                    ? 'text-[oklch(72%_0.15_65)] font-semibold'
                     : 'text-white/70 hover:text-white hover:bg-white/5'
                 }`}
                 style={currentView === item.view ? { background: 'oklch(72% 0.15 65 / 0.08)', borderLeft: '3px solid oklch(72% 0.15 65)' } : { borderLeft: '3px solid transparent' }}
@@ -1745,13 +1833,14 @@ function Sidebar() {
 }
 
 // ===== TOPBAR =====
-function Topbar() {
+function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; onToggleSidebar: () => void }) {
   const { currentView, sidebarOpen, setSidebarOpen, setCurrentView } = useEduGestStore()
   const viewTitles: Record<string, string> = {
     dashboard: 'Dashboard', students: 'Élèves', classes: 'Classes', grades: 'Notes',
     payments: 'Paiements', discipline: 'Discipline', communications: 'Communications',
     homework: 'Devoirs', profile: 'Mon profil', pricing: 'Tarifs', 'class-passing': 'Passage de classe',
     bulletin: 'Bulletins', convocation: 'Convocation', schools: 'Écoles',
+    'admin-analytics': 'Statistiques', 'whatsapp-config': 'WhatsApp',
   }
 
   return (
@@ -1759,6 +1848,13 @@ function Topbar() {
       <div className="flex items-center gap-4">
         <button className="lg:hidden p-2 rounded-lg hover:bg-white/60 transition" onClick={() => setSidebarOpen(!sidebarOpen)}>
           {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
+        </button>
+        <button
+          onClick={onToggleSidebar}
+          className="hidden lg:flex p-2 rounded-lg hover:bg-white/60 transition items-center gap-1.5"
+          title={sidebarVisible ? 'Masquer le menu' : 'Afficher le menu'}
+        >
+          {sidebarVisible ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
         </button>
         <div>
           <div className="text-lg font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>{viewTitles[currentView] || 'Dashboard'}</div>
@@ -1770,9 +1866,9 @@ function Topbar() {
           <Search size={14} style={{ color: TEXT_MUTED_LUXE }} />
           <input placeholder="Rechercher..." className="flex-1 border-0 bg-transparent outline-none text-[13px]" />
         </div>
-        <button className="w-9 h-9 rounded-xl bg-white border border-[oklch(90%_0.01_175)] grid place-items-center hover:shadow-sm transition relative edu-bell-shake">
+        <button className="w-9 h-9 rounded-xl bg-white border border-[oklch(90%_0.01_175)] grid place-items-center hover:shadow-sm transition relative">
           <Bell size={16} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2 border-white edu-animate-pulse-glow" style={{ background: GOLD }} />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2 border-white" style={{ background: GOLD }} />
         </button>
         <button onClick={() => setCurrentView('profile')} className="w-9 h-9 rounded-xl bg-white border border-[oklch(90%_0.01_175)] grid place-items-center hover:shadow-sm transition" title="Mon profil">
           <Settings size={16} />
@@ -1784,15 +1880,14 @@ function Topbar() {
 
 // ===== DASHBOARD LAYOUT =====
 function DashboardLayout() {
+  const [sidebarVisible, setSidebarVisible] = useState(true)
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[240px_1fr]" style={{ background: IVORY }}>
-      <Sidebar />
+    <div className={`min-h-screen grid grid-cols-1 ${sidebarVisible ? 'lg:grid-cols-[240px_1fr]' : ''}`} style={{ background: IVORY }}>
+      {sidebarVisible && <Sidebar />}
       <div className="flex flex-col min-w-0">
-        <Topbar />
+        <Topbar sidebarVisible={sidebarVisible} onToggleSidebar={() => setSidebarVisible(v => !v)} />
         <main className="flex-1 p-6 sm:p-8 overflow-y-auto">
-          <div className="edu-page-enter">
-            <MainContent />
-          </div>
+          <MainContent />
         </main>
       </div>
     </div>
@@ -3961,126 +4056,123 @@ function ConvocationView() {
 
 // ===== SCHOOLS MANAGEMENT VIEW =====
 function SchoolsManagementView() {
-  const { userData } = useEduGestStore()
   const [schools, setSchools] = useState<SchoolData[]>([])
   const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
-  const [editingSchool, setEditingSchool] = useState<SchoolData | null>(null)
+  const [showAddModal, setShowAddModal] = useState(false)
   const [saving, setSaving] = useState(false)
-
-  // Modal form fields
-  const [mName, setMName] = useState('')
-  const [mShortName, setMShortName] = useState('')
-  const [mEmail, setMEmail] = useState('')
-  const [mPhone, setMPhone] = useState('')
-  const [mAddress, setMAddress] = useState('')
-  const [mCity, setMCity] = useState('')
-  const [mProvince, setMProvince] = useState('Kinshasa')
-  const [mCountry, setMCountry] = useState('RDC')
-  const [mSchoolType, setMSchoolType] = useState('MIXTE')
-  const [mSchoolCategory, setMSchoolCategory] = useState('PRIVEE')
-  const [mDescription, setMDescription] = useState('')
-  const [mEstablishmentYear, setMEstablishmentYear] = useState('')
-  const [mMaxStudents, setMMaxStudents] = useState('500')
-  const [mSubscriptionTier, setMSubscriptionTier] = useState('FREEMIUM')
-  // Admin fields (only for creation)
-  const [mAdminName, setMAdminName] = useState('')
-  const [mAdminEmail, setMAdminEmail] = useState('')
-  const [mAdminPhone, setMAdminPhone] = useState('')
-  const [mAdminPassword, setMAdminPassword] = useState('')
+  const [form, setForm] = useState({
+    name: '', shortName: '', email: '', phone: '', address: '',
+    city: '', province: '', country: 'RDC', schoolType: 'MIXTE',
+    schoolCategory: 'PRIVEE', maxStudents: 200, establishmentYear: new Date().getFullYear(),
+    description: '', mission: '', subscriptionTier: 'FREEMIUM',
+    latitude: null as number | null, longitude: null as number | null,
+    logo: '', coverImage: '',
+  })
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement | null>(null)
 
   function loadSchools() {
+    setLoading(true)
     fetch('/api/schools?limit=30').then(r => r.json()).then(j => { setSchools(j.data || []); setLoading(false) }).catch(() => setLoading(false))
   }
 
   useEffect(() => { loadSchools() }, [])
 
-  function openCreateModal() {
-    setEditingSchool(null)
-    setMName(''); setMShortName(''); setMEmail(''); setMPhone(''); setMAddress('')
-    setMCity(''); setMProvince('Kinshasa'); setMCountry('RDC'); setMSchoolType('MIXTE')
-    setMSchoolCategory('PRIVEE'); setMDescription(''); setMEstablishmentYear('')
-    setMMaxStudents('500'); setMSubscriptionTier('FREEMIUM')
-    setMAdminName(''); setMAdminEmail(''); setMAdminPhone(''); setMAdminPassword('')
-    setShowModal(true)
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Veuillez sélectionner une image')
+      return
+    }
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('L\'image ne doit pas dépasser 5MB')
+      return
+    }
+    // Show preview immediately
+    const reader = new FileReader()
+    reader.onload = (ev) => setLogoPreview(ev.target?.result as string)
+    reader.readAsDataURL(file)
+    // Upload to server
+    setUploadingLogo(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('category', 'schools')
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      if (res.ok) {
+        const data = await res.json()
+        setForm(prev => ({ ...prev, logo: data.url }))
+        toast.success('Logo importé avec succès')
+      } else {
+        toast.error('Erreur lors de l\'import du logo')
+      }
+    } catch {
+      toast.error('Erreur réseau lors de l\'import')
+    } finally {
+      setUploadingLogo(false)
+    }
   }
 
-  function openEditModal(school: SchoolData) {
-    setEditingSchool(school)
-    setMName(school.name); setMShortName(school.shortName); setMEmail(school.email)
-    setMPhone(school.phone); setMAddress(school.address); setMCity(school.city)
-    setMProvince(school.province); setMCountry(school.country); setMSchoolType(school.schoolType)
-    setMSchoolCategory(school.schoolCategory); setMDescription(school.description || '')
-    setMEstablishmentYear(school.establishmentYear?.toString() || '')
-    setMMaxStudents(school.maxStudents?.toString() || '500')
-    setMSubscriptionTier(school.subscriptionTier || 'FREEMIUM')
-    setMAdminName(''); setMAdminEmail(''); setMAdminPhone(''); setMAdminPassword('')
-    setShowModal(true)
-  }
-
-  async function handleSave() {
-    if (!mName || !mShortName || !mEmail || !mPhone || !mCity || !mProvince || !mCountry) {
+  async function handleAddSchool(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.name || !form.shortName || !form.email || !form.phone || !form.city || !form.province || !form.country) {
       toast.error('Veuillez remplir tous les champs obligatoires')
       return
     }
-
     setSaving(true)
     try {
-      if (editingSchool) {
-        // Update existing school
-        const res = await fetch(`/api/schools/${editingSchool.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: mName, shortName: mShortName, email: mEmail, phone: mPhone,
-            address: mAddress, city: mCity, province: mProvince, country: mCountry,
-            schoolType: mSchoolType, schoolCategory: mSchoolCategory,
-            description: mDescription || null,
-            establishmentYear: parseInt(mEstablishmentYear) || null,
-            maxStudents: parseInt(mMaxStudents) || 500,
-            subscriptionTier: mSubscriptionTier,
-          }),
-        })
-        if (res.ok) {
-          toast.success('École modifiée avec succès')
-          setShowModal(false)
-          loadSchools()
-        } else {
-          const json = await res.json()
-          toast.error(json.error || 'Erreur lors de la modification')
+      // 1. Créer l'école
+      const res = await fetch('/api/schools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      if (res.ok) {
+        const schoolData = await res.json()
+        const schoolId = schoolData.data?.id
+
+        // 2. Si l'abonnement est payant, enregistrer le paiement en liquide
+        const tierPrices: Record<string, number> = {
+          ESSENTIEL: 100, STANDARD: 250, PREMIUM: 500, ENTERPRISE: 1000, CORPORATE: 0,
         }
+        const price = tierPrices[form.subscriptionTier] || 0
+        if (price > 0 && schoolId) {
+          try {
+            await fetch('/api/payments/subscription', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                schoolId,
+                amount: price,
+                subscriptionTier: form.subscriptionTier,
+                paymentMethod: 'CASH',
+                description: `Abonnement ${getSubscriptionLabel(form.subscriptionTier)} - ${getSubscriptionPrice(form.subscriptionTier)} - Paiement en liquide`,
+              }),
+            })
+          } catch {
+            // Payment recording failed, but school was created
+            console.warn('Failed to record subscription payment')
+          }
+        }
+
+        toast.success(`École ajoutée avec succès !${price > 0 ? ` Paiement de ${price}$ en liquide enregistré.` : ''}`)
+        setShowAddModal(false)
+        setForm({ name: '', shortName: '', email: '', phone: '', address: '', city: '', province: '', country: 'RDC', schoolType: 'MIXTE', schoolCategory: 'PRIVEE', maxStudents: 200, establishmentYear: new Date().getFullYear(), description: '', mission: '', subscriptionTier: 'FREEMIUM', latitude: null, longitude: null, logo: '', coverImage: '' })
+        setLogoPreview(null)
+        loadSchools()
       } else {
-        // Create new school
-        if (!mAdminName || !mAdminEmail || !mAdminPhone) {
-          toast.error('Veuillez remplir les informations du compte administrateur')
-          setSaving(false)
-          return
-        }
-        const res = await fetch('/api/schools', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: mName, shortName: mShortName, email: mEmail, phone: mPhone,
-            address: mAddress, city: mCity, province: mProvince, country: mCountry,
-            schoolType: mSchoolType, schoolCategory: mSchoolCategory,
-            description: mDescription || null,
-            establishmentYear: parseInt(mEstablishmentYear) || null,
-            maxStudents: parseInt(mMaxStudents) || 500,
-            adminName: mAdminName, adminEmail: mAdminEmail,
-            adminPhone: mAdminPhone, adminPassword: mAdminPassword || 'admin123',
-          }),
-        })
-        if (res.ok) {
-          toast.success('École créée avec succès')
-          setShowModal(false)
-          loadSchools()
-        } else {
-          const json = await res.json()
-          toast.error(json.error || 'Erreur lors de la création')
-        }
+        const json = await res.json()
+        toast.error(json.error || 'Erreur lors de l\'ajout')
       }
-    } catch { toast.error('Erreur réseau') }
-    finally { setSaving(false) }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -4093,10 +4185,204 @@ function SchoolsManagementView() {
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(schools.length)} écoles</p>
         </div>
-        <button onClick={openCreateModal} className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
+        <button onClick={() => setShowAddModal(true)} className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
           <Plus size={14} /> Ajouter une école
         </button>
       </div>
+
+      {/* Add School Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-[oklch(90%_0.01_175)] shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl grid place-items-center text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                  <Building2 size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>Ajouter une école</h2>
+                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Créer un nouvel établissement</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAddModal(false)} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition"><X size={18} /></button>
+            </div>
+            <form onSubmit={handleAddSchool} className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Import du logo */}
+              <div className="flex items-start gap-5">
+                <div className="shrink-0">
+                  <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={uploadingLogo}
+                    className="relative w-24 h-24 rounded-2xl border-2 border-dashed border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] transition-all grid place-items-center overflow-hidden group"
+                    style={{ background: logoPreview ? 'transparent' : 'oklch(97% 0.005 175)' }}
+                  >
+                    {logoPreview ? (
+                      <>
+                        <img src={logoPreview} alt="Logo preview" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center">
+                          <Camera size={20} className="text-white" />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1">
+                        {uploadingLogo ? (
+                          <div className="h-6 w-6 border-2 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <ImagePlus size={24} style={{ color: TEXT_MUTED_LUXE }} />
+                        )}
+                        <span className="text-[10px] font-medium" style={{ color: TEXT_MUTED_LUXE }}>Logo</span>
+                      </div>
+                    )}
+                  </button>
+                </div>
+                <div className="flex-1 min-w-0 pt-1">
+                  <label className="text-[13px] font-semibold" style={{ color: TEXT_PRIMARY }}>Logo de l&apos;école</label>
+                  <p className="text-[11px] mt-0.5 mb-2" style={{ color: TEXT_MUTED_LUXE }}>Importez le logo de l&apos;établissement (JPG, PNG, SVG — max 5MB)</p>
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={uploadingLogo}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium border border-[oklch(88%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition disabled:opacity-50"
+                    style={{ color: TEXT_MUTED_LUXE }}
+                  >
+                    <Upload size={12} />
+                    {uploadingLogo ? 'Import en cours...' : logoPreview ? 'Changer le logo' : 'Importer un logo'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Carte interactive pour la localisation */}
+              <SchoolMap
+                latitude={form.latitude}
+                longitude={form.longitude}
+                onLocationChange={(lat, lng, address) => {
+                  setForm(prev => ({
+                    ...prev,
+                    latitude: lat,
+                    longitude: lng,
+                    ...(address ? {
+                      address: address.address || prev.address,
+                      city: address.city || prev.city,
+                      province: address.province || prev.province,
+                      country: address.country || prev.country,
+                    } : {}),
+                  }))
+                }}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom de l&apos;école *</label>
+                  <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Complexe Scolaire Lumière" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Sigle / Abréviation *</label>
+                  <input type="text" required value={form.shortName} onChange={e => setForm({ ...form, shortName: e.target.value })} placeholder="Ex: CSL" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Email professionnel *</label>
+                  <input type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="contact@ecole.cd" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone *</label>
+                  <input type="tel" required value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+243 81 234 56 78" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Adresse</label>
+                  <input type="text" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Remplie auto. par la carte" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Ville *</label>
+                  <input type="text" required value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder="Remplie auto. par la carte" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Province *</label>
+                  <input type="text" required value={form.province} onChange={e => setForm({ ...form, province: e.target.value })} placeholder="Remplie auto. par la carte" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Pays *</label>
+                  <input type="text" required value={form.country} onChange={e => setForm({ ...form, country: e.target.value })} placeholder="Remplie auto. par la carte" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Type d&apos;école</label>
+                  <select value={form.schoolType} onChange={e => setForm({ ...form, schoolType: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
+                    <option value="MIXTE">Mixte</option>
+                    <option value="FILLE">Filles</option>
+                    <option value="GARCON">Garçons</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Catégorie</label>
+                  <select value={form.schoolCategory} onChange={e => setForm({ ...form, schoolCategory: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
+                    <option value="PRIVEE">Privée</option>
+                    <option value="PUBLIQUE">Publique</option>
+                    <option value="CONVENTIONNEE">Conventionnée</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Capacité max</label>
+                  <input type="number" value={form.maxStudents} onChange={e => setForm({ ...form, maxStudents: parseInt(e.target.value) || 100 })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Année de fondation</label>
+                  <input type="number" value={form.establishmentYear} onChange={e => setForm({ ...form, establishmentYear: parseInt(e.target.value) || undefined })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+              </div>
+              {/* Abonnement */}
+              <div className="bg-[oklch(97%_0.005_175)] border border-[oklch(90%_0.01_175)] rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <CreditCard size={16} style={{ color: GOLD }} />
+                  <label className="text-[13px] font-semibold" style={{ color: TEXT_PRIMARY }}>Abonnement & Paiement</label>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Formule d&apos;abonnement</label>
+                    <select value={form.subscriptionTier} onChange={e => setForm({ ...form, subscriptionTier: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
+                      <option value="FREEMIUM">Freemium — 0$/mois</option>
+                      <option value="ESSENTIEL">Essentiel — 100$/mois</option>
+                      <option value="STANDARD">Standard — 250$/mois</option>
+                      <option value="PREMIUM">Professionnel — 500$/mois</option>
+                      <option value="ENTERPRISE">Enterprise — 1 000$/mois</option>
+                      <option value="CORPORATE">Corporate — Sur mesure</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Mode de paiement</label>
+                    <div className="flex items-center gap-2 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl bg-white">
+                      <DollarSign size={16} style={{ color: SUCCESS }} />
+                      <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Liquide (Cash)</span>
+                      <span className="text-[11px] ml-auto" style={{ color: TEXT_MUTED_LUXE }}>Encaissé par l&apos;admin</span>
+                    </div>
+                  </div>
+                </div>
+                {form.subscriptionTier !== 'FREEMIUM' && (
+                  <div className="flex items-center gap-2 text-[12px] px-3 py-2 rounded-lg" style={{ background: `${GOLD}15`, color: GOLD }}>
+                    <AlertCircle size={14} />
+                    <span>Le paiement de <strong>{getSubscriptionPrice(form.subscriptionTier)}</strong> sera enregistré comme reçu en liquide lors de la création.</span>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Description</label>
+                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Brève description de l'établissement..." className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] resize-none" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Mission</label>
+                <textarea value={form.mission} onChange={e => setForm({ ...form, mission: e.target.value })} rows={2} placeholder="Mission de l'établissement..." className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] resize-none" />
+              </div>
+              <div className="sticky bottom-0 bg-white border-t border-[oklch(90%_0.01_175)] flex items-center justify-end gap-3 p-4 -mx-6 -mb-6 mt-4">
+                <button type="button" onClick={() => setShowAddModal(false)} className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+                <button type="submit" disabled={saving} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+                  {saving ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
+                  Créer l&apos;école
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
@@ -4117,9 +4403,13 @@ function SchoolsManagementView() {
                 <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full grid place-items-center text-white font-semibold text-[11px] shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                        {s.shortName.substring(0, 2)}
-                      </div>
+                      {s.logo ? (
+                        <img src={s.logo} alt={s.shortName} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full grid place-items-center text-white font-semibold text-[11px] shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                          {s.shortName.substring(0, 2)}
+                        </div>
+                      )}
                       <div>
                         <div className="font-medium text-[13px]" style={{ color: TEXT_PRIMARY }}>{s.name}</div>
                         <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.city} · {s.province}</div>
@@ -4136,7 +4426,7 @@ function SchoolsManagementView() {
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
                       <button className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Eye size={14} /></button>
-                      <button onClick={() => openEditModal(s)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Edit size={14} /></button>
+                      <button className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Edit size={14} /></button>
                     </div>
                   </td>
                 </tr>
@@ -4145,168 +4435,6 @@ function SchoolsManagementView() {
           </table>
         </div>
       </div>
-
-      {/* School Create/Edit Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-4 overflow-y-auto" onClick={() => setShowModal(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl my-8" onClick={e => e.stopPropagation()}>
-            {/* Header */}
-            <div className="relative h-24 rounded-t-2xl overflow-hidden" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-              <div className="absolute inset-0 opacity-20" style={{ background: 'radial-gradient(ellipse at top right, oklch(72% 0.15 65 / 0.3), transparent 60%)' }} />
-              <div className="absolute bottom-4 left-6 right-6 flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-white">{editingSchool ? 'Modifier l\'école' : 'Ajouter une école'}</h2>
-                  <p className="text-sm text-white/70">{editingSchool ? 'Modifiez les informations' : 'Créez un nouvel établissement'}</p>
-                </div>
-                <button onClick={() => setShowModal(false)} className="w-8 h-8 rounded-lg bg-white/20 grid place-items-center text-white hover:bg-white/30 transition"><X size={16} /></button>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-              {/* School Info */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom complet <span style={{ color: DANGER }}>*</span></label>
-                  <input type="text" value={mName} onChange={e => setMName(e.target.value)} placeholder="Ex: Complexe Scolaire La Lumière"
-                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-                <div>
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Abréviation <span style={{ color: DANGER }}>*</span></label>
-                  <input type="text" value={mShortName} onChange={e => setMShortName(e.target.value.toUpperCase())} placeholder="Ex: CSL" maxLength={6}
-                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-                <div>
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Année de fondation</label>
-                  <input type="number" value={mEstablishmentYear} onChange={e => setMEstablishmentYear(e.target.value)} placeholder="2005"
-                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-                <div>
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Email <span style={{ color: DANGER }}>*</span></label>
-                  <input type="email" value={mEmail} onChange={e => setMEmail(e.target.value)} placeholder="ecole@email.com"
-                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-                <div>
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone <span style={{ color: DANGER }}>*</span></label>
-                  <input type="tel" value={mPhone} onChange={e => setMPhone(e.target.value)} placeholder="+243 81 234 56 78"
-                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Adresse</label>
-                  <input type="text" value={mAddress} onChange={e => setMAddress(e.target.value)} placeholder="123 Av. Independence"
-                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-                <div>
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Ville <span style={{ color: DANGER }}>*</span></label>
-                  <input type="text" value={mCity} onChange={e => setMCity(e.target.value)} placeholder="Kinshasa"
-                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-                <div>
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Province <span style={{ color: DANGER }}>*</span></label>
-                  <select value={mProvince} onChange={e => setMProvince(e.target.value)}
-                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] cursor-pointer">
-                    {PROVINCES.filter(p => p !== 'Toutes provinces').map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Pays <span style={{ color: DANGER }}>*</span></label>
-                  <select value={mCountry} onChange={e => setMCountry(e.target.value)}
-                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] cursor-pointer">
-                    <option value="RDC">RD Congo</option>
-                    <option value="Sénégal">Sénégal</option>
-                    <option value="Côte d'Ivoire">Côte d'Ivoire</option>
-                    <option value="Congo">Congo</option>
-                    <option value="Cameroun">Cameroun</option>
-                    <option value="Gabon">Gabon</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Capacité max</label>
-                  <input type="number" value={mMaxStudents} onChange={e => setMMaxStudents(e.target.value)} placeholder="500"
-                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-                <div>
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Type</label>
-                  <select value={mSchoolType} onChange={e => setMSchoolType(e.target.value)}
-                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] cursor-pointer">
-                    <option value="MATERNELLE">Maternelle</option>
-                    <option value="PRIMAIRE">Primaire</option>
-                    <option value="SECONDAIRE">Secondaire</option>
-                    <option value="MIXTE">Mixte</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Catégorie</label>
-                  <select value={mSchoolCategory} onChange={e => setMSchoolCategory(e.target.value)}
-                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] cursor-pointer">
-                    <option value="PRIVEE">Privée</option>
-                    <option value="PUBLIQUE">Publique</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Abonnement</label>
-                  <select value={mSubscriptionTier} onChange={e => setMSubscriptionTier(e.target.value)}
-                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] cursor-pointer">
-                    {SUBSCRIPTION_TIERS.map(t => <option key={t} value={t}>{getSubscriptionLabel(t)}</option>)}
-                  </select>
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Description</label>
-                  <textarea value={mDescription} onChange={e => setMDescription(e.target.value)} placeholder="Description..." rows={2}
-                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] resize-none" />
-                </div>
-              </div>
-
-              {/* Admin account section - only for creation */}
-              {!editingSchool && (
-                <div className="rounded-xl p-4 mt-2" style={{ background: `linear-gradient(135deg, ${ACCENT}20, ${GOLD}15)`, border: `1px solid ${ACCENT}30` }}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-9 h-9 rounded-xl grid place-items-center text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                      <Shield size={18} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold" style={{ color: TEXT_PRIMARY }}>Compte administrateur</h3>
-                      <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Identifiants de connexion pour le secrétariat</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="sm:col-span-2">
-                      <label className="text-[12px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom complet <span style={{ color: DANGER }}>*</span></label>
-                      <input type="text" value={mAdminName} onChange={e => setMAdminName(e.target.value)} placeholder="Jean Mukendi"
-                        className="w-full mt-1 px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[2px] focus:ring-[oklch(95%_0.05_65)]" />
-                    </div>
-                    <div>
-                      <label className="text-[12px] font-medium" style={{ color: TEXT_PRIMARY }}>Email <span style={{ color: DANGER }}>*</span></label>
-                      <input type="email" value={mAdminEmail} onChange={e => setMAdminEmail(e.target.value)} placeholder="admin@ecole.com"
-                        className="w-full mt-1 px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[2px] focus:ring-[oklch(95%_0.05_65)]" />
-                    </div>
-                    <div>
-                      <label className="text-[12px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone <span style={{ color: DANGER }}>*</span></label>
-                      <input type="tel" value={mAdminPhone} onChange={e => setMAdminPhone(e.target.value)} placeholder="+243 81 234 56 78"
-                        className="w-full mt-1 px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[2px] focus:ring-[oklch(95%_0.05_65)]" />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="text-[12px] font-medium" style={{ color: TEXT_PRIMARY }}>Mot de passe</label>
-                      <input type="password" value={mAdminPassword} onChange={e => setMAdminPassword(e.target.value)} placeholder="Défaut: admin123"
-                        className="w-full mt-1 px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[2px] focus:ring-[oklch(95%_0.05_65)]" />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="p-4 border-t border-[oklch(90%_0.01_175)] flex justify-end gap-3">
-              <button onClick={() => setShowModal(false)} className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>
-                Annuler
-              </button>
-              <button onClick={handleSave} disabled={saving} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 disabled:opacity-50">
-                {saving ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
-                {editingSchool ? 'Enregistrer' : 'Créer l\'école'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -4323,7 +4451,6 @@ export default function Home() {
   if (!userRole) {
     switch (currentView) {
       case 'login': return <LoginView />
-      case 'create-school': return <CreateSchoolView />
       case 'pricing': return <PricingView />
       case 'school-detail': return <SchoolDetailView />
       default: return <HomeView />

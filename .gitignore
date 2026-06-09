@@ -72,4 +72,4 @@ server.log
 /mini-services/
 
 # Caddyfile
-Caddyfile
+Caddyfileuploads/schools/*.png

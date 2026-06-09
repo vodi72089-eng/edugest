@@ -87,6 +87,9 @@ export async function POST(request: NextRequest) {
       maxStudents,
       establishmentYear,
       mission,
+      subscriptionTier,
+      logo,
+      coverImage,
       // Admin account fields
       adminName,
       adminEmail,
@@ -128,6 +131,9 @@ export async function POST(request: NextRequest) {
         maxStudents: maxStudents || 100,
         establishmentYear: establishmentYear || null,
         mission: mission || null,
+        subscriptionTier: subscriptionTier || 'FREEMIUM',
+        logo: logo || null,
+        coverImage: coverImage || null,
       },
     });
 

@@ -319,3 +319,20 @@ model GlobalApiConfig {
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
 }
+
+model PricingPlan {
+  id          String   @id @default(cuid())
+  tier        String   @unique
+  name        String
+  price       Int      @default(0)
+  originalPrice Int?
+  period      String   @default("/mois")
+  description String
+  features    String
+  color       String   @default("")
+  isPopular   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+}
