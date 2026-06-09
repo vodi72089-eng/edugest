@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const classId = searchParams.get('classId') || '';
     const schoolId = searchParams.get('schoolId') || '';
     const schoolYearId = searchParams.get('schoolYearId') || '';
+    const parentId = searchParams.get('parentId') || '';
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
 
@@ -32,6 +33,10 @@ export async function GET(request: NextRequest) {
 
     if (schoolYearId) {
       where.schoolYearId = schoolYearId;
+    }
+
+    if (parentId) {
+      where.parentId = parentId;
     }
 
     const [students, total] = await Promise.all([

@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     const listType = searchParams.get('listType') || '';
     const severity = searchParams.get('severity') || '';
     const studentId = searchParams.get('studentId') || '';
+    const parentId = searchParams.get('parentId') || '';
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
 
@@ -17,6 +18,7 @@ export async function GET(request: NextRequest) {
     if (listType) where.listType = listType;
     if (severity) where.severity = severity;
     if (studentId) where.studentId = studentId;
+    if (parentId) where.student = { parentId };
 
     const [records, total] = await Promise.all([
       db.disciplineRecord.findMany({

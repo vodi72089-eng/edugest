@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const subjectId = searchParams.get('subjectId') || '';
     const trimester = searchParams.get('trimester') || '';
     const schoolYearId = searchParams.get('schoolYearId') || '';
+    const parentId = searchParams.get('parentId') || '';
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
 
@@ -19,6 +20,7 @@ export async function GET(request: NextRequest) {
     if (subjectId) where.subjectId = subjectId;
     if (trimester) where.trimester = trimester;
     if (schoolYearId) where.schoolYearId = schoolYearId;
+    if (parentId) where.student = { parentId };
 
     const [grades, total] = await Promise.all([
       db.grade.findMany({

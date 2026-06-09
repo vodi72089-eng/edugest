@@ -36,7 +36,7 @@ interface SchoolData {
 interface StudentData {
   id: string; matricule: string; firstName: string; lastName: string;
   gender?: string; dateOfBirth?: string; classId: string;
-  parentId?: string; schoolId: string; schoolYearId: string;
+  parentId?: string; schoolId: string; schoolYearId: string; photoUrl?: string;
   class?: { id: string; name: string; section?: string };
   parent?: { id: string; name: string; email?: string; phone?: string };
 }
@@ -3147,21 +3147,110 @@ function CashierDashboard() {
 
 // ===== PARENT DASHBOARD =====
 function ParentDashboard() {
-  const { setCurrentView } = useEduGestStore()
+  const { userData, setCurrentView, setSelectedStudentId } = useEduGestStore()
+  const [children, setChildren] = useState<StudentData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editingChild, setEditingChild] = useState<string | null>(null)
+  const [editFirstName, setEditFirstName] = useState('')
+  const [editLastName, setEditLastName] = useState('')
+  const [savingChild, setSavingChild] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const childPhotoInputRef = useRef<HTMLInputElement | null>(null)
+  const [editingPhotoForChild, setEditingPhotoForChild] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (userData?.id) {
+      fetch(`/api/students?parentId=${userData.id}&limit=20`)
+        .then(r => r.json())
+        .then(j => { setChildren(j.data || []); setLoading(false) })
+        .catch(() => setLoading(false))
+    } else {
+      setLoading(false)
+    }
+  }, [userData?.id])
+
+  async function handleEditChild(child: StudentData) {
+    setEditingChild(child.id)
+    setEditFirstName(child.firstName)
+    setEditLastName(child.lastName)
+  }
+
+  async function handleSaveChild() {
+    if (!editingChild) return
+    if (!editFirstName.trim() || !editLastName.trim()) {
+      toast.error('Le prénom et le nom sont requis')
+      return
+    }
+    setSavingChild(true)
+    try {
+      const res = await fetch(`/api/students/${editingChild}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName: editFirstName.trim(), lastName: editLastName.trim() }),
+      })
+      if (res.ok) {
+        toast.success('Nom de l\'enfant mis à jour!')
+        setChildren(prev => prev.map(c =>
+          c.id === editingChild
+            ? { ...c, firstName: editFirstName.trim(), lastName: editLastName.trim() }
+            : c
+        ))
+        setEditingChild(null)
+      } else {
+        toast.error('Erreur lors de la mise à jour')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setSavingChild(false) }
+  }
+
+  async function handleChildPhotoUpload(e: React.ChangeEvent<HTMLInputElement>, childId: string) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { toast.error('Veuillez sélectionner une image'); return }
+    if (file.size > 5 * 1024 * 1024) { toast.error('L\'image ne doit pas dépasser 5MB'); return }
+
+    setUploadingPhoto(true)
+    setEditingPhotoForChild(childId)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('category', 'students')
+      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData })
+      const uploadJson = await uploadRes.json()
+      if (!uploadRes.ok) { toast.error(uploadJson.error || 'Erreur upload'); return }
+
+      // Update student photoUrl
+      const updateRes = await fetch(`/api/students/${childId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoUrl: uploadJson.url }),
+      })
+      if (updateRes.ok) {
+        toast.success('Photo de l\'enfant mise à jour!')
+        setChildren(prev => prev.map(c =>
+          c.id === childId ? { ...c, photoUrl: uploadJson.url } : c
+        ))
+      } else {
+        toast.error('Erreur lors de la mise à jour de la photo')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setUploadingPhoto(false); setEditingPhotoForChild(null) }
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour Papa Kazadi</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour {userData?.name || 'Parent'}</h1>
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi scolaire de vos enfants</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
-        <StatCard label="Mes enfants" value="2" icon={<Users size={16} />} color={ACCENT} />
+        <StatCard label="Mes enfants" value={String(children.length)} icon={<Users size={16} />} color={ACCENT} />
         <StatCard label="Notifications" value="5" icon={<Bell size={16} />} color={INFO} />
         <StatCard label="Devoirs à rendre" value="3" icon={<PenTool size={16} />} color={WARNING} />
       </div>
@@ -3170,47 +3259,99 @@ function ParentDashboard() {
         <div className="w-1 h-6 rounded-full" style={{ background: GOLD }} />
         <h3 className="text-lg font-semibold" style={{ color: TEXT_PRIMARY }}>Mes enfants</h3>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        {[
-          { name: 'Kabongo Mutombo', class: '6eA', avg: '14.2/20', initials: 'KM', color: ACCENT },
-          { name: 'Nzuzi Kazadi', class: '6eA', avg: '12.8/20', initials: 'NK', color: INFO },
-        ].map(child => (
-          <div key={child.name} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-14 h-14 rounded-full grid place-items-center text-white font-bold text-lg" style={{ background: `linear-gradient(135deg, ${child.color}, oklch(72% 0.15 65))` }}>
-                {child.initials}
+      {loading ? (
+        <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement de vos enfants...</div>
+      ) : children.length === 0 ? (
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-8 text-center shadow-sm">
+          <Users size={32} className="mx-auto mb-3" style={{ color: TEXT_MUTED_LUXE }} />
+          <p className="font-medium" style={{ color: TEXT_PRIMARY }}>Aucun enfant associé</p>
+          <p className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>Contactez l&apos;administration pour associer vos enfants à votre compte.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          {children.map(child => {
+            const fullName = `${child.firstName} ${child.lastName}`
+            const initials = getInitials(fullName)
+            const isEditing = editingChild === child.id
+            return (
+              <div key={child.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
+                <div className="flex items-center gap-3 mb-4">
+                  {/* Clickable child photo */}
+                  <div className="relative group cursor-pointer" onClick={() => { setEditingPhotoForChild(child.id); childPhotoInputRef.current?.click() }}>
+                    {child.photoUrl ? (
+                      <img src={child.photoUrl} alt={fullName} className="w-14 h-14 rounded-full object-cover border-2 border-[oklch(90%_0.01_175)]" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-full grid place-items-center text-white font-bold text-lg" style={{ background: `linear-gradient(135deg, ${ACCENT}, oklch(72% 0.15 65))` }}>
+                        {initials}
+                      </div>
+                    )}
+                    <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full grid place-items-center border-2 border-white shadow-sm transition group-hover:scale-110" style={{ background: GOLD }}>
+                      {uploadingPhoto && editingPhotoForChild === child.id ? (
+                        <div className="h-3 w-3 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Camera size={10} className="text-[oklch(15%_0.02_250)]" />
+                      )}
+                    </div>
+                    <input
+                      ref={editingPhotoForChild === child.id ? childPhotoInputRef : null}
+                      type="file" accept="image/*" className="hidden"
+                      onChange={e => handleChildPhotoUpload(e, child.id)}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <input value={editFirstName} onChange={e => setEditFirstName(e.target.value)} placeholder="Prénom" className="w-full px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+                        <input value={editLastName} onChange={e => setEditLastName(e.target.value)} placeholder="Nom" className="w-full px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+                        <div className="flex gap-2">
+                          <button onClick={handleSaveChild} disabled={savingChild} className="edu-gold-cta px-3 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1 disabled:opacity-50">
+                            {savingChild ? <div className="h-3 w-3 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={10} />}
+                            Sauvegarder
+                          </button>
+                          <button onClick={() => setEditingChild(null)} className="px-3 py-1 rounded-lg text-xs font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <div className="font-semibold" style={{ color: TEXT_PRIMARY }}>{fullName}</div>
+                          <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Classe {child.class?.name || '—'} · {child.matricule}</div>
+                        </div>
+                        <button onClick={() => handleEditChild(child)} className="ml-auto w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition shrink-0" style={{ color: TEXT_MUTED_LUXE }} title="Modifier le nom">
+                          <Edit size={13} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: 'Notes', view: 'grades' as ViewType, icon: <BookOpen size={14} /> },
+                    { label: 'Bulletin', view: 'bulletin' as ViewType, icon: <FileText size={14} /> },
+                    { label: 'Paiements', view: 'payments' as ViewType, icon: <CreditCard size={14} /> },
+                    { label: 'Discipline', view: 'discipline' as ViewType, icon: <Shield size={14} /> },
+                  ].map(chip => (
+                    <button key={chip.label} onClick={() => { setSelectedStudentId(child.id); setCurrentView(chip.view) }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(95%_0.04_175)] hover:border-[oklch(72%_0.15_65_/_0.3)] transition" style={{ color: TEXT_PRIMARY }}>
+                      {chip.icon} {chip.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div>
-                <div className="font-semibold" style={{ color: TEXT_PRIMARY }}>{child.name}</div>
-                <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Classe {child.class} · Moyenne {child.avg}</div>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { label: 'Notes', view: 'grades' as ViewType, icon: <BookOpen size={14} /> },
-                { label: 'Bulletin', view: 'bulletin' as ViewType, icon: <FileText size={14} /> },
-                { label: 'Paiements', view: 'payments' as ViewType, icon: <CreditCard size={14} /> },
-                { label: 'Discipline', view: 'discipline' as ViewType, icon: <Shield size={14} /> },
-              ].map(chip => (
-                <button key={chip.label} onClick={() => setCurrentView(chip.view)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(95%_0.04_175)] hover:border-[oklch(72%_0.15_65_/_0.3)] transition" style={{ color: TEXT_PRIMARY }}>
-                  {chip.icon} {chip.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+            )
+          })}
+        </div>
+      )}
 
       <div className="flex items-center gap-2 mb-3">
         <div className="w-1 h-6 rounded-full" style={{ background: GOLD }} />
         <h3 className="text-lg font-semibold" style={{ color: TEXT_PRIMARY }}>Notifications récentes</h3>
       </div>
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl divide-y divide-[oklch(90%_0.01_175)] shadow-sm">
-        {[
-          { icon: <BookOpen size={16} className="text-edu-accent" />, text: 'Nouvelle note en Mathématiques — Kabongo: 16/20', time: 'Il y a 2h' },
-          { icon: <CreditCard size={16} className="text-edu-success" />, text: 'Paiement T2 confirmé — Nzuzi Kazadi', time: 'Il y a 5h' },
-          { icon: <PenTool size={16} className="text-edu-warning" />, text: 'Devoir à rendre: Exercices de calcul — 6eA', time: 'Hier' },
-          { icon: <Shield size={16} className="text-edu-danger" />, text: 'Avertissement: Retard répété — Kabongo Mutombo', time: 'Il y a 2 jours' },
+        {children.length > 0 ? [
+          { icon: <BookOpen size={16} className="text-edu-accent" />, text: `Nouvelle note en Mathématiques — ${children[0]?.firstName}: 16/20`, time: 'Il y a 2h' },
+          { icon: <CreditCard size={16} className="text-edu-success" />, text: `Paiement T2 confirmé — ${children[children.length > 1 ? 1 : 0]?.firstName || children[0]?.firstName}`, time: 'Il y a 5h' },
+          { icon: <PenTool size={16} className="text-edu-warning" />, text: 'Devoir à rendre: Exercices de calcul', time: 'Hier' },
+          { icon: <Shield size={16} className="text-edu-danger" />, text: `Avertissement: Retard répété — ${children[0]?.firstName} ${children[0]?.lastName}`, time: 'Il y a 2 jours' },
           { icon: <Megaphone size={16} className="text-edu-info" />, text: 'Réunion parents-professeurs le 15 octobre', time: 'Il y a 3 jours' },
         ].map((n, i) => (
           <div key={i} className="flex items-start gap-3 p-4 hover:bg-[oklch(97%_0.005_175)] transition">
@@ -3221,7 +3362,9 @@ function ParentDashboard() {
             </div>
             {i === 0 && <span className="w-2 h-2 rounded-full mt-2 shrink-0" style={{ background: GOLD }} />}
           </div>
-        ))}
+        )) : (
+          <div className="p-6 text-center" style={{ color: TEXT_MUTED_LUXE }}>Aucune notification</div>
+        )}
       </div>
     </div>
   )
@@ -3549,28 +3692,48 @@ function ClassesView() {
 
 // ===== GRADES VIEW =====
 function GradesView() {
+  const { userRole, userData } = useEduGestStore()
   const [grades, setGrades] = useState<GradeData[]>([])
   const [classes, setClasses] = useState<ClassData[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedClass, setSelectedClass] = useState('')
   const [selectedTrimester, setSelectedTrimester] = useState('T1')
+  const [selectedChildId, setSelectedChildId] = useState('')
+  const [myChildren, setMyChildren] = useState<StudentData[]>([])
+  const isParent = userRole === 'PARENT'
 
   useEffect(() => {
     fetch('/api/classes?limit=50').then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
+    // If parent, load their children
+    if (isParent && userData?.id) {
+      fetch(`/api/students?parentId=${userData.id}&limit=20`)
+        .then(r => r.json())
+        .then(j => setMyChildren(j.data || []))
+        .catch(() => {})
+    }
     loadGrades()
   }, [])
 
   useEffect(() => {
-    if (selectedClass) loadGrades()
-  }, [selectedClass, selectedTrimester])
+    loadGrades()
+  }, [selectedClass, selectedTrimester, selectedChildId])
 
   async function loadGrades() {
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      if (selectedClass) params.set('classId', selectedClass)
+      if (isParent && userData?.id) {
+        // Parent: only load their children's grades
+        params.set('parentId', userData.id)
+        if (selectedChildId) {
+          params.delete('parentId')
+          params.set('studentId', selectedChildId)
+        }
+      } else {
+        if (selectedClass) params.set('classId', selectedClass)
+      }
       params.set('trimester', selectedTrimester)
-      params.set('limit', '50')
+      params.set('limit', '100')
       const res = await fetch(`/api/grades?${params}`)
       const json = await res.json()
       setGrades(json.data || [])
@@ -3578,7 +3741,15 @@ function GradesView() {
     finally { setLoading(false) }
   }
 
-  const uniqueStudents = [...new Map(grades.map(g => [g.studentId, g.student]).filter(Boolean)).values()]
+  // Group grades by student for parent view
+  const gradesByStudent = isParent ? Object.entries(
+    grades.reduce((acc, g) => {
+      const key = g.studentId
+      if (!acc[key]) acc[key] = { student: g.student, grades: [] }
+      acc[key].grades.push(g)
+      return acc
+    }, {} as Record<string, { student: GradeData['student']; grades: GradeData[] }>)
+  ) : []
 
   return (
     <div>
@@ -3587,10 +3758,17 @@ function GradesView() {
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Notes</h1>
       </div>
       <div className="flex flex-wrap items-center gap-3 mb-5 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4 shadow-sm" style={{ background: IVORY }}>
-        <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-          <option value="">Toutes les classes</option>
-          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        {isParent ? (
+          <select value={selectedChildId} onChange={e => setSelectedChildId(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+            <option value="">Tous mes enfants</option>
+            {myChildren.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
+          </select>
+        ) : (
+          <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+            <option value="">Toutes les classes</option>
+            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        )}
         <select value={selectedTrimester} onChange={e => setSelectedTrimester(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
           <option value="T1">Trimestre 1</option>
           <option value="T2">Trimestre 2</option>
@@ -3598,38 +3776,85 @@ function GradesView() {
         </select>
       </div>
 
-      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr style={{ background: IVORY }}>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élève</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Matière</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Note /20</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Coef.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={4} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
-              ) : grades.length === 0 ? (
-                <tr><td colSpan={4} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucune note</td></tr>
-              ) : grades.slice(0, 30).map(g => (
-                <tr key={g.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                  <td className="px-3 py-2.5 text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{g.student?.firstName} {g.student?.lastName}</td>
-                  <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{g.subject?.name}</td>
-                  <td className="px-3 py-2.5">
-                    <span className="text-[13px] font-semibold" style={{ color: g.score >= 10 ? GOLD : DANGER }}>
-                      {g.score.toFixed(1)}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>×{g.subject?.coefficient || 1}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {isParent && gradesByStudent.length > 0 ? (
+        // Parent view: group by child with summary
+        <div className="space-y-6">
+          {gradesByStudent.map(([studentId, { student, grades: studentGrades }]) => {
+            const avg = studentGrades.length > 0
+              ? studentGrades.reduce((sum, g) => sum + g.score * (g.subject?.coefficient || 1), 0) / studentGrades.reduce((sum, g) => sum + (g.subject?.coefficient || 1), 0)
+              : 0
+            return (
+              <div key={studentId} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
+                <div className="p-4 flex items-center gap-3" style={{ background: IVORY }}>
+                  <div className="w-10 h-10 rounded-full grid place-items-center text-white font-bold text-sm" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                    {student ? getInitials(`${student.firstName} ${student.lastName}`) : '??'}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold" style={{ color: TEXT_PRIMARY }}>{student?.firstName} {student?.lastName}</div>
+                    <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{studentGrades.length} notes · Moyenne: <span className="font-semibold" style={{ color: avg >= 10 ? GOLD : DANGER }}>{avg.toFixed(1)}/20</span></div>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2" style={{ color: GOLD }}>Matière</th>
+                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2" style={{ color: GOLD }}>Note /20</th>
+                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2" style={{ color: GOLD }}>Coef.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {studentGrades.map(g => (
+                        <tr key={g.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
+                          <td className="px-3 py-2 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{g.subject?.name}</td>
+                          <td className="px-3 py-2">
+                            <span className="text-[13px] font-semibold" style={{ color: g.score >= 10 ? GOLD : DANGER }}>{g.score.toFixed(1)}</span>
+                          </td>
+                          <td className="px-3 py-2 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>×{g.subject?.coefficient || 1}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )
+          })}
         </div>
-      </div>
+      ) : (
+        // Default view for non-parent roles
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr style={{ background: IVORY }}>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élève</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Matière</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Note /20</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Coef.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={4} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
+                ) : grades.length === 0 ? (
+                  <tr><td colSpan={4} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucune note</td></tr>
+                ) : grades.slice(0, 30).map(g => (
+                  <tr key={g.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
+                    <td className="px-3 py-2.5 text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{g.student?.firstName} {g.student?.lastName}</td>
+                    <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{g.subject?.name}</td>
+                    <td className="px-3 py-2.5">
+                      <span className="text-[13px] font-semibold" style={{ color: g.score >= 10 ? GOLD : DANGER }}>
+                        {g.score.toFixed(1)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>×{g.subject?.coefficient || 1}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -3649,10 +3874,34 @@ function PaymentsView() {
   const [status, setStatus] = useState('PAID')
   const [submitting, setSubmitting] = useState(false)
   const [lastPaymentId, setLastPaymentId] = useState<string | null>(null)
-  const { userData } = useEduGestStore()
+  const { userData, userRole } = useEduGestStore()
+  const isParent = userRole === 'PARENT'
 
   useEffect(() => {
-    fetch('/api/payments?limit=30').then(r => r.json()).then(j => { setPayments(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+    if (isParent && userData?.id) {
+      // Load only children's payments using the studentIds from children
+      fetch(`/api/students?parentId=${userData.id}&limit=20`)
+        .then(r => r.json())
+        .then(async j => {
+          const children = j.data || []
+          if (children.length > 0) {
+            // Load payments for each child
+            const allPayments: PaymentData[] = []
+            for (const child of children) {
+              try {
+                const pRes = await fetch(`/api/payments?studentId=${child.id}&limit=30`)
+                const pJson = await pRes.json()
+                if (pJson.data) allPayments.push(...pJson.data)
+              } catch { /* skip */ }
+            }
+            setPayments(allPayments)
+          }
+          setLoading(false)
+        })
+        .catch(() => setLoading(false))
+    } else {
+      fetch('/api/payments?limit=30').then(r => r.json()).then(j => { setPayments(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+    }
   }, [])
 
   // Search students as user types
@@ -3748,7 +3997,8 @@ function PaymentsView() {
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Paiements</h1>
       </div>
 
-      {/* Payment Form */}
+      {/* Payment Form - Hidden for parents */}
+      {!isParent && (
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 mb-6 shadow-sm" style={{ borderLeft: `4px solid ${GOLD}` }}>
         <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Enregistrer un paiement</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
@@ -3830,6 +4080,7 @@ function PaymentsView() {
           )}
         </div>
       </div>
+      )}
 
       {/* Payments Table */}
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
@@ -3921,13 +4172,38 @@ function PaymentsView() {
 
 // ===== DISCIPLINE VIEW =====
 function DisciplineView() {
+  const { userRole, userData } = useEduGestStore()
   const [records, setRecords] = useState<DisciplineData[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'BLACKLIST' | 'GREYLIST' | 'WHITELIST'>('GREYLIST')
+  const [selectedChildId, setSelectedChildId] = useState('')
+  const [myChildren, setMyChildren] = useState<StudentData[]>([])
+  const isParent = userRole === 'PARENT'
 
   useEffect(() => {
-    fetch(`/api/discipline?listType=${tab}&limit=30`).then(r => r.json()).then(j => { setRecords(j.data || []); setLoading(false) }).catch(() => setLoading(false))
-  }, [tab])
+    if (isParent && userData?.id) {
+      fetch(`/api/students?parentId=${userData.id}&limit=20`)
+        .then(r => r.json())
+        .then(j => setMyChildren(j.data || []))
+        .catch(() => {})
+    }
+  }, [isParent, userData?.id])
+
+  useEffect(() => {
+    let cancelled = false
+    const params = new URLSearchParams()
+    params.set('listType', tab)
+    params.set('limit', '50')
+    if (isParent && userData?.id) {
+      if (selectedChildId) {
+        params.set('studentId', selectedChildId)
+      } else {
+        params.set('parentId', userData.id)
+      }
+    }
+    fetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { if (!cancelled) { setRecords(j.data || []); setLoading(false) } }).catch(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [tab, isParent, userData?.id, selectedChildId])
 
   return (
     <div>
@@ -3935,6 +4211,15 @@ function DisciplineView() {
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Discipline</h1>
       </div>
+
+      {isParent && myChildren.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <select value={selectedChildId} onChange={e => setSelectedChildId(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+            <option value="">Tous mes enfants</option>
+            {myChildren.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
+          </select>
+        </div>
+      )}
 
       <div className="flex gap-0.5 border-b border-[oklch(90%_0.01_175)] mb-5">
         {[
@@ -3960,7 +4245,7 @@ function DisciplineView() {
           <table className="w-full">
             <thead>
               <tr style={{ background: IVORY }}>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>
+                {!isParent && <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>}
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Motif</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Type</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Date</th>
@@ -3974,17 +4259,19 @@ function DisciplineView() {
                 <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun enregistrement</td></tr>
               ) : records.map(r => (
                 <tr key={r.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                        {r.student ? getInitials(`${r.student.firstName} ${r.student.lastName}`) : '??'}
+                  {!isParent && (
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                          {r.student ? getInitials(`${r.student.firstName} ${r.student.lastName}`) : '??'}
+                        </div>
+                        <div>
+                          <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{r.student ? `${r.student.firstName} ${r.student.lastName}` : '—'}</div>
+                          <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{r.student?.matricule || ''}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{r.student ? `${r.student.firstName} ${r.student.lastName}` : '—'}</div>
-                        <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{r.student?.matricule || ''}</div>
-                      </div>
-                    </div>
-                  </td>
+                    </td>
+                  )}
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{r.title}</td>
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_PRIMARY }}>{r.type}</td>
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(r.createdAt)}</td>
@@ -4139,12 +4426,23 @@ function HomeworkView() {
 
 // ===== PROFILE VIEW =====
 function ProfileView() {
-  const { userData, setUserData } = useEduGestStore()
+  const { userData, setUserData, userRole } = useEduGestStore()
   const [name, setName] = useState(userData?.name || '')
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(userData?.profileImageUrl || null)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const isParent = userRole === 'PARENT'
+
+  // Children editing state
+  const [children, setChildren] = useState<StudentData[]>([])
+  const [editingChildId, setEditingChildId] = useState<string | null>(null)
+  const [editFirstName, setEditFirstName] = useState('')
+  const [editLastName, setEditLastName] = useState('')
+  const [savingChild, setSavingChild] = useState(false)
+  const [uploadingChildPhoto, setUploadingChildPhoto] = useState(false)
+  const [editingPhotoChildId, setEditingPhotoChildId] = useState<string | null>(null)
+  const childFileInputRef = useRef<HTMLInputElement | null>(null)
 
   // Sync profileImageUrl from store when userData changes
   useEffect(() => {
@@ -4152,6 +4450,16 @@ function ProfileView() {
       setProfileImageUrl(userData.profileImageUrl)
     }
   }, [userData?.profileImageUrl])
+
+  // Load children for parent
+  useEffect(() => {
+    if (isParent && userData?.id) {
+      fetch(`/api/students?parentId=${userData.id}&limit=20`)
+        .then(r => r.json())
+        .then(j => setChildren(j.data || []))
+        .catch(() => {})
+    }
+  }, [isParent, userData?.id])
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -4168,13 +4476,20 @@ function ProfileView() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('userId', userData.id)
+      formData.append('category', 'profiles')
       const res = await fetch('/api/upload', { method: 'POST', body: formData })
       const json = await res.json()
       if (res.ok) {
-        setProfileImageUrl(json.profileImageUrl)
+        const photoUrl = json.url
+        setProfileImageUrl(photoUrl)
+        // Update user profile with the new photo
+        await fetch('/api/profile', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: userData.id, profileImageUrl: photoUrl }),
+        })
         // Also update the store so the sidebar avatar reflects the change
-        setUserData({ ...userData, profileImageUrl: json.profileImageUrl })
+        setUserData({ ...userData, profileImageUrl: photoUrl })
         toast.success('Photo de profil mise à jour!')
       } else {
         toast.error(json.error || 'Erreur lors de l\'upload')
@@ -4215,6 +4530,67 @@ function ProfileView() {
       }
     } catch { toast.error('Erreur réseau') }
     finally { setSaving(false) }
+  }
+
+  async function handleSaveChild() {
+    if (!editingChildId) return
+    if (!editFirstName.trim() || !editLastName.trim()) {
+      toast.error('Le prénom et le nom sont requis')
+      return
+    }
+    setSavingChild(true)
+    try {
+      const res = await fetch(`/api/students/${editingChildId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName: editFirstName.trim(), lastName: editLastName.trim() }),
+      })
+      if (res.ok) {
+        toast.success('Nom de l\'enfant mis à jour!')
+        setChildren(prev => prev.map(c =>
+          c.id === editingChildId
+            ? { ...c, firstName: editFirstName.trim(), lastName: editLastName.trim() }
+            : c
+        ))
+        setEditingChildId(null)
+      } else {
+        toast.error('Erreur lors de la mise à jour')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setSavingChild(false) }
+  }
+
+  async function handleChildPhotoUpload(e: React.ChangeEvent<HTMLInputElement>, childId: string) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { toast.error('Veuillez sélectionner une image'); return }
+    if (file.size > 5 * 1024 * 1024) { toast.error('L\'image ne doit pas dépasser 5MB'); return }
+
+    setUploadingChildPhoto(true)
+    setEditingPhotoChildId(childId)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('category', 'students')
+      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData })
+      const uploadJson = await uploadRes.json()
+      if (!uploadRes.ok) { toast.error(uploadJson.error || 'Erreur upload'); return }
+
+      const updateRes = await fetch(`/api/students/${childId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoUrl: uploadJson.url }),
+      })
+      if (updateRes.ok) {
+        toast.success('Photo de l\'enfant mise à jour!')
+        setChildren(prev => prev.map(c =>
+          c.id === childId ? { ...c, photoUrl: uploadJson.url } : c
+        ))
+      } else {
+        toast.error('Erreur lors de la mise à jour de la photo')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setUploadingChildPhoto(false); setEditingPhotoChildId(null) }
   }
 
   return (
@@ -4269,6 +4645,81 @@ function ProfileView() {
           </button>
         </div>
       </div>
+
+      {/* Parent: Children editing section */}
+      {isParent && children.length > 0 && (
+        <div className="mt-6">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-1 h-6 rounded-full" style={{ background: GOLD }} />
+            <h3 className="text-lg font-semibold" style={{ color: TEXT_PRIMARY }}>Mes enfants</h3>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ color: GOLD, background: GOLD_SOFT }}>{children.length}</span>
+          </div>
+          <div className="space-y-4">
+            {children.map(child => {
+              const isEditing = editingChildId === child.id
+              return (
+                <div key={child.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-start gap-4">
+                    {/* Child photo */}
+                    <div className="relative group cursor-pointer shrink-0" onClick={() => { setEditingPhotoChildId(child.id); childFileInputRef.current?.click() }}>
+                      {child.photoUrl ? (
+                        <img src={child.photoUrl} alt={`${child.firstName} ${child.lastName}`} className="w-16 h-16 rounded-full object-cover border-2 border-[oklch(90%_0.01_175)]" />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full grid place-items-center text-white font-bold text-lg" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                          {getInitials(`${child.firstName} ${child.lastName}`)}
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full grid place-items-center border-2 border-white shadow-sm transition group-hover:scale-110" style={{ background: GOLD }}>
+                        {uploadingChildPhoto && editingPhotoChildId === child.id ? (
+                          <div className="h-3 w-3 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Camera size={10} className="text-[oklch(15%_0.02_250)]" />
+                        )}
+                      </div>
+                      <input
+                        ref={editingPhotoChildId === child.id ? childFileInputRef : null}
+                        type="file" accept="image/*" className="hidden"
+                        onChange={e => handleChildPhotoUpload(e, child.id)}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {isEditing ? (
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Prénom</label>
+                            <input value={editFirstName} onChange={e => setEditFirstName(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Nom</label>
+                            <input value={editLastName} onChange={e => setEditLastName(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={handleSaveChild} disabled={savingChild} className="edu-gold-cta px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50">
+                              {savingChild ? <div className="h-3 w-3 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={12} />}
+                              Sauvegarder
+                            </button>
+                            <button onClick={() => setEditingChildId(null)} className="px-4 py-2 rounded-xl text-xs font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-semibold" style={{ color: TEXT_PRIMARY }}>{child.firstName} {child.lastName}</div>
+                            <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Classe {child.class?.name || '—'} · {child.matricule}</div>
+                          </div>
+                          <button onClick={() => { setEditingChildId(child.id); setEditFirstName(child.firstName); setEditLastName(child.lastName) }} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }} title="Modifier le nom">
+                            <Edit size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -65,7 +65,7 @@ export async function PUT(
     const updateData: Record<string, unknown> = {};
     const allowedFields = [
       'firstName', 'lastName', 'dateOfBirth', 'gender', 'address',
-      'phone', 'classId', 'parentId', 'isExcluded',
+      'phone', 'classId', 'parentId', 'isExcluded', 'photoUrl',
     ];
 
     for (const field of allowedFields) {

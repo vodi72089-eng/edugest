@@ -43,19 +43,22 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { userId, name } = body;
+    const { userId, name, profileImageUrl } = body;
 
     if (!userId) {
       return NextResponse.json({ error: 'ID utilisateur requis' }, { status: 400 });
     }
 
     // Build update data
-    const updateData: { name?: string } = {};
+    const updateData: { name?: string; profileImageUrl?: string | null } = {};
     if (name !== undefined) {
       if (typeof name !== 'string' || name.trim().length === 0) {
         return NextResponse.json({ error: 'Le nom ne peut pas être vide' }, { status: 400 });
       }
       updateData.name = name.trim();
+    }
+    if (profileImageUrl !== undefined) {
+      updateData.profileImageUrl = profileImageUrl;
     }
 
     // If nothing to update

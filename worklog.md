@@ -209,3 +209,52 @@ Stage Summary:
 - Staff accounts are created with bcrypt-hashed passwords (default: password123)
 - Lint passes, dev server running without errors
 
+---
+Task ID: 8
+Agent: Main Agent
+Task: Parent profile features - edit child name/photo, filter notes/discipline by parent's children
+
+Work Log:
+- Added `parentId` query parameter to GET /api/grades endpoint for filtering grades by parent
+- Added `parentId` query parameter to GET /api/discipline endpoint for filtering discipline by parent
+- Added `parentId` query parameter to GET /api/students endpoint for listing parent's children
+- Added `photoUrl` to allowed fields in PUT /api/students/[id] for photo updates
+- Added `profileImageUrl` field support to PUT /api/profile endpoint
+- Added `photoUrl` to StudentData interface in page.tsx
+- Replaced hardcoded ParentDashboard with dynamic version that:
+  - Loads children from /api/students?parentId={userId}
+  - Shows edit name button (pencil icon) on each child card
+  - Inline editing of firstName/lastName with save/cancel
+  - Clickable child photo with camera icon overlay for upload
+  - Photo upload via /api/upload + student update via /api/students/[id]
+  - Dynamic greeting using userData.name instead of hardcoded "Papa Kazadi"
+  - Dynamic notification text using children's actual names
+- Updated GradesView to filter by parent's children when userRole is PARENT:
+  - Shows child selector dropdown instead of class selector
+  - Groups grades by student with summary (average per child)
+  - Only loads parentId-filtered grades from API
+- Updated DisciplineView to filter by parent's children when userRole is PARENT:
+  - Shows child selector dropdown for filtering
+  - Only loads parentId-filtered discipline records from API
+  - Hides student column in parent view (since all records are their children)
+- Updated PaymentsView to load only parent's children payments:
+  - Loads children first, then fetches payments for each child
+  - Hides payment creation form for parent users
+- Updated ProfileView to show children editing section for parents:
+  - Shows "Mes enfants" section below main profile
+  - Each child has clickable photo (camera icon) and edit name button
+  - Inline editing with save/cancel buttons
+  - Photo upload with loading state
+- Fixed ESLint error: removed setLoading(true) from DisciplineView useEffect
+- Linked students to parent users in database (11 students to parent@email.com, 9 to nsimba@email.com)
+- Verified with Agent Browser: parent dashboard shows 11 children with edit capabilities
+
+Stage Summary:
+- Parents can now edit their children's names and profile photos from both the dashboard and profile view
+- Name changes persist to database and are visible to directions and super admin
+- Notes view only shows parent's children's grades (grouped by child with averages)
+- Discipline view only shows parent's children's discipline records (with child filter)
+- Payments view only shows parent's children's payments (no creation form for parents)
+- Photo uploads work for children via /api/upload + /api/students/[id] update
+- Parent credentials: parent@email.com / admin123, nsimba@email.com / admin123
+
