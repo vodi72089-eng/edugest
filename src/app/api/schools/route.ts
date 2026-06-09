@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
 
 export async function GET(request: NextRequest) {
   try {
@@ -86,12 +87,26 @@ export async function POST(request: NextRequest) {
       maxStudents,
       establishmentYear,
       mission,
+      // Admin account fields
+      adminName,
+      adminEmail,
+      adminPhone,
+      adminPassword,
     } = body;
 
     if (!name || !shortName || !email || !phone || !city || !province || !country) {
       return NextResponse.json(
-        { error: 'Missing required fields: name, shortName, email, phone, city, province, country' },
+        { error: 'Champs obligatoires manquants: name, shortName, email, phone, city, province, country' },
         { status: 400 }
+      );
+    }
+
+    // Check for duplicate school email
+    const existingSchool = await db.school.findFirst({ where: { email } });
+    if (existingSchool) {
+      return NextResponse.json(
+        { error: 'Une école avec cet email existe déjà' },
+        { status: 409 }
       );
     }
 
@@ -116,7 +131,29 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ data: school }, { status: 201 });
+    // Create admin user if admin info is provided
+    let adminUser = null;
+    if (adminName && (adminEmail || adminPhone)) {
+      const hashedPassword = await bcrypt.hash(adminPassword || 'admin123', 10);
+
+      adminUser = await db.user.create({
+        data: {
+          name: adminName,
+          email: adminEmail || null,
+          phone: adminPhone || adminPhone || phone,
+          password: hashedPassword,
+          role: 'SECRETARY',
+          schoolId: school.id,
+          isActive: true,
+        },
+      });
+
+      // Return user data without password
+      const { password: _, ...userData } = adminUser;
+      adminUser = userData;
+    }
+
+    return NextResponse.json({ data: { school, adminUser } }, { status: 201 });
   } catch (error) {
     console.error('Error creating school:', error);
     return NextResponse.json({ error: 'Failed to create school' }, { status: 500 });

@@ -750,6 +750,461 @@ function SchoolDetailView() {
   )
 }
 
+// ===== CREATE SCHOOL VIEW =====
+function CreateSchoolView() {
+  const { setCurrentView, login } = useEduGestStore()
+  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [loading, setLoading] = useState(false)
+  const [createdSchool, setCreatedSchool] = useState<SchoolData | null>(null)
+
+  // School fields
+  const [name, setName] = useState('')
+  const [shortName, setShortName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [address, setAddress] = useState('')
+  const [city, setCity] = useState('')
+  const [province, setProvince] = useState('Kinshasa')
+  const [country, setCountry] = useState('RDC')
+  const [schoolType, setSchoolType] = useState('MIXTE')
+  const [schoolCategory, setSchoolCategory] = useState('PRIVEE')
+  const [description, setDescription] = useState('')
+  const [establishmentYear, setEstablishmentYear] = useState('')
+  const [maxStudents, setMaxStudents] = useState('500')
+
+  // Admin fields
+  const [adminName, setAdminName] = useState('')
+  const [adminEmail, setAdminEmail] = useState('')
+  const [adminPhone, setAdminPhone] = useState('')
+  const [adminPassword, setAdminPassword] = useState('')
+
+  // Subscription
+  const [subscriptionTier, setSubscriptionTier] = useState('FREEMIUM')
+
+  const SCHOOL_TYPES = [
+    { value: 'MATERNELLE', label: 'Maternelle' },
+    { value: 'PRIMAIRE', label: 'Primaire' },
+    { value: 'SECONDAIRE', label: 'Secondaire' },
+    { value: 'MIXTE', label: 'Mixte' },
+  ]
+
+  const SCHOOL_CATEGORIES = [
+    { value: 'PRIVEE', label: 'Privée' },
+    { value: 'PUBLIQUE', label: 'Publique' },
+  ]
+
+  const COUNTRIES = [
+    { value: 'RDC', label: 'RD Congo' },
+    { value: 'Sénégal', label: 'Sénégal' },
+    { value: 'Côte d\'Ivoire', label: 'Côte d\'Ivoire' },
+    { value: 'Congo', label: 'Congo' },
+    { value: 'Cameroun', label: 'Cameroun' },
+    { value: 'Gabon', label: 'Gabon' },
+  ]
+
+  const SUBSCRIPTION_OPTIONS = [
+    { value: 'FREEMIUM', label: 'Freemium', price: '0$/mois', desc: 'Pour découvrir', color: MUTED },
+    { value: 'ESSENTIEL', label: 'Essentiel', price: '100$/mois', desc: 'Petites structures', color: INFO },
+    { value: 'STANDARD', label: 'Standard', price: '250$/mois', desc: 'Le choix des écoles', color: ACCENT, popular: true },
+    { value: 'PREMIUM', label: 'Professionnel', price: '500$/mois', desc: 'Grands établissements', color: WARNING },
+  ]
+
+  function validateStep1(): boolean {
+    if (!name || !shortName || !email || !phone || !city || !province || !country) {
+      toast.error('Veuillez remplir tous les champs obligatoires')
+      return false
+    }
+    return true
+  }
+
+  function validateStep2(): boolean {
+    if (!adminName || !adminEmail || !adminPhone || !adminPassword) {
+      toast.error('Veuillez remplir tous les champs du compte administrateur')
+      return false
+    }
+    if (adminPassword.length < 6) {
+      toast.error('Le mot de passe doit contenir au moins 6 caractères')
+      return false
+    }
+    return true
+  }
+
+  async function handleSubmit() {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/schools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          shortName,
+          email,
+          phone,
+          address,
+          city,
+          province,
+          country,
+          description: description || null,
+          schoolType,
+          schoolCategory,
+          maxStudents: parseInt(maxStudents) || 500,
+          establishmentYear: parseInt(establishmentYear) || null,
+          adminName,
+          adminEmail,
+          adminPhone,
+          adminPassword,
+        }),
+      })
+      const json = await res.json()
+
+      if (!res.ok) {
+        toast.error(json.error || 'Erreur lors de la création')
+        return
+      }
+
+      setCreatedSchool(json.data?.school)
+      toast.success('École créée avec succès !')
+
+      // Auto-login the admin user
+      if (json.data?.adminUser) {
+        const loginRes = await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: adminEmail, password: adminPassword }),
+        })
+        const loginJson = await loginRes.json()
+        if (loginJson.data) {
+          const apiUser = loginJson.data
+          const roleMap: Record<string, UserRole> = {
+            SUPER_ADMIN_GLOBAL: 'SUPER_ADMIN_GLOBAL',
+            SECRETARY: 'SECRETARY',
+            CASHIER: 'CASHIER',
+            TEACHER: 'TEACHER',
+            PARENT: 'PARENT',
+          }
+          const role = roleMap[apiUser.role] || 'SECRETARY'
+          login(role, {
+            id: apiUser.id,
+            name: apiUser.name,
+            role,
+            schoolId: apiUser.schoolId,
+            schoolName: json.data?.school?.name || name,
+            initials: getInitials(apiUser.name),
+            profileImageUrl: apiUser.profileImageUrl || null,
+          })
+        }
+      }
+
+      setStep(3)
+    } catch (e) {
+      toast.error('Erreur réseau. Vérifiez votre connexion.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col" style={{ background: IVORY }}>
+      <PublicHeader />
+      <div className="container-premium py-8 sm:py-12 flex-1">
+        <button onClick={() => setCurrentView('login')} className="inline-flex items-center gap-1.5 text-[13px] mb-6 transition hover:opacity-80" style={{ color: TEXT_MUTED_LUXE }}>
+          <ArrowLeft size={14} /> Retour à la connexion
+        </button>
+
+        {step === 3 && createdSchool ? (
+          /* ===== SUCCESS SCREEN ===== */
+          <div className="max-w-lg mx-auto text-center">
+            <div className="w-20 h-20 rounded-full mx-auto mb-6 grid place-items-center" style={{ background: SUCCESS_SOFT }}>
+              <CheckCircle size={40} style={{ color: SUCCESS }} />
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
+              École créée avec succès ! 🎉
+            </h1>
+            <p className="text-base mb-6" style={{ color: TEXT_MUTED_LUXE }}>
+              <strong style={{ color: TEXT_PRIMARY }}>{createdSchool.name}</strong> a été ajoutée à EduGest.
+              Vous êtes maintenant connecté en tant qu&apos;administrateur.
+            </p>
+            <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl p-6 mb-6 text-left">
+              <h3 className="font-semibold mb-3" style={{ color: TEXT_PRIMARY }}>Récapitulatif</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span style={{ color: TEXT_MUTED_LUXE }}>Nom</span><span style={{ color: TEXT_PRIMARY }}>{createdSchool.name}</span></div>
+                <div className="flex justify-between"><span style={{ color: TEXT_MUTED_LUXE }}>Abréviation</span><span style={{ color: TEXT_PRIMARY }}>{createdSchool.shortName}</span></div>
+                <div className="flex justify-between"><span style={{ color: TEXT_MUTED_LUXE }}>Ville</span><span style={{ color: TEXT_PRIMARY }}>{createdSchool.city}, {createdSchool.province}</span></div>
+                <div className="flex justify-between"><span style={{ color: TEXT_MUTED_LUXE }}>Type</span><span style={{ color: TEXT_PRIMARY }}>{getSchoolTypeLabel(createdSchool.schoolType, createdSchool.schoolCategory)}</span></div>
+                <div className="flex justify-between"><span style={{ color: TEXT_MUTED_LUXE }}>Admin</span><span style={{ color: TEXT_PRIMARY }}>{adminName}</span></div>
+                <div className="flex justify-between"><span style={{ color: TEXT_MUTED_LUXE }}>Email admin</span><span style={{ color: TEXT_PRIMARY }}>{adminEmail}</span></div>
+              </div>
+            </div>
+            <div className="bg-[oklch(95%_0.05_65)] border border-[oklch(88%_0.04_65)] rounded-xl p-4 mb-6 text-sm" style={{ color: WARNING }}>
+              <div className="flex items-start gap-2">
+                <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                <div>
+                  <strong>Important :</strong> Notez vos identifiants de connexion.<br />
+                  Email : <strong>{adminEmail}</strong><br />
+                  Mot de passe : celui que vous avez défini
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => {/* Already logged in, will show dashboard via store */}}
+              className="edu-gold-cta w-full py-3.5 rounded-xl font-semibold text-sm"
+            >
+              Accéder au tableau de bord →
+            </button>
+          </div>
+        ) : (
+          /* ===== CREATION FORM ===== */
+          <div className="max-w-2xl mx-auto">
+            <div className="text-center mb-8">
+              <div className="edu-ornament mb-4">
+                <span style={{ color: GOLD }}>◆</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-2" style={{ color: TEXT_PRIMARY }}>
+                Créer <span style={{ color: GOLD }}>mon école</span>
+              </h1>
+              <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
+                Inscrivez votre établissement sur EduGest et commencez à gérer efficacement
+              </p>
+            </div>
+
+            {/* Step indicator */}
+            <div className="flex items-center justify-center gap-2 mb-8">
+              {[
+                { n: 1, label: 'Informations' },
+                { n: 2, label: 'Compte admin' },
+              ].map((s, i) => (
+                <div key={s.n} className="flex items-center gap-2">
+                  <button
+                    onClick={() => { if (s.n < step) setStep(s.n as 1 | 2) }}
+                    className={`w-9 h-9 rounded-full grid place-items-center text-sm font-bold transition ${
+                      step >= s.n ? 'text-white' : 'bg-white border-2 border-[oklch(88%_0.01_175)] text-edu-muted'
+                    }`}
+                    style={step >= s.n ? { background: GOLD } : undefined}
+                  >
+                    {step > s.n ? <Check size={16} /> : s.n}
+                  </button>
+                  <span className={`text-sm font-medium ${step >= s.n ? '' : ''}`} style={{ color: step >= s.n ? TEXT_PRIMARY : TEXT_MUTED_LUXE }}>
+                    {s.label}
+                  </span>
+                  {i === 0 && <div className="w-8 h-0.5 mx-2" style={{ background: step > 1 ? GOLD : BORDER }} />}
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl shadow-sm overflow-hidden">
+              {/* Step 1: School info */}
+              {step === 1 && (
+                <div className="p-6 sm:p-8 space-y-5">
+                  <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>Informations de l&apos;école</h2>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
+                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom complet <span style={{ color: DANGER }}>*</span></label>
+                      <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Complexe Scolaire La Lumière"
+                        className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" required />
+                    </div>
+                    <div>
+                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Abréviation <span style={{ color: DANGER }}>*</span></label>
+                      <input type="text" value={shortName} onChange={e => setShortName(e.target.value.toUpperCase())} placeholder="Ex: CSL" maxLength={6}
+                        className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" required />
+                    </div>
+                    <div>
+                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Année de fondation</label>
+                      <input type="number" value={establishmentYear} onChange={e => setEstablishmentYear(e.target.value)} placeholder="Ex: 2005"
+                        className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                    </div>
+                    <div>
+                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Email <span style={{ color: DANGER }}>*</span></label>
+                      <div className="flex items-center gap-2 mt-1 border border-[oklch(88%_0.01_175)] rounded-xl px-3 py-3 focus-within:ring-[3px] focus-within:ring-[oklch(95%_0.05_65)] focus-within:border-[oklch(72%_0.15_65)] transition">
+                        <Mail size={14} style={{ color: TEXT_MUTED_LUXE }} />
+                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="ecole@email.com"
+                          className="flex-1 border-0 bg-transparent outline-none text-sm" required />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone <span style={{ color: DANGER }}>*</span></label>
+                      <div className="flex items-center gap-2 mt-1 border border-[oklch(88%_0.01_175)] rounded-xl px-3 py-3 focus-within:ring-[3px] focus-within:ring-[oklch(95%_0.05_65)] focus-within:border-[oklch(72%_0.15_65)] transition">
+                        <Phone size={14} style={{ color: TEXT_MUTED_LUXE }} />
+                        <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+243 81 234 56 78"
+                          className="flex-1 border-0 bg-transparent outline-none text-sm" required />
+                      </div>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Adresse</label>
+                      <div className="flex items-center gap-2 mt-1 border border-[oklch(88%_0.01_175)] rounded-xl px-3 py-3 focus-within:ring-[3px] focus-within:ring-[oklch(95%_0.05_65)] focus-within:border-[oklch(72%_0.15_65)] transition">
+                        <MapPin size={14} style={{ color: TEXT_MUTED_LUXE }} />
+                        <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Av. Independence"
+                          className="flex-1 border-0 bg-transparent outline-none text-sm" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Ville <span style={{ color: DANGER }}>*</span></label>
+                      <input type="text" value={city} onChange={e => setCity(e.target.value)} placeholder="Kinshasa"
+                        className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" required />
+                    </div>
+                    <div>
+                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Province <span style={{ color: DANGER }}>*</span></label>
+                      <select value={province} onChange={e => setProvince(e.target.value)}
+                        className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] cursor-pointer">
+                        {PROVINCES.filter(p => p !== 'Toutes provinces').map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Pays <span style={{ color: DANGER }}>*</span></label>
+                      <select value={country} onChange={e => setCountry(e.target.value)}
+                        className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] cursor-pointer">
+                        {COUNTRIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Capacité max</label>
+                      <input type="number" value={maxStudents} onChange={e => setMaxStudents(e.target.value)} placeholder="500"
+                        className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                    </div>
+                    <div>
+                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Type d&apos;école</label>
+                      <div className="flex gap-2 mt-1">
+                        {SCHOOL_TYPES.map(t => (
+                          <button key={t.value} type="button" onClick={() => setSchoolType(t.value)}
+                            className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition ${
+                              schoolType === t.value ? 'text-white shadow-md' : 'bg-white border border-[oklch(88%_0.01_175)]'
+                            }`}
+                            style={schoolType === t.value ? { background: GOLD } : { color: TEXT_MUTED_LUXE }}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Catégorie</label>
+                      <div className="flex gap-2 mt-1">
+                        {SCHOOL_CATEGORIES.map(c => (
+                          <button key={c.value} type="button" onClick={() => setSchoolCategory(c.value)}
+                            className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition ${
+                              schoolCategory === c.value ? 'text-white shadow-md' : 'bg-white border border-[oklch(88%_0.01_175)]'
+                            }`}
+                            style={schoolCategory === c.value ? { background: GOLD } : { color: TEXT_MUTED_LUXE }}
+                          >
+                            {c.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Description</label>
+                      <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Décrivez brièvement votre établissement..." rows={3}
+                        className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] resize-none" />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <button onClick={() => validateStep1() && setStep(2)} className="edu-gold-cta px-8 py-3 rounded-xl font-semibold text-sm flex items-center gap-2">
+                      Continuer <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Admin account info */}
+              {step === 2 && (
+                <div className="p-6 sm:p-8 space-y-5">
+                  <div className="rounded-xl p-4 mb-2" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-white/20 grid place-items-center text-white">
+                        <Shield size={20} />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold text-white">Informations du compte administrateur</h2>
+                        <p className="text-sm text-white/70">Ce compte vous permettra de gérer votre école</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
+                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom complet <span style={{ color: DANGER }}>*</span></label>
+                      <div className="flex items-center gap-2 mt-1 border border-[oklch(88%_0.01_175)] rounded-xl px-3 py-3 focus-within:ring-[3px] focus-within:ring-[oklch(95%_0.05_65)] focus-within:border-[oklch(72%_0.15_65)] transition">
+                        <UserCircle size={14} style={{ color: TEXT_MUTED_LUXE }} />
+                        <input type="text" value={adminName} onChange={e => setAdminName(e.target.value)} placeholder="Jean Mukendi"
+                          className="flex-1 border-0 bg-transparent outline-none text-sm" required />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Email professionnel <span style={{ color: DANGER }}>*</span></label>
+                      <div className="flex items-center gap-2 mt-1 border border-[oklch(88%_0.01_175)] rounded-xl px-3 py-3 focus-within:ring-[3px] focus-within:ring-[oklch(95%_0.05_65)] focus-within:border-[oklch(72%_0.15_65)] transition">
+                        <Mail size={14} style={{ color: TEXT_MUTED_LUXE }} />
+                        <input type="email" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} placeholder="admin@ecole.com"
+                          className="flex-1 border-0 bg-transparent outline-none text-sm" required />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone <span style={{ color: DANGER }}>*</span></label>
+                      <div className="flex items-center gap-2 mt-1 border border-[oklch(88%_0.01_175)] rounded-xl px-3 py-3 focus-within:ring-[3px] focus-within:ring-[oklch(95%_0.05_65)] focus-within:border-[oklch(72%_0.15_65)] transition">
+                        <Phone size={14} style={{ color: TEXT_MUTED_LUXE }} />
+                        <input type="tel" value={adminPhone} onChange={e => setAdminPhone(e.target.value)} placeholder="+243 81 234 56 78"
+                          className="flex-1 border-0 bg-transparent outline-none text-sm" required />
+                      </div>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Mot de passe <span style={{ color: DANGER }}>*</span></label>
+                      <div className="flex items-center gap-2 mt-1 border border-[oklch(88%_0.01_175)] rounded-xl px-3 py-3 focus-within:ring-[3px] focus-within:ring-[oklch(95%_0.05_65)] focus-within:border-[oklch(72%_0.15_65)] transition">
+                        <Lock size={14} style={{ color: TEXT_MUTED_LUXE }} />
+                        <input type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} placeholder="Minimum 6 caractères"
+                          className="flex-1 border-0 bg-transparent outline-none text-sm" required />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subscription selection */}
+                  <div className="pt-4">
+                    <h3 className="text-[13px] font-medium mb-3" style={{ color: TEXT_PRIMARY }}>Choisir votre formule</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {SUBSCRIPTION_OPTIONS.map(opt => (
+                        <button key={opt.value} type="button" onClick={() => setSubscriptionTier(opt.value)}
+                          className={`relative p-3 rounded-xl text-left transition border-2 ${
+                            subscriptionTier === opt.value
+                              ? 'border-[oklch(72%_0.15_65)] shadow-md'
+                              : 'border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.5)]'
+                          }`}
+                        >
+                          {opt.popular && (
+                            <span className="absolute -top-2 left-3 text-[10px] font-bold px-2 py-0.5 rounded-full text-white" style={{ background: GOLD }}>Populaire</span>
+                          )}
+                          <div className="text-sm font-bold" style={{ color: opt.color }}>{opt.label}</div>
+                          <div className="text-lg font-extrabold mt-1" style={{ color: TEXT_PRIMARY }}>{opt.price}</div>
+                          <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{opt.desc}</div>
+                          {subscriptionTier === opt.value && (
+                            <div className="absolute top-2 right-2 w-5 h-5 rounded-full grid place-items-center text-white" style={{ background: GOLD }}>
+                              <Check size={12} />
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between pt-2">
+                    <button onClick={() => setStep(1)} className="px-6 py-3 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:bg-white/60 transition" style={{ color: TEXT_MUTED_LUXE }}>
+                      ← Retour
+                    </button>
+                    <button onClick={() => validateStep2() && handleSubmit()} disabled={loading}
+                      className="edu-gold-cta px-8 py-3 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-50">
+                      {loading ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <CheckCircle size={16} />}
+                      Créer mon école
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+      <Footer />
+    </div>
+  )
+}
+
 // ===== PRICING VIEW =====
 function PricingView() {
   const { setCurrentView } = useEduGestStore()
@@ -800,7 +1255,7 @@ function PricingView() {
                 ))}
               </ul>
               <button
-                onClick={() => setCurrentView('login')}
+                onClick={() => setCurrentView('create-school')}
                 className={`w-full py-3 rounded-xl text-sm font-semibold transition ${
                   tier.popular
                     ? 'edu-gold-cta'
@@ -1001,7 +1456,7 @@ function LoginView() {
           </button>
 
           <p className="text-center text-[13px] mt-6" style={{ color: TEXT_MUTED_LUXE }}>
-            Pas encore de compte ? <button onClick={() => setCurrentView('pricing')} className="font-medium hover:underline" style={{ color: GOLD }}>Créer mon école</button>
+            Pas encore de compte ? <button onClick={() => setCurrentView('create-school')} className="font-medium hover:underline" style={{ color: GOLD }}>Créer mon école</button>
           </p>
         </div>
       </div>
@@ -3488,12 +3943,127 @@ function ConvocationView() {
 
 // ===== SCHOOLS MANAGEMENT VIEW =====
 function SchoolsManagementView() {
+  const { userData } = useEduGestStore()
   const [schools, setSchools] = useState<SchoolData[]>([])
   const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [editingSchool, setEditingSchool] = useState<SchoolData | null>(null)
+  const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
+  // Modal form fields
+  const [mName, setMName] = useState('')
+  const [mShortName, setMShortName] = useState('')
+  const [mEmail, setMEmail] = useState('')
+  const [mPhone, setMPhone] = useState('')
+  const [mAddress, setMAddress] = useState('')
+  const [mCity, setMCity] = useState('')
+  const [mProvince, setMProvince] = useState('Kinshasa')
+  const [mCountry, setMCountry] = useState('RDC')
+  const [mSchoolType, setMSchoolType] = useState('MIXTE')
+  const [mSchoolCategory, setMSchoolCategory] = useState('PRIVEE')
+  const [mDescription, setMDescription] = useState('')
+  const [mEstablishmentYear, setMEstablishmentYear] = useState('')
+  const [mMaxStudents, setMMaxStudents] = useState('500')
+  const [mSubscriptionTier, setMSubscriptionTier] = useState('FREEMIUM')
+  // Admin fields (only for creation)
+  const [mAdminName, setMAdminName] = useState('')
+  const [mAdminEmail, setMAdminEmail] = useState('')
+  const [mAdminPhone, setMAdminPhone] = useState('')
+  const [mAdminPassword, setMAdminPassword] = useState('')
+
+  function loadSchools() {
     fetch('/api/schools?limit=30').then(r => r.json()).then(j => { setSchools(j.data || []); setLoading(false) }).catch(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { loadSchools() }, [])
+
+  function openCreateModal() {
+    setEditingSchool(null)
+    setMName(''); setMShortName(''); setMEmail(''); setMPhone(''); setMAddress('')
+    setMCity(''); setMProvince('Kinshasa'); setMCountry('RDC'); setMSchoolType('MIXTE')
+    setMSchoolCategory('PRIVEE'); setMDescription(''); setMEstablishmentYear('')
+    setMMaxStudents('500'); setMSubscriptionTier('FREEMIUM')
+    setMAdminName(''); setMAdminEmail(''); setMAdminPhone(''); setMAdminPassword('')
+    setShowModal(true)
+  }
+
+  function openEditModal(school: SchoolData) {
+    setEditingSchool(school)
+    setMName(school.name); setMShortName(school.shortName); setMEmail(school.email)
+    setMPhone(school.phone); setMAddress(school.address); setMCity(school.city)
+    setMProvince(school.province); setMCountry(school.country); setMSchoolType(school.schoolType)
+    setMSchoolCategory(school.schoolCategory); setMDescription(school.description || '')
+    setMEstablishmentYear(school.establishmentYear?.toString() || '')
+    setMMaxStudents(school.maxStudents?.toString() || '500')
+    setMSubscriptionTier(school.subscriptionTier || 'FREEMIUM')
+    setMAdminName(''); setMAdminEmail(''); setMAdminPhone(''); setMAdminPassword('')
+    setShowModal(true)
+  }
+
+  async function handleSave() {
+    if (!mName || !mShortName || !mEmail || !mPhone || !mCity || !mProvince || !mCountry) {
+      toast.error('Veuillez remplir tous les champs obligatoires')
+      return
+    }
+
+    setSaving(true)
+    try {
+      if (editingSchool) {
+        // Update existing school
+        const res = await fetch(`/api/schools/${editingSchool.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: mName, shortName: mShortName, email: mEmail, phone: mPhone,
+            address: mAddress, city: mCity, province: mProvince, country: mCountry,
+            schoolType: mSchoolType, schoolCategory: mSchoolCategory,
+            description: mDescription || null,
+            establishmentYear: parseInt(mEstablishmentYear) || null,
+            maxStudents: parseInt(mMaxStudents) || 500,
+            subscriptionTier: mSubscriptionTier,
+          }),
+        })
+        if (res.ok) {
+          toast.success('École modifiée avec succès')
+          setShowModal(false)
+          loadSchools()
+        } else {
+          const json = await res.json()
+          toast.error(json.error || 'Erreur lors de la modification')
+        }
+      } else {
+        // Create new school
+        if (!mAdminName || !mAdminEmail || !mAdminPhone) {
+          toast.error('Veuillez remplir les informations du compte administrateur')
+          setSaving(false)
+          return
+        }
+        const res = await fetch('/api/schools', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: mName, shortName: mShortName, email: mEmail, phone: mPhone,
+            address: mAddress, city: mCity, province: mProvince, country: mCountry,
+            schoolType: mSchoolType, schoolCategory: mSchoolCategory,
+            description: mDescription || null,
+            establishmentYear: parseInt(mEstablishmentYear) || null,
+            maxStudents: parseInt(mMaxStudents) || 500,
+            adminName: mAdminName, adminEmail: mAdminEmail,
+            adminPhone: mAdminPhone, adminPassword: mAdminPassword || 'admin123',
+          }),
+        })
+        if (res.ok) {
+          toast.success('École créée avec succès')
+          setShowModal(false)
+          loadSchools()
+        } else {
+          const json = await res.json()
+          toast.error(json.error || 'Erreur lors de la création')
+        }
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setSaving(false) }
+  }
 
   return (
     <div>
@@ -3505,7 +4075,7 @@ function SchoolsManagementView() {
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(schools.length)} écoles</p>
         </div>
-        <button className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
+        <button onClick={openCreateModal} className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
           <Plus size={14} /> Ajouter une école
         </button>
       </div>
@@ -3548,7 +4118,7 @@ function SchoolsManagementView() {
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
                       <button className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Eye size={14} /></button>
-                      <button className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Edit size={14} /></button>
+                      <button onClick={() => openEditModal(s)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Edit size={14} /></button>
                     </div>
                   </td>
                 </tr>
@@ -3557,6 +4127,168 @@ function SchoolsManagementView() {
           </table>
         </div>
       </div>
+
+      {/* School Create/Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-4 overflow-y-auto" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl my-8" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="relative h-24 rounded-t-2xl overflow-hidden" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+              <div className="absolute inset-0 opacity-20" style={{ background: 'radial-gradient(ellipse at top right, oklch(72% 0.15 65 / 0.3), transparent 60%)' }} />
+              <div className="absolute bottom-4 left-6 right-6 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-white">{editingSchool ? 'Modifier l\'école' : 'Ajouter une école'}</h2>
+                  <p className="text-sm text-white/70">{editingSchool ? 'Modifiez les informations' : 'Créez un nouvel établissement'}</p>
+                </div>
+                <button onClick={() => setShowModal(false)} className="w-8 h-8 rounded-lg bg-white/20 grid place-items-center text-white hover:bg-white/30 transition"><X size={16} /></button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* School Info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom complet <span style={{ color: DANGER }}>*</span></label>
+                  <input type="text" value={mName} onChange={e => setMName(e.target.value)} placeholder="Ex: Complexe Scolaire La Lumière"
+                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Abréviation <span style={{ color: DANGER }}>*</span></label>
+                  <input type="text" value={mShortName} onChange={e => setMShortName(e.target.value.toUpperCase())} placeholder="Ex: CSL" maxLength={6}
+                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Année de fondation</label>
+                  <input type="number" value={mEstablishmentYear} onChange={e => setMEstablishmentYear(e.target.value)} placeholder="2005"
+                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Email <span style={{ color: DANGER }}>*</span></label>
+                  <input type="email" value={mEmail} onChange={e => setMEmail(e.target.value)} placeholder="ecole@email.com"
+                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone <span style={{ color: DANGER }}>*</span></label>
+                  <input type="tel" value={mPhone} onChange={e => setMPhone(e.target.value)} placeholder="+243 81 234 56 78"
+                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Adresse</label>
+                  <input type="text" value={mAddress} onChange={e => setMAddress(e.target.value)} placeholder="123 Av. Independence"
+                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Ville <span style={{ color: DANGER }}>*</span></label>
+                  <input type="text" value={mCity} onChange={e => setMCity(e.target.value)} placeholder="Kinshasa"
+                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Province <span style={{ color: DANGER }}>*</span></label>
+                  <select value={mProvince} onChange={e => setMProvince(e.target.value)}
+                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] cursor-pointer">
+                    {PROVINCES.filter(p => p !== 'Toutes provinces').map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Pays <span style={{ color: DANGER }}>*</span></label>
+                  <select value={mCountry} onChange={e => setMCountry(e.target.value)}
+                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] cursor-pointer">
+                    <option value="RDC">RD Congo</option>
+                    <option value="Sénégal">Sénégal</option>
+                    <option value="Côte d'Ivoire">Côte d'Ivoire</option>
+                    <option value="Congo">Congo</option>
+                    <option value="Cameroun">Cameroun</option>
+                    <option value="Gabon">Gabon</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Capacité max</label>
+                  <input type="number" value={mMaxStudents} onChange={e => setMMaxStudents(e.target.value)} placeholder="500"
+                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                </div>
+                <div>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Type</label>
+                  <select value={mSchoolType} onChange={e => setMSchoolType(e.target.value)}
+                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] cursor-pointer">
+                    <option value="MATERNELLE">Maternelle</option>
+                    <option value="PRIMAIRE">Primaire</option>
+                    <option value="SECONDAIRE">Secondaire</option>
+                    <option value="MIXTE">Mixte</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Catégorie</label>
+                  <select value={mSchoolCategory} onChange={e => setMSchoolCategory(e.target.value)}
+                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] cursor-pointer">
+                    <option value="PRIVEE">Privée</option>
+                    <option value="PUBLIQUE">Publique</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Abonnement</label>
+                  <select value={mSubscriptionTier} onChange={e => setMSubscriptionTier(e.target.value)}
+                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] cursor-pointer">
+                    {SUBSCRIPTION_TIERS.map(t => <option key={t} value={t}>{getSubscriptionLabel(t)}</option>)}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Description</label>
+                  <textarea value={mDescription} onChange={e => setMDescription(e.target.value)} placeholder="Description..." rows={2}
+                    className="w-full mt-1 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] resize-none" />
+                </div>
+              </div>
+
+              {/* Admin account section - only for creation */}
+              {!editingSchool && (
+                <div className="rounded-xl p-4 mt-2" style={{ background: `linear-gradient(135deg, ${ACCENT}20, ${GOLD}15)`, border: `1px solid ${ACCENT}30` }}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-9 h-9 rounded-xl grid place-items-center text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                      <Shield size={18} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold" style={{ color: TEXT_PRIMARY }}>Compte administrateur</h3>
+                      <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Identifiants de connexion pour le secrétariat</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="text-[12px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom complet <span style={{ color: DANGER }}>*</span></label>
+                      <input type="text" value={mAdminName} onChange={e => setMAdminName(e.target.value)} placeholder="Jean Mukendi"
+                        className="w-full mt-1 px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[2px] focus:ring-[oklch(95%_0.05_65)]" />
+                    </div>
+                    <div>
+                      <label className="text-[12px] font-medium" style={{ color: TEXT_PRIMARY }}>Email <span style={{ color: DANGER }}>*</span></label>
+                      <input type="email" value={mAdminEmail} onChange={e => setMAdminEmail(e.target.value)} placeholder="admin@ecole.com"
+                        className="w-full mt-1 px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[2px] focus:ring-[oklch(95%_0.05_65)]" />
+                    </div>
+                    <div>
+                      <label className="text-[12px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone <span style={{ color: DANGER }}>*</span></label>
+                      <input type="tel" value={mAdminPhone} onChange={e => setMAdminPhone(e.target.value)} placeholder="+243 81 234 56 78"
+                        className="w-full mt-1 px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[2px] focus:ring-[oklch(95%_0.05_65)]" />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-[12px] font-medium" style={{ color: TEXT_PRIMARY }}>Mot de passe</label>
+                      <input type="password" value={mAdminPassword} onChange={e => setMAdminPassword(e.target.value)} placeholder="Défaut: admin123"
+                        className="w-full mt-1 px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none transition focus:border-[oklch(72%_0.15_65)] focus:ring-[2px] focus:ring-[oklch(95%_0.05_65)]" />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-[oklch(90%_0.01_175)] flex justify-end gap-3">
+              <button onClick={() => setShowModal(false)} className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>
+                Annuler
+              </button>
+              <button onClick={handleSave} disabled={saving} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 disabled:opacity-50">
+                {saving ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
+                {editingSchool ? 'Enregistrer' : 'Créer l\'école'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -3573,6 +4305,7 @@ export default function Home() {
   if (!userRole) {
     switch (currentView) {
       case 'login': return <LoginView />
+      case 'create-school': return <CreateSchoolView />
       case 'pricing': return <PricingView />
       case 'school-detail': return <SchoolDetailView />
       default: return <HomeView />

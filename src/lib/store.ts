@@ -3,6 +3,7 @@ import { create } from 'zustand'
 export type ViewType =
   | 'home'
   | 'login'
+  | 'create-school'
   | 'school-detail'
   | 'dashboard'
   | 'students'
