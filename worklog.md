@@ -151,3 +151,31 @@ Stage Summary:
 - CreateSchoolView re-added with logo upload, 2-step form, subscription tier selector, auto-login
 - School creation flow: Login → "Créer mon école" → 2-step form → auto-login → dashboard
 
+---
+Task ID: 6
+Agent: Main Agent
+Task: Add auto-geolocation to school creation form + fix role assignment bug (SECRETARY instead of SUPER_ADMIN_GLOBAL)
+
+Work Log:
+- Investigated CreateSchoolView component and SchoolMap component to understand current geolocation support
+- Found that CreateSchoolView had no map/geolocation but SchoolsManagementView already had a SchoolMap component with auto-geolocation
+- Added latitude and longitude fields to CreateSchoolView form state
+- Integrated SchoolMap component into CreateSchoolView step 1 form with onLocationChange callback
+- SchoolMap auto-geolocates on mount using navigator.geolocation.getCurrentPosition
+- Added reverse geocoding auto-fill: when geolocation succeeds, address/city/province/country fields are auto-populated
+- Changed province/country fields from select dropdowns to input fields to allow geolocation to fill any value
+- Added address field (was missing from CreateSchoolView step 1)
+- Added logo field to form state for type safety
+- Updated submit handler to pass actual latitude/longitude instead of hardcoded null
+- Fixed role mapping in CreateSchoolView to include all roles (DIRECTION_*, DISCIPLINE_*, SCHOOL_ADMIN) consistent with LoginView
+- Verified with Agent Browser: create-school form shows map with "Me localiser" button, all fields render correctly
+- Verified role assignment: created school → auto-login → profile shows "Super Admin" role
+
+Stage Summary:
+- Auto-geolocation: SchoolMap component added to CreateSchoolView with auto-detect on mount + "Me localiser" button
+- Reverse geocoding: address, city, province, country auto-filled from GPS coordinates via Nominatim
+- Province/country changed from select to input fields for geolocation flexibility
+- Role bug fixed: CreateSchoolView roleMap now includes all UserRole types with SUPER_ADMIN_GLOBAL fallback
+- School creators now correctly receive SUPER_ADMIN_GLOBAL role (confirmed via browser test)
+- All fields pass latitude/longitude to API for storage in database
+

@@ -1204,6 +1204,8 @@ function CreateSchoolView() {
     schoolCategory: 'PRIVEE', maxStudents: '200', establishmentYear: '', mission: '',
     subscriptionTier: 'FREEMIUM',
     adminName: '', adminEmail: '', adminPhone: '', adminPassword: '',
+    latitude: null as number | null, longitude: null as number | null,
+    logo: '',
   })
 
   const updateForm = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }))
@@ -1252,7 +1254,7 @@ function CreateSchoolView() {
           ...form,
           maxStudents: parseInt(form.maxStudents) || 200,
           establishmentYear: form.establishmentYear ? parseInt(form.establishmentYear) : null,
-          latitude: null, longitude: null,
+          latitude: form.latitude, longitude: form.longitude,
           logo: form.logo || null,
         }),
       })
@@ -1268,8 +1270,19 @@ function CreateSchoolView() {
         if (loginJson.data) {
           const apiUser = loginJson.data
           const roleMap: Record<string, UserRole> = {
-            SUPER_ADMIN_GLOBAL: 'SUPER_ADMIN_GLOBAL', SECRETARY: 'SECRETARY',
-            CASHIER: 'CASHIER', TEACHER: 'TEACHER', HEAD_TEACHER: 'HEAD_TEACHER', PARENT: 'PARENT',
+            SUPER_ADMIN_GLOBAL: 'SUPER_ADMIN_GLOBAL',
+            SCHOOL_ADMIN: 'SUPER_ADMIN_GLOBAL',
+            SECRETARY: 'SECRETARY',
+            CASHIER: 'CASHIER',
+            DIRECTION_MATERNELLE: 'DIRECTION_MATERNELLE',
+            DIRECTION_PRIMAIRE: 'DIRECTION_PRIMAIRE',
+            DIRECTION_SECONDAIRE: 'DIRECTION_SECONDAIRE',
+            DISCIPLINE_MATERNELLE: 'DISCIPLINE_MATERNELLE',
+            DISCIPLINE_PRIMAIRE: 'DISCIPLINE_PRIMAIRE',
+            DISCIPLINE_SECONDAIRE: 'DISCIPLINE_SECONDAIRE',
+            TEACHER: 'TEACHER',
+            HEAD_TEACHER: 'HEAD_TEACHER',
+            PARENT: 'PARENT',
           }
           const role = roleMap[apiUser.role] || 'SUPER_ADMIN_GLOBAL'
           login(role, {
@@ -1362,6 +1375,34 @@ function CreateSchoolView() {
                   <div className="text-xs text-white/40">Logo de l&apos;école<br /><span className="text-white/25">JPG, PNG max 5MB</span></div>
                 </div>
 
+                {/* Auto-geolocation map */}
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MapPin size={14} className="text-[#f5a623]" />
+                    <label className="text-xs font-medium text-white/60">Localisation automatique</label>
+                    <span className="text-[10px] text-[#f5a623]/70">• Cliquez sur la carte ou activez la géolocalisation</span>
+                  </div>
+                  <div className="rounded-xl overflow-hidden border border-white/10">
+                    <SchoolMap
+                      latitude={form.latitude}
+                      longitude={form.longitude}
+                      onLocationChange={(lat, lng, address) => {
+                        setForm(prev => ({
+                          ...prev,
+                          latitude: lat,
+                          longitude: lng,
+                          ...(address ? {
+                            address: address.address || prev.address,
+                            city: address.city || prev.city,
+                            province: address.province || prev.province,
+                            country: address.country || prev.country,
+                          } : {}),
+                        }))
+                      }}
+                    />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Nom de l&apos;école *</label>
@@ -1380,23 +1421,20 @@ function CreateSchoolView() {
                     <input value={form.phone} onChange={e => updateForm('phone', e.target.value)} placeholder="+243 81 234 56 78" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Adresse</label>
+                    <input value={form.address} onChange={e => updateForm('address', e.target.value)} placeholder="Auto-remplie par la carte" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Ville *</label>
-                    <input value={form.city} onChange={e => updateForm('city', e.target.value)} placeholder="Kinshasa" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                    <input value={form.city} onChange={e => updateForm('city', e.target.value)} placeholder="Auto-remplie par la carte" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Province *</label>
-                    <select value={form.province} onChange={e => updateForm('province', e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition appearance-none cursor-pointer">
-                      {PROVINCES.filter(p => p !== 'Toutes provinces').map(p => <option key={p} value={p} className="bg-[#0a0f0d] text-white">{p}</option>)}
-                    </select>
+                    <input value={form.province} onChange={e => updateForm('province', e.target.value)} placeholder="Auto-remplie par la carte" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Pays *</label>
-                    <select value={form.country} onChange={e => updateForm('country', e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition appearance-none cursor-pointer">
-                      <option value="RD Congo" className="bg-[#0a0f0d]">RD Congo</option>
-                      <option value="Sénégal" className="bg-[#0a0f0d]">Sénégal</option>
-                      <option value="Côte d'Ivoire" className="bg-[#0a0f0d]">Côte d&apos;Ivoire</option>
-                      <option value="Congo" className="bg-[#0a0f0d]">Congo</option>
-                    </select>
+                    <input value={form.country} onChange={e => updateForm('country', e.target.value)} placeholder="Auto-remplie par la carte" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Type</label>
