@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useEduGestStore, ViewType, UserRole, UserData } from '@/lib/store'
 import { toast } from 'sonner'
-import ReceiptPreview from '@/components/ReceiptPreview'
 import dynamic from 'next/dynamic'
 const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
 import {
@@ -16,7 +15,7 @@ import {
   Info, Zap, Globe, Lock, Award, Ban, CircleDot, ListChecks,
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
-  ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff
+  ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -78,22 +77,6 @@ interface CommunicationData {
 interface HomeworkData {
   id: string; title: string; description: string; subjectName: string;
   classId: string; teacherName: string; dueDate: string; schoolId: string;
-}
-
-// Receipt preview types (matching ReceiptPreview component)
-interface ReceiptPayment {
-  id: string; amount: number; paidAmount: number; trimester: string;
-  paymentMethod: string | null; referenceNumber: string | null;
-  status: string; paidAt: string | null; receiptNumber: string | null; createdAt: string;
-}
-
-interface ReceiptStudent {
-  firstName: string; lastName: string; matricule: string;
-}
-
-interface ReceiptSchool {
-  name: string; shortName: string; email: string; phone: string;
-  address: string; city: string; province: string; country: string;
 }
 
 // ===== CONSTANTS =====
@@ -3710,13 +3693,16 @@ function PaymentsView() {
       const json = await res.json()
       if (res.ok) {
         toast.success('Paiement enregistré avec succès!')
-        setLastPaymentId(json.data.id)
+        const paymentId = json.data.id
+        setLastPaymentId(paymentId)
         // Refresh list
         const listRes = await fetch('/api/payments?limit=30')
         const listJson = await listRes.json()
         setPayments(listJson.data || [])
         // Reset form
         setStudentSearch(''); setSelectedStudent(null); setAmount(''); setPaidAmount('')
+        // Auto-display and download PDF receipt
+        downloadReceipt(paymentId)
       } else {
         toast.error(json.error || 'Erreur lors de l\'enregistrement')
         // If there are suggestions, show them
@@ -3731,59 +3717,28 @@ function PaymentsView() {
     finally { setSubmitting(false) }
   }
 
-  const [receiptPreview, setReceiptPreview] = useState<{
-    payment: ReceiptPayment; student: ReceiptStudent; school: ReceiptSchool
-  } | null>(null)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   async function downloadReceipt(paymentId: string) {
+    setPdfLoading(true)
     try {
-      // Fetch full payment data for the receipt preview
       const res = await fetch(`/api/payments/receipt/${paymentId}`)
       if (!res.ok) throw new Error()
-      // The server returns a PDF — we'll also fetch data for the preview
-      // First try the data endpoint
-      const dataRes = await fetch(`/api/payments?limit=30`)
-      const dataJson = await dataRes.json()
-      const payment = (dataJson.data || []).find((p: PaymentData) => p.id === paymentId)
-      if (payment && payment.student && userData) {
-        setReceiptPreview({
-          payment: {
-            id: payment.id,
-            amount: payment.amount,
-            paidAmount: payment.paidAmount,
-            trimester: payment.trimester,
-            paymentMethod: payment.paymentMethod || null,
-            referenceNumber: payment.receiptNumber || null,
-            status: payment.status,
-            paidAt: payment.paidAt || null,
-            receiptNumber: payment.receiptNumber || null,
-            createdAt: payment.createdAt,
-          },
-          student: {
-            firstName: payment.student.firstName,
-            lastName: payment.student.lastName,
-            matricule: payment.student.matricule,
-          },
-          school: {
-            name: userData.schoolName,
-            shortName: userData.schoolName.substring(0, 3).toUpperCase(),
-            email: '',
-            phone: '',
-            address: '',
-            city: '',
-            province: '',
-            country: '',
-          },
-        })
-      } else {
-        // Fallback: download the server-generated PDF directly
-        const blob = await res.blob()
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url; a.download = `recu-${paymentId}.pdf`; a.click()
-        URL.revokeObjectURL(url)
-      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      setPdfUrl(url)
+      // Auto-download
+      const a = document.createElement('a')
+      a.href = url
+      const payment = payments.find(p => p.id === paymentId)
+      const receiptName = payment?.receiptNumber || paymentId.slice(-8)
+      a.download = `recu-${receiptName}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
     } catch { toast.error('Erreur lors du téléchargement du reçu') }
+    finally { setPdfLoading(false) }
   }
 
   return (
@@ -3799,14 +3754,15 @@ function PaymentsView() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
           {/* Student search with autocomplete */}
           <div className="relative sm:col-span-2 lg:col-span-1">
-            <div className="flex items-center gap-2 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[oklch(72%_0.15_65_/_0.3)] focus-within:border-[oklch(72%_0.15_65_/_0.5)] transition">
+            <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Rechercher un élève *</label>
+            <div className="flex items-center gap-2 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-[oklch(72%_0.15_65_/_0.3)] focus-within:border-[oklch(72%_0.15_65_/_0.5)] transition">
               <Search size={14} style={{ color: TEXT_MUTED_LUXE }} />
               <input
-                placeholder="Rechercher un élève par nom..."
+                placeholder="Tapez le nom de l'élève..."
                 value={selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : studentSearch}
                 onChange={e => { setStudentSearch(e.target.value); setSelectedStudent(null) }}
-                onFocus={() => studentSuggestions.length > 0 && setShowSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                onFocus={() => { if (studentSearch.length >= 2) setShowSuggestions(true) }}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
                 className="flex-1 border-0 bg-transparent outline-none text-sm"
               />
               {selectedStudent && (
@@ -3815,22 +3771,36 @@ function PaymentsView() {
                 </button>
               )}
             </div>
+            {/* Selected student chip */}
+            {selectedStudent && (
+              <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium" style={{ background: GOLD_SOFT, color: GOLD }}>
+                <div className="w-6 h-6 rounded-full grid place-items-center text-white text-[9px] font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                  {getInitials(selectedStudent.firstName + ' ' + selectedStudent.lastName)}
+                </div>
+                {selectedStudent.firstName} {selectedStudent.lastName}
+                <span className="text-[10px] opacity-70">({selectedStudent.matricule})</span>
+              </div>
+            )}
             {/* Autocomplete dropdown */}
             {showSuggestions && studentSuggestions.length > 0 && (
-              <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-[oklch(90%_0.01_175)] rounded-xl shadow-lg max-h-48 overflow-y-auto">
+              <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-[oklch(90%_0.01_175)] rounded-xl shadow-xl max-h-56 overflow-y-auto">
+                <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider border-b border-[oklch(92%_0.005_250)]" style={{ color: TEXT_MUTED_LUXE }}>
+                  {studentSuggestions.length} élève{studentSuggestions.length > 1 ? 's' : ''} trouvé{studentSuggestions.length > 1 ? 's' : ''}
+                </div>
                 {studentSuggestions.map(s => (
                   <button
                     key={s.id}
                     onClick={() => { setSelectedStudent(s); setStudentSearch(''); setShowSuggestions(false) }}
-                    className="w-full text-left px-3 py-2 hover:bg-[oklch(97%_0.005_175)] transition flex items-center gap-2 border-b border-[oklch(92%_0.005_250)] last:border-0"
+                    className="w-full text-left px-3 py-2.5 hover:bg-[oklch(97%_0.02_65)] transition flex items-center gap-3 border-b border-[oklch(94%_0.005_250)] last:border-0 cursor-pointer group"
                   >
-                    <div className="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                    <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0 group-hover:scale-110 transition" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
                       {getInitials(s.firstName + ' ' + s.lastName)}
                     </div>
-                    <div>
-                      <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-semibold group-hover:text-[oklch(55%_0.15_65)] transition" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
                       <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</div>
                     </div>
+                    <ChevronRight size={14} className="text-[oklch(80%_0.01_175)] group-hover:text-[oklch(72%_0.15_65)] transition shrink-0" />
                   </button>
                 ))}
               </div>
@@ -3854,8 +3824,8 @@ function PaymentsView() {
             Enregistrer le paiement
           </button>
           {lastPaymentId && (
-            <button onClick={() => downloadReceipt(lastPaymentId)} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition" style={{ color: TEXT_PRIMARY }}>
-              <FileText size={14} /> Télécharger le reçu PDF
+            <button onClick={() => downloadReceipt(lastPaymentId)} disabled={pdfLoading} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition disabled:opacity-50" style={{ color: TEXT_PRIMARY }}>
+              {pdfLoading ? <div className="h-4 w-4 border-2 border-[oklch(52%_0.015_250)] border-t-transparent rounded-full animate-spin" /> : <FileText size={14} />} Voir le reçu PDF
             </button>
           )}
         </div>
@@ -3911,14 +3881,39 @@ function PaymentsView() {
         </div>
       </div>
 
-      {/* Receipt Preview Modal */}
-      {receiptPreview && (
-        <ReceiptPreview
-          payment={receiptPreview.payment}
-          student={receiptPreview.student}
-          school={receiptPreview.school}
-          onClose={() => setReceiptPreview(null)}
-        />
+      {/* PDF Viewer Modal */}
+      {pdfUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => { URL.revokeObjectURL(pdfUrl); setPdfUrl(null) }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl grid place-items-center text-white" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Reçu de Paiement</h2>
+                  <p className="text-xs text-gray-500">Le PDF a été téléchargé automatiquement</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={pdfUrl}
+                  download
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90"
+                  style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}
+                >
+                  <Download size={14} /> Télécharger
+                </a>
+                <button onClick={() => { URL.revokeObjectURL(pdfUrl); setPdfUrl(null) }} className="w-9 h-9 rounded-lg grid place-items-center hover:bg-gray-100 transition">
+                  <X size={18} className="text-gray-500" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden rounded-b-2xl">
+              <iframe src={pdfUrl} className="w-full h-[70vh] border-0" title="Reçu PDF" />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
