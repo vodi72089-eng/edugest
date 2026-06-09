@@ -324,3 +324,37 @@ Stage Summary:
 - Reviews require admin approval before being visible
 - School average rating auto-updates on approval
 - All features verified working via agent browser
+
+---
+Task ID: 3
+Agent: main
+Task: Fix discipline roles, teacher homework/grades, receipt verification
+
+Work Log:
+- Created Convocation Prisma model + API (/api/convocations with GET/POST/PUT)
+- Ran db:push to sync schema changes
+- Rewrote DisciplineView for discipline roles (DISCIPLINE_MATERNELLE/PRIMAIRE/SECONDAIRE):
+  - Added student list filtered by section level (MATERNELLE/PRIMAIRE/SECONDAIRE)
+  - Added student search autocomplete for discipline staff
+  - Added "Sanctionner" button with full sanction form (list type, type, severity, motif, description, points)
+  - Added "Convocation" button with convocation form (student, date, motif)
+  - Added convocations list display
+  - Added section level badge next to title
+  - Added student chips quick-select list
+- Updated HomeworkView for teachers:
+  - Added "Nouveau devoir" button (teacher-only)
+  - Added homework creation form (title, subject, class dropdown, due date, description)
+  - Form posts to /api/homework and refreshes list
+- Updated GradesView for teachers:
+  - Added "Nouvelle note" button (teacher-only)
+  - Added grade entry form (class → subjects cascade, trimester, student search, score/20, comment)
+  - Loads subjects dynamically when class is selected
+  - Loads students dynamically for student search autocomplete
+  - Form posts to /api/grades and refreshes list
+- Receipt verification: already implemented (PDF receipt generation + download + viewer modal)
+
+Stage Summary:
+- Discipline roles can now see students in their section, sanction them, and convocat parents
+- Teachers can now create homework assigned to specific classes
+- Teachers can now enter grades for students
+- All changes verified via lint (0 errors) and code review

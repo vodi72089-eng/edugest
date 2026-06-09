@@ -94,6 +94,7 @@ model Student {
   blacklistEntries Blacklist[]
   greylistEntries  Greylist[]
   whitelistEntries Whitelist[]
+  convocations   Convocation[]
 }
 
 model Class {
@@ -232,6 +233,21 @@ model SchoolComment {
   createdAt   DateTime @default(now())
 
   school      School   @relation(fields: [schoolId], references: [id])
+}
+
+model Convocation {
+  id          String   @id @default(cuid())
+  studentId   String
+  parentId    String?
+  motif       String
+  date        DateTime
+  status      String   @default("PENDING")
+  schoolId    String
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  student     Student  @relation(fields: [studentId], references: [id])
 }
 
 model Communication {

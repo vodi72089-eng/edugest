@@ -3933,6 +3933,35 @@ function GradesView() {
   const [selectedClassSearchId, setSelectedClassSearchId] = useState<string | null>(null)
   const [selectedChildSearchId, setSelectedChildSearchId] = useState<string | null>(null)
   const isParent = userRole === 'PARENT'
+  const isTeacher = userRole === 'TEACHER' || userRole === 'HEAD_TEACHER'
+  const [showGradeForm, setShowGradeForm] = useState(false)
+  const [gradeStudentId, setGradeStudentId] = useState('')
+  const [gradeStudentSearch, setGradeStudentSearch] = useState('')
+  const [gradeStudentSearchId, setGradeStudentSearchId] = useState<string | null>(null)
+  const [gradeSubjectId, setGradeSubjectId] = useState('')
+  const [gradeClassId, setGradeClassId] = useState('')
+  const [gradeScore, setGradeScore] = useState('')
+  const [gradeComment, setGradeComment] = useState('')
+  const [gradeTrimester, setGradeTrimester] = useState('T1')
+  const [gradeSubmitting, setGradeSubmitting] = useState(false)
+  const [subjects, setSubjects] = useState<{ id: string; name: string; coefficient: number }[]>([])
+  const [classStudents, setClassStudents] = useState<StudentData[]>([])
+
+  // Load subjects when class changes in grade form
+  useEffect(() => {
+    if (gradeClassId) {
+      fetch(`/api/subjects?classId=${gradeClassId}&limit=20`).then(r => r.json()).then(j => setSubjects(j.data || [])).catch(() => {})
+      fetch(`/api/students?classId=${gradeClassId}&limit=50`).then(r => r.json()).then(j => setClassStudents(j.data || [])).catch(() => {})
+    }
+  }, [gradeClassId])
+
+  // Student search for grade form
+  const gradeStudentSuggestions = useMemo(() => {
+    if (gradeStudentSearch.length < 1) return classStudents.map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule }))
+    return classStudents.filter(s =>
+      `${s.firstName} ${s.lastName}`.toLowerCase().includes(gradeStudentSearch.toLowerCase()) || s.matricule.toLowerCase().includes(gradeStudentSearch.toLowerCase())
+    ).map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule }))
+  }, [gradeStudentSearch, classStudents])
 
   useEffect(() => {
     fetch('/api/classes?limit=50').then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
@@ -3973,6 +4002,46 @@ function GradesView() {
     finally { setLoading(false) }
   }
 
+  async function handleAddGrade() {
+    if (!gradeStudentId || !gradeSubjectId || !gradeClassId || !gradeScore || !userData?.schoolId) {
+      toast.error('Veuillez remplir tous les champs obligatoires')
+      return
+    }
+    const score = parseFloat(gradeScore)
+    if (isNaN(score) || score < 0 || score > 20) {
+      toast.error('La note doit être entre 0 et 20')
+      return
+    }
+    setGradeSubmitting(true)
+    try {
+      const res = await fetch('/api/grades', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: gradeStudentId,
+          subjectId: gradeSubjectId,
+          classId: gradeClassId,
+          trimester: gradeTrimester,
+          score,
+          comment: gradeComment || null,
+          schoolYearId: 'default',
+        }),
+      })
+      if (res.ok) {
+        toast.success('Note enregistrée !')
+        setShowGradeForm(false)
+        setGradeStudentId(''); setGradeScore(''); setGradeComment('')
+        setGradeStudentSearchId(null); setGradeStudentSearch('')
+        loadGrades()
+      } else {
+        toast.error('Erreur lors de l\'enregistrement')
+      }
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setGradeSubmitting(false)
+  }
+
   // Group grades by student for parent view
   // Child search autocomplete for parent - computed from local data
   const childSuggestions = useMemo(() => {
@@ -4000,10 +4069,83 @@ function GradesView() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Notes</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Notes</h1>
+        </div>
+        {isTeacher && (
+          <button onClick={() => setShowGradeForm(!showGradeForm)} className="edu-gold-cta px-4 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-2">
+            <Plus size={14} /> Nouvelle note
+          </button>
+        )}
       </div>
+
+      {/* Grade Entry Form for Teachers */}
+      {isTeacher && showGradeForm && (
+        <div className="bg-white border-2 border-[oklch(72%_0.15_65_/_0.3)] rounded-2xl p-6 shadow-md mb-6">
+          <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+            <BookOpen size={16} style={{ color: GOLD }} /> Saisir une note
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
+              <select value={gradeClassId} onChange={e => { setGradeClassId(e.target.value); setGradeStudentId(''); setGradeStudentSearchId(null) }} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                <option value="">Sélectionner une classe</option>
+                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Matière *</label>
+              <select value={gradeSubjectId} onChange={e => setGradeSubjectId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" disabled={!gradeClassId}>
+                <option value="">{gradeClassId ? 'Sélectionner une matière' : 'D\'abord choisir une classe'}</option>
+                {subjects.map(s => <option key={s.id} value={s.id}>{s.name} (coef. {s.coefficient})</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Trimestre *</label>
+              <select value={gradeTrimester} onChange={e => setGradeTrimester(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                <option value="T1">Trimestre 1</option>
+                <option value="T2">Trimestre 2</option>
+                <option value="T3">Trimestre 3</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Élève *</label>
+              {!gradeClassId ? (
+                <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm" style={{ color: TEXT_MUTED_LUXE }}>D'abord choisir une classe</div>
+              ) : (
+                <SearchAutocomplete
+                  label=""
+                  placeholder="Tapez le nom de l'élève..."
+                  items={gradeStudentSuggestions}
+                  selectedId={gradeStudentSearchId}
+                  onSelect={(item) => { setGradeStudentSearchId(item.id); setGradeStudentId(item.id) }}
+                  onClear={() => { setGradeStudentSearchId(null); setGradeStudentId(''); setGradeStudentSearch('') }}
+                  searchQuery={gradeStudentSearch}
+                  onSearchChange={setGradeStudentSearch}
+                  itemTypeName="élève"
+                />
+              )}
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Note /20 *</label>
+              <input type="number" min="0" max="20" step="0.5" value={gradeScore} onChange={e => setGradeScore(e.target.value)} placeholder="0-20" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Commentaire</label>
+              <input value={gradeComment} onChange={e => setGradeComment(e.target.value)} placeholder="Optionnel" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+            </div>
+          </div>
+          <div className="flex gap-3 mt-4">
+            <button onClick={handleAddGrade} disabled={gradeSubmitting || !gradeStudentId || !gradeSubjectId || !gradeClassId || !gradeScore} className="edu-gold-cta px-6 py-2.5 rounded-xl font-semibold text-sm inline-flex items-center gap-2 disabled:opacity-50">
+              {gradeSubmitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
+              Enregistrer la note
+            </button>
+            <button onClick={() => setShowGradeForm(false)} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap items-start gap-3 mb-5 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4 shadow-sm" style={{ background: IVORY }}>
         {isParent ? (
           <SearchAutocomplete
@@ -4417,6 +4559,29 @@ function DisciplineView() {
   const [allDisciplineRecords, setAllDisciplineRecords] = useState<DisciplineData[]>([])
   const isParent = userRole === 'PARENT'
 
+  // Discipline role specific state
+  const disciplineRoles: UserRole[] = ['DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE']
+  const isDisciplineRole = disciplineRoles.includes(userRole as UserRole)
+  const [sectionStudents, setSectionStudents] = useState<StudentData[]>([])
+  const [studentSearch, setStudentSearch] = useState('')
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
+  const [selectedStudentSearchId, setSelectedStudentSearchId] = useState<string | null>(null)
+  const [showSanctionForm, setShowSanctionForm] = useState(false)
+  const [showConvocationForm, setShowConvocationForm] = useState(false)
+  const [sanctionType, setSanctionType] = useState('RETARD')
+  const [sanctionSeverity, setSanctionSeverity] = useState('LOW')
+  const [sanctionTitle, setSanctionTitle] = useState('')
+  const [sanctionDesc, setSanctionDesc] = useState('')
+  const [sanctionPoints, setSanctionPoints] = useState('-2')
+  const [sanctionListType, setSanctionListType] = useState<'BLACKLIST' | 'GREYLIST' | 'WHITELIST'>('GREYLIST')
+  const [submitting, setSubmitting] = useState(false)
+  const [convocationMotif, setConvocationMotif] = useState('')
+  const [convocationDate, setConvocationDate] = useState('')
+  const [convocations, setConvocations] = useState<{ id: string; motif: string; date: string; status: string; student: { firstName: string; lastName: string; matricule: string } }[]>([])
+
+  // Determine section level for discipline role
+  const sectionLevel = userRole === 'DISCIPLINE_MATERNELLE' ? 'MATERNELLE' : userRole === 'DISCIPLINE_PRIMAIRE' ? 'PRIMAIRE' : userRole === 'DISCIPLINE_SECONDAIRE' ? 'SECONDAIRE' : ''
+
   useEffect(() => {
     if (isParent && userData?.id) {
       fetch(`/api/students?parentId=${userData.id}&limit=20`)
@@ -4425,6 +4590,35 @@ function DisciplineView() {
         .catch(() => {})
     }
   }, [isParent, userData?.id])
+
+  // Fetch students for discipline role by section level
+  useEffect(() => {
+    if (isDisciplineRole && userData?.schoolId && sectionLevel) {
+      fetch(`/api/students?limit=200&schoolId=${userData.schoolId}`)
+        .then(r => r.json())
+        .then(j => {
+          const allStudents: StudentData[] = j.data || []
+          // Filter students by their class level matching the discipline section
+          const filtered = allStudents.filter(s => {
+            const cls = (s as Record<string, unknown>).class as { section?: string; level?: string } | undefined
+            const sectionValue = cls?.section || cls?.level || ''
+            return sectionValue.toUpperCase() === sectionLevel.toUpperCase()
+          })
+          setSectionStudents(filtered)
+        })
+        .catch(() => {})
+    }
+  }, [isDisciplineRole, userData?.schoolId, sectionLevel])
+
+  // Fetch convocations for discipline role
+  useEffect(() => {
+    if (isDisciplineRole && userData?.schoolId) {
+      fetch(`/api/convocations?schoolId=${userData.schoolId}&limit=50`)
+        .then(r => r.json())
+        .then(j => setConvocations(j.data || []))
+        .catch(() => {})
+    }
+  }, [isDisciplineRole, userData?.schoolId])
 
   // Fetch ALL discipline records for parent's children (for overview counts)
   useEffect(() => {
@@ -4450,6 +4644,15 @@ function DisciplineView() {
     return counts
   }, [allDisciplineRecords])
 
+  // Student search autocomplete for discipline role
+  const studentSuggestions = useMemo(() => {
+    if (!isDisciplineRole) return []
+    if (studentSearch.length < 1) return sectionStudents.map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule }))
+    return sectionStudents.filter(s =>
+      `${s.firstName} ${s.lastName}`.toLowerCase().includes(studentSearch.toLowerCase()) || s.matricule.toLowerCase().includes(studentSearch.toLowerCase())
+    ).map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule }))
+  }, [studentSearch, sectionStudents, isDisciplineRole])
+
   // Child search autocomplete for parent - computed from local data
   const childSuggestions = useMemo(() => {
     if (!isParent) return []
@@ -4471,18 +4674,297 @@ function DisciplineView() {
         params.set('parentId', userData.id)
       }
     }
+    if (isDisciplineRole && selectedStudentId) {
+      params.set('studentId', selectedStudentId)
+    }
     fetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { if (!cancelled) { setRecords(j.data || []); setLoading(false) } }).catch(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [tab, isParent, userData?.id, selectedChildId])
+  }, [tab, isParent, userData?.id, selectedChildId, isDisciplineRole, selectedStudentId])
 
   const selectedChildName = selectedChildId ? myChildren.find(c => c.id === selectedChildId) : null
+  const selectedStudentName = selectedStudentId ? sectionStudents.find(s => s.id === selectedStudentId) : null
+
+  async function handleAddSanction() {
+    if (!selectedStudentId || !sanctionTitle || !sanctionDesc || !userData?.schoolId) {
+      toast.error('Veuillez remplir tous les champs')
+      return
+    }
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/discipline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: selectedStudentId,
+          type: sanctionType,
+          severity: sanctionSeverity,
+          title: sanctionTitle,
+          description: sanctionDesc,
+          points: parseInt(sanctionPoints) || 0,
+          listType: sanctionListType,
+          schoolId: userData.schoolId,
+        }),
+      })
+      if (res.ok) {
+        toast.success('Sanction enregistrée !')
+        setShowSanctionForm(false)
+        setSanctionTitle('')
+        setSanctionDesc('')
+        setSanctionPoints('-2')
+        // Refresh records
+        setLoading(true)
+        const params = new URLSearchParams()
+        params.set('listType', tab)
+        params.set('limit', '50')
+        if (selectedStudentId) params.set('studentId', selectedStudentId)
+        fetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { setRecords(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+      } else {
+        toast.error('Erreur lors de l\'enregistrement')
+      }
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setSubmitting(false)
+  }
+
+  async function handleAddConvocation() {
+    if (!selectedStudentId || !convocationMotif || !convocationDate || !userData?.schoolId) {
+      toast.error('Veuillez remplir tous les champs')
+      return
+    }
+    setSubmitting(true)
+    try {
+      const student = sectionStudents.find(s => s.id === selectedStudentId)
+      const res = await fetch('/api/convocations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: selectedStudentId,
+          parentId: (student as Record<string, unknown>)?.parentId || null,
+          motif: convocationMotif,
+          date: convocationDate,
+          schoolId: userData.schoolId,
+          createdBy: userData.id,
+        }),
+      })
+      if (res.ok) {
+        toast.success('Convocation envoyée !')
+        setShowConvocationForm(false)
+        setConvocationMotif('')
+        setConvocationDate('')
+        // Refresh convocations
+        fetch(`/api/convocations?schoolId=${userData.schoolId}&limit=50`)
+          .then(r => r.json())
+          .then(j => setConvocations(j.data || []))
+          .catch(() => {})
+      } else {
+        toast.error('Erreur lors de l\'envoi')
+      }
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setSubmitting(false)
+  }
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Discipline</h1>
+        {isDisciplineRole && sectionLevel && (
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider" style={{ background: GOLD_SOFT, color: GOLD }}>{sectionLevel}</span>
+        )}
       </div>
+
+      {/* Discipline Role: Student search + actions */}
+      {isDisciplineRole && (
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[250px] max-w-sm">
+              <SearchAutocomplete
+                label="Rechercher un élève *"
+                placeholder="Tapez le nom de l'élève..."
+                items={studentSuggestions}
+                selectedId={selectedStudentSearchId}
+                onSelect={(item) => { setSelectedStudentSearchId(item.id); setSelectedStudentId(item.id) }}
+                onClear={() => { setSelectedStudentSearchId(null); setSelectedStudentId(null); setStudentSearch('') }}
+                searchQuery={studentSearch}
+                onSearchChange={setStudentSearch}
+                itemTypeName="élève"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => { setShowSanctionForm(true); setShowConvocationForm(false) }} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: DANGER }}>
+                <Shield size={14} /> Sanctionner
+              </button>
+              <button onClick={() => { setShowConvocationForm(true); setShowSanctionForm(false) }} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: WARNING }}>
+                <Megaphone size={14} /> Convocation
+              </button>
+            </div>
+          </div>
+
+          {/* Section Students Quick List */}
+          {!selectedStudentId && sectionStudents.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Users size={14} style={{ color: GOLD }} />
+                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Élèves du secteur ({sectionStudents.length})</span>
+              </div>
+              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar">
+                {sectionStudents.slice(0, 30).map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => { setSelectedStudentId(s.id); setSelectedStudentSearchId(s.id) }}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                      selectedStudentId === s.id ? 'border-[oklch(72%_0.15_65)] shadow-sm' : 'border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.4)]'
+                    }`}
+                    style={{ background: selectedStudentId === s.id ? GOLD_SOFT : 'white', color: TEXT_PRIMARY }}
+                  >
+                    <div className="w-5 h-5 rounded-full grid place-items-center text-white text-[8px] font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                      {getInitials(`${s.firstName} ${s.lastName}`)}
+                    </div>
+                    {s.firstName} {s.lastName}
+                  </button>
+                ))}
+                {sectionStudents.length > 30 && <span className="text-xs px-2 py-1" style={{ color: TEXT_MUTED_LUXE }}>+{sectionStudents.length - 30} autres</span>}
+              </div>
+            </div>
+          )}
+
+          {/* Sanction Form */}
+          {showSanctionForm && (
+            <div className="bg-white border-2 border-[oklch(72%_0.15_65_/_0.3)] rounded-2xl p-6 shadow-md">
+              <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+                <Shield size={16} style={{ color: DANGER }} /> Nouvelle sanction
+                {selectedStudentName && <span className="text-sm font-normal" style={{ color: TEXT_MUTED_LUXE }}>— {selectedStudentName.firstName} {selectedStudentName.lastName}</span>}
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Élève *</label>
+                  {!selectedStudentId ? (
+                    <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm" style={{ color: DANGER }}>Sélectionnez un élève ci-dessus</div>
+                  ) : (
+                    <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm font-medium" style={{ color: TEXT_PRIMARY, background: GOLD_SOFT }}>
+                      {selectedStudentName?.firstName} {selectedStudentName?.lastName} ({selectedStudentName?.matricule})
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Liste *</label>
+                  <select value={sanctionListType} onChange={e => setSanctionListType(e.target.value as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST')} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                    <option value="GREYLIST">Liste Grise (modéré)</option>
+                    <option value="BLACKLIST">Liste Noire (grave)</option>
+                    <option value="WHITELIST">Liste Blanche (positif)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Type *</label>
+                  <select value={sanctionType} onChange={e => setSanctionType(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                    <option value="RETARD">Retard</option>
+                    <option value="ABSENCE">Absence</option>
+                    <option value="TRICHERIE">Tricherie</option>
+                    <option value="VIOLENCE">Violence</option>
+                    <option value="INCIVILITE">Incivilité</option>
+                    <option value="EXCELLENCE">Excellence</option>
+                    <option value="MERITE">Mérite</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Gravité *</label>
+                  <select value={sanctionSeverity} onChange={e => setSanctionSeverity(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                    <option value="LOW">Faible</option>
+                    <option value="MEDIUM">Moyen</option>
+                    <option value="HIGH">Grave</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Motif *</label>
+                  <input value={sanctionTitle} onChange={e => setSanctionTitle(e.target.value)} placeholder="Ex: Retard répété" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Description</label>
+                  <textarea value={sanctionDesc} onChange={e => setSanctionDesc(e.target.value)} rows={2} placeholder="Détails de l'incident..." className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Points</label>
+                  <input type="number" value={sanctionPoints} onChange={e => setSanctionPoints(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+                  <p className="text-[10px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>Négatif = pénalité, Positif = récompense</p>
+                </div>
+              </div>
+              <div className="flex gap-3 mt-4">
+                <button onClick={handleAddSanction} disabled={submitting || !selectedStudentId || !sanctionTitle} className="edu-gold-cta px-6 py-2.5 rounded-xl font-semibold text-sm inline-flex items-center gap-2 disabled:opacity-50">
+                  {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
+                  Enregistrer la sanction
+                </button>
+                <button onClick={() => setShowSanctionForm(false)} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+              </div>
+            </div>
+          )}
+
+          {/* Convocation Form */}
+          {showConvocationForm && (
+            <div className="bg-white border-2 border-[oklch(72%_0.15_65_/_0.3)] rounded-2xl p-6 shadow-md">
+              <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+                <Megaphone size={16} style={{ color: WARNING }} /> Convocation des parents
+                {selectedStudentName && <span className="text-sm font-normal" style={{ color: TEXT_MUTED_LUXE }}>— {selectedStudentName.firstName} {selectedStudentName.lastName}</span>}
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Élève *</label>
+                  {!selectedStudentId ? (
+                    <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm" style={{ color: DANGER }}>Sélectionnez un élève ci-dessus</div>
+                  ) : (
+                    <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm font-medium" style={{ color: TEXT_PRIMARY, background: GOLD_SOFT }}>
+                      {selectedStudentName?.firstName} {selectedStudentName?.lastName}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Date de convocation *</label>
+                  <input type="datetime-local" value={convocationDate} onChange={e => setConvocationDate(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Motif *</label>
+                  <textarea value={convocationMotif} onChange={e => setConvocationMotif(e.target.value)} rows={3} placeholder="Raison de la convocation..." className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-4">
+                <button onClick={handleAddConvocation} disabled={submitting || !selectedStudentId || !convocationMotif || !convocationDate} className="edu-gold-cta px-6 py-2.5 rounded-xl font-semibold text-sm inline-flex items-center gap-2 disabled:opacity-50">
+                  {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Send size={14} />}
+                  Envoyer la convocation
+                </button>
+                <button onClick={() => setShowConvocationForm(false)} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+              </div>
+            </div>
+          )}
+
+          {/* Convocations list */}
+          {convocations.length > 0 && (
+            <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
+              <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+                <Megaphone size={16} style={{ color: GOLD }} /> Convocations ({convocations.length})
+              </h3>
+              <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+                {convocations.map(c => (
+                  <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition">
+                    <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                      {getInitials(`${c.student.firstName} ${c.student.lastName}`)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate" style={{ color: TEXT_PRIMARY }}>{c.student.firstName} {c.student.lastName}</div>
+                      <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{c.motif}</div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(c.date)}</div>
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: c.status === 'CONFIRMED' ? SUCCESS_SOFT : GOLD_SOFT, color: c.status === 'CONFIRMED' ? SUCCESS : GOLD }}>{c.status === 'PENDING' ? 'En attente' : 'Confirmée'}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Parent: Children Overview Cards */}
       {isParent && myChildren.length > 0 && (
@@ -4492,7 +4974,6 @@ function DisciplineView() {
             <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Mes enfants</h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-            {/* "Tous mes enfants" card */}
             <button
               onClick={() => { setSelectedChildId(''); setSelectedChildSearchId(null); setChildSearch('') }}
               className={`text-left p-4 rounded-2xl border-2 transition-all duration-200 edu-card-lift ${
@@ -4510,7 +4991,6 @@ function DisciplineView() {
                 </div>
               </div>
             </button>
-            {/* Individual child cards */}
             {myChildren.map(child => {
               const fullName = `${child.firstName} ${child.lastName}`
               const initials = getInitials(fullName)
@@ -4565,7 +5045,6 @@ function DisciplineView() {
               )
             })}
           </div>
-          {/* Search autocomplete */}
           <div className="max-w-xs">
             <SearchAutocomplete
               label="Rechercher un enfant"
@@ -4582,7 +5061,7 @@ function DisciplineView() {
         </div>
       )}
 
-      {/* Selected child indicator */}
+      {/* Selected child/student indicator */}
       {isParent && selectedChildName && (
         <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl" style={{ background: GOLD_SOFT }}>
           <div className="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
@@ -4592,6 +5071,19 @@ function DisciplineView() {
             Discipline de <strong>{selectedChildName.firstName} {selectedChildName.lastName}</strong>
           </span>
           <button onClick={() => { setSelectedChildId(''); setSelectedChildSearchId(null); setChildSearch('') }} className="ml-auto text-[11px] font-medium hover:underline" style={{ color: GOLD }}>
+            Voir tous
+          </button>
+        </div>
+      )}
+      {isDisciplineRole && selectedStudentName && (
+        <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl" style={{ background: GOLD_SOFT }}>
+          <div className="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+            {getInitials(`${selectedStudentName.firstName} ${selectedStudentName.lastName}`)}
+          </div>
+          <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>
+            Discipline de <strong>{selectedStudentName.firstName} {selectedStudentName.lastName}</strong>
+          </span>
+          <button onClick={() => { setSelectedStudentId(null); setSelectedStudentSearchId(null); setStudentSearch('') }} className="ml-auto text-[11px] font-medium hover:underline" style={{ color: GOLD }}>
             Voir tous
           </button>
         </div>
@@ -4766,20 +5258,125 @@ function CommunicationsView() {
 
 // ===== HOMEWORK VIEW =====
 function HomeworkView() {
+  const { userData, userRole } = useEduGestStore()
   const [homework, setHomework] = useState<HomeworkData[]>([])
   const [loading, setLoading] = useState(true)
+  const isTeacher = userRole === 'TEACHER' || userRole === 'HEAD_TEACHER'
+  const [showForm, setShowForm] = useState(false)
+  const [hwTitle, setHwTitle] = useState('')
+  const [hwDesc, setHwDesc] = useState('')
+  const [hwSubject, setHwSubject] = useState('')
+  const [hwClassId, setHwClassId] = useState('')
+  const [hwDueDate, setHwDueDate] = useState('')
+  const [classes, setClasses] = useState<{ id: string; name: string; level?: string }[]>([])
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     fetch('/api/homework?limit=30').then(r => r.json()).then(j => { setHomework(j.data || []); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    if (isTeacher && userData?.schoolId) {
+      fetch('/api/classes?limit=50').then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
+    }
+  }, [isTeacher, userData?.schoolId])
+
+  async function handleAddHomework() {
+    if (!hwTitle || !hwSubject || !hwClassId || !hwDueDate || !userData?.schoolId) {
+      toast.error('Veuillez remplir tous les champs obligatoires')
+      return
+    }
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/homework', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: hwTitle,
+          description: hwDesc,
+          subjectName: hwSubject,
+          classId: hwClassId,
+          teacherName: userData?.name || 'Professeur',
+          dueDate: hwDueDate,
+          schoolId: userData.schoolId,
+        }),
+      })
+      if (res.ok) {
+        toast.success('Devoir ajouté avec succès !')
+        setShowForm(false)
+        setHwTitle(''); setHwDesc(''); setHwSubject(''); setHwClassId(''); setHwDueDate('')
+        // Refresh
+        fetch('/api/homework?limit=30').then(r => r.json()).then(j => setHomework(j.data || [])).catch(() => {})
+      } else {
+        toast.error('Erreur lors de l\'ajout')
+      }
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setSubmitting(false)
+  }
+
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Devoirs</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Devoirs</h1>
+        </div>
+        {isTeacher && (
+          <button onClick={() => setShowForm(!showForm)} className="edu-gold-cta px-4 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-2">
+            <Plus size={14} /> Nouveau devoir
+          </button>
+        )}
       </div>
-      {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : (
+
+      {/* Add Homework Form */}
+      {isTeacher && showForm && (
+        <div className="bg-white border-2 border-[oklch(72%_0.15_65_/_0.3)] rounded-2xl p-6 shadow-md mb-6">
+          <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+            <PenTool size={16} style={{ color: GOLD }} /> Nouveau devoir
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Titre *</label>
+              <input value={hwTitle} onChange={e => setHwTitle(e.target.value)} placeholder="Ex: Exercices de calcul" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Matière *</label>
+              <input value={hwSubject} onChange={e => setHwSubject(e.target.value)} placeholder="Ex: Mathématiques" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
+              <select value={hwClassId} onChange={e => setHwClassId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                <option value="">Sélectionner une classe</option>
+                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Date limite *</label>
+              <input type="date" value={hwDueDate} onChange={e => setHwDueDate(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Description</label>
+              <textarea value={hwDesc} onChange={e => setHwDesc(e.target.value)} rows={3} placeholder="Instructions pour le devoir..." className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" />
+            </div>
+          </div>
+          <div className="flex gap-3 mt-4">
+            <button onClick={handleAddHomework} disabled={submitting || !hwTitle || !hwSubject || !hwClassId || !hwDueDate} className="edu-gold-cta px-6 py-2.5 rounded-xl font-semibold text-sm inline-flex items-center gap-2 disabled:opacity-50">
+              {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
+              Ajouter le devoir
+            </button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : homework.length === 0 ? (
+        <div className="text-center py-8">
+          <PenTool size={32} className="mx-auto mb-3" style={{ color: TEXT_MUTED_LUXE }} />
+          <p className="font-medium" style={{ color: TEXT_PRIMARY }}>Aucun devoir</p>
+        </div>
+      ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {homework.map(h => (
             <div key={h.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
