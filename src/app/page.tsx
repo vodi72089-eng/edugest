@@ -16,7 +16,7 @@ import {
   Info, Zap, Globe, Lock, Award, Ban, CircleDot, ListChecks,
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
-  ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw
+  ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -1198,6 +1198,7 @@ function CreateSchoolView() {
   const [loading, setLoading] = useState(false)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [logoUploading, setLogoUploading] = useState(false)
+  const [showAdminPassword, setShowAdminPassword] = useState(false)
   const [form, setForm] = useState({
     name: '', shortName: '', email: '', phone: '', address: '', city: '',
     province: 'Kinshasa', country: 'RD Congo', description: '', schoolType: 'MIXTE',
@@ -1483,7 +1484,12 @@ function CreateSchoolView() {
                   </div>
                   <div className="sm:col-span-2">
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Mot de passe</label>
-                    <input type="password" value={form.adminPassword} onChange={e => updateForm('adminPassword', e.target.value)} placeholder="Laissez vide pour le mot de passe par défaut" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                    <div className="relative">
+                      <input type={showAdminPassword ? 'text' : 'password'} value={form.adminPassword} onChange={e => updateForm('adminPassword', e.target.value)} placeholder="Laissez vide pour le mot de passe par défaut" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-11 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                      <button type="button" onClick={() => setShowAdminPassword(!showAdminPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition p-1">
+                        {showAdminPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1537,6 +1543,7 @@ function LoginView() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [showWhatsappModal, setShowWhatsappModal] = useState(false)
   const [waPhone, setWaPhone] = useState('')
   const [waCode, setWaCode] = useState('')
@@ -1851,13 +1858,22 @@ function LoginView() {
             </div>
             <div className="space-y-1.5">
               <label className="text-[13px] font-medium text-white/70">Mot de passe</label>
-              <input
-                type="password" value={password} onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-3.5 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)] focus:border-[rgba(245,166,35,0.5)]"
-                style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-4 py-3.5 pr-11 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)] focus:border-[rgba(245,166,35,0.5)]"
+                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition p-1"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             <div className="flex items-center justify-between text-[13px]">
               <label className="flex items-center gap-2 cursor-pointer text-white/50">
@@ -3313,6 +3329,7 @@ function StudentsView() {
   const [parentEmail, setParentEmail] = useState('')
   const [parentPhone, setParentPhone] = useState('')
   const [parentPassword, setParentPassword] = useState('')
+  const [showParentPwd, setShowParentPwd] = useState(false)
   const [adding, setAdding] = useState(false)
   const { userData } = useEduGestStore()
 
@@ -3492,7 +3509,7 @@ function StudentsView() {
                     </div>
                     <div><input placeholder="Email du parent" type="email" value={parentEmail} onChange={e => setParentEmail(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
                     <div><input placeholder="Téléphone du parent (ex: +243 81...)" type="tel" value={parentPhone} onChange={e => setParentPhone(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
-                    <div><input placeholder="Mot de passe du parent" type="password" value={parentPassword} onChange={e => setParentPassword(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
+                    <div className="relative"><input placeholder="Mot de passe du parent" type={showParentPwd ? 'text' : 'password'} value={parentPassword} onChange={e => setParentPassword(e.target.value)} className="w-full px-3 py-2 pr-10 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /><button type="button" onClick={() => setShowParentPwd(!showParentPwd)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[oklch(52%_0.015_250)] hover:text-[oklch(40%_0.02_250)] transition p-1">{showParentPwd ? <EyeOff size={14} /> : <Eye size={14} />}</button></div>
                   </div>
                 )}
               </div>
@@ -4411,6 +4428,7 @@ function PersonnelView() {
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [showPersonnelPassword, setShowPersonnelPassword] = useState(false)
   const [editingUser, setEditingUser] = useState<typeof users[0] | null>(null)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
@@ -4737,7 +4755,12 @@ function PersonnelView() {
                 <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>
                   Mot de passe {editingUser ? '(laisser vide pour ne pas changer)' : '(défaut: password123)'}
                 </label>
-                <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                <div className="relative">
+                  <input type={showPersonnelPassword ? 'text' : 'password'} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" className="w-full px-4 py-3 pr-11 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                  <button type="button" onClick={() => setShowPersonnelPassword(!showPersonnelPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[oklch(52%_0.015_250)] hover:text-[oklch(40%_0.02_250)] transition p-1">
+                    {showPersonnelPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
 
               {/* Submit */}
