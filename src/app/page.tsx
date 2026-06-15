@@ -58,6 +58,7 @@ interface PaymentData {
   id: string; studentId: string; schoolId: string; amount: number;
   paidAmount: number; trimester: string; paymentMethod?: string;
   status: string; receiptNumber?: string; paidAt?: string; createdAt: string;
+  verifiedBy?: string | null; verifiedAt?: string | null; verificationNote?: string | null;
   student?: { id: string; firstName: string; lastName: string; matricule: string };
 }
 
@@ -2194,6 +2195,7 @@ function Sidebar() {
       { icon: <School size={16} />, label: 'Classes', view: 'classes' },
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
+      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
@@ -2208,6 +2210,7 @@ function Sidebar() {
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
+      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
@@ -2215,6 +2218,7 @@ function Sidebar() {
     CASHIER: [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <CreditCard size={16} />, label: 'Enregistrer paiement', view: 'payments' },
+      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
       { icon: <AlertTriangle size={16} />, label: 'Dettes', view: 'payments', badge: 84 },
       { icon: <BarChart3 size={16} />, label: 'Situation financière', view: 'payments' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
@@ -2224,6 +2228,7 @@ function Sidebar() {
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
+      { icon: <CheckCircle size={16} />, label: 'Vérifier reçu', view: 'payment-verification' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
       { icon: <Star size={16} />, label: 'Avis école', view: 'school-reviews' as ViewType },
@@ -2538,6 +2543,7 @@ function MainContent() {
     case 'classes': return <ClassesView />
     case 'grades': return <GradesView />
     case 'payments': return <PaymentsView />
+    case 'payment-verification': return <PaymentVerificationView />
     case 'discipline': return <DisciplineView />
     case 'communications': return <CommunicationsView />
     case 'homework': return <HomeworkView />
@@ -4778,6 +4784,572 @@ function PaymentsView() {
             </div>
             <div className="flex-1 overflow-hidden rounded-b-2xl">
               <iframe src={pdfUrl} className="w-full h-[70vh] border-0" title="Reçu PDF" />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ===== PAYMENT VERIFICATION VIEW =====
+function PaymentVerificationView() {
+  const { userData, userRole } = useEduGestStore()
+  const isParent = userRole === 'PARENT'
+  const isAdmin = userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SCHOOL_ADMIN'
+  const isCashier = userRole === 'CASHIER'
+  const isSecretary = userRole === 'SECRETARY'
+  const canVerify = isAdmin || isCashier || isSecretary
+
+  const [payments, setPayments] = useState<PaymentData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<'all' | 'unverified' | 'verified'>('unverified')
+  const [selectedPayment, setSelectedPayment] = useState<PaymentData | null>(null)
+  const [verificationNote, setVerificationNote] = useState('')
+  const [verifying, setVerifying] = useState(false)
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null)
+  const [receiptLoading, setReceiptLoading] = useState(false)
+  // Parent-specific: search by receipt number
+  const [receiptSearch, setReceiptSearch] = useState('')
+  const [searchResult, setSearchResult] = useState<PaymentData | null>(null)
+  const [searching, setSearching] = useState(false)
+
+  // Load payments for verification (staff roles)
+  useEffect(() => {
+    if (isParent) return
+    if (!userData?.schoolId) return
+    setLoading(true)
+    fetch(`/api/payments?limit=100&schoolId=${userData.schoolId}`)
+      .then(r => r.json())
+      .then(j => { setPayments(j.data || []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [userData?.schoolId, isParent])
+
+  const filteredPayments = payments.filter(p => {
+    if (filter === 'unverified') return !(p as Record<string, unknown>).verifiedBy
+    if (filter === 'verified') return !!(p as Record<string, unknown>).verifiedBy
+    return true
+  })
+
+  const unverifiedCount = payments.filter(p => !(p as Record<string, unknown>).verifiedBy).length
+  const verifiedCount = payments.filter(p => !!(p as Record<string, unknown>).verifiedBy).length
+
+  async function handleVerify(action: 'approve' | 'reject') {
+    if (!selectedPayment) return
+    setVerifying(true)
+    try {
+      const res = await fetch('/api/payments/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentId: selectedPayment.id,
+          verifierName: userData?.name || 'Vérificateur',
+          verificationNote: verificationNote.trim() || null,
+          action,
+        }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success(action === 'approve' ? 'Paiement approuvé avec succès!' : 'Paiement rejeté')
+        // Update local list
+        setPayments(prev => prev.map(p =>
+          p.id === selectedPayment.id
+            ? { ...p, status: action === 'approve' ? 'PAID' : 'REJECTED', verifiedBy: userData?.name, verifiedAt: new Date().toISOString(), verificationNote: verificationNote.trim() || null }
+            : p
+        ))
+        setSelectedPayment(null)
+        setVerificationNote('')
+      } else {
+        toast.error(json.error || 'Erreur lors de la vérification')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    }
+    finally { setVerifying(false) }
+  }
+
+  async function handleViewReceipt(paymentId: string) {
+    setReceiptLoading(true)
+    try {
+      const res = await fetch(`/api/payments/receipt/${paymentId}`)
+      if (!res.ok) throw new Error()
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      setReceiptUrl(url)
+    } catch {
+      toast.error('Erreur lors du chargement du reçu')
+    }
+    finally { setReceiptLoading(false) }
+  }
+
+  async function handleParentReceiptSearch() {
+    if (!receiptSearch.trim()) { toast.error('Entrez un numéro de reçu'); return }
+    setSearching(true)
+    setSearchResult(null)
+    try {
+      // Search in children's payments
+      if (userData?.id) {
+        const childrenRes = await fetch(`/api/students?parentId=${userData.id}&limit=20`)
+        const childrenJson = await childrenRes.json()
+        const children: { id: string }[] = childrenJson.data || []
+
+        let found: PaymentData | null = null
+        for (const child of children) {
+          const pRes = await fetch(`/api/payments?studentId=${child.id}&limit=50`)
+          const pJson = await pRes.json()
+          const childPayments: PaymentData[] = pJson.data || []
+          const match = childPayments.find(p =>
+            (p.receiptNumber && p.receiptNumber.toLowerCase() === receiptSearch.trim().toLowerCase()) ||
+            p.id.slice(-8).toLowerCase() === receiptSearch.trim().toLowerCase()
+          )
+          if (match) { found = match; break }
+        }
+        setSearchResult(found)
+        if (!found) {
+          toast.error('Aucun reçu trouvé avec ce numéro. Vérifiez le numéro et réessayez.')
+        }
+      }
+    } catch {
+      toast.error('Erreur lors de la recherche')
+    }
+    finally { setSearching(false) }
+  }
+
+  // ===== PARENT VIEW =====
+  if (isParent) {
+    return (
+      <div>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Vérifier un reçu</h1>
+        </div>
+
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl grid place-items-center" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+              <CheckCircle size={20} className="text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Vérification de reçu</h3>
+              <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Entrez le numéro de reçu pour vérifier son authenticité</p>
+            </div>
+          </div>
+
+          <div className="flex gap-3 mb-4">
+            <input
+              placeholder="Ex: REC-M1A2B3C4 ou numéro du reçu"
+              value={receiptSearch}
+              onChange={e => setReceiptSearch(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleParentReceiptSearch()}
+              className="flex-1 px-4 py-3 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]"
+            />
+            <button
+              onClick={handleParentReceiptSearch}
+              disabled={searching}
+              className="edu-gold-cta px-6 py-3 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50"
+            >
+              {searching ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Search size={14} />}
+              Vérifier
+            </button>
+          </div>
+
+          {searchResult && (
+            <div className="border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden mt-4">
+              {/* Receipt Found Banner */}
+              <div className="px-5 py-4 flex items-center gap-3" style={{ background: `${SUCCESS}10` }}>
+                <div className="w-10 h-10 rounded-full grid place-items-center" style={{ background: SUCCESS }}>
+                  <CheckCircle size={20} className="text-white" />
+                </div>
+                <div>
+                  <div className="font-semibold" style={{ color: SUCCESS }}>Reçu vérifié ✓</div>
+                  <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Ce reçu est authentique et a été enregistré dans le système</div>
+                </div>
+              </div>
+
+              {/* Receipt Details */}
+              <div className="p-5 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>N° du reçu</div>
+                    <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{searchResult.receiptNumber || `REC-${searchResult.id.slice(-8).toUpperCase()}`}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Élève</div>
+                    <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>
+                      {searchResult.student ? `${searchResult.student.firstName} ${searchResult.student.lastName}` : '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Montant total</div>
+                    <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{formatNumber(searchResult.amount)} CDF</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Montant payé</div>
+                    <div className="text-sm font-semibold" style={{ color: SUCCESS }}>{formatNumber(searchResult.paidAmount)} CDF</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Trimestre</div>
+                    <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{searchResult.trimester}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Statut</div>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill(searchResult.status)}`}>
+                      {searchResult.status === 'PAID' ? '✓ Payé' : searchResult.status === 'PARTIAL' ? '◐ Partiel' : searchResult.status === 'OVERDUE' ? '⚠ En retard' : '○ En attente'}
+                    </span>
+                  </div>
+                  {(searchResult as Record<string, unknown>).verifiedBy && (
+                    <>
+                      <div>
+                        <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Vérifié par</div>
+                        <div className="text-sm font-semibold" style={{ color: SUCCESS }}>{String((searchResult as Record<string, unknown>).verifiedBy)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Date de vérification</div>
+                        <div className="text-sm" style={{ color: TEXT_PRIMARY }}>
+                          {(searchResult as Record<string, unknown>).verifiedAt ? new Date(String((searchResult as Record<string, unknown>).verifiedAt)).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {(searchResult as Record<string, unknown>).verificationNote && (
+                  <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-3">
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Note du vérificateur</div>
+                    <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{String((searchResult as Record<string, unknown>).verificationNote)}</div>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => handleViewReceipt(searchResult.id)}
+                    disabled={receiptLoading}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                    style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}
+                  >
+                    {receiptLoading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FileText size={14} />}
+                    Voir le reçu PDF
+                  </button>
+                  <button
+                    onClick={() => { downloadReceiptFile(searchResult.id) }}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition"
+                    style={{ color: TEXT_PRIMARY }}
+                  >
+                    <Download size={14} /> Télécharger
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Receipt PDF Viewer Modal */}
+        {receiptUrl && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => { URL.revokeObjectURL(receiptUrl); setReceiptUrl(null) }}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl grid place-items-center text-white" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
+                    <FileText size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900">Reçu de Paiement</h2>
+                    <p className="text-xs text-gray-500">Reçu vérifié</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a href={receiptUrl} download className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
+                    <Download size={14} /> Télécharger
+                  </a>
+                  <button onClick={() => { URL.revokeObjectURL(receiptUrl); setReceiptUrl(null) }} className="w-9 h-9 rounded-lg grid place-items-center hover:bg-gray-100 transition">
+                    <X size={18} className="text-gray-500" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-hidden rounded-b-2xl">
+                <iframe src={receiptUrl} className="w-full h-[70vh] border-0" title="Reçu PDF" />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ===== STAFF VIEW (Admin, Cashier, Secretary) =====
+  async function downloadReceiptFile(paymentId: string) {
+    try {
+      const res = await fetch(`/api/payments/receipt/${paymentId}`)
+      if (!res.ok) throw new Error()
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const payment = payments.find(p => p.id === paymentId)
+      a.download = `recu-${payment?.receiptNumber || paymentId.slice(-8)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Erreur lors du téléchargement du reçu')
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Vérification des paiements</h1>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm cursor-pointer transition hover:shadow-md" onClick={() => setFilter('all')}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Total paiements</div>
+            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{ background: `${ACCENT}15` }}><CreditCard size={14} style={{ color: ACCENT }} /></div>
+          </div>
+          <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{payments.length}</div>
+        </div>
+        <div className={`bg-white border rounded-2xl p-5 shadow-sm cursor-pointer transition hover:shadow-md ${filter === 'unverified' ? 'border-[oklch(72%_0.15_65)] ring-2 ring-[oklch(72%_0.15_65_/_0.2)]' : 'border-[oklch(90%_0.01_175)]'}`} onClick={() => setFilter('unverified')}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Non vérifiés</div>
+            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{ background: `${WARNING}15` }}><AlertCircle size={14} style={{ color: WARNING }} /></div>
+          </div>
+          <div className="text-2xl font-bold" style={{ color: WARNING }}>{unverifiedCount}</div>
+        </div>
+        <div className={`bg-white border rounded-2xl p-5 shadow-sm cursor-pointer transition hover:shadow-md ${filter === 'verified' ? 'border-[oklch(72%_0.15_65)] ring-2 ring-[oklch(72%_0.15_65_/_0.2)]' : 'border-[oklch(90%_0.01_175)]'}`} onClick={() => setFilter('verified')}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Vérifiés</div>
+            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{ background: `${SUCCESS}15` }}><CheckCircle size={14} style={{ color: SUCCESS }} /></div>
+          </div>
+          <div className="text-2xl font-bold" style={{ color: SUCCESS }}>{verifiedCount}</div>
+        </div>
+      </div>
+
+      {/* Payments List */}
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr style={{ background: IVORY }}>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Trimestre</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Montant</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Payé</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Statut</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Vérification</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={7} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
+              ) : filteredPayments.length === 0 ? (
+                <tr><td colSpan={7} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>
+                  {filter === 'unverified' ? 'Tous les paiements sont vérifiés ✓' : filter === 'verified' ? 'Aucun paiement vérifié' : 'Aucun paiement trouvé'}
+                </td></tr>
+              ) : filteredPayments.map(p => {
+                const isVerified = !!(p as Record<string, unknown>).verifiedBy
+                return (
+                  <tr key={p.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                          {p.student ? getInitials(`${p.student.firstName} ${p.student.lastName}`) : '??'}
+                        </div>
+                        <div>
+                          <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{p.student ? `${p.student.firstName} ${p.student.lastName}` : '—'}</div>
+                          <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{p.student?.matricule || ''}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{p.trimester}</td>
+                    <td className="px-4 py-3 text-[13px] tabular-nums font-medium" style={{ color: TEXT_PRIMARY }}>{formatNumber(p.amount)} CDF</td>
+                    <td className="px-4 py-3 text-[13px] tabular-nums font-medium" style={{ color: SUCCESS }}>{formatNumber(p.paidAmount)} CDF</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill(p.status)}`}>
+                        {p.status === 'PAID' ? '✓ Payé' : p.status === 'PARTIAL' ? '◐ Partiel' : p.status === 'OVERDUE' ? '⚠ En retard' : p.status === 'REJECTED' ? '✗ Rejeté' : '○ En attente'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {isVerified ? (
+                        <div className="flex items-center gap-1.5">
+                          <CheckCircle size={14} style={{ color: SUCCESS }} />
+                          <div>
+                            <div className="text-[11px] font-medium" style={{ color: SUCCESS }}>Vérifié</div>
+                            <div className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>{String((p as Record<string, unknown>).verifiedBy)}</div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <AlertCircle size={14} style={{ color: WARNING }} />
+                          <span className="text-[11px] font-medium" style={{ color: WARNING }}>Non vérifié</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleViewReceipt(p.id)}
+                          className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition"
+                          style={{ color: GOLD }}
+                          title="Voir le reçu PDF"
+                        >
+                          {receiptLoading && selectedPayment?.id === p.id ? <div className="h-3 w-3 border border-[oklch(52%_0.015_250)] border-t-transparent rounded-full animate-spin" /> : <FileText size={14} />}
+                        </button>
+                        {canVerify && !isVerified && (
+                          <button
+                            onClick={() => setSelectedPayment(p)}
+                            className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition"
+                            style={{ color: SUCCESS }}
+                            title="Vérifier ce paiement"
+                          >
+                            <CheckCircle size={14} />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => downloadReceiptFile(p.id)}
+                          className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition"
+                          style={{ color: TEXT_MUTED_LUXE }}
+                          title="Télécharger le reçu"
+                        >
+                          <Download size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Verification Modal */}
+      {selectedPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => { setSelectedPayment(null); setVerificationNote('') }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl grid place-items-center" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                  <CheckCircle size={20} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Vérifier le paiement</h3>
+                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>N° {selectedPayment.receiptNumber || selectedPayment.id.slice(-8)}</p>
+                </div>
+              </div>
+              <button onClick={() => { setSelectedPayment(null); setVerificationNote('') }} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-gray-100 transition">
+                <X size={16} className="text-gray-500" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4 space-y-4">
+              {/* Payment Summary */}
+              <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: TEXT_MUTED_LUXE }}>Élève</span>
+                  <span className="font-medium" style={{ color: TEXT_PRIMARY }}>
+                    {selectedPayment.student ? `${selectedPayment.student.firstName} ${selectedPayment.student.lastName}` : '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: TEXT_MUTED_LUXE }}>Montant dû</span>
+                  <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{formatNumber(selectedPayment.amount)} CDF</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: TEXT_MUTED_LUXE }}>Montant payé</span>
+                  <span className="font-medium" style={{ color: SUCCESS }}>{formatNumber(selectedPayment.paidAmount)} CDF</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: TEXT_MUTED_LUXE }}>Reste à payer</span>
+                  <span className="font-medium" style={{ color: selectedPayment.amount - selectedPayment.paidAmount > 0 ? DANGER : SUCCESS }}>
+                    {formatNumber(selectedPayment.amount - selectedPayment.paidAmount)} CDF
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: TEXT_MUTED_LUXE }}>Mode</span>
+                  <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{selectedPayment.paymentMethod || '—'}</span>
+                </div>
+              </div>
+
+              {/* Verification Note */}
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Note de vérification (optionnel)</label>
+                <textarea
+                  placeholder="Ajoutez une note ou un commentaire..."
+                  value={verificationNote}
+                  onChange={e => setVerificationNote(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)] resize-none"
+                />
+              </div>
+
+              {/* Info about who is verifying */}
+              <div className="flex items-center gap-2 text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                <Info size={12} />
+                <span>Vérification par <strong style={{ color: TEXT_PRIMARY }}>{userData?.name}</strong> ({userData?.role})</span>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 flex items-center gap-3 justify-end">
+              <button
+                onClick={() => { setSelectedPayment(null); setVerificationNote('') }}
+                className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition"
+                style={{ color: TEXT_PRIMARY }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => handleVerify('reject')}
+                disabled={verifying}
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2"
+                style={{ background: DANGER }}
+              >
+                {verifying ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <X size={14} />}
+                Rejeter
+              </button>
+              <button
+                onClick={() => handleVerify('approve')}
+                disabled={verifying}
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2"
+                style={{ background: SUCCESS }}
+              >
+                {verifying ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle size={14} />}
+                Approuver
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt PDF Viewer Modal */}
+      {receiptUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => { URL.revokeObjectURL(receiptUrl); setReceiptUrl(null) }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl grid place-items-center text-white" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Reçu de Paiement</h2>
+                  <p className="text-xs text-gray-500">Vérification du reçu</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a href={receiptUrl} download className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
+                  <Download size={14} /> Télécharger
+                </a>
+                <button onClick={() => { URL.revokeObjectURL(receiptUrl); setReceiptUrl(null) }} className="w-9 h-9 rounded-lg grid place-items-center hover:bg-gray-100 transition">
+                  <X size={18} className="text-gray-500" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden rounded-b-2xl">
+              <iframe src={receiptUrl} className="w-full h-[70vh] border-0" title="Reçu PDF" />
             </div>
           </div>
         </div>

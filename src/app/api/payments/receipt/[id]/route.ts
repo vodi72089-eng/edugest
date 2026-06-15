@@ -87,6 +87,9 @@ function buildReceiptPDF(
     status: string;
     paidAt: Date | null;
     receiptNumber: string | null;
+    verifiedBy: string | null;
+    verifiedAt: Date | null;
+    verificationNote: string | null;
     createdAt: Date;
   },
   student: { firstName: string; lastName: string; matricule: string },
@@ -251,6 +254,50 @@ function buildReceiptPDF(
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.text(formatCurrency(payment.paidAmount), marginX + 10, y + 22);
+
+  // ── Verification section ──────────────────────────────────────────────────
+  y += 36;
+  if (payment.verifiedBy) {
+    doc.setFillColor(220, 252, 231); // green-100
+    doc.roundedRect(marginX, y, contentWidth, 20, 2, 2, 'F');
+
+    doc.setFillColor(22, 163, 74); // green
+    doc.circle(marginX + 8, y + 7, 3, 'F');
+    doc.setFontSize(7);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.text('✓', marginX + 8, y + 8.5, { align: 'center' });
+
+    doc.setFontSize(9);
+    doc.setTextColor(22, 163, 74);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PAIEMENT VÉRIFIÉ', marginX + 14, y + 7);
+
+    doc.setFontSize(7);
+    doc.setTextColor(71, 85, 105);
+    doc.setFont('helvetica', 'normal');
+    const verifiedDate = payment.verifiedAt ? formatDate(payment.verifiedAt) : '—';
+    doc.text(`Vérifié par : ${payment.verifiedBy}  |  Date : ${verifiedDate}`, marginX + 14, y + 13);
+
+    if (payment.verificationNote) {
+      doc.setFontSize(6);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Note : ${payment.verificationNote}`, marginX + 14, y + 17, { maxWidth: contentWidth - 20 });
+    }
+  } else {
+    doc.setFillColor(254, 249, 195); // yellow-100
+    doc.roundedRect(marginX, y, contentWidth, 14, 2, 2, 'F');
+
+    doc.setFontSize(8);
+    doc.setTextColor(133, 77, 14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('⚠ PAIEMENT NON VÉRIFIÉ', marginX + 6, y + 6);
+
+    doc.setFontSize(6);
+    doc.setTextColor(161, 98, 7);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Ce paiement n\'a pas encore été vérifié par un administrateur', marginX + 6, y + 11);
+  }
 
   // ── Footer ───────────────────────────────────────────────────────────────
   y = pageHeight - 30;

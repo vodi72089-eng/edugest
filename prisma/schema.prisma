@@ -286,6 +286,9 @@ model PaymentRecord {
   status         String   @default("PENDING")
   paidAt         DateTime?
   receiptNumber  String?
+  verifiedBy     String?   // Name of the verifier
+  verifiedAt     DateTime? // When it was verified
+  verificationNote String? // Optional note from verifier
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }

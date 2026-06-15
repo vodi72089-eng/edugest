@@ -17,7 +17,7 @@ export async function PUT(
     const updateData: Record<string, unknown> = {};
     const allowedFields = [
       'amount', 'paidAmount', 'paymentMethod', 'referenceNumber',
-      'status', 'receiptNumber',
+      'status', 'receiptNumber', 'verifiedBy', 'verifiedAt', 'verificationNote',
     ];
 
     for (const field of allowedFields) {

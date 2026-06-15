@@ -24,6 +24,7 @@ export type ViewType =
   | 'personnel'
   | 'settings'
   | 'school-reviews'
+  | 'payment-verification'
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'
