@@ -1,17 +1,27 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission, verifySchoolAccess, verifyParentAccess, safeParseInt, sanitizeError } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'grades:read');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('studentId') || '';
     const classId = searchParams.get('classId') || '';
     const subjectId = searchParams.get('subjectId') || '';
     const trimester = searchParams.get('trimester') || '';
     const schoolYearId = searchParams.get('schoolYearId') || '';
-    const parentId = searchParams.get('parentId') || '';
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const schoolId = searchParams.get('schoolId') || '';
+    const page = safeParseInt(searchParams.get('page'), 1, 1, 1000);
+    const limit = safeParseInt(searchParams.get('limit'), 50, 1, 200);
+
+    // Verify school access if schoolId is provided
+    if (schoolId && !verifySchoolAccess(user, schoolId)) {
+      return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
+    }
 
     const where: Record<string, unknown> = {};
 
@@ -20,7 +30,12 @@ export async function GET(request: NextRequest) {
     if (subjectId) where.subjectId = subjectId;
     if (trimester) where.trimester = trimester;
     if (schoolYearId) where.schoolYearId = schoolYearId;
-    if (parentId) where.student = { parentId };
+    if (schoolId) where.schoolId = schoolId;
+
+    // For PARENT role, filter by parentId - only show their children's grades
+    if (user.role === 'PARENT') {
+      where.student = { parentId: user.id };
+    }
 
     const [grades, total] = await Promise.all([
       db.grade.findMany({
@@ -48,12 +63,22 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error listing grades:', error);
-    return NextResponse.json({ error: 'Failed to list grades' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'grades:create');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
+    // Only TEACHER, HEAD_TEACHER, and DIRECTION roles can create grades
+    const allowedRoles = ['TEACHER', 'HEAD_TEACHER', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
+    if (!allowedRoles.includes(user.role) && user.role !== 'SUPER_ADMIN_GLOBAL') {
+      return NextResponse.json({ error: 'Seuls les enseignants et la direction peuvent créer des notes' }, { status: 403 });
+    }
+
     const body = await request.json();
     const {
       studentId,
@@ -72,46 +97,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Resolve schoolYearId: use provided value, or find active one, or create default
-    let resolvedSchoolYearId = schoolYearId;
-    if (!resolvedSchoolYearId || resolvedSchoolYearId === 'default') {
-      const student = await db.student.findUnique({ where: { id: studentId } });
-      if (student?.schoolYearId) {
-        resolvedSchoolYearId = student.schoolYearId;
-      } else {
-        // Try to find active school year for the school
-        const studentWithSchool = await db.student.findUnique({
-          where: { id: studentId },
-          select: { schoolId: true, schoolYearId: true },
-        });
-        if (studentWithSchool?.schoolYearId) {
-          resolvedSchoolYearId = studentWithSchool.schoolYearId;
-        } else {
-          const activeYear = await db.schoolYear.findFirst({
-            where: { schoolId: studentWithSchool?.schoolId || '', isActive: true },
-            orderBy: { createdAt: 'desc' },
-          });
-          if (activeYear) {
-            resolvedSchoolYearId = activeYear.id;
-          } else if (studentWithSchool?.schoolId) {
-            // Create a default school year
-            const currentYear = new Date().getFullYear()
-            const newYear = await db.schoolYear.create({
-              data: {
-                label: `${currentYear}-${currentYear + 1}`,
-                schoolId: studentWithSchool.schoolId,
-                isActive: true,
-              },
-            });
-            resolvedSchoolYearId = newYear.id;
-          } else {
-            return NextResponse.json(
-              { error: 'Impossible de déterminer l\'année scolaire' },
-              { status: 400 }
-            );
-          }
-        }
-      }
+    // schoolYearId is now required - no auto-creation
+    if (!schoolYearId) {
+      return NextResponse.json(
+        { error: 'L\'identifiant de l\'année scolaire est requis (schoolYearId)' },
+        { status: 400 }
+      );
+    }
+
+    // Verify school access by checking the student's school
+    const student = await db.student.findUnique({
+      where: { id: studentId },
+      select: { schoolId: true },
+    });
+    if (!student) {
+      return NextResponse.json({ error: 'Élève non trouvé' }, { status: 404 });
+    }
+    if (!verifySchoolAccess(user, student.schoolId)) {
+      return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
     }
 
     // Validate score range
@@ -129,7 +132,7 @@ export async function POST(request: NextRequest) {
           studentId,
           subjectId,
           trimester,
-          schoolYearId: resolvedSchoolYearId,
+          schoolYearId,
         },
       },
       update: {
@@ -144,7 +147,7 @@ export async function POST(request: NextRequest) {
         trimester,
         score,
         comment: comment || null,
-        schoolYearId: resolvedSchoolYearId,
+        schoolYearId,
       },
       include: {
         student: { select: { id: true, firstName: true, lastName: true } },
@@ -155,6 +158,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: grade });
   } catch (error) {
     console.error('Error creating/updating grade:', error);
-    return NextResponse.json({ error: 'Failed to create/update grade' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }

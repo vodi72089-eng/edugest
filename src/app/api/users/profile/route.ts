@@ -1,17 +1,22 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth, sanitizeError } from '@/lib/auth';
 
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { userId, name, profileImageUrl } = body;
+    const authResult = await requireAuth(request);
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
 
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
-    }
+    const body = await request.json();
+    const { name, profileImageUrl } = body;
+
+    // Derive userId from session user, NOT from request body
+    // Users can only update their own profile
+    const targetUserId = user.id;
 
     // Verify user exists
-    const existingUser = await db.user.findUnique({ where: { id: userId } });
+    const existingUser = await db.user.findUnique({ where: { id: targetUserId } });
     if (!existingUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -23,7 +28,7 @@ export async function PUT(request: NextRequest) {
 
     // Update user
     const updatedUser = await db.user.update({
-      where: { id: userId },
+      where: { id: targetUserId },
       data: updateData,
       include: {
         school: {
@@ -40,6 +45,6 @@ export async function PUT(request: NextRequest) {
     });
   } catch (error) {
     console.error('Profile update error:', error);
-    return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }

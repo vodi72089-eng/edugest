@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { useEduGestStore, ViewType, UserRole, UserData } from '@/lib/store'
+import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken } from '@/lib/store'
 import { toast } from 'sonner'
 import dynamic from 'next/dynamic'
 const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
@@ -1127,7 +1127,7 @@ function PricingView() {
     try {
       const priceVal = editForm.price === '' ? -1 : parseInt(editForm.price, 10)
       const originalPriceVal = editForm.originalPrice === '' ? null : parseInt(editForm.originalPrice, 10)
-      const res = await fetch('/api/pricing', {
+      const res = await authFetch('/api/pricing', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1158,7 +1158,7 @@ function PricingView() {
   async function resetPrices() {
     if (!confirm('Réinitialiser tous les prix aux valeurs par défaut ?')) return
     try {
-      const res = await fetch('/api/pricing', {
+      const res = await authFetch('/api/pricing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'reset' }),
@@ -1350,7 +1350,7 @@ function CreateSchoolView() {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('category', 'schools')
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const res = await authFetch('/api/upload', { method: 'POST', body: formData })
       const json = await res.json()
       if (json.url) updateForm('logo', json.url)
     } catch (err) {
@@ -1417,7 +1417,7 @@ function CreateSchoolView() {
             schoolId: apiUser.schoolId, schoolName: json.data.school.name,
             initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
             profileImageUrl: null,
-          })
+          }, loginJson.data.token)
           toast.success('École créée avec succès ! Bienvenue !')
           setStep(3)
         } else {
@@ -1726,7 +1726,7 @@ function LoginView() {
             subjectName: apiUser.subjectName || null,
             classNames: apiUser.classNames || null,
             isTitulaire: apiUser.isTitulaire || false,
-          })
+          }, json.data.token)
           toast.success(`Bienvenue, ${apiUser.name}!`)
           return
         }
@@ -2149,7 +2149,7 @@ function LoginView() {
                             schoolName: apiUser.school?.name || 'EduGest',
                             initials: getInitials(apiUser.name),
                             profileImageUrl: apiUser.profileImageUrl || null,
-                          })
+                          }, json.data.token)
                           toast.success(`Bienvenue, ${apiUser.name}!`)
                           setShowWhatsappModal(false)
                           return
@@ -2401,7 +2401,7 @@ function WhatsAppConfigView() {
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
   useEffect(() => {
-    fetch('/api/whatsapp-config')
+    authFetch('/api/whatsapp-config')
       .then(r => r.json())
       .then(j => {
         if (j.data) setConfig({ phoneNumber: j.data.phoneNumber || '', apiKey: j.data.apiKey || '', webhookUrl: j.data.webhookUrl || '' })
@@ -2413,7 +2413,7 @@ function WhatsAppConfigView() {
   async function handleSave() {
     setSaving(true)
     try {
-      const res = await fetch('/api/whatsapp-config', {
+      const res = await authFetch('/api/whatsapp-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
@@ -2432,7 +2432,7 @@ function WhatsAppConfigView() {
     setTesting(true)
     setTestResult(null)
     try {
-      const res = await fetch('/api/whatsapp-config', {
+      const res = await authFetch('/api/whatsapp-config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'test' }),
@@ -2627,7 +2627,7 @@ function SuperAdminDashboard() {
 
   useEffect(() => {
     let cancelled = false
-    fetch(`/api/admin-analytics${cityFilter ? `?city=${cityFilter}` : ''}`)
+    authFetch(`/api/admin-analytics${cityFilter ? `?city=${cityFilter}` : ''}`)
       .then(r => r.json())
       .then(j => { if (!cancelled) { setAnalytics(j.data); setLoading(false) } })
       .catch(() => { if (!cancelled) setLoading(false) })
@@ -2636,7 +2636,7 @@ function SuperAdminDashboard() {
 
   useEffect(() => {
     if (userData?.schoolId) {
-      fetch(`/api/stats?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => { setSchoolStats(j.data) }).catch(() => {})
+      authFetch(`/api/stats?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => { setSchoolStats(j.data) }).catch(() => {})
     }
   }, [userData?.schoolId])
 
@@ -3269,7 +3269,7 @@ function SecretaryDashboard() {
 
   useEffect(() => {
     if (userData?.schoolId) {
-      fetch(`/api/stats?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => { setStats(j.data); setLoading(false) }).catch(() => setLoading(false))
+      authFetch(`/api/stats?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => { setStats(j.data); setLoading(false) }).catch(() => setLoading(false))
     } else {
       setTimeout(() => setLoading(false), 0)
     }
@@ -3359,7 +3359,7 @@ function CashierDashboard() {
 
   useEffect(() => {
     if (userData?.schoolId) {
-      fetch(`/api/stats?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setStats(j.data)).catch(() => {})
+      authFetch(`/api/stats?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setStats(j.data)).catch(() => {})
     }
   }, [userData?.schoolId])
 
@@ -3436,12 +3436,12 @@ function ParentDashboard() {
 
   useEffect(() => {
     if (userData?.id) {
-      fetch(`/api/students?parentId=${userData.id}&limit=20`)
+      authFetch(`/api/students?parentId=${userData.id}&limit=20`)
         .then(r => r.json())
         .then(j => { setChildren(j.data || []); setLoading(false) })
         .catch(() => setLoading(false))
       // Fetch pending homework count
-      fetch(`/api/homework?parentId=${userData.id}&limit=100`)
+      authFetch(`/api/homework?parentId=${userData.id}&limit=100`)
         .then(r => r.json())
         .then(j => {
           const hw: { dueDate: string }[] = j.data || []
@@ -3450,7 +3450,7 @@ function ParentDashboard() {
         })
         .catch(() => {})
       // Fetch discipline count
-      fetch(`/api/discipline?parentId=${userData.id}&limit=100`)
+      authFetch(`/api/discipline?parentId=${userData.id}&limit=100`)
         .then(r => r.json())
         .then(j => setRecentDisciplineCount((j.data || []).length))
         .catch(() => {})
@@ -3473,7 +3473,7 @@ function ParentDashboard() {
     }
     setSavingChild(true)
     try {
-      const res = await fetch(`/api/students/${editingChild}`, {
+      const res = await authFetch(`/api/students/${editingChild}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ firstName: editFirstName.trim(), lastName: editLastName.trim() }),
@@ -3505,12 +3505,12 @@ function ParentDashboard() {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('category', 'students')
-      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData })
+      const uploadRes = await authFetch('/api/upload', { method: 'POST', body: formData })
       const uploadJson = await uploadRes.json()
       if (!uploadRes.ok) { toast.error(uploadJson.error || 'Erreur upload'); return }
 
       // Update student photoUrl
-      const updateRes = await fetch(`/api/students/${childId}`, {
+      const updateRes = await authFetch(`/api/students/${childId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ photoUrl: uploadJson.url }),
@@ -3668,7 +3668,7 @@ function TeacherDashboard() {
   useEffect(() => {
     if (userData?.schoolId) {
       // Get classes
-      fetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`)
+      authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`)
         .then(r => r.json())
         .then(j => {
           const allClasses: { id: string; name: string; _count?: { students: number } }[] = j.data || []
@@ -3686,7 +3686,7 @@ function TeacherDashboard() {
         .catch(() => {})
 
       // Get homework count - filter by teacherId
-      fetch(`/api/homework?schoolId=${userData.schoolId}&limit=50`)
+      authFetch(`/api/homework?schoolId=${userData.schoolId}&limit=50`)
         .then(r => r.json())
         .then(j => {
           const allHw: { teacherId?: string; teacherName: string }[] = j.data || []
@@ -3732,7 +3732,7 @@ function HeadTeacherDashboard() {
   useEffect(() => {
     if (userData?.schoolId) {
       // Try to find the class this head teacher manages
-      fetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`)
+      authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`)
         .then(r => r.json())
         .then(j => {
           const allClasses: { id: string; name: string; _count?: { students: number } }[] = j.data || []
@@ -3795,7 +3795,7 @@ function DisciplineDashboardView() {
   useEffect(() => {
     if (userData?.schoolId) {
       // Fetch discipline stats
-      fetch(`/api/stats?schoolId=${userData.schoolId}`)
+      authFetch(`/api/stats?schoolId=${userData.schoolId}`)
         .then(r => r.json())
         .then(j => {
           const disciplineStats = j.data?.discipline as { total: number; blacklist: number; greylist: number; whitelist: number } | undefined
@@ -3860,7 +3860,7 @@ function StudentsView() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`/api/students?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
+        const res = await authFetch(`/api/students?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
         const json = await res.json()
         setStudents(json.data || [])
       } catch (e) { console.error(e) }
@@ -3872,7 +3872,7 @@ function StudentsView() {
   // Load classes when modal opens
   useEffect(() => {
     if (showAdd) {
-      fetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
+      authFetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
         .then(r => r.json())
         .then(j => setClasses(j.data || []))
         .catch(() => {})
@@ -3884,7 +3884,7 @@ function StudentsView() {
     if (studentSearch.length < 2) return
     const timer = setTimeout(() => {
       setStudentSearchLoading(true)
-      fetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
+      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
         .then(r => r.json())
         .then(j => {
           setStudentSuggestions((j.data || []).map((s: StudentData) => ({
@@ -3929,7 +3929,7 @@ function StudentsView() {
         body.parentPhone = parentPhone
         body.parentPassword = parentPassword
       }
-      const res = await fetch('/api/students', {
+      const res = await authFetch('/api/students', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -3939,7 +3939,7 @@ function StudentsView() {
         setShowAdd(false)
         setParentName(''); setParentEmail(''); setParentPhone(''); setParentPassword('')
         setSelectedClassId(''); setShowParentSection(false)
-        const json = await fetch('/api/students?limit=50').then(r => r.json())
+        const json = await authFetch('/api/students?limit=50').then(r => r.json())
         setStudents(json.data || [])
       } else {
         toast.error('Erreur lors de l\'ajout')
@@ -4101,7 +4101,7 @@ function ClassesView() {
   const { userData } = useEduGestStore()
 
   useEffect(() => {
-    fetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => { setClasses(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+    authFetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => { setClasses(j.data || []); setLoading(false) }).catch(() => setLoading(false))
   }, [userData?.schoolId])
 
   // Class search autocomplete - computed from local data
@@ -4197,8 +4197,8 @@ function GradesView() {
   // Load subjects when class changes in grade form
   useEffect(() => {
     if (gradeClassId) {
-      fetch(`/api/subjects?classId=${gradeClassId}&limit=20`).then(r => r.json()).then(j => setSubjects(j.data || [])).catch(() => {})
-      fetch(`/api/students?classId=${gradeClassId}&limit=50`).then(r => r.json()).then(j => setClassStudents(j.data || [])).catch(() => {})
+      authFetch(`/api/subjects?classId=${gradeClassId}&limit=20`).then(r => r.json()).then(j => setSubjects(j.data || [])).catch(() => {})
+      authFetch(`/api/students?classId=${gradeClassId}&limit=50`).then(r => r.json()).then(j => setClassStudents(j.data || [])).catch(() => {})
     }
   }, [gradeClassId])
 
@@ -4211,10 +4211,10 @@ function GradesView() {
   }, [gradeStudentSearch, classStudents])
 
   useEffect(() => {
-    fetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
+    authFetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
     // If parent, load their children
     if (isParent && userData?.id) {
-      fetch(`/api/students?parentId=${userData.id}&limit=20`)
+      authFetch(`/api/students?parentId=${userData.id}&limit=20`)
         .then(r => r.json())
         .then(j => setMyChildren(j.data || []))
         .catch(() => {})
@@ -4242,7 +4242,7 @@ function GradesView() {
       }
       params.set('trimester', selectedTrimester)
       params.set('limit', '100')
-      const res = await fetch(`/api/grades?${params}`)
+      const res = await authFetch(`/api/grades?${params}`)
       const json = await res.json()
       setGrades(json.data || [])
     } catch (e) { console.error(e) }
@@ -4261,7 +4261,7 @@ function GradesView() {
     }
     setGradeSubmitting(true)
     try {
-      const res = await fetch('/api/grades', {
+      const res = await authFetch('/api/grades', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -4536,7 +4536,7 @@ function PaymentsView() {
   useEffect(() => {
     if (isParent && userData?.id) {
       // Load only children's payments using the studentIds from children
-      fetch(`/api/students?parentId=${userData.id}&limit=20`)
+      authFetch(`/api/students?parentId=${userData.id}&limit=20`)
         .then(r => r.json())
         .then(async j => {
           const children = j.data || []
@@ -4545,7 +4545,7 @@ function PaymentsView() {
             const allPayments: PaymentData[] = []
             for (const child of children) {
               try {
-                const pRes = await fetch(`/api/payments?studentId=${child.id}&limit=30`)
+                const pRes = await authFetch(`/api/payments?studentId=${child.id}&limit=30`)
                 const pJson = await pRes.json()
                 if (pJson.data) allPayments.push(...pJson.data)
               } catch { /* skip */ }
@@ -4556,7 +4556,7 @@ function PaymentsView() {
         })
         .catch(() => setLoading(false))
     } else {
-      fetch(`/api/payments?limit=30${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => { setPayments(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+      authFetch(`/api/payments?limit=30${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => { setPayments(j.data || []); setLoading(false) }).catch(() => setLoading(false))
     }
   }, [])
 
@@ -4565,7 +4565,7 @@ function PaymentsView() {
     if (studentSearch.length < 2) return
     const timer = setTimeout(() => {
       setStudentSearchLoading(true)
-      fetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
+      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
         .then(r => r.json())
         .then(j => {
           const data = j.data || []
@@ -4597,7 +4597,7 @@ function PaymentsView() {
       } else {
         body.studentName = studentSearch
       }
-      const res = await fetch('/api/payments', {
+      const res = await authFetch('/api/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -4608,7 +4608,7 @@ function PaymentsView() {
         const paymentId = json.data.id
         setLastPaymentId(paymentId)
         // Refresh list
-        const listRes = await fetch(`/api/payments?limit=30${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
+        const listRes = await authFetch(`/api/payments?limit=30${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
         const listJson = await listRes.json()
         setPayments(listJson.data || [])
         // Reset form
@@ -4634,7 +4634,7 @@ function PaymentsView() {
   async function downloadReceipt(paymentId: string) {
     setPdfLoading(true)
     try {
-      const res = await fetch(`/api/payments/receipt/${paymentId}`)
+      const res = await authFetch(`/api/payments/receipt/${paymentId}`)
       if (!res.ok) throw new Error()
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
@@ -4819,7 +4819,7 @@ function PaymentVerificationView() {
     if (isParent) return
     if (!userData?.schoolId) return
     setLoading(true)
-    fetch(`/api/payments?limit=100&schoolId=${userData.schoolId}`)
+    authFetch(`/api/payments?limit=100&schoolId=${userData.schoolId}`)
       .then(r => r.json())
       .then(j => { setPayments(j.data || []); setLoading(false) })
       .catch(() => setLoading(false))
@@ -4838,7 +4838,7 @@ function PaymentVerificationView() {
     if (!selectedPayment) return
     setVerifying(true)
     try {
-      const res = await fetch('/api/payments/verify', {
+      const res = await authFetch('/api/payments/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -4871,7 +4871,7 @@ function PaymentVerificationView() {
   async function handleViewReceipt(paymentId: string) {
     setReceiptLoading(true)
     try {
-      const res = await fetch(`/api/payments/receipt/${paymentId}`)
+      const res = await authFetch(`/api/payments/receipt/${paymentId}`)
       if (!res.ok) throw new Error()
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
@@ -4889,13 +4889,13 @@ function PaymentVerificationView() {
     try {
       // Search in children's payments
       if (userData?.id) {
-        const childrenRes = await fetch(`/api/students?parentId=${userData.id}&limit=20`)
+        const childrenRes = await authFetch(`/api/students?parentId=${userData.id}&limit=20`)
         const childrenJson = await childrenRes.json()
         const children: { id: string }[] = childrenJson.data || []
 
         let found: PaymentData | null = null
         for (const child of children) {
-          const pRes = await fetch(`/api/payments?studentId=${child.id}&limit=50`)
+          const pRes = await authFetch(`/api/payments?studentId=${child.id}&limit=50`)
           const pJson = await pRes.json()
           const childPayments: PaymentData[] = pJson.data || []
           const match = childPayments.find(p =>
@@ -5079,7 +5079,7 @@ function PaymentVerificationView() {
   // ===== STAFF VIEW (Admin, Cashier, Secretary) =====
   async function downloadReceiptFile(paymentId: string) {
     try {
-      const res = await fetch(`/api/payments/receipt/${paymentId}`)
+      const res = await authFetch(`/api/payments/receipt/${paymentId}`)
       if (!res.ok) throw new Error()
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
@@ -5401,7 +5401,7 @@ function DisciplineView() {
 
   useEffect(() => {
     if (isParent && userData?.id) {
-      fetch(`/api/students?parentId=${userData.id}&limit=20`)
+      authFetch(`/api/students?parentId=${userData.id}&limit=20`)
         .then(r => r.json())
         .then(j => setMyChildren(j.data || []))
         .catch(() => {})
@@ -5411,7 +5411,7 @@ function DisciplineView() {
   // Fetch students for discipline role by section level
   useEffect(() => {
     if (isDisciplineRole && userData?.schoolId && sectionLevel) {
-      fetch(`/api/students?limit=200&schoolId=${userData.schoolId}`)
+      authFetch(`/api/students?limit=200&schoolId=${userData.schoolId}`)
         .then(r => r.json())
         .then(j => {
           const allStudents: StudentData[] = j.data || []
@@ -5436,7 +5436,7 @@ function DisciplineView() {
   // Fetch convocations for discipline role
   useEffect(() => {
     if (isDisciplineRole && userData?.schoolId) {
-      fetch(`/api/convocations?schoolId=${userData.schoolId}&limit=50`)
+      authFetch(`/api/convocations?schoolId=${userData.schoolId}&limit=50`)
         .then(r => r.json())
         .then(j => setConvocations(j.data || []))
         .catch(() => {})
@@ -5449,7 +5449,7 @@ function DisciplineView() {
       const params = new URLSearchParams()
       params.set('parentId', userData.id)
       params.set('limit', '200')
-      fetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { setAllDisciplineRecords(j.data || []) }).catch(() => {})
+      authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { setAllDisciplineRecords(j.data || []) }).catch(() => {})
     }
   }, [isParent, userData?.id])
 
@@ -5500,7 +5500,7 @@ function DisciplineView() {
     if (isDisciplineRole && selectedStudentId) {
       params.set('studentId', selectedStudentId)
     }
-    fetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { if (!cancelled) { setRecords(j.data || []); setLoading(false) } }).catch(() => { if (!cancelled) setLoading(false) })
+    authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { if (!cancelled) { setRecords(j.data || []); setLoading(false) } }).catch(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [tab, isParent, userData?.id, selectedChildId, isDisciplineRole, selectedStudentId])
 
@@ -5514,7 +5514,7 @@ function DisciplineView() {
     }
     setSubmitting(true)
     try {
-      const res = await fetch('/api/discipline', {
+      const res = await authFetch('/api/discipline', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -5540,7 +5540,7 @@ function DisciplineView() {
         params.set('listType', tab)
         params.set('limit', '50')
         if (selectedStudentId) params.set('studentId', selectedStudentId)
-        fetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { setRecords(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+        authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { setRecords(j.data || []); setLoading(false) }).catch(() => setLoading(false))
       } else {
         toast.error('Erreur lors de l\'enregistrement')
       }
@@ -5558,7 +5558,7 @@ function DisciplineView() {
     setSubmitting(true)
     try {
       const student = sectionStudents.find(s => s.id === selectedStudentId)
-      const res = await fetch('/api/convocations', {
+      const res = await authFetch('/api/convocations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -5576,7 +5576,7 @@ function DisciplineView() {
         setConvocationMotif('')
         setConvocationDate('')
         // Refresh convocations
-        fetch(`/api/convocations?schoolId=${userData.schoolId}&limit=50`)
+        authFetch(`/api/convocations?schoolId=${userData.schoolId}&limit=50`)
           .then(r => r.json())
           .then(j => setConvocations(j.data || []))
           .catch(() => {})
@@ -5600,7 +5600,7 @@ function DisciplineView() {
     if (!editingRecordId) return
     setSavingEdit(true)
     try {
-      const res = await fetch('/api/discipline', {
+      const res = await authFetch('/api/discipline', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -5623,7 +5623,7 @@ function DisciplineView() {
           else params.set('parentId', userData.id)
         }
         if (isDisciplineRole && selectedStudentId) params.set('studentId', selectedStudentId)
-        fetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { setRecords(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+        authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { setRecords(j.data || []); setLoading(false) }).catch(() => setLoading(false))
       } else {
         toast.error('Erreur lors de la modification')
       }
@@ -6065,13 +6065,13 @@ function CommunicationsView() {
   const { userData } = useEduGestStore()
 
   useEffect(() => {
-    fetch(`/api/communications?limit=20${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => { setComms(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+    authFetch(`/api/communications?limit=20${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => { setComms(j.data || []); setLoading(false) }).catch(() => setLoading(false))
   }, [userData?.schoolId])
 
   async function handleSend() {
     if (!title || !content) return toast.error('Titre et contenu requis')
     try {
-      const res = await fetch('/api/communications', {
+      const res = await authFetch('/api/communications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -6083,7 +6083,7 @@ function CommunicationsView() {
       if (res.ok) {
         toast.success('Communication envoyée!')
         setTitle(''); setContent('')
-        const json = await (await fetch('/api/communications?limit=20')).json()
+        const json = await (await authFetch('/api/communications?limit=20')).json()
         setComms(json.data || [])
       }
     } catch { toast.error('Erreur lors de l\'envoi') }
@@ -6179,17 +6179,17 @@ function HomeworkView() {
 
   useEffect(() => {
     if (isParent && userData?.id) {
-      fetch(`/api/homework?parentId=${userData.id}&limit=30`).then(r => r.json()).then(j => { setHomework(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+      authFetch(`/api/homework?parentId=${userData.id}&limit=30`).then(r => r.json()).then(j => { setHomework(j.data || []); setLoading(false) }).catch(() => setLoading(false))
     } else if (userData?.schoolId) {
-      fetch(`/api/homework?schoolId=${userData.schoolId}&limit=30`).then(r => r.json()).then(j => { setHomework(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+      authFetch(`/api/homework?schoolId=${userData.schoolId}&limit=30`).then(r => r.json()).then(j => { setHomework(j.data || []); setLoading(false) }).catch(() => setLoading(false))
     } else {
-      fetch('/api/homework?limit=30').then(r => r.json()).then(j => { setHomework(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+      authFetch('/api/homework?limit=30').then(r => r.json()).then(j => { setHomework(j.data || []); setLoading(false) }).catch(() => setLoading(false))
     }
   }, [isParent, userData?.id, userData?.schoolId])
 
   useEffect(() => {
     if (isTeacher && userData?.schoolId) {
-      fetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
+      authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
     }
   }, [isTeacher, userData?.schoolId])
 
@@ -6200,7 +6200,7 @@ function HomeworkView() {
     }
     setSubmitting(true)
     try {
-      const res = await fetch('/api/homework', {
+      const res = await authFetch('/api/homework', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -6221,7 +6221,7 @@ function HomeworkView() {
         setHwTitle(''); setHwDesc(''); setHwClassId(''); setHwDueDate('')
         // Don't reset hwSubject - keep it for the teacher
         // Refresh
-        fetch(`/api/homework?schoolId=${userData.schoolId}&limit=30`).then(r => r.json()).then(j => setHomework(j.data || [])).catch(() => {})
+        authFetch(`/api/homework?schoolId=${userData.schoolId}&limit=30`).then(r => r.json()).then(j => setHomework(j.data || [])).catch(() => {})
       } else {
         toast.error('Erreur lors de l\'ajout')
       }
@@ -6371,7 +6371,7 @@ function ProfileView() {
   // Load children for parent
   useEffect(() => {
     if (isParent && userData?.id) {
-      fetch(`/api/students?parentId=${userData.id}&limit=20`)
+      authFetch(`/api/students?parentId=${userData.id}&limit=20`)
         .then(r => r.json())
         .then(j => setChildren(j.data || []))
         .catch(() => {})
@@ -6394,13 +6394,13 @@ function ProfileView() {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('category', 'profiles')
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const res = await authFetch('/api/upload', { method: 'POST', body: formData })
       const json = await res.json()
       if (res.ok) {
         const photoUrl = json.url
         setProfileImageUrl(photoUrl)
         // Update user profile with the new photo
-        await fetch('/api/profile', {
+        await authFetch('/api/profile', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: userData.id, profileImageUrl: photoUrl }),
@@ -6428,7 +6428,7 @@ function ProfileView() {
 
     setSaving(true)
     try {
-      const res = await fetch('/api/profile', {
+      const res = await authFetch('/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: userData.id, name: name.trim() }),
@@ -6457,7 +6457,7 @@ function ProfileView() {
     }
     setSavingChild(true)
     try {
-      const res = await fetch(`/api/students/${editingChildId}`, {
+      const res = await authFetch(`/api/students/${editingChildId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ firstName: editFirstName.trim(), lastName: editLastName.trim() }),
@@ -6489,11 +6489,11 @@ function ProfileView() {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('category', 'students')
-      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData })
+      const uploadRes = await authFetch('/api/upload', { method: 'POST', body: formData })
       const uploadJson = await uploadRes.json()
       if (!uploadRes.ok) { toast.error(uploadJson.error || 'Erreur upload'); return }
 
-      const updateRes = await fetch(`/api/students/${childId}`, {
+      const updateRes = await authFetch(`/api/students/${childId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ photoUrl: uploadJson.url }),
@@ -6651,7 +6651,7 @@ function ClassPassingView() {
   const [studentSearchLoading, setStudentSearchLoading] = useState(false)
 
   useEffect(() => {
-    fetch('/api/students?limit=50').then(r => r.json()).then(j => { setStudents(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+    authFetch('/api/students?limit=50').then(r => r.json()).then(j => { setStudents(j.data || []); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   // Student search autocomplete
@@ -6659,7 +6659,7 @@ function ClassPassingView() {
     if (studentSearch.length < 2) return
     const timer = setTimeout(() => {
       setStudentSearchLoading(true)
-      fetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
+      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
         .then(r => r.json())
         .then(j => {
           setStudentSuggestions((j.data || []).map((s: StudentData) => ({
@@ -6757,7 +6757,7 @@ function BulletinView() {
   const [studentSearchLoading, setStudentSearchLoading] = useState(false)
 
   useEffect(() => {
-    fetch('/api/grades?limit=50&trimester=T1').then(r => r.json()).then(j => { setGrades(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+    authFetch('/api/grades?limit=50&trimester=T1').then(r => r.json()).then(j => { setGrades(j.data || []); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   // Student search autocomplete
@@ -6765,7 +6765,7 @@ function BulletinView() {
     if (studentSearch.length < 2) return
     const timer = setTimeout(() => {
       setStudentSearchLoading(true)
-      fetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
+      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
         .then(r => r.json())
         .then(j => {
           setStudentSuggestions((j.data || []).map((s: StudentData) => ({
@@ -6872,7 +6872,7 @@ function ConvocationView() {
     if (studentSearch.length < 2) return
     const timer = setTimeout(() => {
       setStudentSearchLoading(true)
-      fetch(`/api/students?search=${encodeURIComponent(studentSearch)}&schoolId=${userData?.schoolId || ''}&limit=8`)
+      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&schoolId=${userData?.schoolId || ''}&limit=8`)
         .then(r => r.json())
         .then(j => {
           setStudentSuggestions((j.data || []).map((s: StudentData) => ({
@@ -6888,7 +6888,7 @@ function ConvocationView() {
   // Load existing convocations
   useEffect(() => {
     if (userData?.schoolId) {
-      fetch(`/api/convocations?schoolId=${userData.schoolId}&limit=30`)
+      authFetch(`/api/convocations?schoolId=${userData.schoolId}&limit=30`)
         .then(r => r.json())
         .then(j => { setConvocations(j.data || []); setLoadingConvocations(false) })
         .catch(() => setLoadingConvocations(false))
@@ -6902,7 +6902,7 @@ function ConvocationView() {
     if (!userData?.schoolId) { toast.error('Erreur: école non trouvée'); return }
     setSubmitting(true)
     try {
-      const res = await fetch('/api/convocations', {
+      const res = await authFetch('/api/convocations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -6920,7 +6920,7 @@ function ConvocationView() {
         setSelectedStudentId(null)
         setStudentSearch('')
         // Refresh convocations list
-        const listRes = await fetch(`/api/convocations?schoolId=${userData.schoolId}&limit=30`)
+        const listRes = await authFetch(`/api/convocations?schoolId=${userData.schoolId}&limit=30`)
         const listJson = await listRes.json()
         setConvocations(listJson.data || [])
       } else {
@@ -7026,7 +7026,7 @@ function PersonnelView() {
 
   useEffect(() => {
     if ((showAddModal || editingUser) && isTeacherForm && userData?.schoolId) {
-      fetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setAvailableClasses(j.data || [])).catch(() => {})
+      authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setAvailableClasses(j.data || [])).catch(() => {})
     }
   }, [showAddModal, editingUser, isTeacherForm, userData?.schoolId])
 
@@ -7049,7 +7049,7 @@ function PersonnelView() {
     const params = new URLSearchParams({ schoolId: userData?.schoolId || '', limit: '50' })
     if (roleFilter) params.set('role', roleFilter)
     if (search) params.set('search', search)
-    fetch(`/api/users?${params}`).then(r => r.json()).then(j => { setUsers(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+    authFetch(`/api/users?${params}`).then(r => r.json()).then(j => { setUsers(j.data || []); setLoading(false) }).catch(() => setLoading(false))
   }
 
   useEffect(() => { loadUsers() }, [roleFilter])
@@ -7062,7 +7062,7 @@ function PersonnelView() {
       const params = new URLSearchParams({ schoolId: userData?.schoolId || '', limit: '8' })
       if (roleFilter) params.set('role', roleFilter)
       params.set('search', personnelSearch)
-      fetch(`/api/users?${params}`)
+      authFetch(`/api/users?${params}`)
         .then(r => r.json())
         .then(j => {
           setPersonnelSuggestions((j.data || []).map((u: typeof users[0]) => ({
@@ -7087,7 +7087,7 @@ function PersonnelView() {
     }
     setSaving(true)
     try {
-      const res = await fetch('/api/users', {
+      const res = await authFetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -7119,7 +7119,7 @@ function PersonnelView() {
     if (!editingUser) return
     setSaving(true)
     try {
-      const res = await fetch('/api/users', {
+      const res = await authFetch('/api/users', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -7152,7 +7152,7 @@ function PersonnelView() {
 
   async function handleToggleActive(user: typeof users[0]) {
     try {
-      const res = await fetch('/api/users', {
+      const res = await authFetch('/api/users', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: user.id, isActive: !user.isActive }),
@@ -7512,7 +7512,7 @@ function SchoolsManagementView() {
 
   function loadSchools() {
     setLoading(true)
-    fetch('/api/schools?limit=30').then(r => r.json()).then(j => { setSchools(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+    authFetch('/api/schools?limit=30').then(r => r.json()).then(j => { setSchools(j.data || []); setLoading(false) }).catch(() => setLoading(false))
   }
 
   useEffect(() => { loadSchools() }, [])
@@ -7540,7 +7540,7 @@ function SchoolsManagementView() {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('category', 'schools')
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const res = await authFetch('/api/upload', { method: 'POST', body: formData })
       if (res.ok) {
         const data = await res.json()
         setForm(prev => ({ ...prev, logo: data.url }))
@@ -7580,7 +7580,7 @@ function SchoolsManagementView() {
         const price = tierPrices[form.subscriptionTier] || 0
         if (price > 0 && schoolId) {
           try {
-            await fetch('/api/payments/subscription', {
+            await authFetch('/api/payments/subscription', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -7910,7 +7910,7 @@ function SettingsView() {
 
   useEffect(() => {
     if (userData?.schoolId) {
-      fetch(`/api/schools/${userData.schoolId}`)
+      authFetch(`/api/schools/${userData.schoolId}`)
         .then(r => r.json())
         .then(j => {
           const s = j.data
@@ -7949,7 +7949,7 @@ function SettingsView() {
     if (!userData?.schoolId) return
     setSaving(true)
     try {
-      const res = await fetch(`/api/schools/${userData.schoolId}`, {
+      const res = await authFetch(`/api/schools/${userData.schoolId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -7980,11 +7980,11 @@ function SettingsView() {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('category', 'schools')
-      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData })
+      const uploadRes = await authFetch('/api/upload', { method: 'POST', body: formData })
       if (uploadRes.ok) {
         const uploadJson = await uploadRes.json()
         const url = uploadJson.url
-        const res = await fetch(`/api/schools/${userData?.schoolId}`, {
+        const res = await authFetch(`/api/schools/${userData?.schoolId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ [type]: url }),
@@ -8004,7 +8004,7 @@ function SettingsView() {
 
   async function handleApproveComment(id: string) {
     try {
-      const res = await fetch('/api/school-comments', {
+      const res = await authFetch('/api/school-comments', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, isApproved: true }),
@@ -8020,7 +8020,7 @@ function SettingsView() {
 
   async function handleDeleteComment(id: string) {
     try {
-      const res = await fetch(`/api/school-comments?id=${id}`, { method: 'DELETE' })
+      const res = await authFetch(`/api/school-comments?id=${id}`, { method: 'DELETE' })
       if (res.ok) {
         setComments(prev => prev.filter(c => c.id !== id))
         toast.success('Commentaire supprimé')
@@ -8264,7 +8264,7 @@ function SchoolReviewsView() {
 
   useEffect(() => {
     if (userData?.schoolId) {
-      fetch(`/api/schools/${userData.schoolId}`)
+      authFetch(`/api/schools/${userData.schoolId}`)
         .then(r => r.json())
         .then(j => { if (j.data) setSchool(j.data); setLoading(false) })
         .catch(() => setLoading(false))
@@ -8463,7 +8463,17 @@ function PricingDashboard() {
 
 // ===== MAIN HOME COMPONENT =====
 export default function Home() {
-  const { currentView, userRole } = useEduGestStore()
+  const { currentView, userRole, logout, setCurrentView } = useEduGestStore()
+
+  // Handle 401 unauthorized events from authFetch
+  useEffect(() => {
+    const handler = () => {
+      logout()
+      setCurrentView('login')
+    }
+    window.addEventListener('auth:unauthorized', handler)
+    return () => window.removeEventListener('auth:unauthorized', handler)
+  }, [logout, setCurrentView])
 
   if (!userRole) {
     switch (currentView) {

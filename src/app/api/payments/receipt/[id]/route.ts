@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { requirePermission, verifySchoolAccess, verifyParentAccess, sanitizeError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { jsPDF } from 'jspdf';
 
@@ -350,10 +351,14 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
 // ─── Route Handler ──────────────────────────────────────────────────────────
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requirePermission(request, 'payments:read');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const { id } = await params;
 
     // Fetch the payment record
@@ -379,6 +384,11 @@ export async function GET(
       return NextResponse.json({ error: 'Payment record not found' }, { status: 404 });
     }
 
+    // Verify school access
+    if (!verifySchoolAccess(user, payment.schoolId)) {
+      return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });
+    }
+
     // Fetch the student
     const student = await db.student.findUnique({
       where: { id: payment.studentId },
@@ -387,6 +397,14 @@ export async function GET(
 
     if (!student) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
+
+    // For PARENT, verify parent-child relationship with the student
+    if (user.role === 'PARENT') {
+      const hasAccess = await verifyParentAccess(user, payment.studentId);
+      if (!hasAccess) {
+        return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
+      }
     }
 
     // Build PDF
@@ -406,7 +424,7 @@ export async function GET(
   } catch (error) {
     console.error('Error generating payment receipt PDF:', error);
     return NextResponse.json(
-      { error: 'Failed to generate receipt PDF' },
+      { error: sanitizeError(error) },
       { status: 500 }
     );
   }

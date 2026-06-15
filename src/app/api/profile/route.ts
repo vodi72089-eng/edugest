@@ -1,17 +1,24 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth, sanitizeError } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await requireAuth(request);
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
+    // Derive userId from session user, NOT from request params
+    // Users can only view their own profile (unless SUPER_ADMIN_GLOBAL)
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    const requestedUserId = searchParams.get('userId');
 
-    if (!userId) {
-      return NextResponse.json({ error: 'ID utilisateur requis' }, { status: 400 });
-    }
+    const targetUserId = (user.role === 'SUPER_ADMIN_GLOBAL' && requestedUserId)
+      ? requestedUserId
+      : user.id;
 
-    const user = await db.user.findUnique({
-      where: { id: userId },
+    const userProfile = await db.user.findUnique({
+      where: { id: targetUserId },
       select: {
         id: true,
         name: true,
@@ -29,25 +36,29 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    if (!user) {
+    if (!userProfile) {
       return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
     }
 
-    return NextResponse.json({ data: user });
+    return NextResponse.json({ data: userProfile });
   } catch (error) {
     console.error('Error fetching profile:', error);
-    return NextResponse.json({ error: 'Erreur lors du chargement du profil' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { userId, name, profileImageUrl } = body;
+    const authResult = await requireAuth(request);
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
 
-    if (!userId) {
-      return NextResponse.json({ error: 'ID utilisateur requis' }, { status: 400 });
-    }
+    const body = await request.json();
+    const { name, profileImageUrl } = body;
+
+    // Derive userId from session user, NOT from request body
+    // Users can only update their own profile
+    const targetUserId = user.id;
 
     // Build update data
     const updateData: { name?: string; profileImageUrl?: string | null } = {};
@@ -67,14 +78,14 @@ export async function PUT(request: NextRequest) {
     }
 
     // Verify user exists
-    const existingUser = await db.user.findUnique({ where: { id: userId } });
+    const existingUser = await db.user.findUnique({ where: { id: targetUserId } });
     if (!existingUser) {
       return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
     }
 
     // Update user
     const updatedUser = await db.user.update({
-      where: { id: userId },
+      where: { id: targetUserId },
       data: updateData,
       select: {
         id: true,
@@ -98,6 +109,6 @@ export async function PUT(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error updating profile:', error);
-    return NextResponse.json({ error: 'Erreur lors de la mise à jour du profil' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }

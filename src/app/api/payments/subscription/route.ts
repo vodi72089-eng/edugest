@@ -1,8 +1,14 @@
 import { db } from '@/lib/db';
+import { requireRole, sanitizeError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
+    // Require SUPER_ADMIN_GLOBAL role only — this changes school subscription tier (extremely sensitive)
+    const authResult = await requireRole(request, ['SUPER_ADMIN_GLOBAL']);
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const body = await request.json();
     const { schoolId, amount, subscriptionTier, paymentMethod, description } = body;
 
@@ -44,9 +50,9 @@ export async function POST(request: NextRequest) {
     // Enregistrer dans l'audit log
     await db.auditLog.create({
       data: {
-        userId: 'system',
-        userName: 'Super Admin',
-        userRole: 'SUPER_ADMIN_GLOBAL',
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
         action: 'SUBSCRIPTION_PAYMENT',
         entityType: 'School',
         entityId: schoolId,
@@ -67,7 +73,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error recording subscription payment:', error);
     return NextResponse.json(
-      { error: 'Erreur lors de l\'enregistrement du paiement' },
+      { error: sanitizeError(error) },
       { status: 500 }
     );
   }

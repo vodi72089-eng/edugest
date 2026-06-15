@@ -1,12 +1,44 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission, requireRole, verifySchoolAccess, verifyParentAccess, sanitizeError } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requirePermission(request, 'students:read');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const { id } = await params;
+
+    // First get the student to check access
+    const studentCheck = await db.student.findUnique({
+      where: { id },
+      select: { schoolId: true, parentId: true },
+    });
+
+    if (!studentCheck) {
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
+
+    // Verify school access
+    if (!verifySchoolAccess(user, studentCheck.schoolId)) {
+      return NextResponse.json(
+        { error: 'Accès non autorisé à cette école' },
+        { status: 403 }
+      );
+    }
+
+    // For PARENT, verify parent-child relationship
+    if (!await verifyParentAccess(user, id)) {
+      return NextResponse.json(
+        { error: 'Accès non autorisé - vous ne pouvez voir que vos propres enfants' },
+        { status: 403 }
+      );
+    }
+
     const student = await db.student.findUnique({
       where: { id },
       include: {
@@ -45,7 +77,7 @@ export async function GET(
     });
   } catch (error) {
     console.error('Error getting student:', error);
-    return NextResponse.json({ error: 'Failed to get student' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }
 
@@ -54,13 +86,26 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authResult = await requirePermission(request, 'students:update');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const { id } = await params;
-    const body = await request.json();
 
     const existing = await db.student.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
+
+    // Verify school access
+    if (!verifySchoolAccess(user, existing.schoolId)) {
+      return NextResponse.json(
+        { error: 'Accès non autorisé à cette école' },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
 
     const updateData: Record<string, unknown> = {};
     const allowedFields = [
@@ -88,7 +133,7 @@ export async function PUT(
     return NextResponse.json({ data: student });
   } catch (error) {
     console.error('Error updating student:', error);
-    return NextResponse.json({ error: 'Failed to update student' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }
 
@@ -97,11 +142,24 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // DIRECTION/SECRETARY/SCHOOL_ADMIN can delete students
+    const authResult = await requirePermission(request, 'students:delete');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const { id } = await params;
 
     const existing = await db.student.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
+
+    // Verify school access
+    if (!verifySchoolAccess(user, existing.schoolId)) {
+      return NextResponse.json(
+        { error: 'Accès non autorisé à cette école' },
+        { status: 403 }
+      );
     }
 
     // Soft delete by setting isExcluded
@@ -119,6 +177,6 @@ export async function DELETE(
     return NextResponse.json({ data: student, message: 'Student excluded successfully' });
   } catch (error) {
     console.error('Error deleting student:', error);
-    return NextResponse.json({ error: 'Failed to delete student' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }

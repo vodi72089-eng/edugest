@@ -1,20 +1,35 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import { requirePermission, safeParseInt, sanitizeError } from '@/lib/auth';
+
+function generateRandomPassword(length: number = 12): string {
+  return crypto.randomBytes(length).toString('base64').slice(0, length);
+}
 
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'school:read');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
     const province = searchParams.get('province') || '';
     const schoolType = searchParams.get('schoolType') || '';
     const schoolCategory = searchParams.get('schoolCategory') || '';
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const page = safeParseInt(searchParams.get('page'), 1, 1, 1000);
+    const limit = safeParseInt(searchParams.get('limit'), 20, 1, 100);
 
     const where: Record<string, unknown> = {
       isActive: true,
     };
+
+    // Non-SUPER_ADMIN_GLOBAL can only see their own school
+    if (user.role !== 'SUPER_ADMIN_GLOBAL') {
+      where.id = user.schoolId;
+    }
 
     if (search) {
       where.OR = [
@@ -63,12 +78,24 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error listing schools:', error);
-    return NextResponse.json({ error: 'Failed to list schools' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'school:create');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
+    // Only SUPER_ADMIN_GLOBAL can create schools
+    if (user.role !== 'SUPER_ADMIN_GLOBAL') {
+      return NextResponse.json(
+        { error: 'Seul un SUPER_ADMIN_GLOBAL peut créer une école' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const {
       name,
@@ -138,17 +165,21 @@ export async function POST(request: NextRequest) {
     });
 
     // Create admin user if admin info is provided
+    // BUG FIX: Use role 'SECRETARY' instead of 'SUPER_ADMIN_GLOBAL'
+    // BUG FIX: Generate random password instead of 'admin123'
+    // BUG FIX: Use bcrypt cost factor 12
     let adminUser = null;
     if (adminName && (adminEmail || adminPhone)) {
-      const hashedPassword = await bcrypt.hash(adminPassword || 'admin123', 10);
+      const randomPassword = adminPassword || generateRandomPassword();
+      const hashedPassword = await bcrypt.hash(randomPassword, 12);
 
       adminUser = await db.user.create({
         data: {
           name: adminName,
           email: adminEmail || null,
-          phone: adminPhone || adminPhone || phone,
+          phone: adminPhone || phone,
           password: hashedPassword,
-          role: 'SUPER_ADMIN_GLOBAL',
+          role: 'SECRETARY',
           schoolId: school.id,
           isActive: true,
         },
@@ -159,9 +190,9 @@ export async function POST(request: NextRequest) {
       adminUser = userData;
     }
 
-    return NextResponse.json({ data: { school, adminUser } }, { status: 201 });
+    return NextResponse.json({ data: { school, adminUser, generatedPassword: adminName && (adminEmail || adminPhone) && !adminPassword ? 'A random password was generated' : undefined } }, { status: 201 });
   } catch (error) {
     console.error('Error creating school:', error);
-    return NextResponse.json({ error: 'Failed to create school' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }

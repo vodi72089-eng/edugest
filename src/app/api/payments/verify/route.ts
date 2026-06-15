@@ -1,15 +1,20 @@
 import { db } from '@/lib/db';
+import { requirePermission, verifySchoolAccess, sanitizeError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 // POST /api/payments/verify — Verify/validate a payment record
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { paymentId, verifierName, verificationNote, action } = body;
+    const authResult = await requirePermission(request, 'payments:verify');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
 
-    if (!paymentId || !verifierName) {
+    const body = await request.json();
+    const { paymentId, verificationNote, action } = body;
+
+    if (!paymentId) {
       return NextResponse.json(
-        { error: 'Champs requis manquants: paymentId, verifierName' },
+        { error: 'Champ requis manquant: paymentId' },
         { status: 400 }
       );
     }
@@ -29,6 +34,14 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    // Verify school access
+    if (!verifySchoolAccess(user, existing.schoolId)) {
+      return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });
+    }
+
+    // Derive verifierName from the authenticated user's name
+    const verifierName = user.name;
 
     // Get student info
     const student = await db.student.findUnique({
@@ -100,7 +113,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error verifying payment:', error);
     return NextResponse.json(
-      { error: 'Erreur lors de la vérification du paiement' },
+      { error: sanitizeError(error) },
       { status: 500 }
     );
   }
@@ -109,6 +122,10 @@ export async function POST(request: NextRequest) {
 // GET /api/payments/verify?schoolId=X — Get unverified payments for a school
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'payments:verify');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get('schoolId') || '';
     const status = searchParams.get('status') || 'all';
@@ -118,6 +135,11 @@ export async function GET(request: NextRequest) {
         { error: 'schoolId est requis' },
         { status: 400 }
       );
+    }
+
+    // Verify school access
+    if (!verifySchoolAccess(user, schoolId)) {
+      return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });
     }
 
     const where: Record<string, unknown> = { schoolId };
@@ -163,7 +185,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching verification data:', error);
     return NextResponse.json(
-      { error: 'Erreur lors du chargement des données de vérification' },
+      { error: sanitizeError(error) },
       { status: 500 }
     );
   }

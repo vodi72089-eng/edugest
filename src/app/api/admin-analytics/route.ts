@@ -1,8 +1,13 @@
 import { db } from '@/lib/db';
+import { requireRole, sanitizeError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
+    // Require SUPER_ADMIN_GLOBAL role only — this exposes all platform financial data
+    const authResult = await requireRole(request, ['SUPER_ADMIN_GLOBAL']);
+    if ('error' in authResult) return authResult.error;
+
     const { searchParams } = new URL(request.url);
     const city = searchParams.get('city') || '';
 
@@ -311,6 +316,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Admin analytics error:', error);
-    return NextResponse.json({ error: 'Failed to load analytics' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }

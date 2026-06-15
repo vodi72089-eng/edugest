@@ -1,10 +1,25 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireRole, sanitizeError } from '@/lib/auth';
 
 const WHATSAPP_CONFIG_KEY = 'WHATSAPP_OFFICIAL_NUMBER';
 
-export async function GET() {
+/**
+ * Masks an API key, showing only the last 4 characters, replacing the rest with asterisks.
+ */
+function maskApiKey(apiKey: string): string {
+  if (!apiKey || apiKey.length <= 4) {
+    return apiKey ? '****' : '';
+  }
+  return '*'.repeat(apiKey.length - 4) + apiKey.slice(-4);
+}
+
+// GET - require SUPER_ADMIN_GLOBAL role. CRITICAL: Mask the API key in response.
+export async function GET(request: NextRequest) {
   try {
+    const authResult = await requireRole(request, ['SUPER_ADMIN_GLOBAL']);
+    if ('error' in authResult) return authResult.error;
+
     const config = await db.globalApiConfig.findUnique({
       where: { key: WHATSAPP_CONFIG_KEY },
     });
@@ -29,12 +44,14 @@ export async function GET() {
       parsedValue = { phoneNumber: config.value };
     }
 
+    const rawApiKey = parsedValue.apiKey || '';
+
     return NextResponse.json({
       data: {
         phoneNumber: parsedValue.phoneNumber || '',
-        apiKey: parsedValue.apiKey || '',
+        apiKey: maskApiKey(rawApiKey),
         webhookUrl: parsedValue.webhookUrl || '',
-        isConfigured: !!(parsedValue.phoneNumber && parsedValue.apiKey),
+        isConfigured: !!(parsedValue.phoneNumber && rawApiKey),
         updatedAt: config.updatedAt,
         updatedBy: config.updatedBy,
       },
@@ -42,16 +59,21 @@ export async function GET() {
   } catch (error) {
     console.error('[WhatsApp Config] Error fetching configuration:', error);
     return NextResponse.json(
-      { error: 'Échec de la récupération de la configuration WhatsApp' },
+      { error: sanitizeError(error) },
       { status: 500 }
     );
   }
 }
 
+// POST/PUT - require SUPER_ADMIN_GLOBAL role. Derive userId from session, not request body.
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requireRole(request, ['SUPER_ADMIN_GLOBAL']);
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const body = await request.json();
-    const { phoneNumber, apiKey, webhookUrl, userId } = body;
+    const { phoneNumber, apiKey, webhookUrl } = body;
 
     // Validate required fields
     if (!phoneNumber || typeof phoneNumber !== 'string' || !phoneNumber.trim()) {
@@ -68,31 +90,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate the user is SUPER_ADMIN_GLOBAL
-    if (!userId || typeof userId !== 'string') {
-      return NextResponse.json(
-        { error: 'ID utilisateur requis pour la vérification des permissions' },
-        { status: 400 }
-      );
-    }
-
-    const user = await db.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Utilisateur non trouvé' },
-        { status: 404 }
-      );
-    }
-
-    if (user.role !== 'SUPER_ADMIN_GLOBAL') {
-      return NextResponse.json(
-        { error: 'Seul un Super Admin Global peut configurer les paramètres WhatsApp' },
-        { status: 403 }
-      );
-    }
+    // CRITICAL: Derive userId from the authenticated session, NOT from request body
+    // The user is already authenticated and verified as SUPER_ADMIN_GLOBAL above
 
     // Store the config as a JSON string in the value field
     const configValue = JSON.stringify({
@@ -121,7 +120,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       data: {
         phoneNumber: phoneNumber.trim(),
-        apiKey: apiKey.trim(),
+        apiKey: maskApiKey(apiKey.trim()),
         webhookUrl: (webhookUrl && typeof webhookUrl === 'string') ? webhookUrl.trim() : '',
         isConfigured: true,
         updatedAt: config.updatedAt,
@@ -132,7 +131,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[WhatsApp Config] Error saving configuration:', error);
     return NextResponse.json(
-      { error: 'Échec de la sauvegarde de la configuration WhatsApp' },
+      { error: sanitizeError(error) },
       { status: 500 }
     );
   }

@@ -1,6 +1,8 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission, requireRole, sanitizeError } from '@/lib/auth';
 
+// GET - No auth required (public viewing of approved comments)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -20,10 +22,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ data: comments });
   } catch (error) {
     console.error('Error listing school comments:', error);
-    return NextResponse.json({ error: 'Failed to list comments' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }
 
+// POST - No auth required (anyone can submit a review, but it starts as isApproved: false)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -57,12 +60,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: newComment }, { status: 201 });
   } catch (error) {
     console.error('Error creating school comment:', error);
-    return NextResponse.json({ error: 'Failed to create comment' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }
 
+// PUT - require comments:approve permission (SCHOOL_ADMIN/SUPER_ADMIN_GLOBAL)
 export async function PUT(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'comments:approve');
+    if ('error' in authResult) return authResult.error;
+
     const body = await request.json();
     const { id, isApproved } = body;
 
@@ -93,12 +100,16 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ data: updated });
   } catch (error) {
     console.error('Error updating school comment:', error);
-    return NextResponse.json({ error: 'Failed to update comment' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }
 
+// DELETE - require comments:delete permission (SCHOOL_ADMIN/SUPER_ADMIN_GLOBAL)
 export async function DELETE(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'comments:delete');
+    if ('error' in authResult) return authResult.error;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id') || '';
 
@@ -126,6 +137,6 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ data: deleted });
   } catch (error) {
     console.error('Error deleting school comment:', error);
-    return NextResponse.json({ error: 'Failed to delete comment' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }

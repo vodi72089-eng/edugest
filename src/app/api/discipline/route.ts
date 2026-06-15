@@ -1,16 +1,25 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'discipline:read');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get('schoolId') || '';
     const listType = searchParams.get('listType') || '';
     const severity = searchParams.get('severity') || '';
     const studentId = searchParams.get('studentId') || '';
-    const parentId = searchParams.get('parentId') || '';
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const page = safeParseInt(searchParams.get('page'), 1, 1, 1000);
+    const limit = safeParseInt(searchParams.get('limit'), 20, 1, 200);
+
+    // Verify school access if schoolId is provided
+    if (schoolId && !verifySchoolAccess(user, schoolId)) {
+      return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
+    }
 
     const where: Record<string, unknown> = {};
 
@@ -18,7 +27,11 @@ export async function GET(request: NextRequest) {
     if (listType) where.listType = listType;
     if (severity) where.severity = severity;
     if (studentId) where.studentId = studentId;
-    if (parentId) where.student = { parentId };
+
+    // For PARENT role, filter by parentId - only show their children's records
+    if (user.role === 'PARENT') {
+      where.student = { parentId: user.id };
+    }
 
     const [records, total] = await Promise.all([
       db.disciplineRecord.findMany({
@@ -46,12 +59,16 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error listing discipline records:', error);
-    return NextResponse.json({ error: 'Failed to list discipline records' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'discipline:create');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const body = await request.json();
     const {
       studentId,
@@ -71,6 +88,14 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Verify school access
+    if (!verifySchoolAccess(user, schoolId)) {
+      return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
+    }
+
+    // CRITICAL: Use authenticated user's name for 'addedBy' field instead of hardcoded 'System'
+    const addedBy = user.name;
 
     const record = await db.disciplineRecord.create({
       data: {
@@ -96,7 +121,7 @@ export async function POST(request: NextRequest) {
           studentId,
           schoolId,
           reason: `${title}: ${description}`,
-          addedBy: 'System',
+          addedBy,
         },
       });
     } else if (listType === 'GREYLIST') {
@@ -105,7 +130,7 @@ export async function POST(request: NextRequest) {
           studentId,
           schoolId,
           reason: `${title}: ${description}`,
-          addedBy: 'System',
+          addedBy,
         },
       });
     } else if (listType === 'WHITELIST') {
@@ -114,7 +139,7 @@ export async function POST(request: NextRequest) {
           studentId,
           schoolId,
           reason: `${title}: ${description}`,
-          addedBy: 'System',
+          addedBy,
         },
       });
     }
@@ -122,12 +147,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: record }, { status: 201 });
   } catch (error) {
     console.error('Error creating discipline record:', error);
-    return NextResponse.json({ error: 'Failed to create discipline record' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'discipline:update');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const body = await request.json();
     const { id, type, severity, title, description, points, listType, status } = body;
 
@@ -138,6 +167,11 @@ export async function PUT(request: NextRequest) {
     const existing = await db.disciplineRecord.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: 'Discipline record not found' }, { status: 404 });
+    }
+
+    // Verify school access
+    if (!verifySchoolAccess(user, existing.schoolId)) {
+      return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
     }
 
     const updateData: Record<string, unknown> = {};
@@ -160,6 +194,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ data: updated });
   } catch (error) {
     console.error('Error updating discipline record:', error);
-    return NextResponse.json({ error: 'Failed to update discipline record' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }

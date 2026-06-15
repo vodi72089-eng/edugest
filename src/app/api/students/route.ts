@@ -1,19 +1,41 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError } from '@/lib/auth';
+
+function generateRandomPassword(length: number = 12): string {
+  return crypto.randomBytes(length).toString('base64').slice(0, length);
+}
 
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'students:read');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
     const classId = searchParams.get('classId') || '';
     const schoolId = searchParams.get('schoolId') || '';
     const schoolYearId = searchParams.get('schoolYearId') || '';
     const parentId = searchParams.get('parentId') || '';
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const page = safeParseInt(searchParams.get('page'), 1, 1, 1000);
+    const limit = safeParseInt(searchParams.get('limit'), 20, 1, 100);
 
     const where: Record<string, unknown> = {};
+
+    // For PARENT role, automatically filter by parentId from session user
+    if (user.role === 'PARENT') {
+      where.parentId = user.id;
+    }
+
+    // For non-SUPER_ADMIN_GLOBAL, restrict to their schoolId
+    if (user.role !== 'SUPER_ADMIN_GLOBAL') {
+      where.schoolId = user.schoolId;
+    } else if (schoolId) {
+      where.schoolId = schoolId;
+    }
 
     if (search) {
       where.OR = [
@@ -27,15 +49,12 @@ export async function GET(request: NextRequest) {
       where.classId = classId;
     }
 
-    if (schoolId) {
-      where.schoolId = schoolId;
-    }
-
     if (schoolYearId) {
       where.schoolYearId = schoolYearId;
     }
 
-    if (parentId) {
+    // Allow explicit parentId filter only for non-PARENT users (PARENT is already filtered above)
+    if (parentId && user.role !== 'PARENT') {
       where.parentId = parentId;
     }
 
@@ -66,12 +85,16 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error listing students:', error);
-    return NextResponse.json({ error: 'Failed to list students' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'students:create');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const body = await request.json();
     const {
       firstName,
@@ -97,6 +120,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verify school access
+    if (!verifySchoolAccess(user, schoolId)) {
+      return NextResponse.json(
+        { error: 'Accès non autorisé à cette école' },
+        { status: 403 }
+      );
+    }
+
     // Resolve parentId: from explicit parentId, or by creating/linking a parent user
     let resolvedParentId: string | null = parentId || null;
 
@@ -111,7 +142,10 @@ export async function POST(request: NextRequest) {
         resolvedParentId = existingParent.id;
       } else {
         // Create a new parent user
-        const hashedPassword = await bcrypt.hash(parentPassword || 'parent123', 10);
+        // BUG FIX: Generate random password instead of 'parent123'
+        // BUG FIX: Use bcrypt cost factor 12
+        const randomPassword = parentPassword || generateRandomPassword();
+        const hashedPassword = await bcrypt.hash(randomPassword, 12);
         const newParent = await db.user.create({
           data: {
             name: parentName,
@@ -176,6 +210,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: student }, { status: 201 });
   } catch (error) {
     console.error('Error creating student:', error);
-    return NextResponse.json({ error: 'Failed to create student' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }

@@ -82,3 +82,69 @@ Stage Summary:
 - Dashboard statistics now reflect real database counts
 - Discipline records can now be edited (points, list type, status)
 - Convocations can now be created and viewed in a list
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Detect and fix ALL security vulnerabilities in the EduGest application
+
+Work Log:
+- Conducted comprehensive security audit of all 27 API route files
+- Identified 47 vulnerabilities (8 CRITICAL, 19 HIGH, 14 MEDIUM, 6 LOW)
+- Created JWT-based authentication system at /src/lib/auth.ts with:
+  - Token creation and verification using jose library
+  - Role-based permission system (ROLE_PERMISSIONS mapping)
+  - requireAuth(), requirePermission(), requireRole() helper functions
+  - verifySchoolAccess() for school isolation
+  - verifyParentAccess() for parent-child relationship checks
+  - safeParseInt() for input validation
+  - sanitizeError() for safe error messages
+- Updated /api/auth/route.ts to issue JWT tokens on login, set HTTP-only cookies
+- Added rate limiting on login attempts (5 attempts / 15 minutes)
+- Updated all 27 API route files with authentication and authorization:
+  - schools: school:read/create/update permissions, SUPER_ADMIN_GLOBAL only for create/update/delete
+  - students: students:read/create/update/delete with school verification and parent filtering
+  - users: users:read/create/update/delete, only SUPER_ADMIN_GLOBAL can assign SUPER_ADMIN_GLOBAL role
+  - payments: payments:read/create/update/verify with financial field restrictions
+  - grades: grades:read/create for teachers only, parent filtering
+  - homework: homework:read/create for teachers, derives teacherId from session
+  - communications: derives senderId/senderRole from session (prevents identity spoofing)
+  - convocations: derives createdBy from session
+  - discipline: uses auth user name for addedBy instead of 'System'
+  - classes/subjects: requires appropriate permissions for creation
+  - school-comments: PUT/DELETE requires admin role (GET/POST stay public)
+  - pricing: GET public, POST/PUT SUPER_ADMIN_GLOBAL only
+  - whatsapp-config: SUPER_ADMIN_GLOBAL only, API key masked in response
+  - admin-analytics: SUPER_ADMIN_GLOBAL only
+  - stats: requires stats:read permission, school-scoped
+  - seed: disabled in production, requires SUPER_ADMIN_GLOBAL auth
+- Fixed CRITICAL mass assignment in /api/schools/[id]: replaced `data: body` with explicit allowlist of 18 fields
+- Fixed CRITICAL default passwords: now generates random passwords with crypto.randomBytes()
+- Fixed CRITICAL school creation role: new school admins get SECRETARY, not SUPER_ADMIN_GLOBAL
+- Fixed CRITICAL WhatsApp API key exposure: now masked in GET response
+- Fixed CRITICAL payment verification: derives verifierName from session, not request body
+- Fixed CRITICAL payment status bypass: new payments always start as PENDING
+- Updated bcrypt cost factor from 10 to 12 for all password hashing
+- Created client-side auth token management in /src/lib/store.ts:
+  - setAuthToken/getAuthToken for token storage
+  - authFetch() helper that adds Bearer token to all requests
+  - Automatic 401 handling with logout redirect
+- Updated page.tsx to use authFetch for all authenticated API calls
+- Updated all 3 login flows to save JWT token and pass to store
+- Removed auto school-year creation in grades API (security risk)
+- All catch blocks now use sanitizeError() to prevent info leaks in production
+- All parseInt calls replaced with safeParseInt() for input validation
+
+Stage Summary:
+- 47 security vulnerabilities identified and fixed
+- JWT authentication system with HTTP-only cookies implemented
+- Role-based access control (RBAC) enforced on all API endpoints
+- IDOR vulnerabilities fixed: users can only access their school's data
+- Parent-child relationship verification added
+- Mass assignment vulnerability fixed with field allowlists
+- Identity spoofing prevented in communications, convocations, homework
+- API key masking implemented for WhatsApp config
+- Default passwords replaced with random generation
+- School creation no longer grants SUPER_ADMIN_GLOBAL
+- Rate limiting added on login endpoint
+- All tests pass: 200 with token, 401 without token, 403 with wrong role

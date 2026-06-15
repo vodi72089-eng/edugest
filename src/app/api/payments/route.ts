@@ -1,22 +1,55 @@
 import { db } from '@/lib/db';
+import { requirePermission, verifySchoolAccess, verifyParentAccess, safeParseInt, sanitizeError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'payments:read');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get('schoolId') || '';
     const status = searchParams.get('status') || '';
     const trimester = searchParams.get('trimester') || '';
     const studentId = searchParams.get('studentId') || '';
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const page = safeParseInt(searchParams.get('page'), 1, 1, 10000);
+    const limit = safeParseInt(searchParams.get('limit'), 20, 1, 100);
 
     const where: Record<string, unknown> = {};
 
-    if (schoolId) where.schoolId = schoolId;
+    // For PARENT role: restrict to their children's payments only
+    if (user.role === 'PARENT') {
+      const children = await db.student.findMany({
+        where: { parentId: user.id },
+        select: { id: true },
+      });
+      const childIds = children.map(s => s.id);
+      where.studentId = { in: childIds };
+    } else if (user.role !== 'SUPER_ADMIN_GLOBAL') {
+      // For non-SUPER_ADMIN_GLOBAL, restrict to their schoolId
+      where.schoolId = user.schoolId;
+    }
+
+    if (schoolId) {
+      // Verify school access for the requested schoolId
+      if (!verifySchoolAccess(user, schoolId)) {
+        return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });
+      }
+      where.schoolId = schoolId;
+    }
     if (status) where.status = status;
     if (trimester) where.trimester = trimester;
-    if (studentId) where.studentId = studentId;
+    if (studentId) {
+      // For PARENT, ensure the studentId is one of their children
+      if (user.role === 'PARENT') {
+        const hasAccess = await verifyParentAccess(user, studentId);
+        if (!hasAccess) {
+          return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
+        }
+      }
+      where.studentId = studentId;
+    }
 
     const [payments, total] = await Promise.all([
       db.paymentRecord.findMany({
@@ -57,12 +90,16 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error listing payments:', error);
-    return NextResponse.json({ error: 'Failed to list payments' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'payments:create');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const body = await request.json();
     const {
       studentId,
@@ -73,9 +110,13 @@ export async function POST(request: NextRequest) {
       trimester,
       paymentMethod,
       referenceNumber,
-      status,
       receiptNumber,
     } = body;
+
+    // Verify school access
+    if (!schoolId || !verifySchoolAccess(user, schoolId)) {
+      return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });
+    }
 
     // If studentName is provided instead of studentId, try to find the student by name
     let resolvedStudentId = studentId;
@@ -135,6 +176,7 @@ export async function POST(request: NextRequest) {
     // Generate receipt number if not provided
     const receiptNum = receiptNumber || `REC-${Date.now().toString(36).toUpperCase()}`;
 
+    // Force status to PENDING on creation — do not allow client to set status directly
     const payment = await db.paymentRecord.create({
       data: {
         studentId: resolvedStudentId,
@@ -144,9 +186,9 @@ export async function POST(request: NextRequest) {
         trimester,
         paymentMethod: paymentMethod || null,
         referenceNumber: referenceNumber || null,
-        status: status || 'PENDING',
+        status: 'PENDING',
         receiptNumber: receiptNum,
-        paidAt: status === 'PAID' ? new Date() : null,
+        paidAt: null,
       },
     });
 
@@ -164,6 +206,6 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
   } catch (error) {
     console.error('Error creating payment:', error);
-    return NextResponse.json({ error: 'Failed to create payment' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }

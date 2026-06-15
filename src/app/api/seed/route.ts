@@ -1,9 +1,22 @@
 import { db } from '@/lib/db';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import { requireRole, sanitizeError } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Block seeding in production
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json(
+        { error: 'Le seed est interdit en production' },
+        { status: 403 }
+      );
+    }
+
+    // Require SUPER_ADMIN_GLOBAL auth
+    const authResult = await requireRole(request, ['SUPER_ADMIN_GLOBAL']);
+    if ('error' in authResult) return authResult.error;
+
     // Check if already seeded
     const existingSchools = await db.school.count();
     if (existingSchools > 0) {
@@ -203,8 +216,6 @@ export async function GET() {
     }
 
     // ----- Subjects for Lumière -----
-    // Subject unique constraint is (name, schoolYearId), so create one subject per name per school year
-    // Associate each subject with the first class as the "home" class
     const subjectNames = ['Mathématiques', 'Français', 'Anglais', 'Sciences', 'Histoire-Géo', 'EPS'];
     const subjectMap: Record<string, string> = {};
 
@@ -217,10 +228,9 @@ export async function GET() {
           coefficient: subName === 'Mathématiques' ? 4 : subName === 'Français' ? 4 : subName === 'Anglais' ? 2 : subName === 'Sciences' ? 3 : subName === 'Histoire-Géo' ? 2 : 1,
           schoolId: lumiere.id,
           schoolYearId: lumiereYear.id,
-          classId: lumiereClasses[0].id, // associate with first class
+          classId: lumiereClasses[0].id,
         },
       });
-      // Map subject name to its ID (shared across all classes)
       for (const cls of lumiereClasses) {
         subjectMap[`${cls.id}-${subName}`] = subject.id;
       }
@@ -245,9 +255,9 @@ export async function GET() {
       { name: 'Maman Nsimba', email: 'nsimba@email.com', phone: '+243810000022', role: 'PARENT' },
     ];
 
-    const lumiereUsers: { id: string; role: string; name: string }[] = [];
+    const lumiereUsers: { id: string; role: string; name: string; email?: string }[] = [];
     for (const u of usersData) {
-      const user = await db.user.create({
+      const createdUser = await db.user.create({
         data: {
           name: u.name,
           email: u.email,
@@ -257,7 +267,7 @@ export async function GET() {
           schoolId: lumiere.id,
         },
       });
-      lumiereUsers.push({ id: user.id, role: user.role, name: user.name });
+      lumiereUsers.push({ id: createdUser.id, role: u.role, name: u.name, email: u.email });
       counts.users++;
     }
 
@@ -331,8 +341,7 @@ export async function GET() {
         const subjectId = subjectMap[`${student.classId}-${subName}`];
         if (!subjectId) continue;
 
-        // Generate realistic grades for 3 trimesters
-        const baseScore = 6 + Math.random() * 8; // 6-14 range
+        const baseScore = 6 + Math.random() * 8;
         for (const trimester of ['T1', 'T2', 'T3']) {
           const variation = (Math.random() - 0.5) * 4;
           const score = Math.max(0, Math.min(20, parseFloat((baseScore + variation).toFixed(1))));
@@ -420,7 +429,7 @@ export async function GET() {
       for (const trimester of ['T1', 'T2', 'T3']) {
         const statusIdx = (i + trimester.charCodeAt(0)) % paymentStatuses.length;
         const status = paymentStatuses[statusIdx];
-        const amount = 150000; // 150,000 CDF
+        const amount = 150000;
         const paidAmount = status === 'PAID' ? amount : status === 'PARTIAL' ? Math.floor(amount * 0.6) : 0;
 
         await db.paymentRecord.create({
@@ -498,7 +507,6 @@ export async function GET() {
       const school = schools[i];
       const sy = schoolYears[i];
 
-      // Create a few classes
       const otherClassNames = i % 2 === 0
         ? ['6eA', '5eA', '4eA']
         : ['CP1', 'CE1', 'CM1'];
@@ -519,7 +527,6 @@ export async function GET() {
         counts.classes++;
       }
 
-      // Create a minimal admin user for each school
       await db.user.create({
         data: {
           name: `Admin ${school.shortName}`,
@@ -550,7 +557,7 @@ export async function GET() {
   } catch (error) {
     console.error('Seed error:', error);
     return NextResponse.json(
-      { error: 'Failed to seed database', details: String(error) },
+      { error: 'Failed to seed database', details: sanitizeError(error) },
       { status: 500 }
     );
   }

@@ -1,18 +1,41 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import { requirePermission, requireRole, verifySchoolAccess, safeParseInt, sanitizeError } from '@/lib/auth';
+
+function generateRandomPassword(length: number = 12): string {
+  return crypto.randomBytes(length).toString('base64').slice(0, length);
+}
 
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'users:read');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const { searchParams } = new URL(request.url);
-    const schoolId = searchParams.get('schoolId');
+    let schoolId = searchParams.get('schoolId');
     const role = searchParams.get('role');
     const search = searchParams.get('search') || '';
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const page = safeParseInt(searchParams.get('page'), 1, 1, 1000);
+    const limit = safeParseInt(searchParams.get('limit'), 50, 1, 100);
+
+    // Non-SUPER_ADMIN_GLOBAL restricted to their schoolId
+    if (user.role !== 'SUPER_ADMIN_GLOBAL') {
+      schoolId = user.schoolId;
+    }
 
     if (!schoolId) {
       return NextResponse.json({ error: 'schoolId est requis' }, { status: 400 });
+    }
+
+    // Verify school access for SUPER_ADMIN_GLOBAL too
+    if (!verifySchoolAccess(user, schoolId)) {
+      return NextResponse.json(
+        { error: 'Accès non autorisé à cette école' },
+        { status: 403 }
+      );
     }
 
     const where: Record<string, unknown> = { schoolId };
@@ -60,12 +83,16 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error listing users:', error);
-    return NextResponse.json({ error: 'Failed to list users' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'users:create');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const body = await request.json();
     const { name, email, phone, password, role, schoolId, isActive, subjectName, classNames, isTitulaire } = body;
 
@@ -80,6 +107,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Email ou téléphone est requis' },
         { status: 400 }
+      );
+    }
+
+    // CRITICAL: Only SUPER_ADMIN_GLOBAL can assign SUPER_ADMIN_GLOBAL role
+    if (role === 'SUPER_ADMIN_GLOBAL' && user.role !== 'SUPER_ADMIN_GLOBAL') {
+      return NextResponse.json(
+        { error: 'Seul un SUPER_ADMIN_GLOBAL peut attribuer le rôle SUPER_ADMIN_GLOBAL' },
+        { status: 403 }
+      );
+    }
+
+    // Others can only assign roles within their school
+    if (!verifySchoolAccess(user, schoolId)) {
+      return NextResponse.json(
+        { error: 'Accès non autorisé à cette école' },
+        { status: 403 }
       );
     }
 
@@ -114,11 +157,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const hashedPassword = password ? await bcrypt.hash(password, 10) : await bcrypt.hash('password123', 10);
+    // Generate random password if none provided
+    // Use bcrypt cost 12
+    const rawPassword = password || generateRandomPassword();
+    const hashedPassword = await bcrypt.hash(rawPassword, 12);
 
     const isTeacherRole = role === 'TEACHER' || role === 'HEAD_TEACHER';
 
-    const user = await db.user.create({
+    const newUser = await db.user.create({
       data: {
         name,
         email: email || null,
@@ -148,15 +194,19 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ data: user }, { status: 201 });
+    return NextResponse.json({ data: newUser }, { status: 201 });
   } catch (error) {
     console.error('Error creating user:', error);
-    return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'users:update');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const body = await request.json();
     const { id, name, email, phone, role, isActive, password, subjectName, classNames, isTitulaire } = body;
 
@@ -167,6 +217,30 @@ export async function PUT(request: NextRequest) {
     const existing = await db.user.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
+    }
+
+    // Verify school access
+    if (!verifySchoolAccess(user, existing.schoolId)) {
+      return NextResponse.json(
+        { error: 'Accès non autorisé à cette école' },
+        { status: 403 }
+      );
+    }
+
+    // Only SUPER_ADMIN_GLOBAL can assign SUPER_ADMIN_GLOBAL role
+    if (role === 'SUPER_ADMIN_GLOBAL' && user.role !== 'SUPER_ADMIN_GLOBAL') {
+      return NextResponse.json(
+        { error: 'Seul un SUPER_ADMIN_GLOBAL peut attribuer le rôle SUPER_ADMIN_GLOBAL' },
+        { status: 403 }
+      );
+    }
+
+    // Also check if trying to change an existing SUPER_ADMIN_GLOBAL user's role
+    if (existing.role === 'SUPER_ADMIN_GLOBAL' && role && role !== 'SUPER_ADMIN_GLOBAL' && user.role !== 'SUPER_ADMIN_GLOBAL') {
+      return NextResponse.json(
+        { error: 'Seul un SUPER_ADMIN_GLOBAL peut modifier le rôle d\'un SUPER_ADMIN_GLOBAL' },
+        { status: 403 }
+      );
     }
 
     // Check for duplicate email (if changing)
@@ -191,7 +265,7 @@ export async function PUT(request: NextRequest) {
     if (phone !== undefined) data.phone = phone;
     if (role !== undefined) data.role = role;
     if (isActive !== undefined) data.isActive = isActive;
-    if (password) data.password = await bcrypt.hash(password, 10);
+    if (password) data.password = await bcrypt.hash(password, 12);
 
     // Handle teacher-specific fields
     const targetRole = role || existing.role;
@@ -206,7 +280,7 @@ export async function PUT(request: NextRequest) {
       data.isTitulaire = false;
     }
 
-    const user = await db.user.update({
+    const updatedUser = await db.user.update({
       where: { id },
       data,
       select: {
@@ -226,15 +300,20 @@ export async function PUT(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ data: user });
+    return NextResponse.json({ data: updatedUser });
   } catch (error) {
     console.error('Error updating user:', error);
-    return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
+    // SCHOOL_ADMIN/SUPER_ADMIN_GLOBAL only
+    const authResult = await requireRole(request, ['SCHOOL_ADMIN']);
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -247,8 +326,16 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
     }
 
+    // Verify school access
+    if (!verifySchoolAccess(user, existing.schoolId)) {
+      return NextResponse.json(
+        { error: 'Accès non autorisé à cette école' },
+        { status: 403 }
+      );
+    }
+
     // Soft delete: deactivate instead of deleting
-    const user = await db.user.update({
+    const deletedUser = await db.user.update({
       where: { id },
       data: { isActive: false },
       select: {
@@ -261,9 +348,9 @@ export async function DELETE(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ data: user });
+    return NextResponse.json({ data: deletedUser });
   } catch (error) {
     console.error('Error deleting user:', error);
-    return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }

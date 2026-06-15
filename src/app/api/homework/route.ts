@@ -1,25 +1,34 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'homework:read');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get('schoolId') || '';
     const classId = searchParams.get('classId') || '';
-    const parentId = searchParams.get('parentId') || '';
     const studentId = searchParams.get('studentId') || '';
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const page = safeParseInt(searchParams.get('page'), 1, 1, 1000);
+    const limit = safeParseInt(searchParams.get('limit'), 20, 1, 200);
+
+    // Verify school access if schoolId is provided
+    if (schoolId && !verifySchoolAccess(user, schoolId)) {
+      return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
+    }
 
     const where: Record<string, unknown> = {};
 
     if (schoolId) where.schoolId = schoolId;
     if (classId) where.classId = classId;
 
-    // If parentId is provided, find homework for the parent's children
-    if (parentId) {
+    // For PARENT role, filter by their children's classes
+    if (user.role === 'PARENT') {
       const children = await db.student.findMany({
-        where: { parentId },
+        where: { parentId: user.id },
         select: { classId: true },
       });
       const classIds = [...new Set(children.map(c => c.classId))];
@@ -56,32 +65,49 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error listing homework:', error);
-    return NextResponse.json({ error: 'Failed to list homework' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requirePermission(request, 'homework:create');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
+    // Only TEACHER, HEAD_TEACHER, and DIRECTION roles can create homework
+    const allowedRoles = ['TEACHER', 'HEAD_TEACHER', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
+    if (!allowedRoles.includes(user.role) && user.role !== 'SUPER_ADMIN_GLOBAL') {
+      return NextResponse.json({ error: 'Seuls les enseignants et la direction peuvent créer des devoirs' }, { status: 403 });
+    }
+
     const body = await request.json();
     const {
       title,
       description,
       subjectName,
       classId,
-      teacherName,
-      teacherId,
       isTitulaire,
       dueDate,
       schoolId,
       isPublished,
     } = body;
 
-    if (!title || !subjectName || !classId || !teacherName || !dueDate || !schoolId) {
+    if (!title || !subjectName || !classId || !dueDate || !schoolId) {
       return NextResponse.json(
-        { error: 'Missing required fields: title, subjectName, classId, teacherName, dueDate, schoolId' },
+        { error: 'Missing required fields: title, subjectName, classId, dueDate, schoolId' },
         { status: 400 }
       );
     }
+
+    // Verify school access
+    if (!verifySchoolAccess(user, schoolId)) {
+      return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
+    }
+
+    // Derive teacherId and teacherName from the authenticated user
+    const teacherId = user.id;
+    const teacherName = user.name;
 
     const homework = await db.homework.create({
       data: {
@@ -90,7 +116,7 @@ export async function POST(request: NextRequest) {
         subjectName,
         classId,
         teacherName,
-        teacherId: teacherId || null,
+        teacherId,
         isTitulaire: isTitulaire || false,
         dueDate: new Date(dueDate),
         schoolId,
@@ -101,6 +127,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: homework }, { status: 201 });
   } catch (error) {
     console.error('Error creating homework:', error);
-    return NextResponse.json({ error: 'Failed to create homework' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }

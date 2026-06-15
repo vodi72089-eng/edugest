@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireRole, sanitizeError } from '@/lib/auth'
 
 // Default pricing tiers to seed if none exist
 const DEFAULT_TIERS = [
@@ -71,7 +72,7 @@ const DEFAULT_TIERS = [
   },
 ]
 
-// GET /api/pricing — fetch all pricing plans
+// GET /api/pricing — fetch all pricing plans (public, no auth required)
 export async function GET() {
   try {
     let plans = await db.pricingPlan.findMany({
@@ -93,14 +94,17 @@ export async function GET() {
     return NextResponse.json({ data: plans })
   } catch (error) {
     console.error('Error fetching pricing plans:', error)
-    return NextResponse.json({ error: 'Failed to fetch pricing plans' }, { status: 500 })
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 })
   }
 }
 
-// PUT /api/pricing — update a pricing plan
-export async function PUT(req: NextRequest) {
+// PUT /api/pricing — update a pricing plan (SUPER_ADMIN_GLOBAL only)
+export async function PUT(request: NextRequest) {
   try {
-    const body = await req.json()
+    const authResult = await requireRole(request, ['SUPER_ADMIN_GLOBAL'])
+    if ('error' in authResult) return authResult.error
+
+    const body = await request.json()
     const { id, price, originalPrice, name, description, features, period, isPopular, isActive } = body
 
     if (!id) {
@@ -125,14 +129,17 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ data: plan })
   } catch (error) {
     console.error('Error updating pricing plan:', error)
-    return NextResponse.json({ error: 'Failed to update pricing plan' }, { status: 500 })
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 })
   }
 }
 
-// POST /api/pricing — create a new pricing plan (or reset to defaults)
-export async function POST(req: NextRequest) {
+// POST /api/pricing — create a new pricing plan (or reset to defaults) (SUPER_ADMIN_GLOBAL only)
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json()
+    const authResult = await requireRole(request, ['SUPER_ADMIN_GLOBAL'])
+    if ('error' in authResult) return authResult.error
+
+    const body = await request.json()
     const { action } = body
 
     // Reset all plans to defaults
@@ -172,6 +179,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ data: plan }, { status: 201 })
   } catch (error) {
     console.error('Error creating pricing plan:', error)
-    return NextResponse.json({ error: 'Failed to create pricing plan' }, { status: 500 })
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 })
   }
 }
