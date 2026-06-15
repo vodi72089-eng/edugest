@@ -2612,10 +2612,12 @@ interface AdminAnalytics {
 }
 
 function SuperAdminDashboard() {
+  const { userData } = useEduGestStore()
   const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [cityFilter, setCityFilter] = useState('')
   const [activeTab, setActiveTab] = useState<'overview' | 'schools' | 'debts' | 'blacklist' | 'activity'>('overview')
+  const [schoolStats, setSchoolStats] = useState<Record<string, unknown> | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -2625,6 +2627,91 @@ function SuperAdminDashboard() {
       .catch(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [cityFilter])
+
+  useEffect(() => {
+    if (userData?.schoolId) {
+      fetch(`/api/stats?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => { setSchoolStats(j.data) }).catch(() => {})
+    }
+  }, [userData?.schoolId])
+
+  // School-admin specific dashboard
+  if (userData?.schoolId) {
+    const totalStudents = (schoolStats?.students as Record<string, number>)?.total || 0
+    const totalClasses = (schoolStats?.classes as Record<string, unknown>)?.total as number || 0
+    const classDist = (schoolStats?.classes as Record<string, unknown>)?.distribution as { name: string; _count: { students: number } }[] | undefined
+    const barData = classDist?.map(c => ({ name: c.name, élèves: c._count.students })) || []
+    const disciplineStats = schoolStats?.discipline as { total: number; blacklist: number; greylist: number; whitelist: number } | undefined
+    const paymentStats = schoolStats?.payments as { total: number; paid: number; pending: number; partial: number; overdue: number; expectedAmount: number; collectedAmount: number; collectionRate: number } | undefined
+
+    return (
+      <div>
+        <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour {userData.name}</h1>
+            </div>
+            <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{userData.schoolName || 'Gestion scolaire'}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
+          <StatCard label="Total élèves" value={formatNumber(totalStudents)} icon={<Users size={16} />} color={ACCENT} />
+          <StatCard label="Classes actives" value={String(totalClasses)} icon={<School size={16} />} color={INFO} />
+          <StatCard label="Avertissements" value={String(disciplineStats?.greylist || 0)} icon={<AlertTriangle size={16} />} color={WARNING} />
+          <StatCard label="Impayés" value={String(paymentStats?.overdue || 0)} icon={<Clock size={16} />} color={DANGER} />
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-6 mb-6">
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+            <div className="mb-4">
+              <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Élèves par classe</div>
+              <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Année scolaire en cours</div>
+            </div>
+            {barData.length > 0 ? (
+              <div className="h-[240px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={barData}>
+                    <CartesianGrid strokeDasharray="2 4" stroke="oklch(90% 0.01 175)" />
+                    <XAxis dataKey="name" tick={{ fontSize: 12, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 12, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
+                    <Tooltip />
+                    <Bar dataKey="élèves" fill={ACCENT} radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-[240px] flex items-center justify-center" style={{ color: TEXT_MUTED_LUXE }}>
+                <div className="text-center">
+                  <BarChart3 size={32} className="mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">Aucune donnée de classe disponible</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+            <div className="mb-4">
+              <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Actions rapides</div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { icon: <UserPlus size={20} />, label: 'Ajouter élève', view: 'students' as ViewType, color: ACCENT },
+                { icon: <MessageSquare size={20} />, label: 'Communication', view: 'communications' as ViewType, color: INFO },
+                { icon: <CreditCard size={20} />, label: 'Paiement', view: 'payments' as ViewType, color: SUCCESS },
+                { icon: <Megaphone size={20} />, label: 'Convocation', view: 'convocation' as ViewType, color: WARNING },
+              ].map(a => (
+                <button key={a.label} onClick={() => useEduGestStore.getState().setCurrentView(a.view)} className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.3)] hover:shadow-md edu-card-lift transition">
+                  <div className="w-10 h-10 rounded-full grid place-items-center" style={{ color: 'white', background: `linear-gradient(135deg, ${a.color}, oklch(72% 0.15 65))` }}>{a.icon}</div>
+                  <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{a.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const ov = analytics?.overview
 
@@ -3195,7 +3282,7 @@ function SecretaryDashboard() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour Secrétaire</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour {userData?.name || 'Secrétaire'}</h1>
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{userData?.schoolName || 'Gestion scolaire'}</p>
         </div>
@@ -3280,7 +3367,7 @@ function CashierDashboard() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour Caissier</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour {userData?.name || 'Caissier'}</h1>
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi financier — {userData?.schoolName || 'École'}</p>
         </div>
@@ -6168,8 +6255,15 @@ function PersonnelView() {
     name: '', email: '', phone: '', password: '', role: 'SECRETARY',
     subjectName: '', classNames: '', isTitulaire: false,
   })
+  const [availableClasses, setAvailableClasses] = useState<{ id: string; name: string; _count?: { students: number } }[]>([])
 
   const isTeacherForm = form.role === 'TEACHER' || form.role === 'HEAD_TEACHER'
+
+  useEffect(() => {
+    if ((showAddModal || editingUser) && isTeacherForm && userData?.schoolId) {
+      fetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setAvailableClasses(j.data || [])).catch(() => {})
+    }
+  }, [showAddModal, editingUser, isTeacherForm, userData?.schoolId])
 
   const ROLES = [
     { value: 'SECRETARY', label: 'Secrétaire', color: 'oklch(60% 0.13 250)' },
@@ -6437,6 +6531,11 @@ function PersonnelView() {
                             {user.isTitulaire && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: GOLD_SOFT, color: GOLD }}>Titulaire</span>}
                           </div>
                         )}
+                        {(user.role === 'TEACHER' || user.role === 'HEAD_TEACHER') && user.classNames && (
+                          <div className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>
+                            Classes: {user.classNames}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <button onClick={() => handleToggleActive(user)} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium cursor-pointer transition ${user.isActive ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.05_25)] text-[oklch(45%_0.18_25)]'}`}>
@@ -6551,6 +6650,40 @@ function PersonnelView() {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Classes occupées</label>
+                    {/* Available classes - click to select/deselect */}
+                    {availableClasses.length > 0 && (
+                      <div className="space-y-1.5 mb-2">
+                        <label className="text-[12px] font-medium" style={{ color: TEXT_PRIMARY }}>Sélectionner les classes</label>
+                        <div className="flex flex-wrap gap-2">
+                          {availableClasses.map(c => {
+                            const isSelected = form.classNames.split(',').map(n => n.trim()).filter(Boolean).includes(c.name)
+                            return (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => {
+                                  const current = form.classNames.split(',').map(n => n.trim()).filter(Boolean)
+                                  if (isSelected) {
+                                    setForm({ ...form, classNames: current.filter(n => n !== c.name).join(', ') })
+                                  } else {
+                                    setForm({ ...form, classNames: [...current, c.name].join(', ') })
+                                  }
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                                  isSelected 
+                                    ? 'text-white shadow-sm' 
+                                    : 'border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)]'
+                                }`}
+                                style={isSelected ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}
+                              >
+                                {c.name} {c._count?.students ? `(${c._count.students})` : ''}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Cliquez sur les classes pour les ajouter/retirer</p>
+                      </div>
+                    )}
                     <input type="text" value={form.classNames} onChange={e => setForm({ ...form, classNames: e.target.value })} placeholder="Ex: 6eA, 6eB, 5eA (séparées par des virgules)" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                   </div>
                   <div className="flex items-center gap-3">

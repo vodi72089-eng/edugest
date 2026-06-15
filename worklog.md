@@ -28,3 +28,23 @@ Stage Summary:
 - Parents see prominent homework info with subject, teacher, and titulaire status
 - Grades API now properly resolves schoolYearId from student records
 - Login flow preserves teacher-specific data (subjectName, classNames, isTitulaire)
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix dashboard statistics, enhance teacher creation, verify homework display
+
+Work Log:
+- Analyzed the root cause: SuperAdminDashboard was using `/api/admin-analytics` which counts ALL students globally across ALL schools. When a new school admin creates a school, they get SUPER_ADMIN_GLOBAL role and see global stats including 20 seeded students.
+- Fixed SuperAdminDashboard: When user has a schoolId (school admin), now shows school-specific dashboard using `/api/stats?schoolId=...` which returns only that school's data. When no schoolId (true platform admin), shows global admin analytics.
+- Enhanced PersonnelView teacher creation form: Added `availableClasses` state, fetches classes filtered by schoolId, added clickable class chip buttons for selecting/deselecting classes in addition to the text input.
+- Added classNames display in personnel table for TEACHER/HEAD_TEACHER roles.
+- Fixed duplicate class chips by passing schoolId to `/api/classes?schoolId=...` API call.
+- Fixed dashboard greetings: SecretaryDashboard now shows "Bonjour {name}" instead of "Bonjour Secrétaire", CashierDashboard shows "Bonjour {name}" instead of "Bonjour Caissier".
+- Verified homework display already correctly shows: subject/course name badges, teacher names, "Titulaire" badge, and parent-specific enhanced display with course+teacher+titulaire.
+- Verified with Agent Browser: New school creation now shows 0 students, teacher form has class selection chips, homework displays correctly.
+
+Stage Summary:
+- Dashboard now shows real school-specific statistics (0 for new schools, correct counts for existing schools)
+- Teacher creation form has enhanced class selection with clickable chips
+- Homework display correctly shows course name, teacher name, and titulaire label
+- All lint checks pass, dev server running without errors
