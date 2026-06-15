@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
         orderBy: { dueDate: 'asc' },
         include: {
           school: { select: { id: true, name: true } },
+          class: { select: { id: true, name: true } },
         },
       }),
       db.homework.count({ where }),

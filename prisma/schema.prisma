@@ -117,6 +117,7 @@ model Class {
   students      Student[]
   grades        Grade[]
   subjects      Subject[]
+  homeworks     Homework[]
 
   @@unique([name, schoolYearId])
 }
@@ -302,6 +303,7 @@ model Homework {
   schoolId      String
 
   school        School   @relation(fields: [schoolId], references: [id])
+  class         Class    @relation(fields: [classId], references: [id])
   isPublished   Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

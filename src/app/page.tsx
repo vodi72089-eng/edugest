@@ -77,7 +77,7 @@ interface CommunicationData {
 interface HomeworkData {
   id: string; title: string; description: string; subjectName: string;
   classId: string; teacherName: string; teacherId?: string; isTitulaire?: boolean;
-  dueDate: string; schoolId: string;
+  dueDate: string; schoolId: string; class?: { id: string; name: string };
 }
 
 // ===== CONSTANTS =====
@@ -3388,7 +3388,7 @@ function CashierDashboard() {
         {classDist && classDist.length > 0 ? (
           <div className="space-y-3">
             {classDist.map(c => {
-              const rate = Math.round(Math.random() * 40 + 60) // Placeholder until per-class payment stats available
+              const rate = paymentStats?.collectionRate || 0
               return (
                 <div key={c.name}>
                   <div className="flex justify-between text-sm mb-1">
@@ -3396,7 +3396,7 @@ function CashierDashboard() {
                     <span style={{ color: TEXT_MUTED_LUXE }}>{c._count.students} élèves</span>
                   </div>
                   <div className="h-2 bg-[oklch(92%_0.005_175)] rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${rate}%`, background: rate >= 85 ? `linear-gradient(90deg, ${SUCCESS}, oklch(72% 0.15 65))` : rate >= 70 ? `linear-gradient(90deg, ${WARNING}, oklch(72% 0.15 65))` : `linear-gradient(90deg, ${DANGER}, oklch(58% 0.15 45))` }} />
+                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(rate, 100)}%`, background: rate >= 85 ? `linear-gradient(90deg, ${SUCCESS}, oklch(72% 0.15 65))` : rate >= 70 ? `linear-gradient(90deg, ${WARNING}, oklch(72% 0.15 65))` : `linear-gradient(90deg, ${DANGER}, oklch(58% 0.15 45))` }} />
                   </div>
                 </div>
               )
@@ -3425,6 +3425,8 @@ function ParentDashboard() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const childPhotoInputRef = useRef<HTMLInputElement | null>(null)
   const [editingPhotoForChild, setEditingPhotoForChild] = useState<string | null>(null)
+  const [pendingHomework, setPendingHomework] = useState(0)
+  const [recentDisciplineCount, setRecentDisciplineCount] = useState(0)
 
   useEffect(() => {
     if (userData?.id) {
@@ -3432,6 +3434,20 @@ function ParentDashboard() {
         .then(r => r.json())
         .then(j => { setChildren(j.data || []); setLoading(false) })
         .catch(() => setLoading(false))
+      // Fetch pending homework count
+      fetch(`/api/homework?parentId=${userData.id}&limit=100`)
+        .then(r => r.json())
+        .then(j => {
+          const hw: { dueDate: string }[] = j.data || []
+          const now = new Date()
+          setPendingHomework(hw.filter(h => new Date(h.dueDate) > now).length)
+        })
+        .catch(() => {})
+      // Fetch discipline count
+      fetch(`/api/discipline?parentId=${userData.id}&limit=100`)
+        .then(r => r.json())
+        .then(j => setRecentDisciplineCount((j.data || []).length))
+        .catch(() => {})
     } else {
       setLoading(false)
     }
@@ -3519,8 +3535,8 @@ function ParentDashboard() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
         <StatCard label="Mes enfants" value={String(children.length)} icon={<Users size={16} />} color={ACCENT} />
-        <StatCard label="Notifications" value="5" icon={<Bell size={16} />} color={INFO} />
-        <StatCard label="Devoirs à rendre" value="3" icon={<PenTool size={16} />} color={WARNING} />
+        <StatCard label="Avertissements" value={String(recentDisciplineCount)} icon={<Shield size={16} />} color={INFO} />
+        <StatCard label="Devoirs à rendre" value={String(pendingHomework)} icon={<PenTool size={16} />} color={WARNING} />
       </div>
 
       <div className="flex items-center gap-2 mb-3">
@@ -3615,12 +3631,9 @@ function ParentDashboard() {
         <h3 className="text-lg font-semibold" style={{ color: TEXT_PRIMARY }}>Notifications récentes</h3>
       </div>
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl divide-y divide-[oklch(90%_0.01_175)] shadow-sm">
-        {children.length > 0 ? [
-          { icon: <BookOpen size={16} className="text-edu-accent" />, text: `Nouvelle note en Mathématiques — ${children[0]?.firstName}: 16/20`, time: 'Il y a 2h' },
-          { icon: <CreditCard size={16} className="text-edu-success" />, text: `Paiement T2 confirmé — ${children[children.length > 1 ? 1 : 0]?.firstName || children[0]?.firstName}`, time: 'Il y a 5h' },
-          { icon: <PenTool size={16} className="text-edu-warning" />, text: 'Devoir à rendre: Exercices de calcul', time: 'Hier' },
-          { icon: <Shield size={16} className="text-edu-danger" />, text: `Avertissement: Retard répété — ${children[0]?.firstName} ${children[0]?.lastName}`, time: 'Il y a 2 jours' },
-          { icon: <Megaphone size={16} className="text-edu-info" />, text: 'Réunion parents-professeurs le 15 octobre', time: 'Il y a 3 jours' },
+        {children.length > 0 && (pendingHomework > 0 || recentDisciplineCount > 0) ? [
+          ...(pendingHomework > 0 ? [{ icon: <PenTool size={16} style={{ color: WARNING }} />, text: `${pendingHomework} devoir${pendingHomework > 1 ? 's' : ''} à rendre`, time: 'En cours' }] : []),
+          ...(recentDisciplineCount > 0 ? [{ icon: <Shield size={16} style={{ color: DANGER }} />, text: `${recentDisciplineCount} avertissement${recentDisciplineCount > 1 ? 's' : ''} disciplinaire${recentDisciplineCount > 1 ? 's' : ''}`, time: 'Cette année' }] : []),
         ].map((n, i) => (
           <div key={i} className="flex items-start gap-3 p-4 hover:bg-[oklch(97%_0.005_175)] transition">
             <div className="w-8 h-8 rounded-full bg-[oklch(95%_0.04_175)] grid place-items-center shrink-0">{n.icon}</div>
@@ -3649,7 +3662,7 @@ function TeacherDashboard() {
   useEffect(() => {
     if (userData?.schoolId) {
       // Get classes
-      fetch('/api/classes?limit=50')
+      fetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`)
         .then(r => r.json())
         .then(j => {
           const allClasses: { id: string; name: string; _count?: { students: number } }[] = j.data || []
@@ -3666,12 +3679,12 @@ function TeacherDashboard() {
         })
         .catch(() => {})
 
-      // Get homework count
-      fetch('/api/homework?limit=50')
+      // Get homework count - filter by teacherId
+      fetch(`/api/homework?schoolId=${userData.schoolId}&limit=50`)
         .then(r => r.json())
         .then(j => {
-          const allHw: { teacherName: string }[] = j.data || []
-          const myHw = allHw.filter(h => h.teacherName === userData?.name)
+          const allHw: { teacherId?: string; teacherName: string }[] = j.data || []
+          const myHw = allHw.filter(h => h.teacherId === userData?.id || h.teacherName === userData?.name)
           setHomeworkCount(myHw.length)
         })
         .catch(() => {})
@@ -3679,7 +3692,7 @@ function TeacherDashboard() {
     } else {
       setTimeout(() => setLoading(false), 0)
     }
-  }, [userData?.schoolId, userData?.name])
+  }, [userData?.schoolId, userData?.name, userData?.id])
 
   return (
     <div>
@@ -3713,18 +3726,24 @@ function HeadTeacherDashboard() {
   useEffect(() => {
     if (userData?.schoolId) {
       // Try to find the class this head teacher manages
-      fetch('/api/classes?limit=50')
+      fetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`)
         .then(r => r.json())
         .then(j => {
           const allClasses: { id: string; name: string; _count?: { students: number } }[] = j.data || []
           const teacherClassNames = userData?.classNames
-          let myClass = allClasses[0]
+          let myClass: { id: string; name: string; _count?: { students: number } } | undefined
           if (teacherClassNames) {
             const nameList = teacherClassNames.split(',').map(n => n.trim().toLowerCase())
-            myClass = allClasses.find(c => nameList.some(n => c.name.toLowerCase().includes(n) || n.includes(c.name.toLowerCase()))) || allClasses[0]
+            myClass = allClasses.find(c => nameList.some(n => c.name.toLowerCase().includes(n) || n.includes(c.name.toLowerCase())))
           }
           if (myClass) {
             setClassInfo({ name: myClass.name, studentCount: myClass._count?.students || 0 })
+          } else if (allClasses.length > 0 && teacherClassNames) {
+            // Has classNames assigned but no match found - don't default to first class
+            setClassInfo(null)
+          } else if (!teacherClassNames && allClasses.length > 0) {
+            // No class names assigned at all
+            setClassInfo(null)
           }
           setLoading(false)
         })
@@ -3742,7 +3761,7 @@ function HeadTeacherDashboard() {
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour {userData?.name || 'Prof. Principal'}</h1>
           </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi de la classe {classInfo?.name || '—'}</p>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{classInfo ? `Suivi de la classe ${classInfo.name}` : 'Aucune classe assignée — Contactez l\'administration'}</p>
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
@@ -3835,19 +3854,19 @@ function StudentsView() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch('/api/students?limit=50')
+        const res = await fetch(`/api/students?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
         const json = await res.json()
         setStudents(json.data || [])
       } catch (e) { console.error(e) }
       finally { setLoading(false) }
     }
     load()
-  }, [])
+  }, [userData?.schoolId])
 
   // Load classes when modal opens
   useEffect(() => {
     if (showAdd) {
-      fetch('/api/classes?limit=50')
+      fetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
         .then(r => r.json())
         .then(j => setClasses(j.data || []))
         .catch(() => {})
@@ -4073,10 +4092,11 @@ function ClassesView() {
   const [loading, setLoading] = useState(true)
   const [classSearch, setClassSearch] = useState('')
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
+  const { userData } = useEduGestStore()
 
   useEffect(() => {
-    fetch('/api/classes?limit=50').then(r => r.json()).then(j => { setClasses(j.data || []); setLoading(false) }).catch(() => setLoading(false))
-  }, [])
+    fetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => { setClasses(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+  }, [userData?.schoolId])
 
   // Class search autocomplete - computed from local data
   const classSuggestions = useMemo(() => {
@@ -4185,7 +4205,7 @@ function GradesView() {
   }, [gradeStudentSearch, classStudents])
 
   useEffect(() => {
-    fetch('/api/classes?limit=50').then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
+    fetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
     // If parent, load their children
     if (isParent && userData?.id) {
       fetch(`/api/students?parentId=${userData.id}&limit=20`)
@@ -4530,7 +4550,7 @@ function PaymentsView() {
         })
         .catch(() => setLoading(false))
     } else {
-      fetch('/api/payments?limit=30').then(r => r.json()).then(j => { setPayments(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+      fetch(`/api/payments?limit=30${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => { setPayments(j.data || []); setLoading(false) }).catch(() => setLoading(false))
     }
   }, [])
 
@@ -4582,7 +4602,7 @@ function PaymentsView() {
         const paymentId = json.data.id
         setLastPaymentId(paymentId)
         // Refresh list
-        const listRes = await fetch('/api/payments?limit=30')
+        const listRes = await fetch(`/api/payments?limit=30${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
         const listJson = await listRes.json()
         setPayments(listJson.data || [])
         // Reset form
@@ -4594,9 +4614,8 @@ function PaymentsView() {
         // If there are suggestions, show them
         if (json.suggestions) {
           setStudentSuggestions(json.suggestions.map((s: {id: string; name: string; matricule: string}) => ({
-            id: s.id, firstName: s.name.split(' ')[0], lastName: s.name.split(' ').slice(1).join(' '), matricule: s.matricule
+            id: s.id, label: s.name, sublabel: s.matricule
           })))
-          setShowSuggestions(true)
         }
       }
     } catch { toast.error('Erreur réseau') }
@@ -4799,7 +4818,12 @@ function DisciplineView() {
   const [convocationMotif, setConvocationMotif] = useState('')
   const [convocationDate, setConvocationDate] = useState('')
   const [convocations, setConvocations] = useState<{ id: string; motif: string; date: string; status: string; student: { firstName: string; lastName: string; matricule: string } }[]>([])
-
+  // Edit discipline record state
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
+  const [editPoints, setEditPoints] = useState('')
+  const [editListType, setEditListType] = useState<'BLACKLIST' | 'GREYLIST' | 'WHITELIST'>('GREYLIST')
+  const [editStatus, setEditStatus] = useState('PENDING')
+  const [savingEdit, setSavingEdit] = useState(false)
   // Determine section level for discipline role
   const sectionLevel = userRole === 'DISCIPLINE_MATERNELLE' ? 'MATERNELLE' : userRole === 'DISCIPLINE_PRIMAIRE' ? 'PRIMAIRE' : userRole === 'DISCIPLINE_SECONDAIRE' ? 'SECONDAIRE' : ''
 
@@ -4819,11 +4843,17 @@ function DisciplineView() {
         .then(r => r.json())
         .then(j => {
           const allStudents: StudentData[] = j.data || []
-          // Filter students by their class level matching the discipline section
+          // Filter students by their class name/section/level matching the discipline section
           const filtered = allStudents.filter(s => {
-            const cls = (s as Record<string, unknown>).class as { section?: string; level?: string } | undefined
+            const cls = (s as Record<string, unknown>).class as { name?: string; section?: string; level?: string } | undefined
             const sectionValue = cls?.section || cls?.level || ''
-            return sectionValue.toUpperCase() === sectionLevel.toUpperCase()
+            const nameValue = cls?.name || ''
+            // Match by section/level field OR by class name containing the section keyword
+            return sectionValue.toUpperCase().includes(sectionLevel.toUpperCase()) ||
+                   nameValue.toUpperCase().includes(sectionLevel.toUpperCase()) ||
+                   (sectionLevel === 'MATERNELLE' && (nameValue.match(/^(M|MAT|MATERNELLE|PETITE|MOYENNE|GRANDE)/i) !== null)) ||
+                   (sectionLevel === 'PRIMAIRE' && (nameValue.match(/^(P|PRI|PRIMAIRE|1ERE|2EME|3EME|4EME|5EME|6EME|\d)/i) !== null)) ||
+                   (sectionLevel === 'SECONDAIRE' && (nameValue.match(/^(S|SEC|SECONDAIRE|7EME|8EME|9EME|10EME|11EME|12EME)/i) !== null))
           })
           setSectionStudents(filtered)
         })
@@ -4985,6 +5015,50 @@ function DisciplineView() {
       toast.error('Erreur de connexion')
     }
     setSubmitting(false)
+  }
+
+  async function handleEditRecord(record: DisciplineData) {
+    setEditingRecordId(record.id)
+    setEditPoints(String(record.points))
+    setEditListType(record.listType as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST')
+    setEditStatus(record.status)
+  }
+
+  async function handleSaveEdit() {
+    if (!editingRecordId) return
+    setSavingEdit(true)
+    try {
+      const res = await fetch('/api/discipline', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingRecordId,
+          points: parseInt(editPoints) || 0,
+          listType: editListType,
+          status: editStatus,
+        }),
+      })
+      if (res.ok) {
+        toast.success('Enregistrement modifié !')
+        setEditingRecordId(null)
+        // Refresh records
+        setLoading(true)
+        const params = new URLSearchParams()
+        params.set('listType', tab)
+        params.set('limit', '50')
+        if (isParent && userData?.id) {
+          if (selectedChildId) params.set('studentId', selectedChildId)
+          else params.set('parentId', userData.id)
+        }
+        if (isDisciplineRole && selectedStudentId) params.set('studentId', selectedStudentId)
+        fetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { setRecords(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+      } else {
+        toast.error('Erreur lors de la modification')
+      }
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setSavingEdit(false)
   }
 
   return (
@@ -5364,7 +5438,38 @@ function DisciplineView() {
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{r.title}</td>
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_PRIMARY }}>{r.type}</td>
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(r.createdAt)}</td>
-                  <td className="px-4 py-3"><span className="text-[13px] font-semibold" style={{ color: r.points > 0 ? SUCCESS : DANGER }}>{r.points > 0 ? '+' : ''}{r.points}</span></td>
+                  <td className="px-4 py-3">
+                    {editingRecordId === r.id ? (
+                      <div className="flex items-center gap-2">
+                        <input type="number" value={editPoints} onChange={e => setEditPoints(e.target.value)} className="w-16 px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+                        <select value={editListType} onChange={e => setEditListType(e.target.value as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST')} className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-lg text-xs bg-white outline-none">
+                          <option value="GREYLIST">Grise</option>
+                          <option value="BLACKLIST">Noire</option>
+                          <option value="WHITELIST">Blanche</option>
+                        </select>
+                        <select value={editStatus} onChange={e => setEditStatus(e.target.value)} className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-lg text-xs bg-white outline-none">
+                          <option value="PENDING">En attente</option>
+                          <option value="CONFIRMED">Confirmé</option>
+                          <option value="RESOLVED">Résolu</option>
+                        </select>
+                        <button onClick={handleSaveEdit} disabled={savingEdit} className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_145)] transition" style={{ color: SUCCESS }} title="Sauvegarder">
+                          {savingEdit ? <div className="h-3 w-3 border-2 border-[oklch(40%_0.13_145)] border-t-transparent rounded-full animate-spin" /> : <Check size={13} />}
+                        </button>
+                        <button onClick={() => setEditingRecordId(null)} className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_25)] transition" style={{ color: DANGER }} title="Annuler">
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[13px] font-semibold" style={{ color: r.points > 0 ? SUCCESS : DANGER }}>{r.points > 0 ? '+' : ''}{r.points}</span>
+                        {isDisciplineRole && (
+                          <button onClick={() => handleEditRecord(r)} className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }} title="Modifier">
+                            <Edit size={13} />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -5388,8 +5493,8 @@ function CommunicationsView() {
   const { userData } = useEduGestStore()
 
   useEffect(() => {
-    fetch('/api/communications?limit=20').then(r => r.json()).then(j => { setComms(j.data || []); setLoading(false) }).catch(() => setLoading(false))
-  }, [])
+    fetch(`/api/communications?limit=20${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => { setComms(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+  }, [userData?.schoolId])
 
   async function handleSend() {
     if (!title || !content) return toast.error('Titre et contenu requis')
@@ -5503,14 +5608,16 @@ function HomeworkView() {
   useEffect(() => {
     if (isParent && userData?.id) {
       fetch(`/api/homework?parentId=${userData.id}&limit=30`).then(r => r.json()).then(j => { setHomework(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+    } else if (userData?.schoolId) {
+      fetch(`/api/homework?schoolId=${userData.schoolId}&limit=30`).then(r => r.json()).then(j => { setHomework(j.data || []); setLoading(false) }).catch(() => setLoading(false))
     } else {
       fetch('/api/homework?limit=30').then(r => r.json()).then(j => { setHomework(j.data || []); setLoading(false) }).catch(() => setLoading(false))
     }
-  }, [isParent, userData?.id])
+  }, [isParent, userData?.id, userData?.schoolId])
 
   useEffect(() => {
     if (isTeacher && userData?.schoolId) {
-      fetch('/api/classes?limit=50').then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
+      fetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
     }
   }, [isTeacher, userData?.schoolId])
 
@@ -5542,7 +5649,7 @@ function HomeworkView() {
         setHwTitle(''); setHwDesc(''); setHwClassId(''); setHwDueDate('')
         // Don't reset hwSubject - keep it for the teacher
         // Refresh
-        fetch('/api/homework?limit=30').then(r => r.json()).then(j => setHomework(j.data || [])).catch(() => {})
+        fetch(`/api/homework?schoolId=${userData.schoolId}&limit=30`).then(r => r.json()).then(j => setHomework(j.data || [])).catch(() => {})
       } else {
         toast.error('Erreur lors de l\'ajout')
       }
@@ -5625,7 +5732,10 @@ function HomeworkView() {
               </div>
               <p className="text-sm mb-3 line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{h.description}</p>
               <div className="flex items-center justify-between text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                <span className="flex items-center gap-1" style={{ color: GOLD }}><Calendar size={12} /> Échéance: {formatDate(h.dueDate)}</span>
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-1" style={{ color: GOLD }}><Calendar size={12} /> Échéance: {formatDate(h.dueDate)}</span>
+                  {h.class?.name && <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium" style={{ background: IVORY, color: TEXT_MUTED_LUXE }}>{h.class.name}</span>}
+                </div>
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{h.teacherName}</span>
                   {h.isTitulaire && (
@@ -6174,19 +6284,23 @@ function BulletinView() {
 
 // ===== CONVOCATION VIEW =====
 function ConvocationView() {
+  const { userData } = useEduGestStore()
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
   const [studentSearchLoading, setStudentSearchLoading] = useState(false)
   const [motif, setMotif] = useState('')
   const [date, setDate] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [convocations, setConvocations] = useState<{ id: string; motif: string; date: string; status: string; student: { firstName: string; lastName: string; matricule: string } }[]>([])
+  const [loadingConvocations, setLoadingConvocations] = useState(true)
 
   // Student search autocomplete
   useEffect(() => {
     if (studentSearch.length < 2) return
     const timer = setTimeout(() => {
       setStudentSearchLoading(true)
-      fetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
+      fetch(`/api/students?search=${encodeURIComponent(studentSearch)}&schoolId=${userData?.schoolId || ''}&limit=8`)
         .then(r => r.json())
         .then(j => {
           setStudentSuggestions((j.data || []).map((s: StudentData) => ({
@@ -6197,7 +6311,55 @@ function ConvocationView() {
         .catch(() => setStudentSearchLoading(false))
     }, 300)
     return () => { clearTimeout(timer); setStudentSearchLoading(false) }
-  }, [studentSearch])
+  }, [studentSearch, userData?.schoolId])
+
+  // Load existing convocations
+  useEffect(() => {
+    if (userData?.schoolId) {
+      fetch(`/api/convocations?schoolId=${userData.schoolId}&limit=30`)
+        .then(r => r.json())
+        .then(j => { setConvocations(j.data || []); setLoadingConvocations(false) })
+        .catch(() => setLoadingConvocations(false))
+    }
+  }, [userData?.schoolId])
+
+  async function handleSendConvocation() {
+    if (!selectedStudentId) { toast.error('Veuillez sélectionner un élève'); return }
+    if (!motif) { toast.error('Veuillez entrer le motif'); return }
+    if (!date) { toast.error('Veuillez entrer la date'); return }
+    if (!userData?.schoolId) { toast.error('Erreur: école non trouvée'); return }
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/convocations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: selectedStudentId,
+          motif,
+          date,
+          schoolId: userData.schoolId,
+          createdBy: userData.id,
+        }),
+      })
+      if (res.ok) {
+        toast.success('Convocation envoyée avec succès !')
+        setMotif('')
+        setDate('')
+        setSelectedStudentId(null)
+        setStudentSearch('')
+        // Refresh convocations list
+        const listRes = await fetch(`/api/convocations?schoolId=${userData.schoolId}&limit=30`)
+        const listJson = await listRes.json()
+        setConvocations(listJson.data || [])
+      } else {
+        const json = await res.json()
+        toast.error(json.error || 'Erreur lors de l\'envoi')
+      }
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setSubmitting(false)
+  }
 
   return (
     <div>
@@ -6205,26 +6367,57 @@ function ConvocationView() {
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Convocations</h1>
       </div>
-      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 max-w-lg shadow-sm">
-        <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Nouvelle convocation</h3>
-        <div className="space-y-3">
-          <SearchAutocomplete
-            label="Élève concerné"
-            placeholder="Tapez le nom de l'élève..."
-            items={studentSuggestions}
-            selectedId={selectedStudentId}
-            onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
-            onClear={() => { setSelectedStudentId(null); setStudentSearch('') }}
-            searchQuery={studentSearch}
-            onSearchChange={setStudentSearch}
-            loading={studentSearchLoading}
-            itemTypeName="élève"
-          />
-          <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Motif</label><textarea placeholder="Motif de la convocation..." value={motif} onChange={e => setMotif(e.target.value)} rows={3} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" /></div>
-          <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
-          <button className="edu-gold-cta w-full py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2">
-            <Send size={14} /> Envoyer la convocation
-          </button>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+          <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Nouvelle convocation</h3>
+          <div className="space-y-3">
+            <SearchAutocomplete
+              label="Élève concerné"
+              placeholder="Tapez le nom de l'élève..."
+              items={studentSuggestions}
+              selectedId={selectedStudentId}
+              onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
+              onClear={() => { setSelectedStudentId(null); setStudentSearch('') }}
+              searchQuery={studentSearch}
+              onSearchChange={setStudentSearch}
+              loading={studentSearchLoading}
+              itemTypeName="élève"
+            />
+            <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Motif</label><textarea placeholder="Motif de la convocation..." value={motif} onChange={e => setMotif(e.target.value)} rows={3} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" /></div>
+            <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
+            <button onClick={handleSendConvocation} disabled={submitting || !selectedStudentId || !motif || !date} className="edu-gold-cta w-full py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50">
+              {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Send size={14} />} Envoyer la convocation
+            </button>
+          </div>
+        </div>
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+          <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Convocations existantes</h3>
+          {loadingConvocations ? (
+            <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div>
+          ) : convocations.length === 0 ? (
+            <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>
+              <Megaphone size={32} className="mx-auto mb-3 opacity-30" />
+              <p className="text-sm">Aucune convocation</p>
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {convocations.map(c => (
+                <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition">
+                  <div className="w-9 h-9 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${WARNING}, ${GOLD})` }}>
+                    {getInitials(`${c.student.firstName} ${c.student.lastName}`)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{c.student.firstName} {c.student.lastName}</div>
+                    <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{c.motif}</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${c.status === 'PENDING' ? 'bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]' : c.status === 'CONFIRMED' ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>{c.status === 'PENDING' ? 'En attente' : c.status === 'CONFIRMED' ? 'Confirmée' : c.status}</span>
+                    <div className="text-[10px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(c.date)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

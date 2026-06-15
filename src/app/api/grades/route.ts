@@ -95,9 +95,10 @@ export async function POST(request: NextRequest) {
             resolvedSchoolYearId = activeYear.id;
           } else if (studentWithSchool?.schoolId) {
             // Create a default school year
+            const currentYear = new Date().getFullYear()
             const newYear = await db.schoolYear.create({
               data: {
-                label: '2025-2026',
+                label: `${currentYear}-${currentYear + 1}`,
                 schoolId: studentWithSchool.schoolId,
                 isActive: true,
               },

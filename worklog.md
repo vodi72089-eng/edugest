@@ -48,3 +48,37 @@ Stage Summary:
 - Teacher creation form has enhanced class selection with clickable chips
 - Homework display correctly shows course name, teacher name, and titulaire label
 - All lint checks pass, dev server running without errors
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Comprehensive bug testing and fixing all detected issues across the EduGest application
+
+Work Log:
+- Conducted thorough code review of page.tsx (~7500 lines) and all API routes
+- Identified 18 bugs across CRITICAL, HIGH, MEDIUM, and LOW severity levels
+- Created /api/subjects/route.ts (was completely missing - prevented teachers from entering grades)
+- Fixed ConvocationView: Added onClick handler for submit button, added schoolId from userData, added convocations list display
+- Fixed PaymentsView: Removed undefined setShowSuggestions call that caused runtime ReferenceError
+- Fixed CashierDashboard: Replaced Math.random() per-class rates with actual collectionRate from stats API
+- Fixed ParentDashboard: Replaced hardcoded "5 notifications" and "3 devoirs" with real computed values from API
+- Fixed HomeworkView: Added schoolId filter for non-parent users, added schoolId to class fetch and homework refresh
+- Fixed TeacherDashboard: Changed homework filter from teacherName to teacherId, added schoolId to fetches
+- Fixed HeadTeacherDashboard: Stopped defaulting to first class when no class assigned, added "no class" message
+- Fixed Discipline API: Added PUT handler for editing conduct records
+- Fixed DisciplineView: Added inline edit functionality for discipline records (points, list type, status)
+- Fixed Discipline filtering: Improved section matching to include class name patterns
+- Fixed Homework API: Added class relation to Prisma schema and include in API response
+- Fixed ClassesView, StudentsView, GradesView, CommunicationsView, PaymentsView: Added schoolId filters
+- Fixed Grades API: Replaced hardcoded "2025-2026" year with dynamic year generation
+- Updated Prisma schema: Added Homework-class relation, homeworks to Class model
+- All lint checks pass (0 errors, 1 warning in SchoolMap.tsx)
+
+Stage Summary:
+- CRITICAL bugs fixed: Missing /api/subjects route, ConvocationView non-functional, PaymentsView crash
+- HIGH bugs fixed: Random/fake stats replaced with real data, schoolId filters added everywhere, discipline edit capability added
+- MEDIUM bugs fixed: Homework shows class name, improved discipline filtering, dynamic year generation, HeadTeacher no-class message
+- All views now properly filter by schoolId to prevent cross-school data leakage
+- Dashboard statistics now reflect real database counts
+- Discipline records can now be edited (points, list type, status)
+- Convocations can now be created and viewed in a list

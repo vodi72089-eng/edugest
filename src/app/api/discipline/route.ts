@@ -125,3 +125,41 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create discipline record' }, { status: 500 });
   }
 }
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, type, severity, title, description, points, listType, status } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Discipline record ID required' }, { status: 400 });
+    }
+
+    const existing = await db.disciplineRecord.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Discipline record not found' }, { status: 404 });
+    }
+
+    const updateData: Record<string, unknown> = {};
+    if (type !== undefined) updateData.type = type;
+    if (severity !== undefined) updateData.severity = severity;
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (points !== undefined) updateData.points = points;
+    if (listType !== undefined) updateData.listType = listType;
+    if (status !== undefined) updateData.status = status;
+
+    const updated = await db.disciplineRecord.update({
+      where: { id },
+      data: updateData,
+      include: {
+        student: { select: { id: true, firstName: true, lastName: true, matricule: true } },
+      },
+    });
+
+    return NextResponse.json({ data: updated });
+  } catch (error) {
+    console.error('Error updating discipline record:', error);
+    return NextResponse.json({ error: 'Failed to update discipline record' }, { status: 500 });
+  }
+}
