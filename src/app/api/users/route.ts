@@ -46,6 +46,9 @@ export async function GET(request: NextRequest) {
           lastLoginAt: true,
           createdAt: true,
           schoolId: true,
+          subjectName: true,
+          classNames: true,
+          isTitulaire: true,
         },
       }),
       db.user.count({ where }),
@@ -64,7 +67,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, email, phone, password, role, schoolId, isActive } = body;
+    const { name, email, phone, password, role, schoolId, isActive, subjectName, classNames, isTitulaire } = body;
 
     if (!name || !role || !schoolId) {
       return NextResponse.json(
@@ -113,6 +116,8 @@ export async function POST(request: NextRequest) {
 
     const hashedPassword = password ? await bcrypt.hash(password, 10) : await bcrypt.hash('password123', 10);
 
+    const isTeacherRole = role === 'TEACHER' || role === 'HEAD_TEACHER';
+
     const user = await db.user.create({
       data: {
         name,
@@ -122,6 +127,9 @@ export async function POST(request: NextRequest) {
         role,
         schoolId,
         isActive: isActive !== undefined ? isActive : true,
+        subjectName: isTeacherRole ? (subjectName || null) : null,
+        classNames: isTeacherRole ? (classNames || null) : null,
+        isTitulaire: isTeacherRole ? (isTitulaire || false) : false,
       },
       select: {
         id: true,
@@ -134,6 +142,9 @@ export async function POST(request: NextRequest) {
         lastLoginAt: true,
         createdAt: true,
         schoolId: true,
+        subjectName: true,
+        classNames: true,
+        isTitulaire: true,
       },
     });
 
@@ -147,7 +158,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, name, email, phone, role, isActive, password } = body;
+    const { id, name, email, phone, role, isActive, password, subjectName, classNames, isTitulaire } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
@@ -182,6 +193,19 @@ export async function PUT(request: NextRequest) {
     if (isActive !== undefined) data.isActive = isActive;
     if (password) data.password = await bcrypt.hash(password, 10);
 
+    // Handle teacher-specific fields
+    const targetRole = role || existing.role;
+    const isTeacherRole = targetRole === 'TEACHER' || targetRole === 'HEAD_TEACHER';
+    if (isTeacherRole) {
+      if (subjectName !== undefined) data.subjectName = subjectName || null;
+      if (classNames !== undefined) data.classNames = classNames || null;
+      if (isTitulaire !== undefined) data.isTitulaire = isTitulaire;
+    } else {
+      data.subjectName = null;
+      data.classNames = null;
+      data.isTitulaire = false;
+    }
+
     const user = await db.user.update({
       where: { id },
       data,
@@ -196,6 +220,9 @@ export async function PUT(request: NextRequest) {
         lastLoginAt: true,
         createdAt: true,
         schoolId: true,
+        subjectName: true,
+        classNames: true,
+        isTitulaire: true,
       },
     });
 

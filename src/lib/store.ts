@@ -47,6 +47,9 @@ export interface UserData {
   schoolName: string
   initials: string
   profileImageUrl?: string | null
+  subjectName?: string | null
+  classNames?: string | null
+  isTitulaire?: boolean
 }
 
 interface EduGestStore {

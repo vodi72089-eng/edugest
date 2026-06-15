@@ -60,6 +60,9 @@ model User {
   isActive        Boolean  @default(true)
   lastLoginAt     DateTime?
   profileImageUrl String?
+  subjectName     String?   // Course/subject the teacher teaches
+  classNames      String?   // Comma-separated class names the teacher occupies
+  isTitulaire     Boolean   @default(false)  // Whether teacher is homeroom (titulaire)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -287,19 +290,21 @@ model PaymentRecord {
 }
 
 model Homework {
-  id          String   @id @default(cuid())
-  title       String
-  description String
-  subjectName String
-  classId     String
-  teacherName String
-  dueDate     DateTime
-  schoolId    String
+  id            String   @id @default(cuid())
+  title         String
+  description   String   @default("")
+  subjectName   String
+  classId       String
+  teacherName   String
+  teacherId     String?   // Reference to the teacher user
+  isTitulaire   Boolean  @default(false)  // Whether the teacher is titulaire
+  dueDate       DateTime
+  schoolId      String
 
-  school      School   @relation(fields: [schoolId], references: [id])
-  isPublished Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  school        School   @relation(fields: [schoolId], references: [id])
+  isPublished   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model ReportCard {

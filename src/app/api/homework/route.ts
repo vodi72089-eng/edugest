@@ -6,6 +6,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get('schoolId') || '';
     const classId = searchParams.get('classId') || '';
+    const parentId = searchParams.get('parentId') || '';
+    const studentId = searchParams.get('studentId') || '';
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
 
@@ -13,6 +15,21 @@ export async function GET(request: NextRequest) {
 
     if (schoolId) where.schoolId = schoolId;
     if (classId) where.classId = classId;
+
+    // If parentId is provided, find homework for the parent's children
+    if (parentId) {
+      const children = await db.student.findMany({
+        where: { parentId },
+        select: { classId: true },
+      });
+      const classIds = [...new Set(children.map(c => c.classId))];
+      if (classIds.length > 0) {
+        where.classId = { in: classIds };
+      } else {
+        // No children found, return empty
+        return NextResponse.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } });
+      }
+    }
 
     const [homeworks, total] = await Promise.all([
       db.homework.findMany({
@@ -51,14 +68,16 @@ export async function POST(request: NextRequest) {
       subjectName,
       classId,
       teacherName,
+      teacherId,
+      isTitulaire,
       dueDate,
       schoolId,
       isPublished,
     } = body;
 
-    if (!title || !description || !subjectName || !classId || !teacherName || !dueDate || !schoolId) {
+    if (!title || !subjectName || !classId || !teacherName || !dueDate || !schoolId) {
       return NextResponse.json(
-        { error: 'Missing required fields: title, description, subjectName, classId, teacherName, dueDate, schoolId' },
+        { error: 'Missing required fields: title, subjectName, classId, teacherName, dueDate, schoolId' },
         { status: 400 }
       );
     }
@@ -66,10 +85,12 @@ export async function POST(request: NextRequest) {
     const homework = await db.homework.create({
       data: {
         title,
-        description,
+        description: description || '',
         subjectName,
         classId,
         teacherName,
+        teacherId: teacherId || null,
+        isTitulaire: isTitulaire || false,
         dueDate: new Date(dueDate),
         schoolId,
         isPublished: isPublished !== undefined ? isPublished : true,

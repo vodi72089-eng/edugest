@@ -65,11 +65,52 @@ export async function POST(request: NextRequest) {
       schoolYearId,
     } = body;
 
-    if (!studentId || !subjectId || !classId || !trimester || score === undefined || !schoolYearId) {
+    if (!studentId || !subjectId || !classId || !trimester || score === undefined) {
       return NextResponse.json(
-        { error: 'Missing required fields: studentId, subjectId, classId, trimester, score, schoolYearId' },
+        { error: 'Missing required fields: studentId, subjectId, classId, trimester, score' },
         { status: 400 }
       );
+    }
+
+    // Resolve schoolYearId: use provided value, or find active one, or create default
+    let resolvedSchoolYearId = schoolYearId;
+    if (!resolvedSchoolYearId || resolvedSchoolYearId === 'default') {
+      const student = await db.student.findUnique({ where: { id: studentId } });
+      if (student?.schoolYearId) {
+        resolvedSchoolYearId = student.schoolYearId;
+      } else {
+        // Try to find active school year for the school
+        const studentWithSchool = await db.student.findUnique({
+          where: { id: studentId },
+          select: { schoolId: true, schoolYearId: true },
+        });
+        if (studentWithSchool?.schoolYearId) {
+          resolvedSchoolYearId = studentWithSchool.schoolYearId;
+        } else {
+          const activeYear = await db.schoolYear.findFirst({
+            where: { schoolId: studentWithSchool?.schoolId || '', isActive: true },
+            orderBy: { createdAt: 'desc' },
+          });
+          if (activeYear) {
+            resolvedSchoolYearId = activeYear.id;
+          } else if (studentWithSchool?.schoolId) {
+            // Create a default school year
+            const newYear = await db.schoolYear.create({
+              data: {
+                label: '2025-2026',
+                schoolId: studentWithSchool.schoolId,
+                isActive: true,
+              },
+            });
+            resolvedSchoolYearId = newYear.id;
+          } else {
+            return NextResponse.json(
+              { error: 'Impossible de déterminer l\'année scolaire' },
+              { status: 400 }
+            );
+          }
+        }
+      }
     }
 
     // Validate score range
@@ -87,7 +128,7 @@ export async function POST(request: NextRequest) {
           studentId,
           subjectId,
           trimester,
-          schoolYearId,
+          schoolYearId: resolvedSchoolYearId,
         },
       },
       update: {
@@ -102,7 +143,7 @@ export async function POST(request: NextRequest) {
         trimester,
         score,
         comment: comment || null,
-        schoolYearId,
+        schoolYearId: resolvedSchoolYearId,
       },
       include: {
         student: { select: { id: true, firstName: true, lastName: true } },

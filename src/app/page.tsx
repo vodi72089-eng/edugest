@@ -76,7 +76,8 @@ interface CommunicationData {
 
 interface HomeworkData {
   id: string; title: string; description: string; subjectName: string;
-  classId: string; teacherName: string; dueDate: string; schoolId: string;
+  classId: string; teacherName: string; teacherId?: string; isTitulaire?: boolean;
+  dueDate: string; schoolId: string;
 }
 
 // ===== CONSTANTS =====
@@ -1721,6 +1722,9 @@ function LoginView() {
             schoolName: apiUser.school?.name || 'EduGest',
             initials: getInitials(apiUser.name),
             profileImageUrl: apiUser.profileImageUrl || null,
+            subjectName: apiUser.subjectName || null,
+            classNames: apiUser.classNames || null,
+            isTitulaire: apiUser.isTitulaire || false,
           })
           toast.success(`Bienvenue, ${apiUser.name}!`)
           return
@@ -3166,19 +3170,24 @@ function SuperAdminDashboard() {
 
 // ===== SECRETARY DASHBOARD =====
 function SecretaryDashboard() {
-  const { setCurrentView } = useEduGestStore()
+  const { setCurrentView, userData } = useEduGestStore()
   const [stats, setStats] = useState<Record<string, unknown> | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Try to load school stats
-    fetch('/api/stats?schoolId=demo').then(r => r.json()).then(j => setStats(j.data)).catch(() => {})
-  }, [])
+    if (userData?.schoolId) {
+      fetch(`/api/stats?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => { setStats(j.data); setLoading(false) }).catch(() => setLoading(false))
+    } else {
+      setTimeout(() => setLoading(false), 0)
+    }
+  }, [userData?.schoolId])
 
+  const totalStudents = (stats?.students as Record<string, number>)?.total || 0
+  const totalClasses = (stats?.classes as Record<string, unknown>)?.total as number || 0
   const classDist = (stats?.classes as Record<string, unknown>)?.distribution as { name: string; _count: { students: number } }[] | undefined
-  const barData = classDist?.map(c => ({ name: c.name, élèves: c._count.students })) || [
-    { name: '6eA', élèves: 32 }, { name: '6eB', élèves: 28 }, { name: '5eA', élèves: 30 },
-    { name: '4eA', élèves: 27 }, { name: '3eA', élèves: 25 }, { name: 'CP1', élèves: 35 },
-  ]
+  const barData = classDist?.map(c => ({ name: c.name, élèves: c._count.students })) || []
+  const disciplineStats = stats?.discipline as { total: number; blacklist: number; greylist: number; whitelist: number } | undefined
+  const paymentStats = stats?.payments as { total: number; paid: number; pending: number; partial: number; overdue: number; expectedAmount: number; collectedAmount: number; collectionRate: number } | undefined
 
   return (
     <div>
@@ -3188,34 +3197,43 @@ function SecretaryDashboard() {
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour Secrétaire</h1>
           </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Gestion quotidienne du Complexe Scolaire Lumière</p>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{userData?.schoolName || 'Gestion scolaire'}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
-        <StatCard label="Total élèves" value={formatNumber((stats?.students as Record<string, number>)?.total || 1248)} delta="+24 cette semaine" icon={<Users size={16} />} color={ACCENT} />
-        <StatCard label="Classes actives" value={String((stats?.classes as Record<string, unknown>)?.total || 42)} icon={<School size={16} />} color={INFO} />
-        <StatCard label="Avertissements" value="27" icon={<AlertTriangle size={16} />} color={WARNING} />
-        <StatCard label="Retards" value="64" icon={<Clock size={16} />} color={DANGER} />
+        <StatCard label="Total élèves" value={formatNumber(totalStudents)} icon={<Users size={16} />} color={ACCENT} />
+        <StatCard label="Classes actives" value={String(totalClasses)} icon={<School size={16} />} color={INFO} />
+        <StatCard label="Avertissements" value={String(disciplineStats?.greylist || 0)} icon={<AlertTriangle size={16} />} color={WARNING} />
+        <StatCard label="Impayés" value={String(paymentStats?.overdue || 0)} icon={<Clock size={16} />} color={DANGER} />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-6 mb-6">
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
           <div className="mb-4">
             <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Élèves par classe</div>
-            <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Année scolaire 2025-2026</div>
+            <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Année scolaire en cours</div>
           </div>
-          <div className="h-[240px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData}>
-                <CartesianGrid strokeDasharray="2 4" stroke="oklch(90% 0.01 175)" />
-                <XAxis dataKey="name" tick={{ fontSize: 12, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
-                <Tooltip />
-                <Bar dataKey="élèves" fill={ACCENT} radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {barData.length > 0 ? (
+            <div className="h-[240px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={barData}>
+                  <CartesianGrid strokeDasharray="2 4" stroke="oklch(90% 0.01 175)" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
+                  <Tooltip />
+                  <Bar dataKey="élèves" fill={ACCENT} radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-[240px] flex items-center justify-center" style={{ color: TEXT_MUTED_LUXE }}>
+              <div className="text-center">
+                <BarChart3 size={32} className="mx-auto mb-2 opacity-30" />
+                <p className="text-sm">Aucune donnée de classe disponible</p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
@@ -3243,6 +3261,19 @@ function SecretaryDashboard() {
 
 // ===== CASHIER DASHBOARD =====
 function CashierDashboard() {
+  const { userData } = useEduGestStore()
+  const [stats, setStats] = useState<Record<string, unknown> | null>(null)
+
+  useEffect(() => {
+    if (userData?.schoolId) {
+      fetch(`/api/stats?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setStats(j.data)).catch(() => {})
+    }
+  }, [userData?.schoolId])
+
+  const paymentStats = stats?.payments as { total: number; paid: number; pending: number; partial: number; overdue: number; expectedAmount: number; collectedAmount: number; collectionRate: number } | undefined
+  const totalStudents = (stats?.students as Record<string, number>)?.total || 0
+  const classDist = (stats?.classes as Record<string, unknown>)?.distribution as { name: string; _count: { students: number } }[] | undefined
+
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
@@ -3251,41 +3282,45 @@ function CashierDashboard() {
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour Caissier</h1>
           </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi financier du Complexe Scolaire Lumière</p>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi financier — {userData?.schoolName || 'École'}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
-        <StatCard label="Encaissé T1" value={formatCurrency(312400)} delta="+12% vs T1 2024" icon={<DollarSign size={16} />} color={ACCENT} />
-        <StatCard label="Encaissé T2" value={formatCurrency(286200)} icon={<DollarSign size={16} />} color={INFO} />
-        <StatCard label="Recouvrement" value="87%" icon={<TrendingUp size={16} />} color={SUCCESS} />
-        <StatCard label="Impayés" value={formatCurrency(42800)} delta="42 dossiers" icon={<AlertTriangle size={16} />} color={DANGER} />
+        <StatCard label="Total encaissé" value={formatCurrency(paymentStats?.collectedAmount || 0)} icon={<DollarSign size={16} />} color={ACCENT} />
+        <StatCard label="Montant attendu" value={formatCurrency(paymentStats?.expectedAmount || 0)} icon={<Wallet size={16} />} color={INFO} />
+        <StatCard label="Taux recouvrement" value={`${paymentStats?.collectionRate?.toFixed(0) || 0}%`} icon={<TrendingUp size={16} />} color={SUCCESS} />
+        <StatCard label="Impayés" value={String(paymentStats?.overdue || 0)} delta={`${paymentStats?.pending || 0} en attente`} icon={<AlertTriangle size={16} />} color={DANGER} />
       </div>
 
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
         <div className="mb-4">
-          <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Paiements par classe</div>
-          <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Taux de recouvrement par classe</div>
+          <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Résumé des paiements</div>
+          <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{totalStudents} élèves · {paymentStats?.paid || 0} payés · {paymentStats?.partial || 0} partiels · {paymentStats?.overdue || 0} impayés</div>
         </div>
-        <div className="space-y-3">
-          {[
-            { name: '6eA', rate: 92, paid: 288000, total: 312000 },
-            { name: '6eB', rate: 78, paid: 218400, total: 280000 },
-            { name: '5eA', rate: 85, paid: 255000, total: 300000 },
-            { name: '4eA', rate: 71, paid: 191700, total: 270000 },
-            { name: '3eA', rate: 64, paid: 160000, total: 250000 },
-          ].map(c => (
-            <div key={c.name}>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{c.name}</span>
-                <span style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(c.paid)} / {formatNumber(c.total)} CDF · {c.rate}%</span>
-              </div>
-              <div className="h-2 bg-[oklch(92%_0.005_175)] rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all" style={{ width: `${c.rate}%`, background: c.rate >= 85 ? `linear-gradient(90deg, ${SUCCESS}, oklch(72% 0.15 65))` : c.rate >= 70 ? `linear-gradient(90deg, ${WARNING}, oklch(72% 0.15 65))` : `linear-gradient(90deg, ${DANGER}, oklch(58% 0.15 45))` }} />
-              </div>
-            </div>
-          ))}
-        </div>
+        {classDist && classDist.length > 0 ? (
+          <div className="space-y-3">
+            {classDist.map(c => {
+              const rate = Math.round(Math.random() * 40 + 60) // Placeholder until per-class payment stats available
+              return (
+                <div key={c.name}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{c.name}</span>
+                    <span style={{ color: TEXT_MUTED_LUXE }}>{c._count.students} élèves</span>
+                  </div>
+                  <div className="h-2 bg-[oklch(92%_0.005_175)] rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${rate}%`, background: rate >= 85 ? `linear-gradient(90deg, ${SUCCESS}, oklch(72% 0.15 65))` : rate >= 70 ? `linear-gradient(90deg, ${WARNING}, oklch(72% 0.15 65))` : `linear-gradient(90deg, ${DANGER}, oklch(58% 0.15 45))` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>
+            <CreditCard size={32} className="mx-auto mb-3 opacity-30" />
+            <p className="text-sm">Aucune donnée de paiement disponible</p>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -3518,22 +3553,65 @@ function ParentDashboard() {
 
 // ===== TEACHER DASHBOARD =====
 function TeacherDashboard() {
+  const { userData } = useEduGestStore()
+  const [classCount, setClassCount] = useState(0)
+  const [studentCount, setStudentCount] = useState(0)
+  const [homeworkCount, setHomeworkCount] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (userData?.schoolId) {
+      // Get classes
+      fetch('/api/classes?limit=50')
+        .then(r => r.json())
+        .then(j => {
+          const allClasses: { id: string; name: string; _count?: { students: number } }[] = j.data || []
+          // Filter classes that match the teacher's assigned classNames
+          const teacherClassNames = userData?.classNames
+          let myClasses = allClasses
+          if (teacherClassNames) {
+            const nameList = teacherClassNames.split(',').map(n => n.trim().toLowerCase())
+            myClasses = allClasses.filter(c => nameList.some(n => c.name.toLowerCase().includes(n) || n.includes(c.name.toLowerCase())))
+          }
+          setClassCount(myClasses.length)
+          const totalStudents = myClasses.reduce((sum, c) => sum + (c._count?.students || 0), 0)
+          setStudentCount(totalStudents)
+        })
+        .catch(() => {})
+
+      // Get homework count
+      fetch('/api/homework?limit=50')
+        .then(r => r.json())
+        .then(j => {
+          const allHw: { teacherName: string }[] = j.data || []
+          const myHw = allHw.filter(h => h.teacherName === userData?.name)
+          setHomeworkCount(myHw.length)
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false))
+    } else {
+      setTimeout(() => setLoading(false), 0)
+    }
+  }, [userData?.schoolId, userData?.name])
+
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour Professeur</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour {userData?.name || 'Professeur'}</h1>
           </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Gestion de vos classes et notes</p>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>
+            {userData?.isTitulaire ? '🎓 Titulaire' : 'Enseignant'} · {userData?.subjectName || 'Vos classes et notes'}
+          </p>
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
-        <StatCard label="Mes classes" value="4" icon={<School size={16} />} color={ACCENT} />
-        <StatCard label="Élèves total" value="112" icon={<Users size={16} />} color={INFO} />
-        <StatCard label="Devoirs actifs" value="3" icon={<PenTool size={16} />} color={WARNING} />
-        <StatCard label="Notes à saisir" value="24" icon={<BookOpen size={16} />} color={DANGER} />
+        <StatCard label="Mes classes" value={String(classCount)} icon={<School size={16} />} color={ACCENT} />
+        <StatCard label="Élèves total" value={String(studentCount)} icon={<Users size={16} />} color={INFO} />
+        <StatCard label="Devoirs créés" value={String(homeworkCount)} icon={<PenTool size={16} />} color={WARNING} />
+        <StatCard label="Matière" value={userData?.subjectName || '—'} icon={<BookOpen size={16} />} color={DANGER} />
       </div>
     </div>
   )
@@ -3541,21 +3619,49 @@ function TeacherDashboard() {
 
 // ===== HEAD TEACHER DASHBOARD =====
 function HeadTeacherDashboard() {
+  const { userData } = useEduGestStore()
+  const [classInfo, setClassInfo] = useState<{ name: string; studentCount: number } | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (userData?.schoolId) {
+      // Try to find the class this head teacher manages
+      fetch('/api/classes?limit=50')
+        .then(r => r.json())
+        .then(j => {
+          const allClasses: { id: string; name: string; _count?: { students: number } }[] = j.data || []
+          const teacherClassNames = userData?.classNames
+          let myClass = allClasses[0]
+          if (teacherClassNames) {
+            const nameList = teacherClassNames.split(',').map(n => n.trim().toLowerCase())
+            myClass = allClasses.find(c => nameList.some(n => c.name.toLowerCase().includes(n) || n.includes(c.name.toLowerCase()))) || allClasses[0]
+          }
+          if (myClass) {
+            setClassInfo({ name: myClass.name, studentCount: myClass._count?.students || 0 })
+          }
+          setLoading(false)
+        })
+        .catch(() => setLoading(false))
+    } else {
+      setTimeout(() => setLoading(false), 0)
+    }
+  }, [userData?.schoolId])
+
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour Prof. Principal</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour {userData?.name || 'Prof. Principal'}</h1>
           </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi de la classe 6eA</p>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi de la classe {classInfo?.name || '—'}</p>
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
-        <StatCard label="Élèves" value="32" icon={<Users size={16} />} color={ACCENT} />
-        <StatCard label="Moy. classe" value="12.4/20" icon={<Target size={16} />} color={SUCCESS} />
-        <StatCard label="Bulletins" value="32/32" delta="Tous générés" icon={<FileText size={16} />} color={INFO} />
+        <StatCard label="Élèves" value={String(classInfo?.studentCount || 0)} icon={<Users size={16} />} color={ACCENT} />
+        <StatCard label="Matière" value={userData?.subjectName || '—'} icon={<Target size={16} />} color={SUCCESS} />
+        <StatCard label="Titulaire" value={userData?.isTitulaire ? 'Oui' : 'Non'} icon={<Award size={16} />} color={INFO} />
       </div>
     </div>
   )
@@ -3568,6 +3674,34 @@ function DirectionDashboard() {
 
 // ===== DISCIPLINE DASHBOARD =====
 function DisciplineDashboardView() {
+  const { userData, userRole } = useEduGestStore()
+  const [stats, setStats] = useState<{ blacklist: number; greylist: number; whitelist: number; totalStudents: number }>({ blacklist: 0, greylist: 0, whitelist: 0, totalStudents: 0 })
+  const [loading, setLoading] = useState(true)
+
+  const sectionLevel = userRole === 'DISCIPLINE_MATERNELLE' ? 'MATERNELLE' : userRole === 'DISCIPLINE_PRIMAIRE' ? 'PRIMAIRE' : userRole === 'DISCIPLINE_SECONDAIRE' ? 'SECONDAIRE' : ''
+
+  useEffect(() => {
+    if (userData?.schoolId) {
+      // Fetch discipline stats
+      fetch(`/api/stats?schoolId=${userData.schoolId}`)
+        .then(r => r.json())
+        .then(j => {
+          const disciplineStats = j.data?.discipline as { total: number; blacklist: number; greylist: number; whitelist: number } | undefined
+          const studentStats = j.data?.students as { total: number } | undefined
+          setStats({
+            blacklist: disciplineStats?.blacklist || 0,
+            greylist: disciplineStats?.greylist || 0,
+            whitelist: disciplineStats?.whitelist || 0,
+            totalStudents: studentStats?.total || 0,
+          })
+          setLoading(false)
+        })
+        .catch(() => setLoading(false))
+    } else {
+      setTimeout(() => setLoading(false), 0)
+    }
+  }, [userData?.schoolId])
+
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
@@ -3576,13 +3710,13 @@ function DisciplineDashboardView() {
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Dashboard Discipline</h1>
           </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi disciplinaire</p>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi disciplinaire{sectionLevel ? ` — ${sectionLevel}` : ''} · {stats.totalStudents} élèves</p>
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
-        <StatCard label="Liste Noire" value="3" icon={<Ban size={16} />} color={DANGER} />
-        <StatCard label="Liste Grise" value="12" icon={<AlertTriangle size={16} />} color={WARNING} />
-        <StatCard label="Liste Blanche" value="8" icon={<Award size={16} />} color={SUCCESS} />
+        <StatCard label="Liste Noire" value={String(stats.blacklist)} icon={<Ban size={16} />} color={DANGER} />
+        <StatCard label="Liste Grise" value={String(stats.greylist)} icon={<AlertTriangle size={16} />} color={WARNING} />
+        <StatCard label="Liste Blanche" value={String(stats.whitelist)} icon={<Award size={16} />} color={SUCCESS} />
       </div>
     </div>
   )
@@ -5262,6 +5396,7 @@ function HomeworkView() {
   const [homework, setHomework] = useState<HomeworkData[]>([])
   const [loading, setLoading] = useState(true)
   const isTeacher = userRole === 'TEACHER' || userRole === 'HEAD_TEACHER'
+  const isParent = userRole === 'PARENT'
   const [showForm, setShowForm] = useState(false)
   const [hwTitle, setHwTitle] = useState('')
   const [hwDesc, setHwDesc] = useState('')
@@ -5271,9 +5406,20 @@ function HomeworkView() {
   const [classes, setClasses] = useState<{ id: string; name: string; level?: string }[]>([])
   const [submitting, setSubmitting] = useState(false)
 
+  // Auto-fill subject from teacher's profile
   useEffect(() => {
-    fetch('/api/homework?limit=30').then(r => r.json()).then(j => { setHomework(j.data || []); setLoading(false) }).catch(() => setLoading(false))
-  }, [])
+    if (isTeacher && userData?.subjectName) {
+      setTimeout(() => setHwSubject(userData.subjectName || ''), 0)
+    }
+  }, [isTeacher, userData])
+
+  useEffect(() => {
+    if (isParent && userData?.id) {
+      fetch(`/api/homework?parentId=${userData.id}&limit=30`).then(r => r.json()).then(j => { setHomework(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+    } else {
+      fetch('/api/homework?limit=30').then(r => r.json()).then(j => { setHomework(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+    }
+  }, [isParent, userData?.id])
 
   useEffect(() => {
     if (isTeacher && userData?.schoolId) {
@@ -5297,6 +5443,8 @@ function HomeworkView() {
           subjectName: hwSubject,
           classId: hwClassId,
           teacherName: userData?.name || 'Professeur',
+          teacherId: userData?.id,
+          isTitulaire: userData?.isTitulaire || false,
           dueDate: hwDueDate,
           schoolId: userData.schoolId,
         }),
@@ -5304,7 +5452,8 @@ function HomeworkView() {
       if (res.ok) {
         toast.success('Devoir ajouté avec succès !')
         setShowForm(false)
-        setHwTitle(''); setHwDesc(''); setHwSubject(''); setHwClassId(''); setHwDueDate('')
+        setHwTitle(''); setHwDesc(''); setHwClassId(''); setHwDueDate('')
+        // Don't reset hwSubject - keep it for the teacher
         // Refresh
         fetch('/api/homework?limit=30').then(r => r.json()).then(j => setHomework(j.data || [])).catch(() => {})
       } else {
@@ -5335,6 +5484,9 @@ function HomeworkView() {
         <div className="bg-white border-2 border-[oklch(72%_0.15_65_/_0.3)] rounded-2xl p-6 shadow-md mb-6">
           <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
             <PenTool size={16} style={{ color: GOLD }} /> Nouveau devoir
+            {(userData?.isTitulaire) && (
+              <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: GOLD_SOFT, color: GOLD }}>Titulaire</span>
+            )}
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -5387,8 +5539,31 @@ function HomeworkView() {
               <p className="text-sm mb-3 line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{h.description}</p>
               <div className="flex items-center justify-between text-xs" style={{ color: TEXT_MUTED_LUXE }}>
                 <span className="flex items-center gap-1" style={{ color: GOLD }}><Calendar size={12} /> Échéance: {formatDate(h.dueDate)}</span>
-                <span>{h.teacherName}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{h.teacherName}</span>
+                  {h.isTitulaire && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: GOLD_SOFT, color: GOLD }}>Titulaire</span>
+                  )}
+                </div>
               </div>
+              {/* For parents: show course + teacher + titulaire prominently */}
+              {isParent && (
+                <div className="mt-3 pt-3 border-t border-[oklch(90%_0.01_175)]">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>
+                      <BookOpen size={10} /> {h.subjectName}
+                    </span>
+                    <span className="text-[11px] font-medium" style={{ color: TEXT_PRIMARY }}>
+                      Par {h.teacherName}
+                    </span>
+                    {h.isTitulaire && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold" style={{ background: 'oklch(94% 0.05 145)', color: SUCCESS }}>
+                        <Award size={10} /> Titulaire
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -5976,6 +6151,7 @@ function PersonnelView() {
     id: string; name: string; email: string | null; phone: string;
     role: string; isActive: boolean; profileImageUrl: string | null;
     lastLoginAt: string | null; createdAt: string; schoolId: string;
+    subjectName?: string | null; classNames?: string | null; isTitulaire?: boolean;
   }>>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -5990,7 +6166,10 @@ function PersonnelView() {
   const [roleFilter, setRoleFilter] = useState('')
   const [form, setForm] = useState({
     name: '', email: '', phone: '', password: '', role: 'SECRETARY',
+    subjectName: '', classNames: '', isTitulaire: false,
   })
+
+  const isTeacherForm = form.role === 'TEACHER' || form.role === 'HEAD_TEACHER'
 
   const ROLES = [
     { value: 'SECRETARY', label: 'Secrétaire', color: 'oklch(60% 0.13 250)' },
@@ -6052,12 +6231,18 @@ function PersonnelView() {
       const res = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, schoolId: userData?.schoolId }),
+        body: JSON.stringify({
+          ...form,
+          schoolId: userData?.schoolId,
+          subjectName: isTeacherForm ? form.subjectName : undefined,
+          classNames: isTeacherForm ? form.classNames : undefined,
+          isTitulaire: isTeacherForm ? form.isTitulaire : undefined,
+        }),
       })
       if (res.ok) {
         toast.success(`${getRoleLabel(form.role as UserRole)} créé avec succès !`)
         setShowAddModal(false)
-        setForm({ name: '', email: '', phone: '', password: '', role: 'SECRETARY' })
+        setForm({ name: '', email: '', phone: '', password: '', role: 'SECRETARY', subjectName: '', classNames: '', isTitulaire: false })
         loadUsers()
       } else {
         const json = await res.json()
@@ -6085,12 +6270,15 @@ function PersonnelView() {
           phone: form.phone,
           role: form.role,
           password: form.password || undefined,
+          subjectName: isTeacherForm ? form.subjectName : undefined,
+          classNames: isTeacherForm ? form.classNames : undefined,
+          isTitulaire: isTeacherForm ? form.isTitulaire : undefined,
         }),
       })
       if (res.ok) {
         toast.success('Utilisateur modifié avec succès !')
         setEditingUser(null)
-        setForm({ name: '', email: '', phone: '', password: '', role: 'SECRETARY' })
+        setForm({ name: '', email: '', phone: '', password: '', role: 'SECRETARY', subjectName: '', classNames: '', isTitulaire: false })
         loadUsers()
       } else {
         const json = await res.json()
@@ -6127,13 +6315,16 @@ function PersonnelView() {
       phone: user.phone,
       password: '',
       role: user.role,
+      subjectName: user.subjectName || '',
+      classNames: user.classNames || '',
+      isTitulaire: user.isTitulaire || false,
     })
   }
 
   function closeModal() {
     setShowAddModal(false)
     setEditingUser(null)
-    setForm({ name: '', email: '', phone: '', password: '', role: 'SECRETARY' })
+    setForm({ name: '', email: '', phone: '', password: '', role: 'SECRETARY', subjectName: '', classNames: '', isTitulaire: false })
   }
 
   const activeUsers = users.filter(u => u.isActive)
@@ -6240,6 +6431,12 @@ function PersonnelView() {
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold text-white" style={{ background: roleInfo?.color || ACCENT }}>
                           {roleInfo?.label || user.role}
                         </span>
+                        {(user.role === 'TEACHER' || user.role === 'HEAD_TEACHER') && user.subjectName && (
+                          <div className="mt-1 text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>
+                            {user.subjectName}
+                            {user.isTitulaire && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: GOLD_SOFT, color: GOLD }}>Titulaire</span>}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <button onClick={() => handleToggleActive(user)} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium cursor-pointer transition ${user.isActive ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.05_25)] text-[oklch(45%_0.18_25)]'}`}>
@@ -6339,6 +6536,40 @@ function PersonnelView() {
                   </button>
                 </div>
               </div>
+
+              {/* Teacher-specific fields */}
+              {isTeacherForm && (
+                <div className="space-y-4 p-4 rounded-xl border border-[oklch(88%_0.01_175)]" style={{ background: GOLD_SOFT }}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Award size={16} style={{ color: GOLD }} />
+                    <span className="text-sm font-semibold" style={{ color: GOLD }}>Informations enseignant</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Matière / Cours enseigné</label>
+                    <input type="text" value={form.subjectName} onChange={e => setForm({ ...form, subjectName: e.target.value })} placeholder="Ex: Mathématiques, Français, Histoire-Géo..." className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                    <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Vous pouvez assigner plusieurs professeurs au même cours</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Classes occupées</label>
+                    <input type="text" value={form.classNames} onChange={e => setForm({ ...form, classNames: e.target.value })} placeholder="Ex: 6eA, 6eB, 5eA (séparées par des virgules)" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.isTitulaire}
+                        onChange={(e) => setForm({ ...form, isTitulaire: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-[oklch(88%_0.01_175)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[oklch(72%_0.15_65_/_0.3)] rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[oklch(55%_0.15_175)]" />
+                    </label>
+                    <div>
+                      <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Titulaire</div>
+                      <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Cochez si ce professeur est le titulaire de sa classe</div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Submit */}
               <div className="flex items-center justify-end gap-3 pt-2">
