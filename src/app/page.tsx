@@ -4275,7 +4275,6 @@ function GradesView() {
           trimester: gradeTrimester,
           score,
           comment: gradeComment || null,
-          schoolYearId: 'default',
         }),
       })
       if (res.ok) {
@@ -4285,7 +4284,8 @@ function GradesView() {
         setGradeStudentSearchId(null); setGradeStudentSearch('')
         loadGrades()
       } else {
-        toast.error('Erreur lors de l\'enregistrement')
+        const errData = await res.json().catch(() => ({}))
+        toast.error(errData?.error || 'Erreur lors de l\'enregistrement')
       }
     } catch {
       toast.error('Erreur de connexion')
@@ -6912,8 +6912,20 @@ function HomeworkView() {
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
               <select value={hwClassId} onChange={e => setHwClassId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                 <option value="">Sélectionner une classe</option>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {(() => {
+                  // Filter classes by teacher's classNames assignment (if available)
+                  const myClassNames = (userData?.classNames || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+                  const filtered = myClassNames.length > 0
+                    ? classes.filter(c => myClassNames.includes(c.name))
+                    : classes;
+                  return filtered.map(c => <option key={c.id} value={c.id}>{c.name}</option>);
+                })()}
               </select>
+              {userData?.classNames && (
+                <p className="text-[11px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>
+                  Classes assignées: {userData.classNames}
+                </p>
+              )}
             </div>
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Date limite *</label>

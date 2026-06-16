@@ -200,3 +200,26 @@ Stage Summary:
 - Transactions tracked with full audit trail
 - All routes secured with auth + RBAC + school access verification
 - Changes pushed to GitHub (commit 48447a8)
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Fix critical bugs - parent access, grade entry, convocations filter, homework API, teacher-class linking
+
+Work Log:
+- Fixed CRITICAL bug in /src/lib/auth.ts verifyParentAccess(): was reading non-existent 'parentIds' field (plural) causing 500 errors for parents accessing student details, payments, receipts. Changed to 'parentId' (singular) matching Prisma schema. Affected endpoints: /api/students/[id], /api/payments, /api/payments/receipt/[id]
+- Fixed CRITICAL bug in grade entry: frontend was sending schoolYearId:'default' (hardcoded string) which failed Prisma foreign key constraint. Updated /src/app/api/grades/route.ts POST to auto-resolve active school year from database when schoolYearId is missing or 'default'. Falls back to most recent year if no active year. Removed frontend hardcode in page.tsx line 4278. Also improved error display to show actual API error message.
+- Fixed convocations API parent filtering: /src/app/api/convocations/route.ts GET was returning ALL school convocations to parents (data leak). Added where.student = { parentId: user.id } filter for PARENT role.
+- Fixed homework API: /src/app/api/homework/route.ts - studentId query param was parsed but never used. Now uses it to filter by specific student's class for parents. Also added teacherId filter for TEACHER/HEAD_TEACHER roles (when no classId specified) so teachers only see their own homework by default.
+- Enhanced teacher creation: /src/app/api/users/route.ts POST and PUT now link Class.headTeacherId to the user when isTitulaire is true and classNames provided. When titulaire status removed, clears headTeacherId on all classes where user was head teacher.
+- Enhanced homework form: /src/app/page.tsx homework class dropdown now filters by teacher's classNames assignment (shows only classes the teacher teaches). Falls back to all classes if no classNames set. Shows "Classes assignées" hint text.
+- Improved grade error handling: frontend now displays actual API error message instead of generic "Erreur lors de l'enregistrement"
+
+Stage Summary:
+- 2 CRITICAL bugs fixed (parent access 500 error, grade entry impossible)
+- 2 security/data-leak bugs fixed (convocations parent filter, homework teacher filter)
+- 2 enhancement features added (teacher-class linking, homework class dropdown filter)
+- All API tests pass: grade creation auto-resolves schoolYearId, parent access returns 200 for own children, convocations parent filter returns only their children's records
+- Browser test: login works, dashboard loads with "Bonjour Admin Global", no page errors
+- Stats API returns real data: 20 students, 15 classes, 6 subjects, 60 payments, 7 discipline records
+- Lint passes with 0 errors

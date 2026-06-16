@@ -212,10 +212,9 @@ export function verifySchoolAccess(user: AuthUser, schoolId: string | null): boo
 export async function verifyParentAccess(user: AuthUser, studentId: string): Promise<boolean> {
   if (user.role === 'SUPER_ADMIN_GLOBAL' || user.role === 'SECRETARY' || user.role === 'DIRECTION') return true;
   if (user.role !== 'PARENT') return true;
-  const student = await db.student.findUnique({ where: { id: studentId }, select: { parentIds: true } });
+  const student = await db.student.findUnique({ where: { id: studentId }, select: { parentId: true } });
   if (!student) return false;
-  const parentIds = student.parentIds as string[];
-  return parentIds.includes(user.id);
+  return student.parentId === user.id;
 }
 
 // ─── Safe int parser ───────────────────────────────────────────────────────
