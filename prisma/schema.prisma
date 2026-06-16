@@ -362,3 +362,97 @@ model PricingPlan {
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
 }
+
+// Configuration des passerelles de paiement par école
+model PaymentGatewayConfig {
+  id              String   @id @default(cuid())
+  schoolId        String
+  gatewayType    String    // DPO, STRIPE, PAYPAL, FLUTTERWAVE, MPESA, ORANGE_MONEY, AIRTEL_MONEY, MANUAL
+  isActive       Boolean   @default(false)
+  isTestMode     Boolean   @default(true)
+
+  // Identifiants API (chiffrés côté serveur)
+  merchantId     String?
+  apiKey         String?
+  secretKey      String?
+  publicKey      String?
+  webhookSecret  String?
+
+  // Configuration spécifique
+  phoneNumber    String?   // Pour Mobile Money
+  accountEmail   String?   // Pour PayPal/Stripe
+
+  // Monnaie supportée par cette passerelle
+  currency       String   @default("USD")
+
+  // Frais de transaction (en pourcentage)
+  feePercent     Float    @default(0)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([schoolId, gatewayType])
+}
+
+// Configuration de la monnaie par école
+model SchoolCurrencyConfig {
+  id              String   @id @default(cuid())
+  schoolId        String   @unique
+  baseCurrency    String   @default("USD")    // Monnaie de base de l'école
+  displayCurrency String   @default("USD")    // Monnaie d'affichage
+  enabledCurrencies String @default("USD,EUR,CDF") // Monnaies acceptées
+
+  // Taux de change manuels (optionnel, sinon utilise l'API open source)
+  manualRates     String?  // JSON: {"USD":1,"EUR":0.92,"CDF":2500}
+  useManualRates  Boolean  @default(false)
+
+  // Dernière mise à jour automatique des taux
+  lastRateUpdate  DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Taux de change (historique pour audit)
+model ExchangeRate {
+  id          String   @id @default(cuid())
+  base        String   // Monnaie de base (ex: USD)
+  target      String   // Monnaie cible (ex: CDF)
+  rate        Float    // Taux de change
+  source      String   @default("exchangerate-api") // Source des données
+  fetchedAt   DateTime @default(now())
+
+  @@unique([base, target, source])
+}
+
+// Transactions de paiement (pour les passerelles externes)
+model PaymentTransaction {
+  id              String   @id @default(cuid())
+  schoolId        String
+  paymentRecordId String?
+  studentId       String?
+
+  gatewayType    String    // DPO, STRIPE, etc.
+  gatewayTransactionId String? // ID retourné par la passerelle
+  reference      String    // Référence interne
+
+  amount         Float     // Montant dans la monnaie d'origine
+  currency       String    @default("USD")
+  convertedAmount Float?   // Montant converti dans la monnaie de base
+  baseCurrency   String?   // Monnaie de base pour la conversion
+
+  status         String   @default("PENDING")  // PENDING, SUCCESS, FAILED, REFUNDED, CANCELLED
+  paymentMethod  String?  // mobile_money, card, bank_transfer, etc.
+
+  customerPhone  String?
+  customerEmail  String?
+  customerName   String?
+
+  gatewayResponse String? // Réponse brute de la passerelle (JSON)
+  errorMessage   String?
+
+  initiatedBy    String   // ID de l'utilisateur qui a initié
+  initiatedAt    DateTime @default(now())
+  completedAt    DateTime?
+  updatedAt      DateTime @updatedAt
+}

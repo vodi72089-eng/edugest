@@ -13,9 +13,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Require SUPER_ADMIN_GLOBAL auth
-    const authResult = await requireRole(request, ['SUPER_ADMIN_GLOBAL']);
-    if ('error' in authResult) return authResult.error;
+    // Check if already seeded - if there are users, require SUPER_ADMIN_GLOBAL auth
+    const existingUsers = await db.user.count();
+    if (existingUsers > 0) {
+      const authResult = await requireRole(request, ['SUPER_ADMIN_GLOBAL']);
+      if ('error' in authResult) return authResult.error;
+    }
 
     // Check if already seeded
     const existingSchools = await db.school.count();
