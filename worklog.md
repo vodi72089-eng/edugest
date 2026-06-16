@@ -148,3 +148,55 @@ Stage Summary:
 - School creation no longer grants SUPER_ADMIN_GLOBAL
 - Rate limiting added on login endpoint
 - All tests pass: 200 with token, 401 without token, 403 with wrong role
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Add payment gateway integration API and currency conversion system
+
+Work Log:
+- Pushed security modifications to GitHub (commit 3eeb75d)
+- Created Prisma models: PaymentGatewayConfig, SchoolCurrencyConfig, ExchangeRate, PaymentTransaction
+- Ran db:push to sync new schema with database
+- Created src/lib/exchange-rate.ts - Open source exchange rate service:
+  - 3 open source APIs: Open ER API, ExchangeRate.host, Frankfurter (BCE)
+  - Fallback rates for offline support
+  - 10 supported currencies (USD, EUR, CDF, NGN, XOF, GHS, KES, ZAR, GBP, CAD)
+  - Caching in database for 6 hours
+- Created src/lib/payment-gateway.ts - Payment gateway service:
+  - 8 supported gateways: DPO, Stripe, PayPal, Flutterwave, M-Pesa, Orange Money, Airtel Money, Manual
+  - Each gateway has specific integration logic
+  - Currency conversion on payment initiation
+  - Transaction tracking with status management
+- Created 8 new API routes:
+  - /api/payment-gateways (GET, POST) - list catalog and configure gateways
+  - /api/payment-gateways/[id] (GET, PUT, DELETE) - manage single gateway
+  - /api/payment-gateways/initiate (POST) - initiate payment through gateway
+  - /api/currency (GET, POST) - school currency configuration
+  - /api/currency/exchange-rates (GET, POST) - fetch live rates from open source APIs
+  - /api/currency/convert (POST) - convert amount between currencies
+  - /api/payment-transactions (GET) - list payment transactions
+  - /api/payment-transactions/[id] (GET, PUT) - manage single transaction
+- Added new permissions to auth.ts: payment-gateways:manage, currency:manage, transactions:read
+- Assigned permissions to SCHOOL_ADMIN, SECRETARY, CASHIER, DIRECTION roles
+- Added 'payment-config' to ViewType in store.ts
+- Added "Config. Paiements" menu item to SUPER_ADMIN_GLOBAL, SECRETARY, CASHIER sidebars
+- Created PaymentConfigView component with 3 tabs:
+  - Gateways tab: Cards for 8 payment gateways with configure/activate buttons
+  - Currency tab: Base/display currency selectors, accepted currencies chips, live rates grid, currency converter
+  - Transactions tab: Table of recent payment transactions with status badges
+- Added RefreshCw icon import for refresh buttons
+- All API keys masked in responses (show only last 4 chars)
+- Fixed seed endpoint to allow initial seeding without auth (when no users exist)
+- All tests pass: gateway catalog returns 8 gateways, currency config returns 10 currencies, live rates work (1 USD = 2286 CDF), gateway configuration works
+- Verified with Agent Browser: Page loads, all 3 tabs work, gateway cards display, currency converter functional
+
+Stage Summary:
+- 8 payment gateways integrated (DPO, Stripe, PayPal, Flutterwave, M-Pesa, Orange Money, Airtel Money, Manual)
+- 10 currencies supported with live exchange rates from 3 open source APIs
+- Currency converter functional (tested: 100 USD = 228,629 CDF)
+- Admins can configure gateway credentials per school
+- All sensitive data (API keys, secrets) masked in responses
+- Transactions tracked with full audit trail
+- All routes secured with auth + RBAC + school access verification
+- Changes pushed to GitHub (commit 48447a8)
