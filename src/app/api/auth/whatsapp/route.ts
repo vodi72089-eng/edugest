@@ -1,195 +1,112 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
+import crypto from 'crypto';
+import { checkRateLimit, createSession } from '@/lib/auth';
 
-// In-memory store for verification codes: phone -> { code, expiresAt }
-const verificationCodes = new Map<string, { code: string; expiresAt: number }>();
+// In-memory store: phone -> { code, expiresAt, attempts }
+const verificationCodes = new Map<string, { code: string; expiresAt: number; attempts: number }>();
 
-// Clean up expired codes every 5 minutes
 if (typeof setInterval !== 'undefined') {
   setInterval(() => {
     const now = Date.now();
     for (const [phone, entry] of verificationCodes.entries()) {
-      if (now > entry.expiresAt) {
-        verificationCodes.delete(phone);
-      }
+      if (now > entry.expiresAt) verificationCodes.delete(phone);
     }
   }, 5 * 60 * 1000);
 }
 
 function generate6DigitCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return crypto.randomInt(100000, 999999).toString();
 }
 
 async function sendWhatsAppMessage(phone: string, message: string): Promise<boolean> {
   try {
     const zai = await ZAI.create();
-    const result = await zai.functions.invoke('send_whatsapp' as any, {
-      phone,
-      message,
-    });
-    console.log('[WhatsApp Auth] Message sent successfully to:', phone, 'Result:', result);
+    await zai.functions.invoke('send_whatsapp' as any, { phone, message });
     return true;
   } catch (error) {
-    console.error('[WhatsApp Auth] Failed to send WhatsApp message:', error);
-    // Return true anyway to not block the flow during development/testing
-    // In production, you may want to return false and handle the error
-    console.warn('[WhatsApp Auth] Continuing despite send failure - code is still stored');
-    return true;
+    console.error('[WhatsApp] Failed to send:', error);
+    return false;
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+
+    // Rate limit: 3 requests per minute per IP
+    if (!checkRateLimit(`wa_${ip}`, 3, 60_000)) {
+      return NextResponse.json({ error: 'Trop de demandes. Réessayez dans 1 minute.' }, { status: 429 });
+    }
+
     const body = await request.json();
     const { phone, code } = body;
 
-    // Validate phone number
     if (!phone || typeof phone !== 'string' || !phone.trim()) {
-      return NextResponse.json(
-        { error: 'Le numéro de téléphone est requis' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Le numéro de téléphone est requis' }, { status: 400 });
     }
 
     const trimmedPhone = phone.trim();
 
-    // --- Phase 1: Send verification code ---
+    // ── Phase 1: Send verification code ──
     if (!code) {
-      // Check if phone exists in the database
-      const user = await db.user.findUnique({
-        where: { phone: trimmedPhone },
-      });
+      const user = await db.user.findUnique({ where: { phone: trimmedPhone } });
+      if (!user) return NextResponse.json({ error: 'Ce numéro n\'est pas enregistré' }, { status: 404 });
+      if (!user.isActive) return NextResponse.json({ error: 'Compte désactivé' }, { status: 403 });
 
-      if (!user) {
-        return NextResponse.json(
-          { error: 'Ce numéro n\'est pas enregistré dans notre système' },
-          { status: 404 }
-        );
-      }
-
-      if (!user.isActive) {
-        return NextResponse.json(
-          { error: 'Votre compte est désactivé. Contactez l\'administration.' },
-          { status: 403 }
-        );
-      }
-
-      // Generate a 6-digit verification code
       const verificationCode = generate6DigitCode();
+      verificationCodes.set(trimmedPhone, { code: verificationCode, expiresAt: Date.now() + 10 * 60 * 1000, attempts: 0 });
 
-      // Store the code with a 10-minute expiration
-      verificationCodes.set(trimmedPhone, {
-        code: verificationCode,
-        expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
-      });
-
-      // Send the code via WhatsApp
-      const message = `Votre code de vérification EduGest est : ${verificationCode}\n\nCe code expire dans 10 minutes. Ne le partagez avec personne.`;
+      const message = `Votre code de vérification EduGest est : ${verificationCode}\n\nCe code expire dans 10 minutes.`;
       const sent = await sendWhatsAppMessage(trimmedPhone, message);
 
       if (!sent) {
-        // Clean up the stored code if message failed
         verificationCodes.delete(trimmedPhone);
-        return NextResponse.json(
-          { error: 'Échec de l\'envoi du code WhatsApp. Veuillez réessayer.' },
-          { status: 500 }
-        );
+        return NextResponse.json({ error: 'Échec de l\'envoi WhatsApp' }, { status: 500 });
       }
 
-      return NextResponse.json({
-        message: 'Code de vérification envoyé via WhatsApp',
-        phone: trimmedPhone,
-      });
+      return NextResponse.json({ message: 'Code envoyé via WhatsApp', phone: trimmedPhone });
     }
 
-    // --- Phase 2: Verify the code and log in ---
+    // ── Phase 2: Verify code and login ──
     if (typeof code !== 'string' || !code.trim()) {
-      return NextResponse.json(
-        { error: 'Le code de vérification est requis' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Code requis' }, { status: 400 });
     }
 
-    const storedEntry = verificationCodes.get(trimmedPhone);
+    const stored = verificationCodes.get(trimmedPhone);
+    if (!stored) return NextResponse.json({ error: 'Aucun code trouvé. Demandez-en un nouveau.' }, { status: 400 });
+    if (Date.now() > stored.expiresAt) { verificationCodes.delete(trimmedPhone); return NextResponse.json({ error: 'Code expiré' }, { status: 400 }); }
 
-    if (!storedEntry) {
-      return NextResponse.json(
-        { error: 'Aucun code de vérification trouvé pour ce numéro. Veuillez demander un nouveau code.' },
-        { status: 400 }
-      );
-    }
-
-    // Check if code has expired
-    if (Date.now() > storedEntry.expiresAt) {
+    // Brute-force protection
+    if (stored.attempts >= 3) {
       verificationCodes.delete(trimmedPhone);
-      return NextResponse.json(
-        { error: 'Le code de vérification a expiré. Veuillez demander un nouveau code.' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Trop de tentatives. Demandez un nouveau code.' }, { status: 429 });
     }
 
-    // Verify the code matches
-    if (storedEntry.code !== code.trim()) {
-      return NextResponse.json(
-        { error: 'Code de vérification incorrect' },
-        { status: 401 }
-      );
+    if (stored.code !== code.trim()) {
+      stored.attempts++;
+      return NextResponse.json({ error: 'Code incorrect' }, { status: 401 });
     }
 
-    // Code is valid - remove it from store (one-time use)
     verificationCodes.delete(trimmedPhone);
 
-    // Find the user by phone
-    const user = await db.user.findUnique({
-      where: { phone: trimmedPhone },
-    });
+    const user = await db.user.findUnique({ where: { phone: trimmedPhone } });
+    if (!user) return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
+    if (!user.isActive) return NextResponse.json({ error: 'Compte désactivé' }, { status: 403 });
 
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Utilisateur non trouvé' },
-        { status: 404 }
-      );
-    }
+    await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
-    if (!user.isActive) {
-      return NextResponse.json(
-        { error: 'Votre compte est désactivé. Contactez l\'administration.' },
-        { status: 403 }
-      );
-    }
-
-    // Update lastLoginAt
-    await db.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
-
-    // Return user data (same format as /api/auth)
+    const sessionToken = createSession(user.id);
     const { password: _, ...userData } = user;
-
     const school = await db.school.findUnique({
       where: { id: user.schoolId },
-      select: {
-        id: true,
-        name: true,
-        shortName: true,
-        city: true,
-        country: true,
-      },
+      select: { id: true, name: true, shortName: true, city: true, country: true },
     });
 
-    return NextResponse.json({
-      data: {
-        ...userData,
-        school,
-      },
-    });
+    return NextResponse.json({ data: { ...userData, token: sessionToken, school } });
   } catch (error) {
-    console.error('[WhatsApp Auth] Error during WhatsApp authentication:', error);
-    return NextResponse.json(
-      { error: 'Échec de l\'authentification WhatsApp. Veuillez réessayer.' },
-      { status: 500 }
-    );
+    console.error('[WhatsApp Auth] Error:', error);
+    return NextResponse.json({ error: 'Échec de l\'authentification WhatsApp' }, { status: 500 });
   }
 }

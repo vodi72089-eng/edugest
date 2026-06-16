@@ -57,6 +57,105 @@ export async function requireRole(request: NextRequest, allowedRoles: string[]):
   return authResult;
 }
 
+// ─── Permission-based auth ─────────────────────────────────────────────────
+const ROLE_PERMISSIONS: Record<string, string[]> = {
+  SUPER_ADMIN_GLOBAL: ['*'],
+  DIRECTION: [
+    'users:read', 'users:create', 'users:update',
+    'students:read', 'students:create', 'students:update',
+    'payments:read', 'payments:create',
+    'grades:read', 'grades:create', 'grades:update',
+    'classes:read', 'classes:create', 'classes:update',
+    'subjects:read', 'subjects:create',
+    'discipline:read', 'discipline:create',
+    'convocations:read', 'convocations:create',
+    'communications:read', 'communications:create',
+    'homework:read', 'homework:create',
+    'stats:read',
+    'schools:read',
+  ],
+  HEAD_TEACHER: [
+    'students:read', 'students:create', 'students:update',
+    'grades:read', 'grades:create', 'grades:update',
+    'classes:read', 'classes:update',
+    'subjects:read',
+    'discipline:read', 'discipline:create',
+    'convocations:read', 'convocations:create',
+    'homework:read', 'homework:create',
+    'stats:read',
+  ],
+  SECRETARY: [
+    'users:read', 'users:create', 'users:update',
+    'students:read', 'students:create', 'students:update',
+    'payments:read', 'payments:create',
+    'classes:read',
+    'convocations:read', 'convocations:create',
+    'communications:read', 'communications:create',
+    'stats:read',
+  ],
+  CASHIER: [
+    'payments:read', 'payments:create', 'payments:update',
+    'students:read',
+    'stats:read',
+  ],
+  TEACHER: [
+    'students:read',
+    'grades:read', 'grades:create', 'grades:update',
+    'classes:read',
+    'subjects:read',
+    'homework:read', 'homework:create',
+    'discipline:read',
+  ],
+  PARENT: [
+    'students:read',
+    'payments:read',
+    'grades:read',
+    'convocations:read',
+  ],
+  DISCIPLINE: [
+    'students:read',
+    'discipline:read', 'discipline:create', 'discipline:update',
+    'convocations:read', 'convocations:create',
+  ],
+};
+
+export async function requirePermission(request: NextRequest, permission: string): Promise<{ user: AuthUser } | { error: Response }> {
+  const authResult = await requireAuth(request);
+  if ('error' in authResult) return authResult;
+  const perms = ROLE_PERMISSIONS[authResult.user.role] || [];
+  if (!perms.includes('*') && !perms.includes(permission)) {
+    return { error: Response.json({ error: 'Permission insuffisante' }, { status: 403 }) };
+  }
+  return authResult;
+}
+
+// ─── School access verification ────────────────────────────────────────────
+export function verifySchoolAccess(user: AuthUser, schoolId: string | null): boolean {
+  if (user.role === 'SUPER_ADMIN_GLOBAL') return true;
+  return user.schoolId === schoolId;
+}
+
+// ─── Parent access verification ────────────────────────────────────────────
+export async function verifyParentAccess(user: AuthUser, studentId: string): Promise<boolean> {
+  if (user.role === 'SUPER_ADMIN_GLOBAL' || user.role === 'SECRETARY' || user.role === 'DIRECTION') return true;
+  if (user.role !== 'PARENT') return true;
+  const student = await db.student.findUnique({ where: { id: studentId }, select: { parentIds: true } });
+  if (!student) return false;
+  const parentIds = student.parentIds as string[];
+  return parentIds.includes(user.id);
+}
+
+// ─── Safe int parser ───────────────────────────────────────────────────────
+export function safeParseInt(value: string | null, defaultValue: number, min?: number, max?: number): number {
+  if (!value) return defaultValue;
+  const parsed = parseInt(value, 10);
+  if (isNaN(parsed)) return defaultValue;
+  let result = parsed;
+  if (min !== undefined && result < min) result = min;
+  if (max !== undefined && result > max) result = max;
+  return result;
+}
+
 // ─── Rate limiter ──────────────────────────────────────────────────────────
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
@@ -76,4 +175,11 @@ export function canCreateRole(creatorRole: string, targetRole: string): boolean 
   if (creatorRole === 'SUPER_ADMIN_GLOBAL') return true;
   if (creatorRole === 'SECRETARY' || creatorRole === 'DIRECTION') return ALLOWED_CREATION_ROLES.includes(targetRole);
   return false;
+}
+
+export function sanitizeError(error: unknown): string {
+  if (error instanceof Error) {
+    return process.env.NODE_ENV === 'production' ? 'Une erreur interne est survenue' : error.message;
+  }
+  return 'Une erreur inconnue est survenue';
 }
