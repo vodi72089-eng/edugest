@@ -87,6 +87,7 @@ export type ViewType =
   | 'settings'
   | 'school-reviews'
   | 'payment-verification'
+  | 'payment-config'
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'

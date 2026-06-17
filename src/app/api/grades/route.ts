@@ -97,13 +97,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // schoolYearId is now required - no auto-creation
-    if (!schoolYearId) {
-      return NextResponse.json(
-        { error: 'L\'identifiant de l\'année scolaire est requis (schoolYearId)' },
-        { status: 400 }
-      );
-    }
+    // schoolYearId auto-resolved below if missing or 'default' (legacy hardcode)
 
     // Verify school access by checking the student's school
     const student = await db.student.findUnique({
@@ -115,6 +109,31 @@ export async function POST(request: NextRequest) {
     }
     if (!verifySchoolAccess(user, student.schoolId)) {
       return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
+    }
+
+    // Auto-resolve active school year if not provided (fixes 'default' hardcode)
+    let finalYearId = schoolYearId;
+    if (!finalYearId || finalYearId === 'default') {
+      const activeYear = await db.schoolYear.findFirst({
+        where: { schoolId: student.schoolId, isActive: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!activeYear) {
+        // Fallback: most recent year for the school
+        const anyYear = await db.schoolYear.findFirst({
+          where: { schoolId: student.schoolId },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (!anyYear) {
+          return NextResponse.json(
+            { error: 'Aucune année scolaire trouvée pour cette école. Veuillez en créer une.' },
+            { status: 400 }
+          );
+        }
+        finalYearId = anyYear.id;
+      } else {
+        finalYearId = activeYear.id;
+      }
     }
 
     // Validate score range
@@ -132,7 +151,7 @@ export async function POST(request: NextRequest) {
           studentId,
           subjectId,
           trimester,
-          schoolYearId,
+          schoolYearId: finalYearId,
         },
       },
       update: {
@@ -147,7 +166,7 @@ export async function POST(request: NextRequest) {
         trimester,
         score,
         comment: comment || null,
-        schoolYearId,
+        schoolYearId: finalYearId,
       },
       include: {
         student: { select: { id: true, firstName: true, lastName: true } },

@@ -194,6 +194,22 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // If teacher is titulaire and classNames provided, link as head teacher for the first class
+    if (isTeacherRole && isTitulaire && classNames) {
+      const firstClassName = classNames.split(',').map(s => s.trim()).filter(Boolean)[0];
+      if (firstClassName) {
+        const targetClass = await db.class.findFirst({
+          where: { name: firstClassName, schoolId },
+        });
+        if (targetClass) {
+          await db.class.update({
+            where: { id: targetClass.id },
+            data: { headTeacherId: newUser.id },
+          });
+        }
+      }
+    }
+
     return NextResponse.json({ data: newUser }, { status: 201 });
   } catch (error) {
     console.error('Error creating user:', error);
@@ -299,6 +315,31 @@ export async function PUT(request: NextRequest) {
         isTitulaire: true,
       },
     });
+
+    // If teacher is titulaire and classNames provided, link as head teacher for the first class
+    if (isTeacherRole && isTitulaire !== undefined && isTitulaire && (classNames !== undefined ? classNames : existing.classNames)) {
+      const effectiveClassNames = classNames !== undefined ? classNames : existing.classNames;
+      if (effectiveClassNames) {
+        const firstClassName = effectiveClassNames.split(',').map((s: string) => s.trim()).filter(Boolean)[0];
+        if (firstClassName) {
+          const targetClass = await db.class.findFirst({
+            where: { name: firstClassName, schoolId: existing.schoolId || undefined },
+          });
+          if (targetClass) {
+            await db.class.update({
+              where: { id: targetClass.id },
+              data: { headTeacherId: updatedUser.id },
+            });
+          }
+        }
+      }
+    } else if (isTeacherRole && isTitulaire === false) {
+      // If titulaire status removed, clear headTeacherId on classes where this user was head
+      await db.class.updateMany({
+        where: { headTeacherId: id },
+        data: { headTeacherId: null },
+      });
+    }
 
     return NextResponse.json({ data: updatedUser });
   } catch (error) {

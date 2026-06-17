@@ -29,15 +29,28 @@ export async function GET(request: NextRequest) {
     if (user.role === 'PARENT') {
       const children = await db.student.findMany({
         where: { parentId: user.id },
-        select: { classId: true },
+        select: { classId: true, id: true },
       });
-      const classIds = [...new Set(children.map(c => c.classId))];
-      if (classIds.length > 0) {
+      const classIds = [...new Set(children.map(c => c.classId).filter(Boolean))];
+      // If studentId is specified, only show homework for that student's class
+      if (studentId) {
+        const targetStudent = children.find(c => c.id === studentId);
+        if (targetStudent?.classId) {
+          where.classId = targetStudent.classId;
+        } else {
+          return NextResponse.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } });
+        }
+      } else if (classIds.length > 0) {
         where.classId = { in: classIds };
       } else {
         // No children found, return empty
         return NextResponse.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } });
       }
+    }
+
+    // For TEACHER/HEAD_TEACHER, default to their own homework (unless classId/schoolId explicitly set)
+    if ((user.role === 'TEACHER' || user.role === 'HEAD_TEACHER') && !classId) {
+      where.teacherId = user.id;
     }
 
     const [homeworks, total] = await Promise.all([

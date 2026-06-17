@@ -15,7 +15,7 @@ import {
   Info, Zap, Globe, Lock, Award, Ban, CircleDot, ListChecks,
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
-  ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2
+  ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -2196,6 +2196,7 @@ function Sidebar() {
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
@@ -2211,6 +2212,7 @@ function Sidebar() {
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
@@ -2219,6 +2221,7 @@ function Sidebar() {
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <CreditCard size={16} />, label: 'Enregistrer paiement', view: 'payments' },
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
       { icon: <AlertTriangle size={16} />, label: 'Dettes', view: 'payments', badge: 84 },
       { icon: <BarChart3 size={16} />, label: 'Situation financière', view: 'payments' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
@@ -2544,6 +2547,7 @@ function MainContent() {
     case 'grades': return <GradesView />
     case 'payments': return <PaymentsView />
     case 'payment-verification': return <PaymentVerificationView />
+    case 'payment-config': return <PaymentConfigView />
     case 'discipline': return <DisciplineView />
     case 'communications': return <CommunicationsView />
     case 'homework': return <HomeworkView />
@@ -4271,7 +4275,6 @@ function GradesView() {
           trimester: gradeTrimester,
           score,
           comment: gradeComment || null,
-          schoolYearId: 'default',
         }),
       })
       if (res.ok) {
@@ -4281,7 +4284,8 @@ function GradesView() {
         setGradeStudentSearchId(null); setGradeStudentSearch('')
         loadGrades()
       } else {
-        toast.error('Erreur lors de l\'enregistrement')
+        const errData = await res.json().catch(() => ({}))
+        toast.error(errData?.error || 'Erreur lors de l\'enregistrement')
       }
     } catch {
       toast.error('Erreur de connexion')
@@ -4784,6 +4788,647 @@ function PaymentsView() {
             </div>
             <div className="flex-1 overflow-hidden rounded-b-2xl">
               <iframe src={pdfUrl} className="w-full h-[70vh] border-0" title="Reçu PDF" />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ===== PAYMENT CONFIGURATION VIEW =====
+function PaymentConfigView() {
+  const { userData } = useEduGestStore()
+  const [activeTab, setActiveTab] = useState<'gateways' | 'currency' | 'transactions'>('gateways')
+  const [gateways, setGateways] = useState<any[]>([])
+  const [availableGateways, setAvailableGateways] = useState<any[]>([])
+  const [currencyConfig, setCurrencyConfig] = useState<any>(null)
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({})
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [showGatewayModal, setShowGatewayModal] = useState<string | null>(null)
+  const [gatewayForm, setGatewayForm] = useState<any>({})
+  const [currencyForm, setCurrencyForm] = useState<any>({
+    baseCurrency: 'USD',
+    displayCurrency: 'USD',
+    enabledCurrencies: ['USD', 'EUR', 'CDF'],
+    useManualRates: false,
+    manualRates: {},
+  })
+  const [convertForm, setConvertForm] = useState({ amount: 100, from: 'USD', to: 'CDF' })
+  const [convertResult, setConvertResult] = useState<any>(null)
+  const [supportedCurrencies, setSupportedCurrencies] = useState<any[]>([])
+
+  useEffect(() => {
+    if (!userData?.schoolId) return
+    Promise.all([loadGateways(), loadCurrencyConfig(), loadTransactions()])
+  }, [userData?.schoolId])
+
+  async function loadGateways() {
+    try {
+      const res = await authFetch(`/api/payment-gateways?schoolId=${userData?.schoolId}`)
+      const json = await res.json()
+      if (json.data) {
+        setAvailableGateways(json.data.catalog || [])
+        setGateways(json.data.configured || [])
+      }
+    } catch (e) { console.error(e) }
+    finally { setLoading(false) }
+  }
+
+  async function loadCurrencyConfig() {
+    try {
+      const res = await authFetch(`/api/currency?schoolId=${userData?.schoolId}`)
+      const json = await res.json()
+      if (json.data) {
+        setCurrencyConfig(json.data.config)
+        setExchangeRates(json.data.rates || {})
+        setSupportedCurrencies(json.data.supportedCurrencies || [])
+        if (json.data.config) {
+          setCurrencyForm({
+            baseCurrency: json.data.config.baseCurrency || 'USD',
+            displayCurrency: json.data.config.displayCurrency || 'USD',
+            enabledCurrencies: (json.data.config.enabledCurrencies || 'USD,EUR,CDF').split(','),
+            useManualRates: json.data.config.useManualRates || false,
+            manualRates: json.data.config.manualRates ? JSON.parse(json.data.config.manualRates) : {},
+          })
+        }
+      }
+    } catch (e) { console.error(e) }
+  }
+
+  async function loadTransactions() {
+    try {
+      const res = await authFetch(`/api/payment-transactions?schoolId=${userData?.schoolId}&limit=10`)
+      const json = await res.json()
+      if (json.data) setTransactions(json.data.transactions || json.data)
+    } catch (e) { console.error(e) }
+  }
+
+  async function refreshRates() {
+    try {
+      const res = await authFetch(`/api/currency/exchange-rates?base=${currencyForm.baseCurrency}`, { method: 'POST' })
+      const json = await res.json()
+      if (json.data) {
+        setExchangeRates(json.data.rates || {})
+        toast.success('Taux de change mis à jour !')
+        loadCurrencyConfig()
+      }
+    } catch (e) { toast.error('Erreur lors de la mise à jour') }
+  }
+
+  async function saveCurrencyConfig() {
+    setSaving(true)
+    try {
+      const res = await authFetch(`/api/currency`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schoolId: userData?.schoolId,
+          ...currencyForm,
+          enabledCurrencies: currencyForm.enabledCurrencies.join(','),
+          manualRates: JSON.stringify(currencyForm.manualRates),
+        }),
+      })
+      const json = await res.json()
+      if (json.data) {
+        toast.success('Configuration de monnaie sauvegardée !')
+        loadCurrencyConfig()
+      } else {
+        toast.error(json.error || 'Erreur')
+      }
+    } catch (e) { toast.error('Erreur réseau') }
+    finally { setSaving(false) }
+  }
+
+  async function saveGatewayConfig() {
+    setSaving(true)
+    try {
+      const res = await authFetch(`/api/payment-gateways`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schoolId: userData?.schoolId,
+          ...gatewayForm,
+        }),
+      })
+      const json = await res.json()
+      if (json.data) {
+        toast.success('Passerelle configurée avec succès !')
+        setShowGatewayModal(null)
+        loadGateways()
+      } else {
+        toast.error(json.error || 'Erreur')
+      }
+    } catch (e) { toast.error('Erreur réseau') }
+    finally { setSaving(false) }
+  }
+
+  async function toggleGateway(gateway: any) {
+    try {
+      const res = await authFetch(`/api/payment-gateways/${gateway.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !gateway.isActive }),
+      })
+      if (res.ok) {
+        toast.success(gateway.isActive ? 'Passerelle désactivée' : 'Passerelle activée')
+        loadGateways()
+      }
+    } catch (e) { toast.error('Erreur') }
+  }
+
+  async function convertCurrency() {
+    try {
+      const res = await authFetch(`/api/currency/convert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(convertForm),
+      })
+      const json = await res.json()
+      if (json.data) setConvertResult(json.data)
+      else toast.error(json.error || 'Erreur')
+    } catch (e) { toast.error('Erreur réseau') }
+  }
+
+  function openGatewayEditor(gatewayType: string, existing?: any) {
+    setGatewayForm({
+      schoolId: userData?.schoolId,
+      gatewayType,
+      isActive: existing?.isActive ?? false,
+      isTestMode: existing?.isTestMode ?? true,
+      merchantId: existing?.merchantId || '',
+      apiKey: existing?.apiKey || '',
+      secretKey: existing?.secretKey || '',
+      publicKey: existing?.publicKey || '',
+      webhookSecret: existing?.webhookSecret || '',
+      phoneNumber: existing?.phoneNumber || '',
+      accountEmail: existing?.accountEmail || '',
+      currency: existing?.currency || 'USD',
+      feePercent: existing?.feePercent || 0,
+    })
+    setShowGatewayModal(gatewayType)
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="h-32 bg-gray-200 rounded"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Configuration des Paiements</h1>
+        <p className="text-gray-500 text-sm mt-1">Gérez les passerelles de paiement et les monnaies</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b">
+        <button
+          onClick={() => setActiveTab('gateways')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
+            activeTab === 'gateways' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Passerelles de Paiement
+        </button>
+        <button
+          onClick={() => setActiveTab('currency')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
+            activeTab === 'currency' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Monnaies & Taux de Change
+        </button>
+        <button
+          onClick={() => setActiveTab('transactions')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
+            activeTab === 'transactions' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Transactions
+        </button>
+      </div>
+
+      {/* Gateways Tab */}
+      {activeTab === 'gateways' && (
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {availableGateways.map((gw: any) => {
+              const configured = gateways.find((g: any) => g.gatewayType === gw.gatewayType)
+              return (
+                <div key={gw.gatewayType} className="border rounded-xl p-4 bg-white shadow-sm">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{gw.icon}</span>
+                      <div>
+                        <h3 className="font-semibold text-sm">{gw.displayName}</h3>
+                        {configured && (
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${configured.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {configured.isActive ? '● Actif' : '○ Inactif'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-3">{gw.description}</p>
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {gw.supportedCurrencies.slice(0, 4).map((c: string) => (
+                      <span key={c} className="text-xs px-2 py-0.5 bg-gray-100 rounded">{c}</span>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => openGatewayEditor(gw.gatewayType, configured)}
+                      className="flex-1 text-xs py-2 px-3 rounded-lg bg-[#f5a623] text-white font-medium hover:bg-[#ffb643] transition"
+                    >
+                      {configured ? 'Configurer' : 'Activer'}
+                    </button>
+                    {configured && (
+                      <button
+                        onClick={() => toggleGateway(configured)}
+                        className={`text-xs py-2 px-3 rounded-lg font-medium transition ${
+                          configured.isActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'
+                        }`}
+                      >
+                        {configured.isActive ? 'Désactiver' : 'Activer'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Currency Tab */}
+      {activeTab === 'currency' && (
+        <div className="space-y-6">
+          {/* Currency Configuration */}
+          <div className="border rounded-xl p-5 bg-white">
+            <h3 className="font-semibold mb-4">Configuration des monnaies</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Monnaie de base</label>
+                <select
+                  value={currencyForm.baseCurrency}
+                  onChange={(e) => setCurrencyForm({ ...currencyForm, baseCurrency: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                >
+                  {supportedCurrencies.map((c: any) => (
+                    <option key={c.code} value={c.code}>{c.code} - {c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Monnaie d&apos;affichage</label>
+                <select
+                  value={currencyForm.displayCurrency}
+                  onChange={(e) => setCurrencyForm({ ...currencyForm, displayCurrency: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                >
+                  {supportedCurrencies.map((c: any) => (
+                    <option key={c.code} value={c.code}>{c.code} - {c.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className="block text-xs font-medium text-gray-600 mb-2">Monnaies acceptées</label>
+              <div className="flex flex-wrap gap-2">
+                {supportedCurrencies.map((c: any) => (
+                  <button
+                    key={c.code}
+                    onClick={() => {
+                      const enabled = currencyForm.enabledCurrencies.includes(c.code)
+                      setCurrencyForm({
+                        ...currencyForm,
+                        enabledCurrencies: enabled
+                          ? currencyForm.enabledCurrencies.filter((x: string) => x !== c.code)
+                          : [...currencyForm.enabledCurrencies, c.code],
+                      })
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                      currencyForm.enabledCurrencies.includes(c.code)
+                        ? 'bg-[#f5a623] text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {c.symbol} {c.code}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="manualRates"
+                checked={currencyForm.useManualRates}
+                onChange={(e) => setCurrencyForm({ ...currencyForm, useManualRates: e.target.checked })}
+                className="rounded"
+              />
+              <label htmlFor="manualRates" className="text-sm text-gray-600">
+                Utiliser des taux manuels (au lieu des taux automatiques)
+              </label>
+            </div>
+            <button
+              onClick={saveCurrencyConfig}
+              disabled={saving}
+              className="mt-5 px-5 py-2 bg-[#f5a623] text-white rounded-lg text-sm font-medium hover:bg-[#ffb643] transition disabled:opacity-50"
+            >
+              {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+            </button>
+          </div>
+
+          {/* Exchange Rates */}
+          <div className="border rounded-xl p-5 bg-white">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-semibold">Taux de change en temps réel</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Source: APIs open source (Frankfurter/BCE, ExchangeRate.host, Open ER API)
+                </p>
+              </div>
+              <button
+                onClick={refreshRates}
+                className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100 transition flex items-center gap-2"
+              >
+                <RefreshCw size={14} /> Actualiser
+              </button>
+            </div>
+            {currencyConfig?.lastRateUpdate && (
+              <p className="text-xs text-gray-400 mb-3">
+                Dernière mise à jour: {new Date(currencyConfig.lastRateUpdate).toLocaleString('fr-FR')}
+              </p>
+            )}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {Object.entries(exchangeRates).slice(0, 12).map(([currency, rate]) => (
+                <div key={currency} className="border rounded-lg p-3 bg-gray-50">
+                  <div className="text-xs text-gray-500">{currency}/ {currencyForm.baseCurrency}</div>
+                  <div className="text-lg font-bold text-gray-900">{Number(rate).toFixed(4)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Currency Converter */}
+          <div className="border rounded-xl p-5 bg-white">
+            <h3 className="font-semibold mb-4">Convertisseur de monnaies</h3>
+            <div className="grid md:grid-cols-4 gap-3 items-end">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Montant</label>
+                <input
+                  type="number"
+                  value={convertForm.amount}
+                  onChange={(e) => setConvertForm({ ...convertForm, amount: Number(e.target.value) })}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">De</label>
+                <select
+                  value={convertForm.from}
+                  onChange={(e) => setConvertForm({ ...convertForm, from: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                >
+                  {supportedCurrencies.map((c: any) => (
+                    <option key={c.code} value={c.code}>{c.code}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Vers</label>
+                <select
+                  value={convertForm.to}
+                  onChange={(e) => setConvertForm({ ...convertForm, to: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                >
+                  {supportedCurrencies.map((c: any) => (
+                    <option key={c.code} value={c.code}>{c.code}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={convertCurrency}
+                className="px-4 py-2 bg-[#f5a623] text-white rounded-lg text-sm font-medium hover:bg-[#ffb643] transition"
+              >
+                Convertir
+              </button>
+            </div>
+            {convertResult && (
+              <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="text-sm text-gray-600">
+                  {convertForm.amount} {convertForm.from} = 
+                </div>
+                <div className="text-2xl font-bold text-green-700">
+                  {convertResult.convertedAmount.toFixed(2)} {convertForm.to}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Taux: 1 {convertForm.from} = {convertResult.rate.toFixed(4)} {convertForm.to} (Source: {convertResult.source})
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Transactions Tab */}
+      {activeTab === 'transactions' && (
+        <div className="border rounded-xl bg-white overflow-hidden">
+          <div className="p-4 border-b">
+            <h3 className="font-semibold">Transactions récentes</h3>
+          </div>
+          {transactions.length === 0 ? (
+            <div className="p-8 text-center text-gray-500 text-sm">
+              Aucune transaction enregistrée
+            </div>
+          ) : (
+            <div className="overflow-x-auto max-h-96 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="text-left p-3 font-medium text-xs text-gray-600">RÉFÉRENCE</th>
+                    <th className="text-left p-3 font-medium text-xs text-gray-600">PASSERELLE</th>
+                    <th className="text-right p-3 font-medium text-xs text-gray-600">MONTANT</th>
+                    <th className="text-center p-3 font-medium text-xs text-gray-600">STATUT</th>
+                    <th className="text-left p-3 font-medium text-xs text-gray-600">DATE</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((tx: any) => (
+                    <tr key={tx.id} className="border-t hover:bg-gray-50">
+                      <td className="p-3 font-mono text-xs">{tx.reference}</td>
+                      <td className="p-3 text-xs">{tx.gatewayType}</td>
+                      <td className="p-3 text-right">
+                        {tx.amount.toFixed(2)} {tx.currency}
+                        {tx.convertedAmount && tx.currency !== tx.baseCurrency && (
+                          <div className="text-xs text-gray-400">
+                            ≈ {tx.convertedAmount.toFixed(2)} {tx.baseCurrency}
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                          tx.status === 'SUCCESS' ? 'bg-green-100 text-green-700' :
+                          tx.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
+                          tx.status === 'FAILED' ? 'bg-red-100 text-red-700' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {tx.status}
+                        </span>
+                      </td>
+                      <td className="p-3 text-xs text-gray-500">
+                        {new Date(tx.initiatedAt).toLocaleString('fr-FR')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Gateway Configuration Modal */}
+      {showGatewayModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-5 border-b flex items-center justify-between sticky top-0 bg-white">
+              <h3 className="font-semibold">
+                Configuration - {availableGateways.find((g: any) => g.gatewayType === showGatewayModal)?.displayName}
+              </h3>
+              <button onClick={() => setShowGatewayModal(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={gatewayForm.isActive}
+                    onChange={(e) => setGatewayForm({ ...gatewayForm, isActive: e.target.checked })}
+                    className="rounded"
+                  />
+                  <span className="text-sm">Activer cette passerelle</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={gatewayForm.isTestMode}
+                    onChange={(e) => setGatewayForm({ ...gatewayForm, isTestMode: e.target.checked })}
+                    className="rounded"
+                  />
+                  <span className="text-sm">Mode test</span>
+                </label>
+              </div>
+
+              {showGatewayModal !== 'MANUAL' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Merchant ID</label>
+                    <input
+                      type="text"
+                      value={gatewayForm.merchantId || ''}
+                      onChange={(e) => setGatewayForm({ ...gatewayForm, merchantId: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                      placeholder="Identifiant marchand"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">API Key</label>
+                    <input
+                      type="password"
+                      value={gatewayForm.apiKey || ''}
+                      onChange={(e) => setGatewayForm({ ...gatewayForm, apiKey: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                      placeholder="Clé API"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Secret Key</label>
+                    <input
+                      type="password"
+                      value={gatewayForm.secretKey || ''}
+                      onChange={(e) => setGatewayForm({ ...gatewayForm, secretKey: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                      placeholder="Clé secrète"
+                    />
+                  </div>
+                  {(showGatewayModal === 'MPESA' || showGatewayModal === 'ORANGE_MONEY' || showGatewayModal === 'AIRTEL_MONEY') && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Numéro de téléphone</label>
+                      <input
+                        type="text"
+                        value={gatewayForm.phoneNumber || ''}
+                        onChange={(e) => setGatewayForm({ ...gatewayForm, phoneNumber: e.target.value })}
+                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                        placeholder="+243..."
+                      />
+                    </div>
+                  )}
+                  {(showGatewayModal === 'PAYPAL' || showGatewayModal === 'STRIPE') && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Email du compte</label>
+                      <input
+                        type="email"
+                        value={gatewayForm.accountEmail || ''}
+                        onChange={(e) => setGatewayForm({ ...gatewayForm, accountEmail: e.target.value })}
+                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                        placeholder="email@example.com"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Monnaie</label>
+                    <select
+                      value={gatewayForm.currency}
+                      onChange={(e) => setGatewayForm({ ...gatewayForm, currency: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    >
+                      {(availableGateways.find((g: any) => g.gatewayType === showGatewayModal)?.supportedCurrencies || []).map((c: string) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Frais de transaction (%)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={gatewayForm.feePercent || 0}
+                      onChange={(e) => setGatewayForm({ ...gatewayForm, feePercent: Number(e.target.value) })}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="pt-3 flex gap-2">
+                <button
+                  onClick={saveGatewayConfig}
+                  disabled={saving}
+                  className="flex-1 py-2.5 bg-[#f5a623] text-white rounded-lg text-sm font-medium hover:bg-[#ffb643] transition disabled:opacity-50"
+                >
+                  {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+                </button>
+                <button
+                  onClick={() => setShowGatewayModal(null)}
+                  className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition"
+                >
+                  Annuler
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -6267,8 +6912,20 @@ function HomeworkView() {
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
               <select value={hwClassId} onChange={e => setHwClassId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                 <option value="">Sélectionner une classe</option>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {(() => {
+                  // Filter classes by teacher's classNames assignment (if available)
+                  const myClassNames = (userData?.classNames || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+                  const filtered = myClassNames.length > 0
+                    ? classes.filter(c => myClassNames.includes(c.name))
+                    : classes;
+                  return filtered.map(c => <option key={c.id} value={c.id}>{c.name}</option>);
+                })()}
               </select>
+              {userData?.classNames && (
+                <p className="text-[11px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>
+                  Classes assignées: {userData.classNames}
+                </p>
+              )}
             </div>
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Date limite *</label>

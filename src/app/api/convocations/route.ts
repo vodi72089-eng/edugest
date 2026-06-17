@@ -24,6 +24,11 @@ export async function GET(request: NextRequest) {
     if (studentId) where.studentId = studentId;
     if (status) where.status = status;
 
+    // For PARENT role, only show convocations for their children
+    if (user.role === 'PARENT') {
+      where.student = { parentId: user.id };
+    }
+
     const records = await db.convocation.findMany({
       where,
       orderBy: { date: 'desc' },
