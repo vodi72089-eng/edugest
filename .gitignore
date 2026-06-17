@@ -73,5 +73,3 @@ server.log
 
 # Caddyfile
 Caddyfileuploads/schools/*.png
-
-.sessions/

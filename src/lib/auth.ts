@@ -1,43 +1,20 @@
 import { db } from './db';
 import { NextRequest } from 'next/server';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join } from 'path';
 
-// ─── File-based session store (shared across workers) ─────────────────────
-const SESSION_DIR = join(process.cwd(), '.sessions');
-const SESSION_FILE = join(SESSION_DIR, 'sessions.json');
+// ─── Session store (in-memory) ────────────────────────────────────────────
+const sessionStore = new Map<string, { userId: string; expiresAt: number }>();
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
 
-function loadSessions(): Map<string, { userId: string; expiresAt: number }> {
-  try {
-    if (!existsSync(SESSION_DIR)) mkdirSync(SESSION_DIR, { recursive: true });
-    if (!existsSync(SESSION_FILE)) return new Map();
-    const raw = readFileSync(SESSION_FILE, 'utf-8');
-    const arr: [string, { userId: string; expiresAt: number }][] = JSON.parse(raw);
-    return new Map(arr);
-  } catch { return new Map(); }
-}
-
-function saveSessions(store: Map<string, { userId: string; expiresAt: number }>) {
-  try {
-    if (!existsSync(SESSION_DIR)) mkdirSync(SESSION_DIR, { recursive: true });
-    writeFileSync(SESSION_FILE, JSON.stringify([...store]), 'utf-8');
-  } catch {}
-}
-
 export function createSession(userId: string): string {
-  const store = loadSessions();
   const token = crypto.randomUUID();
-  store.set(token, { userId, expiresAt: Date.now() + SESSION_DURATION_MS });
-  saveSessions(store);
+  sessionStore.set(token, { userId, expiresAt: Date.now() + SESSION_DURATION_MS });
   return token;
 }
 
 export function validateSession(token: string): { userId: string } | null {
-  const store = loadSessions();
-  const session = store.get(token);
+  const session = sessionStore.get(token);
   if (!session) return null;
-  if (Date.now() > session.expiresAt) { store.delete(token); saveSessions(store); return null; }
+  if (Date.now() > session.expiresAt) { sessionStore.delete(token); return null; }
   return { userId: session.userId };
 }
 
