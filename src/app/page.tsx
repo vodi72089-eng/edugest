@@ -4637,7 +4637,8 @@ function ConvocationView() {
         .then(j => { setConvocations(j.data || []); setLoadingConvocations(false) })
         .catch(() => setLoadingConvocations(false))
     } else {
-      setLoadingConvocations(false)
+      // eslint-disable-next-line react-hooks/purity
+      queueMicrotask(() => setLoadingConvocations(false))
     }
   }, [userData?.schoolId])
 
