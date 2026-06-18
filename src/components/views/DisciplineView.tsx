@@ -84,7 +84,13 @@ export default function DisciplineView() {
         .then(j => setConvocations(j.data || []))
         .catch(() => {})
     }
-  }, [isDisciplineRole, userData?.schoolId])
+    if (isParent && userData?.schoolId) {
+      authFetch(`/api/convocations?schoolId=${userData.schoolId}&limit=50`)
+        .then(r => r.json())
+        .then(j => setConvocations(j.data || []))
+        .catch(() => {})
+    }
+  }, [isDisciplineRole, isParent, userData?.schoolId, userData?.id])
 
   useEffect(() => {
     if (isParent && userData?.id) {
@@ -613,6 +619,33 @@ export default function DisciplineView() {
           <button onClick={() => { setSelectedStudentId(null); setSelectedStudentSearchId(null); setStudentSearch('') }} className="ml-auto text-[11px] font-medium hover:underline" style={{ color: GOLD }}>
             Voir tous
           </button>
+        </div>
+      )}
+
+      {isParent && convocations.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Megaphone size={14} style={{ color: WARNING }} />
+            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: WARNING }}>Convocations ({convocations.length})</span>
+          </div>
+          <div className="space-y-2">
+            {convocations.map(c => (
+              <div key={c.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-xl p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl grid place-items-center shrink-0" style={{ background: `${WARNING}15` }}>
+                  <Megaphone size={16} style={{ color: WARNING }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{c.motif}</div>
+                  <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                    {c.student.firstName} {c.student.lastName} — {new Date(c.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                  </div>
+                </div>
+                <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full ${c.status === 'PENDING' ? 'bg-[oklch(95%_0.08_80)] text-[oklch(55%_0.15_80)]' : c.status === 'SENT' ? 'bg-[oklch(95%_0.08_250)] text-[oklch(55%_0.15_250)]' : 'bg-[oklch(95%_0.08_145)] text-[oklch(55%_0.15_145)]'}`}>
+                  {c.status === 'PENDING' ? 'En attente' : c.status === 'SENT' ? 'Envoyée' : 'Archivée'}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

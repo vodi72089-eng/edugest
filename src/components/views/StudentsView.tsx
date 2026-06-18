@@ -5,7 +5,7 @@ import { useEduGestStore, authFetch } from '@/lib/store'
 import type { StudentData, ClassData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT } from '@/lib/constants'
 import { getInitials, formatNumber, getStatusPill } from '@/lib/helpers'
-import { Plus, X, Users, ChevronDown, Eye, EyeOff, Edit } from 'lucide-react'
+import { Plus, X, Users, ChevronDown, Eye, EyeOff, Edit, Trash2, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete, { AutocompleteItem } from './SearchAutocomplete'
 
@@ -29,6 +29,13 @@ export default function StudentsView() {
   const [parentPassword, setParentPassword] = useState('')
   const [showParentPwd, setShowParentPwd] = useState(false)
   const [adding, setAdding] = useState(false)
+  const [viewingStudent, setViewingStudent] = useState<StudentData | null>(null)
+  const [editingStudent, setEditingStudent] = useState<StudentData | null>(null)
+  const [editFirstName, setEditFirstName] = useState('')
+  const [editLastName, setEditLastName] = useState('')
+  const [editGender, setEditGender] = useState('M')
+  const [editClassId, setEditClassId] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
   const { userData } = useEduGestStore()
 
   useEffect(() => {
@@ -44,13 +51,13 @@ export default function StudentsView() {
   }, [userData?.schoolId])
 
   useEffect(() => {
-    if (showAdd) {
+    if (showAdd || editingStudent) {
       authFetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
         .then(r => r.json())
         .then(j => setClasses(j.data || []))
         .catch(() => {})
     }
-  }, [showAdd])
+  }, [showAdd, editingStudent])
 
   useEffect(() => {
     if (studentSearch.length < 2) return
@@ -116,6 +123,38 @@ export default function StudentsView() {
       }
     } catch { toast.error('Erreur réseau') }
     finally { setAdding(false) }
+  }
+
+  function handleViewStudent(student: StudentData) { setViewingStudent(student) }
+
+  function handleEditStudent(student: StudentData) {
+    setEditingStudent(student)
+    setEditFirstName(student.firstName)
+    setEditLastName(student.lastName)
+    setEditGender(student.gender || 'M')
+    setEditClassId(student.classId || '')
+  }
+
+  async function handleSaveEdit() {
+    if (!editingStudent || !editFirstName.trim() || !editLastName.trim()) { toast.error('Prénom et nom requis'); return }
+    setSavingEdit(true)
+    try {
+      const res = await authFetch(`/api/students/${editingStudent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName: editFirstName.trim(), lastName: editLastName.trim(), gender: editGender, classId: editClassId || undefined }),
+      })
+      if (res.ok) {
+        toast.success('Élève modifié avec succès!')
+        setEditingStudent(null)
+        const json = await authFetch(`/api/students?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json())
+        setStudents(json.data || [])
+      } else {
+        const j = await res.json()
+        toast.error(j.error || 'Erreur lors de la modification')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setSavingEdit(false) }
   }
 
   return (
@@ -186,8 +225,8 @@ export default function StudentsView() {
                   <td className="px-4 py-3"><span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill('Actif')}`}>Actif</span></td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
-                      <button className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Eye size={14} /></button>
-                      <button className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Edit size={14} /></button>
+                      <button onClick={() => handleViewStudent(s)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: ACCENT }} title="Voir détails"><Eye size={14} /></button>
+                      <button onClick={() => handleEditStudent(s)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: GOLD }} title="Modifier"><Edit size={14} /></button>
                     </div>
                   </td>
                 </tr>
@@ -252,6 +291,76 @@ export default function StudentsView() {
                 Ajouter l&apos;élève
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {viewingStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setViewingStudent(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Détails de l'élève</h3>
+              <button onClick={() => setViewingStudent(null)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-gray-100 transition"><X size={16} className="text-gray-500" /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div className="flex items-center gap-4">
+                {viewingStudent.photoUrl ? (
+                  <img src={viewingStudent.photoUrl} alt="" className="w-16 h-16 rounded-full object-cover border-2" style={{ borderColor: ACCENT }} />
+                ) : (
+                  <div className="w-16 h-16 rounded-full grid place-items-center text-white text-xl font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                    {getInitials(viewingStudent.firstName + ' ' + viewingStudent.lastName)}
+                  </div>
+                )}
+                <div>
+                  <div className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{viewingStudent.firstName} {viewingStudent.lastName}</div>
+                  <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{viewingStudent.matricule}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-3">
+                  <div className="text-[11px] font-medium" style={{ color: TEXT_MUTED_LUXE }}>Sexe</div>
+                  <div className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{viewingStudent.gender === 'M' ? 'Masculin' : 'Féminin'}</div>
+                </div>
+                <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-3">
+                  <div className="text-[11px] font-medium" style={{ color: TEXT_MUTED_LUXE }}>Classe</div>
+                  <div className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{viewingStudent.class?.name || '—'}</div>
+                </div>
+                <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-3">
+                  <div className="text-[11px] font-medium" style={{ color: TEXT_MUTED_LUXE }}>Date de naissance</div>
+                  <div className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{viewingStudent.dateOfBirth ? new Date(viewingStudent.dateOfBirth).toLocaleDateString('fr-FR') : '—'}</div>
+                </div>
+                <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-3">
+                  <div className="text-[11px] font-medium" style={{ color: TEXT_MUTED_LUXE }}>Parent</div>
+                  <div className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{viewingStudent.parent?.name || '—'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setEditingStudent(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Modifier l'élève</h3>
+              <button onClick={() => setEditingStudent(null)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-gray-100 transition"><X size={16} className="text-gray-500" /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Prénom *</label><input value={editFirstName} onChange={e => setEditFirstName(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} /></div>
+                <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom *</label><input value={editLastName} onChange={e => setEditLastName(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} /></div>
+              </div>
+              <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Sexe</label><select value={editGender} onChange={e => setEditGender(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"><option value="M">Masculin</option><option value="F">Féminin</option></select></div>
+              <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe</label><select value={editClassId} onChange={e => setEditClassId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">{classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setEditingStudent(null)} className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)]" style={{ color: TEXT_PRIMARY }}>Annuler</button>
+              <button onClick={handleSaveEdit} disabled={savingEdit} className="edu-gold-cta px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+                {savingEdit ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
+                Sauvegarder
+              </button>
+            </div>
           </div>
         </div>
       )}

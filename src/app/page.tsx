@@ -2582,7 +2582,15 @@ function ClassesView() {
   const [loading, setLoading] = useState(true)
   const [classSearch, setClassSearch] = useState('')
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
-  const { userData } = useEduGestStore()
+  const { userData, userRole } = useEduGestStore()
+  const [showAddClass, setShowAddClass] = useState(false)
+  const [newClassName, setNewClassName] = useState('')
+  const [newClassSection, setNewClassSection] = useState('PRIMAIRE')
+  const [newClassCapacity, setNewClassCapacity] = useState('40')
+  const [addingClass, setAddingClass] = useState(false)
+  const [deletingClassId, setDeletingClassId] = useState<string | null>(null)
+  const [pendingApprovals, setPendingApprovals] = useState<{id: string; name: string; type: string; requestedBy: string}[]>([])
+  const canManage = userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SCHOOL_ADMIN' || (userRole && userRole.startsWith('DIRECTION'))
 
   useEffect(() => {
     authFetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => { setClasses(j.data || []); setLoading(false) }).catch(() => setLoading(false))
@@ -2602,6 +2610,50 @@ function ClassesView() {
       ? classes.filter(c => c.name.toLowerCase().includes(classSearch.toLowerCase()) || (c.section || '').toLowerCase().includes(classSearch.toLowerCase()))
       : classes
 
+  async function handleAddClass() {
+    if (!newClassName.trim()) { toast.error('Le nom est requis'); return }
+    setAddingClass(true)
+    try {
+      const res = await authFetch('/api/classes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newClassName.trim(),
+          section: newClassSection,
+          capacity: parseInt(newClassCapacity) || 40,
+          schoolId: userData?.schoolId,
+        }),
+      })
+      if (res.ok) {
+        toast.success('Classe créée avec succès!')
+        setShowAddClass(false)
+        setNewClassName('')
+        const j = await authFetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json())
+        setClasses(j.data || [])
+      } else {
+        const j = await res.json()
+        toast.error(j.error || 'Erreur lors de la création')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setAddingClass(false) }
+  }
+
+  async function handleDeleteClass(classId: string, className: string) {
+    if (!confirm(`Supprimer la classe "${className}" ? Cette action est irréversible.`)) return
+    setDeletingClassId(classId)
+    try {
+      const res = await authFetch(`/api/classes/${classId}`, { method: 'DELETE' })
+      if (res.ok) {
+        toast.success('Classe supprimée!')
+        setClasses(prev => prev.filter(c => c.id !== classId))
+      } else {
+        const j = await res.json()
+        toast.error(j.error || 'Erreur lors de la suppression')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setDeletingClassId(null) }
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
@@ -2612,17 +2664,24 @@ function ClassesView() {
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filteredClasses.length)} classes</p>
         </div>
-        <SearchAutocomplete
-          placeholder="Tapez le nom de la classe..."
-          items={classSuggestions}
-          selectedId={selectedClassId}
-          onSelect={(item) => setSelectedClassId(item.id)}
-          onClear={() => { setSelectedClassId(null); setClassSearch('') }}
-          searchQuery={classSearch}
-          onSearchChange={setClassSearch}
-          itemTypeName="classe"
-          className="w-full max-w-sm"
-        />
+        <div className="flex items-center gap-3">
+          {canManage && (
+            <button onClick={() => setShowAddClass(true)} className="edu-gold-cta px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2">
+              <span className="text-lg leading-none">+</span> Créer une classe
+            </button>
+          )}
+          <SearchAutocomplete
+            placeholder="Tapez le nom de la classe..."
+            items={classSuggestions}
+            selectedId={selectedClassId}
+            onSelect={(item) => setSelectedClassId(item.id)}
+            onClear={() => { setSelectedClassId(null); setClassSearch('') }}
+            searchQuery={classSearch}
+            onSearchChange={setClassSearch}
+            itemTypeName="classe"
+            className="w-full max-w-sm"
+          />
+        </div>
       </div>
       {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : filteredClasses.length === 0 ? (
         <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucune classe trouvée</div>
@@ -2632,7 +2691,20 @@ function ClassesView() {
             <div key={c.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{c.name}</h3>
-                <span className="text-xs px-2 py-1 rounded-full" style={{ color: GOLD, background: GOLD_SOFT }}>{c.level || c.section || ''}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs px-2 py-1 rounded-full" style={{ color: GOLD, background: GOLD_SOFT }}>{c.level || c.section || ''}</span>
+                  {canManage && (
+                    <button
+                      onClick={() => handleDeleteClass(c.id, c.name)}
+                      disabled={deletingClassId === c.id}
+                      className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition disabled:opacity-50"
+                      style={{ color: DANGER }}
+                      title="Supprimer"
+                    >
+                      {deletingClassId === c.id ? <div className="h-3 w-3 border border-[oklch(58%_0.15_25)] border-t-transparent rounded-full animate-spin" /> : <Trash2 size={13} />}
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="flex items-center justify-between text-sm" style={{ color: TEXT_MUTED_LUXE }}>
                 <span>{c._count?.students || 0} élèves</span>
@@ -2643,6 +2715,42 @@ function ClassesView() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {showAddClass && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowAddClass(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Créer une classe</h3>
+              <button onClick={() => setShowAddClass(false)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-gray-100 transition"><X size={16} className="text-gray-500" /></button>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom de la classe *</label>
+                <input value={newClassName} onChange={e => setNewClassName(e.target.value)} placeholder="Ex: 6ème A" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Section</label>
+                <select value={newClassSection} onChange={e => setNewClassSection(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                  <option value="MATERNELLE">Maternelle</option>
+                  <option value="PRIMAIRE">Primaire</option>
+                  <option value="SECONDAIRE">Secondaire</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Capacité</label>
+                <input type="number" value={newClassCapacity} onChange={e => setNewClassCapacity(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setShowAddClass(false)} className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)]" style={{ color: TEXT_PRIMARY }}>Annuler</button>
+              <button onClick={handleAddClass} disabled={addingClass} className="edu-gold-cta px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+                {addingClass ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
+                Créer
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -3610,22 +3718,28 @@ function PaymentVerificationView() {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (!file) return
       setScanning(true)
-      const name = file.name.replace(/\.[^.]+$/, '').replace(/^recu[-_]?/i, '').replace(/^receipt[-_]?/i, '')
-      setStaffReceiptSearch(name)
+      const rawName = file.name.replace(/\.[^.]+$/, '')
+      const cleanedName = rawName.replace(/^recu[-_]?/i, '').replace(/^receipt[-_]?/i, '').replace(/^facture[-_]?/i, '')
+      setStaffReceiptSearch(cleanedName)
       toast.success('Fichier importé. Recherche du reçu...')
       setTimeout(() => {
         setScanning(false)
-        setStaffReceiptSearch(name)
+        setStaffReceiptSearch(cleanedName)
         setStaffSearching(true)
         authFetch(`/api/payments?schoolId=${userData?.schoolId}&limit=200`)
           .then(r => r.json())
           .then(json => {
             const allPayments: PaymentData[] = json.data || []
-            const match = allPayments.find(p =>
-              (p.receiptNumber && p.receiptNumber.toLowerCase() === name.toLowerCase()) ||
-              p.id.slice(-8).toLowerCase() === name.toLowerCase() ||
-              file.name.toLowerCase().includes(p.id.slice(-8).toLowerCase())
-            )
+            const searchLower = cleanedName.toLowerCase()
+            const rawLower = rawName.toLowerCase()
+            const match = allPayments.find(p => {
+              if (p.receiptNumber && (p.receiptNumber.toLowerCase() === searchLower || p.receiptNumber.toLowerCase() === rawLower)) return true
+              if (p.id.toLowerCase() === rawLower || p.id.toLowerCase() === searchLower) return true
+              if (p.id.slice(-8).toLowerCase() === searchLower || p.id.slice(-8).toLowerCase() === rawLower) return true
+              if (rawLower.includes(p.id.toLowerCase()) || rawLower.includes(p.id.slice(-8).toLowerCase())) return true
+              if (p.receiptNumber && rawLower.includes(p.receiptNumber.toLowerCase())) return true
+              return false
+            })
             setStaffSearchResult(match || null)
             if (!match) toast.error('Aucun reçu trouvé pour ce fichier')
           })
