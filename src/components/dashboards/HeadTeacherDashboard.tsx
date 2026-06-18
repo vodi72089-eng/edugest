@@ -7,7 +7,7 @@ import { ACCENT, SUCCESS, INFO, GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE } from '@/li
 import StatCard from './StatCard'
 
 export default function HeadTeacherDashboard() {
-  const { userData } = useEduGestStore()
+  const { userData, setCurrentView } = useEduGestStore()
   const [classInfo, setClassInfo] = useState<{ name: string; studentCount: number } | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -55,8 +55,8 @@ export default function HeadTeacherDashboard() {
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
-        <StatCard label="Élèves" value={String(classInfo?.studentCount || 0)} icon={<Users size={16} />} color={ACCENT} />
-        <StatCard label="Matière" value={userData?.subjectName || '—'} icon={<Target size={16} />} color={SUCCESS} />
+        <StatCard label="Élèves" value={String(classInfo?.studentCount || 0)} icon={<Users size={16} />} color={ACCENT} onClick={() => setCurrentView('students')} />
+        <StatCard label="Matière" value={userData?.subjectName || '—'} icon={<Target size={16} />} color={SUCCESS} onClick={() => setCurrentView('grades')} />
         <StatCard label="Titulaire" value={userData?.isTitulaire ? 'Oui' : 'Non'} icon={<Award size={16} />} color={INFO} />
       </div>
     </div>

@@ -7,7 +7,7 @@ import { DANGER, WARNING, SUCCESS, GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE } from '@
 import StatCard from './StatCard'
 
 export default function DisciplineDashboardView() {
-  const { userData, userRole } = useEduGestStore()
+  const { userData, userRole, setCurrentView } = useEduGestStore()
   const [stats, setStats] = useState<{ blacklist: number; greylist: number; whitelist: number; totalStudents: number }>({ blacklist: 0, greylist: 0, whitelist: 0, totalStudents: 0 })
   const [loading, setLoading] = useState(true)
 
@@ -51,9 +51,9 @@ export default function DisciplineDashboardView() {
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
-        <StatCard label="Liste Noire" value={String(stats.blacklist)} icon={<Ban size={16} />} color={DANGER} />
-        <StatCard label="Liste Grise" value={String(stats.greylist)} icon={<AlertTriangle size={16} />} color={WARNING} />
-        <StatCard label="Liste Blanche" value={String(stats.whitelist)} icon={<Award size={16} />} color={SUCCESS} />
+        <StatCard label="Liste Noire" value={String(stats.blacklist)} icon={<Ban size={16} />} color={DANGER} onClick={() => setCurrentView('discipline')} />
+        <StatCard label="Liste Grise" value={String(stats.greylist)} icon={<AlertTriangle size={16} />} color={WARNING} onClick={() => setCurrentView('discipline')} />
+        <StatCard label="Liste Blanche" value={String(stats.whitelist)} icon={<Award size={16} />} color={SUCCESS} onClick={() => setCurrentView('discipline')} />
       </div>
     </div>
   )

@@ -3,11 +3,11 @@
 import React from 'react'
 import { TEXT_MUTED_LUXE, TEXT_PRIMARY } from '@/lib/constants'
 
-export default function StatCard({ label, value, delta, icon, color }: {
-  label: string; value: string; delta?: string; icon: React.ReactNode; color: string
+export default function StatCard({ label, value, delta, icon, color, onClick }: {
+  label: string; value: string; delta?: string; icon: React.ReactNode; color: string; onClick?: () => void
 }) {
   return (
-    <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 relative overflow-hidden shadow-sm hover:shadow-md transition" style={{ borderLeft: `4px solid ${color}` }}>
+    <div onClick={onClick} className={`bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 relative overflow-hidden shadow-sm hover:shadow-md transition${onClick ? ' cursor-pointer hover:scale-[1.02]' : ''}`} style={{ borderLeft: `4px solid ${color}` }}>
       <div className="absolute top-0 right-0 w-[60px] h-[60px] rounded-bl-[60px] opacity-50" style={{ background: `radial-gradient(closest-side, ${color}22, transparent)` }} />
       <div className="flex items-center justify-between mb-2.5">
         <div className="text-xs font-medium uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>{label}</div>

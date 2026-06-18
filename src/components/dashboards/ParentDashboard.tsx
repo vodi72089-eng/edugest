@@ -132,9 +132,9 @@ export default function ParentDashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
-        <StatCard label="Mes enfants" value={String(children.length)} icon={<Users size={16} />} color={ACCENT} />
-        <StatCard label="Avertissements" value={String(recentDisciplineCount)} icon={<Shield size={16} />} color={INFO} />
-        <StatCard label="Devoirs à rendre" value={String(pendingHomework)} icon={<PenTool size={16} />} color={WARNING} />
+        <StatCard label="Mes enfants" value={String(children.length)} icon={<Users size={16} />} color={ACCENT} onClick={() => setCurrentView('students')} />
+        <StatCard label="Avertissements" value={String(recentDisciplineCount)} icon={<Shield size={16} />} color={INFO} onClick={() => setCurrentView('discipline')} />
+        <StatCard label="Devoirs à rendre" value={String(pendingHomework)} icon={<PenTool size={16} />} color={WARNING} onClick={() => setCurrentView('homework')} />
       </div>
 
       <div className="flex items-center gap-2 mb-3">

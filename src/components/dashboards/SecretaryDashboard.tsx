@@ -46,10 +46,10 @@ export default function SecretaryDashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
-        <StatCard label="Total élèves" value={formatNumber(totalStudents)} icon={<Users size={16} />} color={ACCENT} />
-        <StatCard label="Classes actives" value={String(totalClasses)} icon={<School size={16} />} color={INFO} />
-        <StatCard label="Avertissements" value={String(disciplineStats?.greylist || 0)} icon={<AlertTriangle size={16} />} color={WARNING} />
-        <StatCard label="Impayés" value={String(paymentStats?.overdue || 0)} icon={<Clock size={16} />} color={DANGER} />
+        <StatCard label="Total élèves" value={formatNumber(totalStudents)} icon={<Users size={16} />} color={ACCENT} onClick={() => setCurrentView('students')} />
+        <StatCard label="Classes actives" value={String(totalClasses)} icon={<School size={16} />} color={INFO} onClick={() => setCurrentView('classes')} />
+        <StatCard label="Avertissements" value={String(disciplineStats?.greylist || 0)} icon={<AlertTriangle size={16} />} color={WARNING} onClick={() => setCurrentView('discipline')} />
+        <StatCard label="Impayés" value={String(paymentStats?.overdue || 0)} icon={<Clock size={16} />} color={DANGER} onClick={() => setCurrentView('payments')} />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-6 mb-6">

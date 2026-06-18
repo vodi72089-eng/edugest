@@ -8,7 +8,7 @@ import { formatCurrency } from '@/lib/helpers'
 import StatCard from './StatCard'
 
 export default function CashierDashboard() {
-  const { userData } = useEduGestStore()
+  const { userData, setCurrentView } = useEduGestStore()
   const [stats, setStats] = useState<Record<string, unknown> | null>(null)
 
   useEffect(() => {
@@ -39,10 +39,10 @@ export default function CashierDashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
-        <StatCard label="Total encaissé" value={formatCurrency(paymentStats?.collectedAmount || 0)} icon={<DollarSign size={16} />} color={ACCENT} />
-        <StatCard label="Montant attendu" value={formatCurrency(paymentStats?.expectedAmount || 0)} icon={<Wallet size={16} />} color={INFO} />
-        <StatCard label="Taux recouvrement" value={`${paymentStats?.collectionRate?.toFixed(0) || 0}%`} icon={<TrendingUp size={16} />} color={SUCCESS} />
-        <StatCard label="Impayés" value={String(paymentStats?.overdue || 0)} delta={`${paymentStats?.pending || 0} en attente`} icon={<AlertTriangle size={16} />} color={DANGER} />
+        <StatCard label="Total encaissé" value={formatCurrency(paymentStats?.collectedAmount || 0)} icon={<DollarSign size={16} />} color={ACCENT} onClick={() => setCurrentView('payments')} />
+        <StatCard label="Montant attendu" value={formatCurrency(paymentStats?.expectedAmount || 0)} icon={<Wallet size={16} />} color={INFO} onClick={() => setCurrentView('payments')} />
+        <StatCard label="Taux recouvrement" value={`${paymentStats?.collectionRate?.toFixed(0) || 0}%`} icon={<TrendingUp size={16} />} color={SUCCESS} onClick={() => setCurrentView('payments')} />
+        <StatCard label="Impayés" value={String(paymentStats?.overdue || 0)} delta={`${paymentStats?.pending || 0} en attente`} icon={<AlertTriangle size={16} />} color={DANGER} onClick={() => setCurrentView('payments')} />
       </div>
 
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">

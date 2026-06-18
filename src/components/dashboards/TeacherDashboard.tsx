@@ -7,7 +7,7 @@ import { ACCENT, SUCCESS, WARNING, DANGER, INFO, GOLD, TEXT_PRIMARY, TEXT_MUTED_
 import StatCard from './StatCard'
 
 export default function TeacherDashboard() {
-  const { userData } = useEduGestStore()
+  const { userData, setCurrentView } = useEduGestStore()
   const [classCount, setClassCount] = useState(0)
   const [studentCount, setStudentCount] = useState(0)
   const [homeworkCount, setHomeworkCount] = useState(0)
@@ -63,10 +63,10 @@ export default function TeacherDashboard() {
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
-        <StatCard label="Mes classes" value={String(classCount)} icon={<School size={16} />} color={ACCENT} />
-        <StatCard label="Élèves total" value={String(studentCount)} icon={<Users size={16} />} color={INFO} />
-        <StatCard label="Devoirs créés" value={String(homeworkCount)} icon={<PenTool size={16} />} color={WARNING} />
-        <StatCard label="Matière" value={userData?.subjectName || '—'} icon={<BookOpen size={16} />} color={DANGER} />
+        <StatCard label="Mes classes" value={String(classCount)} icon={<School size={16} />} color={ACCENT} onClick={() => setCurrentView('students')} />
+        <StatCard label="Élèves total" value={String(studentCount)} icon={<Users size={16} />} color={INFO} onClick={() => setCurrentView('students')} />
+        <StatCard label="Devoirs créés" value={String(homeworkCount)} icon={<PenTool size={16} />} color={WARNING} onClick={() => setCurrentView('homework')} />
+        <StatCard label="Matière" value={userData?.subjectName || '—'} icon={<BookOpen size={16} />} color={DANGER} onClick={() => setCurrentView('grades')} />
       </div>
     </div>
   )
