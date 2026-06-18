@@ -74,3 +74,11 @@ server.log
 # Caddyfile
 Caddyfileuploads/schools/*.png
 tool-results/
+
+# WhatsApp session (linked phone credentials)
+whatsapp-auth/
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Sessions
+.sessions/

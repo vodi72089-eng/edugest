@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken } from '@/lib/store'
 import { toast } from 'sonner'
+import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, DisciplineData, CommunicationData, HomeworkData } from '@/lib/types'
+import { ACCENT, ACCENT2, ACCENT_SOFT, SUCCESS, WARNING, DANGER, INFO, MUTED, BORDER, GOLD, GOLD_SOFT, GOLD_GLOW, DARK, DARK_ALT, IVORY, IVORY_WARM, TEXT_PRIMARY, TEXT_MUTED_LUXE, SUCCESS_SOFT, SUBSCRIPTION_TIERS, PROVINCES, FILTER_CHIPS, COVER_GRADIENTS, LOGO_COLORS, ENROLLMENT_DATA, SUBSCRIPTION_DATA } from '@/lib/constants'
+import { getInitials, formatDate, formatNumber, formatCurrency, getSchoolTypeLabel, getSubscriptionLabel, getSubscriptionPrice, getRoleLabel, getStatusPill } from '@/lib/helpers'
 import dynamic from 'next/dynamic'
 const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
 import {
@@ -22,195 +25,9 @@ import {
   BarChart, Bar, PieChart, Pie, Cell
 } from 'recharts'
 
-// ===== Types =====
-interface SchoolData {
-  id: string; name: string; shortName: string; email: string; phone: string;
-  address: string; city: string; province: string; country: string;
-  latitude?: number; longitude?: number; logo?: string; coverImage?: string;
-  description?: string; establishmentYear?: number; subscriptionTier: string;
-  maxStudents: number; schoolType: string; schoolCategory: string;
-  averageRating: number; totalReviews: number; studentCount: number; classCount: number;
-  isActive: boolean; _count?: { students: number; classes: number; users: number };
-}
-
-interface StudentData {
-  id: string; matricule: string; firstName: string; lastName: string;
-  gender?: string; dateOfBirth?: string; classId: string;
-  parentId?: string; schoolId: string; schoolYearId: string; photoUrl?: string;
-  class?: { id: string; name: string; section?: string };
-  parent?: { id: string; name: string; email?: string; phone?: string };
-}
-
-interface ClassData {
-  id: string; name: string; section?: string; level?: string;
-  capacity: number; schoolId: string; schoolYearId: string;
-  _count?: { students: number; subjects: number };
-}
-
-interface GradeData {
-  id: string; studentId: string; subjectId: string; classId: string;
-  trimester: string; score: number; comment?: string; schoolYearId: string;
-  student?: { id: string; firstName: string; lastName: string; matricule: string };
-  subject?: { id: string; name: string; coefficient: number };
-}
-
-interface PaymentData {
-  id: string; studentId: string; schoolId: string; amount: number;
-  paidAmount: number; trimester: string; paymentMethod?: string;
-  status: string; receiptNumber?: string; paidAt?: string; createdAt: string;
-  verifiedBy?: string | null; verifiedAt?: string | null; verificationNote?: string | null;
-  student?: { id: string; firstName: string; lastName: string; matricule: string };
-}
-
-interface DisciplineData {
-  id: string; studentId: string; type: string; severity: string;
-  title: string; description: string; points: number; listType: string;
-  status: string; schoolId: string; createdAt: string;
-  student?: { id: string; firstName: string; lastName: string; matricule: string };
-}
-
-interface CommunicationData {
-  id: string; type: string; title: string; content: string;
-  targetType: string; sentToApp: boolean; sentToWhatsapp: boolean;
-  sentAt: string; senderId: string; senderRole: string; schoolId: string;
-}
-
-interface HomeworkData {
-  id: string; title: string; description: string; subjectName: string;
-  classId: string; teacherName: string; teacherId?: string; isTitulaire?: boolean;
-  dueDate: string; schoolId: string; class?: { id: string; name: string };
-}
-
-// ===== CONSTANTS =====
-const ACCENT = 'oklch(55% 0.15 175)'
-const ACCENT2 = 'oklch(45% 0.13 200)'
-const ACCENT_SOFT = 'oklch(95% 0.04 175)'
-const SUCCESS = 'oklch(60% 0.15 145)'
-const WARNING = 'oklch(72% 0.15 65)'
-const DANGER = 'oklch(58% 0.20 25)'
-const INFO = 'oklch(60% 0.13 250)'
-const MUTED = 'oklch(52% 0.015 250)'
-const BORDER = 'oklch(92% 0.005 250)'
-
-// LUXE AFRICAIN Design Tokens
-const GOLD = 'oklch(72% 0.15 65)'
-const GOLD_SOFT = 'oklch(95% 0.05 65)'
-const GOLD_GLOW = 'oklch(72% 0.15 65 / 0.35)'
-const DARK = 'oklch(15% 0.02 250)'
-const DARK_ALT = 'oklch(20% 0.03 175)'
-const IVORY = 'oklch(97% 0.005 175)'
-const IVORY_WARM = 'oklch(96% 0.008 175)'
-const TEXT_PRIMARY = 'oklch(15% 0.02 250)'
-const TEXT_MUTED_LUXE = 'oklch(45% 0.02 250)'
-const SUCCESS_SOFT = 'oklch(95% 0.04 145)'
-const SUBSCRIPTION_TIERS = ['PREMIUM', 'STANDARD', 'ESSENTIEL', 'ENTERPRISE', 'FREEMIUM', 'CORPORATE']
-
-const PROVINCES = ['Toutes provinces', 'Kinshasa', 'Haut-Katanga', 'Dakar', 'Abidjan', 'Brazzaville', 'Nord-Kivu']
-const FILTER_CHIPS = [
-  { key: 'all', label: 'Toutes', count: 248 },
-  { key: 'MATERNELLE', label: 'Maternelle' },
-  { key: 'PRIMAIRE', label: 'Primaire' },
-  { key: 'SECONDAIRE', label: 'Secondaire' },
-  { key: 'MIXTE', label: 'Mixte' },
-  { key: 'PRIVEE', label: 'Privée' },
-  { key: 'PUBLIQUE', label: 'Publique' },
-]
-
-const COVER_GRADIENTS = [
-  'from-[oklch(55%_0.15_175)] to-[oklch(45%_0.13_200)]',
-  'from-[oklch(60%_0.13_250)] to-[oklch(45%_0.15_280)]',
-  'from-[oklch(60%_0.15_65)] to-[oklch(50%_0.16_30)]',
-  'from-[oklch(58%_0.15_145)] to-[oklch(40%_0.15_175)]',
-  'from-[oklch(55%_0.20_25)] to-[oklch(45%_0.18_0)]',
-  'from-[oklch(60%_0.15_295)] to-[oklch(45%_0.15_320)]',
-]
-
-const LOGO_COLORS = [
-  'text-[oklch(45%_0.13_175)]', 'text-[oklch(45%_0.13_250)]',
-  'text-[oklch(50%_0.13_65)]', 'text-[oklch(40%_0.13_145)]',
-  'text-[oklch(45%_0.18_25)]', 'text-[oklch(45%_0.15_295)]',
-]
-
-const ENROLLMENT_DATA = [
-  { month: 'Jun', value: 3200 }, { month: 'Jul', value: 3400 },
-  { month: 'Aug', value: 3800 }, { month: 'Sep', value: 5200 },
-  { month: 'Oct', value: 4800 }, { month: 'Nov', value: 4600 },
-  { month: 'Dec', value: 4200 }, { month: 'Jan', value: 5100 },
-  { month: 'Feb', value: 5400 }, { month: 'Mar', value: 5600 },
-  { month: 'Apr', value: 5900 }, { month: 'May', value: 6200 },
-]
-
-const SUBSCRIPTION_DATA = [
-  { name: 'Standard', value: 35, color: ACCENT },
-  { name: 'Professionnel', value: 25, color: WARNING },
-  { name: 'Essentiel', value: 20, color: INFO },
-  { name: 'Enterprise', value: 13, color: SUCCESS },
-  { name: 'Freemium', value: 7, color: DANGER },
-]
-
-// ===== HELPER FUNCTIONS =====
-function getInitials(name: string) {
-  return name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-function formatNumber(n: number) {
-  return n.toLocaleString('fr-FR')
-}
-
-function formatCurrency(n: number) {
-  return n.toLocaleString('fr-FR') + '$'
-}
-
-function getSchoolTypeLabel(type: string, category: string) {
-  const t = type === 'MIXTE' ? 'Mixte' : type === 'FILLES' ? 'Filles' : 'Garçons'
-  const c = category === 'PRIVEE' ? 'Privée' : 'Publique'
-  return `${t} · ${c}`
-}
-
-function getSubscriptionLabel(tier: string) {
-  const map: Record<string, string> = {
-    FREEMIUM: 'Freemium', ESSENTIEL: 'Essentiel', STANDARD: 'Standard',
-    PREMIUM: 'Professionnel', ENTERPRISE: 'Enterprise', CORPORATE: 'Corporate',
-  }
-  return map[tier] || tier
-}
-
-function getSubscriptionPrice(tier: string) {
-  const map: Record<string, string> = {
-    FREEMIUM: '0$/mois', ESSENTIEL: '100$/mois', STANDARD: '250$/mois',
-    PREMIUM: '500$/mois', ENTERPRISE: '1 000$/mois', CORPORATE: 'Sur mesure',
-  }
-  return map[tier] || ''
-}
-
-function getRoleLabel(role: UserRole): string {
-  const map: Record<UserRole, string> = {
-    SUPER_ADMIN_GLOBAL: 'Super Admin',
-    SECRETARY: 'Secrétaire',
-    CASHIER: 'Caissier',
-    DIRECTION_MATERNELLE: 'Dir. Maternelle',
-    DIRECTION_PRIMAIRE: 'Dir. Primaire',
-    DIRECTION_SECONDAIRE: 'Dir. Secondaire',
-    DISCIPLINE_MATERNELLE: 'Disc. Maternelle',
-    DISCIPLINE_PRIMAIRE: 'Disc. Primaire',
-    DISCIPLINE_SECONDAIRE: 'Disc. Secondaire',
-    TEACHER: 'Enseignant',
-    HEAD_TEACHER: 'Prof. Principal',
-    PARENT: 'Parent',
-  }
-  return map[role] || role
-}
-
-function getStatusPill(status: string) {
-  if (status === 'PAID' || status === 'Actif' || status === 'ACTIVE') return 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]'
-  if (status === 'PARTIAL' || status === 'À renouveler') return 'bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]'
-  if (status === 'OVERDUE' || status === 'Suspendu') return 'bg-[oklch(94%_0.05_25)] text-[oklch(45%_0.18_25)]'
-  return 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'
-}
+// ===== Types (imported from @/lib/types) =====
+// ===== CONSTANTS (imported from @/lib/constants) =====
+// ===== HELPERS (imported from @/lib/helpers) =====
 
 // ===== SEARCH AUTOCOMPLETE COMPONENT =====
 interface AutocompleteItem {
@@ -2397,138 +2214,120 @@ function DashboardLayout() {
 // ===== MAIN CONTENT ROUTER =====
 // ===== WHATSAPP CONFIG VIEW =====
 function WhatsAppConfigView() {
-  const [config, setConfig] = useState<{ phoneNumber: string; apiKey: string; webhookUrl: string }>({ phoneNumber: '', apiKey: '', webhookUrl: '' })
+  const [whatsappStatus, setWhatsappStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected')
+  const [qrCode, setQrCode] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [starting, setStarting] = useState(false)
 
   useEffect(() => {
-    authFetch('/api/whatsapp-config')
-      .then(r => r.json())
-      .then(j => {
-        if (j.data) setConfig({ phoneNumber: j.data.phoneNumber || '', apiKey: j.data.apiKey || '', webhookUrl: j.data.webhookUrl || '' })
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    checkStatus()
+    const interval = setInterval(checkStatus, 5000)
+    return () => clearInterval(interval)
   }, [])
 
-  async function handleSave() {
-    setSaving(true)
+  async function checkStatus() {
     try {
-      const res = await authFetch('/api/whatsapp-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
-      })
+      const res = await authFetch('/api/whatsapp-status')
       if (res.ok) {
-        toast.success('Configuration WhatsApp sauvegardée!')
-      } else {
         const json = await res.json()
-        toast.error(json.error || 'Erreur lors de la sauvegarde')
+        setWhatsappStatus(json.data?.status || 'disconnected')
+        setQrCode(json.data?.qr || null)
       }
-    } catch { toast.error('Erreur réseau') }
-    finally { setSaving(false) }
+    } catch {}
+    finally { setLoading(false) }
   }
 
-  async function handleTest() {
-    setTesting(true)
-    setTestResult(null)
+  async function handleConnect() {
+    setStarting(true)
     try {
-      const res = await authFetch('/api/whatsapp-config', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'test' }),
-      })
-      const json = await res.json()
-      setTestResult({ ok: res.ok, msg: json.message || json.error || (res.ok ? 'Connexion réussie!' : 'Échec de la connexion') })
-    } catch { setTestResult({ ok: false, msg: 'Erreur réseau' }) }
-    finally { setTesting(false) }
+      await authFetch('/api/whatsapp-status', { method: 'POST' })
+      toast.success('Démarrage du client WhatsApp...')
+    } catch { toast.error('Erreur lors du démarrage') }
+    finally { setStarting(false) }
   }
+
+  const statusColors = {
+    connected: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', label: 'Connecté' },
+    connecting: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500', label: 'En attente du scan...' },
+    disconnected: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500', label: 'Déconnecté' },
+  }
+  const st = statusColors[whatsappStatus]
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>WhatsApp Config</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>WhatsApp Bot</h1>
       </div>
 
-      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl max-w-xl shadow-sm overflow-hidden">
-        <div className="h-28 relative" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-          <div className="absolute inset-0 opacity-20" style={{ background: 'radial-gradient(ellipse at top right, oklch(72% 0.15 65 / 0.3), transparent 60%)' }} />
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl max-w-lg shadow-sm overflow-hidden">
+        <div className="h-28 relative" style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)' }}>
           <div className="absolute bottom-4 left-6 flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl grid place-items-center text-white bg-white/20 backdrop-blur-sm">
               <MessageSquare size={24} />
             </div>
             <div className="text-white">
-              <div className="font-bold text-lg">Configuration WhatsApp</div>
-              <div className="text-white/70 text-sm">API Business officielle</div>
+              <div className="font-bold text-lg">WhatsApp Bot</div>
+              <div className="text-white/70 text-sm">Liez votre téléphone pour envoyer des OTP</div>
             </div>
           </div>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-5">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="h-6 w-6 border-4 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
             <>
-              <div>
-                <label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Numéro officiel WhatsApp</label>
-                <div className="flex items-center gap-2 mt-1 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[oklch(72%_0.15_65_/_0.3)] focus-within:border-[oklch(72%_0.15_65_/_0.5)] transition">
-                  <Phone size={14} style={{ color: TEXT_MUTED_LUXE }} />
-                  <input
-                    placeholder="+243 81 234 56 78"
-                    value={config.phoneNumber}
-                    onChange={e => setConfig({ ...config, phoneNumber: e.target.value })}
-                    className="flex-1 border-0 bg-transparent outline-none text-sm"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Clé API</label>
-                <div className="flex items-center gap-2 mt-1 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[oklch(72%_0.15_65_/_0.3)] focus-within:border-[oklch(72%_0.15_65_/_0.5)] transition">
-                  <Lock size={14} style={{ color: TEXT_MUTED_LUXE }} />
-                  <input
-                    placeholder="EAAGm0PX4ZCps..."
-                    value={config.apiKey}
-                    onChange={e => setConfig({ ...config, apiKey: e.target.value })}
-                    type="password"
-                    className="flex-1 border-0 bg-transparent outline-none text-sm"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>URL Webhook</label>
-                <div className="flex items-center gap-2 mt-1 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[oklch(72%_0.15_65_/_0.3)] focus-within:border-[oklch(72%_0.15_65_/_0.5)] transition">
-                  <Globe size={14} style={{ color: TEXT_MUTED_LUXE }} />
-                  <input
-                    placeholder="https://votre-serveur.com/api/whatsapp/webhook"
-                    value={config.webhookUrl}
-                    onChange={e => setConfig({ ...config, webhookUrl: e.target.value })}
-                    className="flex-1 border-0 bg-transparent outline-none text-sm"
-                  />
-                </div>
+              {/* Status */}
+              <div className={`flex items-center gap-3 p-3 rounded-xl ${st.bg}`}>
+                <div className={`w-2.5 h-2.5 rounded-full ${st.dot} ${whatsappStatus === 'connecting' ? 'animate-pulse' : ''}`} />
+                <span className={`text-sm font-semibold ${st.text}`}>{st.label}</span>
               </div>
 
-              {testResult && (
-                <div className={`p-3 rounded-xl text-sm flex items-center gap-2 ${testResult.ok ? 'bg-[oklch(95%_0.04_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(95%_0.05_25)] text-[oklch(45%_0.18_25)]'}`}>
-                  {testResult.ok ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}
-                  {testResult.msg}
+              {/* QR Code */}
+              {whatsappStatus === 'connecting' && qrCode && (
+                <div className="text-center space-y-3">
+                  <p className="text-sm" style={{ color: TEXT_SECONDARY }}>Scannez ce QR code avec WhatsApp sur votre téléphone :</p>
+                  <div className="inline-block p-4 bg-white border-2 border-gray-200 rounded-2xl shadow-inner">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCode)}`}
+                      alt="QR Code WhatsApp"
+                      className="w-56 h-56"
+                    />
+                  </div>
+                  <p className="text-xs" style={{ color: TEXT_MUTED }}>WhatsApp → Paramètres → Appareils connectés → Connecter un appareil</p>
                 </div>
               )}
 
-              <div className="flex items-center gap-3 pt-2">
-                <button onClick={handleSave} disabled={saving} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
-                  {saving ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
-                  Sauvegarder
+              {/* Connected */}
+              {whatsappStatus === 'connected' && (
+                <div className="text-center space-y-3">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 grid place-items-center">
+                    <CheckCircle size={32} className="text-emerald-600" />
+                  </div>
+                  <p className="text-sm font-semibold text-emerald-700">WhatsApp est connecté !</p>
+                  <p className="text-xs" style={{ color: TEXT_MUTED }}>Les codes OTP seront envoyés via ce téléphone.</p>
+                </div>
+              )}
+
+              {/* Connect button */}
+              {whatsappStatus === 'disconnected' && (
+                <button
+                  onClick={handleConnect}
+                  disabled={starting}
+                  className="w-full py-3 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition hover:opacity-90"
+                  style={{ background: '#25D366' }}
+                >
+                  {starting ? (
+                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Phone size={16} />
+                  )}
+                  {starting ? 'Démarrage...' : 'Connecter mon téléphone'}
                 </button>
-                <button onClick={handleTest} disabled={testing} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition disabled:opacity-50" style={{ color: TEXT_PRIMARY }}>
-                  {testing ? <div className="h-4 w-4 border-2 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" /> : <Zap size={14} />}
-                  Tester la connexion
-                </button>
-              </div>
+              )}
             </>
           )}
         </div>

@@ -1,0 +1,14 @@
+services:
+  edugest:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./prisma/db:/app/prisma/db
+      - ./whatsapp-auth:/app/whatsapp-auth
+      - ./.sessions:/app/.sessions
+      - ./upload:/app/upload
+    environment:
+      - DATABASE_URL=file:./db/custom.db
+      - NODE_ENV=production
+    restart: unless-stopped
