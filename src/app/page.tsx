@@ -3695,13 +3695,20 @@ function PaymentVerificationView() {
     setStaffSearching(true)
     setStaffSearchResult(null)
     try {
-      const res = await authFetch(`/api/payments?schoolId=${userData?.schoolId}&limit=200`)
+      const res = await authFetch(`/api/payments?schoolId=${userData?.schoolId}&limit=500`)
       const json = await res.json()
       const allPayments: PaymentData[] = json.data || []
-      const match = allPayments.find(p =>
-        (p.receiptNumber && p.receiptNumber.toLowerCase() === staffReceiptSearch.trim().toLowerCase()) ||
-        p.id.slice(-8).toLowerCase() === staffReceiptSearch.trim().toLowerCase()
-      )
+      const q = staffReceiptSearch.trim().toLowerCase()
+      const qNoHyphens = q.replace(/-/g, '')
+      const match = allPayments.find(p => {
+        if (p.receiptNumber && p.receiptNumber.toLowerCase() === q) return true
+        if (p.id.toLowerCase() === q) return true
+        if (p.id.toLowerCase().replace(/-/g, '') === qNoHyphens) return true
+        if (p.id.slice(-8).toLowerCase() === q.slice(-8)) return true
+        if (q.includes(p.id.toLowerCase()) || q.includes(p.id.slice(-8).toLowerCase())) return true
+        if (p.receiptNumber && q.includes(p.receiptNumber.toLowerCase())) return true
+        return false
+      })
       setStaffSearchResult(match || null)
       if (!match) toast.error('Aucun reçu trouvé avec ce numéro')
     } catch {
@@ -3726,18 +3733,21 @@ function PaymentVerificationView() {
         setScanning(false)
         setStaffReceiptSearch(cleanedName)
         setStaffSearching(true)
-        authFetch(`/api/payments?schoolId=${userData?.schoolId}&limit=200`)
+        authFetch(`/api/payments?schoolId=${userData?.schoolId}&limit=500`)
           .then(r => r.json())
           .then(json => {
             const allPayments: PaymentData[] = json.data || []
             const searchLower = cleanedName.toLowerCase()
             const rawLower = rawName.toLowerCase()
+            const searchNoHyphens = searchLower.replace(/-/g, '')
             const match = allPayments.find(p => {
               if (p.receiptNumber && (p.receiptNumber.toLowerCase() === searchLower || p.receiptNumber.toLowerCase() === rawLower)) return true
               if (p.id.toLowerCase() === rawLower || p.id.toLowerCase() === searchLower) return true
-              if (p.id.slice(-8).toLowerCase() === searchLower || p.id.slice(-8).toLowerCase() === rawLower) return true
+              if (p.id.toLowerCase().replace(/-/g, '') === searchNoHyphens) return true
+              if (p.id.slice(-8).toLowerCase() === searchLower.slice(-8) || p.id.slice(-8).toLowerCase() === rawLower.slice(-8)) return true
               if (rawLower.includes(p.id.toLowerCase()) || rawLower.includes(p.id.slice(-8).toLowerCase())) return true
-              if (p.receiptNumber && rawLower.includes(p.receiptNumber.toLowerCase())) return true
+              if (searchLower.includes(p.id.toLowerCase()) || searchLower.includes(p.id.slice(-8).toLowerCase())) return true
+              if (p.receiptNumber && (rawLower.includes(p.receiptNumber.toLowerCase()) || searchLower.includes(p.receiptNumber.toLowerCase()))) return true
               return false
             })
             setStaffSearchResult(match || null)
