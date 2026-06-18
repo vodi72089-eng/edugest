@@ -39,12 +39,12 @@ export default function SchoolsManagementView() {
     if (!file) return
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      toast.error('Veuillez sÃ©lectionner une image')
+      toast.error('Veuillez sélectionner une image')
       return
     }
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('L\'image ne doit pas dÃ©passer 5MB')
+      toast.error('L\'image ne doit pas dépasser 5MB')
       return
     }
     // Show preview immediately
@@ -61,12 +61,12 @@ export default function SchoolsManagementView() {
       if (res.ok) {
         const data = await res.json()
         setForm(prev => ({ ...prev, logo: data.url }))
-        toast.success('Logo importÃ© avec succÃ¨s')
+        toast.success('Logo importé avec succès')
       } else {
         toast.error('Erreur lors de l\'import du logo')
       }
     } catch {
-      toast.error('Erreur rÃ©seau lors de l\'import')
+      toast.error('Erreur réseau lors de l\'import')
     } finally {
       setUploadingLogo(false)
     }
@@ -80,7 +80,7 @@ export default function SchoolsManagementView() {
     }
     setSaving(true)
     try {
-      // 1. CrÃ©er l'Ã©cole
+      // 1. Créer l'école
       const res = await fetch('/api/schools', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -114,7 +114,7 @@ export default function SchoolsManagementView() {
           }
         }
 
-        toast.success(`Ã‰cole ajoutÃ©e avec succÃ¨s !${price > 0 ? ` Paiement de ${price}$ en liquide enregistrÃ©.` : ''}`)
+        toast.success(`École ajoutée avec succès !${price > 0 ? ` Paiement de ${price}$ en liquide enregistré.` : ''}`)
         setShowAddModal(false)
         setForm({ name: '', shortName: '', email: '', phone: '', address: '', city: '', province: '', country: 'RDC', schoolType: 'MIXTE', schoolCategory: 'PRIVEE', maxStudents: 200, establishmentYear: new Date().getFullYear(), description: '', mission: '', subscriptionTier: 'FREEMIUM', latitude: null, longitude: null, logo: '', coverImage: '' })
         setLogoPreview(null)
@@ -124,7 +124,7 @@ export default function SchoolsManagementView() {
         toast.error(json.error || 'Erreur lors de l\'ajout')
       }
     } catch {
-      toast.error('Erreur rÃ©seau')
+      toast.error('Erreur réseau')
     } finally {
       setSaving(false)
     }
@@ -136,12 +136,12 @@ export default function SchoolsManagementView() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Ã‰coles</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Écoles</h1>
           </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(schools.length)} Ã©coles</p>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(schools.length)} écoles</p>
         </div>
         <button onClick={() => setShowAddModal(true)} className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
-          <Plus size={14} /> Ajouter une Ã©cole
+          <Plus size={14} /> Ajouter une école
         </button>
       </div>
 
@@ -155,8 +155,8 @@ export default function SchoolsManagementView() {
                   <Building2 size={20} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>Ajouter une Ã©cole</h2>
-                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>CrÃ©er un nouvel Ã©tablissement</p>
+                  <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>Ajouter une école</h2>
+                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Créer un nouvel établissement</p>
                 </div>
               </div>
               <button onClick={() => setShowAddModal(false)} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition"><X size={18} /></button>
@@ -193,8 +193,8 @@ export default function SchoolsManagementView() {
                   </button>
                 </div>
                 <div className="flex-1 min-w-0 pt-1">
-                  <label className="text-[13px] font-semibold" style={{ color: TEXT_PRIMARY }}>Logo de l&apos;Ã©cole</label>
-                  <p className="text-[11px] mt-0.5 mb-2" style={{ color: TEXT_MUTED_LUXE }}>Importez le logo de l&apos;Ã©tablissement (JPG, PNG, SVG â€” max 5MB)</p>
+                  <label className="text-[13px] font-semibold" style={{ color: TEXT_PRIMARY }}>Logo de l&apos;école</label>
+                  <p className="text-[11px] mt-0.5 mb-2" style={{ color: TEXT_MUTED_LUXE }}>Importez le logo de l&apos;établissement (JPG, PNG, SVG — max 5MB)</p>
                   <button
                     type="button"
                     onClick={() => logoInputRef.current?.click()}
@@ -229,11 +229,11 @@ export default function SchoolsManagementView() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom de l&apos;Ã©cole *</label>
-                  <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Complexe Scolaire LumiÃ¨re" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom de l&apos;école *</label>
+                  <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Complexe Scolaire Lumière" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Sigle / AbrÃ©viation *</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Sigle / Abréviation *</label>
                   <input type="text" required value={form.shortName} onChange={e => setForm({ ...form, shortName: e.target.value })} placeholder="Ex: CSL" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
@@ -241,7 +241,7 @@ export default function SchoolsManagementView() {
                   <input type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="contact@ecole.cd" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>TÃ©lÃ©phone *</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone *</label>
                   <input type="tel" required value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+243 81 234 56 78" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
@@ -261,27 +261,27 @@ export default function SchoolsManagementView() {
                   <input type="text" required value={form.country} onChange={e => setForm({ ...form, country: e.target.value })} placeholder="Remplie auto. par la carte" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Type d&apos;Ã©cole</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Type d&apos;école</label>
                   <select value={form.schoolType} onChange={e => setForm({ ...form, schoolType: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
                     <option value="MIXTE">Mixte</option>
                     <option value="FILLE">Filles</option>
-                    <option value="GARCON">GarÃ§ons</option>
+                    <option value="GARCON">Garçons</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>CatÃ©gorie</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Catégorie</label>
                   <select value={form.schoolCategory} onChange={e => setForm({ ...form, schoolCategory: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
-                    <option value="PRIVEE">PrivÃ©e</option>
+                    <option value="PRIVEE">Privée</option>
                     <option value="PUBLIQUE">Publique</option>
-                    <option value="CONVENTIONNEE">ConventionnÃ©e</option>
+                    <option value="CONVENTIONNEE">Conventionnée</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>CapacitÃ© max</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Capacité max</label>
                   <input type="number" value={form.maxStudents} onChange={e => setForm({ ...form, maxStudents: parseInt(e.target.value) || 100 })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>AnnÃ©e de fondation</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Année de fondation</label>
                   <input type="number" value={form.establishmentYear} onChange={e => setForm({ ...form, establishmentYear: parseInt(e.target.value) || undefined })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
               </div>
@@ -295,12 +295,12 @@ export default function SchoolsManagementView() {
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Formule d&apos;abonnement</label>
                     <select value={form.subscriptionTier} onChange={e => setForm({ ...form, subscriptionTier: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
-                      <option value="FREEMIUM">Freemium â€” 0$/mois</option>
-                      <option value="ESSENTIEL">Essentiel â€” 100$/mois</option>
-                      <option value="STANDARD">Standard â€” 250$/mois</option>
-                      <option value="PREMIUM">Professionnel â€” 500$/mois</option>
-                      <option value="ENTERPRISE">Enterprise â€” 1 000$/mois</option>
-                      <option value="CORPORATE">Corporate â€” Sur mesure</option>
+                      <option value="FREEMIUM">Freemium — 0$/mois</option>
+                      <option value="ESSENTIEL">Essentiel — 100$/mois</option>
+                      <option value="STANDARD">Standard — 250$/mois</option>
+                      <option value="PREMIUM">Professionnel — 500$/mois</option>
+                      <option value="ENTERPRISE">Enterprise — 1 000$/mois</option>
+                      <option value="CORPORATE">Corporate — Sur mesure</option>
                     </select>
                   </div>
                   <div className="space-y-1.5">
@@ -308,30 +308,30 @@ export default function SchoolsManagementView() {
                     <div className="flex items-center gap-2 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl bg-white">
                       <DollarSign size={16} style={{ color: SUCCESS }} />
                       <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Liquide (Cash)</span>
-                      <span className="text-[11px] ml-auto" style={{ color: TEXT_MUTED_LUXE }}>EncaissÃ© par l&apos;admin</span>
+                      <span className="text-[11px] ml-auto" style={{ color: TEXT_MUTED_LUXE }}>Encaissé par l&apos;admin</span>
                     </div>
                   </div>
                 </div>
                 {form.subscriptionTier !== 'FREEMIUM' && (
                   <div className="flex items-center gap-2 text-[12px] px-3 py-2 rounded-lg" style={{ background: `${GOLD}15`, color: GOLD }}>
                     <AlertCircle size={14} />
-                    <span>Le paiement de <strong>{getSubscriptionPrice(form.subscriptionTier)}</strong> sera enregistrÃ© comme reÃ§u en liquide lors de la crÃ©ation.</span>
+                    <span>Le paiement de <strong>{getSubscriptionPrice(form.subscriptionTier)}</strong> sera enregistré comme reçu en liquide lors de la création.</span>
                   </div>
                 )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Description</label>
-                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} placeholder="BrÃ¨ve description de l'Ã©tablissement..." className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] resize-none" />
+                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Brève description de l'établissement..." className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] resize-none" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Mission</label>
-                <textarea value={form.mission} onChange={e => setForm({ ...form, mission: e.target.value })} rows={2} placeholder="Mission de l'Ã©tablissement..." className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] resize-none" />
+                <textarea value={form.mission} onChange={e => setForm({ ...form, mission: e.target.value })} rows={2} placeholder="Mission de l'établissement..." className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] resize-none" />
               </div>
               <div className="sticky bottom-0 bg-white border-t border-[oklch(90%_0.01_175)] flex items-center justify-end gap-3 p-4 -mx-6 -mb-6 mt-4">
                 <button type="button" onClick={() => setShowAddModal(false)} className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
                 <button type="submit" disabled={saving} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
                   {saving ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
-                  CrÃ©er l&apos;Ã©cole
+                  Créer l&apos;école
                 </button>
               </div>
             </form>
@@ -344,9 +344,9 @@ export default function SchoolsManagementView() {
           <table className="w-full">
             <thead>
               <tr style={{ background: IVORY }}>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Ã‰cole</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>École</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Abonnement</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Ã‰lÃ¨ves</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élèves</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Statut</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}></th>
               </tr>
@@ -367,11 +367,11 @@ export default function SchoolsManagementView() {
                       )}
                       <div>
                         <div className="font-medium text-[13px]" style={{ color: TEXT_PRIMARY }}>{s.name}</div>
-                        <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.city} Â· {s.province}</div>
+                        <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.city} · {s.province}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_PRIMARY }}><strong>{getSubscriptionLabel(s.subscriptionTier)}</strong> Â· {getSubscriptionPrice(s.subscriptionTier)}</td>
+                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_PRIMARY }}><strong>{getSubscriptionLabel(s.subscriptionTier)}</strong> · {getSubscriptionPrice(s.subscriptionTier)}</td>
                   <td className="px-4 py-3 text-[13px] font-semibold tabular-nums" style={{ color: TEXT_PRIMARY }}>{formatNumber(s._count?.students || s.studentCount)}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill(s.isActive ? 'Actif' : 'Suspendu')}`}>

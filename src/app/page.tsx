@@ -29,11 +29,11 @@ import {
   MapPin, Star, School, Phone, Mail, Eye, Edit, MoreVertical,
   ArrowLeft, CheckCircle, AlertTriangle, Clock, Send, FileText,
   BarChart3, CreditCard, UserCircle, ChevronDown, Filter,
-  TrendingUp, UserPlus, Calendar, ClipboardList, AlertCircle,
+   TrendingUp, UserPlus, Calendar, ClipboardList,
   Info, Zap, Globe, Lock, Award, Ban, CircleDot, ListChecks,
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
-  ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw
+  ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -62,8 +62,8 @@ function SearchAutocomplete({
   searchQuery,
   onSearchChange,
   loading = false,
-  emptyMessage = 'Aucun rÃ©sultat',
-  itemTypeName = 'rÃ©sultat',
+  emptyMessage = 'Aucun résultat',
+  itemTypeName = 'résultat',
   className = '',
 }: {
   label?: string
@@ -150,12 +150,12 @@ function SearchAutocomplete({
             </div>
           ) : items.length === 0 ? (
             <div className="px-4 py-4 text-center text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
-              {searchQuery.length < 2 ? 'Tapez au moins 2 caractÃ¨res...' : emptyMessage}
+              {searchQuery.length < 2 ? 'Tapez au moins 2 caractères...' : emptyMessage}
             </div>
           ) : (
             <>
               <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider border-b border-[oklch(92%_0.005_250)]" style={{ color: TEXT_MUTED_LUXE }}>
-                {items.length} {itemTypeName}{items.length > 1 ? 's' : ''} trouvÃ©{items.length > 1 ? 's' : ''}
+                {items.length} {itemTypeName}{items.length > 1 ? 's' : ''} trouvé{items.length > 1 ? 's' : ''}
               </div>
               {items.map(item => (
                 <button
@@ -214,8 +214,8 @@ function PublicHeader({ dark = false }: { dark?: boolean }) {
           <BrandMark />
         </button>
         <nav className="hidden sm:flex items-center gap-1">
-          <button onClick={() => setCurrentView('home')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Ã‰coles</button>
-          <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>FonctionnalitÃ©s</button>
+          <button onClick={() => setCurrentView('home')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Écoles</button>
+          <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Fonctionnalités</button>
           <button onClick={() => setCurrentView('pricing')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Tarifs</button>
           <button onClick={() => setCurrentView('login')} className="ml-3 edu-gold-cta px-5 py-2 rounded-xl text-sm font-semibold">Se connecter</button>
         </nav>
@@ -225,8 +225,8 @@ function PublicHeader({ dark = false }: { dark?: boolean }) {
       </div>
       {mobileMenu && (
         <div className={`sm:hidden border-t ${borderColor} ${mobileBg} backdrop-blur-xl p-4 flex flex-col gap-2`}>
-          <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Ã‰coles</button>
-          <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>FonctionnalitÃ©s</button>
+          <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Écoles</button>
+          <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Fonctionnalités</button>
           <button onClick={() => { setCurrentView('pricing'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Tarifs</button>
           <button onClick={() => { setCurrentView('login'); setMobileMenu(false) }} className="edu-gold-cta px-4 py-2 rounded-xl text-sm font-semibold text-center">Se connecter</button>
         </div>
@@ -244,33 +244,33 @@ function Footer() {
         <div>
           <div className="mb-4"><BrandMark height={40} /></div>
           <p className="text-sm text-white/50 leading-relaxed max-w-[280px]">
-            La plateforme de gestion scolaire multi-Ã©coles qui simplifie la vie des directions, enseignants et parents en Afrique francophone.
+            La plateforme de gestion scolaire multi-écoles qui simplifie la vie des directions, enseignants et parents en Afrique francophone.
           </p>
         </div>
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Produit</h4>
           <ul className="space-y-3">
-            <li><button onClick={() => setCurrentView('home')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Trouver une Ã©cole<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
+            <li><button onClick={() => setCurrentView('home')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Trouver une école<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
             <li><button onClick={() => setCurrentView('pricing')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Tarifs<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
             <li><button onClick={() => setCurrentView('login')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Connexion<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
           </ul>
         </div>
         <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">RÃ´les</h4>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Rôles</h4>
           <ul className="space-y-3 text-sm text-white/70">
-            <li>Super Admin</li><li>SecrÃ©taire</li><li>Parent</li><li>Enseignant</li>
+            <li>Super Admin</li><li>Secrétaire</li><li>Parent</li><li>Enseignant</li>
           </ul>
         </div>
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Contact</h4>
           <ul className="space-y-3 text-sm text-white/50">
-            <li>support@edugest.app</li><li>+243 81 234 56 78</li><li>Kinshasa Â· Dakar Â· Abidjan</li>
+            <li>support@edugest.app</li><li>+243 81 234 56 78</li><li>Kinshasa · Dakar · Abidjan</li>
           </ul>
         </div>
       </div>
       <div className="container-premium pt-6 border-t border-white/10 flex flex-col sm:flex-row justify-between text-xs text-white/40 pb-8">
-        <span>Â© 2026 EduGest Â· Tous droits rÃ©servÃ©s</span>
-        <span className="mt-2 sm:mt-0">Conditions Â· ConfidentialitÃ© Â· Cookies</span>
+        <span>© 2026 EduGest · Tous droits réservés</span>
+        <span className="mt-2 sm:mt-0">Conditions · Confidentialité · Cookies</span>
       </div>
     </footer>
   )
@@ -317,11 +317,11 @@ function SchoolsOverviewMap({ schools }: { schools: SchoolData[] }) {
 
   return (
     <MapContainer center={[-4.3, 15.3]} zoom={5} style={{ height: 400, borderRadius: 12 }} className="z-0">
-      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="Â© OpenStreetMap" />
+      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap" />
       {schoolsWithCoords.map(s => (
         <Marker key={s.id} position={[s.latitude!, s.longitude!]}>
           <Popup>
-            <strong>{s.name}</strong><br />{s.city} Â· {s.country}
+            <strong>{s.name}</strong><br />{s.city} · {s.country}
           </Popup>
         </Marker>
       ))}
@@ -361,7 +361,7 @@ function HomeView() {
   // Typewriter animation
   useEffect(() => {
     const title1 = "Rejoignez"
-    const title2 = "l'excellence Ã©ducative"
+    const title2 = "l'excellence éducative"
     let charIndex = 0
     let currentLine = 1
     let timeoutId: ReturnType<typeof setTimeout>
@@ -386,7 +386,7 @@ function HomeView() {
           charIndex++
           timeoutId = setTimeout(type, 80 + Math.random() * 60)
         } else {
-          // Typing complete â€” keep cursor briefly then hide
+          // Typing complete — keep cursor briefly then hide
           setTypewriterActiveLine(2)
           setTimeout(() => setTypewriterActiveLine(null), 1500)
         }
@@ -529,17 +529,17 @@ function HomeView() {
   })
 
   const FEATURES = [
-    { icon: <GraduationCap size={24} />, title: 'Gestion Scolaire IntÃ©grale', desc: 'Notes, bulletins, emploi du temps â€” tout en un seul endroit' },
-    { icon: <MessageSquare size={24} />, title: 'Communication InstantanÃ©e', desc: 'WhatsApp, SMS, notifications push pour rester connectÃ©' },
-    { icon: <CreditCard size={24} />, title: 'Paiements SimplifiÃ©s', desc: 'Mobile Money, virement, espÃ¨ces â€” encaissez facilement' },
-    { icon: <Building2 size={24} />, title: 'Multi-Ã‰coles', desc: 'GÃ©rez plusieurs Ã©tablissements depuis un tableau de bord unique' },
-    { icon: <Shield size={24} />, title: 'SÃ©curitÃ© & ConformitÃ©', desc: 'DonnÃ©es protÃ©gÃ©es, conformes aux normes africaines' },
-    { icon: <BarChart3 size={24} />, title: 'Analytique AvancÃ©e', desc: 'Tableaux de bord et rapports en temps rÃ©el' },
+    { icon: <GraduationCap size={24} />, title: 'Gestion Scolaire Intégrale', desc: 'Notes, bulletins, emploi du temps — tout en un seul endroit' },
+    { icon: <MessageSquare size={24} />, title: 'Communication Instantanée', desc: 'WhatsApp, SMS, notifications push pour rester connecté' },
+    { icon: <CreditCard size={24} />, title: 'Paiements Simplifiés', desc: 'Mobile Money, virement, espèces — encaissez facilement' },
+    { icon: <Building2 size={24} />, title: 'Multi-Écoles', desc: 'Gérez plusieurs établissements depuis un tableau de bord unique' },
+    { icon: <Shield size={24} />, title: 'Sécurité & Conformité', desc: 'Données protégées, conformes aux normes africaines' },
+    { icon: <BarChart3 size={24} />, title: 'Analytique Avancée', desc: 'Tableaux de bord et rapports en temps réel' },
   ]
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* ===== HERO SECTION â€” Institutional Excellence ===== */}
+      {/* ===== HERO SECTION — Institutional Excellence ===== */}
       <section className="relative w-full min-h-[700px] sm:min-h-[900px] flex flex-col overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
         {/* Parallax floating icons container */}
         <div id="stitch-parallax-container" className="absolute inset-0 pointer-events-none overflow-hidden z-0" />
@@ -553,8 +553,8 @@ function HomeView() {
             <BrandMark height={56} className="brightness-110 hover:scale-105 transition-all duration-300" />
           </button>
           <div className="hidden md:flex items-center gap-12">
-            <button onClick={() => setCurrentView('home')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Ã‰coles</button>
-            <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">FonctionnalitÃ©s</button>
+            <button onClick={() => setCurrentView('home')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Écoles</button>
+            <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Fonctionnalités</button>
             <button onClick={() => setCurrentView('pricing')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Tarifs</button>
           </div>
           <button onClick={() => setCurrentView('login')} className="bg-[#f5a623] hover:bg-[#ffb643] hover:shadow-[0_0_30px_rgba(245,166,35,0.4)] text-[#0a0f0d] px-8 sm:px-10 py-3 sm:py-3.5 rounded-full font-extrabold text-sm transition-all shadow-[0_10px_30px_rgba(245,166,35,0.2)] active:scale-95 cursor-pointer">
@@ -572,7 +572,7 @@ function HomeView() {
               <span className="italic font-playfair inline-block relative" style={{ color: '#f5a623', textShadow: '0 0 25px rgba(245, 166, 35, 0.5), 0 0 50px rgba(245, 166, 35, 0.2)' }}>{typewriterLine2}{typewriterActiveLine === 2 && <span className="animate-pulse">|</span>}</span>
             </h1>
             <p className="text-gray-300 text-base sm:text-lg md:text-xl max-w-2xl mx-auto font-medium leading-relaxed opacity-80">
-              La plateforme africaine de gestion scolaire qui connecte Ã©coles, familles et enseignants pour un avenir meilleur.
+              La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants pour un avenir meilleur.
             </p>
           </div>
 
@@ -582,7 +582,7 @@ function HomeView() {
               <div className="flex items-center flex-grow w-full px-4 sm:px-6 gap-4">
                 <Search size={20} className="text-gray-400 shrink-0" />
                 <input
-                  type="text" placeholder="Rechercher une Ã©cole par nom..."
+                  type="text" placeholder="Rechercher une école par nom..."
                   value={search} onChange={e => setSearch(e.target.value)}
                   className="w-full bg-transparent border-none text-white py-4 text-base sm:text-lg font-medium placeholder-gray-500 tracking-tight outline-none"
                 />
@@ -610,7 +610,7 @@ function HomeView() {
           {/* Stats cards with tilt */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-3xl px-4 relative z-20">
             {[
-              { value: '240+', label: 'Ã‰tablissements', glow: 'bg-[#f5a623]/5 group-hover:bg-[#f5a623]/10', pos: '-top-10 -right-10' },
+              { value: '240+', label: 'Établissements', glow: 'bg-[#f5a623]/5 group-hover:bg-[#f5a623]/10', pos: '-top-10 -right-10' },
               { value: '50 000+', label: 'Familles', glow: 'bg-emerald-500/5 group-hover:bg-emerald-500/10', pos: '-bottom-10 -left-10' },
               { value: '98%', label: 'Satisfaction', glow: 'bg-cyan-500/5 group-hover:bg-cyan-500/10', pos: 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' },
             ].map((stat) => (
@@ -628,8 +628,8 @@ function HomeView() {
       <section style={{ background: IVORY }} className="border-y border-[oklch(88%_0.01_175)]">
         <div className="container-premium py-4 text-center">
           <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
-            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>240+</strong> Ã‰tablissements &nbsp;â€¢&nbsp;{' '}
-            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>50,000+</strong> Familles &nbsp;â€¢&nbsp;{' '}
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>240+</strong> Établissements &nbsp;•&nbsp;{' '}
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>50,000+</strong> Familles &nbsp;•&nbsp;{' '}
             <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>98%</strong> Satisfaction
           </p>
         </div>
@@ -659,7 +659,7 @@ function HomeView() {
             </button>
           ))}
           <div className="ml-auto hidden sm:block text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
-            Affichage {filteredSchools.length > 0 ? '1' : '0'}â€“{Math.min(12, filteredSchools.length)} sur {filteredSchools.length}
+            Affichage {filteredSchools.length > 0 ? '1' : '0'}—{Math.min(12, filteredSchools.length)} sur {filteredSchools.length}
           </div>
           <button
             onClick={() => setShowMap(!showMap)}
@@ -682,7 +682,7 @@ function HomeView() {
         <div className="container-premium pb-16">
           <div className="flex items-baseline justify-between mb-5">
             <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
-              <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{filteredSchools.length} Ã©coles</strong> correspondent Ã  votre recherche
+              <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{filteredSchools.length} écoles</strong> correspondent à votre recherche
             </div>
           </div>
 
@@ -720,27 +720,27 @@ function HomeView() {
                   <div className="p-6 sm:p-10 pt-10">
                     <div className="text-base font-semibold tracking-tight mb-1" style={{ color: TEXT_PRIMARY }}>{school.name}</div>
                     <div className="text-[13px] flex items-center gap-1 mb-4" style={{ color: TEXT_MUTED_LUXE }}>
-                      <MapPin size={12} /> {school.city} Â· {school.province}
+                      <MapPin size={12} /> {school.city} · {school.province}
                     </div>
                     <div className="flex gap-4 py-3 border-t border-b border-[oklch(88%_0.01_175)] mb-4">
                       <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</strong>Ã©lÃ¨ves
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</strong>élèves
                       </div>
                       <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
                         <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</strong>classes
                       </div>
                       <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || 'â€”'}</strong>fondÃ©e
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</strong>fondée
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1 text-[13px] font-medium">
                         <Star size={14} style={{ color: GOLD }} className="fill-current" />
-                        <span style={{ color: TEXT_PRIMARY }}>{school.averageRating?.toFixed(1) || 'â€”'}</span>
-                        <span className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Â· {school.totalReviews} avis</span>
+                        <span style={{ color: TEXT_PRIMARY }}>{school.averageRating?.toFixed(1) || '—'}</span>
+                        <span className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>· {school.totalReviews} avis</span>
                       </div>
                       <span className="edu-gold-cta text-[13px] font-semibold px-4 py-2 rounded-xl">
-                        Voir l&apos;Ã©cole â†’
+                        Voir l&apos;école →
                       </span>
                     </div>
                   </div>
@@ -756,13 +756,13 @@ function HomeView() {
         <div className="container-premium text-center">
           {/* Ornament divider */}
           <div className="edu-ornament mb-4">
-            <span style={{ color: GOLD }}>â—†</span>
+            <span style={{ color: GOLD }}>►</span>
           </div>
           <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
             Pourquoi choisir <span style={{ color: GOLD }}>EduGest</span>
           </h2>
           <p className="text-base max-w-[500px] mx-auto mb-12" style={{ color: TEXT_MUTED_LUXE }}>
-            Une plateforme conÃ§ue pour les rÃ©alitÃ©s africaines, avec les outils qu&apos;il vous faut.
+            Une plateforme conçue pour les réalités africaines, avec les outils qu&apos;il vous faut.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
@@ -810,8 +810,8 @@ function SchoolDetailView() {
       <PublicHeader />
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <p style={{ color: TEXT_MUTED_LUXE }} className="mb-4">Ã‰cole non trouvÃ©e</p>
-          <button onClick={() => setCurrentView('home')} className="font-medium" style={{ color: GOLD }}>â† Retour Ã  l&apos;accueil</button>
+          <p style={{ color: TEXT_MUTED_LUXE }} className="mb-4">École non trouvée</p>
+          <button onClick={() => setCurrentView('home')} className="font-medium" style={{ color: GOLD }}>← Retour à l&apos;accueil</button>
         </div>
       </div>
       <Footer />
@@ -823,7 +823,7 @@ function SchoolDetailView() {
       <PublicHeader />
       <div className="container-premium py-8 flex-1">
         <button onClick={() => setCurrentView('home')} className="inline-flex items-center gap-1.5 text-sm mb-6 transition hover:opacity-80" style={{ color: TEXT_MUTED_LUXE }}>
-          <ArrowLeft size={14} /> Retour aux Ã©coles
+          <ArrowLeft size={14} /> Retour aux écoles
         </button>
 
         <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
@@ -840,21 +840,21 @@ function SchoolDetailView() {
             </div>
             <h1 className="text-[21px] sm:text-[29px] font-bold mt-4 tracking-tight" style={{ color: TEXT_PRIMARY }}>{school.name}</h1>
             <div className="flex items-center gap-2 text-sm mt-2" style={{ color: TEXT_MUTED_LUXE }}>
-              <MapPin size={14} /> {school.address}, {school.city} Â· {school.province}, {school.country}
+              <MapPin size={14} /> {school.address}, {school.city} · {school.province}, {school.country}
             </div>
             <div className="flex items-center gap-4 mt-3 text-sm flex-wrap">
               <span className="flex items-center gap-1"><Star size={14} style={{ color: GOLD }} className="fill-current" /> <strong style={{ color: TEXT_PRIMARY }}>{school.averageRating?.toFixed(1)}</strong> <span style={{ color: TEXT_MUTED_LUXE }}>({school.totalReviews} avis)</span></span>
-              <span style={{ color: TEXT_MUTED_LUXE }}>Â·</span>
-              <span style={{ color: TEXT_MUTED_LUXE }}>{school._count?.students || school.studentCount} Ã©lÃ¨ves</span>
-              <span style={{ color: TEXT_MUTED_LUXE }}>Â·</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>·</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>{school._count?.students || school.studentCount} élèves</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>·</span>
               <span style={{ color: TEXT_MUTED_LUXE }}>{school._count?.classes || school.classCount} classes</span>
-              <span style={{ color: TEXT_MUTED_LUXE }}>Â·</span>
-              <span style={{ color: TEXT_MUTED_LUXE }}>FondÃ©e en {school.establishmentYear}</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>·</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>Fondée en {school.establishmentYear}</span>
             </div>
 
             {school.description && (
               <div className="mt-8">
-                <h3 className="font-semibold mb-2" style={{ color: TEXT_PRIMARY }}>Ã€ propos</h3>
+                <h3 className="font-semibold mb-2" style={{ color: TEXT_PRIMARY }}>À propos</h3>
                 <p className="text-sm leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>{school.description}</p>
               </div>
             )}
@@ -862,15 +862,15 @@ function SchoolDetailView() {
             <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
                 <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</div>
-                <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Ã‰lÃ¨ves</div>
+                <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Élèves</div>
               </div>
               <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
                 <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</div>
                 <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Classes</div>
               </div>
               <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
-                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || 'â€”'}</div>
-                <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>FondÃ©e</div>
+                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</div>
+                <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Fondée</div>
               </div>
               <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
                 <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{getSubscriptionLabel(school.subscriptionTier)}</div>
@@ -892,7 +892,7 @@ function SchoolDetailView() {
 
             <div className="mt-8">
               <button onClick={() => setCurrentView('login')} className="edu-gold-cta px-8 py-3.5 rounded-xl font-semibold text-sm">
-                Contacter cette Ã©cole
+                Contacter cette école
               </button>
             </div>
           </div>
@@ -975,12 +975,12 @@ function PricingView() {
       const json = await res.json()
       if (json.data) {
         setPlans(prev => prev.map(p => p.id === planId ? json.data : p))
-        toast.success(`Prix de ${editForm.name} mis Ã  jour !`)
+        toast.success(`Prix de ${editForm.name} mis à jour !`)
       } else {
-        toast.error('Erreur lors de la mise Ã  jour')
+        toast.error('Erreur lors de la mise à jour')
       }
     } catch {
-      toast.error('Erreur rÃ©seau')
+      toast.error('Erreur réseau')
     } finally {
       setSaving(false)
       setEditingPlan(null)
@@ -988,7 +988,7 @@ function PricingView() {
   }
 
   async function resetPrices() {
-    if (!confirm('RÃ©initialiser tous les prix aux valeurs par dÃ©faut ?')) return
+    if (!confirm('Réinitialiser tous les prix aux valeurs par défaut ?')) return
     try {
       const res = await authFetch('/api/pricing', {
         method: 'POST',
@@ -997,9 +997,9 @@ function PricingView() {
       })
       const json = await res.json()
       setPlans(json.data || [])
-      toast.success('Prix rÃ©initialisÃ©s !')
+      toast.success('Prix réinitialisés !')
     } catch {
-      toast.error('Erreur lors de la rÃ©initialisation')
+      toast.error('Erreur lors de la réinitialisation')
     }
   }
 
@@ -1014,15 +1014,15 @@ function PricingView() {
       <div className="container-premium py-16 sm:py-[120px] flex-1">
         <div className="text-center mb-12">
           <div className="edu-ornament mb-4">
-            <span style={{ color: GOLD }}>â—†</span>
+            <span style={{ color: GOLD }}>►</span>
           </div>
           <h1 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
             Tarifs <span style={{ color: GOLD }}>transparents</span>
           </h1>
-          <p className="max-w-[500px] mx-auto" style={{ color: TEXT_MUTED_LUXE }}>Choisissez la formule adaptÃ©e Ã  votre Ã©tablissement. Ã‰voluez Ã  tout moment.</p>
+          <p className="max-w-[500px] mx-auto" style={{ color: TEXT_MUTED_LUXE }}>Choisissez la formule adaptée à votre établissement. Évoluez à tout moment.</p>
           {isAdmin && (
             <button onClick={resetPrices} className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm transition" style={{ color: TEXT_MUTED_LUXE }}>
-              <RotateCcw size={14} /> RÃ©initialiser les prix
+              <RotateCcw size={14} /> Réinitialiser les prix
             </button>
           )}
         </div>
@@ -1069,15 +1069,15 @@ function PricingView() {
                         <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Prix ($/mois) â€” laisser vide pour Â« Sur mesure Â»</label>
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Prix ($/mois) — laisser vide pour « Sur mesure »</label>
                         <input type="number" value={editForm.price} onChange={e => setEditForm(f => ({ ...f, price: e.target.value }))} placeholder="Ex: 250" className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Prix original barrÃ© (optionnel, pour rÃ©duction)</label>
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Prix original barré (optionnel, pour réduction)</label>
                         <input type="number" value={editForm.originalPrice} onChange={e => setEditForm(f => ({ ...f, originalPrice: e.target.value }))} placeholder="Ex: 350" className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>PÃ©riode</label>
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Période</label>
                         <input value={editForm.period} onChange={e => setEditForm(f => ({ ...f, period: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
                       </div>
                       <div className="space-y-1.5">
@@ -1085,7 +1085,7 @@ function PricingView() {
                         <input value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>FonctionnalitÃ©s (sÃ©parÃ©es par virgules)</label>
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Fonctionnalités (séparées par virgules)</label>
                         <textarea value={editForm.features} onChange={e => setEditForm(f => ({ ...f, features: e.target.value }))} rows={3} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)] resize-none" style={{ color: TEXT_PRIMARY }} />
                       </div>
                       <div className="flex gap-2 pt-1">
@@ -1250,17 +1250,17 @@ function CreateSchoolView() {
             initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
             profileImageUrl: null,
           }, loginJson.data.token)
-          toast.success('Ã‰cole crÃ©Ã©e avec succÃ¨s ! Bienvenue !')
+          toast.success('École crée avec succès ! Bienvenue !')
           setStep(3)
         } else {
-          toast.success('Ã‰cole crÃ©Ã©e ! Connectez-vous avec vos identifiants.')
+          toast.success('École crée ! Connectez-vous avec vos identifiants.')
           setCurrentView('login')
         }
       } else {
-        toast.error(json.error || 'Erreur lors de la crÃ©ation')
+        toast.error(json.error || 'Erreur lors de la création')
       }
     } catch (e) {
-      toast.error('Erreur rÃ©seau')
+      toast.error('Erreur réseau')
     } finally {
       setLoading(false)
     }
@@ -1274,10 +1274,10 @@ function CreateSchoolView() {
           <div className="w-20 h-20 rounded-full mx-auto mb-6 grid place-items-center" style={{ background: 'oklch(60% 0.15 145)' }}>
             <CheckCircle size={40} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-3">Ã‰cole crÃ©Ã©e avec succÃ¨s !</h1>
-          <p className="text-white/60 mb-8">Votre Ã©cole <strong className="text-[#f5a623]">{form.name}</strong> est prÃªte. Vous Ãªtes maintenant connectÃ© en tant qu&apos;administrateur.</p>
+          <h1 className="text-2xl font-bold text-white mb-3">École crée avec succès !</h1>
+          <p className="text-white/60 mb-8">Votre école <strong className="text-[#f5a623]">{form.name}</strong> est prête. Vous êtes maintenant connecté en tant qu&apos;administrateur.</p>
           <button onClick={() => setCurrentView('dashboard')} className="bg-[#f5a623] hover:bg-[#ffb643] text-[#0a0f0d] px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)]">
-            AccÃ©der au tableau de bord
+            Accéder au tableau de bord
           </button>
         </div>
       </div>
@@ -1313,8 +1313,8 @@ function CreateSchoolView() {
           <div className="rounded-2xl p-6 sm:p-8" style={{ background: 'rgba(26, 37, 32, 0.4)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)' }}>
             {step === 1 && (
               <>
-                <h2 className="text-xl font-bold text-white mb-1">CrÃ©er votre Ã©cole</h2>
-                <p className="text-white/50 text-sm mb-6">Renseignez les informations de votre Ã©tablissement</p>
+                <h2 className="text-xl font-bold text-white mb-1">Créer votre école</h2>
+                <p className="text-white/50 text-sm mb-6">Renseignez les informations de votre établissement</p>
 
                 {/* Logo upload */}
                 <div className="mb-6 flex items-center gap-4">
@@ -1331,7 +1331,7 @@ function CreateSchoolView() {
                     )}
                     <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
                   </label>
-                  <div className="text-xs text-white/40">Logo de l&apos;Ã©cole<br /><span className="text-white/25">JPG, PNG max 5MB</span></div>
+                  <div className="text-xs text-white/40">Logo de l&apos;école<br /><span className="text-white/25">JPG, PNG max 5MB</span></div>
                 </div>
 
                 {/* Auto-geolocation map */}
@@ -1339,7 +1339,7 @@ function CreateSchoolView() {
                   <div className="flex items-center gap-2 mb-2">
                     <MapPin size={14} className="text-[#f5a623]" />
                     <label className="text-xs font-medium text-white/60">Localisation automatique</label>
-                    <span className="text-[10px] text-[#f5a623]/70">â€¢ Cliquez sur la carte ou activez la gÃ©olocalisation</span>
+                    <span className="text-[10px] text-[#f5a623]/70">• Cliquez sur la carte ou activez la géolocalisation</span>
                   </div>
                   <div className="rounded-xl overflow-hidden border border-white/10">
                     <SchoolMap
@@ -1364,8 +1364,8 @@ function CreateSchoolView() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Nom de l&apos;Ã©cole *</label>
-                    <input value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Ex: Complexe Scolaire LumiÃ¨re" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Nom de l&apos;école *</label>
+                    <input value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Ex: Complexe Scolaire Lumière" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Sigle *</label>
@@ -1376,7 +1376,7 @@ function CreateSchoolView() {
                     <input type="email" value={form.email} onChange={e => updateForm('email', e.target.value)} placeholder="contact@ecole.cd" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">TÃ©lÃ©phone *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Téléphone *</label>
                     <input value={form.phone} onChange={e => updateForm('phone', e.target.value)} placeholder="+243 81 234 56 78" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
@@ -1400,23 +1400,23 @@ function CreateSchoolView() {
                     <select value={form.schoolType} onChange={e => updateForm('schoolType', e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition appearance-none cursor-pointer">
                       <option value="MIXTE" className="bg-[#0a0f0d]">Mixte</option>
                       <option value="FILLES" className="bg-[#0a0f0d]">Filles</option>
-                      <option value="GARCONS" className="bg-[#0a0f0d]">GarÃ§ons</option>
+                      <option value="GARCONS" className="bg-[#0a0f0d]">Garçons</option>
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">CatÃ©gorie</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Catégorie</label>
                     <select value={form.schoolCategory} onChange={e => updateForm('schoolCategory', e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition appearance-none cursor-pointer">
-                      <option value="PRIVEE" className="bg-[#0a0f0d]">PrivÃ©e</option>
+                      <option value="PRIVEE" className="bg-[#0a0f0d]">Privée</option>
                       <option value="PUBLIQUE" className="bg-[#0a0f0d]">Publique</option>
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">CapacitÃ© max</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Capacité max</label>
                     <input type="number" value={form.maxStudents} onChange={e => updateForm('maxStudents', e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div className="sm:col-span-2">
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Description</label>
-                    <textarea value={form.description} onChange={e => updateForm('description', e.target.value)} rows={3} placeholder="DÃ©crivez votre Ã©cole..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition resize-none" />
+                    <textarea value={form.description} onChange={e => updateForm('description', e.target.value)} rows={3} placeholder="Décrivez votre école..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition resize-none" />
                   </div>
                 </div>
               </>
@@ -1425,7 +1425,7 @@ function CreateSchoolView() {
             {step === 2 && (
               <>
                 <h2 className="text-xl font-bold text-white mb-1">Compte administrateur</h2>
-                <p className="text-white/50 text-sm mb-6">CrÃ©ez votre compte pour gÃ©rer l&apos;Ã©cole</p>
+                <p className="text-white/50 text-sm mb-6">Créez votre compte pour gérer l&apos;école</p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
@@ -1437,13 +1437,13 @@ function CreateSchoolView() {
                     <input type="email" value={form.adminEmail} onChange={e => updateForm('adminEmail', e.target.value)} placeholder="admin@ecole.cd" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">TÃ©lÃ©phone</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Téléphone</label>
                     <input value={form.adminPhone} onChange={e => updateForm('adminPhone', e.target.value)} placeholder="+243 81 234 56 78" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div className="sm:col-span-2">
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Mot de passe</label>
                     <div className="relative">
-                      <input type={showAdminPassword ? 'text' : 'password'} value={form.adminPassword} onChange={e => updateForm('adminPassword', e.target.value)} placeholder="Laissez vide pour le mot de passe par dÃ©faut" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-11 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                      <input type={showAdminPassword ? 'text' : 'password'} value={form.adminPassword} onChange={e => updateForm('adminPassword', e.target.value)} placeholder="Laissez vide pour le mot de passe par défaut" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-11 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                       <button type="button" onClick={() => setShowAdminPassword(!showAdminPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition p-1">
                         {showAdminPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
@@ -1484,7 +1484,7 @@ function CreateSchoolView() {
                 disabled={loading}
                 className="bg-[#f5a623] hover:bg-[#ffb643] text-[#0a0f0d] px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)] disabled:opacity-50 flex items-center gap-2"
               >
-                {loading ? <><div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> CrÃ©ation...</> : step === 1 ? 'Suivant' : 'CrÃ©er l\'Ã©cole'}
+                {loading ? <><div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> Création...</> : step === 1 ? 'Suivant' : 'Créer l\'école'}
               </button>
             </div>
           </div>
@@ -1511,9 +1511,9 @@ function LoginView() {
   const [typewriterLine2, setTypewriterLine2] = useState('')
   const [typewriterActiveLine, setTypewriterActiveLine] = useState<1 | 2 | null>(1)
 
-  // VÃ©rifie que le rÃ´le correspond Ã  l'onglet sÃ©lectionnÃ©
+  // Vérifie que le rôle correspond à l'onglet sélectionné
   function validateRoleForTab(role: UserRole | null): { valid: boolean; message?: string } {
-    if (!role) return { valid: false, message: 'RÃ´le non reconnu. Contactez l\'administration.' }
+    if (!role) return { valid: false, message: 'Rôle non reconnu. Contactez l\'administration.' }
     if (role === 'SUPER_ADMIN_GLOBAL') return { valid: true }
     if (tab === 'parent') {
       if (role !== 'PARENT') {
@@ -1543,7 +1543,7 @@ function LoginView() {
         const role = mapApiRole(apiUser.role)
         const validation = validateRoleForTab(role)
         if (!validation.valid) {
-          toast.error(validation.message || 'AccÃ¨s non autorisÃ© pour ce type de compte.')
+          toast.error(validation.message || 'Accès non autorisé pour ce type de compte.')
           return
         }
         if (role) {
@@ -1569,7 +1569,7 @@ function LoginView() {
         toast.error('Erreur de connexion au serveur')
       }
     } catch (e) {
-      toast.error('Erreur rÃ©seau. VÃ©rifiez votre connexion.')
+      toast.error('Erreur réseau. Vérifiez votre connexion.')
     } finally {
       setLoading(false)
     }
@@ -1596,10 +1596,10 @@ function LoginView() {
     return map[role] || null
   }
 
-  // Typewriter animation â€” same as hero
+  // Typewriter animation — same as hero
   useEffect(() => {
     const title1 = "Rejoignez"
-    const title2 = "l'excellence Ã©ducative"
+    const title2 = "l'excellence éducative"
     let charIndex = 0
     let currentLine = 1
     let timeoutId: ReturnType<typeof setTimeout>
@@ -1634,7 +1634,7 @@ function LoginView() {
     return () => clearTimeout(timeoutId)
   }, [])
 
-  // Floating parallax icons â€” full screen, same as hero
+  // Floating parallax icons — full screen, same as hero
   useEffect(() => {
     const container = document.getElementById('login-parallax-container')
     if (!container) return
@@ -1754,7 +1754,7 @@ function LoginView() {
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
-      {/* Full-screen parallax floating icons â€” same as hero */}
+      {/* Full-screen parallax floating icons — same as hero */}
       <div id="login-parallax-container" className="absolute inset-0 pointer-events-none overflow-hidden z-0" />
       {/* Gradient overlays */}
       <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-[#0a0f0d] via-[#0b1613]/50 to-transparent pointer-events-none z-10" />
@@ -1773,7 +1773,7 @@ function LoginView() {
 
       {/* Main content: typewriter title + glass login card */}
       <main className="relative z-20 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-4 sm:py-8 gap-8 sm:gap-10">
-        {/* Typewriter title â€” same as hero */}
+        {/* Typewriter title — same as hero */}
         <div className="text-center flex flex-col items-center">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-white leading-[1.05] tracking-tighter mb-4 sm:mb-5 relative inline-block mx-auto select-none" style={{ minHeight: '120px' }}>
             <span className="inline-block relative">{typewriterLine1}{typewriterActiveLine === 1 && <span className="animate-pulse">|</span>}</span>
@@ -1781,7 +1781,7 @@ function LoginView() {
             <span className="italic font-playfair inline-block relative" style={{ color: '#f5a623', textShadow: '0 0 25px rgba(245, 166, 35, 0.5), 0 0 50px rgba(245, 166, 35, 0.2)' }}>{typewriterLine2}{typewriterActiveLine === 2 && <span className="animate-pulse">|</span>}</span>
           </h1>
           <p className="text-gray-300 text-sm sm:text-base md:text-lg max-w-lg mx-auto font-medium leading-relaxed opacity-80">
-            La plateforme africaine de gestion scolaire qui connecte Ã©coles, familles et enseignants.
+            La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants.
           </p>
         </div>
 
@@ -1802,13 +1802,13 @@ function LoginView() {
               {tab === 'parent' ? 'Connexion Parent' : 'Connexion Administration'}
             </h2>
             <p className="text-sm text-white/50">
-              {tab === 'parent' ? 'AccÃ©dez au suivi scolaire de vos enfants' : 'Personnel de l\'Ã©cole, direction, enseignants'}
+              {tab === 'parent' ? 'Accédez au suivi scolaire de vos enfants' : 'Personnel de l\'école, direction, enseignants'}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-white/70">{tab === 'parent' ? 'Email ou numÃ©ro WhatsApp' : 'Email professionnel'}</label>
+              <label className="text-[13px] font-medium text-white/70">{tab === 'parent' ? 'Email ou numéro WhatsApp' : 'Email professionnel'}</label>
               <input
                 type="text" value={email} onChange={e => setEmail(e.target.value)}
                 placeholder={tab === 'parent' ? 'ex. parent@email.com ou +243 81...' : 'ex. direction@ecole.cd'}
@@ -1822,7 +1822,7 @@ function LoginView() {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
-                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                  placeholder="••••••••"
                   className="w-full px-4 py-3.5 pr-11 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)] focus:border-[rgba(245,166,35,0.5)]"
                   style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
                   required
@@ -1840,7 +1840,7 @@ function LoginView() {
               <label className="flex items-center gap-2 cursor-pointer text-white/50">
                 <input type="checkbox" className="accent-[#f5a623] rounded" /> Se souvenir de moi
               </label>
-              <button type="button" className="font-medium hover:underline text-[#f5a623]/80 hover:text-[#f5a623]">Mot de passe oubliÃ© ?</button>
+              <button type="button" className="font-medium hover:underline text-[#f5a623]/80 hover:text-[#f5a623]">Mot de passe oublié ?</button>
             </div>
             <button type="submit" disabled={loading} className="w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all hover:shadow-[0_0_30px_rgba(245,166,35,0.4)] active:scale-[0.98]" style={{ background: '#f5a623', color: '#0a0f0d', boxShadow: '0 4px 16px rgba(245, 166, 35, 0.25)' }}>
               {loading ? <div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> : 'Se connecter'}
@@ -1856,25 +1856,25 @@ function LoginView() {
             className="w-full py-3.5 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 transition hover:opacity-90 hover:shadow-lg"
             style={{ background: 'oklch(60% 0.15 145)', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)' }}
           >
-            <MessageSquare size={18} /> Se connecter avec WhatsApp
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> Se connecter avec WhatsApp
           </button>
 
           <p className="text-center text-[13px] mt-5 text-white/50">
-            Pas encore de compte ? <button onClick={() => setCurrentView('create-school')} className="font-medium hover:underline text-[#f5a623]/80 hover:text-[#f5a623]">CrÃ©er mon Ã©cole</button>
+            Pas encore de compte ? <button onClick={() => setCurrentView('create-school')} className="font-medium hover:underline text-[#f5a623]/80 hover:text-[#f5a623]">Créer mon école</button>
           </p>
         </div>
 
         {/* Trust indicators below form */}
         <div className="flex items-center gap-6 sm:gap-8 text-white/30 text-xs font-medium">
-          <div className="flex items-center gap-1.5"><Shield size={14} /> SÃ©curisÃ©</div>
+          <div className="flex items-center gap-1.5"><Shield size={14} /> Sécurisé</div>
           <div className="flex items-center gap-1.5"><Globe size={14} /> Afrique</div>
-          <div className="flex items-center gap-1.5"><Award size={14} /> CertifiÃ©</div>
+          <div className="flex items-center gap-1.5"><Award size={14} /> Certifié</div>
         </div>
       </main>
 
       {/* Footer */}
       <div className="relative z-20 text-center text-[13px] text-white/30 py-5">
-        Â© 2026 EduGest Â· Kinshasa Â· Dakar Â· Abidjan
+        © 2026 EduGest · Kinshasa · Dakar · Abidjan
       </div>
 
       {/* WhatsApp Login Modal */}
@@ -1888,7 +1888,7 @@ function LoginView() {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-white">WhatsApp</h2>
-                  <p className="text-xs text-white/50">Connexion sÃ©curisÃ©e</p>
+                  <p className="text-xs text-white/50">Connexion sécurisée</p>
                 </div>
               </div>
               <button onClick={() => setShowWhatsappModal(false)} className="text-white/50 hover:text-white transition"><X size={18} /></button>
@@ -1896,9 +1896,9 @@ function LoginView() {
 
             {waStep === 'phone' ? (
               <div className="space-y-4">
-                <p className="text-sm text-white/60">Entrez votre numÃ©ro WhatsApp pour recevoir un code de vÃ©rification.</p>
+                <p className="text-sm text-white/60">Entrez votre numéro WhatsApp pour recevoir un code de vérification.</p>
                 <div>
-                  <label className="text-[13px] font-medium text-white/70">NumÃ©ro WhatsApp</label>
+                  <label className="text-[13px] font-medium text-white/70">Numéro WhatsApp</label>
                   <div className="flex items-center gap-2 mt-1 px-3 py-3 rounded-xl focus-within:ring-[3px] focus-within:ring-[rgba(245,166,35,0.2)] focus-within:border-[rgba(245,166,35,0.5)]" style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                     <Phone size={16} className="text-white/40" />
                     <input
@@ -1912,7 +1912,7 @@ function LoginView() {
                 </div>
                 <button
                   onClick={async () => {
-                    if (!waPhone) { toast.error('Veuillez entrer votre numÃ©ro'); return }
+                    if (!waPhone) { toast.error('Veuillez entrer votre numéro'); return }
                     setWaLoading(true)
                     try {
                       const res = await fetch('/api/auth/whatsapp', {
@@ -1922,12 +1922,12 @@ function LoginView() {
                       })
                       if (res.ok) {
                         setWaStep('code')
-                        toast.success('Code de vÃ©rification envoyÃ©!')
+                        toast.success('Code de vérification envoyé!')
                       } else {
                         const json = await res.json()
                         toast.error(json.error || 'Erreur lors de l\'envoi du code')
                       }
-                    } catch { toast.error('Erreur rÃ©seau') }
+                    } catch { toast.error('Erreur réseau') }
                     finally { setWaLoading(false) }
                   }}
                   disabled={waLoading}
@@ -1940,9 +1940,9 @@ function LoginView() {
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-sm text-white/60">Entrez le code Ã  6 chiffres envoyÃ© au <strong className="text-white">{waPhone}</strong></p>
+                <p className="text-sm text-white/60">Entrez le code à 6 chiffres envoyé au <strong className="text-white">{waPhone}</strong></p>
                 <div>
-                  <label className="text-[13px] font-medium text-white/70">Code de vÃ©rification</label>
+                  <label className="text-[13px] font-medium text-white/70">Code de vérification</label>
                   <input
                     type="text"
                     maxLength={6}
@@ -1955,7 +1955,7 @@ function LoginView() {
                 </div>
                 <button
                   onClick={async () => {
-                    if (waCode.length !== 6) { toast.error('Veuillez entrer le code Ã  6 chiffres'); return }
+                    if (waCode.length !== 6) { toast.error('Veuillez entrer le code à 6 chiffres'); return }
                     setWaLoading(true)
                     try {
                       const res = await fetch('/api/auth/whatsapp', {
@@ -1969,7 +1969,7 @@ function LoginView() {
                         const role = mapApiRole(apiUser.role)
                         const validation = validateRoleForTab(role)
                         if (!validation.valid) {
-                          toast.error(validation.message || 'AccÃ¨s non autorisÃ© pour ce type de compte.')
+                          toast.error(validation.message || 'Accès non autorisé pour ce type de compte.')
                           return
                         }
                         if (role) {
@@ -1988,7 +1988,7 @@ function LoginView() {
                         }
                       }
                       toast.error(json.error || 'Code invalide')
-                    } catch { toast.error('Erreur rÃ©seau') }
+                    } catch { toast.error('Erreur réseau') }
                     finally { setWaLoading(false) }
                   }}
                   disabled={waLoading}
@@ -1996,13 +1996,13 @@ function LoginView() {
                   style={{ background: SUCCESS }}
                 >
                   {waLoading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle size={16} />}
-                  VÃ©rifier
+                  Vérifier
                 </button>
                 <button
                   onClick={() => setWaStep('phone')}
                   className="w-full text-sm font-medium py-2 hover:underline text-[#f5a623]/80 hover:text-[#f5a623]"
                 >
-                  Changer de numÃ©ro
+                  Changer de numéro
                 </button>
               </div>
             )}
@@ -2021,41 +2021,41 @@ function Sidebar() {
   const menus: Record<string, MenuItem[]> = {
     SUPER_ADMIN_GLOBAL: [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
-      { icon: <Building2 size={16} />, label: 'Ã‰coles', view: 'schools' },
+      { icon: <Building2 size={16} />, label: 'Écoles', view: 'schools' },
       { icon: <UsersRound size={16} />, label: 'Personnel', view: 'personnel' as ViewType },
-      { icon: <Users size={16} />, label: 'Ã‰lÃ¨ves', view: 'students' },
+      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
       { icon: <School size={16} />, label: 'Classes', view: 'classes' },
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
-      { icon: <CheckCircle size={16} />, label: 'VÃ©rification paiements', view: 'payment-verification' as ViewType },
+      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
       { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
-      { icon: <MessageSquare size={16} />, label: 'WhatsApp Config', view: 'whatsapp-config' as ViewType },
-      { icon: <Settings size={16} />, label: 'ParamÃ¨tres', view: 'settings' as ViewType },
+      { icon: <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>, label: 'Connexion WhatsApp', view: 'whatsapp-config' as ViewType },
+      { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
     SECRETARY: [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
-      { icon: <Users size={16} />, label: 'Ã‰lÃ¨ves', view: 'students' },
+      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
-      { icon: <CheckCircle size={16} />, label: 'VÃ©rification paiements', view: 'payment-verification' as ViewType },
+      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
       { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
-      { icon: <Settings size={16} />, label: 'ParamÃ¨tres', view: 'settings' as ViewType },
+      { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
     CASHIER: [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <CreditCard size={16} />, label: 'Enregistrer paiement', view: 'payments' },
-      { icon: <CheckCircle size={16} />, label: 'VÃ©rification paiements', view: 'payment-verification' as ViewType },
+      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
       { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
       { icon: <AlertTriangle size={16} />, label: 'Dettes', view: 'payments', badge: 84 },
-      { icon: <BarChart3 size={16} />, label: 'Situation financiÃ¨re', view: 'payments' },
+      { icon: <BarChart3 size={16} />, label: 'Situation financière', view: 'payments' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
     PARENT: [
@@ -2063,10 +2063,10 @@ function Sidebar() {
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
-      { icon: <CheckCircle size={16} />, label: 'VÃ©rifier reÃ§u', view: 'payment-verification' as ViewType },
+      { icon: <CheckCircle size={16} />, label: 'Vérifier reçu', view: 'payment-verification' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
-      { icon: <Star size={16} />, label: 'Avis Ã©cole', view: 'school-reviews' as ViewType },
+      { icon: <Star size={16} />, label: 'Avis école', view: 'school-reviews' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
     TEACHER: [
@@ -2093,7 +2093,7 @@ function Sidebar() {
   if (directionRoles.includes(userRole as UserRole)) {
     menuItems = [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
-      { icon: <Users size={16} />, label: 'Ã‰lÃ¨ves', view: 'students' },
+      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
       { icon: <School size={16} />, label: 'Classes', view: 'classes' },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
       { icon: <Megaphone size={16} />, label: 'Convocation', view: 'convocation' },
@@ -2168,10 +2168,10 @@ function Sidebar() {
 function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; onToggleSidebar: () => void }) {
   const { currentView, sidebarOpen, setSidebarOpen, setCurrentView } = useEduGestStore()
   const viewTitles: Record<string, string> = {
-    dashboard: 'Dashboard', students: 'Ã‰lÃ¨ves', classes: 'Classes', grades: 'Notes',
+    dashboard: 'Dashboard', students: 'Élèves', classes: 'Classes', grades: 'Notes',
     payments: 'Paiements', discipline: 'Discipline', communications: 'Communications',
     homework: 'Devoirs', profile: 'Mon profil', pricing: 'Tarifs', 'class-passing': 'Passage de classe',
-    bulletin: 'Bulletins', convocation: 'Convocation', schools: 'Ã‰coles',
+    bulletin: 'Bulletins', convocation: 'Convocation', schools: 'Écoles',
     'admin-analytics': 'Statistiques', 'whatsapp-config': 'WhatsApp',
   }
 
@@ -2190,7 +2190,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
         </button>
         <div>
           <div className="text-lg font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>{viewTitles[currentView] || 'Dashboard'}</div>
-          <div className="text-xs hidden sm:block" style={{ color: TEXT_MUTED_LUXE }}>EduGest Â· {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          <div className="text-xs hidden sm:block" style={{ color: TEXT_MUTED_LUXE }}>EduGest · {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -2231,12 +2231,15 @@ function DashboardLayout() {
 function WhatsAppConfigView() {
   const [whatsappStatus, setWhatsappStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected')
   const [qrCode, setQrCode] = useState<string | null>(null)
+  const [pairCode, setPairCode] = useState<string | null>(null)
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
+  const [requestingPair, setRequestingPair] = useState(false)
 
   useEffect(() => {
     checkStatus()
-    const interval = setInterval(checkStatus, 5000)
+    const interval = setInterval(checkStatus, 3000)
     return () => clearInterval(interval)
   }, [])
 
@@ -2247,26 +2250,53 @@ function WhatsAppConfigView() {
         const json = await res.json()
         setWhatsappStatus(json.data?.status || 'disconnected')
         setQrCode(json.data?.qr || null)
+        if (json.data?.status === 'connected') setPairCode(null)
       }
     } catch {}
     finally { setLoading(false) }
   }
 
-  async function handleConnect() {
+  async function handleStart() {
     setStarting(true)
+    setPairCode(null)
     try {
       await authFetch('/api/whatsapp-status', { method: 'POST' })
-      toast.success('DÃ©marrage du client WhatsApp...')
-    } catch { toast.error('Erreur lors du dÃ©marrage') }
+      toast.success('Démarrage du client WhatsApp...')
+    } catch { toast.error('Erreur lors du démarrage') }
     finally { setStarting(false) }
   }
 
+  async function handlePairCode() {
+    if (!phoneNumber.trim()) {
+      toast.error('Entrez votre numéro de téléphone')
+      return
+    }
+    setRequestingPair(true)
+    try {
+      const res = await authFetch('/api/whatsapp-status', {
+        method: 'POST',
+        body: JSON.stringify({ phone: phoneNumber.trim() })
+      })
+      const json = await res.json()
+      if (json.data?.code) {
+        setPairCode(json.data.code)
+        toast.success('Code de liaison généré !')
+      } else {
+        toast.error(json.data?.error || 'Impossible de générer le code')
+      }
+    } catch { toast.error('Erreur lors de la génération du code') }
+    finally { setRequestingPair(false) }
+  }
+
   const statusColors = {
-    connected: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', label: 'ConnectÃ©' },
+    connected: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', label: 'Connecté' },
     connecting: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500', label: 'En attente du scan...' },
-    disconnected: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500', label: 'DÃ©connectÃ©' },
+    disconnected: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500', label: 'Déconnecté' },
   }
   const st = statusColors[whatsappStatus]
+
+  const GOLD_COLOR = 'oklch(72% 0.15 65)'
+  const TEAL_COLOR = 'oklch(55% 0.15 175)'
 
   return (
     <div>
@@ -2276,14 +2306,14 @@ function WhatsAppConfigView() {
       </div>
 
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl max-w-lg shadow-sm overflow-hidden">
-        <div className="h-28 relative" style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)' }}>
+        <div className="h-28 relative" style={{ background: `linear-gradient(135deg, ${TEAL_COLOR}, ${GOLD_COLOR})` }}>
           <div className="absolute bottom-4 left-6 flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl grid place-items-center text-white bg-white/20 backdrop-blur-sm">
-              <MessageSquare size={24} />
+            <div className="w-12 h-12 rounded-xl grid place-items-center bg-white/20 backdrop-blur-sm">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
             </div>
             <div className="text-white">
               <div className="font-bold text-lg">WhatsApp Bot</div>
-              <div className="text-white/70 text-sm">Liez votre tÃ©lÃ©phone pour envoyer des OTP</div>
+              <div className="text-white/70 text-sm">Liez votre téléphone pour envoyer des OTP</div>
             </div>
           </div>
         </div>
@@ -2304,43 +2334,133 @@ function WhatsAppConfigView() {
               {/* QR Code */}
               {whatsappStatus === 'connecting' && qrCode && (
                 <div className="text-center space-y-3">
-                  <p className="text-sm" style={{ color: TEXT_SECONDARY }}>Scannez ce QR code avec WhatsApp sur votre tÃ©lÃ©phone :</p>
-                  <div className="inline-block p-4 bg-white border-2 border-gray-200 rounded-2xl shadow-inner">
+                  <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Scannez ce QR code avec WhatsApp sur votre téléphone :</p>
+                  <div className="inline-block p-4 bg-white border-2 border-[oklch(88%_0.01_175)] rounded-2xl shadow-inner">
                     <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCode)}`}
+                      src={qrCode}
                       alt="QR Code WhatsApp"
                       className="w-56 h-56"
                     />
                   </div>
-                  <p className="text-xs" style={{ color: TEXT_MUTED }}>WhatsApp â†’ ParamÃ¨tres â†’ Appareils connectÃ©s â†’ Connecter un appareil</p>
+                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>WhatsApp &rarr; Paramètres &rarr; Appareils connectés &rarr; Connecter un appareil</p>
                 </div>
               )}
 
               {/* Connected */}
               {whatsappStatus === 'connected' && (
-                <div className="text-center space-y-3">
+                <div className="text-center space-y-4">
                   <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 grid place-items-center">
                     <CheckCircle size={32} className="text-emerald-600" />
                   </div>
-                  <p className="text-sm font-semibold text-emerald-700">WhatsApp est connectÃ© !</p>
-                  <p className="text-xs" style={{ color: TEXT_MUTED }}>Les codes OTP seront envoyÃ©s via ce tÃ©lÃ©phone.</p>
+                  <p className="text-sm font-semibold text-emerald-700">WhatsApp est connecté !</p>
+                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Les codes OTP seront envoyés via ce téléphone.</p>
+
+                  {/* Pair code section (only when connected) */}
+                  <div className="pt-4 border-t border-[oklch(88%_0.01_175)] space-y-3">
+                    <p className="text-xs font-medium uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Lier un autre appareil</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="tel"
+                        value={phoneNumber}
+                        onChange={e => setPhoneNumber(e.target.value)}
+                        placeholder="+243 8XX XXX XXX"
+                        className="flex-1 px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]"
+                        style={{ color: TEXT_PRIMARY }}
+                      />
+                      <button
+                        onClick={handlePairCode}
+                        disabled={requestingPair || !phoneNumber.trim()}
+                        className="px-4 py-2.5 rounded-lg font-semibold text-sm flex items-center gap-2 disabled:opacity-50 transition hover:opacity-90 text-white shrink-0"
+                        style={{ background: GOLD_COLOR }}
+                      >
+                        {requestingPair ? (
+                          <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Hash size={14} />
+                        )}
+                        Code
+                      </button>
+                    </div>
+                    {pairCode && (
+                      <div className="text-center space-y-2 pt-2">
+                        <div className="inline-block px-6 py-3 bg-[oklch(97%_0.02_175)] border border-[oklch(88%_0.01_175)] rounded-xl">
+                          <span className="text-2xl font-mono font-bold tracking-[0.3em]" style={{ color: TEXT_PRIMARY }}>{pairCode}</span>
+                        </div>
+                        <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Entrez ce code sur l'autre appareil</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
-              {/* Connect button */}
-              {whatsappStatus === 'disconnected' && (
+              {/* Phone input + buttons (disconnected, no QR yet) */}
+              {whatsappStatus === 'disconnected' && !qrCode && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-medium mb-1.5 block" style={{ color: TEXT_MUTED_LUXE }}>Numéro de téléphone</label>
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={e => setPhoneNumber(e.target.value)}
+                      placeholder="+243 8XX XXX XXX"
+                      className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]"
+                      style={{ color: TEXT_PRIMARY }}
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleStart}
+                    disabled={starting}
+                    className="w-full py-3 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition hover:opacity-90"
+                    style={{ background: `linear-gradient(135deg, ${TEAL_COLOR}, ${GOLD_COLOR})` }}
+                  >
+                    {starting ? (
+                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <QrCode size={16} />
+                    )}
+                    {starting ? 'Démarrage...' : 'Générer le QR code'}
+                  </button>
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-[oklch(88%_0.01_175)]" />
+                    </div>
+                    <div className="relative flex justify-center text-xs">
+                      <span className="px-2 bg-white" style={{ color: TEXT_MUTED_LUXE }}>ou</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handlePairCode}
+                    disabled={requestingPair || !phoneNumber.trim()}
+                    className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm"
+                    style={{ color: TEXT_PRIMARY }}
+                  >
+                    {requestingPair ? (
+                      <div className="h-4 w-4 border-2 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Hash size={16} />
+                    )}
+                    {requestingPair ? 'Génération...' : 'Obtenir le code de liaison'}
+                  </button>
+                </div>
+              )}
+
+              {/* Refresh button (has QR but expired/disconnected) */}
+              {whatsappStatus === 'disconnected' && qrCode && (
                 <button
-                  onClick={handleConnect}
+                  onClick={handleStart}
                   disabled={starting}
                   className="w-full py-3 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition hover:opacity-90"
-                  style={{ background: '#25D366' }}
+                  style={{ background: `linear-gradient(135deg, ${TEAL_COLOR}, ${GOLD_COLOR})` }}
                 >
                   {starting ? (
                     <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <Phone size={16} />
+                    <RefreshCw size={16} />
                   )}
-                  {starting ? 'DÃ©marrage...' : 'Connecter mon tÃ©lÃ©phone'}
+                  {starting ? 'Redémarrage...' : 'Rafraîchir le QR code'}
                 </button>
               )}
             </>
@@ -2470,9 +2590,9 @@ function ClassesView() {
 
   // Class search autocomplete - computed from local data
   const classSuggestions = useMemo(() => {
-    if (classSearch.length < 1) return classes.map(c => ({ id: c.id, label: c.name, sublabel: `${c._count?.students || 0} Ã©lÃ¨ves Â· Cap. ${c.capacity}${c.section ? ` Â· ${c.section}` : ''}` }))
+    if (classSearch.length < 1) return classes.map(c => ({ id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves · Cap. ${c.capacity}${c.section ? ` · ${c.section}` : ''}` }))
     return classes.filter(c => c.name.toLowerCase().includes(classSearch.toLowerCase()) || (c.section || '').toLowerCase().includes(classSearch.toLowerCase())).map(c => ({
-      id: c.id, label: c.name, sublabel: `${c._count?.students || 0} Ã©lÃ¨ves Â· Cap. ${c.capacity}${c.section ? ` Â· ${c.section}` : ''}`
+      id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves · Cap. ${c.capacity}${c.section ? ` · ${c.section}` : ''}`
     }))
   }, [classSearch, classes])
 
@@ -2505,7 +2625,7 @@ function ClassesView() {
         />
       </div>
       {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : filteredClasses.length === 0 ? (
-        <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucune classe trouvÃ©e</div>
+        <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucune classe trouvée</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredClasses.map(c => (
@@ -2515,8 +2635,8 @@ function ClassesView() {
                 <span className="text-xs px-2 py-1 rounded-full" style={{ color: GOLD, background: GOLD_SOFT }}>{c.level || c.section || ''}</span>
               </div>
               <div className="flex items-center justify-between text-sm" style={{ color: TEXT_MUTED_LUXE }}>
-                <span>{c._count?.students || 0} Ã©lÃ¨ves</span>
-                <span>CapacitÃ©: {c.capacity}</span>
+                <span>{c._count?.students || 0} élèves</span>
+                <span>Capacité: {c.capacity}</span>
               </div>
               <div className="mt-3 h-2 bg-[oklch(92%_0.005_175)] rounded-full overflow-hidden">
                 <div className="h-full rounded-full" style={{ width: `${Math.min(100, ((c._count?.students || 0) / c.capacity) * 100)}%`, background: (c._count?.students || 0) / c.capacity > 0.9 ? `linear-gradient(90deg, ${DANGER}, oklch(58% 0.15 45))` : `linear-gradient(90deg, ${ACCENT}, oklch(72% 0.15 65))` }} />
@@ -2609,10 +2729,10 @@ function PaymentConfigView() {
       const json = await res.json()
       if (json.data) {
         setExchangeRates(json.data.rates || {})
-        toast.success('Taux de change mis Ã  jour !')
+        toast.success('Taux de change mis à jour !')
         loadCurrencyConfig()
       }
-    } catch (e) { toast.error('Erreur lors de la mise Ã  jour') }
+    } catch (e) { toast.error('Erreur lors de la mise à jour') }
   }
 
   async function saveCurrencyConfig() {
@@ -2630,12 +2750,12 @@ function PaymentConfigView() {
       })
       const json = await res.json()
       if (json.data) {
-        toast.success('Configuration de monnaie sauvegardÃ©e !')
+        toast.success('Configuration de monnaie sauvegardée !')
         loadCurrencyConfig()
       } else {
         toast.error(json.error || 'Erreur')
       }
-    } catch (e) { toast.error('Erreur rÃ©seau') }
+    } catch (e) { toast.error('Erreur réseau') }
     finally { setSaving(false) }
   }
 
@@ -2652,13 +2772,13 @@ function PaymentConfigView() {
       })
       const json = await res.json()
       if (json.data) {
-        toast.success('Passerelle configurÃ©e avec succÃ¨s !')
+        toast.success('Passerelle configurée avec succès !')
         setShowGatewayModal(null)
         loadGateways()
       } else {
         toast.error(json.error || 'Erreur')
       }
-    } catch (e) { toast.error('Erreur rÃ©seau') }
+    } catch (e) { toast.error('Erreur réseau') }
     finally { setSaving(false) }
   }
 
@@ -2670,7 +2790,7 @@ function PaymentConfigView() {
         body: JSON.stringify({ isActive: !gateway.isActive }),
       })
       if (res.ok) {
-        toast.success(gateway.isActive ? 'Passerelle dÃ©sactivÃ©e' : 'Passerelle activÃ©e')
+        toast.success(gateway.isActive ? 'Passerelle désactivée' : 'Passerelle activée')
         loadGateways()
       }
     } catch (e) { toast.error('Erreur') }
@@ -2686,7 +2806,7 @@ function PaymentConfigView() {
       const json = await res.json()
       if (json.data) setConvertResult(json.data)
       else toast.error(json.error || 'Erreur')
-    } catch (e) { toast.error('Erreur rÃ©seau') }
+    } catch (e) { toast.error('Erreur réseau') }
   }
 
   function openGatewayEditor(gatewayType: string, existing?: any) {
@@ -2725,7 +2845,7 @@ function PaymentConfigView() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Configuration des Paiements</h1>
-        <p className="text-gray-500 text-sm mt-1">GÃ©rez les passerelles de paiement et les monnaies</p>
+        <p className="text-gray-500 text-sm mt-1">Gérez les passerelles de paiement et les monnaies</p>
       </div>
 
       {/* Tabs */}
@@ -2771,7 +2891,7 @@ function PaymentConfigView() {
                         <h3 className="font-semibold text-sm">{gw.displayName}</h3>
                         {configured && (
                           <span className={`text-xs px-2 py-0.5 rounded-full ${configured.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                            {configured.isActive ? 'â— Actif' : 'â—‹ Inactif'}
+                            {configured.isActive ? '◯ Actif' : '◯ Inactif'}
                           </span>
                         )}
                       </div>
@@ -2797,7 +2917,7 @@ function PaymentConfigView() {
                           configured.isActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'
                         }`}
                       >
-                        {configured.isActive ? 'DÃ©sactiver' : 'Activer'}
+                        {configured.isActive ? 'Désactiver' : 'Activer'}
                       </button>
                     )}
                   </div>
@@ -2841,7 +2961,7 @@ function PaymentConfigView() {
               </div>
             </div>
             <div className="mt-4">
-              <label className="block text-xs font-medium text-gray-600 mb-2">Monnaies acceptÃ©es</label>
+              <label className="block text-xs font-medium text-gray-600 mb-2">Monnaies acceptées</label>
               <div className="flex flex-wrap gap-2">
                 {supportedCurrencies.map((c: any) => (
                   <button
@@ -2891,7 +3011,7 @@ function PaymentConfigView() {
           <div className="border rounded-xl p-5 bg-white">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="font-semibold">Taux de change en temps rÃ©el</h3>
+                <h3 className="font-semibold">Taux de change en temps réel</h3>
                 <p className="text-xs text-gray-500 mt-0.5">
                   Source: APIs open source (Frankfurter/BCE, ExchangeRate.host, Open ER API)
                 </p>
@@ -2905,7 +3025,7 @@ function PaymentConfigView() {
             </div>
             {currencyConfig?.lastRateUpdate && (
               <p className="text-xs text-gray-400 mb-3">
-                DerniÃ¨re mise Ã  jour: {new Date(currencyConfig.lastRateUpdate).toLocaleString('fr-FR')}
+                Dernière mise à jour: {new Date(currencyConfig.lastRateUpdate).toLocaleString('fr-FR')}
               </p>
             )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -2983,18 +3103,18 @@ function PaymentConfigView() {
       {activeTab === 'transactions' && (
         <div className="border rounded-xl bg-white overflow-hidden">
           <div className="p-4 border-b">
-            <h3 className="font-semibold">Transactions rÃ©centes</h3>
+            <h3 className="font-semibold">Transactions récentes</h3>
           </div>
           {transactions.length === 0 ? (
             <div className="p-8 text-center text-gray-500 text-sm">
-              Aucune transaction enregistrÃ©e
+              Aucune transaction enregistrée
             </div>
           ) : (
             <div className="overflow-x-auto max-h-96 overflow-y-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="text-left p-3 font-medium text-xs text-gray-600">RÃ‰FÃ‰RENCE</th>
+                    <th className="text-left p-3 font-medium text-xs text-gray-600">RÉFÉRENCE</th>
                     <th className="text-left p-3 font-medium text-xs text-gray-600">PASSERELLE</th>
                     <th className="text-right p-3 font-medium text-xs text-gray-600">MONTANT</th>
                     <th className="text-center p-3 font-medium text-xs text-gray-600">STATUT</th>
@@ -3010,7 +3130,7 @@ function PaymentConfigView() {
                         {tx.amount.toFixed(2)} {tx.currency}
                         {tx.convertedAmount && tx.currency !== tx.baseCurrency && (
                           <div className="text-xs text-gray-400">
-                            â‰ˆ {tx.convertedAmount.toFixed(2)} {tx.baseCurrency}
+                            ≈ {tx.convertedAmount.toFixed(2)} {tx.baseCurrency}
                           </div>
                         )}
                       </td>
@@ -3089,7 +3209,7 @@ function PaymentConfigView() {
                       value={gatewayForm.apiKey || ''}
                       onChange={(e) => setGatewayForm({ ...gatewayForm, apiKey: e.target.value })}
                       className="w-full px-3 py-2 border rounded-lg text-sm"
-                      placeholder="ClÃ© API"
+                      placeholder="Clé API"
                     />
                   </div>
                   <div>
@@ -3099,12 +3219,12 @@ function PaymentConfigView() {
                       value={gatewayForm.secretKey || ''}
                       onChange={(e) => setGatewayForm({ ...gatewayForm, secretKey: e.target.value })}
                       className="w-full px-3 py-2 border rounded-lg text-sm"
-                      placeholder="ClÃ© secrÃ¨te"
+                      placeholder="Clé secrète"
                     />
                   </div>
                   {(showGatewayModal === 'MPESA' || showGatewayModal === 'ORANGE_MONEY' || showGatewayModal === 'AIRTEL_MONEY') && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">NumÃ©ro de tÃ©lÃ©phone</label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Numéro de téléphone</label>
                       <input
                         type="text"
                         value={gatewayForm.phoneNumber || ''}
@@ -3184,8 +3304,6 @@ function PaymentVerificationView() {
   const canVerify = isAdmin || isCashier || isSecretary
 
   const [payments, setPayments] = useState<PaymentData[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'unverified' | 'verified'>('unverified')
   const [selectedPayment, setSelectedPayment] = useState<PaymentData | null>(null)
   const [verificationNote, setVerificationNote] = useState('')
   const [verifying, setVerifying] = useState(false)
@@ -3196,25 +3314,11 @@ function PaymentVerificationView() {
   const [searchResult, setSearchResult] = useState<PaymentData | null>(null)
   const [searching, setSearching] = useState(false)
 
-  // Load payments for verification (staff roles)
-  useEffect(() => {
-    if (isParent) return
-    if (!userData?.schoolId) return
-    setLoading(true)
-    authFetch(`/api/payments?limit=100&schoolId=${userData.schoolId}`)
-      .then(r => r.json())
-      .then(j => { setPayments(j.data || []); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [userData?.schoolId, isParent])
-
-  const filteredPayments = payments.filter(p => {
-    if (filter === 'unverified') return !(p as Record<string, unknown>).verifiedBy
-    if (filter === 'verified') return !!(p as Record<string, unknown>).verifiedBy
-    return true
-  })
-
-  const unverifiedCount = payments.filter(p => !(p as Record<string, unknown>).verifiedBy).length
-  const verifiedCount = payments.filter(p => !!(p as Record<string, unknown>).verifiedBy).length
+  // Staff: receipt ID search
+  const [staffReceiptSearch, setStaffReceiptSearch] = useState('')
+  const [staffSearchResult, setStaffSearchResult] = useState<PaymentData | null>(null)
+  const [staffSearching, setStaffSearching] = useState(false)
+  const [scanning, setScanning] = useState(false)
 
   async function handleVerify(action: 'approve' | 'reject') {
     if (!selectedPayment) return
@@ -3225,14 +3329,14 @@ function PaymentVerificationView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           paymentId: selectedPayment.id,
-          verifierName: userData?.name || 'VÃ©rificateur',
+          verifierName: userData?.name || 'Vérificateur',
           verificationNote: verificationNote.trim() || null,
           action,
         }),
       })
       const json = await res.json()
       if (res.ok) {
-        toast.success(action === 'approve' ? 'Paiement approuvÃ© avec succÃ¨s!' : 'Paiement rejetÃ©')
+        toast.success(action === 'approve' ? 'Paiement approuvé avec succès!' : 'Paiement rejeté')
         // Update local list
         setPayments(prev => prev.map(p =>
           p.id === selectedPayment.id
@@ -3242,10 +3346,10 @@ function PaymentVerificationView() {
         setSelectedPayment(null)
         setVerificationNote('')
       } else {
-        toast.error(json.error || 'Erreur lors de la vÃ©rification')
+        toast.error(json.error || 'Erreur lors de la vérification')
       }
     } catch {
-      toast.error('Erreur rÃ©seau')
+      toast.error('Erreur réseau')
     }
     finally { setVerifying(false) }
   }
@@ -3259,13 +3363,13 @@ function PaymentVerificationView() {
       const url = URL.createObjectURL(blob)
       setReceiptUrl(url)
     } catch {
-      toast.error('Erreur lors du chargement du reÃ§u')
+      toast.error('Erreur lors du chargement du reçu')
     }
     finally { setReceiptLoading(false) }
   }
 
   async function handleParentReceiptSearch() {
-    if (!receiptSearch.trim()) { toast.error('Entrez un numÃ©ro de reÃ§u'); return }
+    if (!receiptSearch.trim()) { toast.error('Entrez un numéro de reçu'); return }
     setSearching(true)
     setSearchResult(null)
     try {
@@ -3288,7 +3392,7 @@ function PaymentVerificationView() {
         }
         setSearchResult(found)
         if (!found) {
-          toast.error('Aucun reÃ§u trouvÃ© avec ce numÃ©ro. VÃ©rifiez le numÃ©ro et rÃ©essayez.')
+          toast.error('Aucun reçu trouvé avec ce numéro. Vérifiez le numéro et réessayez.')
         }
       }
     } catch {
@@ -3303,7 +3407,7 @@ function PaymentVerificationView() {
       <div>
         <div className="flex items-center gap-3 mb-6">
           <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>VÃ©rifier un reÃ§u</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Vérifier un reçu</h1>
         </div>
 
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm mb-6">
@@ -3312,14 +3416,14 @@ function PaymentVerificationView() {
               <CheckCircle size={20} className="text-white" />
             </div>
             <div>
-              <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>VÃ©rification de reÃ§u</h3>
-              <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Entrez le numÃ©ro de reÃ§u pour vÃ©rifier son authenticitÃ©</p>
+              <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Vérification de reçu</h3>
+              <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Entrez le numéro de reçu pour vérifier son authenticité</p>
             </div>
           </div>
 
           <div className="flex gap-3 mb-4">
             <input
-              placeholder="Ex: REC-M1A2B3C4 ou numÃ©ro du reÃ§u"
+              placeholder="Ex: REC-M1A2B3C4 ou numéro du reçu"
               value={receiptSearch}
               onChange={e => setReceiptSearch(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleParentReceiptSearch()}
@@ -3331,7 +3435,7 @@ function PaymentVerificationView() {
               className="edu-gold-cta px-6 py-3 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50"
             >
               {searching ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Search size={14} />}
-              VÃ©rifier
+              Vérifier
             </button>
           </div>
 
@@ -3343,8 +3447,8 @@ function PaymentVerificationView() {
                   <CheckCircle size={20} className="text-white" />
                 </div>
                 <div>
-                  <div className="font-semibold" style={{ color: SUCCESS }}>ReÃ§u vÃ©rifiÃ© âœ“</div>
-                  <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Ce reÃ§u est authentique et a Ã©tÃ© enregistrÃ© dans le systÃ¨me</div>
+                  <div className="font-semibold" style={{ color: SUCCESS }}>Reçu vérifié ✓</div>
+                  <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Ce reçu est authentique et a été enregistré dans le système</div>
                 </div>
               </div>
 
@@ -3352,13 +3456,13 @@ function PaymentVerificationView() {
               <div className="p-5 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>NÂ° du reÃ§u</div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>N° du reçu</div>
                     <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{searchResult.receiptNumber || `REC-${searchResult.id.slice(-8).toUpperCase()}`}</div>
                   </div>
                   <div>
-                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Ã‰lÃ¨ve</div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Élève</div>
                     <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>
-                      {searchResult.student ? `${searchResult.student.firstName} ${searchResult.student.lastName}` : 'â€”'}
+                      {searchResult.student ? `${searchResult.student.firstName} ${searchResult.student.lastName}` : '—'}
                     </div>
                   </div>
                   <div>
@@ -3366,7 +3470,7 @@ function PaymentVerificationView() {
                     <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{formatNumber(searchResult.amount)} CDF</div>
                   </div>
                   <div>
-                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Montant payÃ©</div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Montant payé</div>
                     <div className="text-sm font-semibold" style={{ color: SUCCESS }}>{formatNumber(searchResult.paidAmount)} CDF</div>
                   </div>
                   <div>
@@ -3376,19 +3480,19 @@ function PaymentVerificationView() {
                   <div>
                     <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Statut</div>
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill(searchResult.status)}`}>
-                      {searchResult.status === 'PAID' ? 'âœ“ PayÃ©' : searchResult.status === 'PARTIAL' ? 'â— Partiel' : searchResult.status === 'OVERDUE' ? 'âš  En retard' : 'â—‹ En attente'}
+                      {searchResult.status === 'PAID' ? '✓ Payé' : searchResult.status === 'PARTIAL' ? '◯ Partiel' : searchResult.status === 'OVERDUE' ? '⚠ En retard' : '◯ En attente'}
                     </span>
                   </div>
                   {(searchResult as Record<string, unknown>).verifiedBy && (
                     <>
                       <div>
-                        <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>VÃ©rifiÃ© par</div>
+                        <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Vérifié par</div>
                         <div className="text-sm font-semibold" style={{ color: SUCCESS }}>{String((searchResult as Record<string, unknown>).verifiedBy)}</div>
                       </div>
                       <div>
-                        <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Date de vÃ©rification</div>
+                        <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Date de vérification</div>
                         <div className="text-sm" style={{ color: TEXT_PRIMARY }}>
-                          {(searchResult as Record<string, unknown>).verifiedAt ? new Date(String((searchResult as Record<string, unknown>).verifiedAt)).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'â€”'}
+                          {(searchResult as Record<string, unknown>).verifiedAt ? new Date(String((searchResult as Record<string, unknown>).verifiedAt)).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
                         </div>
                       </div>
                     </>
@@ -3397,7 +3501,7 @@ function PaymentVerificationView() {
 
                 {(searchResult as Record<string, unknown>).verificationNote && (
                   <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-3">
-                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Note du vÃ©rificateur</div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Note du vérificateur</div>
                     <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{String((searchResult as Record<string, unknown>).verificationNote)}</div>
                   </div>
                 )}
@@ -3410,14 +3514,14 @@ function PaymentVerificationView() {
                     style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}
                   >
                     {receiptLoading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FileText size={14} />}
-                    Voir le reÃ§u PDF
+                    Voir le reçu PDF
                   </button>
                   <button
                     onClick={() => { downloadReceiptFile(searchResult.id) }}
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition"
                     style={{ color: TEXT_PRIMARY }}
                   >
-                    <Download size={14} /> TÃ©lÃ©charger
+                    <Download size={14} /> Télécharger
                   </button>
                 </div>
               </div>
@@ -3435,13 +3539,13 @@ function PaymentVerificationView() {
                     <FileText size={20} />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900">ReÃ§u de Paiement</h2>
-                    <p className="text-xs text-gray-500">ReÃ§u vÃ©rifiÃ©</p>
+                    <h2 className="text-lg font-bold text-gray-900">Reçu de Paiement</h2>
+                    <p className="text-xs text-gray-500">Reçu vérifié</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <a href={receiptUrl} download className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
-                    <Download size={14} /> TÃ©lÃ©charger
+                    <Download size={14} /> Télécharger
                   </a>
                   <button onClick={() => { URL.revokeObjectURL(receiptUrl); setReceiptUrl(null) }} className="w-9 h-9 rounded-lg grid place-items-center hover:bg-gray-100 transition">
                     <X size={18} className="text-gray-500" />
@@ -3449,7 +3553,7 @@ function PaymentVerificationView() {
                 </div>
               </div>
               <div className="flex-1 overflow-hidden rounded-b-2xl">
-                <iframe src={receiptUrl} className="w-full h-[70vh] border-0" title="ReÃ§u PDF" />
+                <iframe src={receiptUrl} className="w-full h-[70vh] border-0" title="Reçu PDF" />
               </div>
             </div>
           </div>
@@ -3474,140 +3578,226 @@ function PaymentVerificationView() {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch {
-      toast.error('Erreur lors du tÃ©lÃ©chargement du reÃ§u')
+      toast.error('Erreur lors du téléchargement du reçu')
     }
+  }
+
+  async function handleStaffReceiptSearch() {
+    if (!staffReceiptSearch.trim()) { toast.error('Entrez un numéro de reçu'); return }
+    setStaffSearching(true)
+    setStaffSearchResult(null)
+    try {
+      const res = await authFetch(`/api/payments?schoolId=${userData?.schoolId}&limit=200`)
+      const json = await res.json()
+      const allPayments: PaymentData[] = json.data || []
+      const match = allPayments.find(p =>
+        (p.receiptNumber && p.receiptNumber.toLowerCase() === staffReceiptSearch.trim().toLowerCase()) ||
+        p.id.slice(-8).toLowerCase() === staffReceiptSearch.trim().toLowerCase()
+      )
+      setStaffSearchResult(match || null)
+      if (!match) toast.error('Aucun reçu trouvé avec ce numéro')
+    } catch {
+      toast.error('Erreur lors de la recherche')
+    }
+    finally { setStaffSearching(false) }
+  }
+
+  async function handleScanReceipt() {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*,.pdf'
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      setScanning(true)
+      const name = file.name.replace(/\.[^.]+$/, '').replace(/^recu[-_]?/i, '').replace(/^receipt[-_]?/i, '')
+      setStaffReceiptSearch(name)
+      toast.success('Fichier importé. Recherche du reçu...')
+      setTimeout(() => {
+        setScanning(false)
+        setStaffReceiptSearch(name)
+        setStaffSearching(true)
+        authFetch(`/api/payments?schoolId=${userData?.schoolId}&limit=200`)
+          .then(r => r.json())
+          .then(json => {
+            const allPayments: PaymentData[] = json.data || []
+            const match = allPayments.find(p =>
+              (p.receiptNumber && p.receiptNumber.toLowerCase() === name.toLowerCase()) ||
+              p.id.slice(-8).toLowerCase() === name.toLowerCase() ||
+              file.name.toLowerCase().includes(p.id.slice(-8).toLowerCase())
+            )
+            setStaffSearchResult(match || null)
+            if (!match) toast.error('Aucun reçu trouvé pour ce fichier')
+          })
+          .catch(() => toast.error('Erreur lors de la recherche'))
+          .finally(() => setStaffSearching(false))
+      }, 500)
+    }
+    input.click()
   }
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>VÃ©rification des paiements</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Vérification des paiements</h1>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm cursor-pointer transition hover:shadow-md" onClick={() => setFilter('all')}>
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Total paiements</div>
-            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{ background: `${ACCENT}15` }}><CreditCard size={14} style={{ color: ACCENT }} /></div>
+      {/* Search Card */}
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm mb-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl grid place-items-center" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+            <CheckCircle size={20} className="text-white" />
           </div>
-          <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{payments.length}</div>
+          <div>
+            <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Vérifier un reçu</h3>
+            <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Entrez le numéro du reçu ou importez un fichier</p>
+          </div>
         </div>
-        <div className={`bg-white border rounded-2xl p-5 shadow-sm cursor-pointer transition hover:shadow-md ${filter === 'unverified' ? 'border-[oklch(72%_0.15_65)] ring-2 ring-[oklch(72%_0.15_65_/_0.2)]' : 'border-[oklch(90%_0.01_175)]'}`} onClick={() => setFilter('unverified')}>
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Non vÃ©rifiÃ©s</div>
-            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{ background: `${WARNING}15` }}><AlertCircle size={14} style={{ color: WARNING }} /></div>
-          </div>
-          <div className="text-2xl font-bold" style={{ color: WARNING }}>{unverifiedCount}</div>
-        </div>
-        <div className={`bg-white border rounded-2xl p-5 shadow-sm cursor-pointer transition hover:shadow-md ${filter === 'verified' ? 'border-[oklch(72%_0.15_65)] ring-2 ring-[oklch(72%_0.15_65_/_0.2)]' : 'border-[oklch(90%_0.01_175)]'}`} onClick={() => setFilter('verified')}>
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>VÃ©rifiÃ©s</div>
-            <div className="w-8 h-8 rounded-lg grid place-items-center" style={{ background: `${SUCCESS}15` }}><CheckCircle size={14} style={{ color: SUCCESS }} /></div>
-          </div>
-          <div className="text-2xl font-bold" style={{ color: SUCCESS }}>{verifiedCount}</div>
+
+        <div className="flex gap-3">
+          <input
+            placeholder="Ex: REC-M1A2B3C4 ou les 8 derniers caractères de l'ID"
+            value={staffReceiptSearch}
+            onChange={e => setStaffReceiptSearch(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleStaffReceiptSearch()}
+            className="flex-1 px-4 py-3 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]"
+            style={{ color: TEXT_PRIMARY }}
+          />
+          <button
+            onClick={handleStaffReceiptSearch}
+            disabled={staffSearching}
+            className="edu-gold-cta px-6 py-3 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50"
+          >
+            {staffSearching ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Search size={14} />}
+            Vérifier
+          </button>
+          <button
+            onClick={handleScanReceipt}
+            disabled={scanning}
+            className="px-4 py-3 rounded-xl text-sm font-semibold inline-flex items-center gap-2 border border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm transition disabled:opacity-50"
+            style={{ color: TEXT_PRIMARY }}
+          >
+            {scanning ? <div className="h-4 w-4 border-2 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" /> : <Upload size={14} />}
+            Importer
+          </button>
         </div>
       </div>
 
-      {/* Payments List */}
-      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr style={{ background: IVORY }}>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Ã‰lÃ¨ve</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Trimestre</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Montant</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>PayÃ©</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Statut</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>VÃ©rification</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={7} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
-              ) : filteredPayments.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>
-                  {filter === 'unverified' ? 'Tous les paiements sont vÃ©rifiÃ©s âœ“' : filter === 'verified' ? 'Aucun paiement vÃ©rifiÃ©' : 'Aucun paiement trouvÃ©'}
-                </td></tr>
-              ) : filteredPayments.map(p => {
-                const isVerified = !!(p as Record<string, unknown>).verifiedBy
-                return (
-                  <tr key={p.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                          {p.student ? getInitials(`${p.student.firstName} ${p.student.lastName}`) : '??'}
-                        </div>
-                        <div>
-                          <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{p.student ? `${p.student.firstName} ${p.student.lastName}` : 'â€”'}</div>
-                          <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{p.student?.matricule || ''}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{p.trimester}</td>
-                    <td className="px-4 py-3 text-[13px] tabular-nums font-medium" style={{ color: TEXT_PRIMARY }}>{formatNumber(p.amount)} CDF</td>
-                    <td className="px-4 py-3 text-[13px] tabular-nums font-medium" style={{ color: SUCCESS }}>{formatNumber(p.paidAmount)} CDF</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill(p.status)}`}>
-                        {p.status === 'PAID' ? 'âœ“ PayÃ©' : p.status === 'PARTIAL' ? 'â— Partiel' : p.status === 'OVERDUE' ? 'âš  En retard' : p.status === 'REJECTED' ? 'âœ— RejetÃ©' : 'â—‹ En attente'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {isVerified ? (
-                        <div className="flex items-center gap-1.5">
-                          <CheckCircle size={14} style={{ color: SUCCESS }} />
-                          <div>
-                            <div className="text-[11px] font-medium" style={{ color: SUCCESS }}>VÃ©rifiÃ©</div>
-                            <div className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>{String((p as Record<string, unknown>).verifiedBy)}</div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          <AlertCircle size={14} style={{ color: WARNING }} />
-                          <span className="text-[11px] font-medium" style={{ color: WARNING }}>Non vÃ©rifiÃ©</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleViewReceipt(p.id)}
-                          className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition"
-                          style={{ color: GOLD }}
-                          title="Voir le reÃ§u PDF"
-                        >
-                          {receiptLoading && selectedPayment?.id === p.id ? <div className="h-3 w-3 border border-[oklch(52%_0.015_250)] border-t-transparent rounded-full animate-spin" /> : <FileText size={14} />}
-                        </button>
-                        {canVerify && !isVerified && (
-                          <button
-                            onClick={() => setSelectedPayment(p)}
-                            className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition"
-                            style={{ color: SUCCESS }}
-                            title="VÃ©rifier ce paiement"
-                          >
-                            <CheckCircle size={14} />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => downloadReceiptFile(p.id)}
-                          className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition"
-                          style={{ color: TEXT_MUTED_LUXE }}
-                          title="TÃ©lÃ©charger le reÃ§u"
-                        >
-                          <Download size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+      {/* Search Result */}
+      {staffSearchResult && (
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
+          <div className="px-5 py-4 flex items-center gap-3" style={{ background: `${SUCCESS}10` }}>
+            <div className="w-10 h-10 rounded-full grid place-items-center" style={{ background: SUCCESS }}>
+              <CheckCircle size={20} className="text-white" />
+            </div>
+            <div>
+              <div className="font-semibold" style={{ color: SUCCESS }}>Reçu trouvé</div>
+              <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{staffSearchResult.receiptNumber || `REC-${staffSearchResult.id.slice(-8).toUpperCase()}`}</div>
+            </div>
+            <div className="ml-auto">
+              {staffSearchResult.status === 'PAID' && !(staffSearchResult as Record<string, unknown>).verifiedBy && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: `${WARNING}15`, color: WARNING }}>Non vérifié</span>
+              )}
+              {(staffSearchResult as Record<string, unknown>).verifiedBy && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: `${SUCCESS}15`, color: SUCCESS }}>Vérifié</span>
+              )}
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Élève</div>
+                <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>
+                  {staffSearchResult.student ? `${staffSearchResult.student.firstName} ${staffSearchResult.student.lastName}` : '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Matricule</div>
+                <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{staffSearchResult.student?.matricule || '—'}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Trimestre</div>
+                <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{staffSearchResult.trimester}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Montant total</div>
+                <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{formatNumber(staffSearchResult.amount)} CDF</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Montant payé</div>
+                <div className="text-sm font-semibold" style={{ color: SUCCESS }}>{formatNumber(staffSearchResult.paidAmount)} CDF</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Reste à payer</div>
+                <div className="text-sm font-semibold" style={{ color: staffSearchResult.amount - staffSearchResult.paidAmount > 0 ? DANGER : SUCCESS }}>
+                  {formatNumber(staffSearchResult.amount - staffSearchResult.paidAmount)} CDF
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Mode de paiement</div>
+                <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{staffSearchResult.paymentMethod || '—'}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Statut</div>
+                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill(staffSearchResult.status)}`}>
+                  {staffSearchResult.status === 'PAID' ? '✓ Payé' : staffSearchResult.status === 'PARTIAL' ? '◯ Partiel' : staffSearchResult.status === 'REJECTED' ? '✗ Rejeté' : '◯ En attente'}
+                </span>
+              </div>
+              {(staffSearchResult as Record<string, unknown>).verifiedBy && (
+                <>
+                  <div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Vérifié par</div>
+                    <div className="text-sm font-semibold" style={{ color: SUCCESS }}>{String((staffSearchResult as Record<string, unknown>).verifiedBy)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Date de vérification</div>
+                    <div className="text-sm" style={{ color: TEXT_PRIMARY }}>
+                      {(staffSearchResult as Record<string, unknown>).verifiedAt ? new Date(String((staffSearchResult as Record<string, unknown>).verifiedAt)).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {(staffSearchResult as Record<string, unknown>).verificationNote && (
+              <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-3">
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Note du vérificateur</div>
+                <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{String((staffSearchResult as Record<string, unknown>).verificationNote)}</div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-3 pt-2">
+              <button
+                onClick={() => handleViewReceipt(staffSearchResult.id)}
+                disabled={receiptLoading}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}
+              >
+                {receiptLoading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FileText size={14} />}
+                Voir le reçu PDF
+              </button>
+              <button
+                onClick={() => downloadReceiptFile(staffSearchResult.id)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition"
+                style={{ color: TEXT_PRIMARY }}
+              >
+                <Download size={14} /> Télécharger
+              </button>
+              {canVerify && !(staffSearchResult as Record<string, unknown>).verifiedBy && (
+                <button
+                  onClick={() => setSelectedPayment(staffSearchResult)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90"
+                  style={{ background: SUCCESS }}
+                >
+                  <CheckCircle size={14} /> Vérifier ce reçu
+                </button>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Verification Modal */}
       {selectedPayment && (
@@ -3619,8 +3809,8 @@ function PaymentVerificationView() {
                   <CheckCircle size={20} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>VÃ©rifier le paiement</h3>
-                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>NÂ° {selectedPayment.receiptNumber || selectedPayment.id.slice(-8)}</p>
+                  <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Vérifier le paiement</h3>
+                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>N° {selectedPayment.receiptNumber || selectedPayment.id.slice(-8)}</p>
                 </div>
               </div>
               <button onClick={() => { setSelectedPayment(null); setVerificationNote('') }} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-gray-100 transition">
@@ -3632,34 +3822,34 @@ function PaymentVerificationView() {
               {/* Payment Summary */}
               <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-4 space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span style={{ color: TEXT_MUTED_LUXE }}>Ã‰lÃ¨ve</span>
+                  <span style={{ color: TEXT_MUTED_LUXE }}>Élève</span>
                   <span className="font-medium" style={{ color: TEXT_PRIMARY }}>
-                    {selectedPayment.student ? `${selectedPayment.student.firstName} ${selectedPayment.student.lastName}` : 'â€”'}
+                    {selectedPayment.student ? `${selectedPayment.student.firstName} ${selectedPayment.student.lastName}` : '—'}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span style={{ color: TEXT_MUTED_LUXE }}>Montant dÃ»</span>
+                  <span style={{ color: TEXT_MUTED_LUXE }}>Montant d»</span>
                   <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{formatNumber(selectedPayment.amount)} CDF</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span style={{ color: TEXT_MUTED_LUXE }}>Montant payÃ©</span>
+                  <span style={{ color: TEXT_MUTED_LUXE }}>Montant payé</span>
                   <span className="font-medium" style={{ color: SUCCESS }}>{formatNumber(selectedPayment.paidAmount)} CDF</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span style={{ color: TEXT_MUTED_LUXE }}>Reste Ã  payer</span>
+                  <span style={{ color: TEXT_MUTED_LUXE }}>Reste à payer</span>
                   <span className="font-medium" style={{ color: selectedPayment.amount - selectedPayment.paidAmount > 0 ? DANGER : SUCCESS }}>
                     {formatNumber(selectedPayment.amount - selectedPayment.paidAmount)} CDF
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span style={{ color: TEXT_MUTED_LUXE }}>Mode</span>
-                  <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{selectedPayment.paymentMethod || 'â€”'}</span>
+                  <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{selectedPayment.paymentMethod || '—'}</span>
                 </div>
               </div>
 
               {/* Verification Note */}
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Note de vÃ©rification (optionnel)</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Note de vérification (optionnel)</label>
                 <textarea
                   placeholder="Ajoutez une note ou un commentaire..."
                   value={verificationNote}
@@ -3672,7 +3862,7 @@ function PaymentVerificationView() {
               {/* Info about who is verifying */}
               <div className="flex items-center gap-2 text-xs" style={{ color: TEXT_MUTED_LUXE }}>
                 <Info size={12} />
-                <span>VÃ©rification par <strong style={{ color: TEXT_PRIMARY }}>{userData?.name}</strong> ({userData?.role})</span>
+                <span>Vérification par <strong style={{ color: TEXT_PRIMARY }}>{userData?.name}</strong> ({userData?.role})</span>
               </div>
             </div>
 
@@ -3717,13 +3907,13 @@ function PaymentVerificationView() {
                   <FileText size={20} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">ReÃ§u de Paiement</h2>
-                  <p className="text-xs text-gray-500">VÃ©rification du reÃ§u</p>
+                  <h2 className="text-lg font-bold text-gray-900">Reçu de Paiement</h2>
+                  <p className="text-xs text-gray-500">Vérification du reçu</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <a href={receiptUrl} download className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
-                  <Download size={14} /> TÃ©lÃ©charger
+                  <Download size={14} /> Télécharger
                 </a>
                 <button onClick={() => { URL.revokeObjectURL(receiptUrl); setReceiptUrl(null) }} className="w-9 h-9 rounded-lg grid place-items-center hover:bg-gray-100 transition">
                   <X size={18} className="text-gray-500" />
@@ -3731,7 +3921,7 @@ function PaymentVerificationView() {
               </div>
             </div>
             <div className="flex-1 overflow-hidden rounded-b-2xl">
-              <iframe src={receiptUrl} className="w-full h-[70vh] border-0" title="ReÃ§u PDF" />
+              <iframe src={receiptUrl} className="w-full h-[70vh] border-0" title="Reçu PDF" />
             </div>
           </div>
         </div>
@@ -3771,7 +3961,7 @@ function CommunicationsView() {
         }),
       })
       if (res.ok) {
-        toast.success('Communication envoyÃ©e!')
+        toast.success('Communication envoyée!')
         setTitle(''); setContent('')
         const json = await (await authFetch('/api/communications?limit=20')).json()
         setComms(json.data || [])
@@ -3795,7 +3985,7 @@ function CommunicationsView() {
               <select value={type} onChange={e => setType(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                 <option value="ANNOUNCEMENT">Annonce</option>
                 <option value="NOTIFICATION">Notification</option>
-                <option value="EVENT">Ã‰vÃ©nement</option>
+                <option value="EVENT">Événement</option>
                 <option value="ALERT">Alerte</option>
               </select>
               <select value={targetType} onChange={e => setTargetType(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
@@ -3906,7 +4096,7 @@ function HomeworkView() {
         }),
       })
       if (res.ok) {
-        toast.success('Devoir ajoutÃ© avec succÃ¨s !')
+        toast.success('Devoir ajouté avec succès !')
         setShowForm(false)
         setHwTitle(''); setHwDesc(''); setHwClassId(''); setHwDueDate('')
         // Don't reset hwSubject - keep it for the teacher
@@ -3950,13 +4140,13 @@ function HomeworkView() {
               <input value={hwTitle} onChange={e => setHwTitle(e.target.value)} placeholder="Ex: Exercices de calcul" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
             </div>
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>MatiÃ¨re *</label>
-              <input value={hwSubject} onChange={e => setHwSubject(e.target.value)} placeholder="Ex: MathÃ©matiques" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Matière *</label>
+              <input value={hwSubject} onChange={e => setHwSubject(e.target.value)} placeholder="Ex: Mathématiques" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
             </div>
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
               <select value={hwClassId} onChange={e => setHwClassId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                <option value="">SÃ©lectionner une classe</option>
+                <option value="">Sélectionner une classe</option>
                 {(() => {
                   // Filter classes by teacher's classNames assignment (if available)
                   const myClassNames = (userData?.classNames || '').split(',').map((s: string) => s.trim()).filter(Boolean);
@@ -3968,7 +4158,7 @@ function HomeworkView() {
               </select>
               {userData?.classNames && (
                 <p className="text-[11px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>
-                  Classes assignÃ©es: {userData.classNames}
+                  Classes assignées: {userData.classNames}
                 </p>
               )}
             </div>
@@ -4007,7 +4197,7 @@ function HomeworkView() {
               <p className="text-sm mb-3 line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{h.description}</p>
               <div className="flex items-center justify-between text-xs" style={{ color: TEXT_MUTED_LUXE }}>
                 <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1" style={{ color: GOLD }}><Calendar size={12} /> Ã‰chÃ©ance: {formatDate(h.dueDate)}</span>
+                  <span className="flex items-center gap-1" style={{ color: GOLD }}><Calendar size={12} /> Échéance: {formatDate(h.dueDate)}</span>
                   {h.class?.name && <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium" style={{ background: IVORY, color: TEXT_MUTED_LUXE }}>{h.class.name}</span>}
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -4067,7 +4257,7 @@ function ClassPassingView() {
         .then(r => r.json())
         .then(j => {
           setStudentSuggestions((j.data || []).map((s: StudentData) => ({
-            id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: `${s.matricule} Â· ${s.class?.name || ''}`, photoUrl: s.photoUrl
+            id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: `${s.matricule} · ${s.class?.name || ''}`, photoUrl: s.photoUrl
           })))
           setStudentSearchLoading(false)
         })
@@ -4090,10 +4280,10 @@ function ClassPassingView() {
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Passage de classe</h1>
           </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filteredStudents.length)} Ã©lÃ¨ves</p>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filteredStudents.length)} élèves</p>
         </div>
         <SearchAutocomplete
-          placeholder="Tapez le nom de l'Ã©lÃ¨ve..."
+          placeholder="Tapez le nom de l'élève..."
           items={studentSuggestions}
           selectedId={selectedStudentId}
           onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
@@ -4101,7 +4291,7 @@ function ClassPassingView() {
           searchQuery={studentSearch}
           onSearchChange={setStudentSearch}
           loading={studentSearchLoading}
-          itemTypeName="Ã©lÃ¨ve"
+          itemTypeName="élève"
           className="w-full max-w-sm"
         />
       </div>
@@ -4110,9 +4300,9 @@ function ClassPassingView() {
           <table className="w-full">
             <thead>
               <tr style={{ background: IVORY }}>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Ã‰lÃ¨ve</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Classe actuelle</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>DÃ©cision</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Décision</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Action</th>
               </tr>
             </thead>
@@ -4132,7 +4322,7 @@ function ClassPassingView() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.class?.name || 'â€”'}</td>
+                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.class?.name || '—'}</td>
                   <td className="px-4 py-3">
                     <select className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                       <option>En attente</option><option>Passage</option><option>Redouble</option>
@@ -4211,7 +4401,7 @@ function BulletinView() {
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(Object.keys(filteredStudentGrades).length)} bulletins</p>
         </div>
         <SearchAutocomplete
-          placeholder="Tapez le nom de l'Ã©lÃ¨ve..."
+          placeholder="Tapez le nom de l'élève..."
           items={studentSuggestions}
           selectedId={selectedStudentId}
           onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
@@ -4219,12 +4409,12 @@ function BulletinView() {
           searchQuery={studentSearch}
           onSearchChange={setStudentSearch}
           loading={studentSearchLoading}
-          itemTypeName="Ã©lÃ¨ve"
+          itemTypeName="élève"
           className="w-full max-w-sm"
         />
       </div>
       {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : Object.keys(filteredStudentGrades).length === 0 ? (
-        <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun bulletin trouvÃ©</div>
+        <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun bulletin trouvé</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {Object.entries(filteredStudentGrades).slice(0, 12).map(([id, data]) => {
@@ -4300,10 +4490,10 @@ function ConvocationView() {
   }, [userData?.schoolId])
 
   async function handleSendConvocation() {
-    if (!selectedStudentId) { toast.error('Veuillez sÃ©lectionner un Ã©lÃ¨ve'); return }
+    if (!selectedStudentId) { toast.error('Veuillez sélectionner un élève'); return }
     if (!motif) { toast.error('Veuillez entrer le motif'); return }
     if (!date) { toast.error('Veuillez entrer la date'); return }
-    if (!userData?.schoolId) { toast.error('Erreur: Ã©cole non trouvÃ©e'); return }
+    if (!userData?.schoolId) { toast.error('Erreur: école non trouvée'); return }
     setSubmitting(true)
     try {
       const res = await authFetch('/api/convocations', {
@@ -4318,7 +4508,7 @@ function ConvocationView() {
         }),
       })
       if (res.ok) {
-        toast.success('Convocation envoyÃ©e avec succÃ¨s !')
+        toast.success('Convocation envoyée avec succès !')
         setMotif('')
         setDate('')
         setSelectedStudentId(null)
@@ -4348,8 +4538,8 @@ function ConvocationView() {
           <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Nouvelle convocation</h3>
           <div className="space-y-3">
             <SearchAutocomplete
-              label="Ã‰lÃ¨ve concernÃ©"
-              placeholder="Tapez le nom de l'Ã©lÃ¨ve..."
+              label="Élève concerné"
+              placeholder="Tapez le nom de l'élève..."
               items={studentSuggestions}
               selectedId={selectedStudentId}
               onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
@@ -4357,7 +4547,7 @@ function ConvocationView() {
               searchQuery={studentSearch}
               onSearchChange={setStudentSearch}
               loading={studentSearchLoading}
-              itemTypeName="Ã©lÃ¨ve"
+              itemTypeName="élève"
             />
             <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Motif</label><textarea placeholder="Motif de la convocation..." value={motif} onChange={e => setMotif(e.target.value)} rows={3} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" /></div>
             <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
@@ -4387,7 +4577,7 @@ function ConvocationView() {
                     <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{c.motif}</div>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${c.status === 'PENDING' ? 'bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]' : c.status === 'CONFIRMED' ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>{c.status === 'PENDING' ? 'En attente' : c.status === 'CONFIRMED' ? 'ConfirmÃ©e' : c.status}</span>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${c.status === 'PENDING' ? 'bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]' : c.status === 'CONFIRMED' ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>{c.status === 'PENDING' ? 'En attente' : c.status === 'CONFIRMED' ? 'Confirmée' : c.status}</span>
                     <div className="text-[10px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(c.date)}</div>
                   </div>
                 </div>
@@ -4450,7 +4640,7 @@ function SchoolReviewsView() {
         }),
       })
       if (res.ok) {
-        toast.success('Votre avis a Ã©tÃ© soumis ! Il sera visible aprÃ¨s approbation.')
+        toast.success('Votre avis a été soumis ! Il sera visible après approbation.')
         setRating(0)
         setComment('')
       } else {
@@ -4468,7 +4658,7 @@ function SchoolReviewsView() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Avis sur l&apos;Ã©cole</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Avis sur l&apos;école</h1>
       </div>
 
       {/* School Header Card */}
@@ -4554,7 +4744,7 @@ function SchoolReviewsView() {
                 value={comment}
                 onChange={e => setComment(e.target.value)}
                 rows={4}
-                placeholder="Partagez votre expÃ©rience avec cette Ã©cole..."
+                placeholder="Partagez votre expérience avec cette école..."
                 className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none"
               />
             </div>
@@ -4566,7 +4756,7 @@ function SchoolReviewsView() {
               {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Send size={14} />}
               Soumettre mon avis
             </button>
-            <p className="text-[11px] text-center" style={{ color: TEXT_MUTED_LUXE }}>Votre avis sera visible aprÃ¨s approbation par l&apos;administration</p>
+            <p className="text-[11px] text-center" style={{ color: TEXT_MUTED_LUXE }}>Votre avis sera visible après approbation par l&apos;administration</p>
           </div>
         </div>
 
@@ -4578,7 +4768,7 @@ function SchoolReviewsView() {
               <div className="text-center py-8">
                 <MessageCircle size={32} className="mx-auto mb-3" style={{ color: TEXT_MUTED_LUXE }} />
                 <p className="font-medium" style={{ color: TEXT_PRIMARY }}>Aucun avis pour le moment</p>
-                <p className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>Soyez le premier Ã  donner votre avis !</p>
+                <p className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>Soyez le premier à donner votre avis !</p>
               </div>
             ) : (
               <div className="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar">

@@ -20,15 +20,19 @@ function generate6DigitCode(): string {
 
 async function sendWhatsAppMessage(phone: string, message: string): Promise<boolean> {
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 28000);
     const res = await fetch(`${WA_SERVER}/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone, message }),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
     const data = await res.json();
     return data.ok === true;
   } catch {
-    console.warn('[WhatsApp] Server not reachable. Is whatsapp-server.ts running?');
+    console.warn('[WhatsApp] Server not reachable or timeout.');
     return false;
   }
 }

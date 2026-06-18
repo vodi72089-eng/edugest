@@ -93,9 +93,9 @@ export default function SettingsView() {
       if (res.ok) {
         const j = await res.json()
         setSchool(j.data)
-        toast.success('ParamÃ¨tres mis Ã  jour avec succÃ¨s !')
+        toast.success('Paramètres mis à jour avec succès !')
       } else {
-        toast.error('Erreur lors de la mise Ã  jour')
+        toast.error('Erreur lors de la mise à jour')
       }
     } catch {
       toast.error('Erreur de connexion')
@@ -122,11 +122,11 @@ export default function SettingsView() {
         if (res.ok) {
           if (type === 'logo') setLogoUrl(url)
           else setCoverUrl(url)
-          toast.success(type === 'logo' ? 'Logo mis Ã  jour !' : 'Image de couverture mise Ã  jour !')
+          toast.success(type === 'logo' ? 'Logo mis à jour !' : 'Image de couverture mise à jour !')
         }
       }
     } catch {
-      toast.error('Erreur lors du tÃ©lÃ©chargement')
+      toast.error('Erreur lors du téléchargement')
     }
     if (type === 'logo') setUploadingLogo(false)
     else setUploadingCover(false)
@@ -141,7 +141,7 @@ export default function SettingsView() {
       })
       if (res.ok) {
         setComments(prev => prev.filter(c => c.id !== id))
-        toast.success('Commentaire approuvÃ© !')
+        toast.success('Commentaire approuvé !')
       }
     } catch {
       toast.error('Erreur')
@@ -153,7 +153,7 @@ export default function SettingsView() {
       const res = await authFetch(`/api/school-comments?id=${id}`, { method: 'DELETE' })
       if (res.ok) {
         setComments(prev => prev.filter(c => c.id !== id))
-        toast.success('Commentaire supprimÃ©')
+        toast.success('Commentaire supprimé')
       }
     } catch {
       toast.error('Erreur')
@@ -166,7 +166,7 @@ export default function SettingsView() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>ParamÃ¨tres de l&apos;Ã©cole</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Paramètres de l&apos;école</h1>
       </div>
 
       {/* Cover Image */}
@@ -192,8 +192,8 @@ export default function SettingsView() {
               <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(f, 'logo') }} />
             </div>
             <div>
-              <h2 className="text-white text-xl font-bold drop-shadow">{name || 'Mon Ã‰cole'}</h2>
-              <p className="text-white/80 text-sm">{city}{province ? `, ${province}` : ''} Â· {schoolCategory === 'PRIVEE' ? 'PrivÃ©e' : 'Publique'}</p>
+              <h2 className="text-white text-xl font-bold drop-shadow">{name || 'Mon École'}</h2>
+              <p className="text-white/80 text-sm">{city}{province ? `, ${province}` : ''} · {schoolCategory === 'PRIVEE' ? 'Privée' : 'Publique'}</p>
             </div>
           </div>
           <button
@@ -211,18 +211,18 @@ export default function SettingsView() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main form */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Informations gÃ©nÃ©rales */}
+          {/* Informations générales */}
           <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
             <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
-              <Building2 size={16} style={{ color: GOLD }} /> Informations gÃ©nÃ©rales
+              <Building2 size={16} style={{ color: GOLD }} /> Informations générales
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom de l&apos;Ã©cole *</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom de l&apos;école *</label>
                 <input value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>AbrÃ©viation</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Abréviation</label>
                 <input value={shortName} onChange={e => setShortName(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
               </div>
               <div>
@@ -230,30 +230,30 @@ export default function SettingsView() {
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>TÃ©lÃ©phone</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Téléphone</label>
                 <input value={phone} onChange={e => setPhone(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Type d&apos;Ã©cole</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Type d&apos;école</label>
                 <select value={schoolType} onChange={e => setSchoolType(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                   <option value="MIXTE">Mixte</option>
-                  <option value="GARCONS">GarÃ§ons</option>
+                  <option value="GARCONS">Garçons</option>
                   <option value="FILLES">Filles</option>
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>CatÃ©gorie</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Catégorie</label>
                 <select value={schoolCategory} onChange={e => setSchoolCategory(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                  <option value="PRIVEE">PrivÃ©e</option>
+                  <option value="PRIVEE">Privée</option>
                   <option value="PUBLIQUE">Publique</option>
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>AnnÃ©e de fondation</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Année de fondation</label>
                 <input type="number" value={establishmentYear} onChange={e => setEstablishmentYear(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Max Ã©lÃ¨ves</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Max élèves</label>
                 <input type="number" value={maxStudents} onChange={e => setMaxStudents(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
               </div>
             </div>
@@ -319,7 +319,7 @@ export default function SettingsView() {
             <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Statistiques</h3>
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
-                <span style={{ color: TEXT_MUTED_LUXE }}>Ã‰lÃ¨ves inscrits</span>
+                <span style={{ color: TEXT_MUTED_LUXE }}>Élèves inscrits</span>
                 <span className="font-semibold" style={{ color: TEXT_PRIMARY }}>{school?.studentCount || 0}</span>
               </div>
               <div className="flex justify-between text-sm">

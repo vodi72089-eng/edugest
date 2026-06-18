@@ -43,7 +43,7 @@ export default function PersonnelView() {
   }, [showAddModal, editingUser, isTeacherForm, userData?.schoolId])
 
   const ROLES = [
-    { value: 'SECRETARY', label: 'SecrÃ©taire', color: 'oklch(60% 0.13 250)' },
+    { value: 'SECRETARY', label: 'Secrétaire', color: 'oklch(60% 0.13 250)' },
     { value: 'CASHIER', label: 'Caissier', color: 'oklch(72% 0.15 65)' },
     { value: 'TEACHER', label: 'Enseignant', color: 'oklch(60% 0.15 145)' },
     { value: 'HEAD_TEACHER', label: 'Prof. Principal', color: 'oklch(55% 0.15 175)' },
@@ -90,11 +90,11 @@ export default function PersonnelView() {
   async function handleAddUser(e: React.FormEvent) {
     e.preventDefault()
     if (!form.name || !form.role) {
-      toast.error('Veuillez remplir le nom et le rÃ´le')
+      toast.error('Veuillez remplir le nom et le rôle')
       return
     }
     if (!form.email && !form.phone) {
-      toast.error('Veuillez fournir un email ou un tÃ©lÃ©phone')
+      toast.error('Veuillez fournir un email ou un téléphone')
       return
     }
     setSaving(true)
@@ -111,16 +111,16 @@ export default function PersonnelView() {
         }),
       })
       if (res.ok) {
-        toast.success(`${getRoleLabel(form.role as UserRole)} crÃ©Ã© avec succÃ¨s !`)
+        toast.success(`${getRoleLabel(form.role as UserRole)} cré avec succès !`)
         setShowAddModal(false)
         setForm({ name: '', email: '', phone: '', password: '', role: 'SECRETARY', subjectName: '', classNames: '', isTitulaire: false })
         loadUsers()
       } else {
         const json = await res.json()
-        toast.error(json.error || 'Erreur lors de la crÃ©ation')
+        toast.error(json.error || 'Erreur lors de la création')
       }
     } catch {
-      toast.error('Erreur rÃ©seau')
+      toast.error('Erreur réseau')
     } finally {
       setSaving(false)
     }
@@ -147,7 +147,7 @@ export default function PersonnelView() {
         }),
       })
       if (res.ok) {
-        toast.success('Utilisateur modifiÃ© avec succÃ¨s !')
+        toast.success('Utilisateur modifié avec succès !')
         setEditingUser(null)
         setForm({ name: '', email: '', phone: '', password: '', role: 'SECRETARY', subjectName: '', classNames: '', isTitulaire: false })
         loadUsers()
@@ -156,7 +156,7 @@ export default function PersonnelView() {
         toast.error(json.error || 'Erreur lors de la modification')
       }
     } catch {
-      toast.error('Erreur rÃ©seau')
+      toast.error('Erreur réseau')
     } finally {
       setSaving(false)
     }
@@ -170,11 +170,11 @@ export default function PersonnelView() {
         body: JSON.stringify({ id: user.id, isActive: !user.isActive }),
       })
       if (res.ok) {
-        toast.success(user.isActive ? 'Compte dÃ©sactivÃ©' : 'Compte rÃ©activÃ©')
+        toast.success(user.isActive ? 'Compte désactivé' : 'Compte réactivé')
         loadUsers()
       }
     } catch {
-      toast.error('Erreur rÃ©seau')
+      toast.error('Erreur réseau')
     }
   }
 
@@ -214,7 +214,7 @@ export default function PersonnelView() {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Personnel</h1>
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>
-            {formatNumber(activeUsers.length)} membres actifs Â· {formatNumber(inactiveUsers.length)} inactifs
+            {formatNumber(activeUsers.length)} membres actifs · {formatNumber(inactiveUsers.length)} inactifs
           </p>
         </div>
         <button onClick={() => setShowAddModal(true)} className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
@@ -240,7 +240,7 @@ export default function PersonnelView() {
       {/* Search bar */}
       <div className="flex items-center gap-3 mb-4">
         <SearchAutocomplete
-          placeholder="Rechercher par nom, email, tÃ©lÃ©phone..."
+          placeholder="Rechercher par nom, email, téléphone..."
           items={personnelSuggestions}
           selectedId={selectedPersonnelId}
           onSelect={(item) => { setSelectedPersonnelId(item.id); setSearch(item.label); loadUsers() }}
@@ -272,9 +272,9 @@ export default function PersonnelView() {
                 <tr className="border-b border-[oklch(90%_0.01_175)]" style={{ background: IVORY }}>
                   <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Membre</th>
                   <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Contact</th>
-                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>RÃ´le</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Rôle</th>
                   <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Statut</th>
-                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>DerniÃ¨re connexion</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Dernière connexion</th>
                   <th className="text-right px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Actions</th>
                 </tr>
               </thead>
@@ -290,12 +290,12 @@ export default function PersonnelView() {
                           </div>
                           <div>
                             <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{user.name}</div>
-                            <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>CrÃ©Ã© le {formatDate(user.createdAt)}</div>
+                            <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Cré le {formatDate(user.createdAt)}</div>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{user.email || 'â€”'}</div>
+                        <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{user.email || '—'}</div>
                         <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{user.phone}</div>
                       </td>
                       <td className="px-4 py-3">
@@ -328,7 +328,7 @@ export default function PersonnelView() {
                           <button onClick={() => openEditModal(user)} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition" title="Modifier">
                             <Edit size={14} style={{ color: TEXT_MUTED_LUXE }} />
                           </button>
-                          <button onClick={() => handleToggleActive(user)} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition" title={user.isActive ? 'DÃ©sactiver' : 'RÃ©activer'}>
+                          <button onClick={() => handleToggleActive(user)} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition" title={user.isActive ? 'Désactiver' : 'Réactiver'}>
                             {user.isActive ? <Ban size={14} style={{ color: DANGER }} /> : <CheckCircle size={14} style={{ color: SUCCESS }} />}
                           </button>
                         </div>
@@ -356,7 +356,7 @@ export default function PersonnelView() {
                     {editingUser ? 'Modifier le membre' : 'Ajouter un membre'}
                   </h2>
                   <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                    {editingUser ? 'Modifier les informations du membre' : 'CrÃ©er un nouveau compte personnel'}
+                    {editingUser ? 'Modifier les informations du membre' : 'Créer un nouveau compte personnel'}
                   </p>
                 </div>
               </div>
@@ -371,7 +371,7 @@ export default function PersonnelView() {
 
               {/* Role selector */}
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>RÃ´le / Poste *</label>
+                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Rôle / Poste *</label>
                 <div className="grid grid-cols-2 gap-2">
                   {ROLES.map(r => (
                     <button
@@ -396,17 +396,17 @@ export default function PersonnelView() {
 
               {/* Phone */}
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>TÃ©lÃ©phone</label>
+                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone</label>
                 <input type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+243 81 234 56 78" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
               </div>
 
               {/* Password */}
               <div className="space-y-1.5">
                 <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>
-                  Mot de passe {editingUser ? '(laisser vide pour ne pas changer)' : '(dÃ©faut: password123)'}
+                  Mot de passe {editingUser ? '(laisser vide pour ne pas changer)' : '(défaut: password123)'}
                 </label>
                 <div className="relative">
-                  <input type={showPersonnelPassword ? 'text' : 'password'} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" className="w-full px-4 py-3 pr-11 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                  <input type={showPersonnelPassword ? 'text' : 'password'} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" className="w-full px-4 py-3 pr-11 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                   <button type="button" onClick={() => setShowPersonnelPassword(!showPersonnelPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[oklch(52%_0.015_250)] hover:text-[oklch(40%_0.02_250)] transition p-1">
                     {showPersonnelPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -421,16 +421,16 @@ export default function PersonnelView() {
                     <span className="text-sm font-semibold" style={{ color: GOLD }}>Informations enseignant</span>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>MatiÃ¨re / Cours enseignÃ©</label>
-                    <input type="text" value={form.subjectName} onChange={e => setForm({ ...form, subjectName: e.target.value })} placeholder="Ex: MathÃ©matiques, FranÃ§ais, Histoire-GÃ©o..." className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                    <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Vous pouvez assigner plusieurs professeurs au mÃªme cours</p>
+                    <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Matière / Cours enseigné</label>
+                    <input type="text" value={form.subjectName} onChange={e => setForm({ ...form, subjectName: e.target.value })} placeholder="Ex: Mathématiques, Français, Histoire-Géo..." className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                    <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Vous pouvez assigner plusieurs professeurs au même cours</p>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Classes occupÃ©es</label>
+                    <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Classes occupées</label>
                     {/* Available classes - click to select/deselect */}
                     {availableClasses.length > 0 && (
                       <div className="space-y-1.5 mb-2">
-                        <label className="text-[12px] font-medium" style={{ color: TEXT_PRIMARY }}>SÃ©lectionner les classes</label>
+                        <label className="text-[12px] font-medium" style={{ color: TEXT_PRIMARY }}>Sélectionner les classes</label>
                         <div className="flex flex-wrap gap-2">
                           {availableClasses.map(c => {
                             const isSelected = form.classNames.split(',').map(n => n.trim()).filter(Boolean).includes(c.name)
@@ -461,7 +461,7 @@ export default function PersonnelView() {
                         <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Cliquez sur les classes pour les ajouter/retirer</p>
                       </div>
                     )}
-                    <input type="text" value={form.classNames} onChange={e => setForm({ ...form, classNames: e.target.value })} placeholder="Ex: 6eA, 6eB, 5eA (sÃ©parÃ©es par des virgules)" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                    <input type="text" value={form.classNames} onChange={e => setForm({ ...form, classNames: e.target.value })} placeholder="Ex: 6eA, 6eB, 5eA (séparées par des virgules)" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                   </div>
                   <div className="flex items-center gap-3">
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -492,7 +492,7 @@ export default function PersonnelView() {
                   ) : editingUser ? (
                     <><Check size={14} /> Enregistrer</>
                   ) : (
-                    <><UserPlus size={14} /> CrÃ©er le compte</>
+                    <><UserPlus size={14} /> Créer le compte</>
                   )}
                 </button>
               </div>

@@ -17,6 +17,7 @@ function initClient() {
     puppeteer: {
       headless: true,
       executablePath: 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+      protocolTimeout: 120000,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -152,6 +153,27 @@ const server = http.createServer(async (req, res) => {
 </body>
 </html>`);
 
+  } else if (url.pathname === '/pair-code' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const { phone } = JSON.parse(body);
+        if (!client || status !== 'connected') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'Client non connecté. Connectez d\'abord via QR code.' }));
+          return;
+        }
+        const code = await client.requestPairingCode(phone.replace(/[^0-9]/g, ''));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, code }));
+      } catch (e) {
+        console.error('[WhatsApp] Pair code error:', e.message);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+    });
+
   } else if (url.pathname === '/start' && req.method === 'POST') {
     initClient();
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -169,7 +191,9 @@ const server = http.createServer(async (req, res) => {
           return;
         }
         const chatId = phone.replace(/[^0-9]/g, '') + '@c.us';
-        await client.sendMessage(chatId, message);
+        const sendPromise = client.sendMessage(chatId, message);
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Send timeout')), 15000));
+        await Promise.race([sendPromise, timeoutPromise]);
         console.log(`[WhatsApp] Sent to ${phone}`);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));

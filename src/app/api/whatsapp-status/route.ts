@@ -27,6 +27,13 @@ export async function POST(request: NextRequest) {
     const authResult = await requireRole(request, ['SUPER_ADMIN_GLOBAL']);
     if ('error' in authResult) return authResult.error;
 
+    const body = await request.json().catch(() => ({}));
+
+    if (body.phone) {
+      const data = await waFetch('/pair-code', 'POST', { phone: body.phone });
+      return NextResponse.json({ data });
+    }
+
     const data = await waFetch('/start', 'POST');
     return NextResponse.json({ data, message: 'WhatsApp client started' });
   } catch (error) {
