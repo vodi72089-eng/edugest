@@ -18,7 +18,9 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData()
     const file = formData.get('file') as File | null
-    const category = (formData.get('category') as string) || 'general'
+    const ALLOWED_CATEGORIES = ['general', 'profiles', 'students', 'schools']
+    const rawCategory = (formData.get('category') as string) || 'general'
+    const category = ALLOWED_CATEGORIES.includes(rawCategory) ? rawCategory : 'general'
 
     if (!file) {
       return NextResponse.json({ error: 'Aucun fichier fourni' }, { status: 400 })

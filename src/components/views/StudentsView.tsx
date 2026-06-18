@@ -116,7 +116,7 @@ export default function StudentsView() {
         setShowAdd(false)
         setParentName(''); setParentEmail(''); setParentPhone(''); setParentPassword('')
         setSelectedClassId(''); setShowParentSection(false)
-        const json = await authFetch('/api/students?limit=50').then(r => r.json())
+        const json = await authFetch(`/api/students?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json())
         setStudents(json.data || [])
       } else {
         toast.error('Erreur lors de l\'ajout')

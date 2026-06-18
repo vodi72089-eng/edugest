@@ -84,8 +84,8 @@ export default function DisciplineView() {
         .then(j => setConvocations(j.data || []))
         .catch(() => {})
     }
-    if (isParent && userData?.schoolId) {
-      authFetch(`/api/convocations?schoolId=${userData.schoolId}&limit=50`)
+    if (isParent && userData?.id) {
+      authFetch(`/api/convocations?parentId=${userData.id}&limit=50`)
         .then(r => r.json())
         .then(j => setConvocations(j.data || []))
         .catch(() => {})
@@ -142,12 +142,16 @@ export default function DisciplineView() {
         params.set('parentId', userData.id)
       }
     }
-    if (isDisciplineRole && selectedStudentId) {
-      params.set('studentId', selectedStudentId)
+    if (isDisciplineRole) {
+      if (selectedStudentId) {
+        params.set('studentId', selectedStudentId)
+      } else if (userData?.schoolId) {
+        params.set('schoolId', userData.schoolId)
+      }
     }
     authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { if (!cancelled) { setRecords(j.data || []); setLoading(false) } }).catch(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [tab, isParent, userData?.id, selectedChildId, isDisciplineRole, selectedStudentId])
+  }, [tab, isParent, userData?.id, selectedChildId, isDisciplineRole, selectedStudentId, userData?.schoolId])
 
   const selectedChildName = selectedChildId ? myChildren.find(c => c.id === selectedChildId) : null
   const selectedStudentName = selectedStudentId ? sectionStudents.find(s => s.id === selectedStudentId) : null
@@ -305,7 +309,7 @@ export default function DisciplineView() {
               <button onClick={() => { setShowSanctionForm(true); setShowConvocationForm(false) }} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: DANGER }}>
                 <Shield size={14} /> Sanctionner
               </button>
-              <button onClick={() => { setShowConvocationForm(true); setShowSanctionForm(false) }} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: WARNING }}>
+              <button onClick={() => { setShowConvocationForm(true); setShowSanctionForm(false); setConvocationMotif(''); setConvocationDate('') }} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: WARNING }}>
                 <Megaphone size={14} /> Convocation
               </button>
             </div>
@@ -433,7 +437,7 @@ export default function DisciplineView() {
                   {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
                   Enregistrer la sanction
                 </button>
-                <button onClick={() => setShowSanctionForm(false)} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+                <button onClick={() => { setShowSanctionForm(false); setSanctionType('RETARD'); setSanctionSeverity('LOW'); setSanctionListType('GREYLIST'); setSanctionPoints('-2'); setSanctionTitle(''); setSanctionDesc('') }} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
               </div>
             </div>
           )}
@@ -469,7 +473,7 @@ export default function DisciplineView() {
                   {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Send size={14} />}
                   Envoyer la convocation
                 </button>
-                <button onClick={() => setShowConvocationForm(false)} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+                <button onClick={() => { setShowConvocationForm(false); setConvocationMotif(''); setConvocationDate('') }} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
               </div>
             </div>
           )}

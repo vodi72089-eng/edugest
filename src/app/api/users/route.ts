@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { requirePermission, requireRole, verifySchoolAccess, safeParseInt, sanitizeError } from '@/lib/auth';
+import { requirePermission, requireRole, verifySchoolAccess, canCreateRole, safeParseInt, sanitizeError } from '@/lib/auth';
 
 function generateRandomPassword(length: number = 12): string {
   return crypto.randomBytes(length).toString('base64').slice(0, length);
@@ -114,6 +114,14 @@ export async function POST(request: NextRequest) {
     if (role === 'SUPER_ADMIN_GLOBAL' && user.role !== 'SUPER_ADMIN_GLOBAL') {
       return NextResponse.json(
         { error: 'Seul un SUPER_ADMIN_GLOBAL peut attribuer le rôle SUPER_ADMIN_GLOBAL' },
+        { status: 403 }
+      );
+    }
+
+    // Check role creation permissions
+    if (!canCreateRole(user.role, role)) {
+      return NextResponse.json(
+        { error: `Vous ne pouvez pas créer de compte avec le rôle ${role}` },
         { status: 403 }
       );
     }

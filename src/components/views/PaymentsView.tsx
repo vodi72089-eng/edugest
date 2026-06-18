@@ -50,7 +50,7 @@ export default function PaymentsView() {
     } else {
       authFetch(`/api/payments?limit=30${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => { setPayments(j.data || []); setLoading(false) }).catch(() => setLoading(false))
     }
-  }, [])
+  }, [isParent, userData?.id, userData?.schoolId])
 
   useEffect(() => {
     if (studentSearch.length < 2) return

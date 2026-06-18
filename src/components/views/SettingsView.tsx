@@ -123,7 +123,11 @@ export default function SettingsView() {
           if (type === 'logo') setLogoUrl(url)
           else setCoverUrl(url)
           toast.success(type === 'logo' ? 'Logo mis à jour !' : 'Image de couverture mise à jour !')
+        } else {
+          toast.error('Erreur lors de la mise à jour de l\'école')
         }
+      } else {
+        toast.error('Erreur lors de l\'import de l\'image')
       }
     } catch {
       toast.error('Erreur lors du téléchargement')
@@ -246,6 +250,7 @@ export default function SettingsView() {
                 <select value={schoolCategory} onChange={e => setSchoolCategory(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                   <option value="PRIVEE">Privée</option>
                   <option value="PUBLIQUE">Publique</option>
+                  <option value="CONVENTIONNEE">Conventionnée</option>
                 </select>
               </div>
               <div>

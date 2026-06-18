@@ -107,7 +107,7 @@ export async function requireRole(request: NextRequest, allowedRoles: string[]):
 }
 
 // ─── Permission-based auth ─────────────────────────────────────────────────
-const ROLE_PERMISSIONS: Record<string, string[]> = {
+export const ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPER_ADMIN_GLOBAL: ['*'],
   DIRECTION: [
     'users:read', 'users:create', 'users:update',

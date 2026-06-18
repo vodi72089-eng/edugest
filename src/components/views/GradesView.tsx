@@ -59,8 +59,7 @@ export default function GradesView() {
         .then(j => setMyChildren(j.data || []))
         .catch(() => {})
     }
-    loadGrades()
-  }, [])
+  }, [userData?.schoolId, isParent, userData?.id])
 
   useEffect(() => {
     loadGrades()
@@ -110,6 +109,7 @@ export default function GradesView() {
           trimester: gradeTrimester,
           score,
           comment: gradeComment || null,
+          schoolId: userData.schoolId,
         }),
       })
       if (res.ok) {

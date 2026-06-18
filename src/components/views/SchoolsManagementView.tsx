@@ -264,8 +264,8 @@ export default function SchoolsManagementView() {
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Type d&apos;école</label>
                   <select value={form.schoolType} onChange={e => setForm({ ...form, schoolType: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
                     <option value="MIXTE">Mixte</option>
-                    <option value="FILLE">Filles</option>
-                    <option value="GARCON">Garçons</option>
+                    <option value="FILLES">Filles</option>
+                    <option value="GARCONS">Garçons</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
@@ -380,8 +380,8 @@ export default function SchoolsManagementView() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
-                      <button className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Eye size={14} /></button>
-                      <button className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Edit size={14} /></button>
+                      <button onClick={() => toast.info(`École: ${s.name}`)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Eye size={14} /></button>
+                      <button onClick={() => toast.info(`Modification de ${s.name} — bientôt disponible`)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Edit size={14} /></button>
                     </div>
                   </td>
                 </tr>

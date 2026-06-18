@@ -64,7 +64,7 @@ export default function PersonnelView() {
     authFetch(`/api/users?${params}`).then(r => r.json()).then(j => { setUsers(j.data || []); setLoading(false) }).catch(() => setLoading(false))
   }
 
-  useEffect(() => { loadUsers() }, [roleFilter])
+  useEffect(() => { loadUsers() }, [roleFilter, userData?.schoolId])
 
   // Personnel search autocomplete
   useEffect(() => {

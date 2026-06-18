@@ -2172,7 +2172,9 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     payments: 'Paiements', discipline: 'Discipline', communications: 'Communications',
     homework: 'Devoirs', profile: 'Mon profil', pricing: 'Tarifs', 'class-passing': 'Passage de classe',
     bulletin: 'Bulletins', convocation: 'Convocation', schools: 'Écoles',
-    'admin-analytics': 'Statistiques', 'whatsapp-config': 'WhatsApp',
+    'admin-analytics': 'Statistiques', 'whatsapp-config': 'Connexion WhatsApp',
+    personnel: 'Personnel', settings: 'Paramètres', 'school-reviews': 'Avis',
+    'payment-verification': 'Vérification', 'payment-config': 'Config. Paiement',
   }
 
   return (
@@ -4361,7 +4363,9 @@ function HomeworkView() {
 
 // ===== CLASS PASSING VIEW =====
 function ClassPassingView() {
-  const { userData } = useEduGestStore()
+  const { userData, userRole } = useEduGestStore()
+  const allowedRoles = ['SUPER_ADMIN_GLOBAL', 'ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'HEAD_TEACHER']
+  const canAccess = allowedRoles.includes(userRole)
   const [students, setStudents] = useState<StudentData[]>([])
   const [loading, setLoading] = useState(true)
   const [studentSearch, setStudentSearch] = useState('')
@@ -4403,6 +4407,12 @@ function ClassPassingView() {
 
   return (
     <div>
+      {!canAccess ? (
+        <div className="text-center py-12 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl">
+          <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Vous n&apos;avez pas accès à cette page</p>
+        </div>
+      ) : (
+      <>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
           <div className="flex items-center gap-3 mb-1">
@@ -4478,13 +4488,15 @@ function ClassPassingView() {
           </table>
         </div>
       </div>
+      </>
+      )}
     </div>
   )
 }
 
 // ===== BULLETIN VIEW =====
 function BulletinView() {
-  const { userData } = useEduGestStore()
+  const { userData, userRole } = useEduGestStore()
   const [grades, setGrades] = useState<GradeData[]>([])
   const [loading, setLoading] = useState(true)
   const [studentSearch, setStudentSearch] = useState('')
@@ -4492,12 +4504,21 @@ function BulletinView() {
   const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
   const [studentSearchLoading, setStudentSearchLoading] = useState(false)
   const [selectedTrimester, setSelectedTrimester] = useState('T1')
+  const isParent = userRole === 'PARENT'
 
   useEffect(() => {
     const params = new URLSearchParams({ limit: '50', trimester: selectedTrimester })
-    if (userData?.schoolId) params.set('schoolId', userData.schoolId)
+    if (isParent && userData?.id) {
+      params.set('parentId', userData.id)
+      if (selectedStudentId) {
+        params.delete('parentId')
+        params.set('studentId', selectedStudentId)
+      }
+    } else {
+      if (userData?.schoolId) params.set('schoolId', userData.schoolId)
+    }
     authFetch(`/api/grades?${params}`).then(r => r.json()).then(j => { setGrades(j.data || []); setLoading(false) }).catch(() => setLoading(false))
-  }, [selectedTrimester, userData?.schoolId])
+  }, [selectedTrimester, userData?.schoolId, userData?.id, isParent, selectedStudentId])
 
   // Student search autocomplete
   useEffect(() => {
@@ -4600,7 +4621,9 @@ function BulletinView() {
 
 // ===== CONVOCATION VIEW =====
 function ConvocationView() {
-  const { userData } = useEduGestStore()
+  const { userData, userRole } = useEduGestStore()
+  const allowedRoles = ['SUPER_ADMIN_GLOBAL', 'ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE']
+  const canAccess = allowedRoles.includes(userRole)
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
@@ -4649,11 +4672,20 @@ function ConvocationView() {
     if (!userData?.schoolId) { toast.error('Erreur: école non trouvée'); return }
     setSubmitting(true)
     try {
+      // Look up student to get parentId
+      let parentId = null
+      try {
+        const studentRes = await authFetch(`/api/students/${selectedStudentId}`)
+        const studentData = await studentRes.json()
+        parentId = studentData.data?.parentId || null
+      } catch { /* continue without parentId */ }
+
       const res = await authFetch('/api/convocations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentId: selectedStudentId,
+          parentId,
           motif,
           date,
           schoolId: userData.schoolId,
@@ -4686,6 +4718,11 @@ function ConvocationView() {
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Convocations</h1>
       </div>
+      {!canAccess ? (
+        <div className="text-center py-12 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl">
+          <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Vous n&apos;avez pas accès à cette page</p>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
           <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Nouvelle convocation</h3>
@@ -4739,6 +4776,7 @@ function ConvocationView() {
           )}
         </div>
       </div>
+      )}
     </div>
   )
 }
@@ -4767,7 +4805,7 @@ function SchoolReviewsView() {
         .then(r => r.json())
         .then(j => { if (j.data) setSchool(j.data); setLoading(false) })
         .catch(() => setLoading(false))
-      fetch(`/api/school-comments?schoolId=${userData.schoolId}`)
+      authFetch(`/api/school-comments?schoolId=${userData.schoolId}`)
         .then(r => r.json())
         .then(j => setComments(j.data || []))
         .catch(() => {})
@@ -4781,7 +4819,7 @@ function SchoolReviewsView() {
     }
     setSubmitting(true)
     try {
-      const res = await fetch('/api/school-comments', {
+      const res = await authFetch('/api/school-comments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

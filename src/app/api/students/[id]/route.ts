@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, requireRole, verifySchoolAccess, verifyParentAccess, sanitizeError } from '@/lib/auth';
+import { requirePermission, requireAuth, requireRole, verifySchoolAccess, verifyParentAccess, sanitizeError } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
@@ -86,7 +86,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await requirePermission(request, 'students:update');
+    const authResult = await requireAuth(request);
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
 
@@ -97,8 +97,16 @@ export async function PUT(
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
 
-    // Verify school access
-    if (!verifySchoolAccess(user, existing.schoolId)) {
+    // Parent can only update their own children
+    if (user.role === 'PARENT' && existing.parentId !== user.id) {
+      return NextResponse.json(
+        { error: 'Vous ne pouvez modifier que vos propres enfants' },
+        { status: 403 }
+      );
+    }
+
+    // Verify school access (skip for parents)
+    if (user.role !== 'PARENT' && !verifySchoolAccess(user, existing.schoolId)) {
       return NextResponse.json(
         { error: 'Accès non autorisé à cette école' },
         { status: 403 }
