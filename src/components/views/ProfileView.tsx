@@ -197,6 +197,7 @@ export default function ProfileView() {
             <input
               ref={fileInputRef}
               type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload}
+              onClick={e => e.stopPropagation()}
             />
           </div>
           <div className="mt-3">
@@ -256,6 +257,7 @@ export default function ProfileView() {
                         ref={childFileInputRef}
                         type="file" accept="image/*" className="hidden"
                         onChange={e => handleChildPhotoUpload(e, child.id)}
+                        onClick={e => e.stopPropagation()}
                       />
                     </div>
                     <div className="flex-1 min-w-0">

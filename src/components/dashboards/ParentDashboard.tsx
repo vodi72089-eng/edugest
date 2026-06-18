@@ -178,6 +178,7 @@ export default function ParentDashboard() {
                       ref={childPhotoInputRef}
                       type="file" accept="image/*" className="hidden"
                       onChange={e => handleChildPhotoUpload(e, child.id)}
+                      onClick={e => e.stopPropagation()}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
