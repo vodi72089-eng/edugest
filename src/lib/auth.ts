@@ -1,20 +1,69 @@
 import { db } from './db';
 import { NextRequest } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 
-// ─── Session store (in-memory) ────────────────────────────────────────────
-const sessionStore = new Map<string, { userId: string; expiresAt: number }>();
+// ─── Session store (file-based, survives HMR) ────────────────────────────
+const SESSIONS_DIR = path.join(process.cwd(), '.sessions');
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
+
+function ensureSessionsDir() {
+  try {
+    if (!fs.existsSync(SESSIONS_DIR)) {
+      fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+    }
+  } catch {
+    // Fallback: if we can't create dir, we'll use in-memory only
+  }
+}
+
+function getSessionPath(token: string): string {
+  const dir = path.join(SESSIONS_DIR, token.slice(0, 2));
+  return path.join(dir, `${token}.json`);
+}
+
+function writeSession(token: string, data: { userId: string; expiresAt: number }) {
+  try {
+    ensureSessionsDir();
+    const dir = path.join(SESSIONS_DIR, token.slice(0, 2));
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(getSessionPath(token), JSON.stringify(data), 'utf-8');
+  } catch {
+    // Silently fail — fallback to in-memory won't work but won't crash either
+  }
+}
+
+function readSession(token: string): { userId: string; expiresAt: number } | null {
+  try {
+    const sessionPath = getSessionPath(token);
+    if (!fs.existsSync(sessionPath)) return null;
+    const raw = fs.readFileSync(sessionPath, 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function deleteSession(token: string) {
+  try {
+    const sessionPath = getSessionPath(token);
+    if (fs.existsSync(sessionPath)) fs.unlinkSync(sessionPath);
+  } catch {
+    // ignore
+  }
+}
 
 export function createSession(userId: string): string {
   const token = crypto.randomUUID();
-  sessionStore.set(token, { userId, expiresAt: Date.now() + SESSION_DURATION_MS });
+  const session = { userId, expiresAt: Date.now() + SESSION_DURATION_MS };
+  writeSession(token, session);
   return token;
 }
 
 export function validateSession(token: string): { userId: string } | null {
-  const session = sessionStore.get(token);
+  const session = readSession(token);
   if (!session) return null;
-  if (Date.now() > session.expiresAt) { sessionStore.delete(token); return null; }
+  if (Date.now() > session.expiresAt) { deleteSession(token); return null; }
   return { userId: session.userId };
 }
 
@@ -83,10 +132,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'subjects:read', 'subjects:create',
     'grades:read',
     'payments:read', 'payments:create', 'payments:verify',
-    'discipline:read',
-    'communications:read', 'communications:create',
-    'homework:read',
-    'convocations:read', 'convocations:create',
+    'discipline:read', 'communications:read', 'communications:create',
+    'homework:read', 'convocations:read', 'convocations:create',
     'stats:read', 'profile:read', 'profile:update',
     'payment-gateways:manage', 'currency:manage', 'transactions:read',
   ],
@@ -98,8 +145,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'payment-gateways:manage', 'currency:manage', 'transactions:read',
   ],
   DIRECTION_MATERNELLE: [
-    'school:read',
-    'users:read', 'students:read', 'students:update',
+    'school:read', 'users:read', 'students:read', 'students:update',
     'classes:read', 'subjects:read', 'grades:read', 'grades:create', 'grades:update',
     'discipline:read', 'discipline:create', 'discipline:update',
     'communications:read', 'communications:create',
@@ -108,8 +154,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'stats:read', 'profile:read', 'profile:update',
   ],
   DIRECTION_PRIMAIRE: [
-    'school:read',
-    'users:read', 'students:read', 'students:update',
+    'school:read', 'users:read', 'students:read', 'students:update',
     'classes:read', 'subjects:read', 'grades:read', 'grades:create', 'grades:update',
     'discipline:read', 'discipline:create', 'discipline:update',
     'communications:read', 'communications:create',
@@ -119,8 +164,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'payment-gateways:manage', 'currency:manage', 'transactions:read',
   ],
   DIRECTION_SECONDAIRE: [
-    'school:read',
-    'users:read', 'students:read', 'students:update',
+    'school:read', 'users:read', 'students:read', 'students:update',
     'classes:read', 'subjects:read', 'grades:read', 'grades:create', 'grades:update',
     'discipline:read', 'discipline:create', 'discipline:update',
     'communications:read', 'communications:create',
@@ -174,16 +218,12 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   TEACHER: [
     'students:read',
     'grades:read', 'grades:create', 'grades:update',
-    'classes:read',
-    'subjects:read',
+    'classes:read', 'subjects:read',
     'homework:read', 'homework:create',
     'discipline:read',
   ],
   PARENT: [
-    'students:read',
-    'payments:read',
-    'grades:read',
-    'convocations:read',
+    'students:read', 'payments:read', 'grades:read', 'convocations:read',
   ],
   DISCIPLINE: [
     'students:read',

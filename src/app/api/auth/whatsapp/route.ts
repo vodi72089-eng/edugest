@@ -2,7 +2,8 @@ import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { checkRateLimit, createSession } from '@/lib/auth';
-import { sendWhatsAppMessage, getWhatsAppStatus } from '@/lib/whatsapp/client';
+
+const WA_SERVER = process.env.WHATSAPP_SERVER_URL || 'http://localhost:3001';
 
 const verificationCodes = new Map<string, { code: string; expiresAt: number; attempts: number }>();
 
@@ -15,6 +16,31 @@ setInterval(() => {
 
 function generate6DigitCode(): string {
   return crypto.randomInt(100000, 999999).toString();
+}
+
+async function sendWhatsAppMessage(phone: string, message: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${WA_SERVER}/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, message }),
+    });
+    const data = await res.json();
+    return data.ok === true;
+  } catch {
+    console.warn('[WhatsApp] Server not reachable. Is whatsapp-server.ts running?');
+    return false;
+  }
+}
+
+async function getWhatsAppStatus(): Promise<string> {
+  try {
+    const res = await fetch(`${WA_SERVER}/status`);
+    const data = await res.json();
+    return data.status || 'disconnected';
+  } catch {
+    return 'disconnected';
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -40,23 +66,27 @@ export async function POST(request: NextRequest) {
       if (!user) return NextResponse.json({ error: 'Ce numéro n\'est pas enregistré' }, { status: 404 });
       if (!user.isActive) return NextResponse.json({ error: 'Compte désactivé' }, { status: 403 });
 
-      const status = getWhatsAppStatus();
-      if (status.status !== 'connected') {
-        return NextResponse.json({
-          error: 'WhatsApp n\'est pas connecté. Veuillezlier un téléphone dans les paramètres.',
-          whatsappStatus: status.status,
-        }, { status: 503 });
-      }
-
       const verificationCode = generate6DigitCode();
       verificationCodes.set(trimmedPhone, { code: verificationCode, expiresAt: Date.now() + 10 * 60 * 1000, attempts: 0 });
 
-      const message = `🔐 Votre code de vérification EduGest est : ${verificationCode}\n\n⏱ Ce code expire dans 10 minutes.\n⚠ Ne partagez ce code avec personne.`;
+      const status = await getWhatsAppStatus();
+      if (status !== 'connected') {
+        // TEST MODE: return code in response when WhatsApp not connected
+        console.log(`[WhatsApp TEST] Code for ${trimmedPhone}: ${verificationCode}`);
+        return NextResponse.json({
+          message: 'Mode test — WhatsApp non connecté. Code retourné dans la réponse.',
+          phone: trimmedPhone,
+          testCode: verificationCode,
+          whatsappStatus: status,
+        });
+      }
+
+      const message = `🔐 Code EduGest: ${verificationCode}\n⏱ Expire dans 10 min`;
       const sent = await sendWhatsAppMessage(trimmedPhone, message);
 
       if (!sent) {
         verificationCodes.delete(trimmedPhone);
-        return NextResponse.json({ error: 'Échec de l\'envoi WhatsApp. Vérifiez que le téléphone est lié.' }, { status: 500 });
+        return NextResponse.json({ error: 'Échec de l\'envoi WhatsApp' }, { status: 500 });
       }
 
       return NextResponse.json({ message: 'Code envoyé via WhatsApp', phone: trimmedPhone });
@@ -73,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     if (stored.attempts >= 3) {
       verificationCodes.delete(trimmedPhone);
-      return NextResponse.json({ error: 'Trop de tentatives. Demandez un nouveau code.' }, { status: 429 });
+      return NextResponse.json({ error: 'Trop de tentatives.' }, { status: 429 });
     }
 
     if (stored.code !== code.trim()) {
