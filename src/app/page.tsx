@@ -8,6 +8,21 @@ import { ACCENT, ACCENT2, ACCENT_SOFT, SUCCESS, WARNING, DANGER, INFO, MUTED, BO
 import { getInitials, formatDate, formatNumber, formatCurrency, getSchoolTypeLabel, getSubscriptionLabel, getSubscriptionPrice, getRoleLabel, getStatusPill } from '@/lib/helpers'
 import dynamic from 'next/dynamic'
 const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
+import SuperAdminDashboard from '@/components/dashboards/SuperAdminDashboard'
+import SecretaryDashboard from '@/components/dashboards/SecretaryDashboard'
+import CashierDashboard from '@/components/dashboards/CashierDashboard'
+import ParentDashboard from '@/components/dashboards/ParentDashboard'
+import TeacherDashboard from '@/components/dashboards/TeacherDashboard'
+import HeadTeacherDashboard from '@/components/dashboards/HeadTeacherDashboard'
+import DisciplineDashboardView from '@/components/dashboards/DisciplineDashboard'
+import StudentsView from '@/components/views/StudentsView'
+import GradesView from '@/components/views/GradesView'
+import PaymentsView from '@/components/views/PaymentsView'
+import DisciplineView from '@/components/views/DisciplineView'
+import PersonnelView from '@/components/views/PersonnelView'
+import ProfileView from '@/components/views/ProfileView'
+import SettingsView from '@/components/views/SettingsView'
+import SchoolsManagementView from '@/components/views/SchoolsManagementView'
 import {
   Search, Bell, Settings, Plus, ChevronRight, Users, GraduationCap,
   DollarSign, MessageSquare, BookOpen, Shield, LogOut, Menu, X,
@@ -47,8 +62,8 @@ function SearchAutocomplete({
   searchQuery,
   onSearchChange,
   loading = false,
-  emptyMessage = 'Aucun résultat',
-  itemTypeName = 'résultat',
+  emptyMessage = 'Aucun rÃ©sultat',
+  itemTypeName = 'rÃ©sultat',
   className = '',
 }: {
   label?: string
@@ -135,12 +150,12 @@ function SearchAutocomplete({
             </div>
           ) : items.length === 0 ? (
             <div className="px-4 py-4 text-center text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
-              {searchQuery.length < 2 ? 'Tapez au moins 2 caractères...' : emptyMessage}
+              {searchQuery.length < 2 ? 'Tapez au moins 2 caractÃ¨res...' : emptyMessage}
             </div>
           ) : (
             <>
               <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider border-b border-[oklch(92%_0.005_250)]" style={{ color: TEXT_MUTED_LUXE }}>
-                {items.length} {itemTypeName}{items.length > 1 ? 's' : ''} trouvé{items.length > 1 ? 's' : ''}
+                {items.length} {itemTypeName}{items.length > 1 ? 's' : ''} trouvÃ©{items.length > 1 ? 's' : ''}
               </div>
               {items.map(item => (
                 <button
@@ -199,8 +214,8 @@ function PublicHeader({ dark = false }: { dark?: boolean }) {
           <BrandMark />
         </button>
         <nav className="hidden sm:flex items-center gap-1">
-          <button onClick={() => setCurrentView('home')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Écoles</button>
-          <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Fonctionnalités</button>
+          <button onClick={() => setCurrentView('home')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Ã‰coles</button>
+          <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>FonctionnalitÃ©s</button>
           <button onClick={() => setCurrentView('pricing')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Tarifs</button>
           <button onClick={() => setCurrentView('login')} className="ml-3 edu-gold-cta px-5 py-2 rounded-xl text-sm font-semibold">Se connecter</button>
         </nav>
@@ -210,8 +225,8 @@ function PublicHeader({ dark = false }: { dark?: boolean }) {
       </div>
       {mobileMenu && (
         <div className={`sm:hidden border-t ${borderColor} ${mobileBg} backdrop-blur-xl p-4 flex flex-col gap-2`}>
-          <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Écoles</button>
-          <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Fonctionnalités</button>
+          <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Ã‰coles</button>
+          <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>FonctionnalitÃ©s</button>
           <button onClick={() => { setCurrentView('pricing'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Tarifs</button>
           <button onClick={() => { setCurrentView('login'); setMobileMenu(false) }} className="edu-gold-cta px-4 py-2 rounded-xl text-sm font-semibold text-center">Se connecter</button>
         </div>
@@ -229,33 +244,33 @@ function Footer() {
         <div>
           <div className="mb-4"><BrandMark height={40} /></div>
           <p className="text-sm text-white/50 leading-relaxed max-w-[280px]">
-            La plateforme de gestion scolaire multi-écoles qui simplifie la vie des directions, enseignants et parents en Afrique francophone.
+            La plateforme de gestion scolaire multi-Ã©coles qui simplifie la vie des directions, enseignants et parents en Afrique francophone.
           </p>
         </div>
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Produit</h4>
           <ul className="space-y-3">
-            <li><button onClick={() => setCurrentView('home')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Trouver une école<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
+            <li><button onClick={() => setCurrentView('home')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Trouver une Ã©cole<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
             <li><button onClick={() => setCurrentView('pricing')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Tarifs<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
             <li><button onClick={() => setCurrentView('login')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Connexion<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
           </ul>
         </div>
         <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Rôles</h4>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">RÃ´les</h4>
           <ul className="space-y-3 text-sm text-white/70">
-            <li>Super Admin</li><li>Secrétaire</li><li>Parent</li><li>Enseignant</li>
+            <li>Super Admin</li><li>SecrÃ©taire</li><li>Parent</li><li>Enseignant</li>
           </ul>
         </div>
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Contact</h4>
           <ul className="space-y-3 text-sm text-white/50">
-            <li>support@edugest.app</li><li>+243 81 234 56 78</li><li>Kinshasa · Dakar · Abidjan</li>
+            <li>support@edugest.app</li><li>+243 81 234 56 78</li><li>Kinshasa Â· Dakar Â· Abidjan</li>
           </ul>
         </div>
       </div>
       <div className="container-premium pt-6 border-t border-white/10 flex flex-col sm:flex-row justify-between text-xs text-white/40 pb-8">
-        <span>© 2026 EduGest · Tous droits réservés</span>
-        <span className="mt-2 sm:mt-0">Conditions · Confidentialité · Cookies</span>
+        <span>Â© 2026 EduGest Â· Tous droits rÃ©servÃ©s</span>
+        <span className="mt-2 sm:mt-0">Conditions Â· ConfidentialitÃ© Â· Cookies</span>
       </div>
     </footer>
   )
@@ -302,11 +317,11 @@ function SchoolsOverviewMap({ schools }: { schools: SchoolData[] }) {
 
   return (
     <MapContainer center={[-4.3, 15.3]} zoom={5} style={{ height: 400, borderRadius: 12 }} className="z-0">
-      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap" />
+      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="Â© OpenStreetMap" />
       {schoolsWithCoords.map(s => (
         <Marker key={s.id} position={[s.latitude!, s.longitude!]}>
           <Popup>
-            <strong>{s.name}</strong><br />{s.city} · {s.country}
+            <strong>{s.name}</strong><br />{s.city} Â· {s.country}
           </Popup>
         </Marker>
       ))}
@@ -346,7 +361,7 @@ function HomeView() {
   // Typewriter animation
   useEffect(() => {
     const title1 = "Rejoignez"
-    const title2 = "l'excellence éducative"
+    const title2 = "l'excellence Ã©ducative"
     let charIndex = 0
     let currentLine = 1
     let timeoutId: ReturnType<typeof setTimeout>
@@ -371,7 +386,7 @@ function HomeView() {
           charIndex++
           timeoutId = setTimeout(type, 80 + Math.random() * 60)
         } else {
-          // Typing complete — keep cursor briefly then hide
+          // Typing complete â€” keep cursor briefly then hide
           setTypewriterActiveLine(2)
           setTimeout(() => setTypewriterActiveLine(null), 1500)
         }
@@ -514,17 +529,17 @@ function HomeView() {
   })
 
   const FEATURES = [
-    { icon: <GraduationCap size={24} />, title: 'Gestion Scolaire Intégrale', desc: 'Notes, bulletins, emploi du temps — tout en un seul endroit' },
-    { icon: <MessageSquare size={24} />, title: 'Communication Instantanée', desc: 'WhatsApp, SMS, notifications push pour rester connecté' },
-    { icon: <CreditCard size={24} />, title: 'Paiements Simplifiés', desc: 'Mobile Money, virement, espèces — encaissez facilement' },
-    { icon: <Building2 size={24} />, title: 'Multi-Écoles', desc: 'Gérez plusieurs établissements depuis un tableau de bord unique' },
-    { icon: <Shield size={24} />, title: 'Sécurité & Conformité', desc: 'Données protégées, conformes aux normes africaines' },
-    { icon: <BarChart3 size={24} />, title: 'Analytique Avancée', desc: 'Tableaux de bord et rapports en temps réel' },
+    { icon: <GraduationCap size={24} />, title: 'Gestion Scolaire IntÃ©grale', desc: 'Notes, bulletins, emploi du temps â€” tout en un seul endroit' },
+    { icon: <MessageSquare size={24} />, title: 'Communication InstantanÃ©e', desc: 'WhatsApp, SMS, notifications push pour rester connectÃ©' },
+    { icon: <CreditCard size={24} />, title: 'Paiements SimplifiÃ©s', desc: 'Mobile Money, virement, espÃ¨ces â€” encaissez facilement' },
+    { icon: <Building2 size={24} />, title: 'Multi-Ã‰coles', desc: 'GÃ©rez plusieurs Ã©tablissements depuis un tableau de bord unique' },
+    { icon: <Shield size={24} />, title: 'SÃ©curitÃ© & ConformitÃ©', desc: 'DonnÃ©es protÃ©gÃ©es, conformes aux normes africaines' },
+    { icon: <BarChart3 size={24} />, title: 'Analytique AvancÃ©e', desc: 'Tableaux de bord et rapports en temps rÃ©el' },
   ]
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* ===== HERO SECTION — Institutional Excellence ===== */}
+      {/* ===== HERO SECTION â€” Institutional Excellence ===== */}
       <section className="relative w-full min-h-[700px] sm:min-h-[900px] flex flex-col overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
         {/* Parallax floating icons container */}
         <div id="stitch-parallax-container" className="absolute inset-0 pointer-events-none overflow-hidden z-0" />
@@ -538,8 +553,8 @@ function HomeView() {
             <BrandMark height={56} className="brightness-110 hover:scale-105 transition-all duration-300" />
           </button>
           <div className="hidden md:flex items-center gap-12">
-            <button onClick={() => setCurrentView('home')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Écoles</button>
-            <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Fonctionnalités</button>
+            <button onClick={() => setCurrentView('home')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Ã‰coles</button>
+            <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">FonctionnalitÃ©s</button>
             <button onClick={() => setCurrentView('pricing')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Tarifs</button>
           </div>
           <button onClick={() => setCurrentView('login')} className="bg-[#f5a623] hover:bg-[#ffb643] hover:shadow-[0_0_30px_rgba(245,166,35,0.4)] text-[#0a0f0d] px-8 sm:px-10 py-3 sm:py-3.5 rounded-full font-extrabold text-sm transition-all shadow-[0_10px_30px_rgba(245,166,35,0.2)] active:scale-95 cursor-pointer">
@@ -557,7 +572,7 @@ function HomeView() {
               <span className="italic font-playfair inline-block relative" style={{ color: '#f5a623', textShadow: '0 0 25px rgba(245, 166, 35, 0.5), 0 0 50px rgba(245, 166, 35, 0.2)' }}>{typewriterLine2}{typewriterActiveLine === 2 && <span className="animate-pulse">|</span>}</span>
             </h1>
             <p className="text-gray-300 text-base sm:text-lg md:text-xl max-w-2xl mx-auto font-medium leading-relaxed opacity-80">
-              La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants pour un avenir meilleur.
+              La plateforme africaine de gestion scolaire qui connecte Ã©coles, familles et enseignants pour un avenir meilleur.
             </p>
           </div>
 
@@ -567,7 +582,7 @@ function HomeView() {
               <div className="flex items-center flex-grow w-full px-4 sm:px-6 gap-4">
                 <Search size={20} className="text-gray-400 shrink-0" />
                 <input
-                  type="text" placeholder="Rechercher une école par nom..."
+                  type="text" placeholder="Rechercher une Ã©cole par nom..."
                   value={search} onChange={e => setSearch(e.target.value)}
                   className="w-full bg-transparent border-none text-white py-4 text-base sm:text-lg font-medium placeholder-gray-500 tracking-tight outline-none"
                 />
@@ -595,7 +610,7 @@ function HomeView() {
           {/* Stats cards with tilt */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-3xl px-4 relative z-20">
             {[
-              { value: '240+', label: 'Établissements', glow: 'bg-[#f5a623]/5 group-hover:bg-[#f5a623]/10', pos: '-top-10 -right-10' },
+              { value: '240+', label: 'Ã‰tablissements', glow: 'bg-[#f5a623]/5 group-hover:bg-[#f5a623]/10', pos: '-top-10 -right-10' },
               { value: '50 000+', label: 'Familles', glow: 'bg-emerald-500/5 group-hover:bg-emerald-500/10', pos: '-bottom-10 -left-10' },
               { value: '98%', label: 'Satisfaction', glow: 'bg-cyan-500/5 group-hover:bg-cyan-500/10', pos: 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' },
             ].map((stat) => (
@@ -613,8 +628,8 @@ function HomeView() {
       <section style={{ background: IVORY }} className="border-y border-[oklch(88%_0.01_175)]">
         <div className="container-premium py-4 text-center">
           <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
-            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>240+</strong> Établissements &nbsp;•&nbsp;{' '}
-            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>50,000+</strong> Familles &nbsp;•&nbsp;{' '}
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>240+</strong> Ã‰tablissements &nbsp;â€¢&nbsp;{' '}
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>50,000+</strong> Familles &nbsp;â€¢&nbsp;{' '}
             <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>98%</strong> Satisfaction
           </p>
         </div>
@@ -644,7 +659,7 @@ function HomeView() {
             </button>
           ))}
           <div className="ml-auto hidden sm:block text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
-            Affichage {filteredSchools.length > 0 ? '1' : '0'}–{Math.min(12, filteredSchools.length)} sur {filteredSchools.length}
+            Affichage {filteredSchools.length > 0 ? '1' : '0'}â€“{Math.min(12, filteredSchools.length)} sur {filteredSchools.length}
           </div>
           <button
             onClick={() => setShowMap(!showMap)}
@@ -667,7 +682,7 @@ function HomeView() {
         <div className="container-premium pb-16">
           <div className="flex items-baseline justify-between mb-5">
             <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
-              <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{filteredSchools.length} écoles</strong> correspondent à votre recherche
+              <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{filteredSchools.length} Ã©coles</strong> correspondent Ã  votre recherche
             </div>
           </div>
 
@@ -705,27 +720,27 @@ function HomeView() {
                   <div className="p-6 sm:p-10 pt-10">
                     <div className="text-base font-semibold tracking-tight mb-1" style={{ color: TEXT_PRIMARY }}>{school.name}</div>
                     <div className="text-[13px] flex items-center gap-1 mb-4" style={{ color: TEXT_MUTED_LUXE }}>
-                      <MapPin size={12} /> {school.city} · {school.province}
+                      <MapPin size={12} /> {school.city} Â· {school.province}
                     </div>
                     <div className="flex gap-4 py-3 border-t border-b border-[oklch(88%_0.01_175)] mb-4">
                       <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</strong>élèves
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</strong>Ã©lÃ¨ves
                       </div>
                       <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
                         <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</strong>classes
                       </div>
                       <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</strong>fondée
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || 'â€”'}</strong>fondÃ©e
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1 text-[13px] font-medium">
                         <Star size={14} style={{ color: GOLD }} className="fill-current" />
-                        <span style={{ color: TEXT_PRIMARY }}>{school.averageRating?.toFixed(1) || '—'}</span>
-                        <span className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>· {school.totalReviews} avis</span>
+                        <span style={{ color: TEXT_PRIMARY }}>{school.averageRating?.toFixed(1) || 'â€”'}</span>
+                        <span className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Â· {school.totalReviews} avis</span>
                       </div>
                       <span className="edu-gold-cta text-[13px] font-semibold px-4 py-2 rounded-xl">
-                        Voir l&apos;école →
+                        Voir l&apos;Ã©cole â†’
                       </span>
                     </div>
                   </div>
@@ -741,13 +756,13 @@ function HomeView() {
         <div className="container-premium text-center">
           {/* Ornament divider */}
           <div className="edu-ornament mb-4">
-            <span style={{ color: GOLD }}>◆</span>
+            <span style={{ color: GOLD }}>â—†</span>
           </div>
           <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
             Pourquoi choisir <span style={{ color: GOLD }}>EduGest</span>
           </h2>
           <p className="text-base max-w-[500px] mx-auto mb-12" style={{ color: TEXT_MUTED_LUXE }}>
-            Une plateforme conçue pour les réalités africaines, avec les outils qu&apos;il vous faut.
+            Une plateforme conÃ§ue pour les rÃ©alitÃ©s africaines, avec les outils qu&apos;il vous faut.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
@@ -795,8 +810,8 @@ function SchoolDetailView() {
       <PublicHeader />
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <p style={{ color: TEXT_MUTED_LUXE }} className="mb-4">École non trouvée</p>
-          <button onClick={() => setCurrentView('home')} className="font-medium" style={{ color: GOLD }}>← Retour à l&apos;accueil</button>
+          <p style={{ color: TEXT_MUTED_LUXE }} className="mb-4">Ã‰cole non trouvÃ©e</p>
+          <button onClick={() => setCurrentView('home')} className="font-medium" style={{ color: GOLD }}>â† Retour Ã  l&apos;accueil</button>
         </div>
       </div>
       <Footer />
@@ -808,7 +823,7 @@ function SchoolDetailView() {
       <PublicHeader />
       <div className="container-premium py-8 flex-1">
         <button onClick={() => setCurrentView('home')} className="inline-flex items-center gap-1.5 text-sm mb-6 transition hover:opacity-80" style={{ color: TEXT_MUTED_LUXE }}>
-          <ArrowLeft size={14} /> Retour aux écoles
+          <ArrowLeft size={14} /> Retour aux Ã©coles
         </button>
 
         <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
@@ -825,21 +840,21 @@ function SchoolDetailView() {
             </div>
             <h1 className="text-[21px] sm:text-[29px] font-bold mt-4 tracking-tight" style={{ color: TEXT_PRIMARY }}>{school.name}</h1>
             <div className="flex items-center gap-2 text-sm mt-2" style={{ color: TEXT_MUTED_LUXE }}>
-              <MapPin size={14} /> {school.address}, {school.city} · {school.province}, {school.country}
+              <MapPin size={14} /> {school.address}, {school.city} Â· {school.province}, {school.country}
             </div>
             <div className="flex items-center gap-4 mt-3 text-sm flex-wrap">
               <span className="flex items-center gap-1"><Star size={14} style={{ color: GOLD }} className="fill-current" /> <strong style={{ color: TEXT_PRIMARY }}>{school.averageRating?.toFixed(1)}</strong> <span style={{ color: TEXT_MUTED_LUXE }}>({school.totalReviews} avis)</span></span>
-              <span style={{ color: TEXT_MUTED_LUXE }}>·</span>
-              <span style={{ color: TEXT_MUTED_LUXE }}>{school._count?.students || school.studentCount} élèves</span>
-              <span style={{ color: TEXT_MUTED_LUXE }}>·</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>Â·</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>{school._count?.students || school.studentCount} Ã©lÃ¨ves</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>Â·</span>
               <span style={{ color: TEXT_MUTED_LUXE }}>{school._count?.classes || school.classCount} classes</span>
-              <span style={{ color: TEXT_MUTED_LUXE }}>·</span>
-              <span style={{ color: TEXT_MUTED_LUXE }}>Fondée en {school.establishmentYear}</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>Â·</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>FondÃ©e en {school.establishmentYear}</span>
             </div>
 
             {school.description && (
               <div className="mt-8">
-                <h3 className="font-semibold mb-2" style={{ color: TEXT_PRIMARY }}>À propos</h3>
+                <h3 className="font-semibold mb-2" style={{ color: TEXT_PRIMARY }}>Ã€ propos</h3>
                 <p className="text-sm leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>{school.description}</p>
               </div>
             )}
@@ -847,15 +862,15 @@ function SchoolDetailView() {
             <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
                 <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</div>
-                <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Élèves</div>
+                <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Ã‰lÃ¨ves</div>
               </div>
               <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
                 <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</div>
                 <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Classes</div>
               </div>
               <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
-                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</div>
-                <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Fondée</div>
+                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || 'â€”'}</div>
+                <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>FondÃ©e</div>
               </div>
               <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
                 <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{getSubscriptionLabel(school.subscriptionTier)}</div>
@@ -877,7 +892,7 @@ function SchoolDetailView() {
 
             <div className="mt-8">
               <button onClick={() => setCurrentView('login')} className="edu-gold-cta px-8 py-3.5 rounded-xl font-semibold text-sm">
-                Contacter cette école
+                Contacter cette Ã©cole
               </button>
             </div>
           </div>
@@ -960,12 +975,12 @@ function PricingView() {
       const json = await res.json()
       if (json.data) {
         setPlans(prev => prev.map(p => p.id === planId ? json.data : p))
-        toast.success(`Prix de ${editForm.name} mis à jour !`)
+        toast.success(`Prix de ${editForm.name} mis Ã  jour !`)
       } else {
-        toast.error('Erreur lors de la mise à jour')
+        toast.error('Erreur lors de la mise Ã  jour')
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error('Erreur rÃ©seau')
     } finally {
       setSaving(false)
       setEditingPlan(null)
@@ -973,7 +988,7 @@ function PricingView() {
   }
 
   async function resetPrices() {
-    if (!confirm('Réinitialiser tous les prix aux valeurs par défaut ?')) return
+    if (!confirm('RÃ©initialiser tous les prix aux valeurs par dÃ©faut ?')) return
     try {
       const res = await authFetch('/api/pricing', {
         method: 'POST',
@@ -982,9 +997,9 @@ function PricingView() {
       })
       const json = await res.json()
       setPlans(json.data || [])
-      toast.success('Prix réinitialisés !')
+      toast.success('Prix rÃ©initialisÃ©s !')
     } catch {
-      toast.error('Erreur lors de la réinitialisation')
+      toast.error('Erreur lors de la rÃ©initialisation')
     }
   }
 
@@ -999,15 +1014,15 @@ function PricingView() {
       <div className="container-premium py-16 sm:py-[120px] flex-1">
         <div className="text-center mb-12">
           <div className="edu-ornament mb-4">
-            <span style={{ color: GOLD }}>◆</span>
+            <span style={{ color: GOLD }}>â—†</span>
           </div>
           <h1 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
             Tarifs <span style={{ color: GOLD }}>transparents</span>
           </h1>
-          <p className="max-w-[500px] mx-auto" style={{ color: TEXT_MUTED_LUXE }}>Choisissez la formule adaptée à votre établissement. Évoluez à tout moment.</p>
+          <p className="max-w-[500px] mx-auto" style={{ color: TEXT_MUTED_LUXE }}>Choisissez la formule adaptÃ©e Ã  votre Ã©tablissement. Ã‰voluez Ã  tout moment.</p>
           {isAdmin && (
             <button onClick={resetPrices} className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm transition" style={{ color: TEXT_MUTED_LUXE }}>
-              <RotateCcw size={14} /> Réinitialiser les prix
+              <RotateCcw size={14} /> RÃ©initialiser les prix
             </button>
           )}
         </div>
@@ -1054,15 +1069,15 @@ function PricingView() {
                         <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Prix ($/mois) — laisser vide pour « Sur mesure »</label>
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Prix ($/mois) â€” laisser vide pour Â« Sur mesure Â»</label>
                         <input type="number" value={editForm.price} onChange={e => setEditForm(f => ({ ...f, price: e.target.value }))} placeholder="Ex: 250" className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Prix original barré (optionnel, pour réduction)</label>
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Prix original barrÃ© (optionnel, pour rÃ©duction)</label>
                         <input type="number" value={editForm.originalPrice} onChange={e => setEditForm(f => ({ ...f, originalPrice: e.target.value }))} placeholder="Ex: 350" className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Période</label>
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>PÃ©riode</label>
                         <input value={editForm.period} onChange={e => setEditForm(f => ({ ...f, period: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
                       </div>
                       <div className="space-y-1.5">
@@ -1070,7 +1085,7 @@ function PricingView() {
                         <input value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Fonctionnalités (séparées par virgules)</label>
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>FonctionnalitÃ©s (sÃ©parÃ©es par virgules)</label>
                         <textarea value={editForm.features} onChange={e => setEditForm(f => ({ ...f, features: e.target.value }))} rows={3} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)] resize-none" style={{ color: TEXT_PRIMARY }} />
                       </div>
                       <div className="flex gap-2 pt-1">
@@ -1235,17 +1250,17 @@ function CreateSchoolView() {
             initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
             profileImageUrl: null,
           }, loginJson.data.token)
-          toast.success('École créée avec succès ! Bienvenue !')
+          toast.success('Ã‰cole crÃ©Ã©e avec succÃ¨s ! Bienvenue !')
           setStep(3)
         } else {
-          toast.success('École créée ! Connectez-vous avec vos identifiants.')
+          toast.success('Ã‰cole crÃ©Ã©e ! Connectez-vous avec vos identifiants.')
           setCurrentView('login')
         }
       } else {
-        toast.error(json.error || 'Erreur lors de la création')
+        toast.error(json.error || 'Erreur lors de la crÃ©ation')
       }
     } catch (e) {
-      toast.error('Erreur réseau')
+      toast.error('Erreur rÃ©seau')
     } finally {
       setLoading(false)
     }
@@ -1259,10 +1274,10 @@ function CreateSchoolView() {
           <div className="w-20 h-20 rounded-full mx-auto mb-6 grid place-items-center" style={{ background: 'oklch(60% 0.15 145)' }}>
             <CheckCircle size={40} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-3">École créée avec succès !</h1>
-          <p className="text-white/60 mb-8">Votre école <strong className="text-[#f5a623]">{form.name}</strong> est prête. Vous êtes maintenant connecté en tant qu&apos;administrateur.</p>
+          <h1 className="text-2xl font-bold text-white mb-3">Ã‰cole crÃ©Ã©e avec succÃ¨s !</h1>
+          <p className="text-white/60 mb-8">Votre Ã©cole <strong className="text-[#f5a623]">{form.name}</strong> est prÃªte. Vous Ãªtes maintenant connectÃ© en tant qu&apos;administrateur.</p>
           <button onClick={() => setCurrentView('dashboard')} className="bg-[#f5a623] hover:bg-[#ffb643] text-[#0a0f0d] px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)]">
-            Accéder au tableau de bord
+            AccÃ©der au tableau de bord
           </button>
         </div>
       </div>
@@ -1298,8 +1313,8 @@ function CreateSchoolView() {
           <div className="rounded-2xl p-6 sm:p-8" style={{ background: 'rgba(26, 37, 32, 0.4)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)' }}>
             {step === 1 && (
               <>
-                <h2 className="text-xl font-bold text-white mb-1">Créer votre école</h2>
-                <p className="text-white/50 text-sm mb-6">Renseignez les informations de votre établissement</p>
+                <h2 className="text-xl font-bold text-white mb-1">CrÃ©er votre Ã©cole</h2>
+                <p className="text-white/50 text-sm mb-6">Renseignez les informations de votre Ã©tablissement</p>
 
                 {/* Logo upload */}
                 <div className="mb-6 flex items-center gap-4">
@@ -1316,7 +1331,7 @@ function CreateSchoolView() {
                     )}
                     <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
                   </label>
-                  <div className="text-xs text-white/40">Logo de l&apos;école<br /><span className="text-white/25">JPG, PNG max 5MB</span></div>
+                  <div className="text-xs text-white/40">Logo de l&apos;Ã©cole<br /><span className="text-white/25">JPG, PNG max 5MB</span></div>
                 </div>
 
                 {/* Auto-geolocation map */}
@@ -1324,7 +1339,7 @@ function CreateSchoolView() {
                   <div className="flex items-center gap-2 mb-2">
                     <MapPin size={14} className="text-[#f5a623]" />
                     <label className="text-xs font-medium text-white/60">Localisation automatique</label>
-                    <span className="text-[10px] text-[#f5a623]/70">• Cliquez sur la carte ou activez la géolocalisation</span>
+                    <span className="text-[10px] text-[#f5a623]/70">â€¢ Cliquez sur la carte ou activez la gÃ©olocalisation</span>
                   </div>
                   <div className="rounded-xl overflow-hidden border border-white/10">
                     <SchoolMap
@@ -1349,8 +1364,8 @@ function CreateSchoolView() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Nom de l&apos;école *</label>
-                    <input value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Ex: Complexe Scolaire Lumière" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Nom de l&apos;Ã©cole *</label>
+                    <input value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Ex: Complexe Scolaire LumiÃ¨re" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Sigle *</label>
@@ -1361,7 +1376,7 @@ function CreateSchoolView() {
                     <input type="email" value={form.email} onChange={e => updateForm('email', e.target.value)} placeholder="contact@ecole.cd" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Téléphone *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">TÃ©lÃ©phone *</label>
                     <input value={form.phone} onChange={e => updateForm('phone', e.target.value)} placeholder="+243 81 234 56 78" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
@@ -1385,23 +1400,23 @@ function CreateSchoolView() {
                     <select value={form.schoolType} onChange={e => updateForm('schoolType', e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition appearance-none cursor-pointer">
                       <option value="MIXTE" className="bg-[#0a0f0d]">Mixte</option>
                       <option value="FILLES" className="bg-[#0a0f0d]">Filles</option>
-                      <option value="GARCONS" className="bg-[#0a0f0d]">Garçons</option>
+                      <option value="GARCONS" className="bg-[#0a0f0d]">GarÃ§ons</option>
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Catégorie</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">CatÃ©gorie</label>
                     <select value={form.schoolCategory} onChange={e => updateForm('schoolCategory', e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition appearance-none cursor-pointer">
-                      <option value="PRIVEE" className="bg-[#0a0f0d]">Privée</option>
+                      <option value="PRIVEE" className="bg-[#0a0f0d]">PrivÃ©e</option>
                       <option value="PUBLIQUE" className="bg-[#0a0f0d]">Publique</option>
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Capacité max</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">CapacitÃ© max</label>
                     <input type="number" value={form.maxStudents} onChange={e => updateForm('maxStudents', e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div className="sm:col-span-2">
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Description</label>
-                    <textarea value={form.description} onChange={e => updateForm('description', e.target.value)} rows={3} placeholder="Décrivez votre école..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition resize-none" />
+                    <textarea value={form.description} onChange={e => updateForm('description', e.target.value)} rows={3} placeholder="DÃ©crivez votre Ã©cole..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition resize-none" />
                   </div>
                 </div>
               </>
@@ -1410,7 +1425,7 @@ function CreateSchoolView() {
             {step === 2 && (
               <>
                 <h2 className="text-xl font-bold text-white mb-1">Compte administrateur</h2>
-                <p className="text-white/50 text-sm mb-6">Créez votre compte pour gérer l&apos;école</p>
+                <p className="text-white/50 text-sm mb-6">CrÃ©ez votre compte pour gÃ©rer l&apos;Ã©cole</p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
@@ -1422,13 +1437,13 @@ function CreateSchoolView() {
                     <input type="email" value={form.adminEmail} onChange={e => updateForm('adminEmail', e.target.value)} placeholder="admin@ecole.cd" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Téléphone</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">TÃ©lÃ©phone</label>
                     <input value={form.adminPhone} onChange={e => updateForm('adminPhone', e.target.value)} placeholder="+243 81 234 56 78" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div className="sm:col-span-2">
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Mot de passe</label>
                     <div className="relative">
-                      <input type={showAdminPassword ? 'text' : 'password'} value={form.adminPassword} onChange={e => updateForm('adminPassword', e.target.value)} placeholder="Laissez vide pour le mot de passe par défaut" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-11 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                      <input type={showAdminPassword ? 'text' : 'password'} value={form.adminPassword} onChange={e => updateForm('adminPassword', e.target.value)} placeholder="Laissez vide pour le mot de passe par dÃ©faut" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-11 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                       <button type="button" onClick={() => setShowAdminPassword(!showAdminPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition p-1">
                         {showAdminPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
@@ -1469,7 +1484,7 @@ function CreateSchoolView() {
                 disabled={loading}
                 className="bg-[#f5a623] hover:bg-[#ffb643] text-[#0a0f0d] px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)] disabled:opacity-50 flex items-center gap-2"
               >
-                {loading ? <><div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> Création...</> : step === 1 ? 'Suivant' : 'Créer l\'école'}
+                {loading ? <><div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> CrÃ©ation...</> : step === 1 ? 'Suivant' : 'CrÃ©er l\'Ã©cole'}
               </button>
             </div>
           </div>
@@ -1496,9 +1511,9 @@ function LoginView() {
   const [typewriterLine2, setTypewriterLine2] = useState('')
   const [typewriterActiveLine, setTypewriterActiveLine] = useState<1 | 2 | null>(1)
 
-  // Vérifie que le rôle correspond à l'onglet sélectionné
+  // VÃ©rifie que le rÃ´le correspond Ã  l'onglet sÃ©lectionnÃ©
   function validateRoleForTab(role: UserRole | null): { valid: boolean; message?: string } {
-    if (!role) return { valid: false, message: 'Rôle non reconnu. Contactez l\'administration.' }
+    if (!role) return { valid: false, message: 'RÃ´le non reconnu. Contactez l\'administration.' }
     if (role === 'SUPER_ADMIN_GLOBAL') return { valid: true }
     if (tab === 'parent') {
       if (role !== 'PARENT') {
@@ -1528,7 +1543,7 @@ function LoginView() {
         const role = mapApiRole(apiUser.role)
         const validation = validateRoleForTab(role)
         if (!validation.valid) {
-          toast.error(validation.message || 'Accès non autorisé pour ce type de compte.')
+          toast.error(validation.message || 'AccÃ¨s non autorisÃ© pour ce type de compte.')
           return
         }
         if (role) {
@@ -1554,7 +1569,7 @@ function LoginView() {
         toast.error('Erreur de connexion au serveur')
       }
     } catch (e) {
-      toast.error('Erreur réseau. Vérifiez votre connexion.')
+      toast.error('Erreur rÃ©seau. VÃ©rifiez votre connexion.')
     } finally {
       setLoading(false)
     }
@@ -1581,10 +1596,10 @@ function LoginView() {
     return map[role] || null
   }
 
-  // Typewriter animation — same as hero
+  // Typewriter animation â€” same as hero
   useEffect(() => {
     const title1 = "Rejoignez"
-    const title2 = "l'excellence éducative"
+    const title2 = "l'excellence Ã©ducative"
     let charIndex = 0
     let currentLine = 1
     let timeoutId: ReturnType<typeof setTimeout>
@@ -1619,7 +1634,7 @@ function LoginView() {
     return () => clearTimeout(timeoutId)
   }, [])
 
-  // Floating parallax icons — full screen, same as hero
+  // Floating parallax icons â€” full screen, same as hero
   useEffect(() => {
     const container = document.getElementById('login-parallax-container')
     if (!container) return
@@ -1739,7 +1754,7 @@ function LoginView() {
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
-      {/* Full-screen parallax floating icons — same as hero */}
+      {/* Full-screen parallax floating icons â€” same as hero */}
       <div id="login-parallax-container" className="absolute inset-0 pointer-events-none overflow-hidden z-0" />
       {/* Gradient overlays */}
       <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-[#0a0f0d] via-[#0b1613]/50 to-transparent pointer-events-none z-10" />
@@ -1758,7 +1773,7 @@ function LoginView() {
 
       {/* Main content: typewriter title + glass login card */}
       <main className="relative z-20 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-4 sm:py-8 gap-8 sm:gap-10">
-        {/* Typewriter title — same as hero */}
+        {/* Typewriter title â€” same as hero */}
         <div className="text-center flex flex-col items-center">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-white leading-[1.05] tracking-tighter mb-4 sm:mb-5 relative inline-block mx-auto select-none" style={{ minHeight: '120px' }}>
             <span className="inline-block relative">{typewriterLine1}{typewriterActiveLine === 1 && <span className="animate-pulse">|</span>}</span>
@@ -1766,7 +1781,7 @@ function LoginView() {
             <span className="italic font-playfair inline-block relative" style={{ color: '#f5a623', textShadow: '0 0 25px rgba(245, 166, 35, 0.5), 0 0 50px rgba(245, 166, 35, 0.2)' }}>{typewriterLine2}{typewriterActiveLine === 2 && <span className="animate-pulse">|</span>}</span>
           </h1>
           <p className="text-gray-300 text-sm sm:text-base md:text-lg max-w-lg mx-auto font-medium leading-relaxed opacity-80">
-            La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants.
+            La plateforme africaine de gestion scolaire qui connecte Ã©coles, familles et enseignants.
           </p>
         </div>
 
@@ -1787,13 +1802,13 @@ function LoginView() {
               {tab === 'parent' ? 'Connexion Parent' : 'Connexion Administration'}
             </h2>
             <p className="text-sm text-white/50">
-              {tab === 'parent' ? 'Accédez au suivi scolaire de vos enfants' : 'Personnel de l\'école, direction, enseignants'}
+              {tab === 'parent' ? 'AccÃ©dez au suivi scolaire de vos enfants' : 'Personnel de l\'Ã©cole, direction, enseignants'}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-white/70">{tab === 'parent' ? 'Email ou numéro WhatsApp' : 'Email professionnel'}</label>
+              <label className="text-[13px] font-medium text-white/70">{tab === 'parent' ? 'Email ou numÃ©ro WhatsApp' : 'Email professionnel'}</label>
               <input
                 type="text" value={email} onChange={e => setEmail(e.target.value)}
                 placeholder={tab === 'parent' ? 'ex. parent@email.com ou +243 81...' : 'ex. direction@ecole.cd'}
@@ -1807,7 +1822,7 @@ function LoginView() {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                   className="w-full px-4 py-3.5 pr-11 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)] focus:border-[rgba(245,166,35,0.5)]"
                   style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
                   required
@@ -1825,7 +1840,7 @@ function LoginView() {
               <label className="flex items-center gap-2 cursor-pointer text-white/50">
                 <input type="checkbox" className="accent-[#f5a623] rounded" /> Se souvenir de moi
               </label>
-              <button type="button" className="font-medium hover:underline text-[#f5a623]/80 hover:text-[#f5a623]">Mot de passe oublié ?</button>
+              <button type="button" className="font-medium hover:underline text-[#f5a623]/80 hover:text-[#f5a623]">Mot de passe oubliÃ© ?</button>
             </div>
             <button type="submit" disabled={loading} className="w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all hover:shadow-[0_0_30px_rgba(245,166,35,0.4)] active:scale-[0.98]" style={{ background: '#f5a623', color: '#0a0f0d', boxShadow: '0 4px 16px rgba(245, 166, 35, 0.25)' }}>
               {loading ? <div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> : 'Se connecter'}
@@ -1845,21 +1860,21 @@ function LoginView() {
           </button>
 
           <p className="text-center text-[13px] mt-5 text-white/50">
-            Pas encore de compte ? <button onClick={() => setCurrentView('create-school')} className="font-medium hover:underline text-[#f5a623]/80 hover:text-[#f5a623]">Créer mon école</button>
+            Pas encore de compte ? <button onClick={() => setCurrentView('create-school')} className="font-medium hover:underline text-[#f5a623]/80 hover:text-[#f5a623]">CrÃ©er mon Ã©cole</button>
           </p>
         </div>
 
         {/* Trust indicators below form */}
         <div className="flex items-center gap-6 sm:gap-8 text-white/30 text-xs font-medium">
-          <div className="flex items-center gap-1.5"><Shield size={14} /> Sécurisé</div>
+          <div className="flex items-center gap-1.5"><Shield size={14} /> SÃ©curisÃ©</div>
           <div className="flex items-center gap-1.5"><Globe size={14} /> Afrique</div>
-          <div className="flex items-center gap-1.5"><Award size={14} /> Certifié</div>
+          <div className="flex items-center gap-1.5"><Award size={14} /> CertifiÃ©</div>
         </div>
       </main>
 
       {/* Footer */}
       <div className="relative z-20 text-center text-[13px] text-white/30 py-5">
-        © 2026 EduGest · Kinshasa · Dakar · Abidjan
+        Â© 2026 EduGest Â· Kinshasa Â· Dakar Â· Abidjan
       </div>
 
       {/* WhatsApp Login Modal */}
@@ -1873,7 +1888,7 @@ function LoginView() {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-white">WhatsApp</h2>
-                  <p className="text-xs text-white/50">Connexion sécurisée</p>
+                  <p className="text-xs text-white/50">Connexion sÃ©curisÃ©e</p>
                 </div>
               </div>
               <button onClick={() => setShowWhatsappModal(false)} className="text-white/50 hover:text-white transition"><X size={18} /></button>
@@ -1881,9 +1896,9 @@ function LoginView() {
 
             {waStep === 'phone' ? (
               <div className="space-y-4">
-                <p className="text-sm text-white/60">Entrez votre numéro WhatsApp pour recevoir un code de vérification.</p>
+                <p className="text-sm text-white/60">Entrez votre numÃ©ro WhatsApp pour recevoir un code de vÃ©rification.</p>
                 <div>
-                  <label className="text-[13px] font-medium text-white/70">Numéro WhatsApp</label>
+                  <label className="text-[13px] font-medium text-white/70">NumÃ©ro WhatsApp</label>
                   <div className="flex items-center gap-2 mt-1 px-3 py-3 rounded-xl focus-within:ring-[3px] focus-within:ring-[rgba(245,166,35,0.2)] focus-within:border-[rgba(245,166,35,0.5)]" style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                     <Phone size={16} className="text-white/40" />
                     <input
@@ -1897,7 +1912,7 @@ function LoginView() {
                 </div>
                 <button
                   onClick={async () => {
-                    if (!waPhone) { toast.error('Veuillez entrer votre numéro'); return }
+                    if (!waPhone) { toast.error('Veuillez entrer votre numÃ©ro'); return }
                     setWaLoading(true)
                     try {
                       const res = await fetch('/api/auth/whatsapp', {
@@ -1907,12 +1922,12 @@ function LoginView() {
                       })
                       if (res.ok) {
                         setWaStep('code')
-                        toast.success('Code de vérification envoyé!')
+                        toast.success('Code de vÃ©rification envoyÃ©!')
                       } else {
                         const json = await res.json()
                         toast.error(json.error || 'Erreur lors de l\'envoi du code')
                       }
-                    } catch { toast.error('Erreur réseau') }
+                    } catch { toast.error('Erreur rÃ©seau') }
                     finally { setWaLoading(false) }
                   }}
                   disabled={waLoading}
@@ -1925,9 +1940,9 @@ function LoginView() {
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-sm text-white/60">Entrez le code à 6 chiffres envoyé au <strong className="text-white">{waPhone}</strong></p>
+                <p className="text-sm text-white/60">Entrez le code Ã  6 chiffres envoyÃ© au <strong className="text-white">{waPhone}</strong></p>
                 <div>
-                  <label className="text-[13px] font-medium text-white/70">Code de vérification</label>
+                  <label className="text-[13px] font-medium text-white/70">Code de vÃ©rification</label>
                   <input
                     type="text"
                     maxLength={6}
@@ -1940,7 +1955,7 @@ function LoginView() {
                 </div>
                 <button
                   onClick={async () => {
-                    if (waCode.length !== 6) { toast.error('Veuillez entrer le code à 6 chiffres'); return }
+                    if (waCode.length !== 6) { toast.error('Veuillez entrer le code Ã  6 chiffres'); return }
                     setWaLoading(true)
                     try {
                       const res = await fetch('/api/auth/whatsapp', {
@@ -1954,7 +1969,7 @@ function LoginView() {
                         const role = mapApiRole(apiUser.role)
                         const validation = validateRoleForTab(role)
                         if (!validation.valid) {
-                          toast.error(validation.message || 'Accès non autorisé pour ce type de compte.')
+                          toast.error(validation.message || 'AccÃ¨s non autorisÃ© pour ce type de compte.')
                           return
                         }
                         if (role) {
@@ -1973,7 +1988,7 @@ function LoginView() {
                         }
                       }
                       toast.error(json.error || 'Code invalide')
-                    } catch { toast.error('Erreur réseau') }
+                    } catch { toast.error('Erreur rÃ©seau') }
                     finally { setWaLoading(false) }
                   }}
                   disabled={waLoading}
@@ -1981,13 +1996,13 @@ function LoginView() {
                   style={{ background: SUCCESS }}
                 >
                   {waLoading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle size={16} />}
-                  Vérifier
+                  VÃ©rifier
                 </button>
                 <button
                   onClick={() => setWaStep('phone')}
                   className="w-full text-sm font-medium py-2 hover:underline text-[#f5a623]/80 hover:text-[#f5a623]"
                 >
-                  Changer de numéro
+                  Changer de numÃ©ro
                 </button>
               </div>
             )}
@@ -2006,13 +2021,13 @@ function Sidebar() {
   const menus: Record<string, MenuItem[]> = {
     SUPER_ADMIN_GLOBAL: [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
-      { icon: <Building2 size={16} />, label: 'Écoles', view: 'schools' },
+      { icon: <Building2 size={16} />, label: 'Ã‰coles', view: 'schools' },
       { icon: <UsersRound size={16} />, label: 'Personnel', view: 'personnel' as ViewType },
-      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
+      { icon: <Users size={16} />, label: 'Ã‰lÃ¨ves', view: 'students' },
       { icon: <School size={16} />, label: 'Classes', view: 'classes' },
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
-      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <CheckCircle size={16} />, label: 'VÃ©rification paiements', view: 'payment-verification' as ViewType },
       { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
@@ -2020,27 +2035,27 @@ function Sidebar() {
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
       { icon: <MessageSquare size={16} />, label: 'WhatsApp Config', view: 'whatsapp-config' as ViewType },
-      { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
+      { icon: <Settings size={16} />, label: 'ParamÃ¨tres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
     SECRETARY: [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
-      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
+      { icon: <Users size={16} />, label: 'Ã‰lÃ¨ves', view: 'students' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
-      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <CheckCircle size={16} />, label: 'VÃ©rification paiements', view: 'payment-verification' as ViewType },
       { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
-      { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
+      { icon: <Settings size={16} />, label: 'ParamÃ¨tres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
     CASHIER: [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <CreditCard size={16} />, label: 'Enregistrer paiement', view: 'payments' },
-      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <CheckCircle size={16} />, label: 'VÃ©rification paiements', view: 'payment-verification' as ViewType },
       { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
       { icon: <AlertTriangle size={16} />, label: 'Dettes', view: 'payments', badge: 84 },
-      { icon: <BarChart3 size={16} />, label: 'Situation financière', view: 'payments' },
+      { icon: <BarChart3 size={16} />, label: 'Situation financiÃ¨re', view: 'payments' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
     PARENT: [
@@ -2048,10 +2063,10 @@ function Sidebar() {
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
-      { icon: <CheckCircle size={16} />, label: 'Vérifier reçu', view: 'payment-verification' as ViewType },
+      { icon: <CheckCircle size={16} />, label: 'VÃ©rifier reÃ§u', view: 'payment-verification' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
-      { icon: <Star size={16} />, label: 'Avis école', view: 'school-reviews' as ViewType },
+      { icon: <Star size={16} />, label: 'Avis Ã©cole', view: 'school-reviews' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
     TEACHER: [
@@ -2078,7 +2093,7 @@ function Sidebar() {
   if (directionRoles.includes(userRole as UserRole)) {
     menuItems = [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
-      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
+      { icon: <Users size={16} />, label: 'Ã‰lÃ¨ves', view: 'students' },
       { icon: <School size={16} />, label: 'Classes', view: 'classes' },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
       { icon: <Megaphone size={16} />, label: 'Convocation', view: 'convocation' },
@@ -2153,10 +2168,10 @@ function Sidebar() {
 function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; onToggleSidebar: () => void }) {
   const { currentView, sidebarOpen, setSidebarOpen, setCurrentView } = useEduGestStore()
   const viewTitles: Record<string, string> = {
-    dashboard: 'Dashboard', students: 'Élèves', classes: 'Classes', grades: 'Notes',
+    dashboard: 'Dashboard', students: 'Ã‰lÃ¨ves', classes: 'Classes', grades: 'Notes',
     payments: 'Paiements', discipline: 'Discipline', communications: 'Communications',
     homework: 'Devoirs', profile: 'Mon profil', pricing: 'Tarifs', 'class-passing': 'Passage de classe',
-    bulletin: 'Bulletins', convocation: 'Convocation', schools: 'Écoles',
+    bulletin: 'Bulletins', convocation: 'Convocation', schools: 'Ã‰coles',
     'admin-analytics': 'Statistiques', 'whatsapp-config': 'WhatsApp',
   }
 
@@ -2175,7 +2190,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
         </button>
         <div>
           <div className="text-lg font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>{viewTitles[currentView] || 'Dashboard'}</div>
-          <div className="text-xs hidden sm:block" style={{ color: TEXT_MUTED_LUXE }}>EduGest · {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          <div className="text-xs hidden sm:block" style={{ color: TEXT_MUTED_LUXE }}>EduGest Â· {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -2241,15 +2256,15 @@ function WhatsAppConfigView() {
     setStarting(true)
     try {
       await authFetch('/api/whatsapp-status', { method: 'POST' })
-      toast.success('Démarrage du client WhatsApp...')
-    } catch { toast.error('Erreur lors du démarrage') }
+      toast.success('DÃ©marrage du client WhatsApp...')
+    } catch { toast.error('Erreur lors du dÃ©marrage') }
     finally { setStarting(false) }
   }
 
   const statusColors = {
-    connected: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', label: 'Connecté' },
+    connected: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', label: 'ConnectÃ©' },
     connecting: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500', label: 'En attente du scan...' },
-    disconnected: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500', label: 'Déconnecté' },
+    disconnected: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500', label: 'DÃ©connectÃ©' },
   }
   const st = statusColors[whatsappStatus]
 
@@ -2268,7 +2283,7 @@ function WhatsAppConfigView() {
             </div>
             <div className="text-white">
               <div className="font-bold text-lg">WhatsApp Bot</div>
-              <div className="text-white/70 text-sm">Liez votre téléphone pour envoyer des OTP</div>
+              <div className="text-white/70 text-sm">Liez votre tÃ©lÃ©phone pour envoyer des OTP</div>
             </div>
           </div>
         </div>
@@ -2289,7 +2304,7 @@ function WhatsAppConfigView() {
               {/* QR Code */}
               {whatsappStatus === 'connecting' && qrCode && (
                 <div className="text-center space-y-3">
-                  <p className="text-sm" style={{ color: TEXT_SECONDARY }}>Scannez ce QR code avec WhatsApp sur votre téléphone :</p>
+                  <p className="text-sm" style={{ color: TEXT_SECONDARY }}>Scannez ce QR code avec WhatsApp sur votre tÃ©lÃ©phone :</p>
                   <div className="inline-block p-4 bg-white border-2 border-gray-200 rounded-2xl shadow-inner">
                     <img
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCode)}`}
@@ -2297,7 +2312,7 @@ function WhatsAppConfigView() {
                       className="w-56 h-56"
                     />
                   </div>
-                  <p className="text-xs" style={{ color: TEXT_MUTED }}>WhatsApp → Paramètres → Appareils connectés → Connecter un appareil</p>
+                  <p className="text-xs" style={{ color: TEXT_MUTED }}>WhatsApp â†’ ParamÃ¨tres â†’ Appareils connectÃ©s â†’ Connecter un appareil</p>
                 </div>
               )}
 
@@ -2307,8 +2322,8 @@ function WhatsAppConfigView() {
                   <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 grid place-items-center">
                     <CheckCircle size={32} className="text-emerald-600" />
                   </div>
-                  <p className="text-sm font-semibold text-emerald-700">WhatsApp est connecté !</p>
-                  <p className="text-xs" style={{ color: TEXT_MUTED }}>Les codes OTP seront envoyés via ce téléphone.</p>
+                  <p className="text-sm font-semibold text-emerald-700">WhatsApp est connectÃ© !</p>
+                  <p className="text-xs" style={{ color: TEXT_MUTED }}>Les codes OTP seront envoyÃ©s via ce tÃ©lÃ©phone.</p>
                 </div>
               )}
 
@@ -2325,7 +2340,7 @@ function WhatsAppConfigView() {
                   ) : (
                     <Phone size={16} />
                   )}
-                  {starting ? 'Démarrage...' : 'Connecter mon téléphone'}
+                  {starting ? 'DÃ©marrage...' : 'Connecter mon tÃ©lÃ©phone'}
                 </button>
               )}
             </>
@@ -2420,1480 +2435,26 @@ interface AdminAnalytics {
   recentStudents: { id: string; firstName: string; lastName: string; matricule: string; createdAt: string; school: { name: string; shortName: string; city: string } | null; class: { name: string } | null }[]
 }
 
-function SuperAdminDashboard() {
-  const { userData } = useEduGestStore()
-  const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [cityFilter, setCityFilter] = useState('')
-  const [activeTab, setActiveTab] = useState<'overview' | 'schools' | 'debts' | 'blacklist' | 'activity'>('overview')
-  const [schoolStats, setSchoolStats] = useState<Record<string, unknown> | null>(null)
+// SuperAdminDashboard imported from @/components/dashboards/SuperAdminDashboard
 
-  useEffect(() => {
-    let cancelled = false
-    authFetch(`/api/admin-analytics${cityFilter ? `?city=${cityFilter}` : ''}`)
-      .then(r => r.json())
-      .then(j => { if (!cancelled) { setAnalytics(j.data); setLoading(false) } })
-      .catch(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [cityFilter])
+// SecretaryDashboard imported from @/components/dashboards/SecretaryDashboard
 
-  useEffect(() => {
-    if (userData?.schoolId) {
-      authFetch(`/api/stats?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => { setSchoolStats(j.data) }).catch(() => {})
-    }
-  }, [userData?.schoolId])
+// CashierDashboard imported from @/components/dashboards/CashierDashboard
 
-  // School-admin specific dashboard
-  if (userData?.schoolId) {
-    const totalStudents = (schoolStats?.students as Record<string, number>)?.total || 0
-    const totalClasses = (schoolStats?.classes as Record<string, unknown>)?.total as number || 0
-    const classDist = (schoolStats?.classes as Record<string, unknown>)?.distribution as { name: string; _count: { students: number } }[] | undefined
-    const barData = classDist?.map(c => ({ name: c.name, élèves: c._count.students })) || []
-    const disciplineStats = schoolStats?.discipline as { total: number; blacklist: number; greylist: number; whitelist: number } | undefined
-    const paymentStats = schoolStats?.payments as { total: number; paid: number; pending: number; partial: number; overdue: number; expectedAmount: number; collectedAmount: number; collectionRate: number } | undefined
+// ParentDashboard imported from @/components/dashboards/ParentDashboard
 
-    return (
-      <div>
-        <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour {userData.name}</h1>
-            </div>
-            <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{userData.schoolName || 'Gestion scolaire'}</p>
-          </div>
-        </div>
+// TeacherDashboard imported from @/components/dashboards/TeacherDashboard
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
-          <StatCard label="Total élèves" value={formatNumber(totalStudents)} icon={<Users size={16} />} color={ACCENT} />
-          <StatCard label="Classes actives" value={String(totalClasses)} icon={<School size={16} />} color={INFO} />
-          <StatCard label="Avertissements" value={String(disciplineStats?.greylist || 0)} icon={<AlertTriangle size={16} />} color={WARNING} />
-          <StatCard label="Impayés" value={String(paymentStats?.overdue || 0)} icon={<Clock size={16} />} color={DANGER} />
-        </div>
-
-        <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-6 mb-6">
-          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-            <div className="mb-4">
-              <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Élèves par classe</div>
-              <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Année scolaire en cours</div>
-            </div>
-            {barData.length > 0 ? (
-              <div className="h-[240px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData}>
-                    <CartesianGrid strokeDasharray="2 4" stroke="oklch(90% 0.01 175)" />
-                    <XAxis dataKey="name" tick={{ fontSize: 12, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 12, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
-                    <Tooltip />
-                    <Bar dataKey="élèves" fill={ACCENT} radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="h-[240px] flex items-center justify-center" style={{ color: TEXT_MUTED_LUXE }}>
-                <div className="text-center">
-                  <BarChart3 size={32} className="mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">Aucune donnée de classe disponible</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-            <div className="mb-4">
-              <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Actions rapides</div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { icon: <UserPlus size={20} />, label: 'Ajouter élève', view: 'students' as ViewType, color: ACCENT },
-                { icon: <MessageSquare size={20} />, label: 'Communication', view: 'communications' as ViewType, color: INFO },
-                { icon: <CreditCard size={20} />, label: 'Paiement', view: 'payments' as ViewType, color: SUCCESS },
-                { icon: <Megaphone size={20} />, label: 'Convocation', view: 'convocation' as ViewType, color: WARNING },
-              ].map(a => (
-                <button key={a.label} onClick={() => useEduGestStore.getState().setCurrentView(a.view)} className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.3)] hover:shadow-md edu-card-lift transition">
-                  <div className="w-10 h-10 rounded-full grid place-items-center" style={{ color: 'white', background: `linear-gradient(135deg, ${a.color}, oklch(72% 0.15 65))` }}>{a.icon}</div>
-                  <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{a.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const ov = analytics?.overview
-
-  const cityOptions = analytics?.schoolsByCity?.map(c => c.city) || ['Dakar', 'Abidjan', 'Kinshasa', 'Lubumbashi', 'Brazzaville', 'Goma']
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Administration EduGest</h1>
-          </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Contrôle et supervision de la plateforme</p>
-        </div>
-        {/* City Filter */}
-        <div className="flex items-center gap-2">
-          <Filter size={14} style={{ color: TEXT_MUTED_LUXE }} />
-          <select
-            value={cityFilter}
-            onChange={e => setCityFilter(e.target.value)}
-            className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
-          >
-            <option value="">Toutes les villes</option>
-            {cityOptions.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {/* Overview Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
-        <StatCard label="Écoles actives" value={formatNumber(ov?.totalSchools || 0)} icon={<Building2 size={16} />} color={ACCENT} />
-        <StatCard label="Élèves inscrits" value={formatNumber(ov?.totalStudents || 0)} icon={<GraduationCap size={16} />} color={SUCCESS} />
-        <StatCard label="Revenus totaux" value={formatCurrency(ov?.totalRevenue || 0)} icon={<DollarSign size={16} />} color={WARNING} />
-        <StatCard label="Dettes totales" value={formatCurrency(ov?.totalDebt || 0)} delta={`${ov?.overdue.count || 0} impayés`} icon={<AlertTriangle size={16} />} color={DANGER} />
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="flex items-center gap-1 mb-6 bg-white border border-[oklch(90%_0.01_175)] rounded-xl p-1 overflow-x-auto">
-        {[
-          { key: 'overview' as const, label: 'Vue d\'ensemble', icon: <LayoutDashboard size={14} /> },
-          { key: 'schools' as const, label: 'Écoles', icon: <Building2 size={14} /> },
-          { key: 'debts' as const, label: 'Dettes & Soldes', icon: <CreditCard size={14} /> },
-          { key: 'blacklist' as const, label: 'Listes disciplinaires', icon: <Ban size={14} /> },
-          { key: 'activity' as const, label: 'Activités récentes', icon: <Clock size={14} /> },
-        ].map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition ${
-              activeTab === tab.key ? 'text-white' : 'hover:bg-[oklch(95%_0.04_175)]'
-            }`}
-            style={activeTab === tab.key ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}
-          >
-            {tab.icon} {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {loading ? (
-        <div className="text-center py-12" style={{ color: TEXT_MUTED_LUXE }}>Chargement des données...</div>
-      ) : (
-        <>
-          {/* ===== OVERVIEW TAB ===== */}
-          {activeTab === 'overview' && (
-            <div className="space-y-6">
-              {/* Cities distribution */}
-              <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-6">
-                <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-                  <div className="mb-4">
-                    <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Écoles par ville</div>
-                    <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Répartition géographique</div>
-                  </div>
-                  <div className="h-[280px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={analytics?.schoolsByCity?.map(c => ({ name: c.city, écoles: c._count.id, élèves: c._sum.studentCount || 0 })) || []}>
-                        <CartesianGrid strokeDasharray="2 4" stroke="oklch(90% 0.01 175)" />
-                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 11, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
-                        <Tooltip />
-                        <Bar dataKey="écoles" fill={ACCENT} radius={[6, 6, 0, 0]} />
-                        <Bar dataKey="élèves" fill={GOLD} radius={[6, 6, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-                  <div className="mb-4">
-                    <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Répartition abonnements</div>
-                    <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Par formule</div>
-                  </div>
-                  <div className="h-[200px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={analytics?.subscriptionDistribution?.map(s => ({ name: getSubscriptionLabel(s.subscriptionTier), value: s._count.id })) || SUBSCRIPTION_DATA} cx="50%" cy="50%" innerRadius={55} outerRadius={75} dataKey="value" paddingAngle={2}>
-                          {(analytics?.subscriptionDistribution || SUBSCRIPTION_DATA).map((_, i) => <Cell key={i} fill={[ACCENT, GOLD, INFO, SUCCESS, DANGER][i % 5]} />)}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="space-y-2 mt-2">
-                    {(analytics?.subscriptionDistribution || []).map(s => (
-                      <div key={s.subscriptionTier} className="flex items-center justify-between text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-sm" style={{ background: [ACCENT, GOLD, INFO, SUCCESS, DANGER][SUBSCRIPTION_TIERS.indexOf(s.subscriptionTier) % 5] }} />
-                          {getSubscriptionLabel(s.subscriptionTier)}
-                        </div>
-                        <span className="font-semibold" style={{ color: TEXT_PRIMARY }}>{s._count.id}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Revenue by school */}
-              <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-                <div className="mb-4">
-                  <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Revenus par école</div>
-                  <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Montants encaissés · 12 derniers mois</div>
-                </div>
-                <div className="space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
-                  {(analytics?.revenueBySchool || []).map((s, i) => (
-                    <div key={s.schoolId} className="flex items-center gap-4 p-3 rounded-xl hover:bg-[oklch(97%_0.005_175)] transition">
-                      <div className="w-8 h-8 rounded-full grid place-items-center text-white font-bold text-[11px] shrink-0" style={{ background: `linear-gradient(135deg, ${[ACCENT, GOLD, INFO, SUCCESS, DANGER][i % 5]}, oklch(72% 0.15 65))` }}>
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm" style={{ color: TEXT_PRIMARY }}>{s.schoolName}</div>
-                        <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{s.city} · {s.paymentCount} paiements</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold text-sm" style={{ color: SUCCESS }}>{formatCurrency(s.revenue)}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ===== SCHOOLS TAB ===== */}
-          {activeTab === 'schools' && (
-            <div className="space-y-6">
-              {/* Schools with most students */}
-              <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 rounded-full grid place-items-center" style={{ background: SUCCESS_SOFT }}><TrendingUp size={14} style={{ color: SUCCESS }} /></div>
-                  <div>
-                    <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Écoles avec le plus d&apos;élèves</div>
-                    <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Top 10 par effectif</div>
-                  </div>
-                </div>
-                <div className="space-y-2.5">
-                  {(analytics?.schoolsWithMostStudents || []).map((s, i) => (
-                    <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-[oklch(97%_0.005_175)] transition">
-                      <div className="w-8 h-8 rounded-full grid place-items-center text-white font-bold text-[11px] shrink-0" style={{ background: i < 3 ? `linear-gradient(135deg, ${GOLD}, oklch(72% 0.15 65))` : `linear-gradient(135deg, ${ACCENT}, oklch(55% 0.15 175))` }}>
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm" style={{ color: TEXT_PRIMARY }}>{s.name}</div>
-                        <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{s.city} · {s.country}</div>
-                      </div>
-                      <div className="text-right flex items-center gap-3">
-                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ color: GOLD, background: GOLD_SOFT }}>{getSubscriptionLabel(s.subscriptionTier)}</span>
-                        <span className="font-bold text-sm tabular-nums" style={{ color: TEXT_PRIMARY }}>{formatNumber(s.studentCount)}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Schools with fewest students */}
-              <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 rounded-full grid place-items-center" style={{ background: 'oklch(95% 0.03 25)' }}><AlertTriangle size={14} style={{ color: DANGER }} /></div>
-                  <div>
-                    <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Écoles avec le moins d&apos;élèves</div>
-                    <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Besoin d&apos;attention</div>
-                  </div>
-                </div>
-                <div className="space-y-2.5">
-                  {(analytics?.schoolsWithFewestStudents || []).map((s, i) => (
-                    <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-[oklch(97%_0.005_175)] transition">
-                      <div className="w-8 h-8 rounded-full grid place-items-center text-white font-bold text-[11px] shrink-0" style={{ background: `linear-gradient(135deg, ${DANGER}, oklch(58% 0.20 25))` }}>
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm" style={{ color: TEXT_PRIMARY }}>{s.name}</div>
-                        <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{s.city} · {s.country}</div>
-                      </div>
-                      <div className="text-right flex items-center gap-3">
-                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ color: GOLD, background: GOLD_SOFT }}>{getSubscriptionLabel(s.subscriptionTier)}</span>
-                        <span className="font-bold text-sm tabular-nums" style={{ color: s.studentCount < 100 ? DANGER : TEXT_PRIMARY }}>{formatNumber(s.studentCount)}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ===== DEBTS & BALANCES TAB ===== */}
-          {activeTab === 'debts' && (
-            <div className="space-y-6">
-              {/* Debt summary cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm" style={{ borderLeft: `4px solid ${DANGER}` }}>
-                  <div className="text-xs font-medium uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Impayés en retard</div>
-                  <div className="text-2xl font-bold mt-1" style={{ color: DANGER }}>{formatCurrency(ov?.overdue.amount || 0)}</div>
-                  <div className="text-xs mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{ov?.overdue.count || 0} dossiers</div>
-                </div>
-                <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm" style={{ borderLeft: `4px solid ${WARNING}` }}>
-                  <div className="text-xs font-medium uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Paiements partiels</div>
-                  <div className="text-2xl font-bold mt-1" style={{ color: WARNING }}>{formatCurrency(ov?.partial.owed || 0)}</div>
-                  <div className="text-xs mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{ov?.partial.count || 0} dossiers</div>
-                </div>
-                <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm" style={{ borderLeft: `4px solid ${INFO}` }}>
-                  <div className="text-xs font-medium uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>En attente</div>
-                  <div className="text-2xl font-bold mt-1" style={{ color: INFO }}>{formatCurrency(ov?.pending.amount || 0)}</div>
-                  <div className="text-xs mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{ov?.pending.count || 0} dossiers</div>
-                </div>
-              </div>
-
-              {/* Schools with most debts */}
-              <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-                <div className="mb-4">
-                  <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Dettes par école</div>
-                  <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Montants impayés classés par école</div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr style={{ background: IVORY }}>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>École</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Ville</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élèves</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Dossiers dette</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Montant dû</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Taux recouvrement</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(analytics?.debtStats || []).map(d => {
-                        const rate = d.totalAmount > 0 ? ((d.totalPaid / d.totalAmount) * 100).toFixed(1) : '0'
-                        return (
-                          <tr key={d.schoolId} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                            <td className="px-3 py-2.5 font-medium text-[13px]" style={{ color: TEXT_PRIMARY }}>{d.schoolName}</td>
-                            <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{d.city}</td>
-                            <td className="px-3 py-2.5 text-[13px] tabular-nums" style={{ color: TEXT_PRIMARY }}>{formatNumber(d.studentCount)}</td>
-                            <td className="px-3 py-2.5 text-[13px] tabular-nums" style={{ color: DANGER }}>{d.debtCount}</td>
-                            <td className="px-3 py-2.5 text-[13px] font-semibold tabular-nums" style={{ color: DANGER }}>{formatCurrency(d.totalOwed)}</td>
-                            <td className="px-3 py-2.5">
-                              <div className="flex items-center gap-2">
-                                <div className="h-2 flex-1 bg-[oklch(92%_0.005_175)] rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full" style={{ width: `${rate}%`, background: Number(rate) >= 80 ? SUCCESS : Number(rate) >= 50 ? WARNING : DANGER }} />
-                                </div>
-                                <span className="text-xs font-medium tabular-nums" style={{ color: Number(rate) >= 80 ? SUCCESS : Number(rate) >= 50 ? WARNING : DANGER }}>{rate}%</span>
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Schools with best payment records */}
-              <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-                <div className="mb-4">
-                  <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Écoles avec meilleurs soldes</div>
-                  <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Montants encaissés par école</div>
-                </div>
-                <div className="space-y-2.5 max-h-96 overflow-y-auto custom-scrollbar">
-                  {(analytics?.paidStats || []).map((s, i) => (
-                    <div key={s.schoolId} className="flex items-center gap-3 p-3 rounded-xl hover:bg-[oklch(97%_0.005_175)] transition">
-                      <div className="w-8 h-8 rounded-full grid place-items-center text-white font-bold text-[11px] shrink-0" style={{ background: `linear-gradient(135deg, ${SUCCESS}, oklch(60% 0.15 145))` }}>
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm" style={{ color: TEXT_PRIMARY }}>{s.schoolName}</div>
-                        <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{s.city} · {s.paidCount} paiements</div>
-                      </div>
-                      <div className="font-bold text-sm" style={{ color: SUCCESS }}>{formatCurrency(s.totalPaid)}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ===== BLACKLIST TAB ===== */}
-          {activeTab === 'blacklist' && (
-            <div className="space-y-6">
-              {/* Blacklist stats per school */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm" style={{ borderLeft: `4px solid ${DANGER}` }}>
-                  <div className="flex items-center gap-2 mb-1"><Ban size={14} style={{ color: DANGER }} /><span className="text-xs font-medium uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Liste Noire</span></div>
-                  <div className="text-2xl font-bold" style={{ color: DANGER }}>{analytics?.blacklistEntries?.length || 0}</div>
-                </div>
-                <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm" style={{ borderLeft: `4px solid ${WARNING}` }}>
-                  <div className="flex items-center gap-2 mb-1"><AlertTriangle size={14} style={{ color: WARNING }} /><span className="text-xs font-medium uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Liste Grise</span></div>
-                  <div className="text-2xl font-bold" style={{ color: WARNING }}>{analytics?.greylistEntries?.length || 0}</div>
-                </div>
-                <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm" style={{ borderLeft: `4px solid ${SUCCESS}` }}>
-                  <div className="flex items-center gap-2 mb-1"><Award size={14} style={{ color: SUCCESS }} /><span className="text-xs font-medium uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Liste Blanche</span></div>
-                  <div className="text-2xl font-bold" style={{ color: SUCCESS }}>—</div>
-                </div>
-              </div>
-
-              {/* Blacklist by school */}
-              {analytics?.blacklistStats && analytics.blacklistStats.length > 0 && (
-                <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-                  <div className="mb-4">
-                    <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Liste noire par école</div>
-                    <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Nombre d&apos;élèves en liste noire</div>
-                  </div>
-                  <div className="space-y-2.5">
-                    {analytics.blacklistStats.map(s => (
-                      <div key={s.schoolId} className="flex items-center gap-3 p-3 rounded-xl hover:bg-[oklch(97%_0.005_175)] transition">
-                        <div className="w-8 h-8 rounded-full grid place-items-center text-white font-bold text-[11px] shrink-0" style={{ background: `linear-gradient(135deg, ${DANGER}, oklch(58% 0.20 25))` }}>
-                          {s.blacklistCount}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm" style={{ color: TEXT_PRIMARY }}>{s.schoolName}</div>
-                          <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{s.city}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Blacklist entries */}
-              <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
-                <div className="p-6 pb-3">
-                  <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Entrées liste noire</div>
-                  <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Détails des élèves en liste noire</div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr style={{ background: IVORY }}>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élève</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>École</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Ville</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Motif</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(analytics?.blacklistEntries || []).length === 0 ? (
-                        <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucune entrée en liste noire</td></tr>
-                      ) : (analytics?.blacklistEntries || []).map(e => {
-                        const bSchool = analytics?.blacklistStats?.find(s => s.schoolId === e.schoolId)
-                        return (
-                        <tr key={e.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                          <td className="px-3 py-2.5 text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{e.student ? `${e.student.firstName} ${e.student.lastName}` : '—'}</td>
-                          <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{bSchool?.schoolName || '—'}</td>
-                          <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{bSchool?.city || '—'}</td>
-                          <td className="px-3 py-2.5 text-[13px]" style={{ color: DANGER }}>{e.reason}</td>
-                          <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(e.addedAt)}</td>
-                        </tr>
-                      )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Greylist entries */}
-              <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
-                <div className="p-6 pb-3">
-                  <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Entrées liste grise</div>
-                  <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Avertissements et observations</div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr style={{ background: IVORY }}>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élève</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>École</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Ville</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Motif</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(analytics?.greylistEntries || []).length === 0 ? (
-                        <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucune entrée en liste grise</td></tr>
-                      ) : (analytics?.greylistEntries || []).map(e => {
-                        const gSchool = analytics?.blacklistStats?.find(s => s.schoolId === e.schoolId)
-                        return (
-                        <tr key={e.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                          <td className="px-3 py-2.5 text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{e.student ? `${e.student.firstName} ${e.student.lastName}` : '—'}</td>
-                          <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{gSchool?.schoolName || '—'}</td>
-                          <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{gSchool?.city || '—'}</td>
-                          <td className="px-3 py-2.5 text-[13px]" style={{ color: WARNING }}>{e.reason}</td>
-                          <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(e.addedAt)}</td>
-                        </tr>
-                      )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ===== ACTIVITY TAB ===== */}
-          {activeTab === 'activity' && (
-            <div className="space-y-6">
-              {/* Recent Payments */}
-              <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
-                <div className="p-6 pb-3">
-                  <div className="flex items-center gap-2">
-                    <CreditCard size={16} style={{ color: SUCCESS }} />
-                    <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Paiements récents</div>
-                  </div>
-                  <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Derniers paiements enregistrés sur la plateforme</div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr style={{ background: IVORY }}>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élève</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>École</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Montant</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Statut</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(analytics?.recentPayments || []).length === 0 ? (
-                        <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun paiement récent</td></tr>
-                      ) : (analytics?.recentPayments || []).map(p => (
-                        <tr key={p.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                          <td className="px-3 py-2.5 text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{p.student ? `${p.student.firstName} ${p.student.lastName}` : '—'}</td>
-                          <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{p.school?.shortName || p.school?.name || '—'}</td>
-                          <td className="px-3 py-2.5 text-[13px] font-semibold tabular-nums" style={{ color: p.status === 'PAID' ? SUCCESS : DANGER }}>{formatCurrency(p.paidAmount)} / {formatCurrency(p.amount)}</td>
-                          <td className="px-3 py-2.5"><span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill(p.status === 'PAID' ? 'Payé' : p.status === 'PARTIAL' ? 'Partiel' : p.status === 'OVERDUE' ? 'En retard' : 'En attente')}`}>{p.status === 'PAID' ? 'Payé' : p.status === 'PARTIAL' ? 'Partiel' : p.status === 'OVERDUE' ? 'En retard' : 'En attente'}</span></td>
-                          <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(p.createdAt)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Recent Discipline */}
-              <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
-                <div className="p-6 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Shield size={16} style={{ color: DANGER }} />
-                    <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Incidents disciplinaires récents</div>
-                  </div>
-                  <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Derniers incidents sur toutes les écoles</div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr style={{ background: IVORY }}>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élève</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>École</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Type</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Titre</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(analytics?.recentDiscipline || []).length === 0 ? (
-                        <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun incident récent</td></tr>
-                      ) : (analytics?.recentDiscipline || []).map(d => {
-                        const schoolName = analytics?.schoolsWithMostStudents?.find(s => s.id === d.schoolId)?.shortName || analytics?.revenueBySchool?.find(s => s.schoolId === d.schoolId)?.schoolShortName || d.schoolId.substring(0, 8)
-                        return (
-                        <tr key={d.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                          <td className="px-3 py-2.5 text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{d.student ? `${d.student.firstName} ${d.student.lastName}` : '—'}</td>
-                          <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{schoolName}</td>
-                          <td className="px-3 py-2.5"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${d.type === 'VIOLENCE' || d.type === 'TRICHERIE' ? 'bg-[oklch(95%_0.03_25)] text-edu-danger' : d.type === 'RETARD' || d.type === 'ABSENCE' ? 'bg-[oklch(95%_0.05_65)] text-edu-warning' : 'bg-[oklch(95%_0.04_175)] text-edu-accent'}`}>{d.type}</span></td>
-                          <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_PRIMARY }}>{d.title}</td>
-                          <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(d.createdAt)}</td>
-                        </tr>
-                      )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Recent Student Registrations */}
-              <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
-                <div className="p-6 pb-3">
-                  <div className="flex items-center gap-2">
-                    <UserPlus size={16} style={{ color: ACCENT }} />
-                    <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Inscriptions récentes</div>
-                  </div>
-                  <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Nouveaux élèves sur la plateforme</div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr style={{ background: IVORY }}>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élève</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>École</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Classe</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(analytics?.recentStudents || []).length === 0 ? (
-                        <tr><td colSpan={4} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucune inscription récente</td></tr>
-                      ) : (analytics?.recentStudents || []).map(s => (
-                        <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                          <td className="px-3 py-2.5">
-                            <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-full grid place-items-center text-white font-semibold text-[10px] shrink-0" style={{ background: 'linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))' }}>
-                                {getInitials(s.firstName + ' ' + s.lastName)}
-                              </div>
-                              <div>
-                                <div className="font-medium text-[13px]" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
-                                <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.school?.shortName || s.school?.name || '—'}</td>
-                          <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_PRIMARY }}>{s.class?.name || '—'}</td>
-                          <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(s.createdAt)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  )
-}
-
-// ===== SECRETARY DASHBOARD =====
-function SecretaryDashboard() {
-  const { setCurrentView, userData } = useEduGestStore()
-  const [stats, setStats] = useState<Record<string, unknown> | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (userData?.schoolId) {
-      authFetch(`/api/stats?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => { setStats(j.data); setLoading(false) }).catch(() => setLoading(false))
-    } else {
-      setTimeout(() => setLoading(false), 0)
-    }
-  }, [userData?.schoolId])
-
-  const totalStudents = (stats?.students as Record<string, number>)?.total || 0
-  const totalClasses = (stats?.classes as Record<string, unknown>)?.total as number || 0
-  const classDist = (stats?.classes as Record<string, unknown>)?.distribution as { name: string; _count: { students: number } }[] | undefined
-  const barData = classDist?.map(c => ({ name: c.name, élèves: c._count.students })) || []
-  const disciplineStats = stats?.discipline as { total: number; blacklist: number; greylist: number; whitelist: number } | undefined
-  const paymentStats = stats?.payments as { total: number; paid: number; pending: number; partial: number; overdue: number; expectedAmount: number; collectedAmount: number; collectionRate: number } | undefined
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour {userData?.name || 'Secrétaire'}</h1>
-          </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{userData?.schoolName || 'Gestion scolaire'}</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
-        <StatCard label="Total élèves" value={formatNumber(totalStudents)} icon={<Users size={16} />} color={ACCENT} />
-        <StatCard label="Classes actives" value={String(totalClasses)} icon={<School size={16} />} color={INFO} />
-        <StatCard label="Avertissements" value={String(disciplineStats?.greylist || 0)} icon={<AlertTriangle size={16} />} color={WARNING} />
-        <StatCard label="Impayés" value={String(paymentStats?.overdue || 0)} icon={<Clock size={16} />} color={DANGER} />
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-6 mb-6">
-        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-          <div className="mb-4">
-            <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Élèves par classe</div>
-            <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Année scolaire en cours</div>
-          </div>
-          {barData.length > 0 ? (
-            <div className="h-[240px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={barData}>
-                  <CartesianGrid strokeDasharray="2 4" stroke="oklch(90% 0.01 175)" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
-                  <Tooltip />
-                  <Bar dataKey="élèves" fill={ACCENT} radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="h-[240px] flex items-center justify-center" style={{ color: TEXT_MUTED_LUXE }}>
-              <div className="text-center">
-                <BarChart3 size={32} className="mx-auto mb-2 opacity-30" />
-                <p className="text-sm">Aucune donnée de classe disponible</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-          <div className="mb-4">
-            <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Actions rapides</div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { icon: <UserPlus size={20} />, label: 'Ajouter élève', view: 'students' as ViewType, color: ACCENT },
-              { icon: <MessageSquare size={20} />, label: 'Communication', view: 'communications' as ViewType, color: INFO },
-              { icon: <CreditCard size={20} />, label: 'Paiement', view: 'payments' as ViewType, color: SUCCESS },
-              { icon: <Megaphone size={20} />, label: 'Convocation', view: 'convocation' as ViewType, color: WARNING },
-            ].map(a => (
-              <button key={a.label} onClick={() => setCurrentView(a.view)} className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.3)] hover:shadow-md edu-card-lift transition">
-                <div className="w-10 h-10 rounded-full grid place-items-center" style={{ color: 'white', background: `linear-gradient(135deg, ${a.color}, oklch(72% 0.15 65))` }}>{a.icon}</div>
-                <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{a.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ===== CASHIER DASHBOARD =====
-function CashierDashboard() {
-  const { userData } = useEduGestStore()
-  const [stats, setStats] = useState<Record<string, unknown> | null>(null)
-
-  useEffect(() => {
-    if (userData?.schoolId) {
-      authFetch(`/api/stats?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setStats(j.data)).catch(() => {})
-    }
-  }, [userData?.schoolId])
-
-  const paymentStats = stats?.payments as { total: number; paid: number; pending: number; partial: number; overdue: number; expectedAmount: number; collectedAmount: number; collectionRate: number } | undefined
-  const totalStudents = (stats?.students as Record<string, number>)?.total || 0
-  const classDist = (stats?.classes as Record<string, unknown>)?.distribution as { name: string; _count: { students: number } }[] | undefined
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour {userData?.name || 'Caissier'}</h1>
-          </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi financier — {userData?.schoolName || 'École'}</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
-        <StatCard label="Total encaissé" value={formatCurrency(paymentStats?.collectedAmount || 0)} icon={<DollarSign size={16} />} color={ACCENT} />
-        <StatCard label="Montant attendu" value={formatCurrency(paymentStats?.expectedAmount || 0)} icon={<Wallet size={16} />} color={INFO} />
-        <StatCard label="Taux recouvrement" value={`${paymentStats?.collectionRate?.toFixed(0) || 0}%`} icon={<TrendingUp size={16} />} color={SUCCESS} />
-        <StatCard label="Impayés" value={String(paymentStats?.overdue || 0)} delta={`${paymentStats?.pending || 0} en attente`} icon={<AlertTriangle size={16} />} color={DANGER} />
-      </div>
-
-      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-        <div className="mb-4">
-          <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Résumé des paiements</div>
-          <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{totalStudents} élèves · {paymentStats?.paid || 0} payés · {paymentStats?.partial || 0} partiels · {paymentStats?.overdue || 0} impayés</div>
-        </div>
-        {classDist && classDist.length > 0 ? (
-          <div className="space-y-3">
-            {classDist.map(c => {
-              const rate = paymentStats?.collectionRate || 0
-              return (
-                <div key={c.name}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{c.name}</span>
-                    <span style={{ color: TEXT_MUTED_LUXE }}>{c._count.students} élèves</span>
-                  </div>
-                  <div className="h-2 bg-[oklch(92%_0.005_175)] rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(rate, 100)}%`, background: rate >= 85 ? `linear-gradient(90deg, ${SUCCESS}, oklch(72% 0.15 65))` : rate >= 70 ? `linear-gradient(90deg, ${WARNING}, oklch(72% 0.15 65))` : `linear-gradient(90deg, ${DANGER}, oklch(58% 0.15 45))` }} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>
-            <CreditCard size={32} className="mx-auto mb-3 opacity-30" />
-            <p className="text-sm">Aucune donnée de paiement disponible</p>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ===== PARENT DASHBOARD =====
-function ParentDashboard() {
-  const { userData, setCurrentView, setSelectedStudentId } = useEduGestStore()
-  const [children, setChildren] = useState<StudentData[]>([])
-  const [loading, setLoading] = useState(true)
-  const [editingChild, setEditingChild] = useState<string | null>(null)
-  const [editFirstName, setEditFirstName] = useState('')
-  const [editLastName, setEditLastName] = useState('')
-  const [savingChild, setSavingChild] = useState(false)
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const childPhotoInputRef = useRef<HTMLInputElement | null>(null)
-  const [editingPhotoForChild, setEditingPhotoForChild] = useState<string | null>(null)
-  const [pendingHomework, setPendingHomework] = useState(0)
-  const [recentDisciplineCount, setRecentDisciplineCount] = useState(0)
-
-  useEffect(() => {
-    if (userData?.id) {
-      authFetch(`/api/students?parentId=${userData.id}&limit=20`)
-        .then(r => r.json())
-        .then(j => { setChildren(j.data || []); setLoading(false) })
-        .catch(() => setLoading(false))
-      // Fetch pending homework count
-      authFetch(`/api/homework?parentId=${userData.id}&limit=100`)
-        .then(r => r.json())
-        .then(j => {
-          const hw: { dueDate: string }[] = j.data || []
-          const now = new Date()
-          setPendingHomework(hw.filter(h => new Date(h.dueDate) > now).length)
-        })
-        .catch(() => {})
-      // Fetch discipline count
-      authFetch(`/api/discipline?parentId=${userData.id}&limit=100`)
-        .then(r => r.json())
-        .then(j => setRecentDisciplineCount((j.data || []).length))
-        .catch(() => {})
-    } else {
-      setLoading(false)
-    }
-  }, [userData?.id])
-
-  async function handleEditChild(child: StudentData) {
-    setEditingChild(child.id)
-    setEditFirstName(child.firstName)
-    setEditLastName(child.lastName)
-  }
-
-  async function handleSaveChild() {
-    if (!editingChild) return
-    if (!editFirstName.trim() || !editLastName.trim()) {
-      toast.error('Le prénom et le nom sont requis')
-      return
-    }
-    setSavingChild(true)
-    try {
-      const res = await authFetch(`/api/students/${editingChild}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firstName: editFirstName.trim(), lastName: editLastName.trim() }),
-      })
-      if (res.ok) {
-        toast.success('Nom de l\'enfant mis à jour!')
-        setChildren(prev => prev.map(c =>
-          c.id === editingChild
-            ? { ...c, firstName: editFirstName.trim(), lastName: editLastName.trim() }
-            : c
-        ))
-        setEditingChild(null)
-      } else {
-        toast.error('Erreur lors de la mise à jour')
-      }
-    } catch { toast.error('Erreur réseau') }
-    finally { setSavingChild(false) }
-  }
-
-  async function handleChildPhotoUpload(e: React.ChangeEvent<HTMLInputElement>, childId: string) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (!file.type.startsWith('image/')) { toast.error('Veuillez sélectionner une image'); return }
-    if (file.size > 5 * 1024 * 1024) { toast.error('L\'image ne doit pas dépasser 5MB'); return }
-
-    setUploadingPhoto(true)
-    setEditingPhotoForChild(childId)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('category', 'students')
-      const uploadRes = await authFetch('/api/upload', { method: 'POST', body: formData })
-      const uploadJson = await uploadRes.json()
-      if (!uploadRes.ok) { toast.error(uploadJson.error || 'Erreur upload'); return }
-
-      // Update student photoUrl
-      const updateRes = await authFetch(`/api/students/${childId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photoUrl: uploadJson.url }),
-      })
-      if (updateRes.ok) {
-        toast.success('Photo de l\'enfant mise à jour!')
-        setChildren(prev => prev.map(c =>
-          c.id === childId ? { ...c, photoUrl: uploadJson.url } : c
-        ))
-      } else {
-        toast.error('Erreur lors de la mise à jour de la photo')
-      }
-    } catch { toast.error('Erreur réseau') }
-    finally { setUploadingPhoto(false); setEditingPhotoForChild(null) }
-  }
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour {userData?.name || 'Parent'}</h1>
-          </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi scolaire de vos enfants</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
-        <StatCard label="Mes enfants" value={String(children.length)} icon={<Users size={16} />} color={ACCENT} />
-        <StatCard label="Avertissements" value={String(recentDisciplineCount)} icon={<Shield size={16} />} color={INFO} />
-        <StatCard label="Devoirs à rendre" value={String(pendingHomework)} icon={<PenTool size={16} />} color={WARNING} />
-      </div>
-
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-1 h-6 rounded-full" style={{ background: GOLD }} />
-        <h3 className="text-lg font-semibold" style={{ color: TEXT_PRIMARY }}>Mes enfants</h3>
-      </div>
-      {loading ? (
-        <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement de vos enfants...</div>
-      ) : children.length === 0 ? (
-        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-8 text-center shadow-sm">
-          <Users size={32} className="mx-auto mb-3" style={{ color: TEXT_MUTED_LUXE }} />
-          <p className="font-medium" style={{ color: TEXT_PRIMARY }}>Aucun enfant associé</p>
-          <p className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>Contactez l&apos;administration pour associer vos enfants à votre compte.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-          {children.map(child => {
-            const fullName = `${child.firstName} ${child.lastName}`
-            const initials = getInitials(fullName)
-            const isEditing = editingChild === child.id
-            return (
-              <div key={child.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
-                <div className="flex items-center gap-3 mb-4">
-                  {/* Clickable child photo */}
-                  <div className="relative group cursor-pointer" onClick={() => { setEditingPhotoForChild(child.id); childPhotoInputRef.current?.click() }}>
-                    {child.photoUrl ? (
-                      <img src={child.photoUrl} alt={fullName} className="w-14 h-14 rounded-full object-cover border-2 border-[oklch(90%_0.01_175)]" />
-                    ) : (
-                      <div className="w-14 h-14 rounded-full grid place-items-center text-white font-bold text-lg" style={{ background: `linear-gradient(135deg, ${ACCENT}, oklch(72% 0.15 65))` }}>
-                        {initials}
-                      </div>
-                    )}
-                    <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full grid place-items-center border-2 border-white shadow-sm transition group-hover:scale-110" style={{ background: GOLD }}>
-                      {uploadingPhoto && editingPhotoForChild === child.id ? (
-                        <div className="h-3 w-3 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Camera size={10} className="text-[oklch(15%_0.02_250)]" />
-                      )}
-                    </div>
-                    <input
-                      ref={editingPhotoForChild === child.id ? childPhotoInputRef : null}
-                      type="file" accept="image/*" className="hidden"
-                      onChange={e => handleChildPhotoUpload(e, child.id)}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    {isEditing ? (
-                      <div className="space-y-2">
-                        <input value={editFirstName} onChange={e => setEditFirstName(e.target.value)} placeholder="Prénom" className="w-full px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-                        <input value={editLastName} onChange={e => setEditLastName(e.target.value)} placeholder="Nom" className="w-full px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-                        <div className="flex gap-2">
-                          <button onClick={handleSaveChild} disabled={savingChild} className="edu-gold-cta px-3 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1 disabled:opacity-50">
-                            {savingChild ? <div className="h-3 w-3 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={10} />}
-                            Sauvegarder
-                          </button>
-                          <button onClick={() => setEditingChild(null)} className="px-3 py-1 rounded-lg text-xs font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <div>
-                          <div className="font-semibold" style={{ color: TEXT_PRIMARY }}>{fullName}</div>
-                          <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Classe {child.class?.name || '—'} · {child.matricule}</div>
-                        </div>
-                        <button onClick={() => handleEditChild(child)} className="ml-auto w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition shrink-0" style={{ color: TEXT_MUTED_LUXE }} title="Modifier le nom">
-                          <Edit size={13} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { label: 'Notes', view: 'grades' as ViewType, icon: <BookOpen size={14} /> },
-                    { label: 'Bulletin', view: 'bulletin' as ViewType, icon: <FileText size={14} /> },
-                    { label: 'Paiements', view: 'payments' as ViewType, icon: <CreditCard size={14} /> },
-                    { label: 'Discipline', view: 'discipline' as ViewType, icon: <Shield size={14} /> },
-                  ].map(chip => (
-                    <button key={chip.label} onClick={() => { setSelectedStudentId(child.id); setCurrentView(chip.view) }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(95%_0.04_175)] hover:border-[oklch(72%_0.15_65_/_0.3)] transition" style={{ color: TEXT_PRIMARY }}>
-                      {chip.icon} {chip.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-1 h-6 rounded-full" style={{ background: GOLD }} />
-        <h3 className="text-lg font-semibold" style={{ color: TEXT_PRIMARY }}>Notifications récentes</h3>
-      </div>
-      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl divide-y divide-[oklch(90%_0.01_175)] shadow-sm">
-        {children.length > 0 && (pendingHomework > 0 || recentDisciplineCount > 0) ? [
-          ...(pendingHomework > 0 ? [{ icon: <PenTool size={16} style={{ color: WARNING }} />, text: `${pendingHomework} devoir${pendingHomework > 1 ? 's' : ''} à rendre`, time: 'En cours' }] : []),
-          ...(recentDisciplineCount > 0 ? [{ icon: <Shield size={16} style={{ color: DANGER }} />, text: `${recentDisciplineCount} avertissement${recentDisciplineCount > 1 ? 's' : ''} disciplinaire${recentDisciplineCount > 1 ? 's' : ''}`, time: 'Cette année' }] : []),
-        ].map((n, i) => (
-          <div key={i} className="flex items-start gap-3 p-4 hover:bg-[oklch(97%_0.005_175)] transition">
-            <div className="w-8 h-8 rounded-full bg-[oklch(95%_0.04_175)] grid place-items-center shrink-0">{n.icon}</div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{n.text}</div>
-              <div className="text-xs mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{n.time}</div>
-            </div>
-            {i === 0 && <span className="w-2 h-2 rounded-full mt-2 shrink-0" style={{ background: GOLD }} />}
-          </div>
-        )) : (
-          <div className="p-6 text-center" style={{ color: TEXT_MUTED_LUXE }}>Aucune notification</div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ===== TEACHER DASHBOARD =====
-function TeacherDashboard() {
-  const { userData } = useEduGestStore()
-  const [classCount, setClassCount] = useState(0)
-  const [studentCount, setStudentCount] = useState(0)
-  const [homeworkCount, setHomeworkCount] = useState(0)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (userData?.schoolId) {
-      // Get classes
-      authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`)
-        .then(r => r.json())
-        .then(j => {
-          const allClasses: { id: string; name: string; _count?: { students: number } }[] = j.data || []
-          // Filter classes that match the teacher's assigned classNames
-          const teacherClassNames = userData?.classNames
-          let myClasses = allClasses
-          if (teacherClassNames) {
-            const nameList = teacherClassNames.split(',').map(n => n.trim().toLowerCase())
-            myClasses = allClasses.filter(c => nameList.some(n => c.name.toLowerCase().includes(n) || n.includes(c.name.toLowerCase())))
-          }
-          setClassCount(myClasses.length)
-          const totalStudents = myClasses.reduce((sum, c) => sum + (c._count?.students || 0), 0)
-          setStudentCount(totalStudents)
-        })
-        .catch(() => {})
-
-      // Get homework count - filter by teacherId
-      authFetch(`/api/homework?schoolId=${userData.schoolId}&limit=50`)
-        .then(r => r.json())
-        .then(j => {
-          const allHw: { teacherId?: string; teacherName: string }[] = j.data || []
-          const myHw = allHw.filter(h => h.teacherId === userData?.id || h.teacherName === userData?.name)
-          setHomeworkCount(myHw.length)
-        })
-        .catch(() => {})
-        .finally(() => setLoading(false))
-    } else {
-      setTimeout(() => setLoading(false), 0)
-    }
-  }, [userData?.schoolId, userData?.name, userData?.id])
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour {userData?.name || 'Professeur'}</h1>
-          </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>
-            {userData?.isTitulaire ? '🎓 Titulaire' : 'Enseignant'} · {userData?.subjectName || 'Vos classes et notes'}
-          </p>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
-        <StatCard label="Mes classes" value={String(classCount)} icon={<School size={16} />} color={ACCENT} />
-        <StatCard label="Élèves total" value={String(studentCount)} icon={<Users size={16} />} color={INFO} />
-        <StatCard label="Devoirs créés" value={String(homeworkCount)} icon={<PenTool size={16} />} color={WARNING} />
-        <StatCard label="Matière" value={userData?.subjectName || '—'} icon={<BookOpen size={16} />} color={DANGER} />
-      </div>
-    </div>
-  )
-}
-
-// ===== HEAD TEACHER DASHBOARD =====
-function HeadTeacherDashboard() {
-  const { userData } = useEduGestStore()
-  const [classInfo, setClassInfo] = useState<{ name: string; studentCount: number } | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (userData?.schoolId) {
-      // Try to find the class this head teacher manages
-      authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`)
-        .then(r => r.json())
-        .then(j => {
-          const allClasses: { id: string; name: string; _count?: { students: number } }[] = j.data || []
-          const teacherClassNames = userData?.classNames
-          let myClass: { id: string; name: string; _count?: { students: number } } | undefined
-          if (teacherClassNames) {
-            const nameList = teacherClassNames.split(',').map(n => n.trim().toLowerCase())
-            myClass = allClasses.find(c => nameList.some(n => c.name.toLowerCase().includes(n) || n.includes(c.name.toLowerCase())))
-          }
-          if (myClass) {
-            setClassInfo({ name: myClass.name, studentCount: myClass._count?.students || 0 })
-          } else if (allClasses.length > 0 && teacherClassNames) {
-            // Has classNames assigned but no match found - don't default to first class
-            setClassInfo(null)
-          } else if (!teacherClassNames && allClasses.length > 0) {
-            // No class names assigned at all
-            setClassInfo(null)
-          }
-          setLoading(false)
-        })
-        .catch(() => setLoading(false))
-    } else {
-      setTimeout(() => setLoading(false), 0)
-    }
-  }, [userData?.schoolId])
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour {userData?.name || 'Prof. Principal'}</h1>
-          </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{classInfo ? `Suivi de la classe ${classInfo.name}` : 'Aucune classe assignée — Contactez l\'administration'}</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
-        <StatCard label="Élèves" value={String(classInfo?.studentCount || 0)} icon={<Users size={16} />} color={ACCENT} />
-        <StatCard label="Matière" value={userData?.subjectName || '—'} icon={<Target size={16} />} color={SUCCESS} />
-        <StatCard label="Titulaire" value={userData?.isTitulaire ? 'Oui' : 'Non'} icon={<Award size={16} />} color={INFO} />
-      </div>
-    </div>
-  )
-}
+// HeadTeacherDashboard imported from @/components/dashboards/HeadTeacherDashboard
 
 // ===== DIRECTION DASHBOARD =====
 function DirectionDashboard() {
   return <SecretaryDashboard />
 }
 
-// ===== DISCIPLINE DASHBOARD =====
-function DisciplineDashboardView() {
-  const { userData, userRole } = useEduGestStore()
-  const [stats, setStats] = useState<{ blacklist: number; greylist: number; whitelist: number; totalStudents: number }>({ blacklist: 0, greylist: 0, whitelist: 0, totalStudents: 0 })
-  const [loading, setLoading] = useState(true)
+// DisciplineDashboardView imported from @/components/dashboards/DisciplineDashboard
 
-  const sectionLevel = userRole === 'DISCIPLINE_MATERNELLE' ? 'MATERNELLE' : userRole === 'DISCIPLINE_PRIMAIRE' ? 'PRIMAIRE' : userRole === 'DISCIPLINE_SECONDAIRE' ? 'SECONDAIRE' : ''
-
-  useEffect(() => {
-    if (userData?.schoolId) {
-      // Fetch discipline stats
-      authFetch(`/api/stats?schoolId=${userData.schoolId}`)
-        .then(r => r.json())
-        .then(j => {
-          const disciplineStats = j.data?.discipline as { total: number; blacklist: number; greylist: number; whitelist: number } | undefined
-          const studentStats = j.data?.students as { total: number } | undefined
-          setStats({
-            blacklist: disciplineStats?.blacklist || 0,
-            greylist: disciplineStats?.greylist || 0,
-            whitelist: disciplineStats?.whitelist || 0,
-            totalStudents: studentStats?.total || 0,
-          })
-          setLoading(false)
-        })
-        .catch(() => setLoading(false))
-    } else {
-      setTimeout(() => setLoading(false), 0)
-    }
-  }, [userData?.schoolId])
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Dashboard Discipline</h1>
-          </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi disciplinaire{sectionLevel ? ` — ${sectionLevel}` : ''} · {stats.totalStudents} élèves</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
-        <StatCard label="Liste Noire" value={String(stats.blacklist)} icon={<Ban size={16} />} color={DANGER} />
-        <StatCard label="Liste Grise" value={String(stats.greylist)} icon={<AlertTriangle size={16} />} color={WARNING} />
-        <StatCard label="Liste Blanche" value={String(stats.whitelist)} icon={<Award size={16} />} color={SUCCESS} />
-      </div>
-    </div>
-  )
-}
-
-// ===== STUDENTS VIEW =====
-function StudentsView() {
-  const [students, setStudents] = useState<StudentData[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [studentSearch, setStudentSearch] = useState('')
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
-  const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
-  const [studentSearchLoading, setStudentSearchLoading] = useState(false)
-  const [showAdd, setShowAdd] = useState(false)
-  const [classes, setClasses] = useState<ClassData[]>([])
-  const [selectedClassId, setSelectedClassId] = useState('')
-  const [classSearch, setClassSearch] = useState('')
-  const [selectedClassSearchId, setSelectedClassSearchId] = useState<string | null>(null)
-  const [showParentSection, setShowParentSection] = useState(false)
-  const [parentName, setParentName] = useState('')
-  const [parentEmail, setParentEmail] = useState('')
-  const [parentPhone, setParentPhone] = useState('')
-  const [parentPassword, setParentPassword] = useState('')
-  const [showParentPwd, setShowParentPwd] = useState(false)
-  const [adding, setAdding] = useState(false)
-  const { userData } = useEduGestStore()
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await authFetch(`/api/students?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
-        const json = await res.json()
-        setStudents(json.data || [])
-      } catch (e) { console.error(e) }
-      finally { setLoading(false) }
-    }
-    load()
-  }, [userData?.schoolId])
-
-  // Load classes when modal opens
-  useEffect(() => {
-    if (showAdd) {
-      authFetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
-        .then(r => r.json())
-        .then(j => setClasses(j.data || []))
-        .catch(() => {})
-    }
-  }, [showAdd])
-
-  // Student search autocomplete
-  useEffect(() => {
-    if (studentSearch.length < 2) return
-    const timer = setTimeout(() => {
-      setStudentSearchLoading(true)
-      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
-        .then(r => r.json())
-        .then(j => {
-          setStudentSuggestions((j.data || []).map((s: StudentData) => ({
-            id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule, photoUrl: s.photoUrl
-          })))
-          setStudentSearchLoading(false)
-        })
-        .catch(() => setStudentSearchLoading(false))
-    }, 300)
-    return () => { clearTimeout(timer); setStudentSearchLoading(false) }
-  }, [studentSearch])
-
-  // Class search autocomplete for add modal - computed from local data
-  const classSuggestions = useMemo(() => {
-    if (classSearch.length < 1) return classes.map(c => ({ id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves · Cap. ${c.capacity}` }))
-    return classes.filter(c => c.name.toLowerCase().includes(classSearch.toLowerCase())).map(c => ({
-      id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves · Cap. ${c.capacity}`
-    }))
-  }, [classSearch, classes])
-
-  // Filter students by search or selected student
-  const filtered = selectedStudentId
-    ? students.filter(s => s.id === selectedStudentId)
-    : students.filter(s =>
-        !search || s.firstName.toLowerCase().includes(search.toLowerCase()) || s.lastName.toLowerCase().includes(search.toLowerCase()) || s.matricule.toLowerCase().includes(search.toLowerCase())
-      )
-
-  async function handleAddStudent(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setAdding(true)
-    const fd = new FormData(e.currentTarget)
-    try {
-      const body: Record<string, unknown> = {
-        firstName: fd.get('firstName'), lastName: fd.get('lastName'),
-        gender: fd.get('gender'), dateOfBirth: fd.get('dob'),
-        classId: selectedClassId || students[0]?.classId, schoolId: userData?.schoolId || 'demo',
-        schoolYearId: students[0]?.schoolYearId || 'demo',
-      }
-      if (showParentSection && parentName) {
-        body.parentName = parentName
-        body.parentEmail = parentEmail
-        body.parentPhone = parentPhone
-        body.parentPassword = parentPassword
-      }
-      const res = await authFetch('/api/students', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      if (res.ok) {
-        toast.success('Élève ajouté avec succès!')
-        setShowAdd(false)
-        setParentName(''); setParentEmail(''); setParentPhone(''); setParentPassword('')
-        setSelectedClassId(''); setShowParentSection(false)
-        const json = await authFetch('/api/students?limit=50').then(r => r.json())
-        setStudents(json.data || [])
-      } else {
-        toast.error('Erreur lors de l\'ajout')
-      }
-    } catch { toast.error('Erreur réseau') }
-    finally { setAdding(false) }
-  }
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Élèves</h1>
-          </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filtered.length)} élèves inscrits</p>
-        </div>
-        <button onClick={() => setShowAdd(true)} className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
-          <Plus size={14} /> Ajouter un élève
-        </button>
-      </div>
-
-      <div className="flex items-center gap-3 mb-4">
-        <SearchAutocomplete
-          label="Rechercher un élève *"
-          placeholder="Tapez le nom de l'élève..."
-          items={studentSuggestions}
-          selectedId={selectedStudentId}
-          onSelect={(item) => { setSelectedStudentId(item.id); setSearch('') }}
-          onClear={() => { setSelectedStudentId(null); setStudentSearch('') }}
-          searchQuery={studentSearch}
-          onSearchChange={setStudentSearch}
-          loading={studentSearchLoading}
-          itemTypeName="élève"
-          className="flex-1 max-w-md"
-        />
-      </div>
-
-      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr style={{ background: IVORY }}>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Matricule</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Classe</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Parent</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Statut</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={6} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
-              ) : filtered.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun élève trouvé</td></tr>
-              ) : filtered.map(s => (
-                <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full grid place-items-center text-white font-semibold text-[11px] shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                        {getInitials(s.firstName + ' ' + s.lastName)}
-                      </div>
-                      <div>
-                        <div className="font-medium text-[13px]" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
-                        <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.gender === 'M' ? 'Garçon' : 'Fille'}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-[13px] font-mono" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</td>
-                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_PRIMARY }}>{s.class?.name || '—'}</td>
-                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.parent?.name || '—'}</td>
-                  <td className="px-4 py-3"><span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill('Actif')}`}>Actif</span></td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-1">
-                      <button className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Eye size={14} /></button>
-                      <button className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Edit size={14} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Add Student Modal */}
-      {showAdd && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowAdd(false)}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>Ajouter un élève</h2>
-              <button onClick={() => setShowAdd(false)}><X size={18} /></button>
-            </div>
-            <form onSubmit={handleAddStudent} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Prénom</label><input name="firstName" required className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
-                <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Nom</label><input name="lastName" required className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Sexe</label><select name="gender" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"><option value="M">Masculin</option><option value="F">Féminin</option></select></div>
-                <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Date de naissance</label><input name="dob" type="date" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
-              </div>
-              {/* Class selector */}
-              <SearchAutocomplete
-                label="Classe *"
-                placeholder="Tapez le nom de la classe..."
-                items={classSuggestions}
-                selectedId={selectedClassSearchId}
-                onSelect={(item) => { setSelectedClassSearchId(item.id); setSelectedClassId(item.id) }}
-                onClear={() => { setSelectedClassSearchId(null); setSelectedClassId(''); setClassSearch('') }}
-                searchQuery={classSearch}
-                onSearchChange={setClassSearch}
-                itemTypeName="classe"
-              />
-
-              {/* Parent info section */}
-              <div className="border border-[oklch(90%_0.01_175)] rounded-xl overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setShowParentSection(!showParentSection)}
-                  className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium transition hover:bg-[oklch(97%_0.005_175)]"
-                  style={{ color: TEXT_PRIMARY }}
-                >
-                  <span className="flex items-center gap-2"><Users size={14} style={{ color: GOLD }} /> Informations du parent</span>
-                  <ChevronDown size={14} className={`transition-transform ${showParentSection ? 'rotate-180' : ''}`} />
-                </button>
-                {showParentSection && (
-                  <div className="px-4 pb-4 space-y-3 border-t border-[oklch(90%_0.01_175)]">
-                    <div className="pt-3">
-                      <input placeholder="Nom du parent" value={parentName} onChange={e => setParentName(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" />
-                    </div>
-                    <div><input placeholder="Email du parent" type="email" value={parentEmail} onChange={e => setParentEmail(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
-                    <div><input placeholder="Téléphone du parent (ex: +243 81...)" type="tel" value={parentPhone} onChange={e => setParentPhone(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
-                    <div className="relative"><input placeholder="Mot de passe du parent" type={showParentPwd ? 'text' : 'password'} value={parentPassword} onChange={e => setParentPassword(e.target.value)} className="w-full px-3 py-2 pr-10 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /><button type="button" onClick={() => setShowParentPwd(!showParentPwd)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[oklch(52%_0.015_250)] hover:text-[oklch(40%_0.02_250)] transition p-1">{showParentPwd ? <EyeOff size={14} /> : <Eye size={14} />}</button></div>
-                  </div>
-                )}
-              </div>
-
-              <button type="submit" disabled={adding} className="w-full py-2.5 rounded-xl font-semibold text-sm edu-gold-cta inline-flex items-center justify-center gap-2 disabled:opacity-50">
-                {adding ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Plus size={14} />}
-                Ajouter l&apos;élève
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+// StudentsView imported from @/components/views/StudentsView
 
 // ===== CLASSES VIEW =====
 function ClassesView() {
@@ -3909,9 +2470,9 @@ function ClassesView() {
 
   // Class search autocomplete - computed from local data
   const classSuggestions = useMemo(() => {
-    if (classSearch.length < 1) return classes.map(c => ({ id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves · Cap. ${c.capacity}${c.section ? ` · ${c.section}` : ''}` }))
+    if (classSearch.length < 1) return classes.map(c => ({ id: c.id, label: c.name, sublabel: `${c._count?.students || 0} Ã©lÃ¨ves Â· Cap. ${c.capacity}${c.section ? ` Â· ${c.section}` : ''}` }))
     return classes.filter(c => c.name.toLowerCase().includes(classSearch.toLowerCase()) || (c.section || '').toLowerCase().includes(classSearch.toLowerCase())).map(c => ({
-      id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves · Cap. ${c.capacity}${c.section ? ` · ${c.section}` : ''}`
+      id: c.id, label: c.name, sublabel: `${c._count?.students || 0} Ã©lÃ¨ves Â· Cap. ${c.capacity}${c.section ? ` Â· ${c.section}` : ''}`
     }))
   }, [classSearch, classes])
 
@@ -3944,7 +2505,7 @@ function ClassesView() {
         />
       </div>
       {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : filteredClasses.length === 0 ? (
-        <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucune classe trouvée</div>
+        <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucune classe trouvÃ©e</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredClasses.map(c => (
@@ -3954,8 +2515,8 @@ function ClassesView() {
                 <span className="text-xs px-2 py-1 rounded-full" style={{ color: GOLD, background: GOLD_SOFT }}>{c.level || c.section || ''}</span>
               </div>
               <div className="flex items-center justify-between text-sm" style={{ color: TEXT_MUTED_LUXE }}>
-                <span>{c._count?.students || 0} élèves</span>
-                <span>Capacité: {c.capacity}</span>
+                <span>{c._count?.students || 0} Ã©lÃ¨ves</span>
+                <span>CapacitÃ©: {c.capacity}</span>
               </div>
               <div className="mt-3 h-2 bg-[oklch(92%_0.005_175)] rounded-full overflow-hidden">
                 <div className="h-full rounded-full" style={{ width: `${Math.min(100, ((c._count?.students || 0) / c.capacity) * 100)}%`, background: (c._count?.students || 0) / c.capacity > 0.9 ? `linear-gradient(90deg, ${DANGER}, oklch(58% 0.15 45))` : `linear-gradient(90deg, ${ACCENT}, oklch(72% 0.15 65))` }} />
@@ -3968,632 +2529,9 @@ function ClassesView() {
   )
 }
 
-// ===== GRADES VIEW =====
-function GradesView() {
-  const { userRole, userData } = useEduGestStore()
-  const [grades, setGrades] = useState<GradeData[]>([])
-  const [classes, setClasses] = useState<ClassData[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedClass, setSelectedClass] = useState('')
-  const [selectedTrimester, setSelectedTrimester] = useState('T1')
-  const [selectedChildId, setSelectedChildId] = useState('')
-  const [myChildren, setMyChildren] = useState<StudentData[]>([])
-  const [childSearch, setChildSearch] = useState('')
-  const [classSearch, setClassSearch] = useState('')
-  const [selectedClassSearchId, setSelectedClassSearchId] = useState<string | null>(null)
-  const [selectedChildSearchId, setSelectedChildSearchId] = useState<string | null>(null)
-  const isParent = userRole === 'PARENT'
-  const isTeacher = userRole === 'TEACHER' || userRole === 'HEAD_TEACHER'
-  const [showGradeForm, setShowGradeForm] = useState(false)
-  const [gradeStudentId, setGradeStudentId] = useState('')
-  const [gradeStudentSearch, setGradeStudentSearch] = useState('')
-  const [gradeStudentSearchId, setGradeStudentSearchId] = useState<string | null>(null)
-  const [gradeSubjectId, setGradeSubjectId] = useState('')
-  const [gradeClassId, setGradeClassId] = useState('')
-  const [gradeScore, setGradeScore] = useState('')
-  const [gradeComment, setGradeComment] = useState('')
-  const [gradeTrimester, setGradeTrimester] = useState('T1')
-  const [gradeSubmitting, setGradeSubmitting] = useState(false)
-  const [subjects, setSubjects] = useState<{ id: string; name: string; coefficient: number }[]>([])
-  const [classStudents, setClassStudents] = useState<StudentData[]>([])
+// GradesView imported from @/components/views/GradesView
 
-  // Load subjects when class changes in grade form
-  useEffect(() => {
-    if (gradeClassId) {
-      authFetch(`/api/subjects?classId=${gradeClassId}&limit=20`).then(r => r.json()).then(j => setSubjects(j.data || [])).catch(() => {})
-      authFetch(`/api/students?classId=${gradeClassId}&limit=50`).then(r => r.json()).then(j => setClassStudents(j.data || [])).catch(() => {})
-    }
-  }, [gradeClassId])
-
-  // Student search for grade form
-  const gradeStudentSuggestions = useMemo(() => {
-    if (gradeStudentSearch.length < 1) return classStudents.map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule }))
-    return classStudents.filter(s =>
-      `${s.firstName} ${s.lastName}`.toLowerCase().includes(gradeStudentSearch.toLowerCase()) || s.matricule.toLowerCase().includes(gradeStudentSearch.toLowerCase())
-    ).map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule }))
-  }, [gradeStudentSearch, classStudents])
-
-  useEffect(() => {
-    authFetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
-    // If parent, load their children
-    if (isParent && userData?.id) {
-      authFetch(`/api/students?parentId=${userData.id}&limit=20`)
-        .then(r => r.json())
-        .then(j => setMyChildren(j.data || []))
-        .catch(() => {})
-    }
-    loadGrades()
-  }, [])
-
-  useEffect(() => {
-    loadGrades()
-  }, [selectedClass, selectedTrimester, selectedChildId])
-
-  async function loadGrades() {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams()
-      if (isParent && userData?.id) {
-        // Parent: only load their children's grades
-        params.set('parentId', userData.id)
-        if (selectedChildId) {
-          params.delete('parentId')
-          params.set('studentId', selectedChildId)
-        }
-      } else {
-        if (selectedClass) params.set('classId', selectedClass)
-      }
-      params.set('trimester', selectedTrimester)
-      params.set('limit', '100')
-      const res = await authFetch(`/api/grades?${params}`)
-      const json = await res.json()
-      setGrades(json.data || [])
-    } catch (e) { console.error(e) }
-    finally { setLoading(false) }
-  }
-
-  async function handleAddGrade() {
-    if (!gradeStudentId || !gradeSubjectId || !gradeClassId || !gradeScore || !userData?.schoolId) {
-      toast.error('Veuillez remplir tous les champs obligatoires')
-      return
-    }
-    const score = parseFloat(gradeScore)
-    if (isNaN(score) || score < 0 || score > 20) {
-      toast.error('La note doit être entre 0 et 20')
-      return
-    }
-    setGradeSubmitting(true)
-    try {
-      const res = await authFetch('/api/grades', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: gradeStudentId,
-          subjectId: gradeSubjectId,
-          classId: gradeClassId,
-          trimester: gradeTrimester,
-          score,
-          comment: gradeComment || null,
-        }),
-      })
-      if (res.ok) {
-        toast.success('Note enregistrée !')
-        setShowGradeForm(false)
-        setGradeStudentId(''); setGradeScore(''); setGradeComment('')
-        setGradeStudentSearchId(null); setGradeStudentSearch('')
-        loadGrades()
-      } else {
-        const errData = await res.json().catch(() => ({}))
-        toast.error(errData?.error || 'Erreur lors de l\'enregistrement')
-      }
-    } catch {
-      toast.error('Erreur de connexion')
-    }
-    setGradeSubmitting(false)
-  }
-
-  // Group grades by student for parent view
-  // Child search autocomplete for parent - computed from local data
-  const childSuggestions = useMemo(() => {
-    if (!isParent) return []
-    if (childSearch.length < 1) return myChildren.map(c => ({ id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: c.matricule }))
-    return myChildren.filter(c =>
-      `${c.firstName} ${c.lastName}`.toLowerCase().includes(childSearch.toLowerCase()) || c.matricule.toLowerCase().includes(childSearch.toLowerCase())
-    ).map(c => ({ id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: c.matricule }))
-  }, [childSearch, myChildren, isParent])
-
-  // Class search autocomplete for admin - computed from local data
-  const classSuggestions = useMemo(() => {
-    if (isParent) return []
-    if (classSearch.length < 1) return classes.map(c => ({ id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves` }))
-    return classes.filter(c => c.name.toLowerCase().includes(classSearch.toLowerCase())).map(c => ({ id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves` }))
-  }, [classSearch, classes, isParent])
-  const gradesByStudent = isParent ? Object.entries(
-    grades.reduce((acc, g) => {
-      const key = g.studentId
-      if (!acc[key]) acc[key] = { student: g.student, grades: [] }
-      acc[key].grades.push(g)
-      return acc
-    }, {} as Record<string, { student: GradeData['student']; grades: GradeData[] }>)
-  ) : []
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Notes</h1>
-        </div>
-        {isTeacher && (
-          <button onClick={() => setShowGradeForm(!showGradeForm)} className="edu-gold-cta px-4 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-2">
-            <Plus size={14} /> Nouvelle note
-          </button>
-        )}
-      </div>
-
-      {/* Grade Entry Form for Teachers */}
-      {isTeacher && showGradeForm && (
-        <div className="bg-white border-2 border-[oklch(72%_0.15_65_/_0.3)] rounded-2xl p-6 shadow-md mb-6">
-          <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
-            <BookOpen size={16} style={{ color: GOLD }} /> Saisir une note
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
-              <select value={gradeClassId} onChange={e => { setGradeClassId(e.target.value); setGradeStudentId(''); setGradeStudentSearchId(null) }} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                <option value="">Sélectionner une classe</option>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Matière *</label>
-              <select value={gradeSubjectId} onChange={e => setGradeSubjectId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" disabled={!gradeClassId}>
-                <option value="">{gradeClassId ? 'Sélectionner une matière' : 'D\'abord choisir une classe'}</option>
-                {subjects.map(s => <option key={s.id} value={s.id}>{s.name} (coef. {s.coefficient})</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Trimestre *</label>
-              <select value={gradeTrimester} onChange={e => setGradeTrimester(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                <option value="T1">Trimestre 1</option>
-                <option value="T2">Trimestre 2</option>
-                <option value="T3">Trimestre 3</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Élève *</label>
-              {!gradeClassId ? (
-                <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm" style={{ color: TEXT_MUTED_LUXE }}>D'abord choisir une classe</div>
-              ) : (
-                <SearchAutocomplete
-                  label=""
-                  placeholder="Tapez le nom de l'élève..."
-                  items={gradeStudentSuggestions}
-                  selectedId={gradeStudentSearchId}
-                  onSelect={(item) => { setGradeStudentSearchId(item.id); setGradeStudentId(item.id) }}
-                  onClear={() => { setGradeStudentSearchId(null); setGradeStudentId(''); setGradeStudentSearch('') }}
-                  searchQuery={gradeStudentSearch}
-                  onSearchChange={setGradeStudentSearch}
-                  itemTypeName="élève"
-                />
-              )}
-            </div>
-            <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Note /20 *</label>
-              <input type="number" min="0" max="20" step="0.5" value={gradeScore} onChange={e => setGradeScore(e.target.value)} placeholder="0-20" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-            </div>
-            <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Commentaire</label>
-              <input value={gradeComment} onChange={e => setGradeComment(e.target.value)} placeholder="Optionnel" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-            </div>
-          </div>
-          <div className="flex gap-3 mt-4">
-            <button onClick={handleAddGrade} disabled={gradeSubmitting || !gradeStudentId || !gradeSubjectId || !gradeClassId || !gradeScore} className="edu-gold-cta px-6 py-2.5 rounded-xl font-semibold text-sm inline-flex items-center gap-2 disabled:opacity-50">
-              {gradeSubmitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
-              Enregistrer la note
-            </button>
-            <button onClick={() => setShowGradeForm(false)} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
-          </div>
-        </div>
-      )}
-      <div className="flex flex-wrap items-start gap-3 mb-5 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4 shadow-sm" style={{ background: IVORY }}>
-        {isParent ? (
-          <SearchAutocomplete
-            label="Mes enfants"
-            placeholder="Tapez le nom de l'enfant..."
-            items={childSuggestions}
-            selectedId={selectedChildSearchId}
-            onSelect={(item) => { setSelectedChildSearchId(item.id); setSelectedChildId(item.id) }}
-            onClear={() => { setSelectedChildSearchId(null); setSelectedChildId(''); setChildSearch('') }}
-            searchQuery={childSearch}
-            onSearchChange={setChildSearch}
-            itemTypeName="enfant"
-            className="w-full max-w-xs"
-          />
-        ) : (
-          <SearchAutocomplete
-            label="Filtrer par classe"
-            placeholder="Tapez le nom de la classe..."
-            items={classSuggestions}
-            selectedId={selectedClassSearchId}
-            onSelect={(item) => { setSelectedClassSearchId(item.id); setSelectedClass(item.id) }}
-            onClear={() => { setSelectedClassSearchId(null); setSelectedClass(''); setClassSearch('') }}
-            searchQuery={classSearch}
-            onSearchChange={setClassSearch}
-            itemTypeName="classe"
-            className="w-full max-w-xs"
-          />
-        )}
-        <div className={isParent ? 'mt-6' : 'mt-6'}>
-          <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Trimestre</label>
-          <select value={selectedTrimester} onChange={e => setSelectedTrimester(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-            <option value="T1">Trimestre 1</option>
-            <option value="T2">Trimestre 2</option>
-            <option value="T3">Trimestre 3</option>
-          </select>
-        </div>
-      </div>
-
-      {isParent && gradesByStudent.length > 0 ? (
-        // Parent view: group by child with summary
-        <div className="space-y-6">
-          {gradesByStudent.map(([studentId, { student, grades: studentGrades }]) => {
-            const avg = studentGrades.length > 0
-              ? studentGrades.reduce((sum, g) => sum + g.score * (g.subject?.coefficient || 1), 0) / studentGrades.reduce((sum, g) => sum + (g.subject?.coefficient || 1), 0)
-              : 0
-            return (
-              <div key={studentId} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
-                <div className="p-4 flex items-center gap-3" style={{ background: IVORY }}>
-                  <div className="w-10 h-10 rounded-full grid place-items-center text-white font-bold text-sm" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                    {student ? getInitials(`${student.firstName} ${student.lastName}`) : '??'}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-semibold" style={{ color: TEXT_PRIMARY }}>{student?.firstName} {student?.lastName}</div>
-                    <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{studentGrades.length} notes · Moyenne: <span className="font-semibold" style={{ color: avg >= 10 ? GOLD : DANGER }}>{avg.toFixed(1)}/20</span></div>
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2" style={{ color: GOLD }}>Matière</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2" style={{ color: GOLD }}>Note /20</th>
-                        <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2" style={{ color: GOLD }}>Coef.</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {studentGrades.map(g => (
-                        <tr key={g.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                          <td className="px-3 py-2 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{g.subject?.name}</td>
-                          <td className="px-3 py-2">
-                            <span className="text-[13px] font-semibold" style={{ color: g.score >= 10 ? GOLD : DANGER }}>{g.score.toFixed(1)}</span>
-                          </td>
-                          <td className="px-3 py-2 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>×{g.subject?.coefficient || 1}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      ) : (
-        // Default view for non-parent roles
-        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr style={{ background: IVORY }}>
-                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Élève</th>
-                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Matière</th>
-                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Note /20</th>
-                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Coef.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={4} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
-                ) : grades.length === 0 ? (
-                  <tr><td colSpan={4} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucune note</td></tr>
-                ) : grades.slice(0, 30).map(g => (
-                  <tr key={g.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                    <td className="px-3 py-2.5 text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{g.student?.firstName} {g.student?.lastName}</td>
-                    <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{g.subject?.name}</td>
-                    <td className="px-3 py-2.5">
-                      <span className="text-[13px] font-semibold" style={{ color: g.score >= 10 ? GOLD : DANGER }}>
-                        {g.score.toFixed(1)}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>×{g.subject?.coefficient || 1}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ===== PAYMENTS VIEW =====
-function PaymentsView() {
-  const [payments, setPayments] = useState<PaymentData[]>([])
-  const [loading, setLoading] = useState(true)
-  const [studentSearch, setStudentSearch] = useState('')
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
-  const [selectedStudent, setSelectedStudent] = useState<{id: string; firstName: string; lastName: string; matricule: string} | null>(null)
-  const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
-  const [studentSearchLoading, setStudentSearchLoading] = useState(false)
-  const [amount, setAmount] = useState('')
-  const [paidAmount, setPaidAmount] = useState('')
-  const [trimester, setTrimester] = useState('T1')
-  const [method, setMethod] = useState('CASH')
-  const [status, setStatus] = useState('PAID')
-  const [submitting, setSubmitting] = useState(false)
-  const [lastPaymentId, setLastPaymentId] = useState<string | null>(null)
-  const { userData, userRole } = useEduGestStore()
-  const isParent = userRole === 'PARENT'
-
-  useEffect(() => {
-    if (isParent && userData?.id) {
-      // Load only children's payments using the studentIds from children
-      authFetch(`/api/students?parentId=${userData.id}&limit=20`)
-        .then(r => r.json())
-        .then(async j => {
-          const children = j.data || []
-          if (children.length > 0) {
-            // Load payments for each child
-            const allPayments: PaymentData[] = []
-            for (const child of children) {
-              try {
-                const pRes = await authFetch(`/api/payments?studentId=${child.id}&limit=30`)
-                const pJson = await pRes.json()
-                if (pJson.data) allPayments.push(...pJson.data)
-              } catch { /* skip */ }
-            }
-            setPayments(allPayments)
-          }
-          setLoading(false)
-        })
-        .catch(() => setLoading(false))
-    } else {
-      authFetch(`/api/payments?limit=30${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => { setPayments(j.data || []); setLoading(false) }).catch(() => setLoading(false))
-    }
-  }, [])
-
-  // Search students as user types
-  useEffect(() => {
-    if (studentSearch.length < 2) return
-    const timer = setTimeout(() => {
-      setStudentSearchLoading(true)
-      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
-        .then(r => r.json())
-        .then(j => {
-          const data = j.data || []
-          setStudentSuggestions(data.map((s: StudentData) => ({
-            id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule, photoUrl: s.photoUrl
-          })))
-          setStudentSearchLoading(false)
-        })
-        .catch(() => setStudentSearchLoading(false))
-    }, 300)
-    return () => { clearTimeout(timer); setStudentSearchLoading(false) }
-  }, [studentSearch])
-
-  async function handlePayment() {
-    if (!selectedStudent && !studentSearch) { toast.error('Veuillez sélectionner un élève'); return }
-    if (!amount) { toast.error('Veuillez entrer le montant'); return }
-    setSubmitting(true)
-    try {
-      const body: Record<string, unknown> = {
-        schoolId: userData?.schoolId || '',
-        amount: parseInt(amount),
-        paidAmount: parseInt(paidAmount || '0'),
-        trimester,
-        paymentMethod: method,
-        status,
-      }
-      if (selectedStudent) {
-        body.studentId = selectedStudent.id
-      } else {
-        body.studentName = studentSearch
-      }
-      const res = await authFetch('/api/payments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      const json = await res.json()
-      if (res.ok) {
-        toast.success('Paiement enregistré avec succès!')
-        const paymentId = json.data.id
-        setLastPaymentId(paymentId)
-        // Refresh list
-        const listRes = await authFetch(`/api/payments?limit=30${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
-        const listJson = await listRes.json()
-        setPayments(listJson.data || [])
-        // Reset form
-        setStudentSearch(''); setSelectedStudent(null); setAmount(''); setPaidAmount('')
-        // Auto-display and download PDF receipt
-        downloadReceipt(paymentId)
-      } else {
-        toast.error(json.error || 'Erreur lors de l\'enregistrement')
-        // If there are suggestions, show them
-        if (json.suggestions) {
-          setStudentSuggestions(json.suggestions.map((s: {id: string; name: string; matricule: string}) => ({
-            id: s.id, label: s.name, sublabel: s.matricule
-          })))
-        }
-      }
-    } catch { toast.error('Erreur réseau') }
-    finally { setSubmitting(false) }
-  }
-
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
-  const [pdfLoading, setPdfLoading] = useState(false)
-
-  async function downloadReceipt(paymentId: string) {
-    setPdfLoading(true)
-    try {
-      const res = await authFetch(`/api/payments/receipt/${paymentId}`)
-      if (!res.ok) throw new Error()
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      setPdfUrl(url)
-      // Auto-download
-      const a = document.createElement('a')
-      a.href = url
-      const payment = payments.find(p => p.id === paymentId)
-      const receiptName = payment?.receiptNumber || paymentId.slice(-8)
-      a.download = `recu-${receiptName}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-    } catch { toast.error('Erreur lors du téléchargement du reçu') }
-    finally { setPdfLoading(false) }
-  }
-
-  return (
-    <div>
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Paiements</h1>
-      </div>
-
-      {/* Payment Form - Hidden for parents */}
-      {!isParent && (
-      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 mb-6 shadow-sm" style={{ borderLeft: `4px solid ${GOLD}` }}>
-        <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Enregistrer un paiement</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-          {/* Student search with autocomplete */}
-          <SearchAutocomplete
-            label="Rechercher un élève *"
-            placeholder="Tapez le nom de l'élève..."
-            items={studentSuggestions}
-            selectedId={selectedStudentId}
-            onSelect={(item) => { setSelectedStudentId(item.id); setSelectedStudent({ id: item.id, firstName: item.label.split(' ')[0], lastName: item.label.split(' ').slice(1).join(' ') || '', matricule: item.sublabel || '' }); setStudentSearch('') }}
-            onClear={() => { setSelectedStudentId(null); setSelectedStudent(null); setStudentSearch('') }}
-            searchQuery={studentSearch}
-            onSearchChange={(v) => { setStudentSearch(v); setSelectedStudent(null); setSelectedStudentId(null) }}
-            loading={studentSearchLoading}
-            itemTypeName="élève"
-            className="sm:col-span-2 lg:col-span-1"
-          />
-          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant total (CDF)</label><input placeholder="Montant" value={amount} onChange={e => setAmount(e.target.value)} type="number" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
-          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant payé (CDF)</label><input placeholder="Payé" value={paidAmount} onChange={e => setPaidAmount(e.target.value)} type="number" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
-          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Trimestre</label><select value={trimester} onChange={e => setTrimester(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-            <option value="T1">Trimestre 1</option><option value="T2">Trimestre 2</option><option value="T3">Trimestre 3</option>
-          </select></div>
-          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Méthode</label><select value={method} onChange={e => setMethod(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-            <option value="CASH">Espèces</option><option value="ORANGE_MONEY">Orange Money</option><option value="MPESA">M-Pesa</option><option value="AIRTEL_MONEY">Airtel Money</option>
-          </select></div>
-          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Statut</label><select value={status} onChange={e => setStatus(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-            <option value="PAID">Payé</option><option value="PARTIAL">Partiel</option><option value="PENDING">En attente</option><option value="OVERDUE">En retard</option>
-          </select></div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button onClick={handlePayment} disabled={submitting} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
-            {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <CreditCard size={14} />}
-            Enregistrer le paiement
-          </button>
-          {lastPaymentId && (
-            <button onClick={() => downloadReceipt(lastPaymentId)} disabled={pdfLoading} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition disabled:opacity-50" style={{ color: TEXT_PRIMARY }}>
-              {pdfLoading ? <div className="h-4 w-4 border-2 border-[oklch(52%_0.015_250)] border-t-transparent rounded-full animate-spin" /> : <FileText size={14} />} Voir le reçu PDF
-            </button>
-          )}
-        </div>
-      </div>
-      )}
-
-      {/* Payments Table */}
-      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr style={{ background: IVORY }}>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Trimestre</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Montant</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Payé</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Statut</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Reçu</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={6} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
-              ) : payments.slice(0, 20).map(p => (
-                <tr key={p.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                        {p.student ? getInitials(`${p.student.firstName} ${p.student.lastName}`) : '??'}
-                      </div>
-                      <div>
-                        <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{p.student ? `${p.student.firstName} ${p.student.lastName}` : '—'}</div>
-                        <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{p.student?.matricule || ''}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{p.trimester}</td>
-                  <td className="px-4 py-3 text-[13px] tabular-nums font-medium" style={{ color: TEXT_PRIMARY }}>{formatNumber(p.amount)} CDF</td>
-                  <td className="px-4 py-3 text-[13px] tabular-nums font-medium" style={{ color: SUCCESS }}>{formatNumber(p.paidAmount)} CDF</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill(p.status)}`}>
-                      {p.status === 'PAID' ? '✓ Payé' : p.status === 'PARTIAL' ? '◐ Partiel' : p.status === 'OVERDUE' ? '⚠ En retard' : '○ En attente'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button onClick={() => downloadReceipt(p.id)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: GOLD }} title="Télécharger le reçu PDF">
-                      <FileText size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* PDF Viewer Modal */}
-      {pdfUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => { URL.revokeObjectURL(pdfUrl); setPdfUrl(null) }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl grid place-items-center text-white" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
-                  <FileText size={20} />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900">Reçu de Paiement</h2>
-                  <p className="text-xs text-gray-500">Le PDF a été téléchargé automatiquement</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href={pdfUrl}
-                  download
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90"
-                  style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}
-                >
-                  <Download size={14} /> Télécharger
-                </a>
-                <button onClick={() => { URL.revokeObjectURL(pdfUrl); setPdfUrl(null) }} className="w-9 h-9 rounded-lg grid place-items-center hover:bg-gray-100 transition">
-                  <X size={18} className="text-gray-500" />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-hidden rounded-b-2xl">
-              <iframe src={pdfUrl} className="w-full h-[70vh] border-0" title="Reçu PDF" />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+// PaymentsView imported from @/components/views/PaymentsView
 
 // ===== PAYMENT CONFIGURATION VIEW =====
 function PaymentConfigView() {
@@ -4671,10 +2609,10 @@ function PaymentConfigView() {
       const json = await res.json()
       if (json.data) {
         setExchangeRates(json.data.rates || {})
-        toast.success('Taux de change mis à jour !')
+        toast.success('Taux de change mis Ã  jour !')
         loadCurrencyConfig()
       }
-    } catch (e) { toast.error('Erreur lors de la mise à jour') }
+    } catch (e) { toast.error('Erreur lors de la mise Ã  jour') }
   }
 
   async function saveCurrencyConfig() {
@@ -4692,12 +2630,12 @@ function PaymentConfigView() {
       })
       const json = await res.json()
       if (json.data) {
-        toast.success('Configuration de monnaie sauvegardée !')
+        toast.success('Configuration de monnaie sauvegardÃ©e !')
         loadCurrencyConfig()
       } else {
         toast.error(json.error || 'Erreur')
       }
-    } catch (e) { toast.error('Erreur réseau') }
+    } catch (e) { toast.error('Erreur rÃ©seau') }
     finally { setSaving(false) }
   }
 
@@ -4714,13 +2652,13 @@ function PaymentConfigView() {
       })
       const json = await res.json()
       if (json.data) {
-        toast.success('Passerelle configurée avec succès !')
+        toast.success('Passerelle configurÃ©e avec succÃ¨s !')
         setShowGatewayModal(null)
         loadGateways()
       } else {
         toast.error(json.error || 'Erreur')
       }
-    } catch (e) { toast.error('Erreur réseau') }
+    } catch (e) { toast.error('Erreur rÃ©seau') }
     finally { setSaving(false) }
   }
 
@@ -4732,7 +2670,7 @@ function PaymentConfigView() {
         body: JSON.stringify({ isActive: !gateway.isActive }),
       })
       if (res.ok) {
-        toast.success(gateway.isActive ? 'Passerelle désactivée' : 'Passerelle activée')
+        toast.success(gateway.isActive ? 'Passerelle dÃ©sactivÃ©e' : 'Passerelle activÃ©e')
         loadGateways()
       }
     } catch (e) { toast.error('Erreur') }
@@ -4748,7 +2686,7 @@ function PaymentConfigView() {
       const json = await res.json()
       if (json.data) setConvertResult(json.data)
       else toast.error(json.error || 'Erreur')
-    } catch (e) { toast.error('Erreur réseau') }
+    } catch (e) { toast.error('Erreur rÃ©seau') }
   }
 
   function openGatewayEditor(gatewayType: string, existing?: any) {
@@ -4787,7 +2725,7 @@ function PaymentConfigView() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Configuration des Paiements</h1>
-        <p className="text-gray-500 text-sm mt-1">Gérez les passerelles de paiement et les monnaies</p>
+        <p className="text-gray-500 text-sm mt-1">GÃ©rez les passerelles de paiement et les monnaies</p>
       </div>
 
       {/* Tabs */}
@@ -4833,7 +2771,7 @@ function PaymentConfigView() {
                         <h3 className="font-semibold text-sm">{gw.displayName}</h3>
                         {configured && (
                           <span className={`text-xs px-2 py-0.5 rounded-full ${configured.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                            {configured.isActive ? '● Actif' : '○ Inactif'}
+                            {configured.isActive ? 'â— Actif' : 'â—‹ Inactif'}
                           </span>
                         )}
                       </div>
@@ -4859,7 +2797,7 @@ function PaymentConfigView() {
                           configured.isActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'
                         }`}
                       >
-                        {configured.isActive ? 'Désactiver' : 'Activer'}
+                        {configured.isActive ? 'DÃ©sactiver' : 'Activer'}
                       </button>
                     )}
                   </div>
@@ -4903,7 +2841,7 @@ function PaymentConfigView() {
               </div>
             </div>
             <div className="mt-4">
-              <label className="block text-xs font-medium text-gray-600 mb-2">Monnaies acceptées</label>
+              <label className="block text-xs font-medium text-gray-600 mb-2">Monnaies acceptÃ©es</label>
               <div className="flex flex-wrap gap-2">
                 {supportedCurrencies.map((c: any) => (
                   <button
@@ -4953,7 +2891,7 @@ function PaymentConfigView() {
           <div className="border rounded-xl p-5 bg-white">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="font-semibold">Taux de change en temps réel</h3>
+                <h3 className="font-semibold">Taux de change en temps rÃ©el</h3>
                 <p className="text-xs text-gray-500 mt-0.5">
                   Source: APIs open source (Frankfurter/BCE, ExchangeRate.host, Open ER API)
                 </p>
@@ -4967,7 +2905,7 @@ function PaymentConfigView() {
             </div>
             {currencyConfig?.lastRateUpdate && (
               <p className="text-xs text-gray-400 mb-3">
-                Dernière mise à jour: {new Date(currencyConfig.lastRateUpdate).toLocaleString('fr-FR')}
+                DerniÃ¨re mise Ã  jour: {new Date(currencyConfig.lastRateUpdate).toLocaleString('fr-FR')}
               </p>
             )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -5045,18 +2983,18 @@ function PaymentConfigView() {
       {activeTab === 'transactions' && (
         <div className="border rounded-xl bg-white overflow-hidden">
           <div className="p-4 border-b">
-            <h3 className="font-semibold">Transactions récentes</h3>
+            <h3 className="font-semibold">Transactions rÃ©centes</h3>
           </div>
           {transactions.length === 0 ? (
             <div className="p-8 text-center text-gray-500 text-sm">
-              Aucune transaction enregistrée
+              Aucune transaction enregistrÃ©e
             </div>
           ) : (
             <div className="overflow-x-auto max-h-96 overflow-y-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="text-left p-3 font-medium text-xs text-gray-600">RÉFÉRENCE</th>
+                    <th className="text-left p-3 font-medium text-xs text-gray-600">RÃ‰FÃ‰RENCE</th>
                     <th className="text-left p-3 font-medium text-xs text-gray-600">PASSERELLE</th>
                     <th className="text-right p-3 font-medium text-xs text-gray-600">MONTANT</th>
                     <th className="text-center p-3 font-medium text-xs text-gray-600">STATUT</th>
@@ -5072,7 +3010,7 @@ function PaymentConfigView() {
                         {tx.amount.toFixed(2)} {tx.currency}
                         {tx.convertedAmount && tx.currency !== tx.baseCurrency && (
                           <div className="text-xs text-gray-400">
-                            ≈ {tx.convertedAmount.toFixed(2)} {tx.baseCurrency}
+                            â‰ˆ {tx.convertedAmount.toFixed(2)} {tx.baseCurrency}
                           </div>
                         )}
                       </td>
@@ -5151,7 +3089,7 @@ function PaymentConfigView() {
                       value={gatewayForm.apiKey || ''}
                       onChange={(e) => setGatewayForm({ ...gatewayForm, apiKey: e.target.value })}
                       className="w-full px-3 py-2 border rounded-lg text-sm"
-                      placeholder="Clé API"
+                      placeholder="ClÃ© API"
                     />
                   </div>
                   <div>
@@ -5161,12 +3099,12 @@ function PaymentConfigView() {
                       value={gatewayForm.secretKey || ''}
                       onChange={(e) => setGatewayForm({ ...gatewayForm, secretKey: e.target.value })}
                       className="w-full px-3 py-2 border rounded-lg text-sm"
-                      placeholder="Clé secrète"
+                      placeholder="ClÃ© secrÃ¨te"
                     />
                   </div>
                   {(showGatewayModal === 'MPESA' || showGatewayModal === 'ORANGE_MONEY' || showGatewayModal === 'AIRTEL_MONEY') && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Numéro de téléphone</label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">NumÃ©ro de tÃ©lÃ©phone</label>
                       <input
                         type="text"
                         value={gatewayForm.phoneNumber || ''}
@@ -5287,14 +3225,14 @@ function PaymentVerificationView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           paymentId: selectedPayment.id,
-          verifierName: userData?.name || 'Vérificateur',
+          verifierName: userData?.name || 'VÃ©rificateur',
           verificationNote: verificationNote.trim() || null,
           action,
         }),
       })
       const json = await res.json()
       if (res.ok) {
-        toast.success(action === 'approve' ? 'Paiement approuvé avec succès!' : 'Paiement rejeté')
+        toast.success(action === 'approve' ? 'Paiement approuvÃ© avec succÃ¨s!' : 'Paiement rejetÃ©')
         // Update local list
         setPayments(prev => prev.map(p =>
           p.id === selectedPayment.id
@@ -5304,10 +3242,10 @@ function PaymentVerificationView() {
         setSelectedPayment(null)
         setVerificationNote('')
       } else {
-        toast.error(json.error || 'Erreur lors de la vérification')
+        toast.error(json.error || 'Erreur lors de la vÃ©rification')
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error('Erreur rÃ©seau')
     }
     finally { setVerifying(false) }
   }
@@ -5321,13 +3259,13 @@ function PaymentVerificationView() {
       const url = URL.createObjectURL(blob)
       setReceiptUrl(url)
     } catch {
-      toast.error('Erreur lors du chargement du reçu')
+      toast.error('Erreur lors du chargement du reÃ§u')
     }
     finally { setReceiptLoading(false) }
   }
 
   async function handleParentReceiptSearch() {
-    if (!receiptSearch.trim()) { toast.error('Entrez un numéro de reçu'); return }
+    if (!receiptSearch.trim()) { toast.error('Entrez un numÃ©ro de reÃ§u'); return }
     setSearching(true)
     setSearchResult(null)
     try {
@@ -5350,7 +3288,7 @@ function PaymentVerificationView() {
         }
         setSearchResult(found)
         if (!found) {
-          toast.error('Aucun reçu trouvé avec ce numéro. Vérifiez le numéro et réessayez.')
+          toast.error('Aucun reÃ§u trouvÃ© avec ce numÃ©ro. VÃ©rifiez le numÃ©ro et rÃ©essayez.')
         }
       }
     } catch {
@@ -5365,7 +3303,7 @@ function PaymentVerificationView() {
       <div>
         <div className="flex items-center gap-3 mb-6">
           <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Vérifier un reçu</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>VÃ©rifier un reÃ§u</h1>
         </div>
 
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm mb-6">
@@ -5374,14 +3312,14 @@ function PaymentVerificationView() {
               <CheckCircle size={20} className="text-white" />
             </div>
             <div>
-              <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Vérification de reçu</h3>
-              <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Entrez le numéro de reçu pour vérifier son authenticité</p>
+              <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>VÃ©rification de reÃ§u</h3>
+              <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Entrez le numÃ©ro de reÃ§u pour vÃ©rifier son authenticitÃ©</p>
             </div>
           </div>
 
           <div className="flex gap-3 mb-4">
             <input
-              placeholder="Ex: REC-M1A2B3C4 ou numéro du reçu"
+              placeholder="Ex: REC-M1A2B3C4 ou numÃ©ro du reÃ§u"
               value={receiptSearch}
               onChange={e => setReceiptSearch(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleParentReceiptSearch()}
@@ -5393,7 +3331,7 @@ function PaymentVerificationView() {
               className="edu-gold-cta px-6 py-3 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50"
             >
               {searching ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Search size={14} />}
-              Vérifier
+              VÃ©rifier
             </button>
           </div>
 
@@ -5405,8 +3343,8 @@ function PaymentVerificationView() {
                   <CheckCircle size={20} className="text-white" />
                 </div>
                 <div>
-                  <div className="font-semibold" style={{ color: SUCCESS }}>Reçu vérifié ✓</div>
-                  <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Ce reçu est authentique et a été enregistré dans le système</div>
+                  <div className="font-semibold" style={{ color: SUCCESS }}>ReÃ§u vÃ©rifiÃ© âœ“</div>
+                  <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Ce reÃ§u est authentique et a Ã©tÃ© enregistrÃ© dans le systÃ¨me</div>
                 </div>
               </div>
 
@@ -5414,13 +3352,13 @@ function PaymentVerificationView() {
               <div className="p-5 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>N° du reçu</div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>NÂ° du reÃ§u</div>
                     <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{searchResult.receiptNumber || `REC-${searchResult.id.slice(-8).toUpperCase()}`}</div>
                   </div>
                   <div>
-                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Élève</div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Ã‰lÃ¨ve</div>
                     <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>
-                      {searchResult.student ? `${searchResult.student.firstName} ${searchResult.student.lastName}` : '—'}
+                      {searchResult.student ? `${searchResult.student.firstName} ${searchResult.student.lastName}` : 'â€”'}
                     </div>
                   </div>
                   <div>
@@ -5428,7 +3366,7 @@ function PaymentVerificationView() {
                     <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{formatNumber(searchResult.amount)} CDF</div>
                   </div>
                   <div>
-                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Montant payé</div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Montant payÃ©</div>
                     <div className="text-sm font-semibold" style={{ color: SUCCESS }}>{formatNumber(searchResult.paidAmount)} CDF</div>
                   </div>
                   <div>
@@ -5438,19 +3376,19 @@ function PaymentVerificationView() {
                   <div>
                     <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Statut</div>
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill(searchResult.status)}`}>
-                      {searchResult.status === 'PAID' ? '✓ Payé' : searchResult.status === 'PARTIAL' ? '◐ Partiel' : searchResult.status === 'OVERDUE' ? '⚠ En retard' : '○ En attente'}
+                      {searchResult.status === 'PAID' ? 'âœ“ PayÃ©' : searchResult.status === 'PARTIAL' ? 'â— Partiel' : searchResult.status === 'OVERDUE' ? 'âš  En retard' : 'â—‹ En attente'}
                     </span>
                   </div>
                   {(searchResult as Record<string, unknown>).verifiedBy && (
                     <>
                       <div>
-                        <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Vérifié par</div>
+                        <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>VÃ©rifiÃ© par</div>
                         <div className="text-sm font-semibold" style={{ color: SUCCESS }}>{String((searchResult as Record<string, unknown>).verifiedBy)}</div>
                       </div>
                       <div>
-                        <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Date de vérification</div>
+                        <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Date de vÃ©rification</div>
                         <div className="text-sm" style={{ color: TEXT_PRIMARY }}>
-                          {(searchResult as Record<string, unknown>).verifiedAt ? new Date(String((searchResult as Record<string, unknown>).verifiedAt)).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                          {(searchResult as Record<string, unknown>).verifiedAt ? new Date(String((searchResult as Record<string, unknown>).verifiedAt)).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'â€”'}
                         </div>
                       </div>
                     </>
@@ -5459,7 +3397,7 @@ function PaymentVerificationView() {
 
                 {(searchResult as Record<string, unknown>).verificationNote && (
                   <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-3">
-                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Note du vérificateur</div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Note du vÃ©rificateur</div>
                     <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{String((searchResult as Record<string, unknown>).verificationNote)}</div>
                   </div>
                 )}
@@ -5472,14 +3410,14 @@ function PaymentVerificationView() {
                     style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}
                   >
                     {receiptLoading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FileText size={14} />}
-                    Voir le reçu PDF
+                    Voir le reÃ§u PDF
                   </button>
                   <button
                     onClick={() => { downloadReceiptFile(searchResult.id) }}
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition"
                     style={{ color: TEXT_PRIMARY }}
                   >
-                    <Download size={14} /> Télécharger
+                    <Download size={14} /> TÃ©lÃ©charger
                   </button>
                 </div>
               </div>
@@ -5497,13 +3435,13 @@ function PaymentVerificationView() {
                     <FileText size={20} />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900">Reçu de Paiement</h2>
-                    <p className="text-xs text-gray-500">Reçu vérifié</p>
+                    <h2 className="text-lg font-bold text-gray-900">ReÃ§u de Paiement</h2>
+                    <p className="text-xs text-gray-500">ReÃ§u vÃ©rifiÃ©</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <a href={receiptUrl} download className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
-                    <Download size={14} /> Télécharger
+                    <Download size={14} /> TÃ©lÃ©charger
                   </a>
                   <button onClick={() => { URL.revokeObjectURL(receiptUrl); setReceiptUrl(null) }} className="w-9 h-9 rounded-lg grid place-items-center hover:bg-gray-100 transition">
                     <X size={18} className="text-gray-500" />
@@ -5511,7 +3449,7 @@ function PaymentVerificationView() {
                 </div>
               </div>
               <div className="flex-1 overflow-hidden rounded-b-2xl">
-                <iframe src={receiptUrl} className="w-full h-[70vh] border-0" title="Reçu PDF" />
+                <iframe src={receiptUrl} className="w-full h-[70vh] border-0" title="ReÃ§u PDF" />
               </div>
             </div>
           </div>
@@ -5536,7 +3474,7 @@ function PaymentVerificationView() {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch {
-      toast.error('Erreur lors du téléchargement du reçu')
+      toast.error('Erreur lors du tÃ©lÃ©chargement du reÃ§u')
     }
   }
 
@@ -5544,7 +3482,7 @@ function PaymentVerificationView() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Vérification des paiements</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>VÃ©rification des paiements</h1>
       </div>
 
       {/* Summary Cards */}
@@ -5558,14 +3496,14 @@ function PaymentVerificationView() {
         </div>
         <div className={`bg-white border rounded-2xl p-5 shadow-sm cursor-pointer transition hover:shadow-md ${filter === 'unverified' ? 'border-[oklch(72%_0.15_65)] ring-2 ring-[oklch(72%_0.15_65_/_0.2)]' : 'border-[oklch(90%_0.01_175)]'}`} onClick={() => setFilter('unverified')}>
           <div className="flex items-center justify-between mb-2">
-            <div className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Non vérifiés</div>
+            <div className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Non vÃ©rifiÃ©s</div>
             <div className="w-8 h-8 rounded-lg grid place-items-center" style={{ background: `${WARNING}15` }}><AlertCircle size={14} style={{ color: WARNING }} /></div>
           </div>
           <div className="text-2xl font-bold" style={{ color: WARNING }}>{unverifiedCount}</div>
         </div>
         <div className={`bg-white border rounded-2xl p-5 shadow-sm cursor-pointer transition hover:shadow-md ${filter === 'verified' ? 'border-[oklch(72%_0.15_65)] ring-2 ring-[oklch(72%_0.15_65_/_0.2)]' : 'border-[oklch(90%_0.01_175)]'}`} onClick={() => setFilter('verified')}>
           <div className="flex items-center justify-between mb-2">
-            <div className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Vérifiés</div>
+            <div className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>VÃ©rifiÃ©s</div>
             <div className="w-8 h-8 rounded-lg grid place-items-center" style={{ background: `${SUCCESS}15` }}><CheckCircle size={14} style={{ color: SUCCESS }} /></div>
           </div>
           <div className="text-2xl font-bold" style={{ color: SUCCESS }}>{verifiedCount}</div>
@@ -5578,12 +3516,12 @@ function PaymentVerificationView() {
           <table className="w-full">
             <thead>
               <tr style={{ background: IVORY }}>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Ã‰lÃ¨ve</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Trimestre</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Montant</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Payé</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>PayÃ©</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Statut</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Vérification</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>VÃ©rification</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Actions</th>
               </tr>
             </thead>
@@ -5592,7 +3530,7 @@ function PaymentVerificationView() {
                 <tr><td colSpan={7} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
               ) : filteredPayments.length === 0 ? (
                 <tr><td colSpan={7} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>
-                  {filter === 'unverified' ? 'Tous les paiements sont vérifiés ✓' : filter === 'verified' ? 'Aucun paiement vérifié' : 'Aucun paiement trouvé'}
+                  {filter === 'unverified' ? 'Tous les paiements sont vÃ©rifiÃ©s âœ“' : filter === 'verified' ? 'Aucun paiement vÃ©rifiÃ©' : 'Aucun paiement trouvÃ©'}
                 </td></tr>
               ) : filteredPayments.map(p => {
                 const isVerified = !!(p as Record<string, unknown>).verifiedBy
@@ -5604,7 +3542,7 @@ function PaymentVerificationView() {
                           {p.student ? getInitials(`${p.student.firstName} ${p.student.lastName}`) : '??'}
                         </div>
                         <div>
-                          <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{p.student ? `${p.student.firstName} ${p.student.lastName}` : '—'}</div>
+                          <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{p.student ? `${p.student.firstName} ${p.student.lastName}` : 'â€”'}</div>
                           <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{p.student?.matricule || ''}</div>
                         </div>
                       </div>
@@ -5614,7 +3552,7 @@ function PaymentVerificationView() {
                     <td className="px-4 py-3 text-[13px] tabular-nums font-medium" style={{ color: SUCCESS }}>{formatNumber(p.paidAmount)} CDF</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill(p.status)}`}>
-                        {p.status === 'PAID' ? '✓ Payé' : p.status === 'PARTIAL' ? '◐ Partiel' : p.status === 'OVERDUE' ? '⚠ En retard' : p.status === 'REJECTED' ? '✗ Rejeté' : '○ En attente'}
+                        {p.status === 'PAID' ? 'âœ“ PayÃ©' : p.status === 'PARTIAL' ? 'â— Partiel' : p.status === 'OVERDUE' ? 'âš  En retard' : p.status === 'REJECTED' ? 'âœ— RejetÃ©' : 'â—‹ En attente'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -5622,14 +3560,14 @@ function PaymentVerificationView() {
                         <div className="flex items-center gap-1.5">
                           <CheckCircle size={14} style={{ color: SUCCESS }} />
                           <div>
-                            <div className="text-[11px] font-medium" style={{ color: SUCCESS }}>Vérifié</div>
+                            <div className="text-[11px] font-medium" style={{ color: SUCCESS }}>VÃ©rifiÃ©</div>
                             <div className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>{String((p as Record<string, unknown>).verifiedBy)}</div>
                           </div>
                         </div>
                       ) : (
                         <div className="flex items-center gap-1.5">
                           <AlertCircle size={14} style={{ color: WARNING }} />
-                          <span className="text-[11px] font-medium" style={{ color: WARNING }}>Non vérifié</span>
+                          <span className="text-[11px] font-medium" style={{ color: WARNING }}>Non vÃ©rifiÃ©</span>
                         </div>
                       )}
                     </td>
@@ -5639,7 +3577,7 @@ function PaymentVerificationView() {
                           onClick={() => handleViewReceipt(p.id)}
                           className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition"
                           style={{ color: GOLD }}
-                          title="Voir le reçu PDF"
+                          title="Voir le reÃ§u PDF"
                         >
                           {receiptLoading && selectedPayment?.id === p.id ? <div className="h-3 w-3 border border-[oklch(52%_0.015_250)] border-t-transparent rounded-full animate-spin" /> : <FileText size={14} />}
                         </button>
@@ -5648,7 +3586,7 @@ function PaymentVerificationView() {
                             onClick={() => setSelectedPayment(p)}
                             className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition"
                             style={{ color: SUCCESS }}
-                            title="Vérifier ce paiement"
+                            title="VÃ©rifier ce paiement"
                           >
                             <CheckCircle size={14} />
                           </button>
@@ -5657,7 +3595,7 @@ function PaymentVerificationView() {
                           onClick={() => downloadReceiptFile(p.id)}
                           className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition"
                           style={{ color: TEXT_MUTED_LUXE }}
-                          title="Télécharger le reçu"
+                          title="TÃ©lÃ©charger le reÃ§u"
                         >
                           <Download size={14} />
                         </button>
@@ -5681,8 +3619,8 @@ function PaymentVerificationView() {
                   <CheckCircle size={20} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Vérifier le paiement</h3>
-                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>N° {selectedPayment.receiptNumber || selectedPayment.id.slice(-8)}</p>
+                  <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>VÃ©rifier le paiement</h3>
+                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>NÂ° {selectedPayment.receiptNumber || selectedPayment.id.slice(-8)}</p>
                 </div>
               </div>
               <button onClick={() => { setSelectedPayment(null); setVerificationNote('') }} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-gray-100 transition">
@@ -5694,34 +3632,34 @@ function PaymentVerificationView() {
               {/* Payment Summary */}
               <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-4 space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span style={{ color: TEXT_MUTED_LUXE }}>Élève</span>
+                  <span style={{ color: TEXT_MUTED_LUXE }}>Ã‰lÃ¨ve</span>
                   <span className="font-medium" style={{ color: TEXT_PRIMARY }}>
-                    {selectedPayment.student ? `${selectedPayment.student.firstName} ${selectedPayment.student.lastName}` : '—'}
+                    {selectedPayment.student ? `${selectedPayment.student.firstName} ${selectedPayment.student.lastName}` : 'â€”'}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span style={{ color: TEXT_MUTED_LUXE }}>Montant dû</span>
+                  <span style={{ color: TEXT_MUTED_LUXE }}>Montant dÃ»</span>
                   <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{formatNumber(selectedPayment.amount)} CDF</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span style={{ color: TEXT_MUTED_LUXE }}>Montant payé</span>
+                  <span style={{ color: TEXT_MUTED_LUXE }}>Montant payÃ©</span>
                   <span className="font-medium" style={{ color: SUCCESS }}>{formatNumber(selectedPayment.paidAmount)} CDF</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span style={{ color: TEXT_MUTED_LUXE }}>Reste à payer</span>
+                  <span style={{ color: TEXT_MUTED_LUXE }}>Reste Ã  payer</span>
                   <span className="font-medium" style={{ color: selectedPayment.amount - selectedPayment.paidAmount > 0 ? DANGER : SUCCESS }}>
                     {formatNumber(selectedPayment.amount - selectedPayment.paidAmount)} CDF
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span style={{ color: TEXT_MUTED_LUXE }}>Mode</span>
-                  <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{selectedPayment.paymentMethod || '—'}</span>
+                  <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{selectedPayment.paymentMethod || 'â€”'}</span>
                 </div>
               </div>
 
               {/* Verification Note */}
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Note de vérification (optionnel)</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Note de vÃ©rification (optionnel)</label>
                 <textarea
                   placeholder="Ajoutez une note ou un commentaire..."
                   value={verificationNote}
@@ -5734,7 +3672,7 @@ function PaymentVerificationView() {
               {/* Info about who is verifying */}
               <div className="flex items-center gap-2 text-xs" style={{ color: TEXT_MUTED_LUXE }}>
                 <Info size={12} />
-                <span>Vérification par <strong style={{ color: TEXT_PRIMARY }}>{userData?.name}</strong> ({userData?.role})</span>
+                <span>VÃ©rification par <strong style={{ color: TEXT_PRIMARY }}>{userData?.name}</strong> ({userData?.role})</span>
               </div>
             </div>
 
@@ -5779,13 +3717,13 @@ function PaymentVerificationView() {
                   <FileText size={20} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">Reçu de Paiement</h2>
-                  <p className="text-xs text-gray-500">Vérification du reçu</p>
+                  <h2 className="text-lg font-bold text-gray-900">ReÃ§u de Paiement</h2>
+                  <p className="text-xs text-gray-500">VÃ©rification du reÃ§u</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <a href={receiptUrl} download className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
-                  <Download size={14} /> Télécharger
+                  <Download size={14} /> TÃ©lÃ©charger
                 </a>
                 <button onClick={() => { URL.revokeObjectURL(receiptUrl); setReceiptUrl(null) }} className="w-9 h-9 rounded-lg grid place-items-center hover:bg-gray-100 transition">
                   <X size={18} className="text-gray-500" />
@@ -5793,7 +3731,7 @@ function PaymentVerificationView() {
               </div>
             </div>
             <div className="flex-1 overflow-hidden rounded-b-2xl">
-              <iframe src={receiptUrl} className="w-full h-[70vh] border-0" title="Reçu PDF" />
+              <iframe src={receiptUrl} className="w-full h-[70vh] border-0" title="ReÃ§u PDF" />
             </div>
           </div>
         </div>
@@ -5802,699 +3740,7 @@ function PaymentVerificationView() {
   )
 }
 
-// ===== DISCIPLINE VIEW =====
-function DisciplineView() {
-  const { userRole, userData } = useEduGestStore()
-  const [records, setRecords] = useState<DisciplineData[]>([])
-  const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'BLACKLIST' | 'GREYLIST' | 'WHITELIST'>('GREYLIST')
-  const [selectedChildId, setSelectedChildId] = useState('')
-  const [myChildren, setMyChildren] = useState<StudentData[]>([])
-  const [childSearch, setChildSearch] = useState('')
-  const [selectedChildSearchId, setSelectedChildSearchId] = useState<string | null>(null)
-  const [allDisciplineRecords, setAllDisciplineRecords] = useState<DisciplineData[]>([])
-  const isParent = userRole === 'PARENT'
-
-  // Discipline role specific state
-  const disciplineRoles: UserRole[] = ['DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE']
-  const isDisciplineRole = disciplineRoles.includes(userRole as UserRole)
-  const [sectionStudents, setSectionStudents] = useState<StudentData[]>([])
-  const [studentSearch, setStudentSearch] = useState('')
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
-  const [selectedStudentSearchId, setSelectedStudentSearchId] = useState<string | null>(null)
-  const [showSanctionForm, setShowSanctionForm] = useState(false)
-  const [showConvocationForm, setShowConvocationForm] = useState(false)
-  const [sanctionType, setSanctionType] = useState('RETARD')
-  const [sanctionSeverity, setSanctionSeverity] = useState('LOW')
-  const [sanctionTitle, setSanctionTitle] = useState('')
-  const [sanctionDesc, setSanctionDesc] = useState('')
-  const [sanctionPoints, setSanctionPoints] = useState('-2')
-  const [sanctionListType, setSanctionListType] = useState<'BLACKLIST' | 'GREYLIST' | 'WHITELIST'>('GREYLIST')
-  const [submitting, setSubmitting] = useState(false)
-  const [convocationMotif, setConvocationMotif] = useState('')
-  const [convocationDate, setConvocationDate] = useState('')
-  const [convocations, setConvocations] = useState<{ id: string; motif: string; date: string; status: string; student: { firstName: string; lastName: string; matricule: string } }[]>([])
-  // Edit discipline record state
-  const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
-  const [editPoints, setEditPoints] = useState('')
-  const [editListType, setEditListType] = useState<'BLACKLIST' | 'GREYLIST' | 'WHITELIST'>('GREYLIST')
-  const [editStatus, setEditStatus] = useState('PENDING')
-  const [savingEdit, setSavingEdit] = useState(false)
-  // Determine section level for discipline role
-  const sectionLevel = userRole === 'DISCIPLINE_MATERNELLE' ? 'MATERNELLE' : userRole === 'DISCIPLINE_PRIMAIRE' ? 'PRIMAIRE' : userRole === 'DISCIPLINE_SECONDAIRE' ? 'SECONDAIRE' : ''
-
-  useEffect(() => {
-    if (isParent && userData?.id) {
-      authFetch(`/api/students?parentId=${userData.id}&limit=20`)
-        .then(r => r.json())
-        .then(j => setMyChildren(j.data || []))
-        .catch(() => {})
-    }
-  }, [isParent, userData?.id])
-
-  // Fetch students for discipline role by section level
-  useEffect(() => {
-    if (isDisciplineRole && userData?.schoolId && sectionLevel) {
-      authFetch(`/api/students?limit=200&schoolId=${userData.schoolId}`)
-        .then(r => r.json())
-        .then(j => {
-          const allStudents: StudentData[] = j.data || []
-          // Filter students by their class name/section/level matching the discipline section
-          const filtered = allStudents.filter(s => {
-            const cls = (s as Record<string, unknown>).class as { name?: string; section?: string; level?: string } | undefined
-            const sectionValue = cls?.section || cls?.level || ''
-            const nameValue = cls?.name || ''
-            // Match by section/level field OR by class name containing the section keyword
-            return sectionValue.toUpperCase().includes(sectionLevel.toUpperCase()) ||
-                   nameValue.toUpperCase().includes(sectionLevel.toUpperCase()) ||
-                   (sectionLevel === 'MATERNELLE' && (nameValue.match(/^(M|MAT|MATERNELLE|PETITE|MOYENNE|GRANDE)/i) !== null)) ||
-                   (sectionLevel === 'PRIMAIRE' && (nameValue.match(/^(P|PRI|PRIMAIRE|1ERE|2EME|3EME|4EME|5EME|6EME|\d)/i) !== null)) ||
-                   (sectionLevel === 'SECONDAIRE' && (nameValue.match(/^(S|SEC|SECONDAIRE|7EME|8EME|9EME|10EME|11EME|12EME)/i) !== null))
-          })
-          setSectionStudents(filtered)
-        })
-        .catch(() => {})
-    }
-  }, [isDisciplineRole, userData?.schoolId, sectionLevel])
-
-  // Fetch convocations for discipline role
-  useEffect(() => {
-    if (isDisciplineRole && userData?.schoolId) {
-      authFetch(`/api/convocations?schoolId=${userData.schoolId}&limit=50`)
-        .then(r => r.json())
-        .then(j => setConvocations(j.data || []))
-        .catch(() => {})
-    }
-  }, [isDisciplineRole, userData?.schoolId])
-
-  // Fetch ALL discipline records for parent's children (for overview counts)
-  useEffect(() => {
-    if (isParent && userData?.id) {
-      const params = new URLSearchParams()
-      params.set('parentId', userData.id)
-      params.set('limit', '200')
-      authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { setAllDisciplineRecords(j.data || []) }).catch(() => {})
-    }
-  }, [isParent, userData?.id])
-
-  // Compute per-child discipline counts
-  const childDisciplineCounts = useMemo(() => {
-    const counts: Record<string, { blacklist: number; greylist: number; whitelist: number; totalPoints: number }> = {}
-    for (const r of allDisciplineRecords) {
-      if (!r.student) continue
-      if (!counts[r.student.id]) counts[r.student.id] = { blacklist: 0, greylist: 0, whitelist: 0, totalPoints: 0 }
-      if (r.listType === 'BLACKLIST') counts[r.student.id].blacklist++
-      if (r.listType === 'GREYLIST') counts[r.student.id].greylist++
-      if (r.listType === 'WHITELIST') counts[r.student.id].whitelist++
-      counts[r.student.id].totalPoints += r.points
-    }
-    return counts
-  }, [allDisciplineRecords])
-
-  // Student search autocomplete for discipline role
-  const studentSuggestions = useMemo(() => {
-    if (!isDisciplineRole) return []
-    if (studentSearch.length < 1) return sectionStudents.map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule }))
-    return sectionStudents.filter(s =>
-      `${s.firstName} ${s.lastName}`.toLowerCase().includes(studentSearch.toLowerCase()) || s.matricule.toLowerCase().includes(studentSearch.toLowerCase())
-    ).map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule }))
-  }, [studentSearch, sectionStudents, isDisciplineRole])
-
-  // Child search autocomplete for parent - computed from local data
-  const childSuggestions = useMemo(() => {
-    if (!isParent) return []
-    if (childSearch.length < 1) return myChildren.map(c => ({ id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: c.matricule }))
-    return myChildren.filter(c =>
-      `${c.firstName} ${c.lastName}`.toLowerCase().includes(childSearch.toLowerCase()) || c.matricule.toLowerCase().includes(childSearch.toLowerCase())
-    ).map(c => ({ id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: c.matricule }))
-  }, [childSearch, myChildren, isParent])
-
-  useEffect(() => {
-    let cancelled = false
-    const params = new URLSearchParams()
-    params.set('listType', tab)
-    params.set('limit', '50')
-    if (isParent && userData?.id) {
-      if (selectedChildId) {
-        params.set('studentId', selectedChildId)
-      } else {
-        params.set('parentId', userData.id)
-      }
-    }
-    if (isDisciplineRole && selectedStudentId) {
-      params.set('studentId', selectedStudentId)
-    }
-    authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { if (!cancelled) { setRecords(j.data || []); setLoading(false) } }).catch(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [tab, isParent, userData?.id, selectedChildId, isDisciplineRole, selectedStudentId])
-
-  const selectedChildName = selectedChildId ? myChildren.find(c => c.id === selectedChildId) : null
-  const selectedStudentName = selectedStudentId ? sectionStudents.find(s => s.id === selectedStudentId) : null
-
-  async function handleAddSanction() {
-    if (!selectedStudentId || !sanctionTitle || !sanctionDesc || !userData?.schoolId) {
-      toast.error('Veuillez remplir tous les champs')
-      return
-    }
-    setSubmitting(true)
-    try {
-      const res = await authFetch('/api/discipline', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: selectedStudentId,
-          type: sanctionType,
-          severity: sanctionSeverity,
-          title: sanctionTitle,
-          description: sanctionDesc,
-          points: parseInt(sanctionPoints) || 0,
-          listType: sanctionListType,
-          schoolId: userData.schoolId,
-        }),
-      })
-      if (res.ok) {
-        toast.success('Sanction enregistrée !')
-        setShowSanctionForm(false)
-        setSanctionTitle('')
-        setSanctionDesc('')
-        setSanctionPoints('-2')
-        // Refresh records
-        setLoading(true)
-        const params = new URLSearchParams()
-        params.set('listType', tab)
-        params.set('limit', '50')
-        if (selectedStudentId) params.set('studentId', selectedStudentId)
-        authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { setRecords(j.data || []); setLoading(false) }).catch(() => setLoading(false))
-      } else {
-        toast.error('Erreur lors de l\'enregistrement')
-      }
-    } catch {
-      toast.error('Erreur de connexion')
-    }
-    setSubmitting(false)
-  }
-
-  async function handleAddConvocation() {
-    if (!selectedStudentId || !convocationMotif || !convocationDate || !userData?.schoolId) {
-      toast.error('Veuillez remplir tous les champs')
-      return
-    }
-    setSubmitting(true)
-    try {
-      const student = sectionStudents.find(s => s.id === selectedStudentId)
-      const res = await authFetch('/api/convocations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: selectedStudentId,
-          parentId: (student as Record<string, unknown>)?.parentId || null,
-          motif: convocationMotif,
-          date: convocationDate,
-          schoolId: userData.schoolId,
-          createdBy: userData.id,
-        }),
-      })
-      if (res.ok) {
-        toast.success('Convocation envoyée !')
-        setShowConvocationForm(false)
-        setConvocationMotif('')
-        setConvocationDate('')
-        // Refresh convocations
-        authFetch(`/api/convocations?schoolId=${userData.schoolId}&limit=50`)
-          .then(r => r.json())
-          .then(j => setConvocations(j.data || []))
-          .catch(() => {})
-      } else {
-        toast.error('Erreur lors de l\'envoi')
-      }
-    } catch {
-      toast.error('Erreur de connexion')
-    }
-    setSubmitting(false)
-  }
-
-  async function handleEditRecord(record: DisciplineData) {
-    setEditingRecordId(record.id)
-    setEditPoints(String(record.points))
-    setEditListType(record.listType as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST')
-    setEditStatus(record.status)
-  }
-
-  async function handleSaveEdit() {
-    if (!editingRecordId) return
-    setSavingEdit(true)
-    try {
-      const res = await authFetch('/api/discipline', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingRecordId,
-          points: parseInt(editPoints) || 0,
-          listType: editListType,
-          status: editStatus,
-        }),
-      })
-      if (res.ok) {
-        toast.success('Enregistrement modifié !')
-        setEditingRecordId(null)
-        // Refresh records
-        setLoading(true)
-        const params = new URLSearchParams()
-        params.set('listType', tab)
-        params.set('limit', '50')
-        if (isParent && userData?.id) {
-          if (selectedChildId) params.set('studentId', selectedChildId)
-          else params.set('parentId', userData.id)
-        }
-        if (isDisciplineRole && selectedStudentId) params.set('studentId', selectedStudentId)
-        authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { setRecords(j.data || []); setLoading(false) }).catch(() => setLoading(false))
-      } else {
-        toast.error('Erreur lors de la modification')
-      }
-    } catch {
-      toast.error('Erreur de connexion')
-    }
-    setSavingEdit(false)
-  }
-
-  return (
-    <div>
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Discipline</h1>
-        {isDisciplineRole && sectionLevel && (
-          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider" style={{ background: GOLD_SOFT, color: GOLD }}>{sectionLevel}</span>
-        )}
-      </div>
-
-      {/* Discipline Role: Student search + actions */}
-      {isDisciplineRole && (
-        <div className="mb-6 space-y-4">
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex-1 min-w-[250px] max-w-sm">
-              <SearchAutocomplete
-                label="Rechercher un élève *"
-                placeholder="Tapez le nom de l'élève..."
-                items={studentSuggestions}
-                selectedId={selectedStudentSearchId}
-                onSelect={(item) => { setSelectedStudentSearchId(item.id); setSelectedStudentId(item.id) }}
-                onClear={() => { setSelectedStudentSearchId(null); setSelectedStudentId(null); setStudentSearch('') }}
-                searchQuery={studentSearch}
-                onSearchChange={setStudentSearch}
-                itemTypeName="élève"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => { setShowSanctionForm(true); setShowConvocationForm(false) }} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: DANGER }}>
-                <Shield size={14} /> Sanctionner
-              </button>
-              <button onClick={() => { setShowConvocationForm(true); setShowSanctionForm(false) }} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white" style={{ background: WARNING }}>
-                <Megaphone size={14} /> Convocation
-              </button>
-            </div>
-          </div>
-
-          {/* Section Students Quick List */}
-          {!selectedStudentId && sectionStudents.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Users size={14} style={{ color: GOLD }} />
-                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Élèves du secteur ({sectionStudents.length})</span>
-              </div>
-              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar">
-                {sectionStudents.slice(0, 30).map(s => (
-                  <button
-                    key={s.id}
-                    onClick={() => { setSelectedStudentId(s.id); setSelectedStudentSearchId(s.id) }}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-                      selectedStudentId === s.id ? 'border-[oklch(72%_0.15_65)] shadow-sm' : 'border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.4)]'
-                    }`}
-                    style={{ background: selectedStudentId === s.id ? GOLD_SOFT : 'white', color: TEXT_PRIMARY }}
-                  >
-                    <div className="w-5 h-5 rounded-full grid place-items-center text-white text-[8px] font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                      {getInitials(`${s.firstName} ${s.lastName}`)}
-                    </div>
-                    {s.firstName} {s.lastName}
-                  </button>
-                ))}
-                {sectionStudents.length > 30 && <span className="text-xs px-2 py-1" style={{ color: TEXT_MUTED_LUXE }}>+{sectionStudents.length - 30} autres</span>}
-              </div>
-            </div>
-          )}
-
-          {/* Sanction Form */}
-          {showSanctionForm && (
-            <div className="bg-white border-2 border-[oklch(72%_0.15_65_/_0.3)] rounded-2xl p-6 shadow-md">
-              <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
-                <Shield size={16} style={{ color: DANGER }} /> Nouvelle sanction
-                {selectedStudentName && <span className="text-sm font-normal" style={{ color: TEXT_MUTED_LUXE }}>— {selectedStudentName.firstName} {selectedStudentName.lastName}</span>}
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Élève *</label>
-                  {!selectedStudentId ? (
-                    <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm" style={{ color: DANGER }}>Sélectionnez un élève ci-dessus</div>
-                  ) : (
-                    <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm font-medium" style={{ color: TEXT_PRIMARY, background: GOLD_SOFT }}>
-                      {selectedStudentName?.firstName} {selectedStudentName?.lastName} ({selectedStudentName?.matricule})
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Liste *</label>
-                  <select value={sanctionListType} onChange={e => setSanctionListType(e.target.value as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST')} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                    <option value="GREYLIST">Liste Grise (modéré)</option>
-                    <option value="BLACKLIST">Liste Noire (grave)</option>
-                    <option value="WHITELIST">Liste Blanche (positif)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Type *</label>
-                  <select value={sanctionType} onChange={e => setSanctionType(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                    <option value="RETARD">Retard</option>
-                    <option value="ABSENCE">Absence</option>
-                    <option value="TRICHERIE">Tricherie</option>
-                    <option value="VIOLENCE">Violence</option>
-                    <option value="INCIVILITE">Incivilité</option>
-                    <option value="EXCELLENCE">Excellence</option>
-                    <option value="MERITE">Mérite</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Gravité *</label>
-                  <select value={sanctionSeverity} onChange={e => setSanctionSeverity(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                    <option value="LOW">Faible</option>
-                    <option value="MEDIUM">Moyen</option>
-                    <option value="HIGH">Grave</option>
-                  </select>
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Motif *</label>
-                  <input value={sanctionTitle} onChange={e => setSanctionTitle(e.target.value)} placeholder="Ex: Retard répété" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Description</label>
-                  <textarea value={sanctionDesc} onChange={e => setSanctionDesc(e.target.value)} rows={2} placeholder="Détails de l'incident..." className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Points</label>
-                  <input type="number" value={sanctionPoints} onChange={e => setSanctionPoints(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-                  <p className="text-[10px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>Négatif = pénalité, Positif = récompense</p>
-                </div>
-              </div>
-              <div className="flex gap-3 mt-4">
-                <button onClick={handleAddSanction} disabled={submitting || !selectedStudentId || !sanctionTitle} className="edu-gold-cta px-6 py-2.5 rounded-xl font-semibold text-sm inline-flex items-center gap-2 disabled:opacity-50">
-                  {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
-                  Enregistrer la sanction
-                </button>
-                <button onClick={() => setShowSanctionForm(false)} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
-              </div>
-            </div>
-          )}
-
-          {/* Convocation Form */}
-          {showConvocationForm && (
-            <div className="bg-white border-2 border-[oklch(72%_0.15_65_/_0.3)] rounded-2xl p-6 shadow-md">
-              <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
-                <Megaphone size={16} style={{ color: WARNING }} /> Convocation des parents
-                {selectedStudentName && <span className="text-sm font-normal" style={{ color: TEXT_MUTED_LUXE }}>— {selectedStudentName.firstName} {selectedStudentName.lastName}</span>}
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Élève *</label>
-                  {!selectedStudentId ? (
-                    <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm" style={{ color: DANGER }}>Sélectionnez un élève ci-dessus</div>
-                  ) : (
-                    <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm font-medium" style={{ color: TEXT_PRIMARY, background: GOLD_SOFT }}>
-                      {selectedStudentName?.firstName} {selectedStudentName?.lastName}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Date de convocation *</label>
-                  <input type="datetime-local" value={convocationDate} onChange={e => setConvocationDate(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Motif *</label>
-                  <textarea value={convocationMotif} onChange={e => setConvocationMotif(e.target.value)} rows={3} placeholder="Raison de la convocation..." className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" />
-                </div>
-              </div>
-              <div className="flex gap-3 mt-4">
-                <button onClick={handleAddConvocation} disabled={submitting || !selectedStudentId || !convocationMotif || !convocationDate} className="edu-gold-cta px-6 py-2.5 rounded-xl font-semibold text-sm inline-flex items-center gap-2 disabled:opacity-50">
-                  {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Send size={14} />}
-                  Envoyer la convocation
-                </button>
-                <button onClick={() => setShowConvocationForm(false)} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
-              </div>
-            </div>
-          )}
-
-          {/* Convocations list */}
-          {convocations.length > 0 && (
-            <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
-              <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
-                <Megaphone size={16} style={{ color: GOLD }} /> Convocations ({convocations.length})
-              </h3>
-              <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
-                {convocations.map(c => (
-                  <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition">
-                    <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                      {getInitials(`${c.student.firstName} ${c.student.lastName}`)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate" style={{ color: TEXT_PRIMARY }}>{c.student.firstName} {c.student.lastName}</div>
-                      <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{c.motif}</div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(c.date)}</div>
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: c.status === 'CONFIRMED' ? SUCCESS_SOFT : GOLD_SOFT, color: c.status === 'CONFIRMED' ? SUCCESS : GOLD }}>{c.status === 'PENDING' ? 'En attente' : 'Confirmée'}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Parent: Children Overview Cards */}
-      {isParent && myChildren.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Users size={16} style={{ color: GOLD }} />
-            <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Mes enfants</h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-            <button
-              onClick={() => { setSelectedChildId(''); setSelectedChildSearchId(null); setChildSearch('') }}
-              className={`text-left p-4 rounded-2xl border-2 transition-all duration-200 edu-card-lift ${
-                !selectedChildId ? 'border-[oklch(72%_0.15_65)] shadow-md' : 'border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.4)]'
-              }`}
-              style={{ background: !selectedChildId ? GOLD_SOFT : 'white' }}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full grid place-items-center shrink-0" style={{ background: `linear-gradient(135deg, ${GOLD}, ${ACCENT})` }}>
-                  <Users size={18} className="text-white" />
-                </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-sm truncate" style={{ color: TEXT_PRIMARY }}>Tous mes enfants</div>
-                  <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{myChildren.length} enfant{myChildren.length > 1 ? 's' : ''}</div>
-                </div>
-              </div>
-            </button>
-            {myChildren.map(child => {
-              const fullName = `${child.firstName} ${child.lastName}`
-              const initials = getInitials(fullName)
-              const counts = childDisciplineCounts[child.id] || { blacklist: 0, greylist: 0, whitelist: 0, totalPoints: 0 }
-              const isSelected = selectedChildId === child.id
-              return (
-                <button
-                  key={child.id}
-                  onClick={() => { setSelectedChildId(child.id); setSelectedChildSearchId(child.id); setChildSearch('') }}
-                  className={`text-left p-4 rounded-2xl border-2 transition-all duration-200 edu-card-lift ${
-                    isSelected ? 'border-[oklch(72%_0.15_65)] shadow-md' : 'border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.4)]'
-                  }`}
-                  style={{ background: isSelected ? GOLD_SOFT : 'white' }}
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    {child.photoUrl ? (
-                      <img src={child.photoUrl} alt={fullName} className="w-11 h-11 rounded-full object-cover border-2 border-[oklch(90%_0.01_175)] shrink-0" />
-                    ) : (
-                      <div className="w-11 h-11 rounded-full grid place-items-center text-white font-bold text-sm shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, oklch(72% 0.15 65))` }}>
-                        {initials}
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <div className="font-semibold text-sm truncate" style={{ color: TEXT_PRIMARY }}>{fullName}</div>
-                      <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{child.matricule}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    {counts.blacklist > 0 && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: 'oklch(95% 0.04 25)', color: DANGER }}>
-                        <Ban size={9} /> {counts.blacklist}
-                      </span>
-                    )}
-                    {counts.greylist > 0 && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: 'oklch(95% 0.04 85)', color: WARNING }}>
-                        <AlertTriangle size={9} /> {counts.greylist}
-                      </span>
-                    )}
-                    {counts.whitelist > 0 && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: 'oklch(95% 0.04 145)', color: SUCCESS }}>
-                        <Award size={9} /> {counts.whitelist}
-                      </span>
-                    )}
-                    {counts.blacklist === 0 && counts.greylist === 0 && counts.whitelist === 0 && (
-                      <span className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>Aucun enregistrement</span>
-                    )}
-                    <span className="ml-auto text-[11px] font-bold" style={{ color: counts.totalPoints > 0 ? SUCCESS : counts.totalPoints < 0 ? DANGER : TEXT_MUTED_LUXE }}>
-                      {counts.totalPoints > 0 ? '+' : ''}{counts.totalPoints} pts
-                    </span>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-          <div className="max-w-xs">
-            <SearchAutocomplete
-              label="Rechercher un enfant"
-              placeholder="Tapez le nom de l'enfant..."
-              items={childSuggestions}
-              selectedId={selectedChildSearchId}
-              onSelect={(item) => { setSelectedChildSearchId(item.id); setSelectedChildId(item.id) }}
-              onClear={() => { setSelectedChildSearchId(null); setSelectedChildId(''); setChildSearch('') }}
-              searchQuery={childSearch}
-              onSearchChange={setChildSearch}
-              itemTypeName="enfant"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Selected child/student indicator */}
-      {isParent && selectedChildName && (
-        <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl" style={{ background: GOLD_SOFT }}>
-          <div className="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-            {getInitials(`${selectedChildName.firstName} ${selectedChildName.lastName}`)}
-          </div>
-          <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>
-            Discipline de <strong>{selectedChildName.firstName} {selectedChildName.lastName}</strong>
-          </span>
-          <button onClick={() => { setSelectedChildId(''); setSelectedChildSearchId(null); setChildSearch('') }} className="ml-auto text-[11px] font-medium hover:underline" style={{ color: GOLD }}>
-            Voir tous
-          </button>
-        </div>
-      )}
-      {isDisciplineRole && selectedStudentName && (
-        <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl" style={{ background: GOLD_SOFT }}>
-          <div className="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-            {getInitials(`${selectedStudentName.firstName} ${selectedStudentName.lastName}`)}
-          </div>
-          <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>
-            Discipline de <strong>{selectedStudentName.firstName} {selectedStudentName.lastName}</strong>
-          </span>
-          <button onClick={() => { setSelectedStudentId(null); setSelectedStudentSearchId(null); setStudentSearch('') }} className="ml-auto text-[11px] font-medium hover:underline" style={{ color: GOLD }}>
-            Voir tous
-          </button>
-        </div>
-      )}
-
-      <div className="flex gap-0.5 border-b border-[oklch(90%_0.01_175)] mb-5">
-        {[
-          { key: 'BLACKLIST' as const, label: 'Liste Noire', icon: <Ban size={14} />, color: DANGER },
-          { key: 'GREYLIST' as const, label: 'Liste Grise', icon: <AlertTriangle size={14} />, color: WARNING },
-          { key: 'WHITELIST' as const, label: 'Liste Blanche', icon: <Award size={14} />, color: SUCCESS },
-        ].map(t => (
-          <button
-            key={t.key}
-            onClick={() => { setTab(t.key); setLoading(true) }}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-[13.5px] font-medium border-b-2 -mb-px transition ${
-              tab === t.key ? 'border-current' : 'border-transparent hover:text-edu-fg'
-            }`}
-            style={tab === t.key ? { color: t.color, borderColor: t.color === WARNING ? GOLD : t.color } : { color: TEXT_MUTED_LUXE }}
-          >
-            {t.icon} {t.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr style={{ background: IVORY }}>
-                {!isParent && <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>}
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Motif</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Type</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Date</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Points</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
-              ) : records.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun enregistrement</td></tr>
-              ) : records.map(r => (
-                <tr key={r.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                  {!isParent && (
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                          {r.student ? getInitials(`${r.student.firstName} ${r.student.lastName}`) : '??'}
-                        </div>
-                        <div>
-                          <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{r.student ? `${r.student.firstName} ${r.student.lastName}` : '—'}</div>
-                          <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{r.student?.matricule || ''}</div>
-                        </div>
-                      </div>
-                    </td>
-                  )}
-                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{r.title}</td>
-                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_PRIMARY }}>{r.type}</td>
-                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(r.createdAt)}</td>
-                  <td className="px-4 py-3">
-                    {editingRecordId === r.id ? (
-                      <div className="flex items-center gap-2">
-                        <input type="number" value={editPoints} onChange={e => setEditPoints(e.target.value)} className="w-16 px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-                        <select value={editListType} onChange={e => setEditListType(e.target.value as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST')} className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-lg text-xs bg-white outline-none">
-                          <option value="GREYLIST">Grise</option>
-                          <option value="BLACKLIST">Noire</option>
-                          <option value="WHITELIST">Blanche</option>
-                        </select>
-                        <select value={editStatus} onChange={e => setEditStatus(e.target.value)} className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-lg text-xs bg-white outline-none">
-                          <option value="PENDING">En attente</option>
-                          <option value="CONFIRMED">Confirmé</option>
-                          <option value="RESOLVED">Résolu</option>
-                        </select>
-                        <button onClick={handleSaveEdit} disabled={savingEdit} className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_145)] transition" style={{ color: SUCCESS }} title="Sauvegarder">
-                          {savingEdit ? <div className="h-3 w-3 border-2 border-[oklch(40%_0.13_145)] border-t-transparent rounded-full animate-spin" /> : <Check size={13} />}
-                        </button>
-                        <button onClick={() => setEditingRecordId(null)} className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_25)] transition" style={{ color: DANGER }} title="Annuler">
-                          <X size={13} />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[13px] font-semibold" style={{ color: r.points > 0 ? SUCCESS : DANGER }}>{r.points > 0 ? '+' : ''}{r.points}</span>
-                        {isDisciplineRole && (
-                          <button onClick={() => handleEditRecord(r)} className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }} title="Modifier">
-                            <Edit size={13} />
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  )
-}
+// DisciplineView imported from @/components/views/DisciplineView
 
 // ===== COMMUNICATIONS VIEW =====
 function CommunicationsView() {
@@ -6525,7 +3771,7 @@ function CommunicationsView() {
         }),
       })
       if (res.ok) {
-        toast.success('Communication envoyée!')
+        toast.success('Communication envoyÃ©e!')
         setTitle(''); setContent('')
         const json = await (await authFetch('/api/communications?limit=20')).json()
         setComms(json.data || [])
@@ -6549,7 +3795,7 @@ function CommunicationsView() {
               <select value={type} onChange={e => setType(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                 <option value="ANNOUNCEMENT">Annonce</option>
                 <option value="NOTIFICATION">Notification</option>
-                <option value="EVENT">Événement</option>
+                <option value="EVENT">Ã‰vÃ©nement</option>
                 <option value="ALERT">Alerte</option>
               </select>
               <select value={targetType} onChange={e => setTargetType(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
@@ -6660,7 +3906,7 @@ function HomeworkView() {
         }),
       })
       if (res.ok) {
-        toast.success('Devoir ajouté avec succès !')
+        toast.success('Devoir ajoutÃ© avec succÃ¨s !')
         setShowForm(false)
         setHwTitle(''); setHwDesc(''); setHwClassId(''); setHwDueDate('')
         // Don't reset hwSubject - keep it for the teacher
@@ -6704,13 +3950,13 @@ function HomeworkView() {
               <input value={hwTitle} onChange={e => setHwTitle(e.target.value)} placeholder="Ex: Exercices de calcul" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
             </div>
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Matière *</label>
-              <input value={hwSubject} onChange={e => setHwSubject(e.target.value)} placeholder="Ex: Mathématiques" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>MatiÃ¨re *</label>
+              <input value={hwSubject} onChange={e => setHwSubject(e.target.value)} placeholder="Ex: MathÃ©matiques" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
             </div>
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
               <select value={hwClassId} onChange={e => setHwClassId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                <option value="">Sélectionner une classe</option>
+                <option value="">SÃ©lectionner une classe</option>
                 {(() => {
                   // Filter classes by teacher's classNames assignment (if available)
                   const myClassNames = (userData?.classNames || '').split(',').map((s: string) => s.trim()).filter(Boolean);
@@ -6722,7 +3968,7 @@ function HomeworkView() {
               </select>
               {userData?.classNames && (
                 <p className="text-[11px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>
-                  Classes assignées: {userData.classNames}
+                  Classes assignÃ©es: {userData.classNames}
                 </p>
               )}
             </div>
@@ -6761,7 +4007,7 @@ function HomeworkView() {
               <p className="text-sm mb-3 line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{h.description}</p>
               <div className="flex items-center justify-between text-xs" style={{ color: TEXT_MUTED_LUXE }}>
                 <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1" style={{ color: GOLD }}><Calendar size={12} /> Échéance: {formatDate(h.dueDate)}</span>
+                  <span className="flex items-center gap-1" style={{ color: GOLD }}><Calendar size={12} /> Ã‰chÃ©ance: {formatDate(h.dueDate)}</span>
                   {h.class?.name && <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium" style={{ background: IVORY, color: TEXT_MUTED_LUXE }}>{h.class.name}</span>}
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -6797,305 +4043,7 @@ function HomeworkView() {
   )
 }
 
-// ===== PROFILE VIEW =====
-function ProfileView() {
-  const { userData, setUserData, userRole } = useEduGestStore()
-  const [name, setName] = useState(userData?.name || '')
-  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(userData?.profileImageUrl || null)
-  const [saving, setSaving] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const isParent = userRole === 'PARENT'
-
-  // Children editing state
-  const [children, setChildren] = useState<StudentData[]>([])
-  const [editingChildId, setEditingChildId] = useState<string | null>(null)
-  const [editFirstName, setEditFirstName] = useState('')
-  const [editLastName, setEditLastName] = useState('')
-  const [savingChild, setSavingChild] = useState(false)
-  const [uploadingChildPhoto, setUploadingChildPhoto] = useState(false)
-  const [editingPhotoChildId, setEditingPhotoChildId] = useState<string | null>(null)
-  const childFileInputRef = useRef<HTMLInputElement | null>(null)
-
-  // Sync profileImageUrl from store when userData changes
-  useEffect(() => {
-    if (userData?.profileImageUrl) {
-      setProfileImageUrl(userData.profileImageUrl)
-    }
-  }, [userData?.profileImageUrl])
-
-  // Load children for parent
-  useEffect(() => {
-    if (isParent && userData?.id) {
-      authFetch(`/api/students?parentId=${userData.id}&limit=20`)
-        .then(r => r.json())
-        .then(j => setChildren(j.data || []))
-        .catch(() => {})
-    }
-  }, [isParent, userData?.id])
-
-  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (!file.type.startsWith('image/')) { toast.error('Veuillez sélectionner une image'); return }
-    if (file.size > 5 * 1024 * 1024) { toast.error('L\'image ne doit pas dépasser 5MB'); return }
-
-    if (!userData?.id) {
-      toast.error('Session invalide. Veuillez vous reconnecter.')
-      return
-    }
-
-    setUploading(true)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('category', 'profiles')
-      const res = await authFetch('/api/upload', { method: 'POST', body: formData })
-      const json = await res.json()
-      if (res.ok) {
-        const photoUrl = json.url
-        setProfileImageUrl(photoUrl)
-        // Update user profile with the new photo
-        await authFetch('/api/profile', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: userData.id, profileImageUrl: photoUrl }),
-        })
-        // Also update the store so the sidebar avatar reflects the change
-        setUserData({ ...userData, profileImageUrl: photoUrl })
-        toast.success('Photo de profil mise à jour!')
-      } else {
-        toast.error(json.error || 'Erreur lors de l\'upload')
-      }
-    } catch { toast.error('Erreur réseau') }
-    finally { setUploading(false) }
-  }
-
-  async function handleSave() {
-    if (!userData?.id) {
-      toast.error('Session invalide. Veuillez vous reconnecter.')
-      return
-    }
-
-    if (!name.trim()) {
-      toast.error('Le nom ne peut pas être vide')
-      return
-    }
-
-    setSaving(true)
-    try {
-      const res = await authFetch('/api/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: userData.id, name: name.trim() }),
-      })
-      const json = await res.json()
-      if (res.ok) {
-        // Update the store with the new name and initials
-        setUserData({
-          ...userData,
-          name: name.trim(),
-          initials: getInitials(name.trim()),
-        })
-        toast.success('Profil sauvegardé avec succès!')
-      } else {
-        toast.error(json.error || 'Erreur lors de la sauvegarde')
-      }
-    } catch { toast.error('Erreur réseau') }
-    finally { setSaving(false) }
-  }
-
-  async function handleSaveChild() {
-    if (!editingChildId) return
-    if (!editFirstName.trim() || !editLastName.trim()) {
-      toast.error('Le prénom et le nom sont requis')
-      return
-    }
-    setSavingChild(true)
-    try {
-      const res = await authFetch(`/api/students/${editingChildId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firstName: editFirstName.trim(), lastName: editLastName.trim() }),
-      })
-      if (res.ok) {
-        toast.success('Nom de l\'enfant mis à jour!')
-        setChildren(prev => prev.map(c =>
-          c.id === editingChildId
-            ? { ...c, firstName: editFirstName.trim(), lastName: editLastName.trim() }
-            : c
-        ))
-        setEditingChildId(null)
-      } else {
-        toast.error('Erreur lors de la mise à jour')
-      }
-    } catch { toast.error('Erreur réseau') }
-    finally { setSavingChild(false) }
-  }
-
-  async function handleChildPhotoUpload(e: React.ChangeEvent<HTMLInputElement>, childId: string) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (!file.type.startsWith('image/')) { toast.error('Veuillez sélectionner une image'); return }
-    if (file.size > 5 * 1024 * 1024) { toast.error('L\'image ne doit pas dépasser 5MB'); return }
-
-    setUploadingChildPhoto(true)
-    setEditingPhotoChildId(childId)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('category', 'students')
-      const uploadRes = await authFetch('/api/upload', { method: 'POST', body: formData })
-      const uploadJson = await uploadRes.json()
-      if (!uploadRes.ok) { toast.error(uploadJson.error || 'Erreur upload'); return }
-
-      const updateRes = await authFetch(`/api/students/${childId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photoUrl: uploadJson.url }),
-      })
-      if (updateRes.ok) {
-        toast.success('Photo de l\'enfant mise à jour!')
-        setChildren(prev => prev.map(c =>
-          c.id === childId ? { ...c, photoUrl: uploadJson.url } : c
-        ))
-      } else {
-        toast.error('Erreur lors de la mise à jour de la photo')
-      }
-    } catch { toast.error('Erreur réseau') }
-    finally { setUploadingChildPhoto(false); setEditingPhotoChildId(null) }
-  }
-
-  return (
-    <div>
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Mon profil</h1>
-      </div>
-      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl max-w-lg overflow-hidden shadow-sm">
-        <div className="h-28 relative" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-          <div className="absolute inset-0 opacity-20" style={{ background: 'radial-gradient(ellipse at top right, oklch(72% 0.15 65 / 0.3), transparent 60%)' }} />
-        </div>
-        <div className="px-6 pb-6 -mt-12">
-          {/* Clickable avatar */}
-          <div className="relative inline-block cursor-pointer group" onClick={() => fileInputRef.current?.click()}>
-            {profileImageUrl ? (
-              <img src={profileImageUrl} alt="Profile" className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg" />
-            ) : (
-              <div className="w-20 h-20 rounded-full grid place-items-center text-white font-bold text-2xl border-4 border-white shadow-lg group-hover:opacity-80 transition" style={{ background: `linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))` }}>
-                {userData?.initials || '??'}
-              </div>
-            )}
-            <div className="absolute bottom-0 right-0 w-7 h-7 rounded-full grid place-items-center border-2 border-white shadow-sm transition group-hover:scale-110" style={{ background: GOLD }}>
-              {uploading ? <div className="h-3 w-3 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Edit size={12} className="text-[oklch(15%_0.02_250)]" />}
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload}
-            />
-          </div>
-          <div className="mt-3">
-            <div className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{userData?.name || 'Utilisateur'}</div>
-            <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{getRoleLabel(userData?.role || 'SECRETARY')}</div>
-          </div>
-          <div className="space-y-3 mt-5">
-            <div>
-              <label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Nom complet</label>
-              <input value={name} onChange={e => setName(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" />
-            </div>
-            <div>
-              <label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>École</label>
-              <input defaultValue={userData?.schoolName} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none bg-[oklch(97%_0.005_175)]" disabled />
-            </div>
-            <div>
-              <label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Rôle</label>
-              <input defaultValue={getRoleLabel(userData?.role || 'SECRETARY')} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none bg-[oklch(97%_0.005_175)]" disabled />
-            </div>
-          </div>
-          <button onClick={handleSave} disabled={saving} className="edu-gold-cta mt-5 px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
-            {saving ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
-            Sauvegarder
-          </button>
-        </div>
-      </div>
-
-      {/* Parent: Children editing section */}
-      {isParent && children.length > 0 && (
-        <div className="mt-6">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-1 h-6 rounded-full" style={{ background: GOLD }} />
-            <h3 className="text-lg font-semibold" style={{ color: TEXT_PRIMARY }}>Mes enfants</h3>
-            <span className="text-xs px-2 py-0.5 rounded-full" style={{ color: GOLD, background: GOLD_SOFT }}>{children.length}</span>
-          </div>
-          <div className="space-y-4">
-            {children.map(child => {
-              const isEditing = editingChildId === child.id
-              return (
-                <div key={child.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
-                  <div className="flex items-start gap-4">
-                    {/* Child photo */}
-                    <div className="relative group cursor-pointer shrink-0" onClick={() => { setEditingPhotoChildId(child.id); childFileInputRef.current?.click() }}>
-                      {child.photoUrl ? (
-                        <img src={child.photoUrl} alt={`${child.firstName} ${child.lastName}`} className="w-16 h-16 rounded-full object-cover border-2 border-[oklch(90%_0.01_175)]" />
-                      ) : (
-                        <div className="w-16 h-16 rounded-full grid place-items-center text-white font-bold text-lg" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                          {getInitials(`${child.firstName} ${child.lastName}`)}
-                        </div>
-                      )}
-                      <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full grid place-items-center border-2 border-white shadow-sm transition group-hover:scale-110" style={{ background: GOLD }}>
-                        {uploadingChildPhoto && editingPhotoChildId === child.id ? (
-                          <div className="h-3 w-3 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <Camera size={10} className="text-[oklch(15%_0.02_250)]" />
-                        )}
-                      </div>
-                      <input
-                        ref={editingPhotoChildId === child.id ? childFileInputRef : null}
-                        type="file" accept="image/*" className="hidden"
-                        onChange={e => handleChildPhotoUpload(e, child.id)}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      {isEditing ? (
-                        <div className="space-y-3">
-                          <div>
-                            <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Prénom</label>
-                            <input value={editFirstName} onChange={e => setEditFirstName(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-                          </div>
-                          <div>
-                            <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Nom</label>
-                            <input value={editLastName} onChange={e => setEditLastName(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-                          </div>
-                          <div className="flex gap-2">
-                            <button onClick={handleSaveChild} disabled={savingChild} className="edu-gold-cta px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50">
-                              {savingChild ? <div className="h-3 w-3 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={12} />}
-                              Sauvegarder
-                            </button>
-                            <button onClick={() => setEditingChildId(null)} className="px-4 py-2 rounded-xl text-xs font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-semibold" style={{ color: TEXT_PRIMARY }}>{child.firstName} {child.lastName}</div>
-                            <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Classe {child.class?.name || '—'} · {child.matricule}</div>
-                          </div>
-                          <button onClick={() => { setEditingChildId(child.id); setEditFirstName(child.firstName); setEditLastName(child.lastName) }} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }} title="Modifier le nom">
-                            <Edit size={14} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+// ProfileView imported from @/components/views/ProfileView
 
 // ===== CLASS PASSING VIEW =====
 function ClassPassingView() {
@@ -7119,7 +4067,7 @@ function ClassPassingView() {
         .then(r => r.json())
         .then(j => {
           setStudentSuggestions((j.data || []).map((s: StudentData) => ({
-            id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: `${s.matricule} · ${s.class?.name || ''}`, photoUrl: s.photoUrl
+            id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: `${s.matricule} Â· ${s.class?.name || ''}`, photoUrl: s.photoUrl
           })))
           setStudentSearchLoading(false)
         })
@@ -7142,10 +4090,10 @@ function ClassPassingView() {
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Passage de classe</h1>
           </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filteredStudents.length)} élèves</p>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filteredStudents.length)} Ã©lÃ¨ves</p>
         </div>
         <SearchAutocomplete
-          placeholder="Tapez le nom de l'élève..."
+          placeholder="Tapez le nom de l'Ã©lÃ¨ve..."
           items={studentSuggestions}
           selectedId={selectedStudentId}
           onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
@@ -7153,7 +4101,7 @@ function ClassPassingView() {
           searchQuery={studentSearch}
           onSearchChange={setStudentSearch}
           loading={studentSearchLoading}
-          itemTypeName="élève"
+          itemTypeName="Ã©lÃ¨ve"
           className="w-full max-w-sm"
         />
       </div>
@@ -7162,9 +4110,9 @@ function ClassPassingView() {
           <table className="w-full">
             <thead>
               <tr style={{ background: IVORY }}>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Ã‰lÃ¨ve</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Classe actuelle</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Décision</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>DÃ©cision</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Action</th>
               </tr>
             </thead>
@@ -7184,7 +4132,7 @@ function ClassPassingView() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.class?.name || '—'}</td>
+                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.class?.name || 'â€”'}</td>
                   <td className="px-4 py-3">
                     <select className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                       <option>En attente</option><option>Passage</option><option>Redouble</option>
@@ -7263,7 +4211,7 @@ function BulletinView() {
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(Object.keys(filteredStudentGrades).length)} bulletins</p>
         </div>
         <SearchAutocomplete
-          placeholder="Tapez le nom de l'élève..."
+          placeholder="Tapez le nom de l'Ã©lÃ¨ve..."
           items={studentSuggestions}
           selectedId={selectedStudentId}
           onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
@@ -7271,12 +4219,12 @@ function BulletinView() {
           searchQuery={studentSearch}
           onSearchChange={setStudentSearch}
           loading={studentSearchLoading}
-          itemTypeName="élève"
+          itemTypeName="Ã©lÃ¨ve"
           className="w-full max-w-sm"
         />
       </div>
       {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : Object.keys(filteredStudentGrades).length === 0 ? (
-        <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun bulletin trouvé</div>
+        <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun bulletin trouvÃ©</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {Object.entries(filteredStudentGrades).slice(0, 12).map(([id, data]) => {
@@ -7352,10 +4300,10 @@ function ConvocationView() {
   }, [userData?.schoolId])
 
   async function handleSendConvocation() {
-    if (!selectedStudentId) { toast.error('Veuillez sélectionner un élève'); return }
+    if (!selectedStudentId) { toast.error('Veuillez sÃ©lectionner un Ã©lÃ¨ve'); return }
     if (!motif) { toast.error('Veuillez entrer le motif'); return }
     if (!date) { toast.error('Veuillez entrer la date'); return }
-    if (!userData?.schoolId) { toast.error('Erreur: école non trouvée'); return }
+    if (!userData?.schoolId) { toast.error('Erreur: Ã©cole non trouvÃ©e'); return }
     setSubmitting(true)
     try {
       const res = await authFetch('/api/convocations', {
@@ -7370,7 +4318,7 @@ function ConvocationView() {
         }),
       })
       if (res.ok) {
-        toast.success('Convocation envoyée avec succès !')
+        toast.success('Convocation envoyÃ©e avec succÃ¨s !')
         setMotif('')
         setDate('')
         setSelectedStudentId(null)
@@ -7400,8 +4348,8 @@ function ConvocationView() {
           <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Nouvelle convocation</h3>
           <div className="space-y-3">
             <SearchAutocomplete
-              label="Élève concerné"
-              placeholder="Tapez le nom de l'élève..."
+              label="Ã‰lÃ¨ve concernÃ©"
+              placeholder="Tapez le nom de l'Ã©lÃ¨ve..."
               items={studentSuggestions}
               selectedId={selectedStudentId}
               onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
@@ -7409,7 +4357,7 @@ function ConvocationView() {
               searchQuery={studentSearch}
               onSearchChange={setStudentSearch}
               loading={studentSearchLoading}
-              itemTypeName="élève"
+              itemTypeName="Ã©lÃ¨ve"
             />
             <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Motif</label><textarea placeholder="Motif de la convocation..." value={motif} onChange={e => setMotif(e.target.value)} rows={3} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" /></div>
             <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
@@ -7439,7 +4387,7 @@ function ConvocationView() {
                     <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{c.motif}</div>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${c.status === 'PENDING' ? 'bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]' : c.status === 'CONFIRMED' ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>{c.status === 'PENDING' ? 'En attente' : c.status === 'CONFIRMED' ? 'Confirmée' : c.status}</span>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${c.status === 'PENDING' ? 'bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]' : c.status === 'CONFIRMED' ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>{c.status === 'PENDING' ? 'En attente' : c.status === 'CONFIRMED' ? 'ConfirmÃ©e' : c.status}</span>
                     <div className="text-[10px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(c.date)}</div>
                   </div>
                 </div>
@@ -7452,1260 +4400,12 @@ function ConvocationView() {
   )
 }
 
-// ===== PERSONNEL VIEW =====
-function PersonnelView() {
-  const { userData } = useEduGestStore()
-  const [users, setUsers] = useState<Array<{
-    id: string; name: string; email: string | null; phone: string;
-    role: string; isActive: boolean; profileImageUrl: string | null;
-    lastLoginAt: string | null; createdAt: string; schoolId: string;
-    subjectName?: string | null; classNames?: string | null; isTitulaire?: boolean;
-  }>>([])
-  const [loading, setLoading] = useState(true)
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [showPersonnelPassword, setShowPersonnelPassword] = useState(false)
-  const [editingUser, setEditingUser] = useState<typeof users[0] | null>(null)
-  const [search, setSearch] = useState('')
-  const [personnelSearch, setPersonnelSearch] = useState('')
-  const [selectedPersonnelId, setSelectedPersonnelId] = useState<string | null>(null)
-  const [personnelSuggestions, setPersonnelSuggestions] = useState<AutocompleteItem[]>([])
-  const [personnelSearchLoading, setPersonnelSearchLoading] = useState(false)
-  const [roleFilter, setRoleFilter] = useState('')
-  const [form, setForm] = useState({
-    name: '', email: '', phone: '', password: '', role: 'SECRETARY',
-    subjectName: '', classNames: '', isTitulaire: false,
-  })
-  const [availableClasses, setAvailableClasses] = useState<{ id: string; name: string; _count?: { students: number } }[]>([])
+// PersonnelView imported from @/components/views/PersonnelView
 
-  const isTeacherForm = form.role === 'TEACHER' || form.role === 'HEAD_TEACHER'
-
-  useEffect(() => {
-    if ((showAddModal || editingUser) && isTeacherForm && userData?.schoolId) {
-      authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setAvailableClasses(j.data || [])).catch(() => {})
-    }
-  }, [showAddModal, editingUser, isTeacherForm, userData?.schoolId])
-
-  const ROLES = [
-    { value: 'SECRETARY', label: 'Secrétaire', color: 'oklch(60% 0.13 250)' },
-    { value: 'CASHIER', label: 'Caissier', color: 'oklch(72% 0.15 65)' },
-    { value: 'TEACHER', label: 'Enseignant', color: 'oklch(60% 0.15 145)' },
-    { value: 'HEAD_TEACHER', label: 'Prof. Principal', color: 'oklch(55% 0.15 175)' },
-    { value: 'DIRECTION_MATERNELLE', label: 'Dir. Maternelle', color: 'oklch(60% 0.13 280)' },
-    { value: 'DIRECTION_PRIMAIRE', label: 'Dir. Primaire', color: 'oklch(55% 0.15 175)' },
-    { value: 'DIRECTION_SECONDAIRE', label: 'Dir. Secondaire', color: 'oklch(45% 0.13 200)' },
-    { value: 'DISCIPLINE_MATERNELLE', label: 'Disc. Maternelle', color: 'oklch(58% 0.20 25)' },
-    { value: 'DISCIPLINE_PRIMAIRE', label: 'Disc. Primaire', color: 'oklch(58% 0.18 30)' },
-    { value: 'DISCIPLINE_SECONDAIRE', label: 'Disc. Secondaire', color: 'oklch(50% 0.16 0)' },
-    { value: 'PARENT', label: 'Parent', color: 'oklch(52% 0.015 250)' },
-  ]
-
-  function loadUsers() {
-    setLoading(true)
-    const params = new URLSearchParams({ schoolId: userData?.schoolId || '', limit: '50' })
-    if (roleFilter) params.set('role', roleFilter)
-    if (search) params.set('search', search)
-    authFetch(`/api/users?${params}`).then(r => r.json()).then(j => { setUsers(j.data || []); setLoading(false) }).catch(() => setLoading(false))
-  }
-
-  useEffect(() => { loadUsers() }, [roleFilter])
-
-  // Personnel search autocomplete
-  useEffect(() => {
-    if (personnelSearch.length < 2) return
-    const timer = setTimeout(() => {
-      setPersonnelSearchLoading(true)
-      const params = new URLSearchParams({ schoolId: userData?.schoolId || '', limit: '8' })
-      if (roleFilter) params.set('role', roleFilter)
-      params.set('search', personnelSearch)
-      authFetch(`/api/users?${params}`)
-        .then(r => r.json())
-        .then(j => {
-          setPersonnelSuggestions((j.data || []).map((u: typeof users[0]) => ({
-            id: u.id, label: u.name, sublabel: u.email || u.phone || ''
-          })))
-          setPersonnelSearchLoading(false)
-        })
-        .catch(() => setPersonnelSearchLoading(false))
-    }, 300)
-    return () => { clearTimeout(timer); setPersonnelSearchLoading(false) }
-  }, [personnelSearch, roleFilter, userData?.schoolId])
-
-  async function handleAddUser(e: React.FormEvent) {
-    e.preventDefault()
-    if (!form.name || !form.role) {
-      toast.error('Veuillez remplir le nom et le rôle')
-      return
-    }
-    if (!form.email && !form.phone) {
-      toast.error('Veuillez fournir un email ou un téléphone')
-      return
-    }
-    setSaving(true)
-    try {
-      const res = await authFetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          schoolId: userData?.schoolId,
-          subjectName: isTeacherForm ? form.subjectName : undefined,
-          classNames: isTeacherForm ? form.classNames : undefined,
-          isTitulaire: isTeacherForm ? form.isTitulaire : undefined,
-        }),
-      })
-      if (res.ok) {
-        toast.success(`${getRoleLabel(form.role as UserRole)} créé avec succès !`)
-        setShowAddModal(false)
-        setForm({ name: '', email: '', phone: '', password: '', role: 'SECRETARY', subjectName: '', classNames: '', isTitulaire: false })
-        loadUsers()
-      } else {
-        const json = await res.json()
-        toast.error(json.error || 'Erreur lors de la création')
-      }
-    } catch {
-      toast.error('Erreur réseau')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function handleEditUser(e: React.FormEvent) {
-    e.preventDefault()
-    if (!editingUser) return
-    setSaving(true)
-    try {
-      const res = await authFetch('/api/users', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingUser.id,
-          name: form.name,
-          email: form.email || null,
-          phone: form.phone,
-          role: form.role,
-          password: form.password || undefined,
-          subjectName: isTeacherForm ? form.subjectName : undefined,
-          classNames: isTeacherForm ? form.classNames : undefined,
-          isTitulaire: isTeacherForm ? form.isTitulaire : undefined,
-        }),
-      })
-      if (res.ok) {
-        toast.success('Utilisateur modifié avec succès !')
-        setEditingUser(null)
-        setForm({ name: '', email: '', phone: '', password: '', role: 'SECRETARY', subjectName: '', classNames: '', isTitulaire: false })
-        loadUsers()
-      } else {
-        const json = await res.json()
-        toast.error(json.error || 'Erreur lors de la modification')
-      }
-    } catch {
-      toast.error('Erreur réseau')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function handleToggleActive(user: typeof users[0]) {
-    try {
-      const res = await authFetch('/api/users', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: user.id, isActive: !user.isActive }),
-      })
-      if (res.ok) {
-        toast.success(user.isActive ? 'Compte désactivé' : 'Compte réactivé')
-        loadUsers()
-      }
-    } catch {
-      toast.error('Erreur réseau')
-    }
-  }
-
-  function openEditModal(user: typeof users[0]) {
-    setEditingUser(user)
-    setForm({
-      name: user.name,
-      email: user.email || '',
-      phone: user.phone,
-      password: '',
-      role: user.role,
-      subjectName: user.subjectName || '',
-      classNames: user.classNames || '',
-      isTitulaire: user.isTitulaire || false,
-    })
-  }
-
-  function closeModal() {
-    setShowAddModal(false)
-    setEditingUser(null)
-    setForm({ name: '', email: '', phone: '', password: '', role: 'SECRETARY', subjectName: '', classNames: '', isTitulaire: false })
-  }
-
-  const activeUsers = users.filter(u => u.isActive)
-  const inactiveUsers = users.filter(u => !u.isActive)
-  const roleCounts = ROLES.map(r => ({
-    ...r,
-    count: users.filter(u => u.role === r.value && u.isActive).length,
-  }))
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Personnel</h1>
-          </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>
-            {formatNumber(activeUsers.length)} membres actifs · {formatNumber(inactiveUsers.length)} inactifs
-          </p>
-        </div>
-        <button onClick={() => setShowAddModal(true)} className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
-          <UserPlus size={14} /> Ajouter un membre
-        </button>
-      </div>
-
-      {/* Role summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 mb-6">
-        {roleCounts.map(r => (
-          <button
-            key={r.value}
-            onClick={() => setRoleFilter(roleFilter === r.value ? '' : r.value)}
-            className={`p-3 rounded-xl border text-left transition ${roleFilter === r.value ? 'border-[oklch(72%_0.15_65)] shadow-md' : 'border-[oklch(90%_0.01_175)] hover:border-[oklch(80%_0.02_175)]'}`}
-            style={{ background: roleFilter === r.value ? GOLD_SOFT : 'white' }}
-          >
-            <div className="text-2xl font-bold" style={{ color: r.color }}>{r.count}</div>
-            <div className="text-[11px] font-medium truncate" style={{ color: TEXT_MUTED_LUXE }}>{r.label}</div>
-          </button>
-        ))}
-      </div>
-
-      {/* Search bar */}
-      <div className="flex items-center gap-3 mb-4">
-        <SearchAutocomplete
-          placeholder="Rechercher par nom, email, téléphone..."
-          items={personnelSuggestions}
-          selectedId={selectedPersonnelId}
-          onSelect={(item) => { setSelectedPersonnelId(item.id); setSearch(item.label); loadUsers() }}
-          onClear={() => { setSelectedPersonnelId(null); setSearch(''); setPersonnelSearch(''); loadUsers() }}
-          searchQuery={personnelSearch}
-          onSearchChange={setPersonnelSearch}
-          loading={personnelSearchLoading}
-          itemTypeName="membre"
-          className="flex-1"
-        />
-      </div>
-
-      {/* Users table */}
-      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center">
-            <div className="h-8 w-8 border-3 border-[oklch(90%_0.01_175)] border-t-[oklch(72%_0.15_65)] rounded-full animate-spin mx-auto" />
-          </div>
-        ) : users.length === 0 ? (
-          <div className="p-12 text-center">
-            <UsersRound size={48} className="mx-auto mb-3" style={{ color: MUTED }} />
-            <p className="font-medium" style={{ color: TEXT_PRIMARY }}>Aucun membre du personnel</p>
-            <p className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>Ajoutez votre premier membre en cliquant sur le bouton ci-dessus</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[oklch(90%_0.01_175)]" style={{ background: IVORY }}>
-                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Membre</th>
-                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Contact</th>
-                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Rôle</th>
-                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Statut</th>
-                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Dernière connexion</th>
-                  <th className="text-right px-4 py-3 text-[11px] font-bold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map(user => {
-                  const roleInfo = ROLES.find(r => r.value === user.role)
-                  return (
-                    <tr key={user.id} className="border-b border-[oklch(94%_0.005_250)] hover:bg-[oklch(99%_0.003_175)] transition">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold text-white shrink-0" style={{ background: roleInfo?.color || ACCENT }}>
-                            {getInitials(user.name)}
-                          </div>
-                          <div>
-                            <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{user.name}</div>
-                            <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Créé le {formatDate(user.createdAt)}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{user.email || '—'}</div>
-                        <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{user.phone}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold text-white" style={{ background: roleInfo?.color || ACCENT }}>
-                          {roleInfo?.label || user.role}
-                        </span>
-                        {(user.role === 'TEACHER' || user.role === 'HEAD_TEACHER') && user.subjectName && (
-                          <div className="mt-1 text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>
-                            {user.subjectName}
-                            {user.isTitulaire && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: GOLD_SOFT, color: GOLD }}>Titulaire</span>}
-                          </div>
-                        )}
-                        {(user.role === 'TEACHER' || user.role === 'HEAD_TEACHER') && user.classNames && (
-                          <div className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>
-                            Classes: {user.classNames}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <button onClick={() => handleToggleActive(user)} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium cursor-pointer transition ${user.isActive ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.05_25)] text-[oklch(45%_0.18_25)]'}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${user.isActive ? 'bg-[oklch(55%_0.15_145)]' : 'bg-[oklch(55%_0.18_25)]'}`} />
-                          {user.isActive ? 'Actif' : 'Inactif'}
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 text-sm" style={{ color: TEXT_MUTED_LUXE }}>
-                        {user.lastLoginAt ? formatDate(user.lastLoginAt) : 'Jamais'}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => openEditModal(user)} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition" title="Modifier">
-                            <Edit size={14} style={{ color: TEXT_MUTED_LUXE }} />
-                          </button>
-                          <button onClick={() => handleToggleActive(user)} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition" title={user.isActive ? 'Désactiver' : 'Réactiver'}>
-                            {user.isActive ? <Ban size={14} style={{ color: DANGER }} /> : <CheckCircle size={14} style={{ color: SUCCESS }} />}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Add/Edit User Modal */}
-      {(showAddModal || editingUser) && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={closeModal}>
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-6 border-b border-[oklch(90%_0.01_175)] shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl grid place-items-center text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                  <UserPlus size={20} />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>
-                    {editingUser ? 'Modifier le membre' : 'Ajouter un membre'}
-                  </h2>
-                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                    {editingUser ? 'Modifier les informations du membre' : 'Créer un nouveau compte personnel'}
-                  </p>
-                </div>
-              </div>
-              <button onClick={closeModal} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition"><X size={18} /></button>
-            </div>
-            <form onSubmit={editingUser ? handleEditUser : handleAddUser} className="flex-1 overflow-y-auto p-6 space-y-4">
-              {/* Name */}
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom complet *</label>
-                <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Marie Tshibangu" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-              </div>
-
-              {/* Role selector */}
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Rôle / Poste *</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {ROLES.map(r => (
-                    <button
-                      key={r.value}
-                      type="button"
-                      onClick={() => setForm({ ...form, role: r.value })}
-                      className={`p-3 rounded-xl border text-left transition ${form.role === r.value ? 'border-[oklch(72%_0.15_65)] shadow-sm' : 'border-[oklch(88%_0.01_175)] hover:border-[oklch(80%_0.02_175)]'}`}
-                      style={{ background: form.role === r.value ? GOLD_SOFT : 'white' }}
-                    >
-                      <div className="text-sm font-semibold" style={{ color: form.role === r.value ? GOLD : TEXT_PRIMARY }}>{r.label}</div>
-                      <div className="w-2 h-2 rounded-full mt-1" style={{ background: r.color }} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Email */}
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Email</label>
-                <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="marie@ecole.cd" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-              </div>
-
-              {/* Phone */}
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone</label>
-                <input type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+243 81 234 56 78" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-              </div>
-
-              {/* Password */}
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>
-                  Mot de passe {editingUser ? '(laisser vide pour ne pas changer)' : '(défaut: password123)'}
-                </label>
-                <div className="relative">
-                  <input type={showPersonnelPassword ? 'text' : 'password'} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••••" className="w-full px-4 py-3 pr-11 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                  <button type="button" onClick={() => setShowPersonnelPassword(!showPersonnelPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[oklch(52%_0.015_250)] hover:text-[oklch(40%_0.02_250)] transition p-1">
-                    {showPersonnelPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Teacher-specific fields */}
-              {isTeacherForm && (
-                <div className="space-y-4 p-4 rounded-xl border border-[oklch(88%_0.01_175)]" style={{ background: GOLD_SOFT }}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Award size={16} style={{ color: GOLD }} />
-                    <span className="text-sm font-semibold" style={{ color: GOLD }}>Informations enseignant</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Matière / Cours enseigné</label>
-                    <input type="text" value={form.subjectName} onChange={e => setForm({ ...form, subjectName: e.target.value })} placeholder="Ex: Mathématiques, Français, Histoire-Géo..." className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                    <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Vous pouvez assigner plusieurs professeurs au même cours</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Classes occupées</label>
-                    {/* Available classes - click to select/deselect */}
-                    {availableClasses.length > 0 && (
-                      <div className="space-y-1.5 mb-2">
-                        <label className="text-[12px] font-medium" style={{ color: TEXT_PRIMARY }}>Sélectionner les classes</label>
-                        <div className="flex flex-wrap gap-2">
-                          {availableClasses.map(c => {
-                            const isSelected = form.classNames.split(',').map(n => n.trim()).filter(Boolean).includes(c.name)
-                            return (
-                              <button
-                                key={c.id}
-                                type="button"
-                                onClick={() => {
-                                  const current = form.classNames.split(',').map(n => n.trim()).filter(Boolean)
-                                  if (isSelected) {
-                                    setForm({ ...form, classNames: current.filter(n => n !== c.name).join(', ') })
-                                  } else {
-                                    setForm({ ...form, classNames: [...current, c.name].join(', ') })
-                                  }
-                                }}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                                  isSelected 
-                                    ? 'text-white shadow-sm' 
-                                    : 'border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)]'
-                                }`}
-                                style={isSelected ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}
-                              >
-                                {c.name} {c._count?.students ? `(${c._count.students})` : ''}
-                              </button>
-                            )
-                          })}
-                        </div>
-                        <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Cliquez sur les classes pour les ajouter/retirer</p>
-                      </div>
-                    )}
-                    <input type="text" value={form.classNames} onChange={e => setForm({ ...form, classNames: e.target.value })} placeholder="Ex: 6eA, 6eB, 5eA (séparées par des virgules)" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={form.isTitulaire}
-                        onChange={(e) => setForm({ ...form, isTitulaire: e.target.checked })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-[oklch(88%_0.01_175)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[oklch(72%_0.15_65_/_0.3)] rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[oklch(55%_0.15_175)]" />
-                    </label>
-                    <div>
-                      <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Titulaire</div>
-                      <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Cochez si ce professeur est le titulaire de sa classe</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Submit */}
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button type="button" onClick={closeModal} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>
-                  Annuler
-                </button>
-                <button type="submit" disabled={saving} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
-                  {saving ? (
-                    <><div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Enregistrement...</>
-                  ) : editingUser ? (
-                    <><Check size={14} /> Enregistrer</>
-                  ) : (
-                    <><UserPlus size={14} /> Créer le compte</>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ===== SCHOOLS MANAGEMENT VIEW =====
-function SchoolsManagementView() {
-  const [schools, setSchools] = useState<SchoolData[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({
-    name: '', shortName: '', email: '', phone: '', address: '',
-    city: '', province: '', country: 'RDC', schoolType: 'MIXTE',
-    schoolCategory: 'PRIVEE', maxStudents: 200, establishmentYear: new Date().getFullYear(),
-    description: '', mission: '', subscriptionTier: 'FREEMIUM',
-    latitude: null as number | null, longitude: null as number | null,
-    logo: '', coverImage: '',
-  })
-  const [logoPreview, setLogoPreview] = useState<string | null>(null)
-  const [uploadingLogo, setUploadingLogo] = useState(false)
-  const logoInputRef = useRef<HTMLInputElement | null>(null)
-
-  function loadSchools() {
-    setLoading(true)
-    authFetch('/api/schools?limit=30').then(r => r.json()).then(j => { setSchools(j.data || []); setLoading(false) }).catch(() => setLoading(false))
-  }
-
-  useEffect(() => { loadSchools() }, [])
-
-  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error('Veuillez sélectionner une image')
-      return
-    }
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('L\'image ne doit pas dépasser 5MB')
-      return
-    }
-    // Show preview immediately
-    const reader = new FileReader()
-    reader.onload = (ev) => setLogoPreview(ev.target?.result as string)
-    reader.readAsDataURL(file)
-    // Upload to server
-    setUploadingLogo(true)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('category', 'schools')
-      const res = await authFetch('/api/upload', { method: 'POST', body: formData })
-      if (res.ok) {
-        const data = await res.json()
-        setForm(prev => ({ ...prev, logo: data.url }))
-        toast.success('Logo importé avec succès')
-      } else {
-        toast.error('Erreur lors de l\'import du logo')
-      }
-    } catch {
-      toast.error('Erreur réseau lors de l\'import')
-    } finally {
-      setUploadingLogo(false)
-    }
-  }
-
-  async function handleAddSchool(e: React.FormEvent) {
-    e.preventDefault()
-    if (!form.name || !form.shortName || !form.email || !form.phone || !form.city || !form.province || !form.country) {
-      toast.error('Veuillez remplir tous les champs obligatoires')
-      return
-    }
-    setSaving(true)
-    try {
-      // 1. Créer l'école
-      const res = await fetch('/api/schools', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      if (res.ok) {
-        const schoolData = await res.json()
-        const schoolId = schoolData.data?.id
-
-        // 2. Si l'abonnement est payant, enregistrer le paiement en liquide
-        const tierPrices: Record<string, number> = {
-          ESSENTIEL: 100, STANDARD: 250, PREMIUM: 500, ENTERPRISE: 1000, CORPORATE: 0,
-        }
-        const price = tierPrices[form.subscriptionTier] || 0
-        if (price > 0 && schoolId) {
-          try {
-            await authFetch('/api/payments/subscription', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                schoolId,
-                amount: price,
-                subscriptionTier: form.subscriptionTier,
-                paymentMethod: 'CASH',
-                description: `Abonnement ${getSubscriptionLabel(form.subscriptionTier)} - ${getSubscriptionPrice(form.subscriptionTier)} - Paiement en liquide`,
-              }),
-            })
-          } catch {
-            // Payment recording failed, but school was created
-            console.warn('Failed to record subscription payment')
-          }
-        }
-
-        toast.success(`École ajoutée avec succès !${price > 0 ? ` Paiement de ${price}$ en liquide enregistré.` : ''}`)
-        setShowAddModal(false)
-        setForm({ name: '', shortName: '', email: '', phone: '', address: '', city: '', province: '', country: 'RDC', schoolType: 'MIXTE', schoolCategory: 'PRIVEE', maxStudents: 200, establishmentYear: new Date().getFullYear(), description: '', mission: '', subscriptionTier: 'FREEMIUM', latitude: null, longitude: null, logo: '', coverImage: '' })
-        setLogoPreview(null)
-        loadSchools()
-      } else {
-        const json = await res.json()
-        toast.error(json.error || 'Erreur lors de l\'ajout')
-      }
-    } catch {
-      toast.error('Erreur réseau')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Écoles</h1>
-          </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(schools.length)} écoles</p>
-        </div>
-        <button onClick={() => setShowAddModal(true)} className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
-          <Plus size={14} /> Ajouter une école
-        </button>
-      </div>
-
-      {/* Add School Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-6 border-b border-[oklch(90%_0.01_175)] shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl grid place-items-center text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                  <Building2 size={20} />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>Ajouter une école</h2>
-                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Créer un nouvel établissement</p>
-                </div>
-              </div>
-              <button onClick={() => setShowAddModal(false)} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition"><X size={18} /></button>
-            </div>
-            <form onSubmit={handleAddSchool} className="flex-1 overflow-y-auto p-6 space-y-4">
-              {/* Import du logo */}
-              <div className="flex items-start gap-5">
-                <div className="shrink-0">
-                  <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-                  <button
-                    type="button"
-                    onClick={() => logoInputRef.current?.click()}
-                    disabled={uploadingLogo}
-                    className="relative w-24 h-24 rounded-2xl border-2 border-dashed border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] transition-all grid place-items-center overflow-hidden group"
-                    style={{ background: logoPreview ? 'transparent' : 'oklch(97% 0.005 175)' }}
-                  >
-                    {logoPreview ? (
-                      <>
-                        <img src={logoPreview} alt="Logo preview" className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center">
-                          <Camera size={20} className="text-white" />
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex flex-col items-center gap-1">
-                        {uploadingLogo ? (
-                          <div className="h-6 w-6 border-2 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <ImagePlus size={24} style={{ color: TEXT_MUTED_LUXE }} />
-                        )}
-                        <span className="text-[10px] font-medium" style={{ color: TEXT_MUTED_LUXE }}>Logo</span>
-                      </div>
-                    )}
-                  </button>
-                </div>
-                <div className="flex-1 min-w-0 pt-1">
-                  <label className="text-[13px] font-semibold" style={{ color: TEXT_PRIMARY }}>Logo de l&apos;école</label>
-                  <p className="text-[11px] mt-0.5 mb-2" style={{ color: TEXT_MUTED_LUXE }}>Importez le logo de l&apos;établissement (JPG, PNG, SVG — max 5MB)</p>
-                  <button
-                    type="button"
-                    onClick={() => logoInputRef.current?.click()}
-                    disabled={uploadingLogo}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium border border-[oklch(88%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition disabled:opacity-50"
-                    style={{ color: TEXT_MUTED_LUXE }}
-                  >
-                    <Upload size={12} />
-                    {uploadingLogo ? 'Import en cours...' : logoPreview ? 'Changer le logo' : 'Importer un logo'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Carte interactive pour la localisation */}
-              <SchoolMap
-                latitude={form.latitude}
-                longitude={form.longitude}
-                onLocationChange={(lat, lng, address) => {
-                  setForm(prev => ({
-                    ...prev,
-                    latitude: lat,
-                    longitude: lng,
-                    ...(address ? {
-                      address: address.address || prev.address,
-                      city: address.city || prev.city,
-                      province: address.province || prev.province,
-                      country: address.country || prev.country,
-                    } : {}),
-                  }))
-                }}
-              />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom de l&apos;école *</label>
-                  <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Complexe Scolaire Lumière" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Sigle / Abréviation *</label>
-                  <input type="text" required value={form.shortName} onChange={e => setForm({ ...form, shortName: e.target.value })} placeholder="Ex: CSL" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Email professionnel *</label>
-                  <input type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="contact@ecole.cd" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone *</label>
-                  <input type="tel" required value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+243 81 234 56 78" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Adresse</label>
-                  <input type="text" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Remplie auto. par la carte" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Ville *</label>
-                  <input type="text" required value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder="Remplie auto. par la carte" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Province *</label>
-                  <input type="text" required value={form.province} onChange={e => setForm({ ...form, province: e.target.value })} placeholder="Remplie auto. par la carte" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Pays *</label>
-                  <input type="text" required value={form.country} onChange={e => setForm({ ...form, country: e.target.value })} placeholder="Remplie auto. par la carte" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Type d&apos;école</label>
-                  <select value={form.schoolType} onChange={e => setForm({ ...form, schoolType: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
-                    <option value="MIXTE">Mixte</option>
-                    <option value="FILLE">Filles</option>
-                    <option value="GARCON">Garçons</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Catégorie</label>
-                  <select value={form.schoolCategory} onChange={e => setForm({ ...form, schoolCategory: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
-                    <option value="PRIVEE">Privée</option>
-                    <option value="PUBLIQUE">Publique</option>
-                    <option value="CONVENTIONNEE">Conventionnée</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Capacité max</label>
-                  <input type="number" value={form.maxStudents} onChange={e => setForm({ ...form, maxStudents: parseInt(e.target.value) || 100 })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Année de fondation</label>
-                  <input type="number" value={form.establishmentYear} onChange={e => setForm({ ...form, establishmentYear: parseInt(e.target.value) || undefined })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                </div>
-              </div>
-              {/* Abonnement */}
-              <div className="bg-[oklch(97%_0.005_175)] border border-[oklch(90%_0.01_175)] rounded-xl p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <CreditCard size={16} style={{ color: GOLD }} />
-                  <label className="text-[13px] font-semibold" style={{ color: TEXT_PRIMARY }}>Abonnement & Paiement</label>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Formule d&apos;abonnement</label>
-                    <select value={form.subscriptionTier} onChange={e => setForm({ ...form, subscriptionTier: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
-                      <option value="FREEMIUM">Freemium — 0$/mois</option>
-                      <option value="ESSENTIEL">Essentiel — 100$/mois</option>
-                      <option value="STANDARD">Standard — 250$/mois</option>
-                      <option value="PREMIUM">Professionnel — 500$/mois</option>
-                      <option value="ENTERPRISE">Enterprise — 1 000$/mois</option>
-                      <option value="CORPORATE">Corporate — Sur mesure</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Mode de paiement</label>
-                    <div className="flex items-center gap-2 px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl bg-white">
-                      <DollarSign size={16} style={{ color: SUCCESS }} />
-                      <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Liquide (Cash)</span>
-                      <span className="text-[11px] ml-auto" style={{ color: TEXT_MUTED_LUXE }}>Encaissé par l&apos;admin</span>
-                    </div>
-                  </div>
-                </div>
-                {form.subscriptionTier !== 'FREEMIUM' && (
-                  <div className="flex items-center gap-2 text-[12px] px-3 py-2 rounded-lg" style={{ background: `${GOLD}15`, color: GOLD }}>
-                    <AlertCircle size={14} />
-                    <span>Le paiement de <strong>{getSubscriptionPrice(form.subscriptionTier)}</strong> sera enregistré comme reçu en liquide lors de la création.</span>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Description</label>
-                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Brève description de l'établissement..." className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] resize-none" />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Mission</label>
-                <textarea value={form.mission} onChange={e => setForm({ ...form, mission: e.target.value })} rows={2} placeholder="Mission de l'établissement..." className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)] resize-none" />
-              </div>
-              <div className="sticky bottom-0 bg-white border-t border-[oklch(90%_0.01_175)] flex items-center justify-end gap-3 p-4 -mx-6 -mb-6 mt-4">
-                <button type="button" onClick={() => setShowAddModal(false)} className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
-                <button type="submit" disabled={saving} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
-                  {saving ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
-                  Créer l&apos;école
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr style={{ background: IVORY }}>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>École</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Abonnement</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élèves</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Statut</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
-              ) : schools.map(s => (
-                <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                      {s.logo ? (
-                        <img src={s.logo} alt={s.shortName} className="w-8 h-8 rounded-full object-cover shrink-0" />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full grid place-items-center text-white font-semibold text-[11px] shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                          {s.shortName.substring(0, 2)}
-                        </div>
-                      )}
-                      <div>
-                        <div className="font-medium text-[13px]" style={{ color: TEXT_PRIMARY }}>{s.name}</div>
-                        <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.city} · {s.province}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_PRIMARY }}><strong>{getSubscriptionLabel(s.subscriptionTier)}</strong> · {getSubscriptionPrice(s.subscriptionTier)}</td>
-                  <td className="px-4 py-3 text-[13px] font-semibold tabular-nums" style={{ color: TEXT_PRIMARY }}>{formatNumber(s._count?.students || s.studentCount)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill(s.isActive ? 'Actif' : 'Suspendu')}`}>
-                      {s.isActive ? 'Actif' : 'Suspendu'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-1">
-                      <button className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Eye size={14} /></button>
-                      <button className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }}><Edit size={14} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  )
-}
+// SchoolsManagementView imported from @/components/views/SchoolsManagementView
 
 // ===== SETTINGS VIEW (Admin - School Settings) =====
-function SettingsView() {
-  const { userData, userRole } = useEduGestStore()
-  const [school, setSchool] = useState<SchoolData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [uploadingLogo, setUploadingLogo] = useState(false)
-  const [uploadingCover, setUploadingCover] = useState(false)
-  const [comments, setComments] = useState<{ id: string; authorName: string; rating: number; comment: string; isApproved: boolean; createdAt: string }[]>([])
-  const logoInputRef = useRef<HTMLInputElement | null>(null)
-  const coverInputRef = useRef<HTMLInputElement | null>(null)
-
-  // Form fields
-  const [name, setName] = useState('')
-  const [shortName, setShortName] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [address, setAddress] = useState('')
-  const [city, setCity] = useState('')
-  const [province, setProvince] = useState('')
-  const [country, setCountry] = useState('')
-  const [description, setDescription] = useState('')
-  const [history, setHistory] = useState('')
-  const [mission, setMission] = useState('')
-  const [establishmentYear, setEstablishmentYear] = useState('')
-  const [schoolType, setSchoolType] = useState('MIXTE')
-  const [schoolCategory, setSchoolCategory] = useState('PRIVEE')
-  const [maxStudents, setMaxStudents] = useState('')
-  const [logoUrl, setLogoUrl] = useState('')
-  const [coverUrl, setCoverUrl] = useState('')
-
-  useEffect(() => {
-    if (userData?.schoolId) {
-      authFetch(`/api/schools/${userData.schoolId}`)
-        .then(r => r.json())
-        .then(j => {
-          const s = j.data
-          if (s) {
-            setSchool(s)
-            setName(s.name || '')
-            setShortName(s.shortName || '')
-            setEmail(s.email || '')
-            setPhone(s.phone || '')
-            setAddress(s.address || '')
-            setCity(s.city || '')
-            setProvince(s.province || '')
-            setCountry(s.country || '')
-            setDescription(s.description || '')
-            setHistory(s.history || '')
-            setMission(s.mission || '')
-            setEstablishmentYear(s.establishmentYear ? String(s.establishmentYear) : '')
-            setSchoolType(s.schoolType || 'MIXTE')
-            setSchoolCategory(s.schoolCategory || 'PRIVEE')
-            setMaxStudents(String(s.maxStudents || 100))
-            setLogoUrl(s.logo || '')
-            setCoverUrl(s.coverImage || '')
-          }
-          setLoading(false)
-        })
-        .catch(() => setLoading(false))
-      // Fetch pending comments
-      fetch(`/api/school-comments?schoolId=${userData.schoolId}&approved=false`)
-        .then(r => r.json())
-        .then(j => setComments(j.data || []))
-        .catch(() => {})
-    }
-  }, [userData?.schoolId])
-
-  async function handleSave() {
-    if (!userData?.schoolId) return
-    setSaving(true)
-    try {
-      const res = await authFetch(`/api/schools/${userData.schoolId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name, shortName, email, phone, address, city, province, country,
-          description, history, mission,
-          establishmentYear: establishmentYear ? parseInt(establishmentYear) : null,
-          schoolType, schoolCategory,
-          maxStudents: parseInt(maxStudents) || 100,
-        }),
-      })
-      if (res.ok) {
-        const j = await res.json()
-        setSchool(j.data)
-        toast.success('Paramètres mis à jour avec succès !')
-      } else {
-        toast.error('Erreur lors de la mise à jour')
-      }
-    } catch {
-      toast.error('Erreur de connexion')
-    }
-    setSaving(false)
-  }
-
-  async function handleImageUpload(file: File, type: 'logo' | 'coverImage') {
-    if (type === 'logo') setUploadingLogo(true)
-    else setUploadingCover(true)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('category', 'schools')
-      const uploadRes = await authFetch('/api/upload', { method: 'POST', body: formData })
-      if (uploadRes.ok) {
-        const uploadJson = await uploadRes.json()
-        const url = uploadJson.url
-        const res = await authFetch(`/api/schools/${userData?.schoolId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ [type]: url }),
-        })
-        if (res.ok) {
-          if (type === 'logo') setLogoUrl(url)
-          else setCoverUrl(url)
-          toast.success(type === 'logo' ? 'Logo mis à jour !' : 'Image de couverture mise à jour !')
-        }
-      }
-    } catch {
-      toast.error('Erreur lors du téléchargement')
-    }
-    if (type === 'logo') setUploadingLogo(false)
-    else setUploadingCover(false)
-  }
-
-  async function handleApproveComment(id: string) {
-    try {
-      const res = await authFetch('/api/school-comments', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, isApproved: true }),
-      })
-      if (res.ok) {
-        setComments(prev => prev.filter(c => c.id !== id))
-        toast.success('Commentaire approuvé !')
-      }
-    } catch {
-      toast.error('Erreur')
-    }
-  }
-
-  async function handleDeleteComment(id: string) {
-    try {
-      const res = await authFetch(`/api/school-comments?id=${id}`, { method: 'DELETE' })
-      if (res.ok) {
-        setComments(prev => prev.filter(c => c.id !== id))
-        toast.success('Commentaire supprimé')
-      }
-    } catch {
-      toast.error('Erreur')
-    }
-  }
-
-  if (loading) return <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div>
-
-  return (
-    <div>
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Paramètres de l&apos;école</h1>
-      </div>
-
-      {/* Cover Image */}
-      <div className="mb-6 rounded-2xl overflow-hidden border border-[oklch(90%_0.01_175)] shadow-sm">
-        <div className="relative h-40 sm:h-52" style={{ background: coverUrl ? `url(${coverUrl}) center/cover` : `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-          <div className="absolute bottom-4 left-5 flex items-center gap-4">
-            {/* Logo */}
-            <div className="relative group">
-              {logoUrl ? (
-                <img src={logoUrl} alt="Logo" className="w-20 h-20 rounded-2xl object-cover border-4 border-white shadow-lg" />
-              ) : (
-                <div className="w-20 h-20 rounded-2xl grid place-items-center text-white text-2xl font-bold border-4 border-white shadow-lg" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                  {getInitials(name || 'S')}
-                </div>
-              )}
-              <button
-                onClick={() => logoInputRef.current?.click()}
-                className="absolute inset-0 rounded-2xl bg-black/50 grid place-items-center opacity-0 group-hover:opacity-100 transition cursor-pointer"
-              >
-                {uploadingLogo ? <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Camera size={20} className="text-white" />}
-              </button>
-              <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(f, 'logo') }} />
-            </div>
-            <div>
-              <h2 className="text-white text-xl font-bold drop-shadow">{name || 'Mon École'}</h2>
-              <p className="text-white/80 text-sm">{city}{province ? `, ${province}` : ''} · {schoolCategory === 'PRIVEE' ? 'Privée' : 'Publique'}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => coverInputRef.current?.click()}
-            className="absolute top-4 right-4 px-3 py-1.5 rounded-xl bg-white/90 text-xs font-medium flex items-center gap-1.5 hover:bg-white transition shadow-sm"
-            style={{ color: TEXT_PRIMARY }}
-          >
-            {uploadingCover ? <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <ImagePlus size={13} />}
-            Changer la couverture
-          </button>
-          <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(f, 'coverImage') }} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main form */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Informations générales */}
-          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-            <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
-              <Building2 size={16} style={{ color: GOLD }} /> Informations générales
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom de l&apos;école *</label>
-                <input value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-              </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Abréviation</label>
-                <input value={shortName} onChange={e => setShortName(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-              </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Email</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-              </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Téléphone</label>
-                <input value={phone} onChange={e => setPhone(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-              </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Type d&apos;école</label>
-                <select value={schoolType} onChange={e => setSchoolType(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                  <option value="MIXTE">Mixte</option>
-                  <option value="GARCONS">Garçons</option>
-                  <option value="FILLES">Filles</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Catégorie</label>
-                <select value={schoolCategory} onChange={e => setSchoolCategory(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                  <option value="PRIVEE">Privée</option>
-                  <option value="PUBLIQUE">Publique</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Année de fondation</label>
-                <input type="number" value={establishmentYear} onChange={e => setEstablishmentYear(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-              </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Max élèves</label>
-                <input type="number" value={maxStudents} onChange={e => setMaxStudents(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-              </div>
-            </div>
-          </div>
-
-          {/* Adresse */}
-          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-            <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
-              <MapPin size={16} style={{ color: GOLD }} /> Adresse
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2">
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Adresse</label>
-                <input value={address} onChange={e => setAddress(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-              </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Ville</label>
-                <input value={city} onChange={e => setCity(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-              </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Province</label>
-                <input value={province} onChange={e => setProvince(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-              </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Pays</label>
-                <input value={country} onChange={e => setCountry(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-              </div>
-            </div>
-          </div>
-
-          {/* Description */}
-          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-            <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
-              <FileText size={16} style={{ color: GOLD }} /> Descriptif
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Description</label>
-                <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" />
-              </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Historique</label>
-                <textarea value={history} onChange={e => setHistory(e.target.value)} rows={3} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" />
-              </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Mission</label>
-                <textarea value={mission} onChange={e => setMission(e.target.value)} rows={3} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" />
-              </div>
-            </div>
-          </div>
-
-          {/* Save button */}
-          <button onClick={handleSave} disabled={saving} className="edu-gold-cta px-8 py-3 rounded-xl font-semibold text-sm inline-flex items-center justify-center gap-2 disabled:opacity-50">
-            {saving ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Save size={16} />}
-            Enregistrer les modifications
-          </button>
-        </div>
-
-        {/* Sidebar - Stats + Comments */}
-        <div className="space-y-6">
-          {/* School Stats */}
-          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-            <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Statistiques</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span style={{ color: TEXT_MUTED_LUXE }}>Élèves inscrits</span>
-                <span className="font-semibold" style={{ color: TEXT_PRIMARY }}>{school?.studentCount || 0}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span style={{ color: TEXT_MUTED_LUXE }}>Classes</span>
-                <span className="font-semibold" style={{ color: TEXT_PRIMARY }}>{school?.classCount || 0}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span style={{ color: TEXT_MUTED_LUXE }}>Note moyenne</span>
-                <span className="font-semibold flex items-center gap-1" style={{ color: GOLD }}>
-                  <Star size={13} fill={GOLD} /> {school?.averageRating || 0}/5
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span style={{ color: TEXT_MUTED_LUXE }}>Avis</span>
-                <span className="font-semibold" style={{ color: TEXT_PRIMARY }}>{school?.totalReviews || 0}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span style={{ color: TEXT_MUTED_LUXE }}>Abonnement</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>{school?.subscriptionTier || 'FREEMIUM'}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Pending Comments */}
-          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-            <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
-              <MessageCircle size={16} style={{ color: GOLD }} /> Commentaires en attente
-              {comments.length > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: DANGER }}>{comments.length}</span>}
-            </h3>
-            {comments.length === 0 ? (
-              <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Aucun commentaire en attente</p>
-            ) : (
-              <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
-                {comments.map(c => (
-                  <div key={c.id} className="p-3 rounded-xl border border-[oklch(90%_0.01_175)]">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{c.authorName}</span>
-                      <div className="flex items-center gap-0.5">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star key={i} size={10} fill={i < c.rating ? GOLD : 'none'} style={{ color: i < c.rating ? GOLD : 'oklch(85%_0.01_175)' }} />
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-xs mb-2" style={{ color: TEXT_MUTED_LUXE }}>{c.comment}</p>
-                    <div className="flex gap-2">
-                      <button onClick={() => handleApproveComment(c.id)} className="flex-1 py-1 rounded-lg text-[11px] font-semibold text-white" style={{ background: SUCCESS }}>Approuver</button>
-                      <button onClick={() => handleDeleteComment(c.id)} className="py-1 px-2 rounded-lg text-[11px] font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: DANGER }}>
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
+// SettingsView imported from @/components/views/SettingsView
 
 // ===== SCHOOL REVIEWS VIEW (Parent) =====
 function SchoolReviewsView() {
@@ -8750,7 +4450,7 @@ function SchoolReviewsView() {
         }),
       })
       if (res.ok) {
-        toast.success('Votre avis a été soumis ! Il sera visible après approbation.')
+        toast.success('Votre avis a Ã©tÃ© soumis ! Il sera visible aprÃ¨s approbation.')
         setRating(0)
         setComment('')
       } else {
@@ -8768,7 +4468,7 @@ function SchoolReviewsView() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Avis sur l&apos;école</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Avis sur l&apos;Ã©cole</h1>
       </div>
 
       {/* School Header Card */}
@@ -8854,7 +4554,7 @@ function SchoolReviewsView() {
                 value={comment}
                 onChange={e => setComment(e.target.value)}
                 rows={4}
-                placeholder="Partagez votre expérience avec cette école..."
+                placeholder="Partagez votre expÃ©rience avec cette Ã©cole..."
                 className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none"
               />
             </div>
@@ -8866,7 +4566,7 @@ function SchoolReviewsView() {
               {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Send size={14} />}
               Soumettre mon avis
             </button>
-            <p className="text-[11px] text-center" style={{ color: TEXT_MUTED_LUXE }}>Votre avis sera visible après approbation par l&apos;administration</p>
+            <p className="text-[11px] text-center" style={{ color: TEXT_MUTED_LUXE }}>Votre avis sera visible aprÃ¨s approbation par l&apos;administration</p>
           </div>
         </div>
 
@@ -8878,7 +4578,7 @@ function SchoolReviewsView() {
               <div className="text-center py-8">
                 <MessageCircle size={32} className="mx-auto mb-3" style={{ color: TEXT_MUTED_LUXE }} />
                 <p className="font-medium" style={{ color: TEXT_PRIMARY }}>Aucun avis pour le moment</p>
-                <p className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>Soyez le premier à donner votre avis !</p>
+                <p className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>Soyez le premier Ã  donner votre avis !</p>
               </div>
             ) : (
               <div className="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar">
