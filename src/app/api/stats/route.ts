@@ -98,9 +98,9 @@ export async function GET(request: NextRequest) {
       whitelistCount,
     ] = await Promise.all([
       db.disciplineRecord.count({ where: disciplineWhere }),
-      db.blacklist.count({ where: { schoolId: effectiveSchoolId } }),
-      db.greylist.count({ where: { schoolId: effectiveSchoolId } }),
-      db.whitelist.count({ where: { schoolId: effectiveSchoolId } }),
+      db.disciplineRecord.count({ where: { ...disciplineWhere, listType: 'BLACKLIST' } }),
+      db.disciplineRecord.count({ where: { ...disciplineWhere, listType: 'GREYLIST' } }),
+      db.disciplineRecord.count({ where: { ...disciplineWhere, listType: 'WHITELIST' } }),
     ]);
 
     // Communication stats

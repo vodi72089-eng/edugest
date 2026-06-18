@@ -14,25 +14,29 @@ export default function DisciplineDashboardView() {
   const sectionLevel = userRole === 'DISCIPLINE_MATERNELLE' ? 'MATERNELLE' : userRole === 'DISCIPLINE_PRIMAIRE' ? 'PRIMAIRE' : userRole === 'DISCIPLINE_SECONDAIRE' ? 'SECONDAIRE' : ''
 
   useEffect(() => {
-    if (userData?.schoolId) {
-      // Fetch discipline stats
-      authFetch(`/api/stats?schoolId=${userData.schoolId}`)
-        .then(r => r.json())
-        .then(j => {
-          const disciplineStats = j.data?.discipline as { total: number; blacklist: number; greylist: number; whitelist: number } | undefined
-          const studentStats = j.data?.students as { total: number } | undefined
-          setStats({
-            blacklist: disciplineStats?.blacklist || 0,
-            greylist: disciplineStats?.greylist || 0,
-            whitelist: disciplineStats?.whitelist || 0,
-            totalStudents: studentStats?.total || 0,
+    function fetchStats() {
+      if (userData?.schoolId) {
+        authFetch(`/api/stats?schoolId=${userData.schoolId}`)
+          .then(r => r.json())
+          .then(j => {
+            const disciplineStats = j.data?.discipline as { total: number; blacklist: number; greylist: number; whitelist: number } | undefined
+            const studentStats = j.data?.students as { total: number } | undefined
+            setStats({
+              blacklist: disciplineStats?.blacklist || 0,
+              greylist: disciplineStats?.greylist || 0,
+              whitelist: disciplineStats?.whitelist || 0,
+              totalStudents: studentStats?.total || 0,
+            })
+            setLoading(false)
           })
-          setLoading(false)
-        })
-        .catch(() => setLoading(false))
-    } else {
-      setTimeout(() => setLoading(false), 0)
+          .catch(() => setLoading(false))
+      } else {
+        setTimeout(() => setLoading(false), 0)
+      }
     }
+    fetchStats()
+    const interval = setInterval(fetchStats, 30000)
+    return () => clearInterval(interval)
   }, [userData?.schoolId])
 
   return (

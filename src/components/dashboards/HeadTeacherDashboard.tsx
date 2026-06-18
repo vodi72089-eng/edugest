@@ -12,33 +12,35 @@ export default function HeadTeacherDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (userData?.schoolId) {
-      // Try to find the class this head teacher manages
-      authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`)
-        .then(r => r.json())
-        .then(j => {
-          const allClasses: { id: string; name: string; _count?: { students: number } }[] = j.data || []
-          const teacherClassNames = userData?.classNames
-          let myClass: { id: string; name: string; _count?: { students: number } } | undefined
-          if (teacherClassNames) {
-            const nameList = teacherClassNames.split(',').map(n => n.trim().toLowerCase())
-            myClass = allClasses.find(c => nameList.some(n => c.name.toLowerCase().includes(n) || n.includes(c.name.toLowerCase())))
-          }
-          if (myClass) {
-            setClassInfo({ name: myClass.name, studentCount: myClass._count?.students || 0 })
-          } else if (allClasses.length > 0 && teacherClassNames) {
-            // Has classNames assigned but no match found - don't default to first class
-            setClassInfo(null)
-          } else if (!teacherClassNames && allClasses.length > 0) {
-            // No class names assigned at all
-            setClassInfo(null)
-          }
-          setLoading(false)
-        })
-        .catch(() => setLoading(false))
-    } else {
-      setTimeout(() => setLoading(false), 0)
+    function fetchData() {
+      if (userData?.schoolId) {
+        authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`)
+          .then(r => r.json())
+          .then(j => {
+            const allClasses: { id: string; name: string; _count?: { students: number } }[] = j.data || []
+            const teacherClassNames = userData?.classNames
+            let myClass: { id: string; name: string; _count?: { students: number } } | undefined
+            if (teacherClassNames) {
+              const nameList = teacherClassNames.split(',').map(n => n.trim().toLowerCase())
+              myClass = allClasses.find(c => nameList.some(n => c.name.toLowerCase().includes(n) || n.includes(c.name.toLowerCase())))
+            }
+            if (myClass) {
+              setClassInfo({ name: myClass.name, studentCount: myClass._count?.students || 0 })
+            } else if (allClasses.length > 0 && teacherClassNames) {
+              setClassInfo(null)
+            } else if (!teacherClassNames && allClasses.length > 0) {
+              setClassInfo(null)
+            }
+            setLoading(false)
+          })
+          .catch(() => setLoading(false))
+      } else {
+        setTimeout(() => setLoading(false), 0)
+      }
     }
+    fetchData()
+    const interval = setInterval(fetchData, 30000)
+    return () => clearInterval(interval)
   }, [userData?.schoolId])
 
   return (

@@ -12,9 +12,14 @@ export default function CashierDashboard() {
   const [stats, setStats] = useState<Record<string, unknown> | null>(null)
 
   useEffect(() => {
-    if (userData?.schoolId) {
-      authFetch(`/api/stats?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setStats(j.data)).catch(() => {})
+    function fetchStats() {
+      if (userData?.schoolId) {
+        authFetch(`/api/stats?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setStats(j.data)).catch(() => {})
+      }
     }
+    fetchStats()
+    const interval = setInterval(fetchStats, 30000)
+    return () => clearInterval(interval)
   }, [userData?.schoolId])
 
   const paymentStats = stats?.payments as { total: number; paid: number; pending: number; partial: number; overdue: number; expectedAmount: number; collectedAmount: number; collectionRate: number } | undefined

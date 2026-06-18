@@ -43,11 +43,15 @@ export default function SuperAdminDashboard() {
 
   useEffect(() => {
     let cancelled = false
-    authFetch(`/api/admin-analytics${cityFilter ? `?city=${cityFilter}` : ''}`)
-      .then(r => r.json())
-      .then(j => { if (!cancelled) { setAnalytics(j.data); setLoading(false) } })
-      .catch(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
+    function fetchAnalytics() {
+      authFetch(`/api/admin-analytics${cityFilter ? `?city=${cityFilter}` : ''}`)
+        .then(r => r.json())
+        .then(j => { if (!cancelled) { setAnalytics(j.data); setLoading(false) } })
+        .catch(() => { if (!cancelled) setLoading(false) })
+    }
+    fetchAnalytics()
+    const interval = setInterval(fetchAnalytics, 30000)
+    return () => { cancelled = true; clearInterval(interval) }
   }, [cityFilter])
 
   useEffect(() => {

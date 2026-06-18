@@ -62,10 +62,10 @@ export default function ProfileView() {
       if (res.ok) {
         const photoUrl = json.url
         setProfileImageUrl(photoUrl)
-        await authFetch('/api/profile', {
+        await authFetch('/api/users/profile', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: userData.id, profileImageUrl: photoUrl }),
+          body: JSON.stringify({ profileImageUrl: photoUrl }),
         })
         setUserData({ ...userData, profileImageUrl: photoUrl })
         toast.success('Photo de profil mise à jour!')
@@ -89,12 +89,14 @@ export default function ProfileView() {
 
     setSaving(true)
     try {
-      const res = await authFetch('/api/profile', {
+      const res = await authFetch('/api/users/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: userData.id, name: name.trim() }),
+        body: JSON.stringify({ name: name.trim() }),
       })
-      const json = await res.json()
+      const text = await res.text()
+      let json: Record<string, unknown> = {}
+      try { json = JSON.parse(text) } catch { /* not json */ }
       if (res.ok) {
         setUserData({
           ...userData,
@@ -103,9 +105,9 @@ export default function ProfileView() {
         })
         toast.success('Profil sauvegardé avec succès!')
       } else {
-        toast.error(json.error || 'Erreur lors de la sauvegarde')
+        toast.error((json.error as string) || 'Erreur lors de la sauvegarde')
       }
-    } catch { toast.error('Erreur réseau') }
+    } catch (e) { console.error('Profile save error:', e); toast.error('Erreur réseau') }
     finally { setSaving(false) }
   }
 

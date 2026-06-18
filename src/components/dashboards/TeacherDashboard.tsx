@@ -14,38 +14,39 @@ export default function TeacherDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (userData?.schoolId) {
-      // Get classes
-      authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`)
-        .then(r => r.json())
-        .then(j => {
-          const allClasses: { id: string; name: string; _count?: { students: number } }[] = j.data || []
-          // Filter classes that match the teacher's assigned classNames
-          const teacherClassNames = userData?.classNames
-          let myClasses = allClasses
-          if (teacherClassNames) {
-            const nameList = teacherClassNames.split(',').map(n => n.trim().toLowerCase())
-            myClasses = allClasses.filter(c => nameList.some(n => c.name.toLowerCase().includes(n) || n.includes(c.name.toLowerCase())))
-          }
-          setClassCount(myClasses.length)
-          const totalStudents = myClasses.reduce((sum, c) => sum + (c._count?.students || 0), 0)
-          setStudentCount(totalStudents)
-        })
-        .catch(() => {})
-
-      // Get homework count - filter by teacherId
-      authFetch(`/api/homework?schoolId=${userData.schoolId}&limit=50`)
-        .then(r => r.json())
-        .then(j => {
-          const allHw: { teacherId?: string; teacherName: string }[] = j.data || []
-          const myHw = allHw.filter(h => h.teacherId === userData?.id || h.teacherName === userData?.name)
-          setHomeworkCount(myHw.length)
-        })
-        .catch(() => {})
-        .finally(() => setLoading(false))
-    } else {
-      setTimeout(() => setLoading(false), 0)
+    function fetchData() {
+      if (userData?.schoolId) {
+        authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`)
+          .then(r => r.json())
+          .then(j => {
+            const allClasses: { id: string; name: string; _count?: { students: number } }[] = j.data || []
+            const teacherClassNames = userData?.classNames
+            let myClasses = allClasses
+            if (teacherClassNames) {
+              const nameList = teacherClassNames.split(',').map(n => n.trim().toLowerCase())
+              myClasses = allClasses.filter(c => nameList.some(n => c.name.toLowerCase().includes(n) || n.includes(c.name.toLowerCase())))
+            }
+            setClassCount(myClasses.length)
+            const totalStudents = myClasses.reduce((sum, c) => sum + (c._count?.students || 0), 0)
+            setStudentCount(totalStudents)
+          })
+          .catch(() => {})
+        authFetch(`/api/homework?schoolId=${userData.schoolId}&limit=50`)
+          .then(r => r.json())
+          .then(j => {
+            const allHw: { teacherId?: string; teacherName: string }[] = j.data || []
+            const myHw = allHw.filter(h => h.teacherId === userData?.id || h.teacherName === userData?.name)
+            setHomeworkCount(myHw.length)
+          })
+          .catch(() => {})
+          .finally(() => setLoading(false))
+      } else {
+        setTimeout(() => setLoading(false), 0)
+      }
     }
+    fetchData()
+    const interval = setInterval(fetchData, 30000)
+    return () => clearInterval(interval)
   }, [userData?.schoolId, userData?.name, userData?.id])
 
   return (

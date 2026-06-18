@@ -332,6 +332,37 @@ export default function DisciplineView() {
             </div>
           )}
 
+          {selectedStudentId && selectedStudentName && (
+            <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4 shadow-sm flex items-center gap-4">
+              {(() => {
+                const student = sectionStudents.find(s => s.id === selectedStudentId) || myChildren.find(s => s.id === selectedStudentId)
+                return (
+                  <>
+                    {student?.photoUrl ? (
+                      <img src={student.photoUrl} alt={`${student.firstName} ${student.lastName}`} className="w-14 h-14 rounded-full object-cover border-2 shrink-0" style={{ borderColor: ACCENT }} />
+                    ) : (
+                      <div className="w-14 h-14 rounded-full grid place-items-center text-white text-lg font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                        {getInitials(`${selectedStudentName.firstName} ${selectedStudentName.lastName}`)}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>{selectedStudentName.firstName} {selectedStudentName.lastName}</div>
+                      <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Matricule: {selectedStudentName.matricule || '—'}</div>
+                      {student?.class && (
+                        <div className="text-xs mt-0.5" style={{ color: ACCENT }}>
+                          {student.class.name}{student.class.section ? ` — ${student.class.section}` : ''}
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={() => { setSelectedStudentId(null); setSelectedStudentSearchId(null); setStudentSearch('') }} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition shrink-0" style={{ color: TEXT_MUTED_LUXE }}>
+                      <X size={14} />
+                    </button>
+                  </>
+                )
+              })()}
+            </div>
+          )}
+
           {showSanctionForm && (
             <div className="bg-white border-2 border-[oklch(72%_0.15_65_/_0.3)] rounded-2xl p-6 shadow-md">
               <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>

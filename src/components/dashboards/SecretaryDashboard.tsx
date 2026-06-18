@@ -14,11 +14,16 @@ export default function SecretaryDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (userData?.schoolId) {
-      authFetch(`/api/stats?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => { setStats(j.data); setLoading(false) }).catch(() => setLoading(false))
-    } else {
-      setTimeout(() => setLoading(false), 0)
+    function fetchStats() {
+      if (userData?.schoolId) {
+        authFetch(`/api/stats?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => { setStats(j.data); setLoading(false) }).catch(() => setLoading(false))
+      } else {
+        setTimeout(() => setLoading(false), 0)
+      }
     }
+    fetchStats()
+    const interval = setInterval(fetchStats, 30000)
+    return () => clearInterval(interval)
   }, [userData?.schoolId])
 
   const totalStudents = (stats?.students as Record<string, number>)?.total || 0

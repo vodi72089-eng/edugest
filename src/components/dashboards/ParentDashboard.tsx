@@ -24,28 +24,31 @@ export default function ParentDashboard() {
   const [recentDisciplineCount, setRecentDisciplineCount] = useState(0)
 
   useEffect(() => {
-    if (userData?.id) {
-      authFetch(`/api/students?parentId=${userData.id}&limit=20`)
-        .then(r => r.json())
-        .then(j => { setChildren(j.data || []); setLoading(false) })
-        .catch(() => setLoading(false))
-      // Fetch pending homework count
-      authFetch(`/api/homework?parentId=${userData.id}&limit=100`)
-        .then(r => r.json())
-        .then(j => {
-          const hw: { dueDate: string }[] = j.data || []
-          const now = new Date()
-          setPendingHomework(hw.filter(h => new Date(h.dueDate) > now).length)
-        })
-        .catch(() => {})
-      // Fetch discipline count
-      authFetch(`/api/discipline?parentId=${userData.id}&limit=100`)
-        .then(r => r.json())
-        .then(j => setRecentDisciplineCount((j.data || []).length))
-        .catch(() => {})
-    } else {
-      setLoading(false)
+    function fetchData() {
+      if (userData?.id) {
+        authFetch(`/api/students?parentId=${userData.id}&limit=20`)
+          .then(r => r.json())
+          .then(j => { setChildren(j.data || []); setLoading(false) })
+          .catch(() => setLoading(false))
+        authFetch(`/api/homework?parentId=${userData.id}&limit=100`)
+          .then(r => r.json())
+          .then(j => {
+            const hw: { dueDate: string }[] = j.data || []
+            const now = new Date()
+            setPendingHomework(hw.filter(h => new Date(h.dueDate) > now).length)
+          })
+          .catch(() => {})
+        authFetch(`/api/discipline?parentId=${userData.id}&limit=100`)
+          .then(r => r.json())
+          .then(j => setRecentDisciplineCount((j.data || []).length))
+          .catch(() => {})
+      } else {
+        setLoading(false)
+      }
     }
+    fetchData()
+    const interval = setInterval(fetchData, 30000)
+    return () => clearInterval(interval)
   }, [userData?.id])
 
   async function handleEditChild(child: StudentData) {
