@@ -50,18 +50,18 @@ export default function CashierDashboard() {
           <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Résumé des paiements</div>
           <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{totalStudents} élèves · {paymentStats?.paid || 0} payés · {paymentStats?.partial || 0} partiels · {paymentStats?.overdue || 0} impayés</div>
         </div>
-        {classDist && classDist.length > 0 ? (
+            {classDist && classDist.length > 0 ? (
           <div className="space-y-3">
             {classDist.map(c => {
-              const rate = paymentStats?.collectionRate || 0
+              const occupancy = totalStudents > 0 ? (c._count.students / totalStudents) * 100 : 0
               return (
                 <div key={c.name}>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{c.name}</span>
-                    <span style={{ color: TEXT_MUTED_LUXE }}>{c._count.students} élèves</span>
+                    <span style={{ color: TEXT_MUTED_LUXE }}>{c._count.students} élèves · {occupancy.toFixed(0)}%</span>
                   </div>
                   <div className="h-2 bg-[oklch(92%_0.005_175)] rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(rate, 100)}%`, background: rate >= 85 ? `linear-gradient(90deg, ${SUCCESS}, oklch(72% 0.15 65))` : rate >= 70 ? `linear-gradient(90deg, ${WARNING}, oklch(72% 0.15 65))` : `linear-gradient(90deg, ${DANGER}, oklch(58% 0.15 45))` }} />
+                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(occupancy, 100)}%`, background: `linear-gradient(90deg, ${ACCENT}, oklch(72% 0.15 65))` }} />
                   </div>
                 </div>
               )

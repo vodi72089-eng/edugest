@@ -159,7 +159,7 @@ export default function ParentDashboard() {
               <div key={child.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
                 <div className="flex items-center gap-3 mb-4">
                   {/* Clickable child photo */}
-                  <div className="relative group cursor-pointer" onClick={() => { setEditingPhotoForChild(child.id); childPhotoInputRef.current?.click() }}>
+                  <div className="relative group cursor-pointer" onClick={() => { setEditingPhotoForChild(child.id); setTimeout(() => childPhotoInputRef.current?.click(), 50) }}>
                     {child.photoUrl ? (
                       <img src={child.photoUrl} alt={fullName} className="w-14 h-14 rounded-full object-cover border-2 border-[oklch(90%_0.01_175)]" />
                     ) : (
@@ -175,7 +175,7 @@ export default function ParentDashboard() {
                       )}
                     </div>
                     <input
-                      ref={editingPhotoForChild === child.id ? childPhotoInputRef : null}
+                      ref={childPhotoInputRef}
                       type="file" accept="image/*" className="hidden"
                       onChange={e => handleChildPhotoUpload(e, child.id)}
                     />

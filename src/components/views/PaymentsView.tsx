@@ -96,7 +96,8 @@ export default function PaymentsView() {
       const json = await res.json()
       if (res.ok) {
         toast.success('Paiement enregistré avec succès!')
-        const paymentId = json.data.id
+        const paymentId = json.data?.id
+        if (!paymentId) { toast.error('Réponse serveur invalide'); return }
         setLastPaymentId(paymentId)
         const listRes = await authFetch(`/api/payments?limit=30${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
         const listJson = await listRes.json()

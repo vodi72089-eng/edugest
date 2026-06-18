@@ -204,20 +204,6 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'homework:read', 'homework:create',
     'stats:read',
   ],
-  SECRETARY: [
-    'users:read', 'users:create', 'users:update',
-    'students:read', 'students:create', 'students:update',
-    'payments:read', 'payments:create',
-    'classes:read',
-    'convocations:read', 'convocations:create',
-    'communications:read', 'communications:create',
-    'stats:read',
-  ],
-  CASHIER: [
-    'payments:read', 'payments:create', 'payments:update',
-    'students:read',
-    'stats:read',
-  ],
   TEACHER: [
     'students:read',
     'grades:read', 'grades:create', 'grades:update',
@@ -226,7 +212,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'discipline:read',
   ],
   PARENT: [
-    'students:read', 'payments:read', 'grades:read', 'convocations:read',
+    'students:read', 'payments:read', 'grades:read', 'convocations:read', 'profile:read', 'profile:update',
   ],
   DISCIPLINE: [
     'students:read',

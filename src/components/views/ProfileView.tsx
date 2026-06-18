@@ -237,7 +237,7 @@ export default function ProfileView() {
               return (
                 <div key={child.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
                   <div className="flex items-start gap-4">
-                    <div className="relative group cursor-pointer shrink-0" onClick={() => { setEditingPhotoChildId(child.id); childFileInputRef.current?.click() }}>
+                    <div className="relative group cursor-pointer shrink-0" onClick={() => { setEditingPhotoChildId(child.id); setTimeout(() => childFileInputRef.current?.click(), 50) }}>
                       {child.photoUrl ? (
                         <img src={child.photoUrl} alt={`${child.firstName} ${child.lastName}`} className="w-16 h-16 rounded-full object-cover border-2 border-[oklch(90%_0.01_175)]" />
                       ) : (
@@ -253,7 +253,7 @@ export default function ProfileView() {
                         )}
                       </div>
                       <input
-                        ref={editingPhotoChildId === child.id ? childFileInputRef : null}
+                        ref={childFileInputRef}
                         type="file" accept="image/*" className="hidden"
                         onChange={e => handleChildPhotoUpload(e, child.id)}
                       />

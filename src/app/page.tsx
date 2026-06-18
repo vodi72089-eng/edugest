@@ -2202,7 +2202,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
           <Bell size={16} />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2 border-white" style={{ background: GOLD }} />
         </button>
-        <button onClick={() => setCurrentView('profile')} className="w-9 h-9 rounded-xl bg-white border border-[oklch(90%_0.01_175)] grid place-items-center hover:shadow-sm transition" title="Mon profil">
+        <button onClick={() => setCurrentView('settings')} className="w-9 h-9 rounded-xl bg-white border border-[oklch(90%_0.01_175)] grid place-items-center hover:shadow-sm transition" title="Paramètres">
           <Settings size={16} />
         </button>
       </div>
@@ -3942,7 +3942,7 @@ function PaymentVerificationView() {
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span style={{ color: TEXT_MUTED_LUXE }}>Montant d»</span>
+                  <span style={{ color: TEXT_MUTED_LUXE }}>Montant dû</span>
                   <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{formatNumber(selectedPayment.amount)} CDF</span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -4069,7 +4069,7 @@ function CommunicationsView() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          senderId: userData?.schoolId || 'demo', senderRole: userData?.role || 'SECRETARY',
+          senderId: userData?.id || 'demo', senderRole: userData?.role || 'SECRETARY',
           schoolId: userData?.schoolId || 'demo', type, title, content, targetType,
           sentToApp: app, sentToWhatsapp: whatsapp,
         }),
@@ -4351,23 +4351,28 @@ function HomeworkView() {
 
 // ===== CLASS PASSING VIEW =====
 function ClassPassingView() {
+  const { userData } = useEduGestStore()
   const [students, setStudents] = useState<StudentData[]>([])
   const [loading, setLoading] = useState(true)
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
   const [studentSearchLoading, setStudentSearchLoading] = useState(false)
+  const [decisions, setDecisions] = useState<Record<string, string>>({})
+  const [savingId, setSavingId] = useState<string | null>(null)
 
   useEffect(() => {
-    authFetch('/api/students?limit=50').then(r => r.json()).then(j => { setStudents(j.data || []); setLoading(false) }).catch(() => setLoading(false))
-  }, [])
+    const params = new URLSearchParams({ limit: '50' })
+    if (userData?.schoolId) params.set('schoolId', userData.schoolId)
+    authFetch(`/api/students?${params}`).then(r => r.json()).then(j => { setStudents(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+  }, [userData?.schoolId])
 
   // Student search autocomplete
   useEffect(() => {
     if (studentSearch.length < 2) return
     const timer = setTimeout(() => {
       setStudentSearchLoading(true)
-      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
+      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
         .then(r => r.json())
         .then(j => {
           setStudentSuggestions((j.data || []).map((s: StudentData) => ({
@@ -4378,7 +4383,7 @@ function ClassPassingView() {
         .catch(() => setStudentSearchLoading(false))
     }, 300)
     return () => { clearTimeout(timer); setStudentSearchLoading(false) }
-  }, [studentSearch])
+  }, [studentSearch, userData?.schoolId])
 
   const filteredStudents = selectedStudentId
     ? students.filter(s => s.id === selectedStudentId)
@@ -4438,12 +4443,24 @@ function ClassPassingView() {
                   </td>
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.class?.name || '—'}</td>
                   <td className="px-4 py-3">
-                    <select className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                      <option>En attente</option><option>Passage</option><option>Redouble</option>
+                    <select value={decisions[s.id] || 'PENDING'} onChange={e => setDecisions(prev => ({ ...prev, [s.id]: e.target.value }))} className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                      <option value="PENDING">En attente</option><option value="PASSED">Passage</option><option value="REPEAT">Redouble</option>
                     </select>
                   </td>
                   <td className="px-4 py-3">
-                    <button className="text-sm font-medium hover:underline" style={{ color: GOLD }}>Valider</button>
+                    <button onClick={async () => {
+                      const decision = decisions[s.id]
+                      if (!decision || decision === 'PENDING') { toast.error('Sélectionnez une décision'); return }
+                      setSavingId(s.id)
+                      try {
+                        const res = await authFetch('/api/grades', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentId: s.id, decision, schoolId: userData?.schoolId }) })
+                        if (res.ok) toast.success('Décision enregistrée!')
+                        else toast.error('Erreur lors de l\'enregistrement')
+                      } catch { toast.error('Erreur réseau') }
+                      finally { setSavingId(null) }
+                    }} disabled={savingId === s.id} className="text-sm font-medium hover:underline disabled:opacity-50" style={{ color: GOLD }}>
+                      {savingId === s.id ? '...' : 'Valider'}
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -4457,23 +4474,27 @@ function ClassPassingView() {
 
 // ===== BULLETIN VIEW =====
 function BulletinView() {
+  const { userData } = useEduGestStore()
   const [grades, setGrades] = useState<GradeData[]>([])
   const [loading, setLoading] = useState(true)
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
   const [studentSearchLoading, setStudentSearchLoading] = useState(false)
+  const [selectedTrimester, setSelectedTrimester] = useState('T1')
 
   useEffect(() => {
-    authFetch('/api/grades?limit=50&trimester=T1').then(r => r.json()).then(j => { setGrades(j.data || []); setLoading(false) }).catch(() => setLoading(false))
-  }, [])
+    const params = new URLSearchParams({ limit: '50', trimester: selectedTrimester })
+    if (userData?.schoolId) params.set('schoolId', userData.schoolId)
+    authFetch(`/api/grades?${params}`).then(r => r.json()).then(j => { setGrades(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+  }, [selectedTrimester, userData?.schoolId])
 
   // Student search autocomplete
   useEffect(() => {
     if (studentSearch.length < 2) return
     const timer = setTimeout(() => {
       setStudentSearchLoading(true)
-      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8`)
+      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
         .then(r => r.json())
         .then(j => {
           setStudentSuggestions((j.data || []).map((s: StudentData) => ({
@@ -4484,7 +4505,7 @@ function BulletinView() {
         .catch(() => setStudentSearchLoading(false))
     }, 300)
     return () => { clearTimeout(timer); setStudentSearchLoading(false) }
-  }, [studentSearch])
+  }, [studentSearch, userData?.schoolId])
 
   // Group grades by student
   const studentGrades = grades.reduce<Record<string, { student: GradeData['student']; grades: GradeData[] }>>((acc, g) => {
@@ -4514,18 +4535,23 @@ function BulletinView() {
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(Object.keys(filteredStudentGrades).length)} bulletins</p>
         </div>
-        <SearchAutocomplete
-          placeholder="Tapez le nom de l'élève..."
-          items={studentSuggestions}
-          selectedId={selectedStudentId}
-          onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
-          onClear={() => { setSelectedStudentId(null); setStudentSearch('') }}
-          searchQuery={studentSearch}
-          onSearchChange={setStudentSearch}
-          loading={studentSearchLoading}
-          itemTypeName="élève"
-          className="w-full max-w-sm"
-        />
+        <div className="flex items-center gap-3">
+          <select value={selectedTrimester} onChange={e => { setSelectedTrimester(e.target.value); setLoading(true) }} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+            <option value="T1">Trimestre 1</option><option value="T2">Trimestre 2</option><option value="T3">Trimestre 3</option>
+          </select>
+          <SearchAutocomplete
+            placeholder="Tapez le nom de l'élève..."
+            items={studentSuggestions}
+            selectedId={selectedStudentId}
+            onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
+            onClear={() => { setSelectedStudentId(null); setStudentSearch('') }}
+            searchQuery={studentSearch}
+            onSearchChange={setStudentSearch}
+            loading={studentSearchLoading}
+            itemTypeName="élève"
+            className="w-full max-w-sm"
+          />
+        </div>
       </div>
       {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : Object.keys(filteredStudentGrades).length === 0 ? (
         <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun bulletin trouvé</div>
@@ -4550,7 +4576,7 @@ function BulletinView() {
                     </div>
                   ))}
                 </div>
-                <button className="mt-3 w-full py-1.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] hover:shadow-sm transition inline-flex items-center justify-center gap-1.5" style={{ color: TEXT_PRIMARY }}>
+                <button onClick={() => { setSelectedStudentId(id); toast.info('Bulletin de ' + (data.student?.firstName || '') + ' — Moyenne: ' + avg.toFixed(1) + '/20') }} className="mt-3 w-full py-1.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] hover:shadow-sm transition inline-flex items-center justify-center gap-1.5" style={{ color: TEXT_PRIMARY }}>
                   <FileText size={14} /> Voir bulletin
                 </button>
               </div>
@@ -4600,6 +4626,8 @@ function ConvocationView() {
         .then(r => r.json())
         .then(j => { setConvocations(j.data || []); setLoadingConvocations(false) })
         .catch(() => setLoadingConvocations(false))
+    } else {
+      setLoadingConvocations(false)
     }
   }, [userData?.schoolId])
 

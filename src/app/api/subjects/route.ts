@@ -9,7 +9,13 @@ export async function GET(request: NextRequest) {
     const { user } = authResult;
 
     const { searchParams } = new URL(request.url);
-    const schoolId = searchParams.get('schoolId') || '';
+    let schoolId = searchParams.get('schoolId') || '';
+    if (!schoolId && user.role !== 'SUPER_ADMIN_GLOBAL') {
+      schoolId = user.schoolId || '';
+    }
+    if (!schoolId) {
+      return NextResponse.json({ error: 'School ID required' }, { status: 403 });
+    }
     const classId = searchParams.get('classId') || '';
     const schoolYearId = searchParams.get('schoolYearId') || '';
     const page = safeParseInt(searchParams.get('page'), 1, 1, 1000);

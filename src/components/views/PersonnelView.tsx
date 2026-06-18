@@ -243,8 +243,8 @@ export default function PersonnelView() {
           placeholder="Rechercher par nom, email, téléphone..."
           items={personnelSuggestions}
           selectedId={selectedPersonnelId}
-          onSelect={(item) => { setSelectedPersonnelId(item.id); setSearch(item.label); loadUsers() }}
-          onClear={() => { setSelectedPersonnelId(null); setSearch(''); setPersonnelSearch(''); loadUsers() }}
+          onSelect={(item) => { setSelectedPersonnelId(item.id); setSearch(item.label); setTimeout(() => loadUsers(), 0) }}
+          onClear={() => { setSelectedPersonnelId(null); setSearch(''); setPersonnelSearch(''); setTimeout(() => loadUsers(), 0) }}
           searchQuery={personnelSearch}
           onSearchChange={setPersonnelSearch}
           loading={personnelSearchLoading}

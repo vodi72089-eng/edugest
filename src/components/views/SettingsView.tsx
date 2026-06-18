@@ -68,7 +68,7 @@ export default function SettingsView() {
         })
         .catch(() => setLoading(false))
       // Fetch pending comments
-      fetch(`/api/school-comments?schoolId=${userData.schoolId}&approved=false`)
+      authFetch(`/api/school-comments?schoolId=${userData.schoolId}&approved=false`)
         .then(r => r.json())
         .then(j => setComments(j.data || []))
         .catch(() => {})

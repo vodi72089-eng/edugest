@@ -81,7 +81,7 @@ export default function SchoolsManagementView() {
     setSaving(true)
     try {
       // 1. Créer l'école
-      const res = await fetch('/api/schools', {
+      const res = await authFetch('/api/schools', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
