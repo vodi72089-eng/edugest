@@ -282,7 +282,7 @@ export default function SchoolsManagementView() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Année de fondation</label>
-                  <input type="number" value={form.establishmentYear} onChange={e => setForm({ ...form, establishmentYear: parseInt(e.target.value) || undefined })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                  <input type="number" value={form.establishmentYear ?? ''} onChange={e => setForm({ ...form, establishmentYear: e.target.value ? parseInt(e.target.value) : undefined })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
               </div>
               {/* Abonnement */}

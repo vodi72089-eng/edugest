@@ -64,7 +64,7 @@ export default function GradesView() {
 
   useEffect(() => {
     loadGrades()
-  }, [selectedClass, selectedTrimester, selectedChildId])
+  }, [selectedClass, selectedTrimester, selectedChildId, isParent, userData?.id])
 
   async function loadGrades() {
     setLoading(true)

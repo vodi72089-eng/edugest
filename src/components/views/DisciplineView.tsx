@@ -640,8 +640,8 @@ export default function DisciplineView() {
                     {c.student.firstName} {c.student.lastName} — {new Date(c.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
                   </div>
                 </div>
-                <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full ${c.status === 'PENDING' ? 'bg-[oklch(95%_0.08_80)] text-[oklch(55%_0.15_80)]' : c.status === 'SENT' ? 'bg-[oklch(95%_0.08_250)] text-[oklch(55%_0.15_250)]' : 'bg-[oklch(95%_0.08_145)] text-[oklch(55%_0.15_145)]'}`}>
-                  {c.status === 'PENDING' ? 'En attente' : c.status === 'SENT' ? 'Envoyée' : 'Archivée'}
+                <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full ${c.status === 'PENDING' ? 'bg-[oklch(95%_0.08_80)] text-[oklch(55%_0.15_80)]' : c.status === 'SENT' ? 'bg-[oklch(95%_0.08_250)] text-[oklch(55%_0.15_250)]' : c.status === 'CONFIRMED' ? 'bg-[oklch(95%_0.08_145)] text-[oklch(55%_0.15_145)]' : 'bg-[oklch(95%_0.04_175)] text-[oklch(55%_0.12_175)]'}`}>
+                  {c.status === 'PENDING' ? 'En attente' : c.status === 'SENT' ? 'Envoyée' : c.status === 'CONFIRMED' ? 'Confirmée' : 'Archivée'}
                 </span>
               </div>
             ))}
