@@ -156,15 +156,15 @@ export async function GET(request: NextRequest) {
       },
     ];
 
-    const schools = [];
+    const schools: any[] = [];
     for (const s of schoolsData) {
-      const school = await db.school.create({ data: s });
+      const school = await db.school.create({ data: s as any }) as any;
       schools.push(school);
       counts.schools++;
     }
 
     // ===== CREATE SCHOOL YEARS =====
-    const schoolYears = [];
+    const schoolYears: any[] = [];
     for (const school of schools) {
       const sy = await db.schoolYear.create({
         data: {
@@ -173,8 +173,8 @@ export async function GET(request: NextRequest) {
           endDate: new Date('2026-06-30'),
           isActive: true,
           schoolId: school.id,
-        },
-      });
+        } as any,
+      }) as any;
       schoolYears.push({ ...sy, schoolId: school.id, schoolShortName: school.shortName });
       counts.schoolYears++;
     }
@@ -202,7 +202,7 @@ export async function GET(request: NextRequest) {
       { name: 'TleS', section: 'Secondaire', level: 'SECONDAIRE' },
     ];
 
-    const lumiereClasses: { id: string; name: string; section: string; level: string }[] = [];
+    const lumiereClasses: any[] = [];
     for (const c of classNames) {
       const cls = await db.class.create({
         data: {
@@ -212,8 +212,8 @@ export async function GET(request: NextRequest) {
           capacity: 40,
           schoolId: lumiere.id,
           schoolYearId: lumiereYear.id,
-        },
-      });
+        } as any,
+      }) as any;
       lumiereClasses.push(cls);
       counts.classes++;
     }
@@ -232,8 +232,8 @@ export async function GET(request: NextRequest) {
           schoolId: lumiere.id,
           schoolYearId: lumiereYear.id,
           classId: lumiereClasses[0].id,
-        },
-      });
+        } as any,
+      }) as any;
       for (const cls of lumiereClasses) {
         subjectMap[`${cls.id}-${subName}`] = subject.id;
       }
@@ -258,7 +258,7 @@ export async function GET(request: NextRequest) {
       { name: 'Maman Nsimba', email: 'nsimba@email.com', phone: '+243810000022', role: 'PARENT' },
     ];
 
-    const lumiereUsers: { id: string; role: string; name: string; email?: string }[] = [];
+    const lumiereUsers: any[] = [];
     for (const u of usersData) {
       const createdUser = await db.user.create({
         data: {
@@ -268,8 +268,8 @@ export async function GET(request: NextRequest) {
           password: passwordHash,
           role: u.role,
           schoolId: lumiere.id,
-        },
-      });
+        } as any,
+      }) as any;
       lumiereUsers.push({ id: createdUser.id, role: u.role, name: u.name, email: u.email });
       counts.users++;
     }
@@ -282,7 +282,7 @@ export async function GET(request: NextRequest) {
     if (headTeacher) {
       const class6eA = lumiereClasses.find(c => c.name === '6eA');
       if (class6eA) {
-        await db.class.update({ where: { id: class6eA.id }, data: { headTeacherId: headTeacher.id } });
+        await db.class.update({ where: { id: class6eA.id }, data: { headTeacherId: headTeacher.id } }) as any;
       }
     }
 
@@ -310,7 +310,7 @@ export async function GET(request: NextRequest) {
       { firstName: 'David', lastName: 'Mwamba', gender: 'M', className: 'CM2', parentEmail: 'parent@email.com', dob: '2014-02-17' },
     ];
 
-    const createdStudents: { id: string; matricule: string; classId: string }[] = [];
+    const createdStudents: any[] = [];
     let matriculeCounter = 1;
 
     for (const s of studentsData) {
@@ -332,8 +332,8 @@ export async function GET(request: NextRequest) {
           parentId: parent?.id,
           schoolId: lumiere.id,
           schoolYearId: lumiereYear.id,
-        },
-      });
+        } as any,
+      }) as any;
       createdStudents.push({ id: student.id, matricule: student.matricule, classId: cls.id });
       counts.students++;
     }
@@ -357,8 +357,8 @@ export async function GET(request: NextRequest) {
                 trimester,
                 score,
                 schoolYearId: lumiereYear.id,
-              },
-            });
+              } as any,
+            }) as any;
             counts.grades++;
           } catch {
             // Skip if unique constraint violation
@@ -392,8 +392,8 @@ export async function GET(request: NextRequest) {
           listType: d.listType,
           status: 'CONFIRMED',
           schoolId: lumiere.id,
-        },
-      });
+        } as any,
+      }) as any;
       counts.disciplineRecords++;
     }
 
@@ -405,24 +405,24 @@ export async function GET(request: NextRequest) {
           schoolId: lumiere.id,
           reason: 'Tricherie en examen - sanction disciplinaire',
           addedBy: 'Directeur Secondaire',
-        },
-      });
+        } as any,
+      }) as any;
       await db.greylist.create({
         data: {
           studentId: createdStudents[0].id,
           schoolId: lumiere.id,
           reason: 'Retards répétés - avertissement',
           addedBy: 'Discipline Secondaire',
-        },
-      });
+        } as any,
+      }) as any;
       await db.whitelist.create({
         data: {
           studentId: createdStudents[14].id,
           schoolId: lumiere.id,
           reason: 'Comportement exemplaire et résultats excellents',
           addedBy: 'Directrice Maternelle',
-        },
-      });
+        } as any,
+      }) as any;
     }
 
     // ----- Payment Records -----
@@ -446,8 +446,8 @@ export async function GET(request: NextRequest) {
             status,
             paidAt: status === 'PAID' ? new Date('2025-10-15') : status === 'PARTIAL' ? new Date('2025-10-20') : null,
             receiptNumber: status === 'PAID' ? `REC-${String(i + 1).padStart(4, '0')}-${trimester}` : null,
-          },
-        });
+          } as any,
+        }) as any;
         counts.paymentRecords++;
       }
     }
@@ -473,8 +473,8 @@ export async function GET(request: NextRequest) {
           targetType: c.targetType,
           sentToApp: true,
           sentToWhatsapp: true,
-        },
-      });
+        } as any,
+      }) as any;
       counts.communications++;
     }
 
@@ -500,8 +500,8 @@ export async function GET(request: NextRequest) {
           teacherName: h.teacherName,
           dueDate: new Date(h.dueDate),
           schoolId: lumiere.id,
-        },
-      });
+        } as any,
+      }) as any;
       counts.homeworks++;
     }
 
@@ -525,8 +525,8 @@ export async function GET(request: NextRequest) {
             capacity: 35,
             schoolId: school.id,
             schoolYearId: sy.id,
-          },
-        });
+          } as any,
+        }) as any;
         counts.classes++;
       }
 
@@ -538,8 +538,8 @@ export async function GET(request: NextRequest) {
           password: passwordHash,
           role: 'SECRETARY',
           schoolId: school.id,
-        },
-      });
+        } as any,
+      }) as any;
       counts.users++;
     }
 
@@ -549,8 +549,8 @@ export async function GET(request: NextRequest) {
       const classCount = await db.class.count({ where: { schoolId: school.id } });
       await db.school.update({
         where: { id: school.id },
-        data: { studentCount, classCount },
-      });
+        data: { studentCount, classCount } as any,
+      }) as any;
     }
 
     return NextResponse.json({

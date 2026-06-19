@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       if (!user) {
         const allUsers = await db.user.findMany({ select: { id: true, phone: true } });
         const normalized = trimmedPhone.replace(/^\+/, '');
-        user = allUsers.find(u => u.phone?.replace(/[\s\-().]/g, '').replace(/^\+/, '') === normalized) || null;
+        user = (allUsers.find(u => u.phone?.replace(/[\s\-().]/g, '').replace(/^\+/, '') === normalized) as any) || null;
       }
       if (!user) return NextResponse.json({ error: 'Ce numéro n\'est pas enregistré' }, { status: 404 });
       if (!user.isActive) return NextResponse.json({ error: 'Compte désactivé' }, { status: 403 });

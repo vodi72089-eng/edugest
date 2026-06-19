@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
     // BUG FIX: Use role 'SECRETARY' instead of 'SUPER_ADMIN_GLOBAL'
     // BUG FIX: Generate random password instead of 'admin123'
     // BUG FIX: Use bcrypt cost factor 12
-    let adminUser = null;
+    let adminUser: any = null;
     if (adminName && (adminEmail || adminPhone)) {
       const randomPassword = adminPassword || generateRandomPassword();
       const hashedPassword = await bcrypt.hash(randomPassword, 12);

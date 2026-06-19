@@ -2592,7 +2592,7 @@ function ClassesView() {
   const [addingClass, setAddingClass] = useState(false)
   const [deletingClassId, setDeletingClassId] = useState<string | null>(null)
   const [pendingApprovals, setPendingApprovals] = useState<{id: string; name: string; type: string; requestedBy: string}[]>([])
-  const canManage = userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SCHOOL_ADMIN' || (userRole && userRole.startsWith('DIRECTION'))
+  const canManage = userRole === 'SUPER_ADMIN_GLOBAL' || (userRole && userRole.startsWith('DIRECTION'))
 
   useEffect(() => {
     authFetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => { setClasses(j.data || []); setLoading(false) }).catch(() => setLoading(false))
@@ -3408,7 +3408,7 @@ function PaymentConfigView() {
 function PaymentVerificationView() {
   const { userData, userRole } = useEduGestStore()
   const isParent = userRole === 'PARENT'
-  const isAdmin = userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SCHOOL_ADMIN'
+  const isAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
   const isCashier = userRole === 'CASHIER'
   const isSecretary = userRole === 'SECRETARY'
   const canVerify = isAdmin || isCashier || isSecretary
@@ -3593,26 +3593,26 @@ function PaymentVerificationView() {
                       {searchResult.status === 'PAID' ? '✓ Payé' : searchResult.status === 'PARTIAL' ? '◯ Partiel' : searchResult.status === 'OVERDUE' ? '⚠ En retard' : '◯ En attente'}
                     </span>
                   </div>
-                  {(searchResult as Record<string, unknown>).verifiedBy && (
+                  {searchResult.verifiedBy && (
                     <>
                       <div>
                         <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Vérifié par</div>
-                        <div className="text-sm font-semibold" style={{ color: SUCCESS }}>{String((searchResult as Record<string, unknown>).verifiedBy)}</div>
+                        <div className="text-sm font-semibold" style={{ color: SUCCESS }}>{String(searchResult.verifiedBy)}</div>
                       </div>
                       <div>
                         <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Date de vérification</div>
                         <div className="text-sm" style={{ color: TEXT_PRIMARY }}>
-                          {(searchResult as Record<string, unknown>).verifiedAt ? new Date(String((searchResult as Record<string, unknown>).verifiedAt)).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                          {searchResult.verifiedAt ? new Date(String(searchResult.verifiedAt)).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
                         </div>
                       </div>
                     </>
                   )}
                 </div>
 
-                {(searchResult as Record<string, unknown>).verificationNote && (
+                {searchResult.verificationNote && (
                   <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-3">
                     <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Note du vérificateur</div>
-                    <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{String((searchResult as Record<string, unknown>).verificationNote)}</div>
+                    <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{String(searchResult.verificationNote)}</div>
                   </div>
                 )}
 
@@ -3822,10 +3822,10 @@ function PaymentVerificationView() {
               <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{staffSearchResult.receiptNumber || `REC-${staffSearchResult.id.slice(-8).toUpperCase()}`}</div>
             </div>
             <div className="ml-auto">
-              {staffSearchResult.status === 'PAID' && !(staffSearchResult as Record<string, unknown>).verifiedBy && (
+              {staffSearchResult.status === 'PAID' && !staffSearchResult.verifiedBy && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: `${WARNING}15`, color: WARNING }}>Non vérifié</span>
               )}
-              {(staffSearchResult as Record<string, unknown>).verifiedBy && (
+              {staffSearchResult.verifiedBy && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: `${SUCCESS}15`, color: SUCCESS }}>Vérifié</span>
               )}
             </div>
@@ -3871,26 +3871,26 @@ function PaymentVerificationView() {
                   {staffSearchResult.status === 'PAID' ? '✓ Payé' : staffSearchResult.status === 'PARTIAL' ? '◯ Partiel' : staffSearchResult.status === 'REJECTED' ? '✗ Rejeté' : '◯ En attente'}
                 </span>
               </div>
-              {(staffSearchResult as Record<string, unknown>).verifiedBy && (
+              {staffSearchResult.verifiedBy && (
                 <>
                   <div>
                     <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Vérifié par</div>
-                    <div className="text-sm font-semibold" style={{ color: SUCCESS }}>{String((staffSearchResult as Record<string, unknown>).verifiedBy)}</div>
+                    <div className="text-sm font-semibold" style={{ color: SUCCESS }}>{String(staffSearchResult.verifiedBy)}</div>
                   </div>
                   <div>
                     <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Date de vérification</div>
                     <div className="text-sm" style={{ color: TEXT_PRIMARY }}>
-                      {(staffSearchResult as Record<string, unknown>).verifiedAt ? new Date(String((staffSearchResult as Record<string, unknown>).verifiedAt)).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                      {staffSearchResult.verifiedAt ? new Date(String(staffSearchResult.verifiedAt)).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
                     </div>
                   </div>
                 </>
               )}
             </div>
 
-            {(staffSearchResult as Record<string, unknown>).verificationNote && (
+            {staffSearchResult.verificationNote && (
               <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-3">
                 <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Note du vérificateur</div>
-                <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{String((staffSearchResult as Record<string, unknown>).verificationNote)}</div>
+                <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{String(staffSearchResult.verificationNote)}</div>
               </div>
             )}
 
@@ -3911,7 +3911,7 @@ function PaymentVerificationView() {
               >
                 <Download size={14} /> Télécharger
               </button>
-              {canVerify && !(staffSearchResult as Record<string, unknown>).verifiedBy && (
+              {canVerify && !staffSearchResult.verifiedBy && (
                 <button
                   onClick={() => setSelectedPayment(staffSearchResult)}
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90"
@@ -4365,7 +4365,7 @@ function HomeworkView() {
 function ClassPassingView() {
   const { userData, userRole } = useEduGestStore()
   const allowedRoles = ['SUPER_ADMIN_GLOBAL', 'ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'HEAD_TEACHER']
-  const canAccess = allowedRoles.includes(userRole)
+  const canAccess = allowedRoles.includes(userRole || '')
   const [students, setStudents] = useState<StudentData[]>([])
   const [loading, setLoading] = useState(true)
   const [studentSearch, setStudentSearch] = useState('')
@@ -4623,7 +4623,7 @@ function BulletinView() {
 function ConvocationView() {
   const { userData, userRole } = useEduGestStore()
   const allowedRoles = ['SUPER_ADMIN_GLOBAL', 'ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE']
-  const canAccess = allowedRoles.includes(userRole)
+  const canAccess = allowedRoles.includes(userRole || '')
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
@@ -4825,7 +4825,7 @@ function SchoolReviewsView() {
         body: JSON.stringify({
           schoolId: userData.schoolId,
           authorName: userData?.name || 'Parent',
-          authorEmail: userData?.email || '',
+          authorEmail: (userData as any)?.email || '',
           rating,
           comment: comment.trim(),
         }),
