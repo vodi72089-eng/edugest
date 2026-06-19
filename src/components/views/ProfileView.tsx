@@ -24,7 +24,7 @@ export default function ProfileView() {
   const [savingChild, setSavingChild] = useState(false)
   const [uploadingChildPhoto, setUploadingChildPhoto] = useState(false)
   const [editingPhotoChildId, setEditingPhotoChildId] = useState<string | null>(null)
-  const childFileInputRef = useRef<HTMLInputElement | null>(null)
+  const childFileInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map())
 
   useEffect(() => {
     if (userData?.profileImageUrl) {
@@ -238,7 +238,7 @@ export default function ProfileView() {
               return (
                 <div key={child.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
                   <div className="flex items-start gap-4">
-                    <div className="relative group cursor-pointer shrink-0" onClick={() => { setEditingPhotoChildId(child.id); setTimeout(() => childFileInputRef.current?.click(), 50) }}>
+                    <div className="relative group cursor-pointer shrink-0" onClick={() => { setEditingPhotoChildId(child.id); childFileInputRefs.current.get(child.id)?.click() }}>
                       {child.photoUrl ? (
                         <img src={child.photoUrl} alt={`${child.firstName} ${child.lastName}`} className="w-16 h-16 rounded-full object-cover border-2 border-[oklch(90%_0.01_175)]" />
                       ) : (
@@ -254,10 +254,10 @@ export default function ProfileView() {
                         )}
                       </div>
                       <input
-                        ref={childFileInputRef}
                         type="file" accept="image/*" className="hidden"
                         onChange={e => handleChildPhotoUpload(e, child.id)}
                         onClick={e => e.stopPropagation()}
+                        ref={el => { if (el) childFileInputRefs.current.set(child.id, el) }}
                       />
                     </div>
                     <div className="flex-1 min-w-0">

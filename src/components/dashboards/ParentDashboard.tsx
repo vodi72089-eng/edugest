@@ -18,7 +18,7 @@ export default function ParentDashboard() {
   const [editLastName, setEditLastName] = useState('')
   const [savingChild, setSavingChild] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const childPhotoInputRef = useRef<HTMLInputElement | null>(null)
+  const childPhotoInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map())
   const [editingPhotoForChild, setEditingPhotoForChild] = useState<string | null>(null)
   const [pendingHomework, setPendingHomework] = useState(0)
   const [recentDisciplineCount, setRecentDisciplineCount] = useState(0)
@@ -159,7 +159,7 @@ export default function ParentDashboard() {
               <div key={child.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
                 <div className="flex items-center gap-3 mb-4">
                   {/* Clickable child photo */}
-                  <div className="relative group cursor-pointer" onClick={() => { setEditingPhotoForChild(child.id); setTimeout(() => childPhotoInputRef.current?.click(), 50) }}>
+                  <div className="relative group cursor-pointer" onClick={() => { setEditingPhotoForChild(child.id); childPhotoInputRefs.current.get(child.id)?.click() }}>
                     {child.photoUrl ? (
                       <img src={child.photoUrl} alt={fullName} className="w-14 h-14 rounded-full object-cover border-2 border-[oklch(90%_0.01_175)]" />
                     ) : (
@@ -175,10 +175,10 @@ export default function ParentDashboard() {
                       )}
                     </div>
                     <input
-                      ref={childPhotoInputRef}
                       type="file" accept="image/*" className="hidden"
                       onChange={e => handleChildPhotoUpload(e, child.id)}
                       onClick={e => e.stopPropagation()}
+                      ref={el => { if (el) childPhotoInputRefs.current.set(child.id, el) }}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
