@@ -72,8 +72,11 @@ server.log
 /mini-services/
 
 # Caddyfile
-Caddyfileuploads/schools/*.png
+Caddyfile
 tool-results/
+
+# Uploaded files (runtime-generated user content: profile photos, student photos, etc.)
+/public/uploads/
 
 # WhatsApp session (linked phone credentials)
 whatsapp-auth/
