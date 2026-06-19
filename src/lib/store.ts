@@ -111,6 +111,7 @@ export type ViewType =
   | 'school-reviews'
   | 'payment-verification'
   | 'payment-config'
+  | 'online-payment'
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'

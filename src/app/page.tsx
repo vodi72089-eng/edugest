@@ -22,6 +22,7 @@ import DisciplineView from '@/components/views/DisciplineView'
 import PersonnelView from '@/components/views/PersonnelView'
 import ProfileView from '@/components/views/ProfileView'
 import SettingsView from '@/components/views/SettingsView'
+import OnlinePaymentView from '@/components/views/OnlinePaymentView'
 import SchoolsManagementView from '@/components/views/SchoolsManagementView'
 import {
   Search, Bell, Settings, Plus, ChevronRight, Users, GraduationCap,
@@ -2064,7 +2065,7 @@ function Sidebar() {
       { icon: <Users size={16} />, label: 'Mes enfants', view: 'dashboard' },
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
-      { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
+      { icon: <CreditCard size={16} />, label: 'Payer en ligne', view: 'online-payment' as ViewType },
       { icon: <CheckCircle size={16} />, label: 'Vérifier reçu', view: 'payment-verification' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
@@ -2177,6 +2178,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     'admin-analytics': 'Statistiques', 'whatsapp-config': 'Connexion WhatsApp',
     personnel: 'Personnel', settings: 'Paramètres', 'school-reviews': 'Avis',
     'payment-verification': 'Vérification', 'payment-config': 'Config. Paiement',
+    'online-payment': 'Payer en ligne',
   }
 
   return (
@@ -2485,6 +2487,7 @@ function MainContent() {
     case 'grades': return <GradesView />
     case 'payments': return <PaymentsView />
     case 'payment-verification': return <PaymentVerificationView />
+    case 'online-payment': return <OnlinePaymentView />
     case 'payment-config': return <PaymentConfigView />
     case 'discipline': return <DisciplineView />
     case 'communications': return <CommunicationsView />
@@ -2812,7 +2815,7 @@ function PaymentConfigView() {
       const json = await res.json()
       if (json.data) {
         setCurrencyConfig(json.data.config)
-        setExchangeRates(json.data.rates || {})
+        setExchangeRates(json.data.exchangeRates || {})
         setSupportedCurrencies(json.data.supportedCurrencies || [])
         if (json.data.config) {
           setCurrencyForm({
@@ -2837,7 +2840,11 @@ function PaymentConfigView() {
 
   async function refreshRates() {
     try {
-      const res = await authFetch(`/api/currency/exchange-rates?base=${currencyForm.baseCurrency}`, { method: 'POST' })
+      const res = await authFetch(`/api/currency/exchange-rates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ baseCurrency: currencyForm.baseCurrency }),
+      })
       const json = await res.json()
       if (json.data) {
         setExchangeRates(json.data.rates || {})
