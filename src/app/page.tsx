@@ -5004,15 +5004,6 @@ function PricingDashboard() {
 export default function Home() {
   const { currentView, userRole, logout, setCurrentView } = useEduGestStore()
 
-  // Hydrate persisted view/sidebar on mount
-  useEffect(() => {
-    const { hydrateStore } = require('@/lib/store')
-    hydrateStore()
-    // Also trigger the store's internal hydrate
-    const { useEduGestStore } = require('@/lib/store')
-    useEduGestStore.getState().hydrate()
-  }, [])
-
   // Handle 401 unauthorized events from authFetch
   useEffect(() => {
     const handler = () => {

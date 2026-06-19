@@ -1,28 +1,29 @@
 import { create } from 'zustand'
 
-// ─── Persistence Helpers ─────────────────────────────────────────────────────
+// ─── Persistence Keys ────────────────────────────────────────────────────────
 
-const VIEW_STORAGE_KEY = 'edugest_current_view';
-const SIDEBAR_STORAGE_KEY = 'edugest_sidebar_open';
+const STORAGE_KEY = 'edugest_session';
 
-function getStoredView(): ViewType | null {
+function getStoredSession() {
   if (typeof window === 'undefined') return null;
   try {
-    const stored = localStorage.getItem(VIEW_STORAGE_KEY);
-    return (stored as ViewType) || null;
-  } catch {
-    return null;
-  }
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
 }
 
-function getStoredSidebar(): boolean | null {
-  if (typeof window === 'undefined') return null;
+function saveSession(data: { view?: string; sidebar?: boolean; role?: string | null; userData?: UserData | null }) {
+  if (typeof window === 'undefined') return;
   try {
-    const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
-  }
+    const existing = getStoredSession() || {};
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...existing, ...data }));
+  } catch {}
+}
+
+function clearSession() {
+  if (typeof window === 'undefined') return;
+  try { localStorage.removeItem(STORAGE_KEY); } catch {}
 }
 
 // ─── Auth Token Storage ─────────────────────────────────────────────────────
@@ -31,13 +32,10 @@ let _authToken: string | null = null;
 
 export function setAuthToken(token: string | null) {
   _authToken = token;
-  if (token) {
-    if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined') {
+    if (token) {
       localStorage.setItem('edugest_token', token);
-    }
-  } else {
-    _authToken = null;
-    if (typeof window !== 'undefined') {
+    } else {
       localStorage.removeItem('edugest_token');
     }
   }
@@ -58,15 +56,6 @@ export function getAuthToken(): string | null {
 /**
  * Helper to make authenticated API requests
  */
-export function hydrateStore(): void {
-  if (typeof window === 'undefined') return;
-  const storedView = getStoredView();
-  const storedSidebar = getStoredSidebar();
-  const token = localStorage.getItem('edugest_token');
-  if (token) setAuthToken(token);
-  // Note: This sets initial state, but the store's hydrate will be called from component
-}
-
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const token = getAuthToken();
   const headers: Record<string, string> = {
@@ -176,20 +165,44 @@ interface EduGestStore {
   logout: () => void
 }
 
+// ─── Initial State from localStorage ─────────────────────────────────────────
+
+function getInitialState() {
+  if (typeof window === 'undefined') {
+    return { currentView: 'home' as ViewType, userRole: null as UserRole | null, userData: null as UserData | null, sidebarOpen: false };
+  }
+  const session = getStoredSession();
+  const token = localStorage.getItem('edugest_token');
+  if (token) _authToken = token;
+  if (!session) return { currentView: 'home' as ViewType, userRole: null, userData: null, sidebarOpen: false };
+  return {
+    currentView: (session.view || 'home') as ViewType,
+    userRole: (session.role || null) as UserRole | null,
+    userData: (session.userData || null) as UserData | null,
+    sidebarOpen: session.sidebar || false,
+  };
+}
+
+const initial = getInitialState();
+
 export const useEduGestStore = create<EduGestStore>((set, get) => ({
-  currentView: 'home',
+  currentView: initial.currentView,
   setCurrentView: (view) => {
     set({ currentView: view });
-    if (typeof window !== 'undefined') {
-      try { localStorage.setItem(VIEW_STORAGE_KEY, view); } catch {}
-    }
+    saveSession({ view });
   },
 
-  userRole: null,
-  setUserRole: (role) => set({ userRole: role }),
+  userRole: initial.userRole,
+  setUserRole: (role) => {
+    set({ userRole: role });
+    saveSession({ role });
+  },
 
-  userData: null,
-  setUserData: (data) => set({ userData: data }),
+  userData: initial.userData,
+  setUserData: (data) => {
+    set({ userData: data });
+    saveSession({ userData: data });
+  },
 
   selectedSchoolId: null,
   setSelectedSchoolId: (id) => set({ selectedSchoolId: id }),
@@ -197,12 +210,10 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
   selectedStudentId: null,
   setSelectedStudentId: (id) => set({ selectedStudentId: id }),
 
-  sidebarOpen: false,
+  sidebarOpen: initial.sidebarOpen,
   setSidebarOpen: (open) => {
     set({ sidebarOpen: open });
-    if (typeof window !== 'undefined') {
-      try { localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(open)); } catch {}
-    }
+    saveSession({ sidebar: open });
   },
 
   searchQuery: '',
@@ -210,20 +221,19 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
 
   login: (role, data, token?: string) => {
     if (token) setAuthToken(token);
+    const sessionData = { view: 'dashboard', role, userData: data, sidebar: false };
     set({
       userRole: role,
       userData: data,
       currentView: 'dashboard',
       sidebarOpen: false,
     });
+    saveSession(sessionData);
   },
 
   logout: () => {
     setAuthToken(null);
-    if (typeof window !== 'undefined') {
-      try { localStorage.removeItem(VIEW_STORAGE_KEY); } catch {}
-      try { localStorage.removeItem(SIDEBAR_STORAGE_KEY); } catch {}
-    }
+    clearSession();
     set({
       userRole: null,
       userData: null,
@@ -232,15 +242,5 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
       selectedSchoolId: null,
       selectedStudentId: null,
     });
-  },
-
-  hydrate: () => {
-    if (typeof window === 'undefined') return;
-    const storedView = getStoredView();
-    const storedSidebar = getStoredSidebar();
-    const token = localStorage.getItem('edugest_token');
-    if (token) setAuthToken(token);
-    if (storedView) set({ currentView: storedView });
-    if (storedSidebar !== null) set({ sidebarOpen: storedSidebar });
   },
 }))
