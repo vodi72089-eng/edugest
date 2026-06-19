@@ -91,9 +91,13 @@ export default function SearchAutocomplete({
       </div>
       {selectedId && selectedItem && (
         <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium" style={{ background: GOLD_SOFT, color: GOLD }}>
-          <div className="w-6 h-6 rounded-full grid place-items-center text-white text-[9px] font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-            {getInitials(selectedItem.label)}
-          </div>
+          {selectedItem.photoUrl ? (
+            <img src={selectedItem.photoUrl} alt={selectedItem.label} className="w-6 h-6 rounded-full object-cover shrink-0" />
+          ) : (
+            <div className="w-6 h-6 rounded-full grid place-items-center text-white text-[9px] font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+              {getInitials(selectedItem.label)}
+            </div>
+          )}
           {selectedItem.label}
           {selectedItem.sublabel && <span className="text-[10px] opacity-70">({selectedItem.sublabel})</span>}
         </div>
