@@ -232,6 +232,20 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
   },
 
   logout: () => {
+    // Best-effort: notify the server to revoke the session file so the token
+    // can't be reused. We don't await — the local state is cleared
+    // immediately so the UI is responsive even if the network is slow.
+    const token = getAuthToken();
+    if (token) {
+      try {
+        fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        }).catch(() => { /* best effort */ });
+      } catch {
+        /* ignore */
+      }
+    }
     setAuthToken(null);
     clearSession();
     set({
