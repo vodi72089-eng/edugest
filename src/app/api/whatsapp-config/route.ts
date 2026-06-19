@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole, sanitizeError } from '@/lib/auth';
+import { invalidateAdminPhoneCache } from '@/lib/whatsapp-agent';
 
 const WHATSAPP_CONFIG_KEY = 'WHATSAPP_OFFICIAL_NUMBER';
 
@@ -116,6 +117,9 @@ export async function POST(request: NextRequest) {
         updatedBy: user.name,
       },
     });
+
+    // Invalider le cache du numéro admin
+    invalidateAdminPhoneCache();
 
     return NextResponse.json({
       data: {

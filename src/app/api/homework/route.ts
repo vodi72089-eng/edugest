@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError } from '@/lib/auth';
+import { notifyHomework } from '@/lib/whatsapp-agent';
 
 export async function GET(request: NextRequest) {
   try {
@@ -142,6 +143,45 @@ export async function POST(request: NextRequest) {
         isPublished: isPublished !== undefined ? isPublished : true,
       },
     });
+
+    // Envoyer notifications WhatsApp aux parents de la classe
+    try {
+      const classStudents = await db.student.findMany({
+        where: { classId },
+        select: { parentId: true, firstName: true, lastName: true },
+      });
+
+      const school = await db.school.findUnique({
+        where: { id: schoolId },
+        select: { name: true },
+      });
+
+      if (school) {
+        // Envoyer à chaque parent (évite les doublons)
+        const notifiedParents = new Set<string>();
+        for (const student of classStudents) {
+          if (student.parentId && !notifiedParents.has(student.parentId)) {
+            notifiedParents.add(student.parentId);
+            const parent = await db.user.findUnique({
+              where: { id: student.parentId },
+              select: { phone: true },
+            });
+            if (parent?.phone) {
+              await notifyHomework({
+                parentPhone: parent.phone,
+                studentName: `${student.firstName} ${student.lastName}`,
+                subject: subjectName,
+                title,
+                dueDate: new Date(dueDate),
+                schoolName: school.name,
+              });
+            }
+          }
+        }
+      }
+    } catch (notifError) {
+      console.error('[Homework] Notification failed:', notifError);
+    }
 
     return NextResponse.json({ data: homework }, { status: 201 });
   } catch (error) {

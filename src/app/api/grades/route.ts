@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, verifyParentAccess, safeParseInt, sanitizeError } from '@/lib/auth';
+import { notifyGrade } from '@/lib/whatsapp-agent';
 
 export async function GET(request: NextRequest) {
   try {
@@ -180,6 +181,37 @@ export async function POST(request: NextRequest) {
         subject: { select: { id: true, name: true, coefficient: true } },
       },
     });
+
+    // Envoyer notification WhatsApp au parent
+    try {
+      const student = await db.student.findUnique({
+        where: { id: studentId },
+        select: { parentId: true, firstName: true, lastName: true, schoolId: true },
+      });
+      if (student?.parentId) {
+        const parent = await db.user.findUnique({
+          where: { id: student.parentId },
+          select: { phone: true },
+        });
+        const school = await db.school.findUnique({
+          where: { id: student.schoolId },
+          select: { name: true },
+        });
+        if (parent?.phone && school) {
+          await notifyGrade({
+            parentPhone: parent.phone,
+            studentName: `${student.firstName} ${student.lastName}`,
+            subject: grade.subject.name,
+            score,
+            maxScore: 20,
+            trimester,
+            schoolName: school.name,
+          });
+        }
+      }
+    } catch (notifError) {
+      console.error('[Grade] Notification failed:', notifError);
+    }
 
     return NextResponse.json({ data: grade });
   } catch (error) {

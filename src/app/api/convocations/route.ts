@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError } from '@/lib/auth';
+import { notifyConvocation } from '@/lib/whatsapp-agent';
 
 export async function GET(request: NextRequest) {
   try {
@@ -89,6 +90,32 @@ export async function POST(request: NextRequest) {
         student: { select: { id: true, firstName: true, lastName: true, matricule: true, parentId: true } },
       },
     });
+
+    // Envoyer notification WhatsApp au parent
+    try {
+      const student = record.student;
+      if (student.parentId) {
+        const parent = await db.user.findUnique({
+          where: { id: student.parentId },
+          select: { phone: true },
+        });
+        const school = await db.school.findUnique({
+          where: { id: schoolId },
+          select: { name: true },
+        });
+        if (parent?.phone && school) {
+          await notifyConvocation({
+            parentPhone: parent.phone,
+            studentName: `${student.firstName} ${student.lastName}`,
+            motif,
+            date: new Date(date),
+            schoolName: school.name,
+          });
+        }
+      }
+    } catch (notifError) {
+      console.error('[Convocation] Notification failed:', notifError);
+    }
 
     return NextResponse.json({ data: record }, { status: 201 });
   } catch (error) {

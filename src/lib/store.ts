@@ -1,5 +1,30 @@
 import { create } from 'zustand'
 
+// ─── Persistence Helpers ─────────────────────────────────────────────────────
+
+const VIEW_STORAGE_KEY = 'edugest_current_view';
+const SIDEBAR_STORAGE_KEY = 'edugest_sidebar_open';
+
+function getStoredView(): ViewType | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(VIEW_STORAGE_KEY);
+    return (stored as ViewType) || null;
+  } catch {
+    return null;
+  }
+}
+
+function getStoredSidebar(): boolean | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Auth Token Storage ─────────────────────────────────────────────────────
 
 let _authToken: string | null = null;
@@ -33,6 +58,15 @@ export function getAuthToken(): string | null {
 /**
  * Helper to make authenticated API requests
  */
+export function hydrateStore(): void {
+  if (typeof window === 'undefined') return;
+  const storedView = getStoredView();
+  const storedSidebar = getStoredSidebar();
+  const token = localStorage.getItem('edugest_token');
+  if (token) setAuthToken(token);
+  // Note: This sets initial state, but the store's hydrate will be called from component
+}
+
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const token = getAuthToken();
   const headers: Record<string, string> = {
@@ -142,9 +176,14 @@ interface EduGestStore {
   logout: () => void
 }
 
-export const useEduGestStore = create<EduGestStore>((set) => ({
+export const useEduGestStore = create<EduGestStore>((set, get) => ({
   currentView: 'home',
-  setCurrentView: (view) => set({ currentView: view }),
+  setCurrentView: (view) => {
+    set({ currentView: view });
+    if (typeof window !== 'undefined') {
+      try { localStorage.setItem(VIEW_STORAGE_KEY, view); } catch {}
+    }
+  },
 
   userRole: null,
   setUserRole: (role) => set({ userRole: role }),
@@ -159,7 +198,12 @@ export const useEduGestStore = create<EduGestStore>((set) => ({
   setSelectedStudentId: (id) => set({ selectedStudentId: id }),
 
   sidebarOpen: false,
-  setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  setSidebarOpen: (open) => {
+    set({ sidebarOpen: open });
+    if (typeof window !== 'undefined') {
+      try { localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(open)); } catch {}
+    }
+  },
 
   searchQuery: '',
   setSearchQuery: (q) => set({ searchQuery: q }),
@@ -176,6 +220,10 @@ export const useEduGestStore = create<EduGestStore>((set) => ({
 
   logout: () => {
     setAuthToken(null);
+    if (typeof window !== 'undefined') {
+      try { localStorage.removeItem(VIEW_STORAGE_KEY); } catch {}
+      try { localStorage.removeItem(SIDEBAR_STORAGE_KEY); } catch {}
+    }
     set({
       userRole: null,
       userData: null,
@@ -184,5 +232,15 @@ export const useEduGestStore = create<EduGestStore>((set) => ({
       selectedSchoolId: null,
       selectedStudentId: null,
     });
+  },
+
+  hydrate: () => {
+    if (typeof window === 'undefined') return;
+    const storedView = getStoredView();
+    const storedSidebar = getStoredSidebar();
+    const token = localStorage.getItem('edugest_token');
+    if (token) setAuthToken(token);
+    if (storedView) set({ currentView: storedView });
+    if (storedSidebar !== null) set({ sidebarOpen: storedSidebar });
   },
 }))

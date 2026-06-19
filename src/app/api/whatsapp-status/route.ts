@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole, sanitizeError } from '@/lib/auth';
+import { getAdminPhoneNumber } from '@/lib/whatsapp-agent';
 
 const WA_SERVER = process.env.WHATSAPP_SERVER_URL || 'http://localhost:3001';
 
@@ -15,10 +16,29 @@ export async function GET(request: NextRequest) {
     const authResult = await requireRole(request, ['SUPER_ADMIN_GLOBAL']);
     if ('error' in authResult) return authResult.error;
 
-    const data = await waFetch('/status');
-    return NextResponse.json({ data });
+    const [statusData, adminPhone] = await Promise.all([
+      waFetch('/status'),
+      getAdminPhoneNumber(),
+    ]);
+
+    return NextResponse.json({
+      data: {
+        ...statusData,
+        configuredAdminPhone: adminPhone,
+        isConfiguredAdminPhone: statusData.connectedPhone === adminPhone,
+      },
+    });
   } catch (error) {
-    return NextResponse.json({ data: { status: 'disconnected', qr: null, error: 'WhatsApp server not running' } });
+    return NextResponse.json({
+      data: {
+        status: 'disconnected',
+        qr: null,
+        connectedPhone: null,
+        configuredAdminPhone: null,
+        isConfiguredAdminPhone: false,
+        error: 'WhatsApp server not running',
+      },
+    });
   }
 }
 
