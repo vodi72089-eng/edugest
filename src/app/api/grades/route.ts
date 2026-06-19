@@ -36,7 +36,8 @@ export async function GET(request: NextRequest) {
     if (subjectId) where.subjectId = subjectId;
     if (trimester) where.trimester = trimester;
     if (schoolYearId) where.schoolYearId = schoolYearId;
-    if (schoolId) where.schoolId = schoolId;
+    // Grade model has no schoolId field — scope via the related class's school
+    if (schoolId) where.class = { schoolId };
 
     // For PARENT role, filter by parentId - only show their children's grades
     if (user.role === 'PARENT') {

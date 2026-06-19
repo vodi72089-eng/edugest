@@ -16,7 +16,18 @@ export async function POST(request: NextRequest) {
     const authResult = await requireAuth(request)
     if ('error' in authResult) return authResult.error
 
-    const formData = await request.formData()
+    // Ensure the request is multipart/form-data; otherwise formData() throws
+    const contentType = request.headers.get('content-type') || ''
+    if (!contentType.includes('multipart/form-data')) {
+      return NextResponse.json({ error: 'Aucun fichier fourni (multipart/form-data attendu)' }, { status: 400 })
+    }
+
+    let formData: FormData
+    try {
+      formData = await request.formData()
+    } catch {
+      return NextResponse.json({ error: 'Aucun fichier fourni' }, { status: 400 })
+    }
     const file = formData.get('file') as File | null
     const ALLOWED_CATEGORIES = ['general', 'profiles', 'students', 'schools']
     const rawCategory = (formData.get('category') as string) || 'general'
