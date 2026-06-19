@@ -218,6 +218,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'students:read',
     'discipline:read', 'discipline:create', 'discipline:update',
     'convocations:read', 'convocations:create',
+    'stats:read',
   ],
 };
 
