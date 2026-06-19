@@ -4,8 +4,48 @@ import fs from 'fs';
 import path from 'path';
 
 // ─── Session store (file-based, survives HMR) ────────────────────────────
+// Session file shape (v2 — supports connected-devices feature):
+//   {
+//     sid: string          // session id (crypto.randomUUID), safe to expose to UI
+//     userId: string
+//     expiresAt: number    // epoch ms
+//     createdAt: number    // epoch ms
+//     lastUsedAt: number   // epoch ms, refreshed (throttled) on validateSession
+//     userAgent: string    // from request headers at creation
+//     ip: string           // from request headers at creation
+//   }
+// Legacy files (v1: { userId, expiresAt }) are read transparently — missing
+// fields default to '' / 0 / undefined.
 const SESSIONS_DIR = path.join(process.cwd(), '.sessions');
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
+// Throttle: only persist lastUsedAt if it's older than this, to avoid a disk
+// write on every single API request.
+const LAST_USED_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
+
+export interface SessionMeta {
+  userAgent?: string;
+  ip?: string;
+}
+
+export interface SessionData {
+  sid: string;
+  userId: string;
+  expiresAt: number;
+  createdAt: number;
+  lastUsedAt: number;
+  userAgent: string;
+  ip: string;
+}
+
+export interface SessionListItem {
+  sid: string;
+  createdAt: number;
+  lastUsedAt: number;
+  expiresAt: number;
+  userAgent: string;
+  ip: string;
+  isCurrent: boolean;
+}
 
 function ensureSessionsDir() {
   try {
@@ -22,7 +62,21 @@ function getSessionPath(token: string): string {
   return path.join(dir, `${token}.json`);
 }
 
-function writeSession(token: string, data: { userId: string; expiresAt: number }) {
+function normalizeSession(raw: any): SessionData | null {
+  if (!raw || typeof raw !== 'object') return null;
+  if (!raw.userId || typeof raw.userId !== 'string') return null;
+  return {
+    sid: typeof raw.sid === 'string' ? raw.sid : '',
+    userId: raw.userId,
+    expiresAt: typeof raw.expiresAt === 'number' ? raw.expiresAt : 0,
+    createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : 0,
+    lastUsedAt: typeof raw.lastUsedAt === 'number' ? raw.lastUsedAt : 0,
+    userAgent: typeof raw.userAgent === 'string' ? raw.userAgent : '',
+    ip: typeof raw.ip === 'string' ? raw.ip : '',
+  };
+}
+
+function writeSession(token: string, data: SessionData) {
   try {
     ensureSessionsDir();
     const dir = path.join(SESSIONS_DIR, token.slice(0, 2));
@@ -33,12 +87,12 @@ function writeSession(token: string, data: { userId: string; expiresAt: number }
   }
 }
 
-function readSession(token: string): { userId: string; expiresAt: number } | null {
+function readSession(token: string): SessionData | null {
   try {
     const sessionPath = getSessionPath(token);
     if (!fs.existsSync(sessionPath)) return null;
     const raw = fs.readFileSync(sessionPath, 'utf-8');
-    return JSON.parse(raw);
+    return normalizeSession(JSON.parse(raw));
   } catch {
     return null;
   }
@@ -53,9 +107,18 @@ function deleteSession(token: string) {
   }
 }
 
-export function createSession(userId: string): string {
+export function createSession(userId: string, meta: SessionMeta = {}): string {
   const token = crypto.randomUUID();
-  const session = { userId, expiresAt: Date.now() + SESSION_DURATION_MS };
+  const now = Date.now();
+  const session: SessionData = {
+    sid: crypto.randomUUID(),
+    userId,
+    expiresAt: now + SESSION_DURATION_MS,
+    createdAt: now,
+    lastUsedAt: now,
+    userAgent: meta.userAgent || '',
+    ip: meta.ip || '',
+  };
   writeSession(token, session);
   return token;
 }
@@ -64,14 +127,174 @@ export function validateSession(token: string): { userId: string } | null {
   const session = readSession(token);
   if (!session) return null;
   if (Date.now() > session.expiresAt) { deleteSession(token); return null; }
+  // Throttled refresh of lastUsedAt — avoids a disk write on every request.
+  const now = Date.now();
+  if (session.lastUsedAt === 0 || now - session.lastUsedAt > LAST_USED_REFRESH_MS) {
+    session.lastUsedAt = now;
+    writeSession(token, session);
+  }
   return { userId: session.userId };
+}
+
+// ─── Session enumeration & revocation (connected-devices feature) ─────────
+// Scans .sessions/** and returns all sessions belonging to `userId`.
+// `currentToken` (optional) marks the calling session as isCurrent.
+export function listUserSessions(userId: string, currentToken?: string): SessionListItem[] {
+  const out: SessionListItem[] = [];
+  try {
+    ensureSessionsDir();
+    const subdirs = fs.readdirSync(SESSIONS_DIR, { withFileTypes: true });
+    for (const d of subdirs) {
+      if (!d.isDirectory()) continue;
+      const subdirPath = path.join(SESSIONS_DIR, d.name);
+      let files: string[] = [];
+      try { files = fs.readdirSync(subdirPath); } catch { continue; }
+      for (const f of files) {
+        if (!f.endsWith('.json')) continue;
+        const token = f.replace(/\.json$/, '');
+        const sessionPath = path.join(subdirPath, f);
+        try {
+          const raw = fs.readFileSync(sessionPath, 'utf-8');
+          const s = normalizeSession(JSON.parse(raw));
+          if (!s || s.userId !== userId) continue;
+          // Skip expired (don't return, and clean up)
+          if (Date.now() > s.expiresAt) { try { fs.unlinkSync(sessionPath); } catch {} continue; }
+          out.push({
+            sid: s.sid || token.slice(0, 8),
+            createdAt: s.createdAt,
+            lastUsedAt: s.lastUsedAt,
+            expiresAt: s.expiresAt,
+            userAgent: s.userAgent,
+            ip: s.ip,
+            isCurrent: !!currentToken && token === currentToken,
+          });
+        } catch {
+          // Corrupt file — skip
+        }
+      }
+    }
+  } catch {
+    // Sessions dir not readable — return empty
+  }
+  // Most recently used first
+  out.sort((a, b) => b.lastUsedAt - a.lastUsedAt);
+  return out;
+}
+
+// Revoke a session by its token (used by /api/auth/logout).
+export function revokeSessionByToken(token: string): boolean {
+  const sessionPath = getSessionPath(token);
+  try {
+    if (!fs.existsSync(sessionPath)) return false;
+    fs.unlinkSync(sessionPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Revoke a specific session by its sid (safe — the actual auth token never
+// leaves the server). Returns true if a session was found & deleted.
+export function revokeSessionBySid(userId: string, sid: string): boolean {
+  let revoked = false;
+  try {
+    ensureSessionsDir();
+    const subdirs = fs.readdirSync(SESSIONS_DIR, { withFileTypes: true });
+    for (const d of subdirs) {
+      if (revoked) break;
+      if (!d.isDirectory()) continue;
+      const subdirPath = path.join(SESSIONS_DIR, d.name);
+      let files: string[] = [];
+      try { files = fs.readdirSync(subdirPath); } catch { continue; }
+      for (const f of files) {
+        if (!f.endsWith('.json')) continue;
+        const token = f.replace(/\.json$/, '');
+        const sessionPath = path.join(subdirPath, f);
+        try {
+          const raw = fs.readFileSync(sessionPath, 'utf-8');
+          const s = normalizeSession(JSON.parse(raw));
+          if (!s || s.userId !== userId) continue;
+          const fileSid = s.sid || token.slice(0, 8);
+          if (fileSid === sid) {
+            fs.unlinkSync(sessionPath);
+            revoked = true;
+            break;
+          }
+        } catch {
+          // skip corrupt
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return revoked;
+}
+
+// Revoke ALL sessions for a user EXCEPT the current token. Used after a
+// password change to force re-login on other devices.
+export function revokeAllUserSessionsExcept(userId: string, exceptToken: string): number {
+  let count = 0;
+  try {
+    ensureSessionsDir();
+    const subdirs = fs.readdirSync(SESSIONS_DIR, { withFileTypes: true });
+    for (const d of subdirs) {
+      if (!d.isDirectory()) continue;
+      const subdirPath = path.join(SESSIONS_DIR, d.name);
+      let files: string[] = [];
+      try { files = fs.readdirSync(subdirPath); } catch { continue; }
+      for (const f of files) {
+        if (!f.endsWith('.json')) continue;
+        const token = f.replace(/\.json$/, '');
+        if (token === exceptToken) continue;
+        const sessionPath = path.join(subdirPath, f);
+        try {
+          const raw = fs.readFileSync(sessionPath, 'utf-8');
+          const s = normalizeSession(JSON.parse(raw));
+          if (!s || s.userId !== userId) continue;
+          fs.unlinkSync(sessionPath);
+          count++;
+        } catch {
+          // skip corrupt
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return count;
+}
+
+// Extract the bearer token from a request (for marking isCurrent in list).
+export function getTokenFromRequest(request: NextRequest): string | null {
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  return authHeader.slice(7);
+}
+
+// Best-effort client IP extraction from common proxy headers.
+export function getClientIp(request: NextRequest): string {
+  const xff = request.headers.get('x-forwarded-for');
+  if (xff) {
+    const first = xff.split(',')[0]?.trim();
+    if (first) return first;
+  }
+  const xreal = request.headers.get('x-real-ip');
+  if (xreal) return xreal.trim();
+  const cf = request.headers.get('cf-connecting-ip');
+  if (cf) return cf.trim();
+  return '';
+}
+
+export function getUserAgentFromRequest(request: NextRequest): string {
+  return request.headers.get('user-agent') || '';
 }
 
 export async function createToken(userData: {
   id: string; name: string; email: string | null; phone: string | null;
   role: string; schoolId: string | null; isActive: boolean;
-}): Promise<string> {
-  return createSession(userData.id);
+}, meta: SessionMeta = {}): Promise<string> {
+  return createSession(userData.id, meta);
 }
 
 export async function verifyToken(token: string): Promise<{ userId: string } | null> {
@@ -89,7 +312,8 @@ export async function requireAuth(request: NextRequest): Promise<{ user: AuthUse
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return { error: Response.json({ error: 'Authentification requise' }, { status: 401 }) };
   }
-  const session = validateSession(authHeader.slice(7));
+  const token = authHeader.slice(7);
+  const session = validateSession(token);
   if (!session) return { error: Response.json({ error: 'Session expirée ou invalide' }, { status: 401 }) };
   const user = await db.user.findUnique({
     where: { id: session.userId },

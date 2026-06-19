@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { createToken } from '@/lib/auth';
+import { createToken, getClientIp, getUserAgentFromRequest } from '@/lib/auth';
 
 // Simple in-memory rate limiter for login attempts
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
       data: { lastLoginAt: new Date() },
     });
 
-    // ── Create JWT Token ─────────────────────────────────────────────────
+    // ── Create session token (with device metadata for connected-devices list) ─
     const token = await createToken({
       id: user.id,
       name: user.name,
@@ -98,6 +98,9 @@ export async function POST(request: NextRequest) {
       role: user.role,
       schoolId: user.schoolId,
       isActive: user.isActive,
+    }, {
+      userAgent: getUserAgentFromRequest(request),
+      ip: getClientIp(request),
     });
 
     // Return user data without password + token

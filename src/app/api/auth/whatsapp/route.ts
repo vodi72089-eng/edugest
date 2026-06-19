@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { checkRateLimit, createSession } from '@/lib/auth';
+import { checkRateLimit, createSession, getClientIp, getUserAgentFromRequest } from '@/lib/auth';
 
 const WA_SERVER = process.env.WHATSAPP_SERVER_URL || 'http://localhost:3001';
 
@@ -134,7 +134,10 @@ export async function POST(request: NextRequest) {
 
     await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
-    const sessionToken = createSession(user.id);
+    const sessionToken = createSession(user.id, {
+      userAgent: getUserAgentFromRequest(request),
+      ip: getClientIp(request),
+    });
     const { password: _, ...userData } = user;
     const school = await db.school.findUnique({
       where: { id: user.schoolId },

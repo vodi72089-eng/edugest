@@ -9,6 +9,36 @@ import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera,
 import { toast } from 'sonner'
 
 export default function SettingsView() {
+  const { userRole, setCurrentView } = useEduGestStore()
+
+  // ── Defense-in-depth role guard ────────────────────────────────────────
+  // School settings are restricted to SUPER_ADMIN_GLOBAL and SECRETARY.
+  // The Topbar gear now routes everyone to 'profile', but this guard ensures
+  // that even a direct view switch (e.g. legacy sidebar, dev tools, stale
+  // state) cannot land a non-admin on this page.
+  const canManageSchool = userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SECRETARY'
+  if (!canManageSchool) {
+    return (
+      <div className="max-w-md mx-auto mt-16 text-center">
+        <div className="w-16 h-16 rounded-full grid place-items-center mx-auto mb-4" style={{ background: GOLD_SOFT }}>
+          <Building2 size={28} style={{ color: GOLD }} />
+        </div>
+        <h2 className="text-xl font-bold mb-2" style={{ color: TEXT_PRIMARY }}>Accès restreint</h2>
+        <p className="text-sm mb-6" style={{ color: TEXT_MUTED_LUXE }}>
+          Seuls les administrateurs peuvent accéder aux paramètres de l&apos;école.
+          Vous pouvez consulter et modifier votre profil personnel.
+        </p>
+        <button onClick={() => setCurrentView('profile')} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold">
+          Aller à mon profil
+        </button>
+      </div>
+    )
+  }
+
+  return <SettingsViewInner />
+}
+
+function SettingsViewInner() {
   const { userData, userRole } = useEduGestStore()
   const [school, setSchool] = useState<SchoolData | null>(null)
   const [loading, setLoading] = useState(true)
