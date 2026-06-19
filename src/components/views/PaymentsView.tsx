@@ -210,11 +210,7 @@ export default function PaymentsView() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                        {p.student?.photoUrl ? (
-                          <img src={p.student.photoUrl} alt={`${p.student.firstName} ${p.student.lastName}`} className="w-8 h-8 rounded-full object-cover" />
-                        ) : (
-                          p.student ? getInitials(`${p.student.firstName} ${p.student.lastName}`) : '??'
-                        )}
+                        {p.student ? getInitials(`${p.student.firstName} ${p.student.lastName}`) : '??'}
                       </div>
                       <div>
                         <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{p.student ? `${p.student.firstName} ${p.student.lastName}` : '—'}</div>

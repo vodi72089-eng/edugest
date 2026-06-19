@@ -165,7 +165,7 @@ export async function GET(request: NextRequest) {
     const blacklistEntries = await db.blacklist.findMany({
       where: citySchoolIds ? { schoolId: { in: citySchoolIds } } : {},
       include: {
-        student: { select: { firstName: true, lastName: true, matricule: true, photoUrl: true } },
+        student: { select: { firstName: true, lastName: true, matricule: true } },
       },
       orderBy: { addedAt: 'desc' },
       take: 50,
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
     const greylistEntries = await db.greylist.findMany({
       where: citySchoolIds ? { schoolId: { in: citySchoolIds } } : {},
       include: {
-        student: { select: { firstName: true, lastName: true, matricule: true, photoUrl: true } },
+        student: { select: { firstName: true, lastName: true, matricule: true } },
       },
       orderBy: { addedAt: 'desc' },
       take: 50,
@@ -195,7 +195,7 @@ export async function GET(request: NextRequest) {
     const paymentStudentIds = [...new Set(recentPaymentsRaw.map(p => p.studentId))];
     const paymentStudents = await db.student.findMany({
       where: { id: { in: paymentStudentIds } },
-      select: { id: true, firstName: true, lastName: true, matricule: true, photoUrl: true },
+      select: { id: true, firstName: true, lastName: true, matricule: true },
     });
     const recentPayments = recentPaymentsRaw.map(p => ({
       id: p.id,
@@ -212,7 +212,7 @@ export async function GET(request: NextRequest) {
     const recentDiscipline = await db.disciplineRecord.findMany({
       where: citySchoolIds ? { schoolId: { in: citySchoolIds } } : {},
       include: {
-        student: { select: { firstName: true, lastName: true, matricule: true, photoUrl: true } },
+        student: { select: { firstName: true, lastName: true, matricule: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 15,

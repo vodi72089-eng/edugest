@@ -285,12 +285,8 @@ export default function PersonnelView() {
                     <tr key={user.id} className="border-b border-[oklch(94%_0.005_250)] hover:bg-[oklch(99%_0.003_175)] transition">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold text-white shrink-0 overflow-hidden" style={{ background: roleInfo?.color || ACCENT }}>
-                            {user.profileImageUrl ? (
-                              <img src={user.profileImageUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
-                            ) : (
-                              getInitials(user.name)
-                            )}
+                          <div className="w-9 h-9 rounded-full grid place-items-center text-xs font-bold text-white shrink-0" style={{ background: roleInfo?.color || ACCENT }}>
+                            {getInitials(user.name)}
                           </div>
                           <div>
                             <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{user.name}</div>

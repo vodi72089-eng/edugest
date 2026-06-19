@@ -210,12 +210,8 @@ export default function StudentsView() {
                 <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full grid place-items-center text-white font-semibold text-[11px] shrink-0 overflow-hidden" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                        {s.photoUrl ? (
-                          <img src={s.photoUrl} alt={`${s.firstName} ${s.lastName}`} className="w-8 h-8 rounded-full object-cover" />
-                        ) : (
-                          getInitials(s.firstName + ' ' + s.lastName)
-                        )}
+                      <div className="w-8 h-8 rounded-full grid place-items-center text-white font-semibold text-[11px] shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                        {getInitials(s.firstName + ' ' + s.lastName)}
                       </div>
                       <div>
                         <div className="font-medium text-[13px]" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
