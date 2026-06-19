@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       orderBy: { date: 'desc' },
       take: limit,
       include: {
-        student: { select: { id: true, firstName: true, lastName: true, matricule: true, parentId: true } },
+        student: { select: { id: true, firstName: true, lastName: true, matricule: true, parentId: true, photoUrl: true } },
       },
     });
 
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
         status: 'PENDING',
       },
       include: {
-        student: { select: { id: true, firstName: true, lastName: true, matricule: true, parentId: true } },
+        student: { select: { id: true, firstName: true, lastName: true, matricule: true, parentId: true, photoUrl: true } },
       },
     });
 
@@ -150,7 +150,7 @@ export async function PUT(request: NextRequest) {
       where: { id },
       data: { status: status || 'CONFIRMED' },
       include: {
-        student: { select: { id: true, firstName: true, lastName: true, matricule: true, parentId: true } },
+        student: { select: { id: true, firstName: true, lastName: true, matricule: true, parentId: true, photoUrl: true } },
       },
     });
 

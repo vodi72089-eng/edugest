@@ -133,8 +133,12 @@ function SearchAutocomplete({
       {/* Selected item chip */}
       {selectedId && selectedItem && (
         <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium" style={{ background: GOLD_SOFT, color: GOLD }}>
-          <div className="w-6 h-6 rounded-full grid place-items-center text-white text-[9px] font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-            {getInitials(selectedItem.label)}
+          <div className="w-6 h-6 rounded-full grid place-items-center text-white text-[9px] font-bold overflow-hidden shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+            {selectedItem.photoUrl ? (
+              <img src={selectedItem.photoUrl} alt="" className="w-6 h-6 rounded-full object-cover" />
+            ) : (
+              getInitials(selectedItem.label)
+            )}
           </div>
           {selectedItem.label}
           {selectedItem.sublabel && <span className="text-[10px] opacity-70">({selectedItem.sublabel})</span>}
@@ -2064,7 +2068,6 @@ function Sidebar() {
       { icon: <Users size={16} />, label: 'Mes enfants', view: 'dashboard' },
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
-      { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
       { icon: <CheckCircle size={16} />, label: 'Vérifier reçu', view: 'payment-verification' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
@@ -2586,7 +2589,7 @@ function ClassesView() {
   const [loading, setLoading] = useState(true)
   const [classSearch, setClassSearch] = useState('')
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
-  const { userData, userRole } = useEduGestStore()
+  const { userData, userRole, setSelectedStudentId, setCurrentView } = useEduGestStore()
   const [showAddClass, setShowAddClass] = useState(false)
   const [newClassName, setNewClassName] = useState('')
   const [newClassSection, setNewClassSection] = useState('PRIMAIRE')
@@ -2594,6 +2597,10 @@ function ClassesView() {
   const [addingClass, setAddingClass] = useState(false)
   const [deletingClassId, setDeletingClassId] = useState<string | null>(null)
   const [pendingApprovals, setPendingApprovals] = useState<{id: string; name: string; type: string; requestedBy: string}[]>([])
+  const [selectedClassStudents, setSelectedClassStudents] = useState<StudentData[]>([])
+  const [loadingStudents, setLoadingStudents] = useState(false)
+  const [viewingClassId, setViewingClassId] = useState<string | null>(null)
+  const [viewingClassName, setViewingClassName] = useState('')
   const canManage = userRole === 'SUPER_ADMIN_GLOBAL' || (userRole && userRole.startsWith('DIRECTION'))
 
   useEffect(() => {
@@ -2658,67 +2665,139 @@ function ClassesView() {
     finally { setDeletingClassId(null) }
   }
 
+  async function handleViewClassStudents(classId: string, className: string) {
+    setViewingClassId(classId)
+    setViewingClassName(className)
+    setLoadingStudents(true)
+    setSelectedClassStudents([])
+    try {
+      const res = await authFetch(`/api/students?classId=${classId}&limit=100`)
+      const j = await res.json()
+      setSelectedClassStudents(j.data || [])
+    } catch { toast.error('Erreur lors du chargement des élèves') }
+    finally { setLoadingStudents(false) }
+  }
+
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+      {viewingClassId ? (
         <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Classes</h1>
-          </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filteredClasses.length)} classes</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {canManage && (
-            <button onClick={() => setShowAddClass(true)} className="edu-gold-cta px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2">
-              <span className="text-lg leading-none">+</span> Créer une classe
-            </button>
-          )}
-          <SearchAutocomplete
-            placeholder="Tapez le nom de la classe..."
-            items={classSuggestions}
-            selectedId={selectedClassId}
-            onSelect={(item) => setSelectedClassId(item.id)}
-            onClear={() => { setSelectedClassId(null); setClassSearch('') }}
-            searchQuery={classSearch}
-            onSearchChange={setClassSearch}
-            itemTypeName="classe"
-            className="w-full max-w-sm"
-          />
-        </div>
-      </div>
-      {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : filteredClasses.length === 0 ? (
-        <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucune classe trouvée</div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredClasses.map(c => (
-            <div key={c.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{c.name}</h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs px-2 py-1 rounded-full" style={{ color: GOLD, background: GOLD_SOFT }}>{c.level || c.section || ''}</span>
-                  {canManage && (
-                    <button
-                      onClick={() => handleDeleteClass(c.id, c.name)}
-                      disabled={deletingClassId === c.id}
-                      className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition disabled:opacity-50"
-                      style={{ color: DANGER }}
-                      title="Supprimer"
-                    >
-                      {deletingClassId === c.id ? <div className="h-3 w-3 border border-[oklch(58%_0.15_25)] border-t-transparent rounded-full animate-spin" /> : <Trash2 size={13} />}
-                    </button>
-                  )}
-                </div>
+          <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+            <div>
+              <button onClick={() => { setViewingClassId(null); setSelectedClassStudents([]) }} className="flex items-center gap-2 text-sm font-medium mb-2 hover:opacity-70 transition" style={{ color: GOLD }}>
+                <ArrowLeft size={16} /> Retour aux classes
+              </button>
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>{viewingClassName}</h1>
               </div>
-              <div className="flex items-center justify-between text-sm" style={{ color: TEXT_MUTED_LUXE }}>
-                <span>{c._count?.students || 0} élèves</span>
-                <span>Capacité: {c.capacity}</span>
-              </div>
-              <div className="mt-3 h-2 bg-[oklch(92%_0.005_175)] rounded-full overflow-hidden">
-                <div className="h-full rounded-full" style={{ width: `${Math.min(100, ((c._count?.students || 0) / c.capacity) * 100)}%`, background: (c._count?.students || 0) / c.capacity > 0.9 ? `linear-gradient(90deg, ${DANGER}, oklch(58% 0.15 45))` : `linear-gradient(90deg, ${ACCENT}, oklch(72% 0.15 65))` }} />
-              </div>
+              <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(selectedClassStudents.length)} élève{selectedClassStudents.length !== 1 ? 's' : ''}</p>
             </div>
-          ))}
+          </div>
+          {loadingStudents ? (
+            <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement des élèves...</div>
+          ) : selectedClassStudents.length === 0 ? (
+            <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun élève dans cette classe</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {selectedClassStudents.map(s => {
+                const fullName = `${s.firstName} ${s.lastName}`
+                const initials = getInitials(fullName)
+                return (
+                  <div key={s.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
+                    <div className="flex items-center gap-3">
+                      {s.photoUrl ? (
+                        <img src={s.photoUrl} alt={fullName} className="w-14 h-14 rounded-full object-cover border-2 border-[oklch(90%_0.01_175)]" />
+                      ) : (
+                        <div className="w-14 h-14 rounded-full grid place-items-center text-white font-bold text-lg" style={{ background: `linear-gradient(135deg, ${ACCENT}, oklch(72% 0.15 65))` }}>
+                          {initials}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold" style={{ color: TEXT_PRIMARY }}>{fullName}</div>
+                        <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</div>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {[
+                        { label: 'Notes', view: 'grades' as ViewType, icon: <BookOpen size={14} /> },
+                        { label: 'Bulletin', view: 'bulletin' as ViewType, icon: <FileText size={14} /> },
+                        { label: 'Discipline', view: 'discipline' as ViewType, icon: <Shield size={14} /> },
+                      ].map(chip => (
+                        <button key={chip.label} onClick={() => { setSelectedStudentId(s.id); setCurrentView(chip.view) }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(95%_0.04_175)] hover:border-[oklch(72%_0.15_65_/_0.3)] transition" style={{ color: TEXT_PRIMARY }}>
+                          {chip.icon} {chip.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div>
+          <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Classes</h1>
+              </div>
+              <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filteredClasses.length)} classes</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {canManage && (
+                <button onClick={() => setShowAddClass(true)} className="edu-gold-cta px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2">
+                  <span className="text-lg leading-none">+</span> Créer une classe
+                </button>
+              )}
+              <SearchAutocomplete
+                placeholder="Tapez le nom de la classe..."
+                items={classSuggestions}
+                selectedId={selectedClassId}
+                onSelect={(item) => setSelectedClassId(item.id)}
+                onClear={() => { setSelectedClassId(null); setClassSearch('') }}
+                searchQuery={classSearch}
+                onSearchChange={setClassSearch}
+                itemTypeName="classe"
+                className="w-full max-w-sm"
+              />
+            </div>
+          </div>
+          {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : filteredClasses.length === 0 ? (
+            <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucune classe trouvée</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredClasses.map(c => (
+                <div key={c.id} onClick={() => handleViewClassStudents(c.id, c.name)} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift cursor-pointer hover:border-[oklch(72%_0.15_65_/_0.3)] transition">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{c.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs px-2 py-1 rounded-full" style={{ color: GOLD, background: GOLD_SOFT }}>{c.level || c.section || ''}</span>
+                      {canManage && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteClass(c.id, c.name) }}
+                          disabled={deletingClassId === c.id}
+                          className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition disabled:opacity-50"
+                          style={{ color: DANGER }}
+                          title="Supprimer"
+                        >
+                          {deletingClassId === c.id ? <div className="h-3 w-3 border border-[oklch(58%_0.15_25)] border-t-transparent rounded-full animate-spin" /> : <Trash2 size={13} />}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-sm" style={{ color: TEXT_MUTED_LUXE }}>
+                    <span>{c._count?.students || 0} élèves</span>
+                    <span>Capacité: {c.capacity}</span>
+                  </div>
+                  <div className="mt-3 h-2 bg-[oklch(92%_0.005_175)] rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, ((c._count?.students || 0) / c.capacity) * 100)}%`, background: (c._count?.students || 0) / c.capacity > 0.9 ? `linear-gradient(90deg, ${DANGER}, oklch(58% 0.15 45))` : `linear-gradient(90deg, ${ACCENT}, oklch(72% 0.15 65))` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -4454,8 +4533,12 @@ function ClassPassingView() {
                 <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                        {getInitials(s.firstName + ' ' + s.lastName)}
+                      <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0 overflow-hidden" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                        {s.photoUrl ? (
+                          <img src={s.photoUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                        ) : (
+                          getInitials(s.firstName + ' ' + s.lastName)
+                        )}
                       </div>
                       <div>
                         <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
@@ -4761,8 +4844,12 @@ function ConvocationView() {
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {convocations.map(c => (
                 <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition">
-                  <div className="w-9 h-9 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${WARNING}, ${GOLD})` }}>
-                    {getInitials(`${c.student.firstName} ${c.student.lastName}`)}
+                  <div className="w-9 h-9 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0 overflow-hidden" style={{ background: `linear-gradient(135deg, ${WARNING}, ${GOLD})` }}>
+                    {c.student?.photoUrl ? (
+                      <img src={c.student.photoUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
+                    ) : (
+                      getInitials(`${c.student.firstName} ${c.student.lastName}`)
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{c.student.firstName} {c.student.lastName}</div>
@@ -5003,6 +5090,11 @@ function PricingDashboard() {
 // ===== MAIN HOME COMPONENT =====
 export default function Home() {
   const { currentView, userRole, logout, setCurrentView } = useEduGestStore()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Handle 401 unauthorized events from authFetch
   useEffect(() => {
@@ -5013,6 +5105,8 @@ export default function Home() {
     window.addEventListener('auth:unauthorized', handler)
     return () => window.removeEventListener('auth:unauthorized', handler)
   }, [logout, setCurrentView])
+
+  if (!mounted) return <div className="min-h-screen" />
 
   if (!userRole) {
     switch (currentView) {

@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: 'desc' },
         include: {
           student: {
-            select: { id: true, firstName: true, lastName: true, matricule: true },
+            select: { id: true, firstName: true, lastName: true, matricule: true, photoUrl: true },
           },
         },
       }),
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
         schoolId,
       },
       include: {
-        student: { select: { id: true, firstName: true, lastName: true, matricule: true } },
+        student: { select: { id: true, firstName: true, lastName: true, matricule: true, photoUrl: true } },
       },
     });
 
@@ -225,10 +225,9 @@ export async function PUT(request: NextRequest) {
       where: { id },
       data: updateData,
       include: {
-        student: { select: { id: true, firstName: true, lastName: true, matricule: true } },
+        student: { select: { id: true, firstName: true, lastName: true, matricule: true, photoUrl: true } },
       },
     });
-
     return NextResponse.json({ data: updated });
   } catch (error) {
     console.error('Error updating discipline record:', error);

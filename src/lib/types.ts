@@ -25,7 +25,7 @@ export interface ClassData {
 export interface GradeData {
   id: string; studentId: string; subjectId: string; classId: string;
   trimester: string; score: number; comment?: string; schoolYearId: string;
-  student?: { id: string; firstName: string; lastName: string; matricule: string };
+  student?: { id: string; firstName: string; lastName: string; matricule: string; photoUrl?: string };
   subject?: { id: string; name: string; coefficient: number };
 }
 
@@ -34,14 +34,14 @@ export interface PaymentData {
   paidAmount: number; trimester: string; paymentMethod?: string;
   status: string; receiptNumber?: string; paidAt?: string; createdAt: string;
   verifiedBy?: string | null; verifiedAt?: string | null; verificationNote?: string | null;
-  student?: { id: string; firstName: string; lastName: string; matricule: string };
+  student?: { id: string; firstName: string; lastName: string; matricule: string; photoUrl?: string };
 }
 
 export interface DisciplineData {
   id: string; studentId: string; type: string; severity: string;
   title: string; description: string; points: number; listType: string;
   status: string; schoolId: string; createdAt: string;
-  student?: { id: string; firstName: string; lastName: string; matricule: string };
+  student?: { id: string; firstName: string; lastName: string; matricule: string; photoUrl?: string };
 }
 
 export interface CommunicationData {

@@ -275,8 +275,12 @@ export default function GradesView() {
             return (
               <div key={studentId} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
                 <div className="p-4 flex items-center gap-3" style={{ background: IVORY }}>
-                  <div className="w-10 h-10 rounded-full grid place-items-center text-white font-bold text-sm" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                    {student ? getInitials(`${student.firstName} ${student.lastName}`) : '??'}
+                  <div className="w-10 h-10 rounded-full grid place-items-center text-white font-bold text-sm shrink-0 overflow-hidden" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                    {student?.photoUrl ? (
+                      <img src={student.photoUrl} alt={`${student.firstName} ${student.lastName}`} className="w-10 h-10 rounded-full object-cover" />
+                    ) : (
+                      student ? getInitials(`${student.firstName} ${student.lastName}`) : '??'
+                    )}
                   </div>
                   <div className="flex-1">
                     <div className="font-semibold" style={{ color: TEXT_PRIMARY }}>{student?.firstName} {student?.lastName}</div>

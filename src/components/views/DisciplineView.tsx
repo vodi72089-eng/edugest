@@ -331,8 +331,12 @@ export default function DisciplineView() {
                     }`}
                     style={{ background: selectedStudentId === s.id ? GOLD_SOFT : 'white', color: TEXT_PRIMARY }}
                   >
-                    <div className="w-5 h-5 rounded-full grid place-items-center text-white text-[8px] font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                      {getInitials(`${s.firstName} ${s.lastName}`)}
+                    <div className="w-5 h-5 rounded-full grid place-items-center text-white text-[8px] font-bold overflow-hidden shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                      {s.photoUrl ? (
+                        <img src={s.photoUrl} alt="" className="w-5 h-5 rounded-full object-cover" />
+                      ) : (
+                        getInitials(`${s.firstName} ${s.lastName}`)
+                      )}
                     </div>
                     {s.firstName} {s.lastName}
                   </button>
@@ -486,8 +490,12 @@ export default function DisciplineView() {
               <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
                 {convocations.map(c => (
                   <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition">
-                    <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                      {getInitials(`${c.student.firstName} ${c.student.lastName}`)}
+                    <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[10px] font-bold shrink-0 overflow-hidden" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                      {c.student?.photoUrl ? (
+                        <img src={c.student.photoUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                      ) : (
+                        getInitials(`${c.student.firstName} ${c.student.lastName}`)
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate" style={{ color: TEXT_PRIMARY }}>{c.student.firstName} {c.student.lastName}</div>
@@ -601,8 +609,12 @@ export default function DisciplineView() {
 
       {isParent && selectedChildName && (
         <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl" style={{ background: GOLD_SOFT }}>
-          <div className="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-            {getInitials(`${selectedChildName.firstName} ${selectedChildName.lastName}`)}
+          <div className="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold shrink-0 overflow-hidden" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+            {selectedChildName.photoUrl ? (
+              <img src={selectedChildName.photoUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
+            ) : (
+              getInitials(`${selectedChildName.firstName} ${selectedChildName.lastName}`)
+            )}
           </div>
           <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>
             Discipline de <strong>{selectedChildName.firstName} {selectedChildName.lastName}</strong>
@@ -614,8 +626,12 @@ export default function DisciplineView() {
       )}
       {isDisciplineRole && selectedStudentName && (
         <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl" style={{ background: GOLD_SOFT }}>
-          <div className="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-            {getInitials(`${selectedStudentName.firstName} ${selectedStudentName.lastName}`)}
+          <div className="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold shrink-0 overflow-hidden" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+            {selectedStudentName.photoUrl ? (
+              <img src={selectedStudentName.photoUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
+            ) : (
+              getInitials(`${selectedStudentName.firstName} ${selectedStudentName.lastName}`)
+            )}
           </div>
           <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>
             Discipline de <strong>{selectedStudentName.firstName} {selectedStudentName.lastName}</strong>
@@ -694,8 +710,12 @@ export default function DisciplineView() {
                   {!isParent && (
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                          {r.student ? getInitials(`${r.student.firstName} ${r.student.lastName}`) : '??'}
+                        <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0 overflow-hidden" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                          {r.student?.photoUrl ? (
+                            <img src={r.student.photoUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                          ) : (
+                            r.student ? getInitials(`${r.student.firstName} ${r.student.lastName}`) : '??'
+                          )}
                         </div>
                         <div>
                           <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{r.student ? `${r.student.firstName} ${r.student.lastName}` : '—'}</div>
