@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useEduGestStore, authFetch, ViewType } from '@/lib/store'
 import { toast } from 'sonner'
 import type { StudentData } from '@/lib/types'
-import { Users, Shield, PenTool, BookOpen, FileText, CreditCard, Edit, Check, Camera } from 'lucide-react'
+import { Users, Shield, PenTool, BookOpen, FileText, CreditCard, Edit, Check, Camera, Bell, Calendar } from 'lucide-react'
 import { ACCENT, GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, WARNING, DANGER, INFO } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
 import StatCard from './StatCard'
@@ -22,6 +22,7 @@ export default function ParentDashboard() {
   const [editingPhotoForChild, setEditingPhotoForChild] = useState<string | null>(null)
   const [pendingHomework, setPendingHomework] = useState(0)
   const [recentDisciplineCount, setRecentDisciplineCount] = useState(0)
+  const [convocations, setConvocations] = useState<{ id: string; motif: string; date: string; status: string; student: { firstName: string; lastName: string; matricule: string } }[]>([])
 
   useEffect(() => {
     function fetchData() {
@@ -41,6 +42,10 @@ export default function ParentDashboard() {
         authFetch(`/api/discipline?parentId=${userData.id}&limit=100`)
           .then(r => r.json())
           .then(j => setRecentDisciplineCount((j.data || []).length))
+          .catch(() => {})
+        authFetch(`/api/convocations?schoolId=${userData.schoolId}&limit=10`)
+          .then(r => r.json())
+          .then(j => setConvocations(j.data || []))
           .catch(() => {})
       } else {
         setLoading(false)
@@ -230,21 +235,57 @@ export default function ParentDashboard() {
         <h3 className="text-lg font-semibold" style={{ color: TEXT_PRIMARY }}>Notifications récentes</h3>
       </div>
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl divide-y divide-[oklch(90%_0.01_175)] shadow-sm">
-        {children.length > 0 && (pendingHomework > 0 || recentDisciplineCount > 0) ? [
-          ...(pendingHomework > 0 ? [{ icon: <PenTool size={16} style={{ color: WARNING }} />, text: `${pendingHomework} devoir${pendingHomework > 1 ? 's' : ''} à rendre`, time: 'En cours' }] : []),
-          ...(recentDisciplineCount > 0 ? [{ icon: <Shield size={16} style={{ color: DANGER }} />, text: `${recentDisciplineCount} avertissement${recentDisciplineCount > 1 ? 's' : ''} disciplinaire${recentDisciplineCount > 1 ? 's' : ''}`, time: 'Cette année' }] : []),
-        ].map((n, i) => (
-          <div key={i} className="flex items-start gap-3 p-4 hover:bg-[oklch(97%_0.005_175)] transition">
-            <div className="w-8 h-8 rounded-full bg-[oklch(95%_0.04_175)] grid place-items-center shrink-0">{n.icon}</div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{n.text}</div>
-              <div className="text-xs mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{n.time}</div>
+        {(() => {
+          const notifications: { icon: React.ReactNode; text: string; time: string; onClick?: () => void; accent?: boolean }[] = []
+
+          if (convocations.length > 0) {
+            convocations.forEach(c => {
+              const date = new Date(c.date)
+              const formatted = date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+              notifications.push({
+                icon: <Calendar size={16} style={{ color: '#0D9488' }} />,
+                text: `Convocation : ${c.motif.length > 40 ? c.motif.slice(0, 40) + '...' : c.motif}`,
+                time: `${c.student.firstName} ${c.student.lastName} — ${formatted}`,
+                onClick: () => { setSelectedStudentId(c.student.matricule); setCurrentView('convocation') },
+                accent: c.status === 'PENDING',
+              })
+            })
+          }
+
+          if (pendingHomework > 0) {
+            notifications.push({
+              icon: <PenTool size={16} style={{ color: WARNING }} />,
+              text: `${pendingHomework} devoir${pendingHomework > 1 ? 's' : ''} à rendre`,
+              time: 'En cours',
+              onClick: () => setCurrentView('homework'),
+            })
+          }
+
+          if (recentDisciplineCount > 0) {
+            notifications.push({
+              icon: <Shield size={16} style={{ color: DANGER }} />,
+              text: `${recentDisciplineCount} avertissement${recentDisciplineCount > 1 ? 's' : ''} disciplinaire${recentDisciplineCount > 1 ? 's' : ''}`,
+              time: 'Cette année',
+              onClick: () => setCurrentView('discipline'),
+            })
+          }
+
+          if (notifications.length === 0) {
+            return <div className="p-6 text-center" style={{ color: TEXT_MUTED_LUXE }}>Aucune notification</div>
+          }
+
+          return notifications.map((n, i) => (
+            <div key={i} onClick={n.onClick} className={`flex items-start gap-3 p-4 transition ${n.onClick ? 'cursor-pointer hover:bg-[oklch(97%_0.005_175)]' : ''}`}>
+              <div className="w-8 h-8 rounded-full bg-[oklch(95%_0.04_175)] grid place-items-center shrink-0">{n.icon}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{n.text}</div>
+                <div className="text-xs mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{n.time}</div>
+              </div>
+              {n.accent && <span className="w-2 h-2 rounded-full mt-2 shrink-0" style={{ background: GOLD }} />}
+              {n.onClick && <Bell size={12} style={{ color: TEXT_MUTED_LUXE }} className="mt-2 shrink-0" />}
             </div>
-            {i === 0 && <span className="w-2 h-2 rounded-full mt-2 shrink-0" style={{ background: GOLD }} />}
-          </div>
-        )) : (
-          <div className="p-6 text-center" style={{ color: TEXT_MUTED_LUXE }}>Aucune notification</div>
-        )}
+          ))
+        })()}
       </div>
     </div>
   )
