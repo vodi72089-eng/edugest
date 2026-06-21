@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError } from '@/lib/auth';
 import { notifyDiscipline } from '@/lib/whatsapp-agent';
+import { classifyStudent, learnKeywordsFromRecord } from '@/lib/discipline-classifier';
 
 export async function GET(request: NextRequest) {
   try {
@@ -182,6 +183,19 @@ export async function POST(request: NextRequest) {
       console.error('[Discipline] Notification failed:', notifError);
     }
 
+    // Auto-classify student after new sanction
+    try {
+      const classification = await classifyStudent(studentId, schoolId)
+      if (classification.listType !== listType) {
+        await db.disciplineRecord.update({
+          where: { id: record.id },
+          data: { listType: classification.listType }
+        })
+      }
+    } catch (e) {
+      console.warn('[Discipline] Auto-classification failed:', e)
+    }
+
     return NextResponse.json({ data: record }, { status: 201 });
   } catch (error) {
     console.error('Error creating discipline record:', error);
@@ -228,6 +242,15 @@ export async function PUT(request: NextRequest) {
         student: { select: { id: true, firstName: true, lastName: true, matricule: true } },
       },
     });
+
+    // Learn keywords when staff manually sets BLACKLIST
+    if (listType === 'BLACKLIST' && existing.listType !== 'BLACKLIST') {
+      try {
+        await learnKeywordsFromRecord(existing.id, existing.title, existing.description, existing.schoolId)
+      } catch (e) {
+        console.warn('[Discipline] Keyword learning failed:', e)
+      }
+    }
 
     return NextResponse.json({ data: updated });
   } catch (error) {
