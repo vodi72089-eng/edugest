@@ -44,6 +44,15 @@ export interface DisciplineData {
   student?: { id: string; firstName: string; lastName: string; matricule: string };
 }
 
+export interface DisciplineKeywordData {
+  id: string
+  keyword: string
+  listType: string
+  schoolId: string
+  learnedFrom?: string
+  createdAt: string
+}
+
 export interface CommunicationData {
   id: string; type: string; title: string; content: string;
   targetType: string; sentToApp: boolean; sentToWhatsapp: boolean;
