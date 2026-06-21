@@ -226,6 +226,17 @@ model Whitelist {
   student   Student  @relation(fields: [studentId], references: [id])
 }
 
+model DisciplineKeyword {
+  id          String   @id @default(cuid())
+  keyword     String
+  listType    String   // BLACKLIST, GREYLIST, WHITELIST
+  schoolId    String
+  learnedFrom String?  // DisciplineRecord ID that taught this keyword
+  createdAt   DateTime @default(now())
+
+  @@unique([keyword, schoolId])
+}
+
 model SchoolComment {
   id          String   @id @default(cuid())
   schoolId    String
