@@ -24,7 +24,7 @@ export const SUBSCRIPTION_TIERS = ['PREMIUM', 'STANDARD', 'ESSENTIEL', 'ENTERPRI
 
 export const PROVINCES = ['Toutes provinces', 'Kinshasa', 'Haut-Katanga', 'Dakar', 'Abidjan', 'Brazzaville', 'Nord-Kivu']
 export const FILTER_CHIPS = [
-  { key: 'all', label: 'Toutes', count: 248 },
+  { key: 'all', label: 'Toutes' },
   { key: 'MATERNELLE', label: 'Maternelle' },
   { key: 'PRIMAIRE', label: 'Primaire' },
   { key: 'SECONDAIRE', label: 'Secondaire' },

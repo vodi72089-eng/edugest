@@ -10,10 +10,6 @@ function generateRandomPassword(length: number = 12): string {
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requirePermission(request, 'school:read');
-    if ('error' in authResult) return authResult.error;
-    const { user } = authResult;
-
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
     const province = searchParams.get('province') || '';
@@ -25,11 +21,6 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = {
       isActive: true,
     };
-
-    // Non-SUPER_ADMIN_GLOBAL can only see their own school
-    if (user.role !== 'SUPER_ADMIN_GLOBAL') {
-      where.id = user.schoolId;
-    }
 
     if (search) {
       where.OR = [

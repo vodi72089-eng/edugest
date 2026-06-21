@@ -530,6 +530,16 @@ function HomeView() {
     return true
   })
 
+  const chipCounts: Record<string, number> = {
+    all: schools.length,
+    MATERNELLE: schools.filter(s => s.schoolType === 'MATERNELLE' || s.schoolType === 'MIXTE').length,
+    PRIMAIRE: schools.filter(s => s.schoolType === 'PRIMAIRE' || s.schoolType === 'MIXTE').length,
+    SECONDAIRE: schools.filter(s => s.schoolType === 'SECONDAIRE' || s.schoolType === 'MIXTE').length,
+    MIXTE: schools.filter(s => s.schoolType === 'MIXTE').length,
+    PRIVEE: schools.filter(s => s.schoolCategory === 'PRIVEE').length,
+    PUBLIQUE: schools.filter(s => s.schoolCategory === 'PUBLIQUE').length,
+  }
+
   const FEATURES = [
     { icon: <GraduationCap size={24} />, title: 'Gestion Scolaire Intégrale', desc: 'Notes, bulletins, emploi du temps — tout en un seul endroit' },
     { icon: <MessageSquare size={24} />, title: 'Communication Instantanée', desc: 'WhatsApp, SMS, notifications push pour rester connecté' },
@@ -630,7 +640,7 @@ function HomeView() {
       <section style={{ background: IVORY }} className="border-y border-[oklch(88%_0.01_175)]">
         <div className="container-premium py-4 text-center">
           <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
-            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>240+</strong> Établissements &nbsp;•&nbsp;{' '}
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{schools.length}+</strong> Établissement{schools.length > 1 ? 's' : ''} &nbsp;•&nbsp;{' '}
             <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>50,000+</strong> Familles &nbsp;•&nbsp;{' '}
             <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>98%</strong> Satisfaction
           </p>
@@ -653,11 +663,9 @@ function HomeView() {
               style={activeFilter === chip.key ? { background: ACCENT } : undefined}
             >
               {chip.label}
-              {chip.count !== undefined && (
-                <span className={`text-[11px] font-medium px-1.5 py-px rounded-full ${
-                  activeFilter === chip.key ? 'bg-white/20 text-white' : 'bg-[oklch(90%_0.005_250)] text-edu-muted'
-                }`}>{chip.count}</span>
-              )}
+              <span className={`text-[11px] font-medium px-1.5 py-px rounded-full ${
+                activeFilter === chip.key ? 'bg-white/20 text-white' : 'bg-[oklch(90%_0.005_250)] text-edu-muted'
+              }`}>{chipCounts[chip.key] ?? 0}</span>
             </button>
           ))}
           <div className="ml-auto hidden sm:block text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
