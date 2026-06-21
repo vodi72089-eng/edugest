@@ -62,14 +62,16 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
 // ─── PDF Builder using jsPDF ────────────────────────────────────────────────
 
 function buildBulletinPDF(
-  student: { id: string; firstName: string; lastName: string; matricule: string },
-  school: { name: string; shortName: string; email: string; phone: string; address: string; city: string; province: string; country: string },
+  student: { id: string; firstName: string; lastName: string; matricule: string; photoUrl?: string | null },
+  school: { name: string; shortName: string; email: string; phone: string; address: string; city: string; province: string; country: string; logo?: string | null },
   className: string,
   trimester: string,
   grades: { subjectName: string; score: number; coefficient: number }[],
   average: number,
   decision: string | null,
-  schoolYearLabel: string
+  schoolYearLabel: string,
+  schoolLogoBase64: string | null,
+  studentPhotoBase64: string | null
 ): Buffer {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -87,14 +89,28 @@ function buildBulletinPDF(
   doc.setFillColor(15, 23, 42); // #0f172a
   doc.rect(0, 0, pageWidth, 52, 'F');
 
-  // School initials badge
-  const initials = getSchoolInitials(school.shortName);
-  doc.setFillColor(184, 134, 11); // gold
-  doc.circle(marginX + 12, 26, 12, 'F');
-  doc.setFontSize(14);
-  doc.setTextColor(15, 23, 42);
-  doc.setFont('helvetica', 'bold');
-  doc.text(initials, marginX + 12, 30, { align: 'center' });
+  // School logo (if available)
+  if (schoolLogoBase64) {
+    try {
+      doc.addImage(schoolLogoBase64, 'JPEG', marginX, 8, 18, 18);
+    } catch {
+      const initials = getSchoolInitials(school.shortName);
+      doc.setFillColor(184, 134, 11);
+      doc.circle(marginX + 12, 26, 12, 'F');
+      doc.setFontSize(14);
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.text(initials, marginX + 12, 30, { align: 'center' });
+    }
+  } else {
+    const initials = getSchoolInitials(school.shortName);
+    doc.setFillColor(184, 134, 11);
+    doc.circle(marginX + 12, 26, 12, 'F');
+    doc.setFontSize(14);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.text(initials, marginX + 12, 30, { align: 'center' });
+  }
 
   // School name
   doc.setFontSize(16);
@@ -139,7 +155,18 @@ function buildBulletinPDF(
   doc.text("INFORMATIONS DE L'ÉLÈVE", marginX + 6, y + 5);
 
   y += 14;
-  drawFieldRow(doc, marginX, y, contentWidth, 'Nom complet', `${student.lastName.toUpperCase()} ${student.firstName}`);
+  // Student photo (if available)
+  const photoX = marginX;
+  if (studentPhotoBase64) {
+    try {
+      doc.addImage(studentPhotoBase64, 'JPEG', photoX, y - 2, 16, 16);
+    } catch {
+      // No photo, skip
+    }
+    drawFieldRow(doc, photoX + 20, y, contentWidth - 20, 'Nom complet', `${student.lastName.toUpperCase()} ${student.firstName}`);
+  } else {
+    drawFieldRow(doc, photoX, y, contentWidth, 'Nom complet', `${student.lastName.toUpperCase()} ${student.firstName}`);
+  }
   y += 10;
   drawFieldRow(doc, marginX, y, contentWidth, 'Matricule', student.matricule);
   y += 10;
@@ -356,6 +383,7 @@ export async function GET(
         lastName: true,
         matricule: true,
         classId: true,
+        photoUrl: true,
         class: { select: { name: true } },
       },
     });
@@ -376,6 +404,7 @@ export async function GET(
         city: true,
         province: true,
         country: true,
+        logo: true,
       },
     });
 
@@ -442,6 +471,32 @@ export async function GET(
     }
 
     // Build PDF
+    // Fetch school logo as base64
+    let schoolLogoBase64: string | null = null;
+    if (school.logo) {
+      try {
+        const logoUrl = school.logo.startsWith('http') ? school.logo : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${school.logo}`;
+        const logoRes = await fetch(logoUrl);
+        if (logoRes.ok) {
+          const buf = Buffer.from(await logoRes.arrayBuffer());
+          schoolLogoBase64 = `data:image/jpeg;base64,${buf.toString('base64')}`;
+        }
+      } catch {}
+    }
+
+    // Fetch student photo as base64
+    let studentPhotoBase64: string | null = null;
+    if (student.photoUrl) {
+      try {
+        const photoUrl = student.photoUrl.startsWith('http') ? student.photoUrl : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${student.photoUrl}`;
+        const photoRes = await fetch(photoUrl);
+        if (photoRes.ok) {
+          const buf = Buffer.from(await photoRes.arrayBuffer());
+          studentPhotoBase64 = `data:image/jpeg;base64,${buf.toString('base64')}`;
+        }
+      } catch {}
+    }
+
     const pdfBuffer = buildBulletinPDF(
       student,
       school,
@@ -450,7 +505,9 @@ export async function GET(
       gradeData,
       average,
       decision,
-      schoolYear.label || schoolYear.id
+      schoolYear.label || schoolYear.id,
+      schoolLogoBase64,
+      studentPhotoBase64
     );
 
     const filename = `bulletin-${student.lastName}-${student.firstName}-${trimester}.pdf`;
