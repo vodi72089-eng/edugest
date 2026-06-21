@@ -2597,6 +2597,10 @@ function ClassesView() {
   const [addingClass, setAddingClass] = useState(false)
   const [deletingClassId, setDeletingClassId] = useState<string | null>(null)
   const [pendingApprovals, setPendingApprovals] = useState<{id: string; name: string; type: string; requestedBy: string}[]>([])
+  const [viewingClassId, setViewingClassId] = useState<string | null>(null)
+  const [viewingClassName, setViewingClassName] = useState('')
+  const [classStudents, setClassStudents] = useState<StudentData[]>([])
+  const [loadingStudents, setLoadingStudents] = useState(false)
   const canManage = userRole === 'SUPER_ADMIN_GLOBAL' || (userRole && userRole.startsWith('DIRECTION'))
 
   useEffect(() => {
@@ -2661,6 +2665,18 @@ function ClassesView() {
     finally { setDeletingClassId(null) }
   }
 
+  async function handleViewClass(classId: string, className: string) {
+    setViewingClassId(classId)
+    setViewingClassName(className)
+    setLoadingStudents(true)
+    try {
+      const res = await authFetch(`/api/students?classId=${classId}&limit=50`)
+      const json = await res.json()
+      setClassStudents(json.data || [])
+    } catch { setClassStudents([]) }
+    finally { setLoadingStudents(false) }
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
@@ -2695,7 +2711,7 @@ function ClassesView() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredClasses.map(c => (
-            <div key={c.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
+            <div key={c.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift cursor-pointer" onClick={() => handleViewClass(c.id, c.name)}>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{c.name}</h3>
                 <div className="flex items-center gap-2">
@@ -2760,6 +2776,62 @@ function ClassesView() {
           </div>
         </div>
       )}
+
+      {viewingClassId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setViewingClassId(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-[oklch(90%_0.01_175)] flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>Élèves de {viewingClassName}</h3>
+                <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{classStudents.length} élève{classStudents.length !== 1 ? 's' : ''}</p>
+              </div>
+              <button onClick={() => setViewingClassId(null)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.005_175)] transition">
+                <X size={16} style={{ color: TEXT_MUTED_LUXE }} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {loadingStudents ? (
+                <div className="text-center py-12" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div>
+              ) : classStudents.length === 0 ? (
+                <div className="text-center py-12" style={{ color: TEXT_MUTED_LUXE }}>Aucun élève dans cette classe</div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr style={{ background: IVORY }}>
+                      <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-5 py-3" style={{ color: GOLD }}>Élève</th>
+                      <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-5 py-3" style={{ color: GOLD }}>Matricule</th>
+                      <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-5 py-3" style={{ color: GOLD }}>Parent</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {classStudents.map(s => (
+                      <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2.5">
+                            {s.photoUrl ? (
+                              <img src={s.photoUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                                {getInitials(s.firstName + ' ' + s.lastName)}
+                              </div>
+                            )}
+                            <div>
+                              <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
+                              <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.gender === 'M' ? 'Garçon' : 'Fille'}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 text-[13px] font-mono" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</td>
+                        <td className="px-5 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.parent?.name || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -2769,6 +2841,17 @@ function ClassesView() {
 // PaymentsView imported from @/components/views/PaymentsView
 
 // ===== PAYMENT CONFIGURATION VIEW =====
+const GATEWAY_SVG_LOGOS: Record<string, string> = {
+  ORANGE_MONEY: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#FF6600"/><circle cx="20" cy="14" r="7" fill="white"/><circle cx="20" cy="14" r="4" fill="#FF6600"/><path d="M12 28c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="white" stroke-width="2.5" fill="none"/><rect x="16" y="30" width="8" height="3" rx="1.5" fill="white"/></svg>`,
+  MPESA: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#00A651"/><text x="20" y="26" text-anchor="middle" fill="white" font-size="16" font-weight="bold" font-family="Arial">M</text></svg>`,
+  AIRTEL_MONEY: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#E40000"/><text x="20" y="26" text-anchor="middle" fill="white" font-size="16" font-weight="bold" font-family="Arial">A</text></svg>`,
+  DPO: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#1a1a2e"/><text x="20" y="25" text-anchor="middle" fill="#4ecdc4" font-size="12" font-weight="bold" font-family="Arial">DPO</text></svg>`,
+  STRIPE: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#635BFF"/><text x="20" y="25" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="Arial">S</text></svg>`,
+  PAYPAL: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#003087"/><text x="20" y="25" text-anchor="middle" fill="#009cde" font-size="14" font-weight="bold" font-family="Arial">P</text></svg>`,
+  FLUTTERWAVE: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#F5A623"/><text x="20" y="25" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="Arial">F</text></svg>`,
+  MANUAL: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#6b7280"/><text x="20" y="25" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="Arial">$</text></svg>`,
+}
+
 function PaymentConfigView() {
   const { userData } = useEduGestStore()
   const [activeTab, setActiveTab] = useState<'gateways' | 'currency' | 'transactions'>('gateways')
@@ -2782,36 +2865,38 @@ function PaymentConfigView() {
   const [showGatewayModal, setShowGatewayModal] = useState<string | null>(null)
   const [gatewayForm, setGatewayForm] = useState<any>({})
   const [currencyForm, setCurrencyForm] = useState<any>({
-    baseCurrency: 'USD',
-    displayCurrency: 'USD',
-    enabledCurrencies: ['USD', 'EUR', 'CDF'],
+    baseCurrency: 'CDF',
+    displayCurrency: 'CDF',
+    enabledCurrencies: ['CDF', 'USD'],
     useManualRates: false,
     manualRates: {},
   })
-  const [convertForm, setConvertForm] = useState({ amount: 100, from: 'USD', to: 'CDF' })
+  const [convertForm, setConvertForm] = useState({ amount: 100, from: 'CDF', to: 'USD' })
   const [convertResult, setConvertResult] = useState<any>(null)
   const [supportedCurrencies, setSupportedCurrencies] = useState<any[]>([])
 
   useEffect(() => {
     if (!userData?.schoolId) return
-    Promise.all([loadGateways(), loadCurrencyConfig(), loadTransactions()])
+    loadGateways()
+    loadCurrencyConfig()
+    loadTransactions()
   }, [userData?.schoolId])
 
   async function loadGateways() {
     try {
-      const res = await authFetch(`/api/payment-gateways?schoolId=${userData?.schoolId}`)
+      const res = await authFetch(`/api/payment-gateways${userData?.schoolId ? `?schoolId=${userData.schoolId}` : ''}`)
       const json = await res.json()
       if (json.data) {
         setAvailableGateways(json.data.catalog || [])
         setGateways(json.data.configured || [])
       }
-    } catch (e) { console.error(e) }
+    } catch (e) { console.error('[PaymentConfig] loadGateways:', e) }
     finally { setLoading(false) }
   }
 
   async function loadCurrencyConfig() {
     try {
-      const res = await authFetch(`/api/currency?schoolId=${userData?.schoolId}`)
+      const res = await authFetch(`/api/currency${userData?.schoolId ? `?schoolId=${userData.schoolId}` : ''}`)
       const json = await res.json()
       if (json.data) {
         setCurrencyConfig(json.data.config)
@@ -2832,7 +2917,9 @@ function PaymentConfigView() {
 
   async function loadTransactions() {
     try {
-      const res = await authFetch(`/api/payment-transactions?schoolId=${userData?.schoolId}&limit=10`)
+      const params = new URLSearchParams({ limit: '10' })
+      if (userData?.schoolId) params.set('schoolId', userData.schoolId)
+      const res = await authFetch(`/api/payment-transactions?${params.toString()}`)
       const json = await res.json()
       if (json.data) setTransactions(json.data.transactions || json.data)
     } catch (e) { console.error(e) }
@@ -2998,42 +3085,56 @@ function PaymentConfigView() {
       {/* Gateways Tab */}
       {activeTab === 'gateways' && (
         <div className="space-y-4">
+          {availableGateways.length === 0 && !loading && (
+            <div className="text-center py-8 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl">
+              <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Aucune passerelle disponible</p>
+            </div>
+          )}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {availableGateways.map((gw: any) => {
               const configured = gateways.find((g: any) => g.gatewayType === gw.gatewayType)
+              const svgLogo = GATEWAY_SVG_LOGOS[gw.gatewayType]
               return (
-                <div key={gw.gatewayType} className="border rounded-xl p-4 bg-white shadow-sm">
+                <div key={gw.gatewayType} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
                   <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{gw.icon}</span>
+                    <div className="flex items-center gap-3">
+                      {svgLogo ? (
+                        <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0" dangerouslySetInnerHTML={{ __html: svgLogo }} />
+                      ) : (
+                        <span className="text-2xl">{gw.icon}</span>
+                      )}
                       <div>
-                        <h3 className="font-semibold text-sm">{gw.displayName}</h3>
-                        {configured && (
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${configured.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                            {configured.isActive ? '◯ Actif' : '◯ Inactif'}
+                        <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>{gw.displayName}</h3>
+                        {configured ? (
+                          <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${configured.isActive ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>
+                            {configured.isActive ? 'Actif' : 'Inactif'}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]">
+                            Non configuré
                           </span>
                         )}
                       </div>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 mb-3">{gw.description}</p>
+                  <p className="text-[12px] mb-3" style={{ color: TEXT_MUTED_LUXE }}>{gw.description}</p>
                   <div className="flex flex-wrap gap-1 mb-3">
                     {gw.supportedCurrencies.slice(0, 4).map((c: string) => (
-                      <span key={c} className="text-xs px-2 py-0.5 bg-gray-100 rounded">{c}</span>
+                      <span key={c} className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ background: GOLD_SOFT, color: GOLD }}>{c}</span>
                     ))}
                   </div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => openGatewayEditor(gw.gatewayType, configured)}
-                      className="flex-1 text-xs py-2 px-3 rounded-lg bg-[#f5a623] text-white font-medium hover:bg-[#ffb643] transition"
+                      className="flex-1 text-[12px] py-2 px-3 rounded-xl font-semibold transition edu-gold-cta"
                     >
                       {configured ? 'Configurer' : 'Activer'}
                     </button>
                     {configured && (
                       <button
                         onClick={() => toggleGateway(configured)}
-                        className={`text-xs py-2 px-3 rounded-lg font-medium transition ${
-                          configured.isActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'
+                        className={`text-[12px] py-2 px-3 rounded-xl font-semibold transition ${
+                          configured.isActive ? 'bg-[oklch(95%_0.04_25)] text-[oklch(55%_0.18_25)] hover:bg-[oklch(93%_0.04_25)]' : 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)] hover:bg-[oklch(92%_0.05_145)]'
                         }`}
                       >
                         {configured.isActive ? 'Désactiver' : 'Activer'}
@@ -3277,131 +3378,79 @@ function PaymentConfigView() {
 
       {/* Gateway Configuration Modal */}
       {showGatewayModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-5 border-b flex items-center justify-between sticky top-0 bg-white">
-              <h3 className="font-semibold">
-                Configuration - {availableGateways.find((g: any) => g.gatewayType === showGatewayModal)?.displayName}
-              </h3>
-              <button onClick={() => setShowGatewayModal(null)} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowGatewayModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-[oklch(90%_0.01_175)] flex items-center justify-between sticky top-0 bg-white rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                {GATEWAY_SVG_LOGOS[showGatewayModal] ? (
+                  <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0" dangerouslySetInnerHTML={{ __html: GATEWAY_SVG_LOGOS[showGatewayModal] }} />
+                ) : null}
+                <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>
+                  Configuration - {availableGateways.find((g: any) => g.gatewayType === showGatewayModal)?.displayName}
+                </h3>
+              </div>
+              <button onClick={() => setShowGatewayModal(null)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.005_175)] transition">
+                <X size={16} style={{ color: TEXT_MUTED_LUXE }} />
               </button>
             </div>
-            <div className="p-5 space-y-3">
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={gatewayForm.isActive}
-                    onChange={(e) => setGatewayForm({ ...gatewayForm, isActive: e.target.checked })}
-                    className="rounded"
-                  />
-                  <span className="text-sm">Activer cette passerelle</span>
+            <div className="px-6 py-4 space-y-4">
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={gatewayForm.isActive} onChange={(e) => setGatewayForm({ ...gatewayForm, isActive: e.target.checked })} className="w-4 h-4 rounded accent-[oklch(72%_0.15_65)]" />
+                  <span className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Activer</span>
                 </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={gatewayForm.isTestMode}
-                    onChange={(e) => setGatewayForm({ ...gatewayForm, isTestMode: e.target.checked })}
-                    className="rounded"
-                  />
-                  <span className="text-sm">Mode test</span>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={gatewayForm.isTestMode} onChange={(e) => setGatewayForm({ ...gatewayForm, isTestMode: e.target.checked })} className="w-4 h-4 rounded accent-[oklch(72%_0.15_65)]" />
+                  <span className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Mode test</span>
                 </label>
               </div>
 
               {showGatewayModal !== 'MANUAL' && (
                 <>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Merchant ID</label>
-                    <input
-                      type="text"
-                      value={gatewayForm.merchantId || ''}
-                      onChange={(e) => setGatewayForm({ ...gatewayForm, merchantId: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg text-sm"
-                      placeholder="Identifiant marchand"
-                    />
+                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Merchant ID</label>
+                    <input type="text" value={gatewayForm.merchantId || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, merchantId: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder="Identifiant marchand" style={{ color: TEXT_PRIMARY }} />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">API Key</label>
-                    <input
-                      type="password"
-                      value={gatewayForm.apiKey || ''}
-                      onChange={(e) => setGatewayForm({ ...gatewayForm, apiKey: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg text-sm"
-                      placeholder="Clé API"
-                    />
+                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>API Key</label>
+                    <input type="password" value={gatewayForm.apiKey || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, apiKey: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder="Clé API" style={{ color: TEXT_PRIMARY }} />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Secret Key</label>
-                    <input
-                      type="password"
-                      value={gatewayForm.secretKey || ''}
-                      onChange={(e) => setGatewayForm({ ...gatewayForm, secretKey: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg text-sm"
-                      placeholder="Clé secrète"
-                    />
+                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Secret Key</label>
+                    <input type="password" value={gatewayForm.secretKey || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, secretKey: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder="Clé secrète" style={{ color: TEXT_PRIMARY }} />
                   </div>
                   {(showGatewayModal === 'MPESA' || showGatewayModal === 'ORANGE_MONEY' || showGatewayModal === 'AIRTEL_MONEY') && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Numéro de téléphone</label>
-                      <input
-                        type="text"
-                        value={gatewayForm.phoneNumber || ''}
-                        onChange={(e) => setGatewayForm({ ...gatewayForm, phoneNumber: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-lg text-sm"
-                        placeholder="+243..."
-                      />
+                      <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Numéro de téléphone du marchand</label>
+                      <input type="text" value={gatewayForm.phoneNumber || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, phoneNumber: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder="+243..." style={{ color: TEXT_PRIMARY }} />
                     </div>
                   )}
                   {(showGatewayModal === 'PAYPAL' || showGatewayModal === 'STRIPE') && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Email du compte</label>
-                      <input
-                        type="email"
-                        value={gatewayForm.accountEmail || ''}
-                        onChange={(e) => setGatewayForm({ ...gatewayForm, accountEmail: e.target.value })}
-                        className="w-full px-3 py-2 border rounded-lg text-sm"
-                        placeholder="email@example.com"
-                      />
+                      <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Email du compte</label>
+                      <input type="email" value={gatewayForm.accountEmail || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, accountEmail: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder="email@example.com" style={{ color: TEXT_PRIMARY }} />
                     </div>
                   )}
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Monnaie</label>
-                    <select
-                      value={gatewayForm.currency}
-                      onChange={(e) => setGatewayForm({ ...gatewayForm, currency: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg text-sm"
-                    >
+                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Monnaie</label>
+                    <select value={gatewayForm.currency} onChange={(e) => setGatewayForm({ ...gatewayForm, currency: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }}>
                       {(availableGateways.find((g: any) => g.gatewayType === showGatewayModal)?.supportedCurrencies || []).map((c: string) => (
                         <option key={c} value={c}>{c}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Frais de transaction (%)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={gatewayForm.feePercent || 0}
-                      onChange={(e) => setGatewayForm({ ...gatewayForm, feePercent: Number(e.target.value) })}
-                      className="w-full px-3 py-2 border rounded-lg text-sm"
-                    />
+                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Frais de transaction (%)</label>
+                    <input type="number" step="0.1" value={gatewayForm.feePercent || 0} onChange={(e) => setGatewayForm({ ...gatewayForm, feePercent: Number(e.target.value) })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} />
                   </div>
                 </>
               )}
 
-              <div className="pt-3 flex gap-2">
-                <button
-                  onClick={saveGatewayConfig}
-                  disabled={saving}
-                  className="flex-1 py-2.5 bg-[#f5a623] text-white rounded-lg text-sm font-medium hover:bg-[#ffb643] transition disabled:opacity-50"
-                >
+              <div className="pt-2 flex gap-3">
+                <button onClick={saveGatewayConfig} disabled={saving} className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition edu-gold-cta disabled:opacity-50">
                   {saving ? 'Sauvegarde...' : 'Sauvegarder'}
                 </button>
-                <button
-                  onClick={() => setShowGatewayModal(null)}
-                  className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition"
-                >
+                <button onClick={() => setShowGatewayModal(null)} className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition" style={{ color: TEXT_PRIMARY }}>
                   Annuler
                 </button>
               </div>

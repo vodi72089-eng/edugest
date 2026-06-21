@@ -120,10 +120,10 @@ export default function OnlinePaymentView() {
     setResultRef('')
   }
 
-  const methodLabels: Record<string, { label: string; color: string; icon: string }> = {
-    ORANGE_MONEY: { label: 'Orange Money', color: '#FF6600', icon: '🟠' },
-    MPESA: { label: 'M-Pesa', color: '#00A651', icon: '🟢' },
-    AIRTEL_MONEY: { label: 'Airtel Money', color: '#E40000', icon: '🔴' },
+  const methodLabels: Record<string, { label: string; color: string; icon: string; svg: string }> = {
+    ORANGE_MONEY: { label: 'Orange Money', color: '#FF6600', icon: '🟠', svg: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#FF6600"/><circle cx="20" cy="14" r="7" fill="white"/><circle cx="20" cy="14" r="4" fill="#FF6600"/><path d="M12 28c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="white" stroke-width="2.5" fill="none"/><rect x="16" y="30" width="8" height="3" rx="1.5" fill="white"/></svg>` },
+    MPESA: { label: 'M-Pesa', color: '#00A651', icon: '🟢', svg: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#00A651"/><text x="20" y="26" text-anchor="middle" fill="white" font-size="16" font-weight="bold" font-family="Arial">M</text></svg>` },
+    AIRTEL_MONEY: { label: 'Airtel Money', color: '#E40000', icon: '🔴', svg: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#E40000"/><text x="20" y="26" text-anchor="middle" fill="white" font-size="16" font-weight="bold" font-family="Arial">A</text></svg>` },
   }
 
   if (step === 'success') {
@@ -242,7 +242,7 @@ export default function OnlinePaymentView() {
                       }`}
                       style={{ background: paymentMethod === key ? 'oklch(97% 0.005 175)' : 'white' }}
                     >
-                      <div className="text-lg mb-1">{info.icon}</div>
+                      <div className="w-8 h-8 mx-auto mb-1 rounded-lg overflow-hidden" dangerouslySetInnerHTML={{ __html: info.svg }} />
                       <div className="text-[11px] font-semibold" style={{ color: TEXT_PRIMARY }}>{info.label}</div>
                     </button>
                   ))}
@@ -306,7 +306,7 @@ export default function OnlinePaymentView() {
               <div className="space-y-2">
                 {Object.entries(methodLabels).map(([key, info]) => (
                   <div key={key} className="flex items-center gap-2.5 p-2 rounded-lg" style={{ background: paymentMethod === key ? 'oklch(97% 0.005 175)' : 'transparent' }}>
-                    <span className="text-lg">{info.icon}</span>
+                    <div className="w-6 h-6 rounded-md overflow-hidden shrink-0" dangerouslySetInnerHTML={{ __html: info.svg }} />
                     <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{info.label}</span>
                   </div>
                 ))}
