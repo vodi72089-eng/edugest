@@ -170,19 +170,24 @@ interface EduGestStore {
 // ─── Initial State from localStorage ─────────────────────────────────────────
 
 function getInitialState() {
-  if (typeof window === 'undefined') {
-    return { currentView: 'home' as ViewType, userRole: null as UserRole | null, userData: null as UserData | null, sidebarOpen: false };
-  }
+  // Always return 'home' on both server and client to avoid hydration mismatch.
+  // Session is restored in a useEffect after mount.
+  return { currentView: 'home' as ViewType, userRole: null as UserRole | null, userData: null as UserData | null, sidebarOpen: false };
+}
+
+export function restoreSession() {
+  if (typeof window === 'undefined') return;
   const session = getStoredSession();
   const token = localStorage.getItem('edugest_token');
   if (token) _authToken = token;
-  if (!session) return { currentView: 'home' as ViewType, userRole: null, userData: null, sidebarOpen: false };
-  return {
-    currentView: (session.view || 'home') as ViewType,
-    userRole: (session.role || null) as UserRole | null,
-    userData: (session.userData || null) as UserData | null,
-    sidebarOpen: session.sidebar || false,
-  };
+  if (!session) return;
+  const store = useEduGestStore.getState();
+  if (session.view && store.currentView === 'home') {
+    store.setCurrentView((session.view || 'home') as ViewType);
+  }
+  if (session.role) store.setUserRole(session.role as UserRole);
+  if (session.userData) store.setUserData(session.userData as UserData);
+  if (session.sidebar) store.setSidebarOpen(true);
 }
 
 const initial = getInitialState();

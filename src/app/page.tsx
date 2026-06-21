@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken } from '@/lib/store'
+import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken, restoreSession } from '@/lib/store'
 import { toast } from 'sonner'
 import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, DisciplineData, CommunicationData, HomeworkData } from '@/lib/types'
 import { ACCENT, ACCENT2, ACCENT_SOFT, SUCCESS, WARNING, DANGER, INFO, MUTED, BORDER, GOLD, GOLD_SOFT, GOLD_GLOW, DARK, DARK_ALT, IVORY, IVORY_WARM, TEXT_PRIMARY, TEXT_MUTED_LUXE, SUCCESS_SOFT, SUBSCRIPTION_TIERS, PROVINCES, FILTER_CHIPS, COVER_GRADIENTS, LOGO_COLORS, ENROLLMENT_DATA, SUBSCRIPTION_DATA } from '@/lib/constants'
@@ -5068,6 +5068,11 @@ function PricingDashboard() {
 // ===== MAIN HOME COMPONENT =====
 export default function Home() {
   const { currentView, userRole, logout, setCurrentView } = useEduGestStore()
+
+  // Restore session from localStorage after first render (avoids hydration mismatch)
+  useEffect(() => {
+    restoreSession()
+  }, [])
 
   // Handle 401 unauthorized events from authFetch
   useEffect(() => {
