@@ -1,4 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <rect width="200" height="200" rx="40" fill="#6B7280"/>
-  <text x="100" y="130" text-anchor="middle" fill="white" font-size="80" font-weight="800" font-family="Arial,Helvetica,sans-serif">$</text>
+  <rect width="200" height="200" rx="40" fill="#0F766E"/>
+  <!-- Banknote/bill icon -->
+  <g transform="translate(30, 55)">
+    <!-- Outer bill rectangle -->
+    <rect x="0" y="0" width="140" height="90" rx="6" fill="white" stroke="#0F766E" stroke-width="2"/>
+    <!-- Inner border (decorative) -->
+    <rect x="8" y="8" width="124" height="74" rx="4" fill="none" stroke="#0F766E" stroke-width="1" opacity="0.4"/>
+    <!-- Corner dots (banknote style) -->
+    <circle cx="14" cy="14" r="2" fill="#0F766E" opacity="0.5"/>
+    <circle cx="126" cy="14" r="2" fill="#0F766E" opacity="0.5"/>
+    <circle cx="14" cy="76" r="2" fill="#0F766E" opacity="0.5"/>
+    <circle cx="126" cy="76" r="2" fill="#0F766E" opacity="0.5"/>
+    <!-- Central portrait circle -->
+    <circle cx="70" cy="45" r="22" fill="none" stroke="#0F766E" stroke-width="2"/>
+    <!-- Dollar sign in center -->
+    <text x="70" y="54" text-anchor="middle" fill="#0F766E" font-size="28" font-weight="700" font-family="Arial,Helvetica,sans-serif">$</text>
+  </g>
+  <!-- "Espèces" label -->
+  <text x="100" y="175" text-anchor="middle" fill="white" font-size="13" font-weight="600" font-family="Arial,Helvetica,sans-serif" opacity="0.9">Espèces / Virement</text>
 </svg>
