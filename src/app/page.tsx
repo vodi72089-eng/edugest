@@ -4441,12 +4441,28 @@ function ClassPassingView() {
   const [studentSearchLoading, setStudentSearchLoading] = useState(false)
   const [decisions, setDecisions] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [selectedTrimester, setSelectedTrimester] = useState('T1')
 
   useEffect(() => {
     const params = new URLSearchParams({ limit: '50' })
     if (userData?.schoolId) params.set('schoolId', userData.schoolId)
     authFetch(`/api/students?${params}`).then(r => r.json()).then(j => { setStudents(j.data || []); setLoading(false) }).catch(() => setLoading(false))
   }, [userData?.schoolId])
+
+  // Load existing decisions
+  useEffect(() => {
+    if (!userData?.schoolId) return
+    authFetch(`/api/report-cards?trimester=${selectedTrimester}&schoolId=${userData.schoolId}`)
+      .then(r => r.json())
+      .then(j => {
+        const existing: Record<string, string> = {}
+        for (const rc of (j.data || [])) {
+          if (rc.decision) existing[rc.studentId] = rc.decision
+        }
+        setDecisions(prev => ({ ...existing, ...prev }))
+      })
+      .catch(() => {})
+  }, [userData?.schoolId, selectedTrimester])
 
   // Student search autocomplete
   useEffect(() => {
@@ -4488,18 +4504,23 @@ function ClassPassingView() {
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filteredStudents.length)} élèves</p>
         </div>
-        <SearchAutocomplete
-          placeholder="Tapez le nom de l'élève..."
-          items={studentSuggestions}
-          selectedId={selectedStudentId}
-          onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
-          onClear={() => { setSelectedStudentId(null); setStudentSearch('') }}
-          searchQuery={studentSearch}
-          onSearchChange={setStudentSearch}
-          loading={studentSearchLoading}
-          itemTypeName="élève"
-          className="w-full max-w-sm"
-        />
+        <div className="flex items-center gap-3">
+          <select value={selectedTrimester} onChange={e => setSelectedTrimester(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+            <option value="T1">Trimestre 1</option><option value="T2">Trimestre 2</option><option value="T3">Trimestre 3</option>
+          </select>
+          <SearchAutocomplete
+            placeholder="Tapez le nom de l'élève..."
+            items={studentSuggestions}
+            selectedId={selectedStudentId}
+            onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
+            onClear={() => { setSelectedStudentId(null); setStudentSearch('') }}
+            searchQuery={studentSearch}
+            onSearchChange={setStudentSearch}
+            loading={studentSearchLoading}
+            itemTypeName="élève"
+            className="w-full max-w-sm"
+          />
+        </div>
       </div>
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
@@ -4540,7 +4561,7 @@ function ClassPassingView() {
                       if (!decision || decision === 'PENDING') { toast.error('Sélectionnez une décision'); return }
                       setSavingId(s.id)
                       try {
-                        const res = await authFetch('/api/grades', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentId: s.id, decision, schoolId: userData?.schoolId }) })
+                        const res = await authFetch('/api/report-cards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentId: s.id, decision, trimester: selectedTrimester, schoolId: userData?.schoolId }) })
                         if (res.ok) toast.success('Décision enregistrée!')
                         else toast.error('Erreur lors de l\'enregistrement')
                       } catch { toast.error('Erreur réseau') }
@@ -4674,7 +4695,22 @@ function BulletinView() {
                     </div>
                   ))}
                 </div>
-                <button onClick={() => { setSelectedStudentId(id); toast.info('Bulletin de ' + (data.student?.firstName || '') + ' — Moyenne: ' + avg.toFixed(1) + '/20') }} className="mt-3 w-full py-1.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] hover:shadow-sm transition inline-flex items-center justify-center gap-1.5" style={{ color: TEXT_PRIMARY }}>
+                <button onClick={async () => {
+                  try {
+                    const res = await authFetch(`/api/bulletins/${id}?trimester=${selectedTrimester}${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
+                    if (!res.ok) { toast.error('Erreur lors du téléchargement'); return }
+                    const blob = await res.blob()
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `bulletin-${data.student?.lastName || 'eleve'}-${selectedTrimester}.pdf`
+                    document.body.appendChild(a)
+                    a.click()
+                    document.body.removeChild(a)
+                    URL.revokeObjectURL(url)
+                    toast.success('Bulletin téléchargé !')
+                  } catch { toast.error('Erreur réseau') }
+                }} className="mt-3 w-full py-1.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] hover:shadow-sm transition inline-flex items-center justify-center gap-1.5" style={{ color: TEXT_PRIMARY }}>
                   <FileText size={14} /> Voir bulletin
                 </button>
               </div>

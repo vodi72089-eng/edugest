@@ -322,6 +322,8 @@ model ReportCard {
   isUnlocked   Boolean  @default(false)
   generatedAt  DateTime @default(now())
   pdfUrl       String?
+
+  @@unique([studentId, trimester, schoolYearId])
 }
 
 model AuditLog {

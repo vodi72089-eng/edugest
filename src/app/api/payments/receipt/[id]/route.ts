@@ -94,7 +94,8 @@ function buildReceiptPDF(
     createdAt: Date;
   },
   student: { firstName: string; lastName: string; matricule: string },
-  school: { name: string; shortName: string; email: string; phone: string; address: string; city: string; province: string; country: string }
+  school: { name: string; shortName: string; email: string; phone: string; address: string; city: string; province: string; country: string; logo: string | null },
+  schoolLogoBase64: string | null
 ): Buffer {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -112,14 +113,30 @@ function buildReceiptPDF(
   doc.setFillColor(15, 23, 42); // #0f172a
   doc.rect(0, 0, pageWidth, 52, 'F');
 
-  // School initials badge
-  const initials = getSchoolInitials(school.shortName);
-  doc.setFillColor(184, 134, 11); // gold
-  doc.circle(marginX + 12, 26, 12, 'F');
-  doc.setFontSize(14);
-  doc.setTextColor(15, 23, 42);
-  doc.setFont('helvetica', 'bold');
-  doc.text(initials, marginX + 12, 30, { align: 'center' });
+  // School logo (if available)
+  if (schoolLogoBase64) {
+    try {
+      doc.addImage(schoolLogoBase64, 'JPEG', marginX, 8, 18, 18);
+    } catch {
+      // Fallback to initials badge if image fails
+      const initials = getSchoolInitials(school.shortName);
+      doc.setFillColor(184, 134, 11);
+      doc.circle(marginX + 12, 26, 12, 'F');
+      doc.setFontSize(14);
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.text(initials, marginX + 12, 30, { align: 'center' });
+    }
+  } else {
+    // School initials badge (no logo)
+    const initials = getSchoolInitials(school.shortName);
+    doc.setFillColor(184, 134, 11); // gold
+    doc.circle(marginX + 12, 26, 12, 'F');
+    doc.setFontSize(14);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.text(initials, marginX + 12, 30, { align: 'center' });
+  }
 
   // School name
   doc.setFontSize(16);
@@ -375,6 +392,7 @@ export async function GET(
             city: true,
             province: true,
             country: true,
+            logo: true,
           },
         },
       },
@@ -407,8 +425,26 @@ export async function GET(
       }
     }
 
+    // Fetch school logo as base64 (if exists)
+    let schoolLogoBase64: string | null = null;
+    if (payment.school.logo) {
+      try {
+        const logoUrl = payment.school.logo.startsWith('http')
+          ? payment.school.logo
+          : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${payment.school.logo}`;
+        const logoRes = await fetch(logoUrl);
+        if (logoRes.ok) {
+          const logoBuffer = Buffer.from(await logoRes.arrayBuffer());
+          const mimeType = logoUrl.endsWith('.png') ? 'image/png' : 'image/jpeg';
+          schoolLogoBase64 = `data:${mimeType};base64,${logoBuffer.toString('base64')}`;
+        }
+      } catch {
+        // Logo fetch failed, continue without it
+      }
+    }
+
     // Build PDF
-    const pdfBuffer = buildReceiptPDF(payment, student, payment.school);
+    const pdfBuffer = buildReceiptPDF(payment, student, payment.school, schoolLogoBase64);
 
     const receiptNo = payment.receiptNumber || `REC-${payment.id.slice(-8).toUpperCase()}`;
 
