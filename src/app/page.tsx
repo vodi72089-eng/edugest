@@ -23,6 +23,7 @@ import PersonnelView from '@/components/views/PersonnelView'
 import ProfileView from '@/components/views/ProfileView'
 import SettingsView from '@/components/views/SettingsView'
 import OnlinePaymentView from '@/components/views/OnlinePaymentView'
+import DettesView from '@/components/views/DettesView'
 import SchoolsManagementView from '@/components/views/SchoolsManagementView'
 import {
   Search, Bell, Settings, Plus, ChevronRight, Users, GraduationCap,
@@ -2047,7 +2048,6 @@ function Sidebar() {
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
-      { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
@@ -2056,8 +2056,7 @@ function Sidebar() {
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <CreditCard size={16} />, label: 'Enregistrer paiement', view: 'payments' },
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
-      { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
-      { icon: <AlertTriangle size={16} />, label: 'Dettes', view: 'payments', badge: 84 },
+      { icon: <AlertTriangle size={16} />, label: 'Dettes', view: 'debts' as ViewType },
       { icon: <BarChart3 size={16} />, label: 'Situation financière', view: 'payments' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
@@ -2179,6 +2178,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     personnel: 'Personnel', settings: 'Paramètres', 'school-reviews': 'Avis',
     'payment-verification': 'Vérification', 'payment-config': 'Config. Paiement',
     'online-payment': 'Payer en ligne',
+    'debts': 'Dettes',
   }
 
   return (
@@ -2488,6 +2488,7 @@ function MainContent() {
     case 'payments': return <PaymentsView />
     case 'payment-verification': return <PaymentVerificationView />
     case 'online-payment': return <OnlinePaymentView />
+    case 'debts': return <DettesView onNavigate={(v) => setCurrentView(v as ViewType)} schoolId={userData?.schoolId || ''} />
     case 'payment-config': return <PaymentConfigView />
     case 'discipline': return <DisciplineView />
     case 'communications': return <CommunicationsView />
@@ -2842,14 +2843,14 @@ function ClassesView() {
 
 // ===== PAYMENT CONFIGURATION VIEW =====
 const GATEWAY_SVG_LOGOS: Record<string, string> = {
-  ORANGE_MONEY: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#FF6600"/><circle cx="20" cy="14" r="7" fill="white"/><circle cx="20" cy="14" r="4" fill="#FF6600"/><path d="M12 28c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="white" stroke-width="2.5" fill="none"/><rect x="16" y="30" width="8" height="3" rx="1.5" fill="white"/></svg>`,
-  MPESA: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#00A651"/><text x="20" y="26" text-anchor="middle" fill="white" font-size="16" font-weight="bold" font-family="Arial">M</text></svg>`,
-  AIRTEL_MONEY: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#E40000"/><text x="20" y="26" text-anchor="middle" fill="white" font-size="16" font-weight="bold" font-family="Arial">A</text></svg>`,
-  DPO: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#1a1a2e"/><text x="20" y="25" text-anchor="middle" fill="#4ecdc4" font-size="12" font-weight="bold" font-family="Arial">DPO</text></svg>`,
-  STRIPE: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#635BFF"/><text x="20" y="25" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="Arial">S</text></svg>`,
-  PAYPAL: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#003087"/><text x="20" y="25" text-anchor="middle" fill="#009cde" font-size="14" font-weight="bold" font-family="Arial">P</text></svg>`,
-  FLUTTERWAVE: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#F5A623"/><text x="20" y="25" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="Arial">F</text></svg>`,
-  MANUAL: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#6b7280"/><text x="20" y="25" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="Arial">$</text></svg>`,
+  ORANGE_MONEY: '/logos/orange-money.svg',
+  MPESA: '/logos/m-pesa.svg',
+  AIRTEL_MONEY: '/logos/airtel-money.svg',
+  DPO: '/logos/dpo.svg',
+  STRIPE: '/logos/stripe.svg',
+  PAYPAL: '/logos/paypal.svg',
+  FLUTTERWAVE: '/logos/flutterwave.svg',
+  MANUAL: '/logos/manual.svg',
 }
 
 function PaymentConfigView() {
@@ -3099,7 +3100,7 @@ function PaymentConfigView() {
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
                       {svgLogo ? (
-                        <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0" dangerouslySetInnerHTML={{ __html: svgLogo }} />
+                        <img src={svgLogo} alt={gw.displayName} className="w-10 h-10 rounded-xl object-cover shrink-0" />
                       ) : (
                         <span className="text-2xl">{gw.icon}</span>
                       )}
@@ -3383,7 +3384,7 @@ function PaymentConfigView() {
             <div className="px-6 py-4 border-b border-[oklch(90%_0.01_175)] flex items-center justify-between sticky top-0 bg-white rounded-t-2xl">
               <div className="flex items-center gap-3">
                 {GATEWAY_SVG_LOGOS[showGatewayModal] ? (
-                  <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0" dangerouslySetInnerHTML={{ __html: GATEWAY_SVG_LOGOS[showGatewayModal] }} />
+                  <img src={GATEWAY_SVG_LOGOS[showGatewayModal]} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
                 ) : null}
                 <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>
                   Configuration - {availableGateways.find((g: any) => g.gatewayType === showGatewayModal)?.displayName}

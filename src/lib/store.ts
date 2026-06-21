@@ -112,6 +112,7 @@ export type ViewType =
   | 'payment-verification'
   | 'payment-config'
   | 'online-payment'
+  | 'debts'
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'
