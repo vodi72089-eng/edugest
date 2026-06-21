@@ -1,6 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <rect width="200" height="200" rx="40" fill="#00A651"/>
-  <text x="100" y="95" text-anchor="middle" fill="white" font-size="72" font-weight="900" font-family="Arial,Helvetica,sans-serif">M</text>
-  <rect x="45" y="110" width="110" height="4" rx="2" fill="white" opacity="0.4"/>
-  <text x="100" y="145" text-anchor="middle" fill="white" font-size="30" font-weight="700" font-family="Arial,Helvetica,sans-serif" letter-spacing="6">PESA</text>
+  <rect width="200" height="200" rx="40" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+  <!-- Red M box (Safaricom/M-Pesa brand red) -->
+  <rect x="30" y="45" width="75" height="110" rx="10" fill="#E60026"/>
+  <!-- White M letter -->
+  <path d="M45 138V62h13l13 21 13-21h13v76h-13V98l-13 21-13-21v40H45z" fill="white"/>
+  <!-- Green -PESA text (Safaricom green) -->
+  <text x="155" y="105" text-anchor="middle" fill="#4CAF50" font-size="34" font-weight="900" font-family="Arial,Helvetica,sans-serif">-PESA</text>
 </svg>

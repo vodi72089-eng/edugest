@@ -1,4 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <rect width="200" height="200" rx="40" fill="#FF6600"/>
-  <path d="M100 55C75.2 55 55 75.2 55 100s20.2 45 45 45 45-20.2 45-45-20.2-45-45-45zm-20 50c0-11 9-20 20-20s20 9 20 20c0 5.5-4.5 10-10 10h-20c-5.5 0-10-4.5-10-10z" fill="white" fill-rule="evenodd"/>
+  <rect width="200" height="200" rx="40" fill="#FF7900"/>
+  <!-- White card with Orange brand layout -->
+  <rect x="35" y="55" width="130" height="90" rx="8" fill="white"/>
+  <!-- Orange top bar (brand color) -->
+  <rect x="35" y="55" width="130" height="32" rx="8" fill="#FF7900"/>
+  <rect x="35" y="79" width="130" height="8" fill="#FF7900"/>
+  <!-- "orange" wordmark (white on orange bar) -->
+  <text x="100" y="78" text-anchor="middle" fill="white" font-size="20" font-weight="700" font-family="Arial,Helvetica,sans-serif" font-style="italic">orange</text>
+  <!-- "Money" text (black on white) -->
+  <text x="100" y="128" text-anchor="middle" fill="#000000" font-size="26" font-weight="700" font-family="Arial,Helvetica,sans-serif">Money</text>
 </svg>

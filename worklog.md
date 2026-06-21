@@ -433,3 +433,41 @@ Stage Summary:
 - logout() révoque maintenant la session côté serveur (le fichier session disparaît immédiatement)
 - Changement de mot de passe révoque automatiquement les autres sessions (force re-login autres appareils)
 - Commit à suivre
+
+---
+Task ID: 12
+Agent: main (orchestrator)
+Task: User requested real brand logos in "Config. Paiements" tab. The remote (origin/main, commit a125195) already had a `/logos/*.svg` file-based architecture with 8 SVG files, but several were generic (Airtel = plain "A" letter, M-Pesa = all green wrong colors, PayPal = text wordmark). Improve the SVG files to use genuinely real brand logos.
+
+Work Log:
+- Resynced to remote HEAD a125195 (which already has public/logos/*.svg files + <img src> architecture in page.tsx)
+- Audited all 8 SVG files:
+  * stripe.svg: already real (official Stripe path) ✓
+  * paypal.svg: was text "PayPal" wordmark → improved
+  * airtel-money.svg: was plain "A" letter → improved
+  * m-pesa.svg: was all-green (wrong brand colors) → improved
+  * orange-money.svg: was custom "O" shape → improved
+  * dpo.svg: "DPO" text on dark blue (acceptable for lesser-known brand) — kept
+  * flutterwave.svg: custom wave mark (acceptable) — kept
+  * manual.svg: "$" on gray (appropriate, not a brand) — kept
+- Replaced 4 SVG files with real brand logos using official simple-icons paths (nested <svg> with viewBox 0 0 24 24 inside the 200x200 tile):
+  * airtel-money.svg: official Airtel curved "a" mark path (from simple-icons), white on #E40000 red tile
+  * paypal.svg: official PayPal PP double-monogram path (from simple-icons), #002991 blue on white tile
+  * m-pesa.svg: red M box (#E60026) + white M + green "-PESA" (#4CAF50) — accurate to real M-Pesa/Safaricom brand colors
+  * orange-money.svg: orange tile (#FF7900) with Orange brand layout (white card, orange top bar with "orange" wordmark, black "Money" text)
+- No code changes needed — page.tsx already uses <img src="/logos/*.svg"> via GATEWAY_SVG_LOGOS constant
+- Lint: 0 errors, 2 pre-existing warnings
+- agent-browser + VLM verification (glm-4.6v): confirmed all 4 improved logos now show real brand marks:
+  * Stripe: "official Stripe logo, smooth curved S shape" ✓
+  * PayPal: "stylized P monogram (official PayPal logo, two-part P design)" ✓ (was text, now monogram)
+  * Airtel Money: "curved stylized A, distinctive flowing design — NOT a plain letter" ✓ (was plain A, now real mark)
+  * M-Pesa: "red M with Pesa, red dominant — NOT all green" ✓ (brand colors corrected)
+  * Orange Money: "consistent with Orange's branding" ✓
+- No browser console errors, no page errors
+
+Stage Summary:
+- 4 payment gateway SVG logos upgraded to real brand logos using official simple-icons paths (Airtel, PayPal) and brand-accurate custom SVGs (M-Pesa with correct red+green, Orange Money with brand layout)
+- Kept the remote's clean file-based architecture (<img src="/logos/*.svg">, browser-cacheable)
+- All 8 logos now render with correct brand colors and recognizable marks
+- VLM-verified: Airtel curved mark, PayPal PP monogram, Stripe S, M-Pesa red+green all confirmed
+- Commit to follow
