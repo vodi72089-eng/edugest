@@ -5,7 +5,7 @@ import { useEduGestStore, authFetch } from '@/lib/store'
 import type { DisciplineData, StudentData, UserRole } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT, DANGER, WARNING, SUCCESS, SUCCESS_SOFT } from '@/lib/constants'
 import { getInitials, formatDate } from '@/lib/helpers'
-import { Shield, Megaphone, Users, Ban, AlertTriangle, Award, Send, Check, X, Edit } from 'lucide-react'
+import { Shield, Megaphone, Users, Ban, AlertTriangle, Award, Send, Check, X, Edit, Brain } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete from './SearchAutocomplete'
 
@@ -277,6 +277,37 @@ export default function DisciplineView() {
       toast.error('Erreur de connexion')
     }
     setSavingEdit(false)
+  }
+
+  const handleAutoClassify = async (studentId: string) => {
+    try {
+      const res = await authFetch('/api/discipline/classify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, schoolId: userData?.schoolId })
+      })
+      const json = await res.json()
+      if (json.data) {
+        toast.success(`Classifié: ${json.data.listType} — ${json.data.reason}`)
+        setLoading(true)
+        const params = new URLSearchParams()
+        params.set('listType', tab)
+        params.set('limit', '50')
+        if (isDisciplineRole) {
+          if (selectedStudentId) params.set('studentId', selectedStudentId)
+          else if (userData?.schoolId) params.set('schoolId', userData.schoolId)
+        }
+        if (isParent && userData?.id) {
+          if (selectedChildId) params.set('studentId', selectedChildId)
+          else params.set('parentId', userData.id)
+        }
+        authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { setRecords(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+      } else {
+        toast.error(json.error || 'Erreur de classification')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    }
   }
 
   return (
@@ -731,6 +762,11 @@ export default function DisciplineView() {
                     ) : (
                       <div className="flex items-center gap-2">
                         <span className="text-[13px] font-semibold" style={{ color: r.points > 0 ? SUCCESS : DANGER }}>{r.points > 0 ? '+' : ''}{r.points}</span>
+                        {isDisciplineRole && r.student?.id && (
+                          <button onClick={() => handleAutoClassify(r.student!.id)} className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }} title="Classifier automatiquement">
+                            <Brain size={13} />
+                          </button>
+                        )}
                         {isDisciplineRole && (
                           <button onClick={() => handleEditRecord(r)} className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition" style={{ color: TEXT_MUTED_LUXE }} title="Modifier">
                             <Edit size={13} />
