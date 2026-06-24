@@ -5,6 +5,7 @@ import { useEduGestStore, authFetch } from '@/lib/store'
 import type { DisciplineData, StudentData, UserRole } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT, DANGER, WARNING, SUCCESS, SUCCESS_SOFT } from '@/lib/constants'
 import { getInitials, formatDate } from '@/lib/helpers'
+import StudentAvatar from '@/components/ui/StudentAvatar'
 import { Shield, Megaphone, Users, Ban, AlertTriangle, Award, Send, Check, X, Edit, Brain } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete from './SearchAutocomplete'
@@ -362,9 +363,7 @@ export default function DisciplineView() {
                     }`}
                     style={{ background: selectedStudentId === s.id ? GOLD_SOFT : 'white', color: TEXT_PRIMARY }}
                   >
-                    <div className="w-5 h-5 rounded-full grid place-items-center text-white text-[8px] font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                      {getInitials(`${s.firstName} ${s.lastName}`)}
-                    </div>
+                    <StudentAvatar firstName={s.firstName} lastName={s.lastName} photoUrl={s.photoUrl} size={20} className="text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
                     {s.firstName} {s.lastName}
                   </button>
                 ))}
@@ -379,13 +378,7 @@ export default function DisciplineView() {
                 const student = sectionStudents.find(s => s.id === selectedStudentId) || myChildren.find(s => s.id === selectedStudentId)
                 return (
                   <>
-                    {student?.photoUrl ? (
-                      <img src={student.photoUrl} alt={`${student.firstName} ${student.lastName}`} className="w-14 h-14 rounded-full object-cover border-2 shrink-0" style={{ borderColor: ACCENT }} />
-                    ) : (
-                      <div className="w-14 h-14 rounded-full grid place-items-center text-white text-lg font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                        {getInitials(`${selectedStudentName.firstName} ${selectedStudentName.lastName}`)}
-                      </div>
-                    )}
+                    <StudentAvatar firstName={selectedStudentName.firstName} lastName={selectedStudentName.lastName} photoUrl={student?.photoUrl} size={56} className="border-2 shrink-0" style={{ borderColor: ACCENT, background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>{selectedStudentName.firstName} {selectedStudentName.lastName}</div>
                       <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Matricule: {selectedStudentName.matricule || '—'}</div>
@@ -517,9 +510,7 @@ export default function DisciplineView() {
               <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
                 {convocations.map(c => (
                   <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition">
-                    <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                      {getInitials(`${c.student.firstName} ${c.student.lastName}`)}
-                    </div>
+                    <StudentAvatar firstName={c.student.firstName} lastName={c.student.lastName} photoUrl={c.student.photoUrl} size={32} className="text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate" style={{ color: TEXT_PRIMARY }}>{c.student.firstName} {c.student.lastName}</div>
                       <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{c.motif}</div>
@@ -575,13 +566,7 @@ export default function DisciplineView() {
                   style={{ background: isSelected ? GOLD_SOFT : 'white' }}
                 >
                   <div className="flex items-center gap-3 mb-2">
-                    {child.photoUrl ? (
-                      <img src={child.photoUrl} alt={fullName} className="w-11 h-11 rounded-full object-cover border-2 border-[oklch(90%_0.01_175)] shrink-0" />
-                    ) : (
-                      <div className="w-11 h-11 rounded-full grid place-items-center text-white font-bold text-sm shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, oklch(72% 0.15 65))` }}>
-                        {initials}
-                      </div>
-                    )}
+                    <StudentAvatar firstName={child.firstName} lastName={child.lastName} photoUrl={child.photoUrl} size={56} className="border-2" style={{ borderColor: ACCENT, background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
                     <div className="min-w-0">
                       <div className="font-semibold text-sm truncate" style={{ color: TEXT_PRIMARY }}>{fullName}</div>
                       <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{child.matricule}</div>
@@ -632,9 +617,7 @@ export default function DisciplineView() {
 
       {isParent && selectedChildName && (
         <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl" style={{ background: GOLD_SOFT }}>
-          <div className="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-            {getInitials(`${selectedChildName.firstName} ${selectedChildName.lastName}`)}
-          </div>
+          <StudentAvatar firstName={selectedChildName.firstName} lastName={selectedChildName.lastName} photoUrl={selectedChildName.photoUrl} size={28} className="text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
           <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>
             Discipline de <strong>{selectedChildName.firstName} {selectedChildName.lastName}</strong>
           </span>
@@ -645,9 +628,7 @@ export default function DisciplineView() {
       )}
       {isDisciplineRole && selectedStudentName && (
         <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl" style={{ background: GOLD_SOFT }}>
-          <div className="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-            {getInitials(`${selectedStudentName.firstName} ${selectedStudentName.lastName}`)}
-          </div>
+          <StudentAvatar firstName={selectedStudentName.firstName} lastName={selectedStudentName.lastName} photoUrl={selectedStudentName.photoUrl} size={28} className="text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
           <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>
             Discipline de <strong>{selectedStudentName.firstName} {selectedStudentName.lastName}</strong>
           </span>
@@ -725,9 +706,11 @@ export default function DisciplineView() {
                   {!isParent && (
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                          {r.student ? getInitials(`${r.student.firstName} ${r.student.lastName}`) : '??'}
-                        </div>
+                        {r.student ? (
+                          <StudentAvatar firstName={r.student.firstName} lastName={r.student.lastName} photoUrl={r.student.photoUrl} size={32} className="text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>??</div>
+                        )}
                         <div>
                           <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{r.student ? `${r.student.firstName} ${r.student.lastName}` : '—'}</div>
                           <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{r.student?.matricule || ''}</div>

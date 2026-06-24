@@ -7,6 +7,7 @@ import type { StudentData } from '@/lib/types'
 import { Users, Shield, PenTool, BookOpen, FileText, CreditCard, Edit, Check, Camera, Bell, Calendar } from 'lucide-react'
 import { ACCENT, GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, WARNING, DANGER, INFO } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
+import StudentAvatar from '@/components/ui/StudentAvatar'
 import StatCard from './StatCard'
 
 export default function ParentDashboard() {
@@ -165,13 +166,7 @@ export default function ParentDashboard() {
                 <div className="flex items-center gap-3 mb-4">
                   {/* Clickable child photo */}
                   <div className="relative group cursor-pointer" onClick={() => { setEditingPhotoForChild(child.id); childPhotoInputRefs.current.get(child.id)?.click() }}>
-                    {child.photoUrl ? (
-                      <img src={child.photoUrl} alt={fullName} className="w-14 h-14 rounded-full object-cover border-2 border-[oklch(90%_0.01_175)]" />
-                    ) : (
-                      <div className="w-14 h-14 rounded-full grid place-items-center text-white font-bold text-lg" style={{ background: `linear-gradient(135deg, ${ACCENT}, oklch(72% 0.15 65))` }}>
-                        {initials}
-                      </div>
-                    )}
+                    <StudentAvatar firstName={child.firstName} lastName={child.lastName} photoUrl={child.photoUrl} size={48} className="text-white font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
                     <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full grid place-items-center border-2 border-white shadow-sm transition group-hover:scale-110" style={{ background: GOLD }}>
                       {uploadingPhoto && editingPhotoForChild === child.id ? (
                         <div className="h-3 w-3 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" />

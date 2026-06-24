@@ -10,6 +10,7 @@ import {
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts'
 import { ACCENT, SUCCESS, WARNING, DANGER, INFO, GOLD, GOLD_SOFT, TEXT_PRIMARY, TEXT_MUTED_LUXE, SUCCESS_SOFT, SUBSCRIPTION_TIERS, IVORY, SUBSCRIPTION_DATA } from '@/lib/constants'
 import { formatNumber, formatCurrency, getInitials, formatDate, getSubscriptionLabel, getStatusPill } from '@/lib/helpers'
+import StudentAvatar from '@/components/ui/StudentAvatar'
 import StatCard from './StatCard'
 
 interface AdminAnalytics {
@@ -655,9 +656,7 @@ export default function SuperAdminDashboard() {
                         <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
                           <td className="px-3 py-2.5">
                             <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-full grid place-items-center text-white font-semibold text-[10px] shrink-0" style={{ background: 'linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))' }}>
-                                {getInitials(s.firstName + ' ' + s.lastName)}
-                              </div>
+                              <StudentAvatar firstName={s.firstName} lastName={s.lastName} photoUrl={s.photoUrl} size={28} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
                               <div>
                                 <div className="font-medium text-[13px]" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
                                 <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</div>

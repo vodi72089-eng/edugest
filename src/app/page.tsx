@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, DisciplineData, CommunicationData, HomeworkData } from '@/lib/types'
 import { ACCENT, ACCENT2, ACCENT_SOFT, SUCCESS, WARNING, DANGER, INFO, MUTED, BORDER, GOLD, GOLD_SOFT, GOLD_GLOW, DARK, DARK_ALT, IVORY, IVORY_WARM, TEXT_PRIMARY, TEXT_MUTED_LUXE, SUCCESS_SOFT, SUBSCRIPTION_TIERS, PROVINCES, FILTER_CHIPS, COVER_GRADIENTS, LOGO_COLORS, ENROLLMENT_DATA, SUBSCRIPTION_DATA } from '@/lib/constants'
 import { getInitials, formatDate, formatNumber, formatCurrency, getSchoolTypeLabel, getSubscriptionLabel, getSubscriptionPrice, getRoleLabel, getStatusPill } from '@/lib/helpers'
+import StudentAvatar from '@/components/ui/StudentAvatar'
 import dynamic from 'next/dynamic'
 const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
 import SuperAdminDashboard from '@/components/dashboards/SuperAdminDashboard'
@@ -135,9 +136,7 @@ function SearchAutocomplete({
       {/* Selected item chip */}
       {selectedId && selectedItem && (
         <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium" style={{ background: GOLD_SOFT, color: GOLD }}>
-          <div className="w-6 h-6 rounded-full grid place-items-center text-white text-[9px] font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-            {getInitials(selectedItem.label)}
-          </div>
+          <StudentAvatar firstName={selectedItem.label.split(' ')[0] || ''} lastName={selectedItem.label.split(' ').slice(1).join(' ') || ''} photoUrl={selectedItem.photoUrl} size={24} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
           {selectedItem.label}
           {selectedItem.sublabel && <span className="text-[10px] opacity-70">({selectedItem.sublabel})</span>}
         </div>
@@ -165,13 +164,7 @@ function SearchAutocomplete({
                   onClick={() => handleSelect(item)}
                   className="w-full text-left px-3 py-2.5 hover:bg-[oklch(97%_0.02_65)] transition flex items-center gap-3 border-b border-[oklch(94%_0.005_250)] last:border-0 cursor-pointer group"
                 >
-                  {item.photoUrl ? (
-                    <img src={item.photoUrl} alt={item.label} className="w-8 h-8 rounded-full object-cover shrink-0 group-hover:scale-110 transition" />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0 group-hover:scale-110 transition" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                      {getInitials(item.label)}
-                    </div>
-                  )}
+                  <StudentAvatar firstName={item.label.split(' ')[0] || ''} lastName={item.label.split(' ').slice(1).join(' ') || ''} photoUrl={item.photoUrl} size={32} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-semibold group-hover:text-[oklch(55%_0.15_65)] transition" style={{ color: TEXT_PRIMARY }}>{item.label}</div>
                     {item.sublabel && <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{item.sublabel}</div>}
@@ -2817,13 +2810,7 @@ function ClassesView() {
                       <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-2.5">
-                            {s.photoUrl ? (
-                              <img src={s.photoUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
-                            ) : (
-                              <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                                {getInitials(s.firstName + ' ' + s.lastName)}
-                              </div>
-                            )}
+                            <StudentAvatar firstName={s.firstName} lastName={s.lastName} photoUrl={s.photoUrl} size={32} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
                             <div>
                               <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
                               <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.gender === 'M' ? 'Garçon' : 'Fille'}</div>
@@ -3475,15 +3462,8 @@ function PaymentConfigView() {
 function PaymentVerificationView() {
   const { userData, userRole } = useEduGestStore()
   const isParent = userRole === 'PARENT'
-  const isAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
-  const isCashier = userRole === 'CASHIER'
-  const isSecretary = userRole === 'SECRETARY'
-  const canVerify = isAdmin || isCashier || isSecretary
 
   const [payments, setPayments] = useState<PaymentData[]>([])
-  const [selectedPayment, setSelectedPayment] = useState<PaymentData | null>(null)
-  const [verificationNote, setVerificationNote] = useState('')
-  const [verifying, setVerifying] = useState(false)
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null)
   const [receiptLoading, setReceiptLoading] = useState(false)
   // Parent-specific: search by receipt number
@@ -3496,40 +3476,6 @@ function PaymentVerificationView() {
   const [staffSearchResult, setStaffSearchResult] = useState<PaymentData | null>(null)
   const [staffSearching, setStaffSearching] = useState(false)
   const [scanning, setScanning] = useState(false)
-
-  async function handleVerify(action: 'approve' | 'reject') {
-    if (!selectedPayment) return
-    setVerifying(true)
-    try {
-      const res = await authFetch('/api/payments/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          paymentId: selectedPayment.id,
-          verifierName: userData?.name || 'Vérificateur',
-          verificationNote: verificationNote.trim() || null,
-          action,
-        }),
-      })
-      const json = await res.json()
-      if (res.ok) {
-        toast.success(action === 'approve' ? 'Paiement approuvé avec succès!' : 'Paiement rejeté')
-        // Update local list
-        setPayments(prev => prev.map(p =>
-          p.id === selectedPayment.id
-            ? { ...p, status: action === 'approve' ? 'PAID' : 'REJECTED', verifiedBy: userData?.name, verifiedAt: new Date().toISOString(), verificationNote: verificationNote.trim() || null }
-            : p
-        ))
-        setSelectedPayment(null)
-        setVerificationNote('')
-      } else {
-        toast.error(json.error || 'Erreur lors de la vérification')
-      }
-    } catch {
-      toast.error('Erreur réseau')
-    }
-    finally { setVerifying(false) }
-  }
 
   async function handleViewReceipt(paymentId: string) {
     setReceiptLoading(true)
@@ -3563,6 +3509,7 @@ function PaymentVerificationView() {
           const childPayments: PaymentData[] = pJson.data || []
           const match = childPayments.find(p =>
             (p.receiptNumber && p.receiptNumber.toLowerCase() === receiptSearch.trim().toLowerCase()) ||
+            (p.referenceNumber && p.referenceNumber.toLowerCase() === receiptSearch.trim().toLowerCase()) ||
             p.id.slice(-8).toLowerCase() === receiptSearch.trim().toLowerCase()
           )
           if (match) { found = match; break }
@@ -3771,11 +3718,13 @@ function PaymentVerificationView() {
       const qNoHyphens = q.replace(/-/g, '')
       const match = allPayments.find(p => {
         if (p.receiptNumber && p.receiptNumber.toLowerCase() === q) return true
+        if (p.referenceNumber && p.referenceNumber.toLowerCase() === q) return true
         if (p.id.toLowerCase() === q) return true
         if (p.id.toLowerCase().replace(/-/g, '') === qNoHyphens) return true
         if (p.id.slice(-8).toLowerCase() === q.slice(-8)) return true
         if (q.includes(p.id.toLowerCase()) || q.includes(p.id.slice(-8).toLowerCase())) return true
         if (p.receiptNumber && q.includes(p.receiptNumber.toLowerCase())) return true
+        if (p.referenceNumber && q.includes(p.referenceNumber.toLowerCase())) return true
         return false
       })
       setStaffSearchResult(match || null)
@@ -3811,12 +3760,14 @@ function PaymentVerificationView() {
             const searchNoHyphens = searchLower.replace(/-/g, '')
             const match = allPayments.find(p => {
               if (p.receiptNumber && (p.receiptNumber.toLowerCase() === searchLower || p.receiptNumber.toLowerCase() === rawLower)) return true
+              if (p.referenceNumber && (p.referenceNumber.toLowerCase() === searchLower || p.referenceNumber.toLowerCase() === rawLower)) return true
               if (p.id.toLowerCase() === rawLower || p.id.toLowerCase() === searchLower) return true
               if (p.id.toLowerCase().replace(/-/g, '') === searchNoHyphens) return true
               if (p.id.slice(-8).toLowerCase() === searchLower.slice(-8) || p.id.slice(-8).toLowerCase() === rawLower.slice(-8)) return true
               if (rawLower.includes(p.id.toLowerCase()) || rawLower.includes(p.id.slice(-8).toLowerCase())) return true
               if (searchLower.includes(p.id.toLowerCase()) || searchLower.includes(p.id.slice(-8).toLowerCase())) return true
               if (p.receiptNumber && (rawLower.includes(p.receiptNumber.toLowerCase()) || searchLower.includes(p.receiptNumber.toLowerCase()))) return true
+              if (p.referenceNumber && (rawLower.includes(p.referenceNumber.toLowerCase()) || searchLower.includes(p.referenceNumber.toLowerCase()))) return true
               return false
             })
             setStaffSearchResult(match || null)
@@ -3977,113 +3928,6 @@ function PaymentVerificationView() {
                 style={{ color: TEXT_PRIMARY }}
               >
                 <Download size={14} /> Télécharger
-              </button>
-              {canVerify && !staffSearchResult.verifiedBy && (
-                <button
-                  onClick={() => setSelectedPayment(staffSearchResult)}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90"
-                  style={{ background: SUCCESS }}
-                >
-                  <CheckCircle size={14} /> Vérifier ce reçu
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Verification Modal */}
-      {selectedPayment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => { setSelectedPayment(null); setVerificationNote('') }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl grid place-items-center" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                  <CheckCircle size={20} className="text-white" />
-                </div>
-                <div>
-                  <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Vérifier le paiement</h3>
-                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>N° {selectedPayment.receiptNumber || selectedPayment.id.slice(-8)}</p>
-                </div>
-              </div>
-              <button onClick={() => { setSelectedPayment(null); setVerificationNote('') }} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-gray-100 transition">
-                <X size={16} className="text-gray-500" />
-              </button>
-            </div>
-
-            <div className="px-6 py-4 space-y-4">
-              {/* Payment Summary */}
-              <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: TEXT_MUTED_LUXE }}>Élève</span>
-                  <span className="font-medium" style={{ color: TEXT_PRIMARY }}>
-                    {selectedPayment.student ? `${selectedPayment.student.firstName} ${selectedPayment.student.lastName}` : '—'}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: TEXT_MUTED_LUXE }}>Montant dû</span>
-                  <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{formatNumber(selectedPayment.amount)} CDF</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: TEXT_MUTED_LUXE }}>Montant payé</span>
-                  <span className="font-medium" style={{ color: SUCCESS }}>{formatNumber(selectedPayment.paidAmount)} CDF</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: TEXT_MUTED_LUXE }}>Reste à payer</span>
-                  <span className="font-medium" style={{ color: selectedPayment.amount - selectedPayment.paidAmount > 0 ? DANGER : SUCCESS }}>
-                    {formatNumber(selectedPayment.amount - selectedPayment.paidAmount)} CDF
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: TEXT_MUTED_LUXE }}>Mode</span>
-                  <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{selectedPayment.paymentMethod || '—'}</span>
-                </div>
-              </div>
-
-              {/* Verification Note */}
-              <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Note de vérification (optionnel)</label>
-                <textarea
-                  placeholder="Ajoutez une note ou un commentaire..."
-                  value={verificationNote}
-                  onChange={e => setVerificationNote(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)] resize-none"
-                />
-              </div>
-
-              {/* Info about who is verifying */}
-              <div className="flex items-center gap-2 text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                <Info size={12} />
-                <span>Vérification par <strong style={{ color: TEXT_PRIMARY }}>{userData?.name}</strong> ({userData?.role})</span>
-              </div>
-            </div>
-
-            <div className="px-6 py-4 border-t border-gray-100 flex items-center gap-3 justify-end">
-              <button
-                onClick={() => { setSelectedPayment(null); setVerificationNote('') }}
-                className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition"
-                style={{ color: TEXT_PRIMARY }}
-              >
-                Annuler
-              </button>
-              <button
-                onClick={() => handleVerify('reject')}
-                disabled={verifying}
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2"
-                style={{ background: DANGER }}
-              >
-                {verifying ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <X size={14} />}
-                Rejeter
-              </button>
-              <button
-                onClick={() => handleVerify('approve')}
-                disabled={verifying}
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2"
-                style={{ background: SUCCESS }}
-              >
-                {verifying ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle size={14} />}
-                Approuver
               </button>
             </div>
           </div>
@@ -4540,9 +4384,7 @@ function ClassPassingView() {
                 <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                        {getInitials(s.firstName + ' ' + s.lastName)}
-                      </div>
+                      <StudentAvatar firstName={s.firstName} lastName={s.lastName} photoUrl={s.photoUrl} size={32} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
                       <div>
                         <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
                         <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</div>
@@ -4862,9 +4704,7 @@ function ConvocationView() {
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {convocations.map(c => (
                 <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition">
-                  <div className="w-9 h-9 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${WARNING}, ${GOLD})` }}>
-                    {getInitials(`${c.student.firstName} ${c.student.lastName}`)}
-                  </div>
+                  <StudentAvatar firstName={c.student.firstName} lastName={c.student.lastName} photoUrl={c.student.photoUrl} size={36} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${WARNING}, ${GOLD})` }} />
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{c.student.firstName} {c.student.lastName}</div>
                     <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{c.motif}</div>

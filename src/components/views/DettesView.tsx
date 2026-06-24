@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { AlertTriangle, Search, CreditCard, ArrowLeft, User, Phone, GraduationCap, Calendar } from 'lucide-react'
+import StudentAvatar from '@/components/ui/StudentAvatar'
 
 const COLORS = {
   bg: '#f8f9fa',
@@ -176,28 +177,7 @@ export default function DettesView({ onNavigate, schoolId }: DettesViewProps) {
                   e.currentTarget.style.boxShadow = 'none'
                 }}
               >
-                <div
-                  style={{
-                    width: '48px',
-                    height: '48px',
-                    borderRadius: '50%',
-                    background: debt.student.photoUrl ? 'transparent' : COLORS.danger,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontWeight: 'bold',
-                    fontSize: '16px',
-                    overflow: 'hidden',
-                    flexShrink: 0,
-                  }}
-                >
-                  {debt.student.photoUrl ? (
-                    <img src={debt.student.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    `${debt.student.firstName[0]}${debt.student.lastName[0]}`
-                  )}
-                </div>
+                <StudentAvatar firstName={debt.student.firstName} lastName={debt.student.lastName} photoUrl={debt.student.photoUrl} size={48} className="text-white font-bold" style={{ background: COLORS.danger }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: '600', color: COLORS.text }}>
                     {debt.student.firstName} {debt.student.lastName}
@@ -262,28 +242,7 @@ function StudentDetail({ debt, onBack, onPay }: { debt: DebtStudent; onBack: () 
 
         <div style={{ background: COLORS.card, borderRadius: '16px', padding: '24px', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-            <div
-              style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '50%',
-                background: student.photoUrl ? 'transparent' : COLORS.danger,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white',
-                fontWeight: 'bold',
-                fontSize: '20px',
-                overflow: 'hidden',
-                flexShrink: 0,
-              }}
-            >
-              {student.photoUrl ? (
-                <img src={student.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                `${student.firstName[0]}${student.lastName[0]}`
-              )}
-            </div>
+            <StudentAvatar firstName={student.firstName} lastName={student.lastName} photoUrl={student.photoUrl} size={80} className="text-white font-bold text-3xl border-4" style={{ background: `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.danger})`, borderColor: 'white' }} />
             <div>
               <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', color: COLORS.text }}>
                 {student.firstName} {student.lastName}

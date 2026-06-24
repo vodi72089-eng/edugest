@@ -5,6 +5,7 @@ import { useEduGestStore, authFetch } from '@/lib/store'
 import type { PaymentData, StudentData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, SUCCESS } from '@/lib/constants'
 import { getInitials, formatNumber, getStatusPill } from '@/lib/helpers'
+import StudentAvatar from '@/components/ui/StudentAvatar'
 import { CreditCard, FileText, Download, X } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete, { AutocompleteItem } from './SearchAutocomplete'
@@ -209,9 +210,11 @@ export default function PaymentsView() {
                 <tr key={p.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                        {p.student ? getInitials(`${p.student.firstName} ${p.student.lastName}`) : '??'}
-                      </div>
+                      {p.student ? (
+                        <StudentAvatar firstName={p.student.firstName} lastName={p.student.lastName} photoUrl={p.student.photoUrl} size={32} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>??</div>
+                      )}
                       <div>
                         <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{p.student ? `${p.student.firstName} ${p.student.lastName}` : '—'}</div>
                         <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{p.student?.matricule || ''}</div>

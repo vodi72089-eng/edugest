@@ -5,6 +5,7 @@ import { useEduGestStore, authFetch } from '@/lib/store'
 import type { StudentData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials, getRoleLabel } from '@/lib/helpers'
+import StudentAvatar from '@/components/ui/StudentAvatar'
 import { Edit, Check, Camera, Lock, Phone, Monitor, LogOut, Shield, Building2, Smartphone, Globe } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -610,13 +611,7 @@ export default function ProfileView() {
                 <div key={child.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
                   <div className="flex items-start gap-4">
                     <div className="relative group cursor-pointer shrink-0" onClick={() => { setPhotoTargetChildId(child.id); setEditingPhotoChildId(child.id); setTimeout(() => childFileInputRef.current?.click(), 50) }}>
-                      {child.photoUrl ? (
-                        <img src={child.photoUrl} alt={`${child.firstName} ${child.lastName}`} className="w-16 h-16 rounded-full object-cover border-2 border-[oklch(90%_0.01_175)]" />
-                      ) : (
-                        <div className="w-16 h-16 rounded-full grid place-items-center text-white font-bold text-lg" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                          {getInitials(`${child.firstName} ${child.lastName}`)}
-                        </div>
-                      )}
+                      <StudentAvatar firstName={child.firstName} lastName={child.lastName} photoUrl={child.photoUrl} size={56} className="border-2" style={{ borderColor: ACCENT, background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
                       <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full grid place-items-center border-2 border-white shadow-sm transition group-hover:scale-110" style={{ background: GOLD }}>
                         {uploadingChildPhoto && editingPhotoChildId === child.id ? (
                           <div className="h-3 w-3 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" />

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useEduGestStore, authFetch } from '@/lib/store'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials, formatNumber } from '@/lib/helpers'
-import { CreditCard, Smartphone, CheckCircle, ArrowLeft, Loader2 } from 'lucide-react'
+import { CreditCard, Smartphone, CheckCircle, ArrowLeft, Loader2, Download, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete, { AutocompleteItem } from './SearchAutocomplete'
 import type { StudentData } from '@/lib/types'
@@ -33,6 +33,8 @@ export default function OnlinePaymentView() {
   const [resultRef, setResultRef] = useState('')
   const [resultAmount, setResultAmount] = useState(0)
   const [resultStudent, setResultStudent] = useState('')
+  const [resultPaymentId, setResultPaymentId] = useState('')
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   // Fetch children
   useEffect(() => {
@@ -99,6 +101,7 @@ export default function OnlinePaymentView() {
         setResultRef(json.data.referenceNumber)
         setResultAmount(Number(amount))
         setResultStudent(`${json.data.student.firstName} ${json.data.student.lastName}`)
+        setResultPaymentId(json.data.id)
         setStep('success')
         toast.success('Paiement enregistré avec succès!')
       } else {
@@ -118,6 +121,30 @@ export default function OnlinePaymentView() {
     setAmount('')
     setPhone('')
     setResultRef('')
+    setResultPaymentId('')
+  }
+
+  async function downloadReceipt() {
+    if (!resultPaymentId) return
+    setPdfLoading(true)
+    try {
+      const res = await authFetch(`/api/payments/receipt/${resultPaymentId}`)
+      if (!res.ok) throw new Error()
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `recu-${resultRef || resultPaymentId.slice(-8)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Reçu téléchargé avec succès!')
+    } catch {
+      toast.error('Erreur lors du téléchargement du reçu')
+    } finally {
+      setPdfLoading(false)
+    }
   }
 
   const methodLabels: Record<string, { label: string; color: string; icon: string; svg: string }> = {
@@ -164,9 +191,20 @@ export default function OnlinePaymentView() {
           <p className="text-xs mb-4" style={{ color: TEXT_MUTED_LUXE }}>
             Conservez cette référence pour suivre votre paiement. Le caissier vérifiera et confirmera le paiement.
           </p>
-          <button onClick={handleReset} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2">
-            <CreditCard size={14} /> Effectuer un autre paiement
-          </button>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={downloadReceipt}
+              disabled={pdfLoading}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}
+            >
+              {pdfLoading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+              Télécharger le reçu
+            </button>
+            <button onClick={handleReset} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2">
+              <CreditCard size={14} /> Effectuer un autre paiement
+            </button>
+          </div>
         </div>
       </div>
     )

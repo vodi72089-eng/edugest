@@ -5,6 +5,7 @@ import { useEduGestStore, authFetch } from '@/lib/store'
 import type { StudentData, ClassData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT } from '@/lib/constants'
 import { getInitials, formatNumber, getStatusPill } from '@/lib/helpers'
+import StudentAvatar from '@/components/ui/StudentAvatar'
 import { Plus, X, Users, ChevronDown, Eye, EyeOff, Edit, Trash2, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete, { AutocompleteItem } from './SearchAutocomplete'
@@ -210,9 +211,7 @@ export default function StudentsView() {
                 <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full grid place-items-center text-white font-semibold text-[11px] shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                        {getInitials(s.firstName + ' ' + s.lastName)}
-                      </div>
+                      <StudentAvatar firstName={s.firstName} lastName={s.lastName} photoUrl={s.photoUrl} size={32} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
                       <div>
                         <div className="font-medium text-[13px]" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
                         <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.gender === 'M' ? 'Garçon' : 'Fille'}</div>
@@ -304,13 +303,7 @@ export default function StudentsView() {
             </div>
             <div className="px-6 py-5 space-y-4">
               <div className="flex items-center gap-4">
-                {viewingStudent.photoUrl ? (
-                  <img src={viewingStudent.photoUrl} alt="" className="w-16 h-16 rounded-full object-cover border-2" style={{ borderColor: ACCENT }} />
-                ) : (
-                  <div className="w-16 h-16 rounded-full grid place-items-center text-white text-xl font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                    {getInitials(viewingStudent.firstName + ' ' + viewingStudent.lastName)}
-                  </div>
-                )}
+                <StudentAvatar firstName={viewingStudent.firstName} lastName={viewingStudent.lastName} photoUrl={viewingStudent.photoUrl} size={56} className="border-2" style={{ borderColor: ACCENT, background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
                 <div>
                   <div className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{viewingStudent.firstName} {viewingStudent.lastName}</div>
                   <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{viewingStudent.matricule}</div>

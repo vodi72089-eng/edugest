@@ -5,6 +5,7 @@ import { useEduGestStore, authFetch } from '@/lib/store'
 import type { GradeData, ClassData, StudentData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, DANGER } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
+import StudentAvatar from '@/components/ui/StudentAvatar'
 import { Plus, Check, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete from './SearchAutocomplete'
@@ -275,9 +276,11 @@ export default function GradesView() {
             return (
               <div key={studentId} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
                 <div className="p-4 flex items-center gap-3" style={{ background: IVORY }}>
-                  <div className="w-10 h-10 rounded-full grid place-items-center text-white font-bold text-sm" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                    {student ? getInitials(`${student.firstName} ${student.lastName}`) : '??'}
-                  </div>
+                  {student ? (
+                    <StudentAvatar firstName={student.firstName} lastName={student.lastName} photoUrl={student.photoUrl} size={40} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full grid place-items-center text-white font-bold text-sm" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>??</div>
+                  )}
                   <div className="flex-1">
                     <div className="font-semibold" style={{ color: TEXT_PRIMARY }}>{student?.firstName} {student?.lastName}</div>
                     <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{studentGrades.length} notes · Moyenne: <span className="font-semibold" style={{ color: avg >= 10 ? GOLD : DANGER }}>{avg.toFixed(1)}/20</span></div>
