@@ -534,9 +534,9 @@ function SettingsViewInner() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
                 <select value={feeForm.classId} onChange={e => setFeeForm(f => ({ ...f, classId: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                  <option value="">Toutes les classes</option>
+                  <option value="">Choisir une classe</option>
                   {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
@@ -546,7 +546,8 @@ function SettingsViewInner() {
               <button
                 onClick={async () => {
                   if (!feeForm.name || !feeForm.amount) { toast.error('Nom et montant requis'); return }
-                  const body = { name: feeForm.name, amount: Number(feeForm.amount), trimester: feeForm.trimester, classId: feeForm.classId || null, schoolId: userData?.schoolId }
+                  if (!feeForm.classId) { toast.error('Veuillez choisir une classe'); return }
+                  const body = { name: feeForm.name, amount: Number(feeForm.amount), trimester: feeForm.trimester, classId: feeForm.classId, schoolId: userData?.schoolId }
                   let res
                   if (editingFee) {
                     res = await authFetch(`/api/school-fees/${editingFee.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -559,7 +560,10 @@ function SettingsViewInner() {
                     else { setFees(prev => [...prev, j.data]) }
                     setShowFeeModal(false)
                     toast.success(editingFee ? 'Frais modifié' : 'Frais ajouté')
-                  } else { toast.error('Erreur') }
+                  } else {
+                    const err = await res.json().catch(() => ({ error: 'Erreur' }))
+                    toast.error(err.error || 'Erreur lors de l\'enregistrement')
+                  }
                 }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white"
                 style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}
