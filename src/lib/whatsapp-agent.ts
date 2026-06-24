@@ -306,3 +306,59 @@ export function invalidateAdminPhoneCache(): void {
   cachedAdminPhone = null;
   cacheTimestamp = 0;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOTIFICATIONS DE PAIEMENT
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function notifyPaymentCreated(
+  recipients: { phone: string; name: string }[],
+  studentName: string,
+  className: string,
+  amount: number,
+  trimester: string,
+  schoolName: string
+) {
+  if (!(await isWhatsAppConnected())) return;
+  const msg = `💰 *Nouveau paiement enregistré*\n\n` +
+    `Élève: ${studentName}\nClasse: ${className}\n` +
+    `Montant: ${amount.toLocaleString('fr-FR')} CDF\n` +
+    `Trimestre: ${trimester}\nÉcole: ${schoolName}\n\n` +
+    `Statut: En attente de vérification`;
+  for (const r of recipients) {
+    if (isRecipientAdmin(r.phone)) continue;
+    await sendWhatsAppMessage(r.phone, msg);
+  }
+}
+
+export async function notifyPaymentApproved(
+  recipientPhone: string,
+  studentName: string,
+  amount: number,
+  trimester: string,
+  schoolName: string
+) {
+  if (!(await isWhatsAppConnected())) return;
+  const msg = `✅ *Paiement approuvé*\n\n` +
+    `Élève: ${studentName}\nMontant: ${amount.toLocaleString('fr-FR')} CDF\n` +
+    `Trimestre: ${trimester}\nÉcole: ${schoolName}\n\n` +
+    `Votre paiement a été confirmé. Merci!`;
+  await sendWhatsAppMessage(recipientPhone, msg);
+}
+
+export async function notifyPaymentRejected(
+  recipientPhone: string,
+  studentName: string,
+  amount: number,
+  trimester: string,
+  schoolName: string,
+  reason?: string
+) {
+  if (!(await isWhatsAppConnected())) return;
+  const msg = `❌ *Paiement rejeté*\n\n` +
+    `Élève: ${studentName}\nMontant: ${amount.toLocaleString('fr-FR')} CDF\n` +
+    `Trimestre: ${trimester}\nÉcole: ${schoolName}\n` +
+    (reason ? `Raison: ${reason}\n\n` : `\n`) +
+    `Veuillez contacter l'administration.`;
+  await sendWhatsAppMessage(recipientPhone, msg);
+}
