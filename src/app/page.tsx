@@ -2034,6 +2034,7 @@ function Sidebar() {
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
       { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
+      { icon: <DollarSign size={16} />, label: 'Tarifs', view: 'pricing' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },

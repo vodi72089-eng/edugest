@@ -77,6 +77,110 @@ function getTrimesterLabel(trimester: string): string {
 
 // ─── PDF Builder using jsPDF ────────────────────────────────────────────────
 
+// Landing page "Luxe Africain" design tokens
+const LUXE = {
+  darkBg: [10, 15, 13] as const,       // #0a0f0d
+  darkBgAlt: [11, 22, 19] as const,    // #0b1613
+  darkBgDeep: [13, 31, 26] as const,   // #0d1f1a
+  gold: [245, 166, 35] as const,       // #f5a623
+  goldDark: [184, 134, 11] as const,   // #b8860b
+  goldLight: [255, 215, 100] as const, // #ffd764
+  ivory: [250, 248, 242] as const,     // #faf8f2
+  ivoryWarm: [245, 243, 237] as const, // #f5f3ed
+  textWhite: [255, 255, 255] as const,
+  textMuted: [160, 155, 140] as const, // muted on dark
+  textDark: [30, 28, 25] as const,     // dark text on light
+  textGold: [245, 166, 35] as const,
+  success: [34, 197, 94] as const,     // #22c55e
+  danger: [220, 38, 38] as const,      // #dc2626
+  warning: [234, 179, 8] as const,     // #eab308
+  border: [200, 195, 185] as const,    // warm border
+};
+
+function drawKentePattern(doc: jsPDF, x: number, y: number, width: number, height: number) {
+  // Subtle Kente-inspired geometric overlay
+  doc.setFillColor(LUXE.darkBg[0], LUXE.darkBg[1], LUXE.darkBg[2]);
+  doc.rect(x, y, width, height, 'F');
+
+  // Thin gold accent lines simulating Kente weave
+  doc.setDrawColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
+  doc.setLineWidth(0.15);
+  const spacing = 4;
+  for (let i = 0; i < width; i += spacing) {
+    doc.line(x + i, y, x + i, y + height);
+  }
+  doc.setDrawColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
+  doc.setLineWidth(0.1);
+  for (let j = 0; j < height; j += spacing) {
+    doc.line(x, y + j, x + width, y + j);
+  }
+}
+
+function drawOrnamentDivider(doc: jsPDF, x: number, y: number, width: number) {
+  const centerX = x + width / 2;
+  const lineHalf = width / 2 - 10;
+
+  // Left line
+  doc.setDrawColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
+  doc.setLineWidth(0.3);
+  doc.line(x, y, centerX - lineHalf, y);
+
+  // Right line
+  doc.line(centerX + lineHalf, y, x + width, y);
+
+  // Center diamond
+  doc.setFillColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
+  const diamondSize = 2;
+  doc.setLineWidth(0.2);
+  doc.line(centerX, y - diamondSize, centerX + diamondSize, y);
+  doc.line(centerX + diamondSize, y, centerX, y + diamondSize);
+  doc.line(centerX, y + diamondSize, centerX - diamondSize, y);
+  doc.line(centerX - diamondSize, y, centerX, y - diamondSize);
+}
+
+function drawSectionTitle(doc: jsPDF, x: number, y: number, title: string) {
+  // Gold left bar
+  doc.setFillColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
+  doc.rect(x, y, 2.5, 7, 'F');
+  // Title text
+  doc.setFontSize(11);
+  doc.setTextColor(LUXE.darkBg[0], LUXE.darkBg[1], LUXE.darkBg[2]);
+  doc.setFont('helvetica', 'bold');
+  doc.text(title, x + 7, y + 5.5);
+}
+
+function drawFieldRowLuxe(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  contentWidth: number,
+  label: string,
+  value: string
+) {
+  // Label
+  doc.setFontSize(8);
+  doc.setTextColor(120, 115, 105);
+  doc.setFont('helvetica', 'normal');
+  doc.text(label, x, y + 3.5);
+  // Value
+  doc.setFontSize(9);
+  doc.setTextColor(LUXE.textDark[0], LUXE.textDark[1], LUXE.textDark[2]);
+  doc.setFont('helvetica', 'bold');
+  doc.text(value, x + contentWidth, y + 3.5, { align: 'right' });
+}
+
+function drawDotTexture(doc: jsPDF, x: number, y: number, width: number, height: number) {
+  // Ivory dot micro-texture
+  doc.setFillColor(LUXE.ivory[0], LUXE.ivory[1], LUXE.ivory[2]);
+  doc.rect(x, y, width, height, 'F');
+  doc.setFillColor(230, 225, 215);
+  for (let dx = 0; dx < width; dx += 3) {
+    for (let dy = 0; dy < height; dy += 3) {
+      doc.circle(x + dx, y + dy, 0.15, 'F');
+    }
+  }
+}
+
 function buildReceiptPDF(
   payment: {
     id: string;
@@ -106,265 +210,189 @@ function buildReceiptPDF(
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const marginX = 25;
+  const marginX = 22;
   const contentWidth = pageWidth - marginX * 2;
   let y = 0;
 
-  // ── Header background ────────────────────────────────────────────────────
-  doc.setFillColor(15, 23, 42); // #0f172a
-  doc.rect(0, 0, pageWidth, 52, 'F');
+  // ── Full dark background ──────────────────────────────────────────────────
+  doc.setFillColor(LUXE.darkBg[0], LUXE.darkBg[1], LUXE.darkBg[2]);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+  // ── Header with Kente texture ─────────────────────────────────────────────
+  drawKentePattern(doc, 0, 0, pageWidth, 56);
 
   // School logo (if available)
   if (schoolLogoBase64) {
     try {
-      doc.addImage(schoolLogoBase64, 'JPEG', marginX, 8, 18, 18);
+      doc.addImage(schoolLogoBase64, 'JPEG', marginX, 10, 20, 20);
     } catch {
-      // Fallback to initials badge if image fails
       const initials = getSchoolInitials(school.shortName);
-      doc.setFillColor(184, 134, 11);
-      doc.circle(marginX + 12, 26, 12, 'F');
-      doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42);
+      doc.setFillColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
+      doc.circle(marginX + 14, 22, 14, 'F');
+      doc.setFontSize(16);
+      doc.setTextColor(LUXE.darkBg[0], LUXE.darkBg[1], LUXE.darkBg[2]);
       doc.setFont('helvetica', 'bold');
-      doc.text(initials, marginX + 12, 30, { align: 'center' });
+      doc.text(initials, marginX + 14, 26, { align: 'center' });
     }
   } else {
-    // School initials badge (no logo)
     const initials = getSchoolInitials(school.shortName);
-    doc.setFillColor(184, 134, 11); // gold
-    doc.circle(marginX + 12, 26, 12, 'F');
-    doc.setFontSize(14);
-    doc.setTextColor(15, 23, 42);
+    doc.setFillColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
+    doc.circle(marginX + 14, 22, 14, 'F');
+    doc.setFontSize(16);
+    doc.setTextColor(LUXE.darkBg[0], LUXE.darkBg[1], LUXE.darkBg[2]);
     doc.setFont('helvetica', 'bold');
-    doc.text(initials, marginX + 12, 30, { align: 'center' });
+    doc.text(initials, marginX + 14, 26, { align: 'center' });
   }
 
   // School name
-  doc.setFontSize(16);
-  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
+  doc.setTextColor(LUXE.textWhite[0], LUXE.textWhite[1], LUXE.textWhite[2]);
   doc.setFont('helvetica', 'bold');
-  doc.text(school.name, marginX + 30, 20, { maxWidth: contentWidth - 30 });
+  doc.text(school.name, marginX + 32, 20, { maxWidth: contentWidth - 32 });
 
   // School address
   doc.setFontSize(8);
-  doc.setTextColor(255, 255, 255, 0.55);
+  doc.setTextColor(LUXE.textMuted[0], LUXE.textMuted[1], LUXE.textMuted[2]);
   doc.setFont('helvetica', 'normal');
   const addressParts = [school.address, school.city, school.province, school.country].filter(Boolean);
   if (addressParts.length > 0) {
-    doc.text(addressParts.join(', '), marginX + 30, 28, { maxWidth: contentWidth - 30 });
+    doc.text(addressParts.join(', '), marginX + 32, 29, { maxWidth: contentWidth - 32 });
   }
   const contactParts = [school.email, school.phone].filter(Boolean);
   if (contactParts.length > 0) {
-    doc.text(contactParts.join('  |  '), marginX + 30, 34, { maxWidth: contentWidth - 30 });
+    doc.text(contactParts.join('  |  '), marginX + 32, 35, { maxWidth: contentWidth - 32 });
   }
 
-  // ── Receipt Title ────────────────────────────────────────────────────────
-  y = 62;
-  doc.setFontSize(18);
-  doc.setTextColor(15, 23, 42);
+  // "REÇU DE PAIEMENT" title on dark
+  doc.setFontSize(22);
+  doc.setTextColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
   doc.setFont('helvetica', 'bold');
-  doc.text('REÇU DE PAIEMENT', pageWidth / 2, y, { align: 'center' });
+  doc.text('REÇU DE PAIEMENT', pageWidth / 2, 50, { align: 'center' });
 
-  // Receipt number & date
-  y += 10;
+  // ── Ivory content area ─────────────────────────────────────────────────────
+  y = 62;
+  const contentHeight = pageHeight - y - 32;
+  drawDotTexture(doc, marginX - 2, y, contentWidth + 4, contentHeight);
+
+  // Status badge in top-right
   const receiptNo = payment.receiptNumber || `REC-${payment.id.slice(-8).toUpperCase()}`;
-  doc.setFontSize(8);
-  doc.setTextColor(100, 116, 139);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`N° du reçu : ${receiptNo}`, marginX, y);
-  doc.text(`Date d'émission : ${formatDate(payment.paidAt || payment.createdAt)}`, pageWidth - marginX, y, { align: 'right' });
-
-  // ── Status bar ───────────────────────────────────────────────────────────
-  y += 12;
-  doc.setFillColor(248, 250, 252); // #f8fafc
-  doc.roundedRect(marginX, y, contentWidth, 14, 2, 2, 'F');
-
   const statusInfo = getStatusInfo(payment.status);
-  // Status badge
   const bgRgb = hexToRgb(statusInfo.bg);
   const textRgb = hexToRgb(statusInfo.text);
   doc.setFillColor(bgRgb.r, bgRgb.g, bgRgb.b);
-  doc.roundedRect(marginX + 4, y + 2, 36, 10, 2, 2, 'F');
+  doc.roundedRect(pageWidth - marginX - 38, y + 4, 36, 10, 3, 3, 'F');
   doc.setFontSize(8);
   doc.setTextColor(textRgb.r, textRgb.g, textRgb.b);
   doc.setFont('helvetica', 'bold');
-  doc.text(statusInfo.label, marginX + 22, y + 8.5, { align: 'center' });
+  doc.text(statusInfo.label, pageWidth - marginX - 20, y + 10.5, { align: 'center' });
 
-  // Status description
+  // Receipt number & date
   doc.setFontSize(8);
-  doc.setTextColor(71, 85, 105);
+  doc.setTextColor(120, 115, 105);
   doc.setFont('helvetica', 'normal');
-  doc.text(statusInfo.desc, marginX + 44, y + 8.5, { maxWidth: contentWidth - 50 });
+  doc.text(`N° ${receiptNo}`, marginX + 2, y + 10);
+  doc.text(formatDate(payment.paidAt || payment.createdAt), marginX + 2, y + 16);
 
-  // ── Student information ──────────────────────────────────────────────────
-  y += 24;
-  // Section title with gold left border
-  doc.setFillColor(184, 134, 11);
-  doc.rect(marginX, y, 2, 6, 'F');
-  doc.setFontSize(10);
-  doc.setTextColor(15, 23, 42);
-  doc.setFont('helvetica', 'bold');
-  doc.text("INFORMATIONS DE L'ÉLÈVE", marginX + 6, y + 5);
+  // ── Section: Student Info ──────────────────────────────────────────────────
+  y += 26;
+  drawSectionTitle(doc, marginX + 2, y, "INFORMATIONS DE L'ÉLÈVE");
 
   y += 14;
-  const photoX = marginX;
+  const photoX = marginX + 2;
   if (studentPhotoBase64) {
     try {
+      // Photo with gold border
+      doc.setFillColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
+      doc.roundedRect(photoX - 1, y - 3, 18, 18, 1, 1, 'F');
       doc.addImage(studentPhotoBase64, 'JPEG', photoX, y - 2, 16, 16);
     } catch {}
-    drawFieldRow(doc, photoX + 20, y, contentWidth - 20, 'Nom complet', `${student.lastName.toUpperCase()} ${student.firstName}`);
+    drawFieldRowLuxe(doc, photoX + 20, y, contentWidth - 22, 'Nom complet', `${student.lastName.toUpperCase()} ${student.firstName}`);
   } else {
-    drawFieldRow(doc, photoX, y, contentWidth, 'Nom complet', `${student.lastName.toUpperCase()} ${student.firstName}`);
+    drawFieldRowLuxe(doc, photoX, y, contentWidth - 4, 'Nom complet', `${student.lastName.toUpperCase()} ${student.firstName}`);
   }
+  y += 12;
+  drawFieldRowLuxe(doc, photoX, y, contentWidth - 4, 'Matricule', student.matricule);
+
+  // ── Ornament divider ──────────────────────────────────────────────────────
+  y += 16;
+  drawOrnamentDivider(doc, marginX + 2, y, contentWidth - 4);
+
+  // ── Section: Payment Details ───────────────────────────────────────────────
   y += 10;
-  drawFieldRow(doc, marginX, y, contentWidth, 'Matricule', student.matricule);
-
-  // ── Divider ──────────────────────────────────────────────────────────────
-  y += 14;
-  doc.setDrawColor(203, 213, 225);
-  doc.setLineWidth(0.3);
-  doc.line(marginX, y, pageWidth - marginX, y);
-
-  // ── Payment details ──────────────────────────────────────────────────────
-  y += 8;
-  doc.setFillColor(184, 134, 11);
-  doc.rect(marginX, y, 2, 6, 'F');
-  doc.setFontSize(10);
-  doc.setTextColor(15, 23, 42);
-  doc.setFont('helvetica', 'bold');
-  doc.text('DÉTAILS DU PAIEMENT', marginX + 6, y + 5);
+  drawSectionTitle(doc, marginX + 2, y, 'DÉTAILS DU PAIEMENT');
 
   y += 14;
-  drawFieldRow(doc, marginX, y, contentWidth, 'Trimestre', getTrimesterLabel(payment.trimester));
-  y += 10;
-  drawFieldRow(doc, marginX, y, contentWidth, 'Montant dû', formatCurrency(payment.amount));
-  y += 10;
-  drawFieldRow(doc, marginX, y, contentWidth, 'Montant payé', formatCurrency(payment.paidAmount));
-  y += 10;
+  drawFieldRowLuxe(doc, marginX + 2, y, contentWidth - 4, 'Trimestre', getTrimesterLabel(payment.trimester));
+  y += 12;
+  drawFieldRowLuxe(doc, marginX + 2, y, contentWidth - 4, 'Montant dû', formatCurrency(payment.amount));
+  y += 12;
+  drawFieldRowLuxe(doc, marginX + 2, y, contentWidth - 4, 'Montant payé', formatCurrency(payment.paidAmount));
+  y += 12;
 
   const remaining = payment.amount - payment.paidAmount;
-  // Remaining balance
   doc.setFontSize(8);
-  doc.setTextColor(100, 116, 139);
+  doc.setTextColor(120, 115, 105);
   doc.setFont('helvetica', 'normal');
-  doc.text('Reste à payer', marginX, y + 3);
+  doc.text('Reste à payer', marginX + 2, y + 3.5);
   doc.setFontSize(9);
   if (remaining > 0) {
-    doc.setTextColor(220, 38, 38); // red
+    doc.setTextColor(LUXE.danger[0], LUXE.danger[1], LUXE.danger[2]);
   } else {
-    doc.setTextColor(22, 163, 74); // green
+    doc.setTextColor(LUXE.success[0], LUXE.success[1], LUXE.success[2]);
   }
   doc.setFont('helvetica', 'bold');
-  doc.text(remaining > 0 ? formatCurrency(remaining) : '0 CDF', pageWidth - marginX, y + 3, { align: 'right' });
+  doc.text(remaining > 0 ? formatCurrency(remaining) : '0 CDF', pageWidth - marginX - 2, y + 3.5, { align: 'right' });
 
+  y += 12;
+  drawFieldRowLuxe(doc, marginX + 2, y, contentWidth - 4, 'Mode de paiement', getPaymentMethodLabel(payment.paymentMethod));
+  y += 12;
+  drawFieldRowLuxe(doc, marginX + 2, y, contentWidth - 4, 'Référence', payment.referenceNumber || '—');
+
+  // ── Ornament divider ──────────────────────────────────────────────────────
+  y += 16;
+  drawOrnamentDivider(doc, marginX + 2, y, contentWidth - 4);
+
+  // ── Summary box (dark with gold accent) ────────────────────────────────────
   y += 10;
-  drawFieldRow(doc, marginX, y, contentWidth, 'Mode de paiement', getPaymentMethodLabel(payment.paymentMethod));
-  y += 10;
-  drawFieldRow(doc, marginX, y, contentWidth, 'Référence', payment.referenceNumber || '—');
+  // Dark summary card
+  doc.setFillColor(LUXE.darkBg[0], LUXE.darkBg[1], LUXE.darkBg[2]);
+  doc.roundedRect(marginX + 2, y, contentWidth - 4, 30, 4, 4, 'F');
 
-  // ── Divider ──────────────────────────────────────────────────────────────
-  y += 14;
-  doc.setDrawColor(203, 213, 225);
-  doc.line(marginX, y, pageWidth - marginX, y);
-
-  // ── Summary box ──────────────────────────────────────────────────────────
-  y += 8;
-  doc.setFillColor(15, 23, 42);
-  doc.roundedRect(marginX, y, contentWidth, 28, 3, 3, 'F');
+  // Gold top border
+  doc.setFillColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
+  doc.rect(marginX + 2, y, contentWidth - 4, 1.5, 'F');
 
   doc.setFontSize(8);
-  doc.setTextColor(148, 163, 184);
+  doc.setTextColor(LUXE.textMuted[0], LUXE.textMuted[1], LUXE.textMuted[2]);
   doc.setFont('helvetica', 'normal');
-  doc.text('MONTANT TOTAL PAYÉ', marginX + 10, y + 10);
+  doc.text('MONTANT TOTAL PAYÉ', marginX + 12, y + 12);
 
-  doc.setFontSize(20);
-  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22);
+  doc.setTextColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
   doc.setFont('helvetica', 'bold');
-  doc.text(formatCurrency(payment.paidAmount), marginX + 10, y + 22);
+  doc.text(formatCurrency(payment.paidAmount), marginX + 12, y + 24);
 
-  // ── Verification section ──────────────────────────────────────────────────
-  y += 36;
-  if (payment.verifiedBy) {
-    doc.setFillColor(220, 252, 231); // green-100
-    doc.roundedRect(marginX, y, contentWidth, 20, 2, 2, 'F');
+  // ── Footer ────────────────────────────────────────────────────────────────
+  const footerY = pageHeight - 28;
 
-    doc.setFillColor(22, 163, 74); // green
-    doc.circle(marginX + 8, y + 7, 3, 'F');
-    doc.setFontSize(7);
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.text('✓', marginX + 8, y + 8.5, { align: 'center' });
+  // Gold ornament line
+  drawOrnamentDivider(doc, marginX, footerY - 4, contentWidth);
 
-    doc.setFontSize(9);
-    doc.setTextColor(22, 163, 74);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PAIEMENT VÉRIFIÉ', marginX + 14, y + 7);
-
-    doc.setFontSize(7);
-    doc.setTextColor(71, 85, 105);
-    doc.setFont('helvetica', 'normal');
-    const verifiedDate = payment.verifiedAt ? formatDate(payment.verifiedAt) : '—';
-    doc.text(`Vérifié par : ${payment.verifiedBy}  |  Date : ${verifiedDate}`, marginX + 14, y + 13);
-
-    if (payment.verificationNote) {
-      doc.setFontSize(6);
-      doc.setTextColor(100, 116, 139);
-      doc.text(`Note : ${payment.verificationNote}`, marginX + 14, y + 17, { maxWidth: contentWidth - 20 });
-    }
-  } else {
-    doc.setFillColor(254, 249, 195); // yellow-100
-    doc.roundedRect(marginX, y, contentWidth, 14, 2, 2, 'F');
-
-    doc.setFontSize(8);
-    doc.setTextColor(133, 77, 14);
-    doc.setFont('helvetica', 'bold');
-    doc.text('⚠ PAIEMENT NON VÉRIFIÉ', marginX + 6, y + 6);
-
-    doc.setFontSize(6);
-    doc.setTextColor(161, 98, 7);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Ce paiement n\'a pas encore été vérifié par un administrateur', marginX + 6, y + 11);
-  }
-
-  // ── Footer ───────────────────────────────────────────────────────────────
-  y = pageHeight - 30;
-  doc.setDrawColor(203, 213, 225);
-  doc.line(marginX, y, pageWidth - marginX, y);
-
-  y += 8;
   doc.setFontSize(8);
-  doc.setTextColor(148, 163, 184);
+  doc.setTextColor(LUXE.textMuted[0], LUXE.textMuted[1], LUXE.textMuted[2]);
   doc.setFont('helvetica', 'normal');
-  doc.text('Généré par EduGest — La plateforme de gestion scolaire', pageWidth / 2, y, { align: 'center' });
-  y += 6;
+  doc.text('Généré par EduGest — La plateforme de gestion scolaire', pageWidth / 2, footerY + 4, { align: 'center' });
+
   doc.setFontSize(6);
-  doc.setTextColor(203, 213, 225);
+  doc.setTextColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
   doc.text(
     `Document généré automatiquement le ${formatDate(new Date())} — Ce reçu fait foi de paiement.`,
     pageWidth / 2,
-    y,
+    footerY + 10,
     { align: 'center' }
   );
 
   return Buffer.from(doc.output('arraybuffer'));
-}
-
-function drawFieldRow(
-  doc: jsPDF,
-  x: number,
-  y: number,
-  contentWidth: number,
-  label: string,
-  value: string
-) {
-  doc.setFontSize(8);
-  doc.setTextColor(100, 116, 139);
-  doc.setFont('helvetica', 'normal');
-  doc.text(label, x, y + 3);
-  doc.setFontSize(9);
-  doc.setTextColor(15, 23, 42);
-  doc.setFont('helvetica', 'normal');
-  doc.text(value, x + contentWidth, y + 3, { align: 'right' });
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {

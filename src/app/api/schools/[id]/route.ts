@@ -95,6 +95,7 @@ export async function PUT(
       'name', 'shortName', 'email', 'phone', 'address', 'city', 'province',
       'country', 'latitude', 'longitude', 'description', 'history', 'mission',
       'establishmentYear', 'schoolType', 'schoolCategory', 'logo', 'coverImage',
+      'subscriptionTier', 'isActive', 'maxStudents',
     ];
 
     const updateData: Record<string, unknown> = {};
