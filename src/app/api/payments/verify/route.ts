@@ -61,6 +61,35 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // Notify parent
+      try {
+        const studentData = await db.student.findUnique({ where: { id: payment.studentId }, select: { firstName: true, lastName: true, parentId: true } });
+        const schoolData = await db.school.findUnique({ where: { id: payment.schoolId }, select: { name: true } });
+        
+        // In-app notification to parent
+        if (studentData?.parentId) {
+          await db.notification.create({
+            data: {
+              type: 'PAYMENT_APPROVED',
+              title: 'Paiement approuvé',
+              message: `Votre paiement de ${Number(payment.amount).toLocaleString('fr-FR')} CDF a été confirmé`,
+              userId: studentData.parentId,
+              schoolId: payment.schoolId,
+              relatedId: payment.id,
+            },
+          });
+        }
+        
+        // WhatsApp to parent
+        if (studentData?.parentId) {
+          const parent = await db.user.findUnique({ where: { id: studentData.parentId }, select: { phone: true } });
+          if (parent?.phone) {
+            const { notifyPaymentApproved } = await import('@/lib/whatsapp-agent');
+            notifyPaymentApproved(parent.phone, `${studentData.firstName} ${studentData.lastName}`, Number(payment.amount), payment.trimester, schoolData?.name || '');
+          }
+        }
+      } catch { /* notification failed, non-critical */ }
+
       return NextResponse.json({
         data: {
           ...payment,
@@ -81,6 +110,35 @@ export async function POST(request: NextRequest) {
           verificationNote: verificationNote || 'Paiement rejeté',
         },
       });
+
+      // Notify parent
+      try {
+        const studentData = await db.student.findUnique({ where: { id: payment.studentId }, select: { firstName: true, lastName: true, parentId: true } });
+        const schoolData = await db.school.findUnique({ where: { id: payment.schoolId }, select: { name: true } });
+        
+        // In-app notification to parent
+        if (studentData?.parentId) {
+          await db.notification.create({
+            data: {
+              type: 'PAYMENT_REJECTED',
+              title: 'Paiement rejeté',
+              message: `Votre paiement de ${Number(payment.amount).toLocaleString('fr-FR')} CDF a été rejeté`,
+              userId: studentData.parentId,
+              schoolId: payment.schoolId,
+              relatedId: payment.id,
+            },
+          });
+        }
+        
+        // WhatsApp to parent
+        if (studentData?.parentId) {
+          const parent = await db.user.findUnique({ where: { id: studentData.parentId }, select: { phone: true } });
+          if (parent?.phone) {
+            const { notifyPaymentRejected } = await import('@/lib/whatsapp-agent');
+            notifyPaymentRejected(parent.phone, `${studentData.firstName} ${studentData.lastName}`, Number(payment.amount), payment.trimester, schoolData?.name || '', verificationNote || 'Paiement rejeté');
+          }
+        }
+      } catch { /* notification failed, non-critical */ }
 
       return NextResponse.json({
         data: {

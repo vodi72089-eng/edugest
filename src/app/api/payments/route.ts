@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
     // Verify student exists
     const student = await db.student.findUnique({
       where: { id: resolvedStudentId },
-      select: { id: true, firstName: true, lastName: true, matricule: true },
+      select: { id: true, firstName: true, lastName: true, matricule: true, classId: true },
     });
 
     if (!student) {
@@ -193,6 +193,50 @@ export async function POST(request: NextRequest) {
     });
 
     // Return payment with student data for immediate use
+    // Create in-app notifications for school users
+    try {
+      const schoolUsers = user.schoolId ? await db.user.findMany({
+        where: { 
+          schoolId: user.schoolId, 
+          role: { in: ['SECRETARY', 'CASHIER'] },
+          id: { not: user.id }
+        },
+        select: { id: true, phone: true, name: true },
+      }) : [];
+
+      const studentName = `${student.firstName} ${student.lastName}`;
+      const trimesterLabel = body.trimester || 'N/A';
+      const schoolData = user.schoolId ? await db.school.findUnique({ where: { id: user.schoolId }, select: { name: true } }) : null;
+
+      // Create in-app notifications
+      for (const u of schoolUsers) {
+        await db.notification.create({
+          data: {
+            type: 'PAYMENT_CREATED',
+            title: 'Nouveau paiement',
+            message: `${studentName} - ${Number(body.amount || 0).toLocaleString('fr-FR')} CDF - ${trimesterLabel}`,
+            userId: u.id,
+            schoolId: user.schoolId!,
+            relatedId: payment.id,
+          },
+        });
+      }
+
+      // Send WhatsApp notifications
+      const { notifyPaymentCreated } = await import('@/lib/whatsapp-agent');
+      const recipients = schoolUsers.filter(u => u.phone).map(u => ({ phone: u.phone!, name: u.name }));
+      // Also notify parent if available
+      const parentData = await db.student.findUnique({ 
+        where: { id: resolvedStudentId }, 
+        select: { parent: { select: { phone: true, name: true } } } 
+      });
+      if (parentData?.parent?.phone) {
+        recipients.push({ phone: parentData.parent.phone, name: parentData.parent.name });
+      }
+      const className = await db.class.findUnique({ where: { id: student.classId }, select: { name: true } });
+      notifyPaymentCreated(recipients, studentName, className?.name || '', Number(body.amount || 0), trimesterLabel, schoolData?.name || '');
+    } catch { /* WhatsApp notification failed, non-critical */ }
+
     return NextResponse.json({ 
       data: {
         ...payment,
