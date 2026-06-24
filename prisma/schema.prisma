@@ -47,6 +47,8 @@ model School {
   communications    Communication[]
   paymentRecords    PaymentRecord[]
   homeworks         Homework[]
+  schoolFees        SchoolFee[]
+  notifications     Notification[]
 }
 
 model User {
@@ -68,6 +70,7 @@ model User {
 
   school          School   @relation(fields: [schoolId], references: [id])
   students        Student[] @relation("ParentChildren")
+  notifications   Notification[]
 }
 
 model Student {
@@ -118,8 +121,44 @@ model Class {
   grades        Grade[]
   subjects      Subject[]
   homeworks     Homework[]
+  schoolFees    SchoolFee[]
 
   @@unique([name, schoolYearId])
+}
+
+model SchoolFee {
+  id          String   @id @default(cuid())
+  name        String
+  amount      Float
+  trimester   String
+  classId     String
+  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([classId, trimester, name])
+  @@index([schoolId])
+  @@index([classId])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  type        String
+  title       String
+  message     String
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId    String?
+  school      School?  @relation(fields: [schoolId], references: [id])
+  relatedId   String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([schoolId])
 }
 
 model SchoolYear {
