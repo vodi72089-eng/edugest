@@ -5,7 +5,7 @@ import { useEduGestStore, authFetch } from '@/lib/store'
 import type { SchoolData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
-import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera, ImagePlus } from 'lucide-react'
+import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera, ImagePlus, Plus, Edit, GraduationCap } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function SettingsView() {
@@ -48,6 +48,12 @@ function SettingsViewInner() {
   const [comments, setComments] = useState<{ id: string; authorName: string; rating: number; comment: string; isApproved: boolean; createdAt: string }[]>([])
   const logoInputRef = useRef<HTMLInputElement | null>(null)
   const coverInputRef = useRef<HTMLInputElement | null>(null)
+  const [activeTab, setActiveTab] = useState<'info' | 'fees'>('info')
+  const [fees, setFees] = useState<any[]>([])
+  const [classes, setClasses] = useState<any[]>([])
+  const [showFeeModal, setShowFeeModal] = useState(false)
+  const [feeForm, setFeeForm] = useState({ name: '', amount: '', trimester: 'T1', classId: '' })
+  const [editingFee, setEditingFee] = useState<any>(null)
 
   // Form fields
   const [name, setName] = useState('')
@@ -102,6 +108,13 @@ function SettingsViewInner() {
         .then(r => r.json())
         .then(j => setComments(j.data || []))
         .catch(() => {})
+    }
+  }, [userData?.schoolId])
+
+  useEffect(() => {
+    if (userData?.schoolId) {
+      authFetch(`/api/school-fees?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setFees(j.data || []))
+      authFetch(`/api/classes?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setClasses(j.data || []))
     }
   }, [userData?.schoolId])
 
@@ -203,6 +216,15 @@ function SettingsViewInner() {
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Paramètres de l&apos;école</h1>
       </div>
 
+      <div className="flex gap-2 mb-6">
+        <button onClick={() => setActiveTab('info')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'info' ? 'text-white' : ''}`} style={activeTab === 'info' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
+          Informations
+        </button>
+        <button onClick={() => setActiveTab('fees')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'fees' ? 'text-white' : ''}`} style={activeTab === 'fees' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
+          <GraduationCap size={14} className="inline mr-1" /> Frais scolaires
+        </button>
+      </div>
+
       {/* Cover Image */}
       <div className="mb-6 rounded-2xl overflow-hidden border border-[oklch(90%_0.01_175)] shadow-sm">
         <div className="relative h-40 sm:h-52" style={{ background: coverUrl ? `url(${coverUrl}) center/cover` : `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
@@ -242,6 +264,7 @@ function SettingsViewInner() {
         </div>
       </div>
 
+      {activeTab === 'info' && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main form */}
         <div className="lg:col-span-2 space-y-6">
@@ -412,6 +435,141 @@ function SettingsViewInner() {
           </div>
         </div>
       </div>
+      )}
+
+      {activeTab === 'fees' && (
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-semibold flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+              <GraduationCap size={16} style={{ color: GOLD }} /> Frais scolaires
+            </h3>
+            <button
+              onClick={() => { setEditingFee(null); setFeeForm({ name: '', amount: '', trimester: 'T1', classId: '' }); setShowFeeModal(true) }}
+              className="px-4 py-2 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-1.5"
+              style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}
+            >
+              <Plus size={14} /> Ajouter
+            </button>
+          </div>
+
+          {fees.length === 0 ? (
+            <p className="text-sm text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun frais scolaire enregistré</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[oklch(90%_0.01_175)]">
+                    <th className="text-left py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Nom</th>
+                    <th className="text-left py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant (CDF)</th>
+                    <th className="text-left py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Trimestre</th>
+                    <th className="text-left py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Classe</th>
+                    <th className="text-right py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {fees.map(fee => (
+                    <tr key={fee.id} className="border-b border-[oklch(92%_0.008_175)] last:border-0">
+                      <td className="py-3 px-2 font-medium" style={{ color: TEXT_PRIMARY }}>{fee.name}</td>
+                      <td className="py-3 px-2" style={{ color: TEXT_PRIMARY }}>{Number(fee.amount).toLocaleString()}</td>
+                      <td className="py-3 px-2">
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>{fee.trimester}</span>
+                      </td>
+                      <td className="py-3 px-2" style={{ color: TEXT_PRIMARY }}>{classes.find(c => c.id === fee.classId)?.name || '—'}</td>
+                      <td className="py-3 px-2 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => { setEditingFee(fee); setFeeForm({ name: fee.name, amount: String(fee.amount), trimester: fee.trimester, classId: fee.classId || '' }); setShowFeeModal(true) }}
+                            className="p-1.5 rounded-lg border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition"
+                            style={{ color: ACCENT }}
+                          >
+                            <Edit size={13} />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!confirm('Supprimer ce frais ?')) return
+                              const res = await authFetch(`/api/school-fees/${fee.id}`, { method: 'DELETE' })
+                              if (res.ok) {
+                                setFees(prev => prev.filter(f => f.id !== fee.id))
+                                toast.success('Frais supprimé')
+                              }
+                            }}
+                            className="p-1.5 rounded-lg border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition"
+                            style={{ color: DANGER }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Fee Modal */}
+      {showFeeModal && (
+        <div className="fixed inset-0 bg-black/40 grid place-items-center z-50 p-4" onClick={() => setShowFeeModal(false)}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+            <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+              <GraduationCap size={16} style={{ color: GOLD }} /> {editingFee ? 'Modifier le frais' : 'Ajouter un frais'}
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom du frais *</label>
+                <input value={feeForm.name} onChange={e => setFeeForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Montant (CDF) *</label>
+                <input type="number" value={feeForm.amount} onChange={e => setFeeForm(f => ({ ...f, amount: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Trimestre *</label>
+                <select value={feeForm.trimester} onChange={e => setFeeForm(f => ({ ...f, trimester: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                  <option value="T1">T1</option>
+                  <option value="T2">T2</option>
+                  <option value="T3">T3</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe</label>
+                <select value={feeForm.classId} onChange={e => setFeeForm(f => ({ ...f, classId: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                  <option value="">Toutes les classes</option>
+                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowFeeModal(false)} className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+              <button
+                onClick={async () => {
+                  if (!feeForm.name || !feeForm.amount) { toast.error('Nom et montant requis'); return }
+                  const body = { name: feeForm.name, amount: Number(feeForm.amount), trimester: feeForm.trimester, classId: feeForm.classId || null, schoolId: userData?.schoolId }
+                  let res
+                  if (editingFee) {
+                    res = await authFetch(`/api/school-fees/${editingFee.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+                  } else {
+                    res = await authFetch('/api/school-fees', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+                  }
+                  if (res.ok) {
+                    const j = await res.json()
+                    if (editingFee) { setFees(prev => prev.map(f => f.id === editingFee.id ? j.data : f)) }
+                    else { setFees(prev => [...prev, j.data]) }
+                    setShowFeeModal(false)
+                    toast.success(editingFee ? 'Frais modifié' : 'Frais ajouté')
+                  } else { toast.error('Erreur') }
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white"
+                style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}
+              >
+                {editingFee ? 'Modifier' : 'Ajouter'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
