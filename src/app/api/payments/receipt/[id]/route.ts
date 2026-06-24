@@ -202,193 +202,219 @@ function buildReceiptPDF(
   schoolLogoBase64: string | null,
   studentPhotoBase64: string | null
 ): Buffer {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
-
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
   const marginX = 22;
   const contentWidth = pageWidth - marginX * 2;
-  let y = 0;
+  let y = 20;
 
-  // ── Full dark background ──────────────────────────────────────────────────
-  doc.setFillColor(LUXE.darkBg[0], LUXE.darkBg[1], LUXE.darkBg[2]);
-  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  // ── White background ─────────────────────────────────────────────────────
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pageWidth, doc.internal.pageSize.getHeight(), 'F');
 
-  // ── Header with Kente texture ─────────────────────────────────────────────
-  drawKentePattern(doc, 0, 0, pageWidth, 56);
+  // ── Gold top accent line ────────────────────────────────────────────────
+  doc.setFillColor(245, 166, 35);
+  doc.rect(0, 0, pageWidth, 2, 'F');
 
-  // School logo (if available)
+  // ── School logo (if available) ──────────────────────────────────────────
   if (schoolLogoBase64) {
     try {
-      doc.addImage(schoolLogoBase64, 'JPEG', marginX, 10, 20, 20);
+      doc.addImage(schoolLogoBase64, 'JPEG', marginX, y, 18, 18);
     } catch {
-      const initials = getSchoolInitials(school.shortName);
-      doc.setFillColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
-      doc.circle(marginX + 14, 22, 14, 'F');
-      doc.setFontSize(16);
-      doc.setTextColor(LUXE.darkBg[0], LUXE.darkBg[1], LUXE.darkBg[2]);
+      // Fallback to initials
+      doc.setFillColor(245, 166, 35);
+      doc.circle(marginX + 9, y + 9, 9, 'F');
+      doc.setFontSize(14);
+      doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.text(initials, marginX + 14, 26, { align: 'center' });
+      doc.text(getSchoolInitials(school.shortName), marginX + 9, y + 12.5, { align: 'center' });
     }
   } else {
-    const initials = getSchoolInitials(school.shortName);
-    doc.setFillColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
-    doc.circle(marginX + 14, 22, 14, 'F');
-    doc.setFontSize(16);
-    doc.setTextColor(LUXE.darkBg[0], LUXE.darkBg[1], LUXE.darkBg[2]);
+    doc.setFillColor(245, 166, 35);
+    doc.circle(marginX + 9, y + 9, 9, 'F');
+    doc.setFontSize(14);
+    doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.text(initials, marginX + 14, 26, { align: 'center' });
+    doc.text(getSchoolInitials(school.shortName), marginX + 9, y + 12.5, { align: 'center' });
   }
 
-  // School name
+  // ── School name (large, bold) ───────────────────────────────────────────
   doc.setFontSize(18);
-  doc.setTextColor(LUXE.textWhite[0], LUXE.textWhite[1], LUXE.textWhite[2]);
+  doc.setTextColor(15, 23, 42);
   doc.setFont('helvetica', 'bold');
-  doc.text(school.name, marginX + 32, 20, { maxWidth: contentWidth - 32 });
+  doc.text(school.name, marginX + 24, y + 8);
 
-  // School address
+  // ── School address & contact ────────────────────────────────────────────
   doc.setFontSize(8);
-  doc.setTextColor(LUXE.textMuted[0], LUXE.textMuted[1], LUXE.textMuted[2]);
+  doc.setTextColor(100, 116, 139);
   doc.setFont('helvetica', 'normal');
   const addressParts = [school.address, school.city, school.province, school.country].filter(Boolean);
   if (addressParts.length > 0) {
-    doc.text(addressParts.join(', '), marginX + 32, 29, { maxWidth: contentWidth - 32 });
+    doc.text(addressParts.join(', '), marginX + 24, y + 14);
   }
   const contactParts = [school.email, school.phone].filter(Boolean);
   if (contactParts.length > 0) {
-    doc.text(contactParts.join('  |  '), marginX + 32, 35, { maxWidth: contentWidth - 32 });
+    doc.text(contactParts.join('  ·  '), marginX + 24, y + 19);
   }
 
-  // "REÇU DE PAIEMENT" title on dark
-  doc.setFontSize(22);
-  doc.setTextColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
-  doc.setFont('helvetica', 'bold');
-  doc.text('REÇU DE PAIEMENT', pageWidth / 2, 50, { align: 'center' });
-
-  // ── Ivory content area ─────────────────────────────────────────────────────
-  y = 62;
-  const contentHeight = pageHeight - y - 32;
-  drawDotTexture(doc, marginX - 2, y, contentWidth + 4, contentHeight);
-
-  // Status badge in top-right
+  // ── REÇU label + receipt number (top right) ─────────────────────────────
   const receiptNo = payment.receiptNumber || `REC-${payment.id.slice(-8).toUpperCase()}`;
+  doc.setFontSize(8);
+  doc.setTextColor(148, 163, 184);
+  doc.setFont('helvetica', 'normal');
+  doc.text('REÇU', pageWidth - marginX, y + 5, { align: 'right' });
+  doc.setFontSize(12);
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.text(receiptNo, pageWidth - marginX, y + 11, { align: 'right' });
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  doc.setFont('helvetica', 'normal');
+  doc.text(formatDate(payment.paidAt || payment.createdAt), pageWidth - marginX, y + 17, { align: 'right' });
+
+  y += 28;
+
+  // ── Thin divider line ───────────────────────────────────────────────────
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 8;
+
+  // ── Status banner ───────────────────────────────────────────────────────
   const statusInfo = getStatusInfo(payment.status);
   const bgRgb = hexToRgb(statusInfo.bg);
-  const textRgb = hexToRgb(statusInfo.text);
   doc.setFillColor(bgRgb.r, bgRgb.g, bgRgb.b);
-  doc.roundedRect(pageWidth - marginX - 38, y + 4, 36, 10, 3, 3, 'F');
-  doc.setFontSize(8);
+  doc.roundedRect(marginX, y, contentWidth, 14, 2, 2, 'F');
+
+  // Status icon
+  doc.setFontSize(10);
+  doc.setTextColor(180, 83, 9);
+  doc.text('!', marginX + 5, y + 6.5);
+
+  // Status text
+  doc.setFontSize(9);
+  const textRgb = hexToRgb(statusInfo.text);
   doc.setTextColor(textRgb.r, textRgb.g, textRgb.b);
   doc.setFont('helvetica', 'bold');
-  doc.text(statusInfo.label, pageWidth - marginX - 20, y + 10.5, { align: 'center' });
-
-  // Receipt number & date
+  doc.text(statusInfo.label, marginX + 12, y + 6);
   doc.setFontSize(8);
-  doc.setTextColor(120, 115, 105);
   doc.setFont('helvetica', 'normal');
-  doc.text(`N° ${receiptNo}`, marginX + 2, y + 10);
-  doc.text(formatDate(payment.paidAt || payment.createdAt), marginX + 2, y + 16);
+  doc.text(statusInfo.desc, marginX + 12, y + 11);
 
-  // ── Section: Student Info ──────────────────────────────────────────────────
-  y += 26;
-  drawSectionTitle(doc, marginX + 2, y, "INFORMATIONS DE L'ÉLÈVE");
+  y += 22;
 
-  y += 14;
-  const photoX = marginX + 2;
-  if (studentPhotoBase64) {
-    try {
-      // Photo with gold border
-      doc.setFillColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
-      doc.roundedRect(photoX - 1, y - 3, 18, 18, 1, 1, 'F');
-      doc.addImage(studentPhotoBase64, 'JPEG', photoX, y - 2, 16, 16);
-    } catch {}
-    drawFieldRowLuxe(doc, photoX + 20, y, contentWidth - 22, 'Nom complet', `${student.lastName.toUpperCase()} ${student.firstName}`);
-  } else {
-    drawFieldRowLuxe(doc, photoX, y, contentWidth - 4, 'Nom complet', `${student.lastName.toUpperCase()} ${student.firstName}`);
-  }
-  y += 12;
-  drawFieldRowLuxe(doc, photoX, y, contentWidth - 4, 'Matricule', student.matricule);
-
-  // ── Ornament divider ──────────────────────────────────────────────────────
-  y += 16;
-  drawOrnamentDivider(doc, marginX + 2, y, contentWidth - 4);
-
-  // ── Section: Payment Details ───────────────────────────────────────────────
-  y += 10;
-  drawSectionTitle(doc, marginX + 2, y, 'DÉTAILS DU PAIEMENT');
-
-  y += 14;
-  drawFieldRowLuxe(doc, marginX + 2, y, contentWidth - 4, 'Trimestre', getTrimesterLabel(payment.trimester));
-  y += 12;
-  drawFieldRowLuxe(doc, marginX + 2, y, contentWidth - 4, 'Montant dû', formatCurrency(payment.amount));
-  y += 12;
-  drawFieldRowLuxe(doc, marginX + 2, y, contentWidth - 4, 'Montant payé', formatCurrency(payment.paidAmount));
-  y += 12;
-
-  const remaining = payment.amount - payment.paidAmount;
-  doc.setFontSize(8);
-  doc.setTextColor(120, 115, 105);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Reste à payer', marginX + 2, y + 3.5);
+  // ── Student Info Section ────────────────────────────────────────────────
   doc.setFontSize(9);
+  doc.setTextColor(100, 116, 139);
+  doc.setFont('helvetica', 'normal');
+  doc.text('NOM COMPLET', marginX, y);
+  doc.text('MATRICULE', marginX + contentWidth / 2, y);
+  y += 5;
+  doc.setFontSize(11);
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${student.lastName.toUpperCase()} ${student.firstName}`, marginX, y);
+  doc.text(student.matricule, marginX + contentWidth / 2, y);
+  y += 12;
+
+  // ── Payment Details Section ─────────────────────────────────────────────
+  doc.setFontSize(9);
+  doc.setTextColor(100, 116, 139);
+  doc.setFont('helvetica', 'normal');
+  doc.text('TRIMESTRE', marginX, y);
+  doc.text('MODE DE PAIEMENT', marginX + contentWidth / 2, y);
+  y += 5;
+  doc.setFontSize(11);
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.text(getTrimesterLabel(payment.trimester), marginX, y);
+  doc.text(getPaymentMethodLabel(payment.paymentMethod), marginX + contentWidth / 2, y);
+  y += 12;
+
+  // ── Amounts Section ─────────────────────────────────────────────────────
+  doc.setFontSize(9);
+  doc.setTextColor(100, 116, 139);
+  doc.setFont('helvetica', 'normal');
+  doc.text('MONTANT DÛ', marginX, y);
+  doc.text('MONTANT PAYÉ', marginX + contentWidth / 2, y);
+  y += 5;
+  doc.setFontSize(11);
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.text(formatCurrency(payment.amount), marginX, y);
+  doc.text(formatCurrency(payment.paidAmount), marginX + contentWidth / 2, y);
+  y += 12;
+
+  // ── Remaining ───────────────────────────────────────────────────────────
+  const remaining = payment.amount - payment.paidAmount;
+  doc.setFontSize(9);
+  doc.setTextColor(100, 116, 139);
+  doc.setFont('helvetica', 'normal');
+  doc.text('RESTE À PAYER', marginX, y);
+  y += 5;
+  doc.setFontSize(11);
   if (remaining > 0) {
-    doc.setTextColor(LUXE.danger[0], LUXE.danger[1], LUXE.danger[2]);
+    doc.setTextColor(220, 38, 38);
   } else {
-    doc.setTextColor(LUXE.success[0], LUXE.success[1], LUXE.success[2]);
+    doc.setTextColor(22, 163, 74);
   }
   doc.setFont('helvetica', 'bold');
-  doc.text(remaining > 0 ? formatCurrency(remaining) : '0 CDF', pageWidth - marginX - 2, y + 3.5, { align: 'right' });
+  doc.text(remaining > 0 ? formatCurrency(remaining) : '0 CDF', marginX, y);
 
-  y += 12;
-  drawFieldRowLuxe(doc, marginX + 2, y, contentWidth - 4, 'Mode de paiement', getPaymentMethodLabel(payment.paymentMethod));
-  y += 12;
-  drawFieldRowLuxe(doc, marginX + 2, y, contentWidth - 4, 'Référence', payment.referenceNumber || '—');
+  if (payment.referenceNumber) {
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'normal');
+    doc.text('RÉFÉRENCE', marginX + contentWidth / 2, y - 7);
+    doc.setFontSize(10);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.text(payment.referenceNumber, marginX + contentWidth / 2, y);
+  }
 
-  // ── Ornament divider ──────────────────────────────────────────────────────
-  y += 16;
-  drawOrnamentDivider(doc, marginX + 2, y, contentWidth - 4);
+  y += 20;
 
-  // ── Summary box (dark with gold accent) ────────────────────────────────────
-  y += 10;
-  // Dark summary card
-  doc.setFillColor(LUXE.darkBg[0], LUXE.darkBg[1], LUXE.darkBg[2]);
-  doc.roundedRect(marginX + 2, y, contentWidth - 4, 30, 4, 4, 'F');
-
-  // Gold top border
-  doc.setFillColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
-  doc.rect(marginX + 2, y, contentWidth - 4, 1.5, 'F');
+  // ── Summary box (dark) ──────────────────────────────────────────────────
+  doc.setFillColor(15, 23, 42);
+  doc.roundedRect(marginX, y, contentWidth, 22, 3, 3, 'F');
 
   doc.setFontSize(8);
-  doc.setTextColor(LUXE.textMuted[0], LUXE.textMuted[1], LUXE.textMuted[2]);
+  doc.setTextColor(148, 163, 184);
   doc.setFont('helvetica', 'normal');
-  doc.text('MONTANT TOTAL PAYÉ', marginX + 12, y + 12);
+  doc.text('MONTANT TOTAL PAYÉ', marginX + 10, y + 9);
 
-  doc.setFontSize(22);
-  doc.setTextColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
+  doc.setFontSize(20);
+  doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.text(formatCurrency(payment.paidAmount), marginX + 12, y + 24);
+  const paidFormatted = new Intl.NumberFormat('fr-FR').format(payment.paidAmount);
+  doc.text(paidFormatted, marginX + 10, y + 18);
+  doc.setFontSize(10);
+  doc.setTextColor(245, 166, 35);
+  doc.text('CDF', marginX + 10 + doc.getTextWidth(paidFormatted) + 3, y + 18);
 
-  // ── Footer ────────────────────────────────────────────────────────────────
-  const footerY = pageHeight - 28;
+  y += 34;
 
-  // Gold ornament line
-  drawOrnamentDivider(doc, marginX, footerY - 4, contentWidth);
+  // ── Footer ──────────────────────────────────────────────────────────────
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 6;
 
   doc.setFontSize(8);
-  doc.setTextColor(LUXE.textMuted[0], LUXE.textMuted[1], LUXE.textMuted[2]);
+  doc.setTextColor(148, 163, 184);
   doc.setFont('helvetica', 'normal');
-  doc.text('Généré par EduGest — La plateforme de gestion scolaire', pageWidth / 2, footerY + 4, { align: 'center' });
+  doc.text('Généré par', pageWidth / 2, y, { align: 'center' });
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(245, 166, 35);
+  doc.text(' EduGest', pageWidth / 2 + 10, y, { align: 'left' });
 
   doc.setFontSize(6);
-  doc.setTextColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
+  doc.setTextColor(203, 213, 225);
+  doc.setFont('helvetica', 'normal');
   doc.text(
     `Document généré automatiquement le ${formatDate(new Date())} — Ce reçu fait foi de paiement.`,
     pageWidth / 2,
-    footerY + 10,
+    y + 5,
     { align: 'center' }
   );
 
