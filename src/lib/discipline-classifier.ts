@@ -117,21 +117,21 @@ export async function classifyStudent(
   const criticalCount = await getCriticalCount(studentId)
   const descriptions = await getRecentDescriptions(studentId)
 
-  // 2. Check for positive sanctions → WHITELIST
-  if (totalPoints > 0) {
+  // 2. Check CRITICAL severity FIRST → direct BLACKLIST (even if points are positive)
+  if (criticalCount > 0) {
     return {
-      listType: 'WHITELIST',
-      reason: 'Sanctions positives détectées',
+      listType: 'BLACKLIST',
+      reason: `${criticalCount} sanction(s) critique(s)`,
       autoClassified: true,
       details: { totalPoints, sanctionCount: typeCounts.reduce((s, t) => s + t.count, 0), criticalCount, sameTypeCount: 0, matchedKeywords: [] }
     }
   }
 
-  // 3. Check CRITICAL severity → direct BLACKLIST
-  if (criticalCount > 0) {
+  // 3. Check for positive sanctions → WHITELIST (only if no critical sanctions)
+  if (totalPoints > 0) {
     return {
-      listType: 'BLACKLIST',
-      reason: `${criticalCount} sanction(s) critique(s)`,
+      listType: 'WHITELIST',
+      reason: 'Sanctions positives détectées',
       autoClassified: true,
       details: { totalPoints, sanctionCount: typeCounts.reduce((s, t) => s + t.count, 0), criticalCount, sameTypeCount: 0, matchedKeywords: [] }
     }

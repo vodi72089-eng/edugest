@@ -573,36 +573,68 @@ async function processMpesaPayment(
   request: PaymentRequest,
   reference: string
 ): Promise<PaymentResponse> {
+  // Test mode: simulate STK push
   if (config.isTestMode || !config.apiKey) {
     return {
       success: true,
       reference,
       gatewayTransactionId: `MPESA-TEST-${Date.now()}`,
-      status: 'SUCCESS',
-      message: 'Paiement M-Pesa de test réussi (STK push simulé)',
+      status: 'PENDING',
+      message: 'STK Push simulé — paiement en attente de confirmation',
     };
   }
 
-  const baseUrl = config.isTestMode
-    ? 'https://sandbox.safaricom.co.ke'
-    : 'https://api.safaricom.co.ke';
+  const baseUrl = 'https://api.safaricom.co.ke';
 
   try {
-    // Simulation STK Push (à implémenter avec les vraies credentials)
-    return {
-      success: true,
-      reference,
-      gatewayTransactionId: `MPESA-${Date.now()}`,
-      status: 'PENDING',
-      message: 'STK Push envoyé au téléphone client',
-    };
+    // Get OAuth token
+    const authResponse = await fetch(`${baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`${config.merchantId}:${config.secretKey}`).toString('base64')}`,
+      },
+    });
+    const authData = await authResponse.json();
+    if (!authData.access_token) {
+      return { success: false, reference, status: 'FAILED', message: 'Échec authentification M-Pesa' };
+    }
+
+    // Initiate STK Push
+    const stkResponse = await fetch(`${baseUrl}/mpesa/stkpush/v1/processrequest`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authData.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        BusinessShortCode: config.merchantId,
+        Password: Buffer.from(`${config.merchantId}${config.secretKey}${new Date().toISOString().replace(/[-T:Z.]/g, '').slice(0, 14)}`).toString('base64'),
+        Timestamp: new Date().toISOString().replace(/[-T:Z.]/g, '').slice(0, 14),
+        TransactionType: 'CustomerPayBillOnline',
+        Amount: request.amount,
+        PartyA: request.customerPhone,
+        PartyB: config.merchantId,
+        PhoneNumber: request.customerPhone,
+        CallBackURL: `${process.env.NEXT_PUBLIC_APP_URL || ''}/api/payments/webhook?gateway=MPESA`,
+        AccountReference: reference,
+        TransactionDesc: request.description,
+      }),
+    });
+    const stkData = await stkResponse.json();
+
+    if (stkData.ResponseCode === '0') {
+      return {
+        success: true,
+        reference,
+        gatewayTransactionId: stkData.CheckoutRequestID,
+        status: 'PENDING',
+        message: 'STK Push envoyé — confirmez sur votre téléphone',
+      };
+    }
+
+    return { success: false, reference, status: 'FAILED', message: stkData.ResponseDescription || 'Échec STK Push M-Pesa' };
   } catch (error) {
-    return {
-      success: false,
-      reference,
-      status: 'FAILED',
-      message: error instanceof Error ? error.message : 'Erreur M-Pesa',
-    };
+    return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur M-Pesa' };
   }
 }
 
@@ -613,31 +645,68 @@ async function processOrangeMoneyPayment(
   request: PaymentRequest,
   reference: string
 ): Promise<PaymentResponse> {
+  // Test mode: simulate payment request
   if (config.isTestMode || !config.apiKey) {
     return {
       success: true,
       reference,
       gatewayTransactionId: `OM-TEST-${Date.now()}`,
-      status: 'SUCCESS',
-      message: 'Paiement Orange Money de test réussi',
+      status: 'PENDING',
+      message: 'Paiement Orange Money simulé — en attente de confirmation',
     };
   }
 
+  const baseUrl = 'https://api.orange.com/orange-money-webpay/dev/v1';
+
   try {
-    return {
-      success: true,
-      reference,
-      gatewayTransactionId: `OM-${Date.now()}`,
-      status: 'PENDING',
-      message: 'Demande de paiement Orange Money envoyée',
-    };
+    // Get OAuth token
+    const authResponse = await fetch('https://api.orange.com/oauth/v3/token', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`${config.merchantId}:${config.secretKey}`).toString('base64')}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: 'grant_type=client_credentials',
+    });
+    const authData = await authResponse.json();
+    if (!authData.access_token) {
+      return { success: false, reference, status: 'FAILED', message: 'Échec authentification Orange Money' };
+    }
+
+    // Create payment
+    const payResponse = await fetch(`${baseUrl}/webpayment`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authData.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        merchant_key: config.merchantId,
+        currency: request.currency,
+        order_id: reference,
+        amount: request.amount,
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/payment/success?ref=${reference}`,
+        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/payment/cancel?ref=${reference}`,
+        notif_url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/api/payments/webhook?gateway=ORANGE_MONEY`,
+        lang: 'fr',
+      }),
+    });
+    const payData = await payResponse.json();
+
+    if (payData.status === 201 || payData.payment_url) {
+      return {
+        success: true,
+        reference,
+        gatewayTransactionId: payData.pay_token || reference,
+        checkoutUrl: payData.payment_url,
+        status: 'PENDING',
+        message: 'Lien de paiement Orange Money généré',
+      };
+    }
+
+    return { success: false, reference, status: 'FAILED', message: payData.message || 'Erreur Orange Money' };
   } catch (error) {
-    return {
-      success: false,
-      reference,
-      status: 'FAILED',
-      message: error instanceof Error ? error.message : 'Erreur Orange Money',
-    };
+    return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur Orange Money' };
   }
 }
 
@@ -648,31 +717,75 @@ async function processAirtelMoneyPayment(
   request: PaymentRequest,
   reference: string
 ): Promise<PaymentResponse> {
+  // Test mode: simulate payment request
   if (config.isTestMode || !config.apiKey) {
     return {
       success: true,
       reference,
       gatewayTransactionId: `AM-TEST-${Date.now()}`,
-      status: 'SUCCESS',
-      message: 'Paiement Airtel Money de test réussi',
+      status: 'PENDING',
+      message: 'Paiement Airtel Money simulé — en attente de confirmation',
     };
   }
 
+  const baseUrl = 'https://openapi.airtel.africa';
+
   try {
-    return {
-      success: true,
-      reference,
-      gatewayTransactionId: `AM-${Date.now()}`,
-      status: 'PENDING',
-      message: 'Demande de paiement Airtel Money envoyée',
-    };
+    // Get OAuth token
+    const authResponse = await fetch(`${baseUrl}/auth/oauth2/token`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`${config.merchantId}:${config.secretKey}`).toString('base64')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ grant_type: 'client_credentials' }),
+    });
+    const authData = await authResponse.json();
+    if (!authData.access_token) {
+      return { success: false, reference, status: 'FAILED', message: 'Échec authentification Airtel Money' };
+    }
+
+    // Initiate collection
+    const payResponse = await fetch(`${baseUrl}/merchant/v1/payments/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authData.access_token}`,
+        'Content-Type': 'application/json',
+        'X-Country': 'CD',
+        'X-Currency': request.currency,
+      },
+      body: JSON.stringify({
+        reference,
+        transaction: {
+          amount: request.amount,
+          country: 'CD',
+          currency: request.currency,
+        },
+        customer: {
+          email: request.customerEmail || '',
+          msisdn: request.customerPhone || '',
+        },
+        product: {
+          serviceCode: config.merchantId || 'EDUGEST',
+          productName: 'Scolarité',
+        },
+      }),
+    });
+    const payData = await payResponse.json();
+
+    if (payData.status === 'success' || payData.data?.transaction?.status === 'Pending') {
+      return {
+        success: true,
+        reference,
+        gatewayTransactionId: payData.data?.transaction?.id || reference,
+        status: 'PENDING',
+        message: 'Paiement Airtel Money initié — confirmez sur votre téléphone',
+      };
+    }
+
+    return { success: false, reference, status: 'FAILED', message: payData.message || 'Erreur Airtel Money' };
   } catch (error) {
-    return {
-      success: false,
-      reference,
-      status: 'FAILED',
-      message: error instanceof Error ? error.message : 'Erreur Airtel Money',
-    };
+    return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur Airtel Money' };
   }
 }
 

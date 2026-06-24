@@ -2170,7 +2170,22 @@ function Sidebar() {
 
 // ===== TOPBAR =====
 function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; onToggleSidebar: () => void }) {
-  const { currentView, sidebarOpen, setSidebarOpen, setCurrentView } = useEduGestStore()
+  const { currentView, sidebarOpen, setSidebarOpen, setCurrentView, userData } = useEduGestStore()
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [showNotifications, setShowNotifications] = useState(false)
+
+  useEffect(() => {
+    if (!userData?.id) return;
+    const load = () => authFetch('/api/notifications?limit=20').then(r => r.json()).then(j => {
+      setNotifications(j.data || []);
+      setUnreadCount(j.unreadCount || 0);
+    }).catch(() => {});
+    load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
+  }, [userData?.id]);
+
   const viewTitles: Record<string, string> = {
     dashboard: 'Dashboard', students: 'Élèves', classes: 'Classes', grades: 'Notes',
     payments: 'Paiements', discipline: 'Discipline', communications: 'Communications',
@@ -2206,10 +2221,55 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
           <Search size={14} style={{ color: TEXT_MUTED_LUXE }} />
           <input placeholder="Rechercher..." className="flex-1 border-0 bg-transparent outline-none text-[13px]" />
         </div>
-        <button className="w-9 h-9 rounded-xl bg-white border border-[oklch(90%_0.01_175)] grid place-items-center hover:shadow-sm transition relative">
-          <Bell size={16} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2 border-white" style={{ background: GOLD }} />
-        </button>
+        <div className="relative">
+          <button onClick={() => setShowNotifications(!showNotifications)} className="w-9 h-9 rounded-xl bg-white border border-[oklch(90%_0.01_175)] grid place-items-center hover:shadow-sm transition relative">
+            <Bell size={16} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full text-white text-[10px] font-bold grid place-items-center px-1" style={{ background: DANGER }}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+          {showNotifications && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
+              <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-xl border border-[oklch(90%_0.01_175)] z-50 max-h-96 overflow-hidden flex flex-col">
+                <div className="flex items-center justify-between p-4 border-b border-[oklch(90%_0.01_175)] shrink-0">
+                  <h3 className="font-bold text-sm" style={{ color: TEXT_PRIMARY }}>Notifications</h3>
+                  {unreadCount > 0 && (
+                    <button onClick={async () => { await authFetch('/api/notifications/read-all', { method: 'PATCH' }); setUnreadCount(0); setNotifications(n => n.map(x => ({ ...x, isRead: true }))); }} className="text-[11px] font-medium" style={{ color: ACCENT }}>Tout lire</button>
+                  )}
+                </div>
+                <div className="overflow-y-auto flex-1">
+                  {notifications.length === 0 ? (
+                    <div className="p-8 text-center text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>Aucune notification</div>
+                  ) : notifications.map(n => (
+                    <div key={n.id} className={`px-4 py-3 border-b border-[oklch(90%_0.01_175)] last:border-0 cursor-pointer hover:bg-[oklch(97%_0.005_175)] transition ${!n.isRead ? 'bg-[oklch(97%_0.005_175)]' : ''}`}
+                      onClick={async () => {
+                        if (!n.isRead) {
+                          await authFetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notificationId: n.id }) });
+                          setUnreadCount(c => Math.max(0, c - 1));
+                          setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x));
+                        }
+                      }}>
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-lg grid place-items-center shrink-0 text-sm" style={{ background: n.type?.includes('APPROVED') ? `${SUCCESS}20` : n.type?.includes('REJECTED') ? `${DANGER}20` : `${ACCENT}20`, color: n.type?.includes('APPROVED') ? SUCCESS : n.type?.includes('REJECTED') ? DANGER : ACCENT }}>
+                          {n.type?.includes('APPROVED') ? '✓' : n.type?.includes('REJECTED') ? '✗' : '💰'}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{n.title}</div>
+                          <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{n.message}</div>
+                          <div className="text-[10px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>{new Date(n.createdAt).toLocaleString('fr-FR')}</div>
+                        </div>
+                        {!n.isRead && <div className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ background: ACCENT }} />}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
         <button onClick={() => setCurrentView('profile')} className="w-9 h-9 rounded-xl bg-white border border-[oklch(90%_0.01_175)] grid place-items-center hover:shadow-sm transition" title="Mon profil">
           <Settings size={16} />
         </button>

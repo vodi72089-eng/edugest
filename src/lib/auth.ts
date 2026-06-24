@@ -444,6 +444,21 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'convocations:read', 'convocations:create',
     'stats:read',
   ],
+  SCHOOL_ADMIN: [
+    'users:read', 'users:create', 'users:update', 'users:delete',
+    'students:read', 'students:create', 'students:update', 'students:delete',
+    'payments:read', 'payments:create', 'payments:update', 'payments:verify',
+    'grades:read', 'grades:create', 'grades:update',
+    'classes:read', 'classes:create', 'classes:update', 'classes:delete',
+    'subjects:read', 'subjects:create',
+    'discipline:read', 'discipline:create', 'discipline:update',
+    'convocations:read', 'convocations:create', 'convocations:update',
+    'communications:read', 'communications:create',
+    'homework:read', 'homework:create',
+    'stats:read', 'profile:read', 'profile:update',
+    'schools:read',
+    'payment-gateways:manage', 'currency:manage', 'transactions:read',
+  ],
 };
 
 export async function requirePermission(request: NextRequest, permission: string): Promise<{ user: AuthUser } | { error: Response }> {
@@ -496,10 +511,19 @@ export function checkRateLimit(key: string, maxRequests: number, windowMs: numbe
 
 // ─── Role validation ───────────────────────────────────────────────────────
 const ALLOWED_CREATION_ROLES = ['SECRETARY', 'CASHIER', 'TEACHER', 'HEAD_TEACHER', 'PARENT', 'DISCIPLINE', 'DIRECTION'];
+const DIRECTION_ROLES = ['DIRECTION', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
+const DISCIPLINE_ROLES = ['DISCIPLINE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE'];
 
 export function canCreateRole(creatorRole: string, targetRole: string): boolean {
   if (creatorRole === 'SUPER_ADMIN_GLOBAL') return true;
-  if (creatorRole === 'SECRETARY' || creatorRole === 'DIRECTION') return ALLOWED_CREATION_ROLES.includes(targetRole);
+  // DIRECTION, DIRECTION_*, and SCHOOL_ADMIN can create most roles
+  if (DIRECTION_ROLES.includes(creatorRole) || creatorRole === 'SCHOOL_ADMIN') return ALLOWED_CREATION_ROLES.includes(targetRole);
+  // SECRETARY can create most roles
+  if (creatorRole === 'SECRETARY') return ALLOWED_CREATION_ROLES.includes(targetRole);
+  // DISCIPLINE_* can only create TEACHER and HEAD_TEACHER
+  if (DISCIPLINE_ROLES.includes(creatorRole)) {
+    return ['TEACHER', 'HEAD_TEACHER'].includes(targetRole);
+  }
   return false;
 }
 

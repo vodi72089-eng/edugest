@@ -15,7 +15,7 @@ export default function PaymentsView() {
   const [loading, setLoading] = useState(true)
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
-  const [selectedStudent, setSelectedStudent] = useState<{id: string; firstName: string; lastName: string; matricule: string} | null>(null)
+  const [selectedStudent, setSelectedStudent] = useState<{id: string; firstName: string; lastName: string; matricule: string; classId?: string} | null>(null)
   const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
   const [studentSearchLoading, setStudentSearchLoading] = useState(false)
   const [amount, setAmount] = useState('')
@@ -25,6 +25,7 @@ export default function PaymentsView() {
   const [status, setStatus] = useState('PAID')
   const [submitting, setSubmitting] = useState(false)
   const [lastPaymentId, setLastPaymentId] = useState<string | null>(null)
+  const [classFees, setClassFees] = useState<any[]>([])
   const { userData, userRole } = useEduGestStore()
   const isParent = userRole === 'PARENT'
 
@@ -70,6 +71,24 @@ export default function PaymentsView() {
     }, 300)
     return () => { clearTimeout(timer); setStudentSearchLoading(false) }
   }, [studentSearch])
+
+  useEffect(() => {
+    if (selectedStudent?.classId && userData?.schoolId && trimester) {
+      authFetch(`/api/school-fees?schoolId=${userData.schoolId}&classId=${selectedStudent.classId}&trimester=${trimester}`)
+        .then(r => r.json())
+        .then(j => {
+          const fees = j.data || []
+          setClassFees(fees)
+          if (fees.length > 0) {
+            const total = fees.reduce((sum: number, f: any) => sum + f.amount, 0)
+            setAmount(String(total))
+          }
+        })
+        .catch(() => setClassFees([]))
+    } else {
+      setClassFees([])
+    }
+  }, [selectedStudent?.classId, trimester, userData?.schoolId])
 
   async function handlePayment() {
     if (!selectedStudent && !studentSearch) { toast.error('Veuillez sélectionner un élève'); return }
@@ -156,7 +175,7 @@ export default function PaymentsView() {
             placeholder="Tapez le nom de l'élève..."
             items={studentSuggestions}
             selectedId={selectedStudentId}
-            onSelect={(item) => { setSelectedStudentId(item.id); setSelectedStudent({ id: item.id, firstName: item.label.split(' ')[0], lastName: item.label.split(' ').slice(1).join(' ') || '', matricule: item.sublabel || '' }); setStudentSearch('') }}
+            onSelect={async (item) => { setSelectedStudentId(item.id); setSelectedStudent({ id: item.id, firstName: item.label.split(' ')[0], lastName: item.label.split(' ').slice(1).join(' ') || '', matricule: item.sublabel || '' }); setStudentSearch(''); try { const r = await authFetch(`/api/students/${item.id}`); const j = await r.json(); if (j.data?.classId) setSelectedStudent(prev => prev ? { ...prev, classId: j.data.classId } : prev); } catch {} }}
             onClear={() => { setSelectedStudentId(null); setSelectedStudent(null); setStudentSearch('') }}
             searchQuery={studentSearch}
             onSearchChange={(v) => { setStudentSearch(v); setSelectedStudent(null); setSelectedStudentId(null) }}
@@ -164,7 +183,7 @@ export default function PaymentsView() {
             itemTypeName="élève"
             className="sm:col-span-2 lg:col-span-1"
           />
-          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant total (CDF)</label><input placeholder="Montant" value={amount} onChange={e => setAmount(e.target.value)} type="number" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
+          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant total (CDF)</label><input placeholder="Montant" value={amount} onChange={e => setAmount(e.target.value)} type="number" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" />{classFees.length > 0 && (<div className="mt-1 text-[11px] px-3 py-2 rounded-lg" style={{ background: `${ACCENT}10`, color: TEXT_MUTED_LUXE }}>{classFees.map((f: any) => `${f.name}: ${formatNumber(f.amount)}`).join(' + ')} = <strong style={{ color: ACCENT }}>{formatNumber(classFees.reduce((s: number, f: any) => s + f.amount, 0))} CDF</strong></div>)}</div>
           <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant payé (CDF)</label><input placeholder="Payé" value={paidAmount} onChange={e => setPaidAmount(e.target.value)} type="number" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
           <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Trimestre</label><select value={trimester} onChange={e => setTrimester(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
             <option value="T1">Trimestre 1</option><option value="T2">Trimestre 2</option><option value="T3">Trimestre 3</option>
