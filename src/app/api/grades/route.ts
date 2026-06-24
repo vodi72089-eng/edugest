@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
         take: limit,
         orderBy: [{ trimester: 'asc' }, { subject: { name: 'asc' } }],
         include: {
-          student: { select: { id: true, firstName: true, lastName: true, matricule: true } },
+          student: { select: { id: true, firstName: true, lastName: true, matricule: true, photoUrl: true } },
           subject: { select: { id: true, name: true, coefficient: true } },
           class: { select: { id: true, name: true } },
         },

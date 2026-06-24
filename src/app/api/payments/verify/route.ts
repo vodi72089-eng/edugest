@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     // Get student info
     const student = await db.student.findUnique({
       where: { id: existing.studentId },
-      select: { firstName: true, lastName: true, matricule: true },
+      select: { firstName: true, lastName: true, matricule: true, photoUrl: true },
     });
 
     if (action === 'approve') {
@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
     const studentIds = [...new Set(payments.map(p => p.studentId))];
     const students = await db.student.findMany({
       where: { id: { in: studentIds } },
-      select: { id: true, firstName: true, lastName: true, matricule: true },
+      select: { id: true, firstName: true, lastName: true, matricule: true, photoUrl: true },
     });
     const studentMap = Object.fromEntries(students.map(s => [s.id, s]));
 

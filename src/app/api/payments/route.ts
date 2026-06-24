@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     const studentIds = [...new Set(payments.map(p => p.studentId))];
     const students = await db.student.findMany({
       where: { id: { in: studentIds } },
-      select: { id: true, firstName: true, lastName: true, matricule: true },
+      select: { id: true, firstName: true, lastName: true, matricule: true, photoUrl: true },
     });
     const studentMap = Object.fromEntries(students.map(s => [s.id, s]));
 
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
           ],
         },
         take: 5,
-        select: { id: true, firstName: true, lastName: true, matricule: true },
+      select: { id: true, firstName: true, lastName: true, matricule: true, photoUrl: true },
       });
       
       if (students.length === 0) {
