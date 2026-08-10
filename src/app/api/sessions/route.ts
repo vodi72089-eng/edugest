@@ -7,6 +7,7 @@ import {
   revokeSessionBySid,
   revokeAllUserSessionsExcept,
 } from '@/lib/auth';
+import { enrichSessionsWithLocation } from '@/lib/geo';
 
 // GET /api/sessions — list the current user's active sessions (connected
 // devices). The current session is flagged with isCurrent=true.
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
 
     const currentToken = getTokenFromRequest(request) || undefined;
     const sessions = listUserSessions(user.id, currentToken);
+    await enrichSessionsWithLocation(user.id, sessions);
 
     return NextResponse.json({ data: sessions });
   } catch (error) {
