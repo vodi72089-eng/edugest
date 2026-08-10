@@ -31,9 +31,11 @@ avec Tauri et ne sont pas utilisés.
 - **Frontend existant inchangé** : seules des *additions* minimales dans le
   même design (couleurs GOLD / TEXT_MUTED_LUXE, tailles de texte et icônes
   existantes) sont autorisées dans les cartes d'appareils.
-- **Backend existant non modifié** : aucun changement aux routes ou fonctions
-  existantes ; un nouveau endpoint est ajouté. Aucun changement de base de
-  données.
+- **Backend existant non modifié dans son comportement** : les routes et
+  fonctions existantes gardent la même signature et le même contrat ; seules
+  des extensions additives sont permises (champs optionnels lus avec
+  rétrocompatibilité). Un nouveau endpoint est ajouté. Aucun changement de
+  base de données.
 - Repos externes fournis (fingerprintjs-pro-ios, fingerprintjs-android,
   ip-tracker, Device-tracker, netowrkDeviceDetector) : non intégrés
   directement — outillage Python/natif inutilisable dans une web app. Leurs
@@ -88,10 +90,17 @@ requise) :
   `fingerprintId`, `screen`, `gpu`, `battery`, `languages`, `timezone`,
   `memory`, `cores`, `network`, `location` ;
 - `normalizeSession` lit ces champs en défaut (`''`, `null`, `[]` pour les
-  anciens fichiers v1) — rétrocompatible ;
-- la géoloc est résolue **lazily** dans `listUserSessions` : si la session a
-  une IP et pas encore de `location`, on tente la résolution (une seule fois
-  par session, jamais bloquant) et on persiste le résultat dans le fichier.
+  anciens fichiers v1) — rétrocompatible. `listUserSessions` reste synchrone
+  et inchangée (utilisée par `/api/sessions` et `/api/sessions/revoke`).
+
+**Géolocalisation lazily — route GET `/api/sessions`** :
+
+- nouveau helper asynchrone `enrichSessionsWithLocation(sessions)` dans
+  `src/lib/geo.ts` : pour chaque session ayant une IP sans `location`, tente
+  `resolveIpLocation` et persiste le résultat dans le fichier (via une
+  fonction d'écriture exposée par `src/lib/auth.ts`) ;
+- la route GET `/api/sessions` (déjà asynchrone) applique le helper avant de
+  répondre ; jamais bloquant, jamais d'erreur visible en cas d'échec.
 
 ### 3. UI (même design, additions minimales)
 
