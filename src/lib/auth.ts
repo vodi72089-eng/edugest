@@ -27,6 +27,15 @@ export interface SessionMeta {
   ip?: string;
 }
 
+export interface GeoLocation {
+  city: string;
+  region: string;
+  country: string;
+  isp: string;
+  lat: number;
+  lon: number;
+}
+
 export interface SessionData {
   sid: string;
   userId: string;
@@ -35,6 +44,17 @@ export interface SessionData {
   lastUsedAt: number;
   userAgent: string;
   ip: string;
+  // ── Enrichissement appareil (optionnel, écrit par /api/sessions/device) ──
+  fingerprintId?: string;
+  screen?: string;
+  gpu?: string;
+  battery?: string;
+  languages?: string;
+  timezone?: string;
+  memory?: string;
+  cores?: string;
+  network?: string;
+  location?: GeoLocation | null;
 }
 
 export interface SessionListItem {
@@ -45,6 +65,16 @@ export interface SessionListItem {
   userAgent: string;
   ip: string;
   isCurrent: boolean;
+  fingerprintId?: string;
+  screen?: string;
+  gpu?: string;
+  battery?: string;
+  languages?: string;
+  timezone?: string;
+  memory?: string;
+  cores?: string;
+  network?: string;
+  location?: GeoLocation | null;
 }
 
 function ensureSessionsDir() {
@@ -73,6 +103,16 @@ function normalizeSession(raw: any): SessionData | null {
     lastUsedAt: typeof raw.lastUsedAt === 'number' ? raw.lastUsedAt : 0,
     userAgent: typeof raw.userAgent === 'string' ? raw.userAgent : '',
     ip: typeof raw.ip === 'string' ? raw.ip : '',
+    fingerprintId: typeof raw.fingerprintId === 'string' ? raw.fingerprintId : '',
+    screen: typeof raw.screen === 'string' ? raw.screen : '',
+    gpu: typeof raw.gpu === 'string' ? raw.gpu : '',
+    battery: typeof raw.battery === 'string' ? raw.battery : '',
+    languages: typeof raw.languages === 'string' ? raw.languages : '',
+    timezone: typeof raw.timezone === 'string' ? raw.timezone : '',
+    memory: typeof raw.memory === 'string' ? raw.memory : '',
+    cores: typeof raw.cores === 'string' ? raw.cores : '',
+    network: typeof raw.network === 'string' ? raw.network : '',
+    location: raw.location && typeof raw.location === 'object' ? raw.location as GeoLocation : null,
   };
 }
 
@@ -191,6 +231,60 @@ export function revokeSessionByToken(token: string): boolean {
   } catch {
     return false;
   }
+}
+
+// Write device-enrichment fields (fingerprint + hardware signals) into the
+// session file for a given token. Only known string fields are accepted.
+export function updateSessionDeviceData(token: string, device: Record<string, unknown>): boolean {
+  const session = readSession(token);
+  if (!session) return false;
+  const allowed = ['fingerprintId', 'screen', 'gpu', 'battery', 'languages', 'timezone', 'memory', 'cores', 'network'] as const;
+  let changed = false;
+  for (const key of allowed) {
+    const value = device[key];
+    if (typeof value === 'string' && value.trim() !== '' && session[key] !== value) {
+      session[key] = value;
+      changed = true;
+    }
+  }
+  if (changed) writeSession(token, session);
+  return true;
+}
+
+// Persist the resolved IP geolocation into the session file matching `sid`.
+// Mirrors revokeSessionBySid's scan pattern (sid is safe to expose, tokens never leave the server).
+export function updateSessionLocationBySid(userId: string, sid: string, location: GeoLocation | null): boolean {
+  try {
+    ensureSessionsDir();
+    const subdirs = fs.readdirSync(SESSIONS_DIR, { withFileTypes: true });
+    for (const d of subdirs) {
+      if (!d.isDirectory()) continue;
+      const subdirPath = path.join(SESSIONS_DIR, d.name);
+      let files: string[] = [];
+      try { files = fs.readdirSync(subdirPath); } catch { continue; }
+      for (const f of files) {
+        if (!f.endsWith('.json')) continue;
+        const token = f.replace(/\.json$/, '');
+        const sessionPath = path.join(subdirPath, f);
+        try {
+          const raw = fs.readFileSync(sessionPath, 'utf-8');
+          const s = normalizeSession(JSON.parse(raw));
+          if (!s || s.userId !== userId) continue;
+          const fileSid = s.sid || token.slice(0, 8);
+          if (fileSid === sid) {
+            s.location = location;
+            writeSession(token, s);
+            return true;
+          }
+        } catch {
+          // skip corrupt
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return false;
 }
 
 // Revoke a specific session by its sid (safe — the actual auth token never
