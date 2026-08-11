@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { checkRateLimit, createSession, getClientIp, getUserAgentFromRequest } from '@/lib/auth';
 
 const WA_SERVER = process.env.WHATSAPP_SERVER_URL || 'http://localhost:3001';
+const WA_API_KEY = process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key';
 
 const verificationCodes = new Map<string, { code: string; expiresAt: number; attempts: number }>();
 
@@ -24,7 +25,7 @@ async function sendWhatsAppMessage(phone: string, message: string): Promise<bool
     const timeout = setTimeout(() => controller.abort(), 28000);
     const res = await fetch(`${WA_SERVER}/send`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': WA_API_KEY },
       body: JSON.stringify({ phone, message }),
       signal: controller.signal,
     });
@@ -39,7 +40,7 @@ async function sendWhatsAppMessage(phone: string, message: string): Promise<bool
 
 async function getWhatsAppStatus(): Promise<string> {
   try {
-    const res = await fetch(`${WA_SERVER}/status`);
+    const res = await fetch(`${WA_SERVER}/status`, { headers: { 'x-api-key': WA_API_KEY } });
     const data = await res.json();
     return data.status || 'disconnected';
   } catch {
@@ -80,6 +81,12 @@ export async function POST(request: NextRequest) {
 
       const status = await getWhatsAppStatus();
       if (status !== 'connected') {
+        // SECURITY: never expose the code in production — an attacker could
+        // request a code for any phone and take over the account. Only the
+        // dev environment gets the code back for testing.
+        if (process.env.NODE_ENV === 'production') {
+          return NextResponse.json({ error: 'WhatsApp non connecté. Réessayez plus tard.' }, { status: 503 });
+        }
         // TEST MODE: return code in response when WhatsApp not connected
         console.log(`[WhatsApp TEST] Code for ${trimmedPhone}: ${verificationCode}`);
         return NextResponse.json({

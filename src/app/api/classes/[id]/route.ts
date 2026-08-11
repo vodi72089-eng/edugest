@@ -19,6 +19,13 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     await db.class.delete({ where: { id } });
+
+    // Garder le compteur dénormalisé de l'école cohérent (inverse du POST)
+    await db.school.update({
+      where: { id: existing.schoolId },
+      data: { classCount: { decrement: 1 } },
+    });
+
     return NextResponse.json({ message: 'Classe supprimée avec succès' });
   } catch (error) {
     console.error('Error deleting class:', error);
@@ -47,6 +54,24 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (section !== undefined) updateData.section = section;
     if (level !== undefined) updateData.level = level;
     if (capacity !== undefined) updateData.capacity = capacity;
+
+    // Vérifier les doublons de nom dans la même école/année scolaire,
+    // sinon Prisma renverrait une 500 à la place d'une 409 propre.
+    if (name !== undefined && typeof name === 'string' && name.trim()) {
+      const duplicate = await db.class.findFirst({
+        where: {
+          name: name.trim(),
+          schoolYearId: existing.schoolYearId,
+          NOT: { id },
+        },
+      });
+      if (duplicate) {
+        return NextResponse.json(
+          { error: `Class "${name.trim()}" already exists for this school year` },
+          { status: 409 }
+        );
+      }
+    }
 
     const updated = await db.class.update({ where: { id }, data: updateData });
     return NextResponse.json({ data: updated, message: 'Classe mise à jour' });

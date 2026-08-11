@@ -1,6 +1,7 @@
 import { db } from './db';
 
 const WA_SERVER = process.env.WHATSAPP_SERVER_URL || 'http://localhost:3001';
+const WA_API_KEY = process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key';
 
 // Cache du numéro admin configuré
 let cachedAdminPhone: string | null = null;
@@ -43,7 +44,7 @@ async function getAdminPhone(): Promise<string | null> {
  */
 export async function isWhatsAppConnected(): Promise<boolean> {
   try {
-    const res = await fetch(`${WA_SERVER}/status`);
+    const res = await fetch(`${WA_SERVER}/status`, { headers: { 'x-api-key': WA_API_KEY } });
     const data = await res.json();
     return data.status === 'connected';
   } catch {
@@ -61,7 +62,7 @@ async function sendWhatsAppMessage(phone: string, message: string): Promise<bool
 
     const res = await fetch(`${WA_SERVER}/send`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': WA_API_KEY },
       body: JSON.stringify({ phone, message }),
       signal: controller.signal,
     });
@@ -326,7 +327,7 @@ export async function notifyPaymentCreated(
     `Trimestre: ${trimester}\nÉcole: ${schoolName}\n\n` +
     `Statut: En attente de vérification`;
   for (const r of recipients) {
-    if (isRecipientAdmin(r.phone)) continue;
+    if (await isRecipientAdmin(r.phone)) continue;
     await sendWhatsAppMessage(r.phone, msg);
   }
 }

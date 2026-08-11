@@ -6,6 +6,7 @@ import {
   sanitizeError,
 } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
+import { encryptSecret } from '@/lib/gateway-keys';
 
 /**
  * Masks a sensitive string, showing only the last 4 characters.
@@ -151,19 +152,19 @@ export async function PUT(
 
     // Only overwrite credentials when a non-empty value is provided.
     // This avoids accidentally blanking keys when the UI sends the masked
-    // value back as part of a partial update.
+    // value back as part of a partial update. Secrets are encrypted at rest.
     if (apiKey && apiKey !== '' && !/^\*+.{0,4}$/.test(apiKey)) {
-      updateData.apiKey = apiKey;
+      updateData.apiKey = encryptSecret(apiKey);
     }
     if (secretKey && secretKey !== '' && !/^\*+.{0,4}$/.test(secretKey)) {
-      updateData.secretKey = secretKey;
+      updateData.secretKey = encryptSecret(secretKey);
     }
     if (
       webhookSecret &&
       webhookSecret !== '' &&
       !/^\*+.{0,4}$/.test(webhookSecret)
     ) {
-      updateData.webhookSecret = webhookSecret;
+      updateData.webhookSecret = encryptSecret(webhookSecret);
     }
 
     const config = await db.paymentGatewayConfig.update({

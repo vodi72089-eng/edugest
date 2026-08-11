@@ -6,6 +6,7 @@
 
 import { db } from '@/lib/db';
 import { convertCurrency } from '@/lib/exchange-rate';
+import { decryptSecret } from '@/lib/gateway-keys';
 
 export type GatewayType =
   | 'DPO'
@@ -152,6 +153,17 @@ export async function initiatePayment(
     };
   }
 
+  // Déchiffrer les secrets au repos avant utilisation. En cas de clé de
+  // chiffrement manquante/invalide, une erreur explicite est remontée
+  // (jamais de clé chiffrée envoyée à l'API externe, jamais de paiement
+  // de test simulé par accident).
+  const credConfig = {
+    ...config,
+    apiKey: decryptSecret(config.apiKey),
+    secretKey: decryptSecret(config.secretKey),
+    webhookSecret: decryptSecret(config.webhookSecret),
+  } as any;
+
   // Récupérer la configuration de monnaie de l'école
   const currencyConfig = await db.schoolCurrencyConfig.findUnique({
     where: { schoolId: request.schoolId },
@@ -198,28 +210,28 @@ export async function initiatePayment(
 
     switch (gatewayType) {
       case 'DPO':
-        response = await processDPOPayment(config, request, reference);
+        response = await processDPOPayment(credConfig, request, reference);
         break;
       case 'STRIPE':
-        response = await processStripePayment(config, request, reference);
+        response = await processStripePayment(credConfig, request, reference);
         break;
       case 'PAYPAL':
-        response = await processPaypalPayment(config, request, reference);
+        response = await processPaypalPayment(credConfig, request, reference);
         break;
       case 'FLUTTERWAVE':
-        response = await processFlutterwavePayment(config, request, reference);
+        response = await processFlutterwavePayment(credConfig, request, reference);
         break;
       case 'MPESA':
-        response = await processMpesaPayment(config, request, reference);
+        response = await processMpesaPayment(credConfig, request, reference);
         break;
       case 'ORANGE_MONEY':
-        response = await processOrangeMoneyPayment(config, request, reference);
+        response = await processOrangeMoneyPayment(credConfig, request, reference);
         break;
       case 'AIRTEL_MONEY':
-        response = await processAirtelMoneyPayment(config, request, reference);
+        response = await processAirtelMoneyPayment(credConfig, request, reference);
         break;
       case 'MANUAL':
-        response = await processManualPayment(config, request, reference);
+        response = await processManualPayment(credConfig, request, reference);
         break;
       default:
         response = {

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { studentId, amount, paymentMethod, phone, trimester } = body
+    const { studentId, amount, paymentMethod, trimester } = body
 
     if (!studentId || !amount || !paymentMethod) {
       return NextResponse.json(
@@ -25,8 +25,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (Number(amount) <= 0) {
-      return NextResponse.json({ error: 'Le montant doit être supérieur à 0' }, { status: 400 })
+    const numericAmount = Math.round(Number(amount))
+    if (Number.isNaN(numericAmount) || !Number.isFinite(numericAmount) || numericAmount <= 0) {
+      return NextResponse.json({ error: 'Le montant doit être un nombre supérieur à 0' }, { status: 400 })
     }
 
     const validMethods = ['ORANGE_MONEY', 'MPESA', 'AIRTEL_MONEY']
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
       data: {
         studentId,
         schoolId: student.schoolId,
-        amount: Number(amount),
+        amount: numericAmount,
         paidAmount: 0,
         trimester: trimester || 'T1',
         paymentMethod,
@@ -72,15 +73,16 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Try to notify cashier via WhatsApp
+    // Try to notify cashier via WhatsApp (only if a key is configured)
     try {
       const whatsappServerUrl = process.env.WHATSAPP_SERVER_URL || 'http://localhost:3001'
+      const whatsappApiKey = process.env.WHATSAPP_API_KEY || ''
       const cashierPhone = process.env.CASHIER_PHONE || ''
-      if (cashierPhone) {
-        const msg = `💰 *Nouveau paiement en ligne*\n\nÉlève: ${student.firstName} ${student.lastName}\nMatricule: ${student.matricule}\nMontant: ${Number(amount).toLocaleString('fr-FR')} CDF\nMéthode: ${paymentMethod}\nRéférence: ${ref}\n\nVeuillez vérifier et confirmer ce paiement.`
+      if (cashierPhone && whatsappApiKey) {
+        const msg = `💰 *Nouveau paiement en ligne*\n\nÉlève: ${student.firstName} ${student.lastName}\nMatricule: ${student.matricule}\nMontant: ${numericAmount.toLocaleString('fr-FR')} CDF\nMéthode: ${paymentMethod}\nRéférence: ${ref}\n\nVeuillez vérifier et confirmer ce paiement.`
         await fetch(`${whatsappServerUrl}/send`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-api-key': whatsappApiKey },
           body: JSON.stringify({ phone: cashierPhone, message: msg }),
           signal: AbortSignal.timeout(10000),
         })

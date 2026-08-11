@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { createToken, getClientIp, getUserAgentFromRequest } from '@/lib/auth';
+import { createToken, getClientIp, getUserAgentFromRequest, checkRateLimit } from '@/lib/auth';
 
 // Simple in-memory rate limiter for login attempts
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
@@ -25,6 +25,15 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Rate Limiting ────────────────────────────────────────────────────
+    // IP-based limit: prevents distributed brute-force that rotates emails/phones
+    const ip = getClientIp(request) || 'unknown';
+    if (!checkRateLimit(`login_ip_${ip}`, 30, LOGIN_WINDOW_MS)) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives. Réessayez plus tard.' },
+        { status: 429 }
+      );
+    }
+
     const identifier = email || phone;
     const attempts = loginAttempts.get(identifier);
     if (attempts) {
@@ -55,16 +64,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!user.isActive) {
+    // Anti-enumeration : un compte désactivé ou sans mot de passe répond
+    // exactement comme un mauvais identifiant — impossible de deviner l'état
+    // d'un compte de l'extérieur. Le frontend traduit ce message.
+    if (!user.isActive || !user.password) {
+      const current = loginAttempts.get(identifier) || { count: 0, lastAttempt: 0 };
+      loginAttempts.set(identifier, { count: current.count + 1, lastAttempt: Date.now() });
       return NextResponse.json(
-        { error: 'Account is deactivated' },
-        { status: 403 }
-      );
-    }
-
-    if (!user.password) {
-      return NextResponse.json(
-        { error: 'Account has no password set' },
+        { error: 'Invalid credentials' },
         { status: 401 }
       );
     }

@@ -6,6 +6,7 @@ import {
   sanitizeError,
 } from '@/lib/auth';
 import { GATEWAY_INFO, type GatewayType } from '@/lib/payment-gateway';
+import { encryptSecret } from '@/lib/gateway-keys';
 import { NextRequest, NextResponse } from 'next/server';
 
 // Roles allowed to configure payment gateways for a school
@@ -194,19 +195,37 @@ export async function POST(request: NextRequest) {
           : 0,
     };
 
-    // Only overwrite credentials when the caller provides a non-empty value.
-    if (apiKey !== undefined && apiKey !== null && apiKey !== '') {
+    // Only overwrite credentials when the caller provides a non-empty value
+    // that is not a masked value (e.g. '****' returned by the GET response),
+    // otherwise the real keys would be replaced by asterisks.
+    const isMaskedValue = (v: string) => /^\*+.{0,4}$/.test(v);
+    if (
+      apiKey !== undefined && apiKey !== null && apiKey !== '' &&
+      !isMaskedValue(apiKey)
+    ) {
       data.apiKey = apiKey;
     }
-    if (secretKey !== undefined && secretKey !== null && secretKey !== '') {
+    if (
+      secretKey !== undefined && secretKey !== null && secretKey !== '' &&
+      !isMaskedValue(secretKey)
+    ) {
       data.secretKey = secretKey;
+    }
+    if (
+      webhookSecret !== undefined && webhookSecret !== null && webhookSecret !== '' &&
+      !isMaskedValue(webhookSecret)
+    ) {
+      data.webhookSecret = webhookSecret;
+    }
+    if (secretKey !== undefined && secretKey !== null && secretKey !== '') {
+      data.secretKey = encryptSecret(secretKey);
     }
     if (
       webhookSecret !== undefined &&
       webhookSecret !== null &&
       webhookSecret !== ''
     ) {
-      data.webhookSecret = webhookSecret;
+      data.webhookSecret = encryptSecret(webhookSecret);
     }
 
     const config = await db.paymentGatewayConfig.upsert({

@@ -1,10 +1,38 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const http = require('http');
 const qrcode = require('qrcode');
+const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 
+try { require('dotenv').config(); } catch {}
+
 const PORT = parseInt(process.env.WHATSAPP_PORT || '3001');
+const LINKING_CODE = 'EDUGEST1';
+
+const API_KEY = process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key';
+if (!process.env.WHATSAPP_API_KEY) {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('[WA] WHATSAPP_API_KEY requis en production.');
+    process.exit(1);
+  }
+  console.warn('[WA] WHATSAPP_API_KEY non defini, cle de dev utilisee.');
+}
+const ALLOWED_ORIGINS = (process.env.WHATSAPP_CORS_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
+function isAuthorized(req) {
+  const provided = req.headers['x-api-key'];
+  if (!provided) return false;
+  const a = Buffer.from(String(provided));
+  const b = Buffer.from(API_KEY);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+function generateOTP() {
+  return String(crypto.randomInt(100000, 999999));
+}
 
 function findBrowserPath() {
   const candidates = [
@@ -13,31 +41,48 @@ function findBrowserPath() {
     'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
   ];
-  for (const p of candidates) {
-    if (fs.existsSync(p)) return p;
-  }
+  for (const p of candidates) { if (fs.existsSync(p)) return p; }
   return undefined;
 }
 
 const BROWSER_PATH = findBrowserPath();
-if (BROWSER_PATH) {
-  console.log('[WA] Browser:', BROWSER_PATH);
-} else {
-  console.warn('[WA] No browser found');
-}
+if (BROWSER_PATH) console.log('[WA] Browser:', BROWSER_PATH);
 
 let client = null;
-let qrDataUrl = null;
 let status = 'disconnected';
 let connectedPhone = null;
+let verified = false;
+let verifyPhone = null;
+let starting = false;
+let qrData = null;
+let otpEntry = null;
+let clientReady = false;
+let pairingError = null;
+
+function destroyClient() {
+  if (client) { try { client.destroy(); } catch {} client = null; }
+  status = 'disconnected';
+  connectedPhone = null;
+  verified = false;
+  verifyPhone = null;
+  starting = false;
+  clientReady = false;
+  qrData = null;
+  otpEntry = null;
+  pairingError = null;
+}
 
 function initClient() {
-  if (client) {
-    console.log('[WA] Client already exists, skipping init');
-    return;
-  }
+  if (starting) { console.log('[WA] Deja en cours de demarrage...'); return; }
+  if (client) { console.log('[WA] Client existant, destruction...'); destroyClient(); }
+  starting = true;
+  clientReady = false;
+  qrData = null;
+  pairingError = null;
+  status = 'connecting';
+  console.log('[WA] Demarrage du client WhatsApp...');
+  console.log('[WA] Navigateur:', BROWSER_PATH || 'defaut');
 
-  console.log('[WA] Creating WhatsApp client...');
   try {
     client = new Client({
       authStrategy: new LocalAuth({ dataPath: path.join(__dirname, 'whatsapp-auth') }),
@@ -45,173 +90,256 @@ function initClient() {
         headless: true,
         executablePath: BROWSER_PATH || undefined,
         protocolTimeout: 120000,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-          '--disable-web-security',
-        ],
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
       },
     });
 
     client.on('qr', async (qr) => {
-      console.log('[WA] QR received');
+      console.log('[WA] QR recu, conversion...');
+      status = 'connecting';
       try {
-        qrDataUrl = await qrcode.toDataURL(qr, { width: 300, margin: 2 });
-        status = 'connecting';
-      } catch (e) {
-        console.error('[WA] QR error:', e.message);
-      }
+        qrData = await qrcode.toDataURL(qr);
+        console.log('[WA] QR pret, longueur:', qrData.length);
+      } catch (e) { console.error('[WA] Erreur conversion QR:', e.message); }
     });
 
     client.on('ready', () => {
-      console.log('[WA] Connected!');
-      qrDataUrl = null;
+      console.log('[WA] Connecte!');
       status = 'connected';
-      if (client.info && client.info.wid) {
-        connectedPhone = client.info.wid.user;
-      }
+      starting = false;
+      clientReady = true;
+      qrData = null;
+      if (client.info && client.info.wid) connectedPhone = client.info.wid.user;
     });
 
-    client.on('authenticated', () => {
-      console.log('[WA] Authenticated');
-    });
+    client.on('authenticated', () => console.log('[WA] Authentifie'));
+    client.on('auth_failure', (msg) => { console.error('[WA] Echec auth:', msg); pairingError = msg; destroyClient(); });
+    client.on('disconnected', (reason) => { console.log('[WA] Deconnecte:', reason); pairingError = reason; destroyClient(); });
+    client.on('error', (err) => console.error('[WA] Erreur client:', err.message));
 
-    client.on('auth_failure', (msg) => {
-      console.error('[WA] Auth failure:', msg);
-      status = 'disconnected';
-      qrDataUrl = null;
-      client = null;
-    });
-
-    client.on('disconnected', (reason) => {
-      console.log('[WA] Disconnected:', reason);
-      status = 'disconnected';
-      qrDataUrl = null;
-      connectedPhone = null;
-      client = null;
-    });
-
-    client.on('error', (err) => {
-      console.error('[WA] Client error:', err.message);
-    });
-
-    console.log('[WA] Initializing client...');
-    client.initialize().catch(e => {
-      console.error('[WA] Init failed:', e.message);
-      client = null;
-      status = 'disconnected';
+    client.initialize().then(() => {
+      console.log('[WA] Client initialise, attente QR ou pret...');
+    }).catch(e => {
+      console.error('[WA] Echec init:', e.message);
+      destroyClient();
     });
   } catch (e) {
-    console.error('[WA] Failed to create client:', e.message);
-    client = null;
+    console.error('[WA] Echec creation client:', e.message);
+    destroyClient();
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// HTTP Server — simple handler, no async at top level
-// ═══════════════════════════════════════════════════════════════
+function readBody(req) {
+  return new Promise((resolve) => {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => resolve(body));
+  });
+}
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
+  if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
+
   const url = new URL(req.url || '/', 'http://localhost:' + PORT);
+  const json = (data, code = 200) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(data)); };
 
-  if (url.pathname === '/status') {
-    const data = { status, qr: qrDataUrl, connectedPhone };
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(data));
+  if (!isAuthorized(req)) {
+    return json({ ok: false, error: 'Non autorise' }, 401);
+  }
 
-  } else if (url.pathname === '/qr-page') {
-    const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>EduGest WhatsApp</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:sans-serif;background:#0a0f0d;color:#e8e0d4;display:flex;justify-content:center;align-items:center;min-height:100vh}.card{background:#1a1f1e;border-radius:20px;padding:40px;text-align:center;max-width:420px;width:90%;border:1px solid rgba(255,255,255,0.08)}.logo{font-size:28px;font-weight:800;color:#F5A623;margin-bottom:8px}.subtitle{color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:30px}#badge{display:inline-block;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:24px}.ok{background:rgba(37,211,102,0.15);color:#25D366}.wait{background:rgba(245,166,35,0.15);color:#F5A623}.err{background:rgba(255,59,48,0.15);color:#ff3b30}#qr{margin:20px 0}#qr img{width:280px;height:280px;border-radius:16px;border:2px solid rgba(255,255,255,0.1)}.spin{width:40px;height:40px;border:3px solid rgba(245,166,35,0.2);border-top-color:#F5A623;border-radius:50%;animation:s .8s linear infinite;margin:20px auto}@keyframes s{to{transform:rotate(360deg)}}.steps{text-align:left;margin-top:24px;padding:16px;background:rgba(255,255,255,0.03);border-radius:12px}.steps h3{font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}.steps ol{padding-left:20px}.steps li{font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:8px;line-height:1.5}</style></head><body><div class="card"><div class="logo">EduGest</div><div class="subtitle">Connexion WhatsApp Bot</div><div id="badge" class="wait">En attente...</div><div id="qr"><div class="spin"></div></div><div class="steps"><h3>Instructions</h3><ol><li>Ouvrez WhatsApp sur votre telephone</li><li>Allez dans Parametres &rarr; Appareils connectes</li><li>Appuyez sur Connecter un appareil</li><li>Scannez le QR code ci-dessus</li></ol></div></div><script>async function u(){try{var r=await fetch("/status");var d=await r.json();var b=document.getElementById("badge");var q=document.getElementById("qr");if(d.status==="connected"){b.className="ok";b.textContent="Connecte !";q.innerHTML="<div style=font-size:64px;margin:20px 0>&#x2705;</div><p style=color:#25D366;font-weight:600>WhatsApp est connecte !</p>"}else if(d.qr){b.className="wait";b.textContent="Scannez le QR code";q.innerHTML="<img src=\""+d.qr+"\" />"}else{b.className="err";b.textContent="Initialisation...";q.innerHTML="<div class=spin></div>"}}catch(e){document.getElementById("badge").textContent="Serveur WhatsApp non lance";document.getElementById("badge").className="err"}}u();setInterval(u,3000)</script></body></html>';
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(html);
+  try {
+    // ─── GET /status ────────────────────────────────────────────────────────
+    if (url.pathname === '/status') {
+      json({ status, connectedPhone, verified, verifyPhone, qr: qrData, linkingCode: LINKING_CODE, clientReady });
 
-  } else if (url.pathname === '/start' && req.method === 'POST') {
-    initClient();
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, status, qr: qrDataUrl }));
+    // ─── POST /start ────────────────────────────────────────────────────────
+    } else if (url.pathname === '/start' && req.method === 'POST') {
+      initClient();
+      json({ ok: true, status });
 
-  } else if (url.pathname === '/send' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', async () => {
-      try {
-        const { phone, message } = JSON.parse(body);
-        if (!client || status !== 'connected') {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: false, error: 'Not connected' }));
-          return;
+    // ─── POST /pair ─────────────────────────────────────────────────────────
+    } else if (url.pathname === '/pair' && req.method === 'POST') {
+      const body = await readBody(req);
+      const { phone } = JSON.parse(body || '{}');
+      if (!phone) return json({ ok: false, error: 'Numero requis' });
+
+      const phoneClean = phone.replace(/[^0-9]/g, '');
+      console.log('[WA] ===== DEMANDE PARRAINAGE pour', phoneClean, '=====');
+
+      // 1) Si un client tourne deja, tenter requestPairingCode directement
+      if (client && client.pupPage && (status === 'connecting' || status === 'connected')) {
+        console.log('[WA] Client deja en cours (status=' + status + '), tentative directe...');
+        try {
+          const code = await client.requestPairingCode(phoneClean);
+          console.log('[WA] ===== CODE PARRAINAGE:', code, '=====');
+          return json({ ok: true, pairingCode: code });
+        } catch (e) {
+          console.error('[WA] Tentative directe echouee:', e.message);
         }
-        const chatId = phone.replace(/[^0-9]/g, '') + '@c.us';
-        const sendPromise = client.sendMessage(chatId, message);
-        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Send timeout')), 15000));
-        await Promise.race([sendPromise, timeout]);
-        console.log('[WA] Sent to', phone);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true }));
-      } catch (e) {
-        console.error('[WA] Send error:', e.message);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, error: e.message }));
       }
-    });
 
-  } else if (url.pathname === '/pair-code' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', async () => {
-      try {
-        const { phone } = JSON.parse(body);
-        if (!client || status !== 'connected') {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: false, error: 'Client non connecte. Scannez le QR d\'abord.' }));
-          return;
+      // 2) Sinon, detruire le client existant
+      if (client) {
+        console.log('[WA] Destruction du client existant...');
+        destroyClient();
+        await new Promise(r => setTimeout(r, 1500));
+      }
+
+      // 3) Nettoyer les sessions WhatsApp
+      const sessionDir = path.join(__dirname, 'whatsapp-auth');
+      if (fs.existsSync(sessionDir)) {
+        console.log('[WA] Nettoyage des sessions...');
+        try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch {}
+      }
+
+      // 4) Demarrer un client frais
+      console.log('[WA] Demarrage d\'un client frais...');
+      pairingError = null;
+      initClient();
+
+      // 5) Attendre que pupPage soit disponible (max 45s)
+      console.log('[WA] Attente du navigateur...');
+      const pageStart = Date.now();
+      while (Date.now() - pageStart < 45000) {
+        if (client && client.pupPage) {
+          console.log('[WA] Navigateur pret apres', Date.now() - pageStart, 'ms');
+          break;
         }
-        const code = await client.requestPairingCode(phone.replace(/[^0-9]/g, ''));
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, code }));
-      } catch (e) {
-        console.error('[WA] Pair code error:', e.message);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, error: e.message }));
+        if (pairingError) {
+          return json({ ok: false, error: 'Client plante: ' + pairingError + '. Reessayez.' });
+        }
+        await new Promise(r => setTimeout(r, 500));
       }
-    });
 
-  } else if (url.pathname === '/logout' && req.method === 'POST') {
-    if (client) { try { client.logout(); } catch {} client = null; }
-    qrDataUrl = null;
-    status = 'disconnected';
-    connectedPhone = null;
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: true }));
+      if (!client || !client.pupPage) {
+        return json({ ok: false, error: 'Navigateur non disponible (timeout 45s).' });
+      }
 
-  } else {
-    res.writeHead(404);
-    res.end('Not found');
+      // 6) Attendre que WhatsApp Web soit charge (max 30s)
+      console.log('[WA] Attente du chargement WhatsApp Web...');
+      const loadStart = Date.now();
+      while (Date.now() - loadStart < 30000) {
+        try {
+          const loaded = await client.pupPage.evaluate(() => {
+            return !!(window.AuthStore && window.AuthStore.PairingCodeLinkUtils);
+          });
+          if (loaded) {
+            console.log('[WA] WhatsApp Web + AuthStore.PairingCodeLinkUtils charges apres', Date.now() - loadStart, 'ms');
+            break;
+          }
+        } catch {}
+        if (pairingError) {
+          return json({ ok: false, error: 'Client plante: ' + pairingError + '. Reessayez.' });
+        }
+        await new Promise(r => setTimeout(r, 1000));
+      }
+
+      // 7) Appeler requestPairingCode
+      console.log('[WA] Demande du code de parrainage...');
+      try {
+        const code = await client.requestPairingCode(phoneClean);
+        console.log('[WA] ===== CODE PARRAINAGE:', code, '=====');
+        json({ ok: true, pairingCode: code });
+      } catch (e) {
+        console.error('[WA] Erreur requestPairingCode:', e.message);
+        json({ ok: false, error: 'Code indisponible: ' + e.message });
+      }
+
+    // ─── POST /generate-otp ─────────────────────────────────────────────────
+    } else if (url.pathname === '/generate-otp' && req.method === 'POST') {
+      const body = await readBody(req);
+      const { phone } = JSON.parse(body || '{}');
+      if (!client || status !== 'connected') return json({ ok: false, error: 'Bot non connecte.' });
+      if (!phone) return json({ ok: false, error: 'Numero requis' });
+      const otp = generateOTP();
+      const phoneKey = phone.replace(/[^0-9]/g, '');
+      const chatId = phoneKey + '@c.us';
+      const message = `🔐 Code de vérification EduGest\n\nVotre code OTP est : *${otp}*\n\nValable pendant 5 minutes.`;
+      try {
+        await Promise.race([client.sendMessage(chatId, message), new Promise((_, r) => setTimeout(() => r(new Error('Timeout')), 15000))]);
+        otpEntry = { otp, phone: phoneKey, expiresAt: Date.now() + 5 * 60 * 1000, attempts: 0 };
+        verifyPhone = phone;
+        console.log('[WA] OTP envoye a', phone);
+        json({ ok: true });
+      } catch (e) { json({ ok: false, error: e.message }); }
+
+    // ─── POST /verify-otp ───────────────────────────────────────────────────
+    } else if (url.pathname === '/verify-otp' && req.method === 'POST') {
+      const body = await readBody(req);
+      const { code, phone } = JSON.parse(body || '{}');
+      if (!otpEntry) return json({ ok: false, error: 'Aucun OTP genere. Cliquez sur "Recevoir un code" dabord.' });
+      if (Date.now() > otpEntry.expiresAt) { otpEntry = null; return json({ ok: false, error: 'Code expire. Demandez-en un nouveau.' }); }
+      if (otpEntry.attempts >= 5) { otpEntry = null; return json({ ok: false, error: 'Trop de tentatives. Demandez un nouveau code.' }); }
+      const phoneKey = String(phone || '').replace(/[^0-9]/g, '');
+      if (phoneKey && phoneKey !== otpEntry.phone) { otpEntry.attempts++; return json({ ok: false, error: 'Code incorrect' }); }
+      const provided = Buffer.from(String(code || '').trim());
+      const expected = Buffer.from(otpEntry.otp);
+      if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
+        otpEntry.attempts++;
+        return json({ ok: false, error: 'Code incorrect' });
+      }
+      verified = true;
+      verifyPhone = otpEntry.phone;
+      otpEntry = null;
+      json({ ok: true, verified: true });
+
+    // ─── GET /debug-modules ─────────────────────────────────────────────────
+    } else if (url.pathname === '/debug-modules' && req.method === 'GET') {
+      if (!client || !client.pupPage) return json({ ok: false, error: 'Pas de client' });
+      try {
+        const modules = await client.pupPage.evaluate(() => {
+          const results = {};
+          const moduleNames = ['WAWebAltDeviceLinkingApi', 'WAWebSocketModel', 'WAWebCmd', 'WAWebConnModel', 'WABase64', 'WAWebCompanionRegClientUtils', 'WAWebAdvSignatureApi', 'WAWebUserPrefsInfoStore', 'WAWebSignalStoreApi', 'WAWebPairingCode'];
+          for (const name of moduleNames) {
+            try { results[name] = typeof window.require(name); } catch { results[name] = 'not found'; }
+          }
+          try { results['AuthStore'] = window.AuthStore ? Object.keys(window.AuthStore) : 'undefined'; } catch { results['AuthStore'] = 'error'; }
+          return results;
+        });
+        json({ ok: true, modules });
+      } catch (e) { json({ ok: false, error: e.message }); }
+
+    // ─── POST /send ─────────────────────────────────────────────────────────
+    } else if (url.pathname === '/send' && req.method === 'POST') {
+      const body = await readBody(req);
+      const { phone, message } = JSON.parse(body || '{}');
+      if (!client || status !== 'connected') return json({ ok: false, error: 'Non connecte' });
+      const chatId = phone.replace(/[^0-9]/g, '') + '@c.us';
+      await Promise.race([client.sendMessage(chatId, message), new Promise((_, r) => setTimeout(() => r(new Error('Timeout')), 15000))]);
+      console.log('[WA] Message envoye a', phone);
+      json({ ok: true });
+
+    // ─── POST /logout ───────────────────────────────────────────────────────
+    } else if (url.pathname === '/logout' && req.method === 'POST') {
+      if (client) { try { client.logout(); } catch {} }
+      destroyClient();
+      const sessionDir = path.join(__dirname, 'whatsapp-auth');
+      if (fs.existsSync(sessionDir)) {
+        try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch {}
+      }
+      json({ ok: true });
+
+    } else {
+      res.writeHead(404); res.end('Not found');
+    }
+  } catch (e) {
+    console.error('[WA] Erreur serveur:', e.message);
+    json({ ok: false, error: e.message }, 500);
   }
 });
-
-// ═══════════════════════════════════════════════════════════════
-// Lancer le serveur HTTP d'abord, puis WhatsApp après
-// ═══════════════════════════════════════════════════════════════
 
 server.listen(PORT, () => {
-  console.log('[WA] HTTP server listening on http://localhost:' + PORT);
-  // Lancer WhatsApp avec un léger délai pour ne pas bloquer le bind
-  setTimeout(initClient, 500);
+  console.log('[WA] Serveur sur http://localhost:' + PORT);
+  console.log('[WA] Code de liaison:', LINKING_CODE);
+  destroyClient();
+  console.log('[WA] Pret — en attente d\'une demande /start ou /pair...');
 });
-
-server.on('error', (err) => {
-  console.error('[WA] Server error:', err.message);
-  if (err.code === 'EADDRINUSE') {
-    console.error('[WA] Port ' + PORT + ' is already in use');
-  }
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('[WA] Uncaught:', err.message);
-});
-
-process.on('unhandledRejection', (reason) => {
-  console.error('[WA] Unhandled rejection:', reason);
-});
+server.on('error', (err) => console.error('[WA] Erreur serveur:', err.message));
+process.on('uncaughtException', (err) => console.error('[WA] Exception:', err.message));

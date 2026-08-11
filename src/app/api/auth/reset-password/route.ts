@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { verifyResetToken } from '@/lib/reset-tokens'
-import { revokeAllUserSessionsExcept } from '@/lib/auth'
+import { revokeAllUserSessionsExcept, getClientIp, checkRateLimit } from '@/lib/auth'
 
 // POST /api/auth/reset-password — Reset password with code
 export async function POST(request: NextRequest) {
@@ -17,6 +17,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (typeof newPassword !== 'string') {
+      return NextResponse.json(
+        { error: 'Mot de passe invalide' },
+        { status: 400 }
+      )
+    }
+
     if (newPassword.length < 6) {
       return NextResponse.json(
         { error: 'Le mot de passe doit contenir au moins 6 caractères' },
@@ -24,8 +31,36 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (newPassword.length > 128) {
+      return NextResponse.json(
+        { error: 'Le mot de passe ne doit pas dépasser 128 caractères' },
+        { status: 400 }
+      )
+    }
+
+    // ── Rate limiting ──────────────────────────────────────────────
+    // Par IP : limite large (10 essais / 15 min) pour ne pas bloquer
+    // plusieurs utilisateurs derrière un même NAT.
+    const ip = getClientIp(request) || 'unknown'
+    if (!checkRateLimit(`reset_ip_${ip}`, 10, 15 * 60 * 1000)) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
+        { status: 429 }
+      )
+    }
+
+    // Par numéro : bloque le brute-force du code de reset d'un compte
+    // ciblé (code 6 chiffres = 1M combinaisons, MAX_ATTEMPTS par token).
+    const trimmedPhone = String(phone).trim()
+    if (!checkRateLimit(`reset_phone_${trimmedPhone}`, 5, 15 * 60 * 1000)) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
+        { status: 429 }
+      )
+    }
+
     // Verify the reset code
-    const result = verifyResetToken(phone, code)
+    const result = verifyResetToken(trimmedPhone, String(code).trim())
     if (!result) {
       return NextResponse.json(
         { error: 'Code invalide ou expiré' },

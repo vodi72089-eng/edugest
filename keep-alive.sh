@@ -6,7 +6,7 @@ while true; do
   sleep 2
   
   # Start next dev server
-  node node_modules/.bin/next dev -p 3000 >> dev.log 2>&1 &
+  node node_modules/.bin/next dev -p 3000 --webpack >> dev.log 2>&1 &
   PID=$!
   echo "Started next with PID $PID"
   

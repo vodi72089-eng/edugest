@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { createResetToken } from '@/lib/reset-tokens'
+import { checkRateLimit } from '@/lib/auth'
 
 // POST /api/auth/forgot-password — Request a password reset code
 export async function POST(request: NextRequest) {
@@ -10,6 +11,15 @@ export async function POST(request: NextRequest) {
 
     if (!phone) {
       return NextResponse.json({ error: 'Numéro de téléphone requis' }, { status: 400 })
+    }
+
+    // Rate limit per phone + per IP: prevents code bombing (WhatsApp/SMS spam)
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')?.trim()
+      || 'unknown';
+    if (!checkRateLimit(`forgot_${String(phone)}`, 3, 60_000)
+      || !checkRateLimit(`forgot_ip_${ip}`, 10, 60_000)) {
+      return NextResponse.json({ error: 'Trop de demandes. Réessayez dans 1 minute.' }, { status: 429 })
     }
 
     // Find user by phone
@@ -30,9 +40,15 @@ export async function POST(request: NextRequest) {
 
     // Send code via WhatsApp if possible
     try {
-      const whatsappAgent = await import('@/lib/whatsapp-agent')
-      if (whatsappAgent.default && typeof whatsappAgent.default.sendMessage === 'function') {
-        await whatsappAgent.default.sendMessage(phone, `🔐 Code de réinitialisation: *${code}*\nValable 15 minutes.`)
+      const { isWhatsAppConnected } = await import('@/lib/whatsapp-agent')
+      if (await isWhatsAppConnected()) {
+        const WA_SERVER = process.env.WHATSAPP_SERVER_URL || 'http://localhost:3001'
+        const WA_API_KEY = process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key'
+        await fetch(`${WA_SERVER}/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': WA_API_KEY },
+          body: JSON.stringify({ phone, message: `🔐 Code de réinitialisation: *${code}*\nValable 15 minutes.` }),
+        })
       }
     } catch {
       // WhatsApp not configured — log code for dev

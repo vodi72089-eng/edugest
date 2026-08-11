@@ -13,6 +13,26 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = pino({ level: 'warn' });
 const AUTH_DIR = path.resolve(__dirname, '..', 'whatsapp-auth');
 
+const API_KEY = process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key';
+if (!process.env.WHATSAPP_API_KEY) {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('[WhatsApp] ❌ WHATSAPP_API_KEY est obligatoire en production. Refus de démarrer avec la clé de développement.');
+    process.exit(1);
+  }
+  console.warn('[WhatsApp] ⚠️  WHATSAPP_API_KEY non définie, utilisation de la clé de développement. Définissez-la dans .env.');
+}
+const ALLOWED_ORIGINS = (process.env.WHATSAPP_CORS_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
+function isAuthorized(req: http.IncomingMessage): boolean {
+  const provided = req.headers['x-api-key'];
+  if (!provided) return false;
+  const a = Buffer.from(String(provided));
+  const b = Buffer.from(API_KEY);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
 let sock: WASocket | null = null;
 let qrCode: string | null = null;
 let connectionStatus: 'connecting' | 'connected' | 'disconnected' = 'disconnected';
@@ -98,9 +118,25 @@ async function sendMessage(phone: string, message: string): Promise<boolean> {
 
 // ─── HTTP Server ──────────────────────────────────────────────────────────
 import http from 'http';
+import crypto from 'crypto';
 const PORT = parseInt(process.env.WHATSAPP_PORT || '3001');
 
 const server = http.createServer(async (req, res) => {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+  if (!isAuthorized(req)) {
+    res.writeHead(401, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: false, error: 'Non autorisé' }));
+    return;
+  }
+
   const url = new URL(req.url || '/', `http://localhost:${PORT}`);
 
   if (url.pathname === '/status') {
