@@ -4,7 +4,14 @@ import fs from 'fs'
 import path from 'path'
 
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads')
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
+// SVG is excluded on purpose: SVG files can contain scripts and would be
+// served from the app origin, enabling stored XSS.
+const ALLOWED_TYPES: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+}
 const MAX_SIZE = 5 * 1024 * 1024
 
 function ensureDir(dir: string) {
@@ -37,7 +44,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Aucun fichier fourni' }, { status: 400 })
     }
 
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    if (!(file.type in ALLOWED_TYPES)) {
       return NextResponse.json({ error: 'Type de fichier non autorisé' }, { status: 400 })
     }
 
@@ -48,7 +55,10 @@ export async function POST(request: NextRequest) {
     const categoryDir = path.join(UPLOAD_DIR, category)
     ensureDir(categoryDir)
 
-    const ext = file.name.split('.').pop() || 'png'
+    // Extension derived from the declared MIME type — NEVER from the
+    // client-provided filename (which could be x.svg, x.html, ... and
+    // would be served as active content from the app origin).
+    const ext = ALLOWED_TYPES[file.type]
     const filename = `${authResult.user.id}-${Date.now()}.${ext}`
     const filepath = path.join(categoryDir, filename)
 

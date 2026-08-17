@@ -67,8 +67,8 @@ export default function Nav({ onLogin, onNavigate }: NavProps) {
   // Mobile menu overlay variants
   const overlayVariants = {
     hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } },
-    exit: { opacity: 0, transition: { duration: 0.2, ease: 'easeIn' } },
+    visible: { opacity: 1, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } },
+    exit: { opacity: 0, transition: { duration: 0.2, ease: 'easeIn' as const } },
   }
 
   const menuItemsVariants = {
@@ -79,7 +79,7 @@ export default function Nav({ onLogin, onNavigate }: NavProps) {
       transition: {
         delay: 0.1 + i * 0.06,
         duration: 0.5,
-        ease: [0.22, 1, 0.36, 1],
+        ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
       },
     }),
     exit: { opacity: 0, y: 10, transition: { duration: 0.15 } },

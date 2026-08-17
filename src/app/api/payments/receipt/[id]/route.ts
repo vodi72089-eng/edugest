@@ -199,8 +199,7 @@ function buildReceiptPDF(
   },
   student: { firstName: string; lastName: string; matricule: string; photoUrl?: string | null },
   school: { name: string; shortName: string; email: string; phone: string; address: string; city: string; province: string; country: string; logo: string | null },
-  schoolLogoBase64: string | null,
-  studentPhotoBase64: string | null
+  schoolLogoBase64: string | null
 ): Buffer {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -504,21 +503,8 @@ export async function GET(
       } catch {}
     }
 
-    // Fetch student photo as base64
-    let studentPhotoBase64: string | null = null;
-    if (student.photoUrl) {
-      try {
-        const photoUrl = student.photoUrl.startsWith('http') ? student.photoUrl : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${student.photoUrl}`;
-        const photoRes = await fetch(photoUrl);
-        if (photoRes.ok) {
-          const buf = Buffer.from(await photoRes.arrayBuffer());
-          studentPhotoBase64 = `data:image/jpeg;base64,${buf.toString('base64')}`;
-        }
-      } catch {}
-    }
-
     // Build PDF
-    const pdfBuffer = buildReceiptPDF(payment, student, payment.school, schoolLogoBase64, studentPhotoBase64);
+    const pdfBuffer = buildReceiptPDF(payment, student, payment.school, schoolLogoBase64);
 
     const receiptNo = payment.receiptNumber || `REC-${payment.id.slice(-8).toUpperCase()}`;
 

@@ -20,7 +20,7 @@ export default function PaymentsView() {
   const [studentSearchLoading, setStudentSearchLoading] = useState(false)
   const [amount, setAmount] = useState('')
   const [paidAmount, setPaidAmount] = useState('')
-  const [trimester, setTrimester] = useState('T1')
+  const [trimester, setTrimester] = useState('Tranche 1')
   const [method, setMethod] = useState('CASH')
   const [status, setStatus] = useState('PAID')
   const [submitting, setSubmitting] = useState(false)
@@ -185,9 +185,7 @@ export default function PaymentsView() {
           />
           <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant total (CDF)</label><input placeholder="Montant" value={amount} onChange={e => setAmount(e.target.value)} type="number" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" />{classFees.length > 0 && (<div className="mt-1 text-[11px] px-3 py-2 rounded-lg" style={{ background: `${ACCENT}10`, color: TEXT_MUTED_LUXE }}>{classFees.map((f: any) => `${f.name}: ${formatNumber(f.amount)}`).join(' + ')} = <strong style={{ color: ACCENT }}>{formatNumber(classFees.reduce((s: number, f: any) => s + f.amount, 0))} CDF</strong></div>)}</div>
           <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant payé (CDF)</label><input placeholder="Payé" value={paidAmount} onChange={e => setPaidAmount(e.target.value)} type="number" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
-          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Trimestre</label><select value={trimester} onChange={e => setTrimester(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-            <option value="T1">Trimestre 1</option><option value="T2">Trimestre 2</option><option value="T3">Trimestre 3</option>
-          </select></div>
+          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Tranche</label><input value={trimester} onChange={e => setTrimester(e.target.value)} placeholder="Ex: Tranche 1" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
           <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Méthode</label><select value={method} onChange={e => setMethod(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
             <option value="CASH">Espèces</option><option value="ORANGE_MONEY">Orange Money</option><option value="MPESA">M-Pesa</option><option value="AIRTEL_MONEY">Airtel Money</option>
           </select></div>
@@ -215,7 +213,7 @@ export default function PaymentsView() {
             <thead>
               <tr style={{ background: IVORY }}>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Trimestre</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Tranche</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Montant</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Payé</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Statut</th>

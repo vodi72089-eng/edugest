@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const payments = await db.paymentRecord.findMany({
       where: {
         schoolId,
-        status: { not: 'PAID' },
+        status: { notIn: ['PAID', 'CANCELLED', 'REFUNDED'] },
       },
       orderBy: { createdAt: 'desc' },
     })

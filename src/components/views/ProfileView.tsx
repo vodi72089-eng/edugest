@@ -6,8 +6,9 @@ import type { StudentData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials, getRoleLabel } from '@/lib/helpers'
 import StudentAvatar from '@/components/ui/StudentAvatar'
-import { Edit, Check, Camera, Lock, Phone, Monitor, LogOut, Shield, Building2, Smartphone, Globe } from 'lucide-react'
+import { Edit, Check, Camera, Lock, Phone, Monitor, LogOut, Shield, Building2, Smartphone, Globe, Tablet, Fingerprint, MapPin } from 'lucide-react'
 import { toast } from 'sonner'
+import { detectDevice, formatDeviceTitle, formatDeviceSummary } from '@/lib/detect-device'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 interface SessionItem {
@@ -18,32 +19,11 @@ interface SessionItem {
   userAgent: string
   ip: string
   isCurrent: boolean
+  fingerprintId?: string
+  location?: { city: string; region: string; country: string; isp: string; lat: number; lon: number } | null
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
-function parseUserAgent(ua: string): { browser: string; os: string; device: string } {
-  if (!ua) return { browser: 'Inconnu', os: 'Inconnu', device: 'Inconnu' }
-  let browser = 'Navigateur inconnu'
-  if (/Edg\//i.test(ua)) browser = 'Microsoft Edge'
-  else if (/Chrome\//i.test(ua) && !/Chromium/i.test(ua)) browser = 'Google Chrome'
-  else if (/Firefox\//i.test(ua)) browser = 'Mozilla Firefox'
-  else if (/Safari\//i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari'
-  else if (/OPR\//i.test(ua)) browser = 'Opera'
-
-  let os = 'Système inconnu'
-  if (/Windows NT 10/i.test(ua)) os = 'Windows 10/11'
-  else if (/Windows NT/i.test(ua)) os = 'Windows'
-  else if (/Mac OS X/i.test(ua)) os = 'macOS'
-  else if (/Android/i.test(ua)) os = 'Android'
-  else if (/iPhone|iPad|iPod/i.test(ua)) os = 'iOS'
-  else if (/Linux/i.test(ua)) os = 'Linux'
-
-  let device = 'Ordinateur'
-  if (/Android|iPhone|iPad|iPod|Mobile/i.test(ua)) device = 'Téléphone/Tablette'
-
-  return { browser, os, device }
-}
-
 function formatRelativeTime(ts: number): string {
   if (!ts) return '—'
   const diff = Date.now() - ts
@@ -540,8 +520,8 @@ export default function ProfileView() {
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {sessions.map(s => {
-              const { browser, os, device } = parseUserAgent(s.userAgent)
-              const isMobile = device === 'Téléphone/Tablette'
+              const info = detectDevice(s.userAgent)
+              const DeviceIcon = info.isMobile ? Smartphone : info.isTablet ? Tablet : Monitor
               return (
                 <div
                   key={s.sid}
@@ -552,21 +532,32 @@ export default function ProfileView() {
                   }}
                 >
                   <div className="w-10 h-10 rounded-xl grid place-items-center shrink-0" style={{ background: s.isCurrent ? GOLD_SOFT : 'oklch(95% 0.01 175)' }}>
-                    {isMobile ? <Smartphone size={18} style={{ color: s.isCurrent ? GOLD : TEXT_MUTED_LUXE }} /> : <Monitor size={18} style={{ color: s.isCurrent ? GOLD : TEXT_MUTED_LUXE }} />}
+                    <DeviceIcon size={18} style={{ color: s.isCurrent ? GOLD : TEXT_MUTED_LUXE }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{browser}</span>
+                      <span className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{formatDeviceTitle(info)}</span>
+                      {s.fingerprintId && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-1" style={{ color: GOLD, background: GOLD_SOFT }}>
+                          <Fingerprint size={9} />{s.fingerprintId.slice(0, 8)}
+                        </span>
+                      )}
                       {s.isCurrent && (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: GOLD, background: GOLD_SOFT }}>CET APPAREIL</span>
                       )}
                     </div>
                     <div className="text-xs flex items-center gap-2 flex-wrap" style={{ color: TEXT_MUTED_LUXE }}>
-                      <span>{os}</span>
+                      <span>{formatDeviceSummary(info)}</span>
                       {s.ip && (
                         <>
                           <span>·</span>
                           <span className="inline-flex items-center gap-0.5"><Globe size={10} />{s.ip}</span>
+                        </>
+                      )}
+                      {s.location?.city && (
+                        <>
+                          <span>·</span>
+                          <span className="inline-flex items-center gap-0.5"><MapPin size={10} />{s.location.city}{s.location.country ? `, ${s.location.country}` : ''}</span>
                         </>
                       )}
                     </div>

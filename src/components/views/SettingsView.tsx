@@ -5,8 +5,9 @@ import { useEduGestStore, authFetch } from '@/lib/store'
 import type { SchoolData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
-import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera, ImagePlus, Plus, Edit, GraduationCap } from 'lucide-react'
+import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera, ImagePlus, Plus, Edit, GraduationCap, Monitor, Smartphone, LogOut, Tablet, Globe, Fingerprint } from 'lucide-react'
 import { toast } from 'sonner'
+import { detectDevice, formatDeviceTitle, formatDeviceSummary } from '@/lib/detect-device'
 
 export default function SettingsView() {
   const { userRole, setCurrentView } = useEduGestStore()
@@ -48,11 +49,11 @@ function SettingsViewInner() {
   const [comments, setComments] = useState<{ id: string; authorName: string; rating: number; comment: string; isApproved: boolean; createdAt: string }[]>([])
   const logoInputRef = useRef<HTMLInputElement | null>(null)
   const coverInputRef = useRef<HTMLInputElement | null>(null)
-  const [activeTab, setActiveTab] = useState<'info' | 'fees'>('info')
+  const [activeTab, setActiveTab] = useState<'info' | 'fees' | 'devices'>('info')
   const [fees, setFees] = useState<any[]>([])
   const [classes, setClasses] = useState<any[]>([])
   const [showFeeModal, setShowFeeModal] = useState(false)
-  const [feeForm, setFeeForm] = useState({ name: '', amount: '', trimester: 'T1', classId: '' })
+  const [feeForm, setFeeForm] = useState({ name: '', amount: '', currency: 'CDF', trimester: 'Tranche 1', classId: '' })
   const [editingFee, setEditingFee] = useState<any>(null)
 
   // Form fields
@@ -73,6 +74,51 @@ function SettingsViewInner() {
   const [maxStudents, setMaxStudents] = useState('')
   const [logoUrl, setLogoUrl] = useState('')
   const [coverUrl, setCoverUrl] = useState('')
+
+  const [sessions, setSessions] = useState<any[]>([])
+  const [loadingSessions, setLoadingSessions] = useState(false)
+  const [revokingSid, setRevokingSid] = useState<string | null>(null)
+  const [revokingAll, setRevokingAll] = useState(false)
+
+  function loadSessions() {
+    setLoadingSessions(true)
+    authFetch('/api/sessions')
+      .then(r => r.json())
+      .then(j => { setSessions(j.data || []); setLoadingSessions(false) })
+      .catch(() => setLoadingSessions(false))
+  }
+
+  useEffect(() => {
+    if (activeTab === 'devices') loadSessions()
+  }, [activeTab])
+
+  async function handleRevokeSession(sid: string) {
+    setRevokingSid(sid)
+    try {
+      const res = await authFetch(`/api/sessions/revoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sid }),
+      })
+      if (res.ok) {
+        setSessions(prev => prev.filter(s => s.sid !== sid))
+        toast.success('Appareil déconnecté')
+      } else toast.error('Erreur lors de la déconnexion')
+    } catch { toast.error('Erreur réseau') }
+    finally { setRevokingSid(null) }
+  }
+
+  async function handleRevokeAll() {
+    setRevokingAll(true)
+    try {
+      const res = await authFetch('/api/sessions/revoke-all', { method: 'POST' })
+      if (res.ok) {
+        setSessions(prev => prev.filter(s => !s.isCurrent))
+        toast.success('Tous les autres appareils déconnectés')
+      } else toast.error('Erreur lors de la déconnexion')
+    } catch { toast.error('Erreur réseau') }
+    finally { setRevokingAll(false) }
+  }
 
   useEffect(() => {
     if (userData?.schoolId) {
@@ -222,6 +268,9 @@ function SettingsViewInner() {
         </button>
         <button onClick={() => setActiveTab('fees')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'fees' ? 'text-white' : ''}`} style={activeTab === 'fees' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
           <GraduationCap size={14} className="inline mr-1" /> Frais scolaires
+        </button>
+        <button onClick={() => setActiveTab('devices')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'devices' ? 'text-white' : ''}`} style={activeTab === 'devices' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
+          <Monitor size={14} className="inline mr-1" /> Appareils connectés
         </button>
       </div>
 
@@ -444,7 +493,7 @@ function SettingsViewInner() {
               <GraduationCap size={16} style={{ color: GOLD }} /> Frais scolaires
             </h3>
             <button
-              onClick={() => { setEditingFee(null); setFeeForm({ name: '', amount: '', trimester: 'T1', classId: '' }); setShowFeeModal(true) }}
+              onClick={() => { setEditingFee(null); setFeeForm({ name: '', amount: '', currency: 'CDF', trimester: 'Tranche 1', classId: '' }); setShowFeeModal(true) }}
               className="px-4 py-2 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-1.5"
               style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}
             >
@@ -460,8 +509,8 @@ function SettingsViewInner() {
                 <thead>
                   <tr className="border-b border-[oklch(90%_0.01_175)]">
                     <th className="text-left py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Nom</th>
-                    <th className="text-left py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant (CDF)</th>
-                    <th className="text-left py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Trimestre</th>
+                    <th className="text-left py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant</th>
+                    <th className="text-left py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Tranche</th>
                     <th className="text-left py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Classe</th>
                     <th className="text-right py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Actions</th>
                   </tr>
@@ -470,7 +519,7 @@ function SettingsViewInner() {
                   {fees.map(fee => (
                     <tr key={fee.id} className="border-b border-[oklch(92%_0.008_175)] last:border-0">
                       <td className="py-3 px-2 font-medium" style={{ color: TEXT_PRIMARY }}>{fee.name}</td>
-                      <td className="py-3 px-2" style={{ color: TEXT_PRIMARY }}>{Number(fee.amount).toLocaleString()}</td>
+                      <td className="py-3 px-2" style={{ color: TEXT_PRIMARY }}>{Number(fee.amount).toLocaleString()} {fee.currency || 'CDF'}</td>
                       <td className="py-3 px-2">
                         <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>{fee.trimester}</span>
                       </td>
@@ -478,7 +527,7 @@ function SettingsViewInner() {
                       <td className="py-3 px-2 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => { setEditingFee(fee); setFeeForm({ name: fee.name, amount: String(fee.amount), trimester: fee.trimester, classId: fee.classId || '' }); setShowFeeModal(true) }}
+                            onClick={() => { setEditingFee(fee); setFeeForm({ name: fee.name, amount: String(fee.amount), currency: fee.currency || 'CDF', trimester: fee.trimester, classId: fee.classId || '' }); setShowFeeModal(true) }}
                             className="p-1.5 rounded-lg border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition"
                             style={{ color: ACCENT }}
                           >
@@ -509,6 +558,104 @@ function SettingsViewInner() {
         </div>
       )}
 
+      {activeTab === 'devices' && (
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: GOLD_SOFT }}>
+                <Monitor size={16} style={{ color: GOLD }} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold" style={{ color: TEXT_PRIMARY }}>Appareils connectés</h3>
+                <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                  {sessions.length} session(s) active(s) · expire dans 24 h
+                </p>
+              </div>
+            </div>
+            {sessions.filter(s => !s.isCurrent).length > 0 && (
+              <button
+                onClick={handleRevokeAll}
+                disabled={revokingAll}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border transition disabled:opacity-50"
+                style={{ color: DANGER, borderColor: DANGER + '40' }}
+              >
+                {revokingAll ? <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <LogOut size={12} />}
+                Tout déconnecter ({sessions.filter(s => !s.isCurrent).length})
+              </button>
+            )}
+          </div>
+
+          {loadingSessions ? (
+            <div className="py-8 text-center">
+              <div className="h-6 w-6 border-2 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin mx-auto" />
+              <p className="text-xs mt-2" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</p>
+            </div>
+          ) : sessions.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Aucune session active</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {sessions.map(s => {
+                const info = detectDevice(s.userAgent)
+                const DeviceIcon = info.isMobile ? Smartphone : info.isTablet ? Tablet : Monitor
+                return (
+                  <div
+                    key={s.sid}
+                    className="flex items-center gap-3 p-3 rounded-xl border transition"
+                    style={{
+                      borderColor: s.isCurrent ? GOLD + '60' : 'oklch(90% 0.01 175)',
+                      background: s.isCurrent ? GOLD_SOFT + '40' : 'transparent',
+                    }}
+                  >
+                    <div className="w-10 h-10 rounded-xl grid place-items-center shrink-0" style={{ background: s.isCurrent ? GOLD_SOFT : 'oklch(95% 0.01 175)' }}>
+                      <DeviceIcon size={18} style={{ color: s.isCurrent ? GOLD : TEXT_MUTED_LUXE }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{formatDeviceTitle(info)}</span>
+                        {s.fingerprintId && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-1" style={{ color: GOLD, background: GOLD_SOFT }}>
+                            <Fingerprint size={9} />{s.fingerprintId.slice(0, 8)}
+                          </span>
+                        )}
+                        {s.isCurrent && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: GOLD, background: GOLD_SOFT }}>CET APPAREIL</span>
+                        )}
+                      </div>
+                      <div className="text-xs flex items-center gap-1 flex-wrap" style={{ color: TEXT_MUTED_LUXE }}>
+                        <span>{formatDeviceSummary(info)}</span>
+                        {s.ip && <><span>·</span><span className="inline-flex items-center gap-0.5"><Globe size={10} />{s.ip}</span></>}
+                        {s.location?.city && (
+                          <>
+                            <span>·</span>
+                            <span className="inline-flex items-center gap-0.5"><MapPin size={10} />{s.location.city}{s.location.country ? `, ${s.location.country}` : ''}</span>
+                          </>
+                        )}
+                      </div>
+                      <div className="text-[11px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>
+                        {s.isCurrent ? 'Session actuelle' : `Dernière activité ${new Date(s.lastUsedAt).toLocaleString('fr-FR')}`}
+                      </div>
+                    </div>
+                    {!s.isCurrent && (
+                      <button
+                        onClick={() => handleRevokeSession(s.sid)}
+                        disabled={revokingSid === s.sid}
+                        className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-xl border transition disabled:opacity-50 hover:bg-red-50"
+                        style={{ color: DANGER, borderColor: DANGER + '40' }}
+                      >
+                        {revokingSid === s.sid ? <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <LogOut size={12} />}
+                        Déconnecter
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Fee Modal */}
       {showFeeModal && (
         <div className="fixed inset-0 bg-black/40 grid place-items-center z-50 p-4" onClick={() => setShowFeeModal(false)}>
@@ -522,16 +669,20 @@ function SettingsViewInner() {
                 <input value={feeForm.name} onChange={e => setFeeForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Montant (CDF) *</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Montant *</label>
                 <input type="number" value={feeForm.amount} onChange={e => setFeeForm(f => ({ ...f, amount: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Trimestre *</label>
-                <select value={feeForm.trimester} onChange={e => setFeeForm(f => ({ ...f, trimester: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                  <option value="T1">T1</option>
-                  <option value="T2">T2</option>
-                  <option value="T3">T3</option>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Devise *</label>
+                <select value={feeForm.currency} onChange={e => setFeeForm(f => ({ ...f, currency: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                  <option value="CDF">CDF (Franc congolais)</option>
+                  <option value="USD">USD (Dollar américain)</option>
+                  <option value="FCFA">FCFA (Franc CFA)</option>
                 </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Tranche *</label>
+                <input value={feeForm.trimester} onChange={e => setFeeForm(f => ({ ...f, trimester: e.target.value }))} placeholder="Ex: Tranche 1, Frais d'inscription..." className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
@@ -547,7 +698,7 @@ function SettingsViewInner() {
                 onClick={async () => {
                   if (!feeForm.name || !feeForm.amount) { toast.error('Nom et montant requis'); return }
                   if (!feeForm.classId) { toast.error('Veuillez choisir une classe'); return }
-                  const body = { name: feeForm.name, amount: Number(feeForm.amount), trimester: feeForm.trimester, classId: feeForm.classId, schoolId: userData?.schoolId }
+                  const body = { name: feeForm.name, amount: Number(feeForm.amount), currency: feeForm.currency, trimester: feeForm.trimester, classId: feeForm.classId, schoolId: userData?.schoolId }
                   let res
                   if (editingFee) {
                     res = await authFetch(`/api/school-fees/${editingFee.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })

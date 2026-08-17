@@ -39,7 +39,7 @@ export default function DisciplineView() {
   const [submitting, setSubmitting] = useState(false)
   const [convocationMotif, setConvocationMotif] = useState('')
   const [convocationDate, setConvocationDate] = useState('')
-  const [convocations, setConvocations] = useState<{ id: string; motif: string; date: string; status: string; student: { firstName: string; lastName: string; matricule: string } }[]>([])
+  const [convocations, setConvocations] = useState<{ id: string; motif: string; date: string; status: string; student: { firstName: string; lastName: string; matricule: string; photoUrl?: string } }[]>([])
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
   const [editPoints, setEditPoints] = useState('')
   const [editListType, setEditListType] = useState<'BLACKLIST' | 'GREYLIST' | 'WHITELIST'>('GREYLIST')
@@ -63,7 +63,7 @@ export default function DisciplineView() {
         .then(j => {
           const allStudents: StudentData[] = j.data || []
           const filtered = allStudents.filter(s => {
-            const cls = (s as Record<string, unknown>).class as { name?: string; section?: string; level?: string } | undefined
+            const cls = (s as any).class as { name?: string; section?: string; level?: string } | undefined
             const sectionValue = cls?.section || cls?.level || ''
             const nameValue = cls?.name || ''
             return sectionValue.toUpperCase().includes(sectionLevel.toUpperCase()) ||
@@ -212,7 +212,7 @@ export default function DisciplineView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentId: selectedStudentId,
-          parentId: (student as Record<string, unknown>)?.parentId || null,
+          parentId: (student as any)?.parentId || null,
           motif: convocationMotif,
           date: convocationDate,
           schoolId: userData.schoolId,

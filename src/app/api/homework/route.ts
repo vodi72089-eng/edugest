@@ -120,9 +120,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate due date
+    const homeworkDueDate = new Date(dueDate);
+    if (isNaN(homeworkDueDate.getTime())) {
+      return NextResponse.json({ error: 'Date d’échéance invalide' }, { status: 400 });
+    }
+
     // Verify school access
     if (!verifySchoolAccess(user, schoolId)) {
       return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
+    }
+
+    // Verify the class belongs to the target school
+    const targetClass = await db.class.findUnique({
+      where: { id: classId },
+      select: { schoolId: true },
+    });
+    if (!targetClass || targetClass.schoolId !== schoolId) {
+      return NextResponse.json(
+        { error: 'La classe n’appartient pas à cette école' },
+        { status: 400 }
+      );
     }
 
     // Derive teacherId and teacherName from the authenticated user
@@ -138,7 +156,7 @@ export async function POST(request: NextRequest) {
         teacherName,
         teacherId,
         isTitulaire: isTitulaire || false,
-        dueDate: new Date(dueDate),
+        dueDate: homeworkDueDate,
         schoolId,
         isPublished: isPublished !== undefined ? isPublished : true,
       },
@@ -172,7 +190,7 @@ export async function POST(request: NextRequest) {
                 studentName: `${student.firstName} ${student.lastName}`,
                 subject: subjectName,
                 title,
-                dueDate: new Date(dueDate),
+                dueDate: homeworkDueDate,
                 schoolName: school.name,
               });
             }

@@ -384,12 +384,19 @@ export async function GET(
         matricule: true,
         classId: true,
         photoUrl: true,
+        schoolId: true,
         class: { select: { name: true } },
       },
     });
 
     if (!student) {
       return NextResponse.json({ error: 'Élève non trouvé' }, { status: 404 });
+    }
+
+    // SECURITY: the student must belong to the requested school, otherwise a
+    // user of school A could generate bulletins for students of school B.
+    if (student.schoolId !== schoolId) {
+      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
     }
 
     // Fetch school

@@ -27,7 +27,7 @@ export default function OnlinePaymentView() {
   const [amount, setAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('ORANGE_MONEY')
   const [phone, setPhone] = useState('')
-  const [trimester, setTrimester] = useState('T1')
+  const [trimester, setTrimester] = useState('Tranche 1')
 
   // Result state
   const [resultRef, setResultRef] = useState('')
@@ -245,13 +245,8 @@ export default function OnlinePaymentView() {
               />
 
               <div>
-                <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Trimestre *</label>
-                <select value={trimester} onChange={e => setTrimester(e.target.value)}
-                  className="w-full mt-1 px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                  <option value="T1">Trimestre 1</option>
-                  <option value="T2">Trimestre 2</option>
-                  <option value="T3">Trimestre 3</option>
-                </select>
+                <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Tranche *</label>
+                <input value={trimester} onChange={e => setTrimester(e.target.value)} placeholder="Ex: Tranche 1" className="w-full mt-1 px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
               </div>
 
               <div>

@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     const { user } = authResult;
 
     const body = await request.json();
-    const { studentId, parentId, motif, date, schoolId } = body;
+    const { studentId, motif, date, schoolId } = body;
 
     if (!studentId || !motif || !date || !schoolId) {
       return NextResponse.json(
@@ -68,20 +68,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate date
+    const convocationDate = new Date(date);
+    if (isNaN(convocationDate.getTime())) {
+      return NextResponse.json({ error: 'Date de convocation invalide' }, { status: 400 });
+    }
+
     // Verify school access
     if (!verifySchoolAccess(user, schoolId)) {
       return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
     }
 
-    // CRITICAL: Derive createdBy from the authenticated user's name, NOT from request body
+    // Verify the student exists and belongs to the target school
+    const studentRecord = await db.student.findUnique({
+      where: { id: studentId },
+      select: { schoolId: true, parentId: true },
+    });
+    if (!studentRecord) {
+      return NextResponse.json({ error: 'Élève non trouvé' }, { status: 404 });
+    }
+    if (studentRecord.schoolId !== schoolId) {
+      return NextResponse.json(
+        { error: "L'élève n'appartient pas à cette école" },
+        { status: 403 }
+      );
+    }
+
+    // CRITICAL: Derive createdBy from the authenticated user's name and parentId
+    // from the student's record, NOT from request body (prevents identity spoofing)
     const createdBy = user.name;
 
     const record = await db.convocation.create({
       data: {
         studentId,
-        parentId: parentId || null,
+        parentId: studentRecord.parentId,
         motif,
-        date: new Date(date),
+        date: convocationDate,
         schoolId,
         createdBy,
         status: 'PENDING',
@@ -108,7 +130,7 @@ export async function POST(request: NextRequest) {
             parentPhone: parent.phone,
             studentName: `${student.firstName} ${student.lastName}`,
             motif,
-            date: new Date(date),
+            date: convocationDate,
             schoolName: school.name,
           });
         }

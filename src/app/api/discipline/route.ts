@@ -97,6 +97,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate points (must be a finite number when provided)
+    if (points !== undefined && (typeof points !== 'number' || !Number.isFinite(points))) {
+      return NextResponse.json({ error: 'Points invalides' }, { status: 400 });
+    }
+
+    // Verify the student belongs to the target school
+    const targetStudent = await db.student.findUnique({
+      where: { id: studentId },
+      select: { schoolId: true },
+    });
+    if (!targetStudent) {
+      return NextResponse.json({ error: 'Élève non trouvé' }, { status: 404 });
+    }
+    if (targetStudent.schoolId !== schoolId) {
+      return NextResponse.json(
+        { error: "L'élève n'appartient pas à cette école" },
+        { status: 403 }
+      );
+    }
+
     // Verify school access
     if (!verifySchoolAccess(user, schoolId)) {
       return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
@@ -112,7 +132,7 @@ export async function POST(request: NextRequest) {
         severity,
         title,
         description,
-        points: points || 0,
+        points: points ?? 0,
         listType: listType || 'GREYLIST',
         status: status || 'PENDING',
         schoolId,
@@ -122,34 +142,43 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Also add to the corresponding list table
-    if (listType === 'BLACKLIST') {
-      await db.blacklist.create({
-        data: {
-          studentId,
-          schoolId,
-          reason: `${title}: ${description}`,
-          addedBy,
-        },
-      });
-    } else if (listType === 'GREYLIST') {
-      await db.greylist.create({
-        data: {
-          studentId,
-          schoolId,
-          reason: `${title}: ${description}`,
-          addedBy,
-        },
-      });
-    } else if (listType === 'WHITELIST') {
-      await db.whitelist.create({
-        data: {
-          studentId,
-          schoolId,
-          reason: `${title}: ${description}`,
-          addedBy,
-        },
-      });
+    // Auto-classify student after new sanction
+    let finalListType = record.listType;
+    try {
+      const classification = await classifyStudent(studentId, schoolId)
+      finalListType = classification.listType
+      if (classification.listType !== record.listType) {
+        await db.disciplineRecord.update({
+          where: { id: record.id },
+          data: { listType: classification.listType }
+        })
+      }
+    } catch (e) {
+      console.warn('[Discipline] Auto-classification failed:', e)
+    }
+
+    // Sync the list tables with the final classification: ensure exactly one
+    // entry in the matching list and remove the student from the other lists
+    const listTables: Record<string, {
+      findFirst: (args: { where: { studentId: string; schoolId: string } }) => Promise<{ id: string } | null>
+      create: (args: { data: { studentId: string; schoolId: string; reason: string; addedBy: string } }) => Promise<unknown>
+      deleteMany: (args: { where: { studentId: string; schoolId: string } }) => Promise<unknown>
+    }> = {
+      BLACKLIST: db.blacklist,
+      GREYLIST: db.greylist,
+      WHITELIST: db.whitelist,
+    }
+    for (const [listName, model] of Object.entries(listTables)) {
+      if (listName === finalListType) {
+        const existingEntry = await model.findFirst({ where: { studentId, schoolId } })
+        if (!existingEntry) {
+          await model.create({
+            data: { studentId, schoolId, reason: `${title}: ${description}`, addedBy },
+          })
+        }
+      } else {
+        await model.deleteMany({ where: { studentId, schoolId } })
+      }
     }
 
     // Envoyer notification WhatsApp au parent
@@ -221,6 +250,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Discipline record not found' }, { status: 404 });
     }
 
+    // Validate points (must be a finite number when provided)
+    if (points !== undefined && (typeof points !== 'number' || !Number.isFinite(points))) {
+      return NextResponse.json({ error: 'Points invalides' }, { status: 400 });
+    }
+
     // Verify school access
     if (!verifySchoolAccess(user, existing.schoolId)) {
       return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
@@ -243,10 +277,46 @@ export async function PUT(request: NextRequest) {
       },
     });
 
-    // Learn keywords when staff manually sets BLACKLIST
+    // Sync the list tables when the listType changes: ensure exactly one entry
+    // in the new list and remove the student from the other lists
+    if (listType !== undefined && listType !== existing.listType) {
+      const finalListType = updated.listType;
+      const listTables: Record<string, {
+        findFirst: (args: { where: { studentId: string; schoolId: string } }) => Promise<{ id: string } | null>
+        create: (args: { data: { studentId: string; schoolId: string; reason: string; addedBy: string } }) => Promise<unknown>
+        deleteMany: (args: { where: { studentId: string; schoolId: string } }) => Promise<unknown>
+      }> = {
+        BLACKLIST: db.blacklist,
+        GREYLIST: db.greylist,
+        WHITELIST: db.whitelist,
+      };
+      for (const [listName, model] of Object.entries(listTables)) {
+        if (listName === finalListType) {
+          const existingEntry = await model.findFirst({
+            where: { studentId: existing.studentId, schoolId: existing.schoolId },
+          });
+          if (!existingEntry) {
+            await model.create({
+              data: {
+                studentId: existing.studentId,
+                schoolId: existing.schoolId,
+                reason: `${updated.title}: ${updated.description}`,
+                addedBy: user.name,
+              },
+            });
+          }
+        } else {
+          await model.deleteMany({
+            where: { studentId: existing.studentId, schoolId: existing.schoolId },
+          });
+        }
+      }
+    }
+
+    // Learn keywords when staff manually sets BLACKLIST (use the updated content)
     if (listType === 'BLACKLIST' && existing.listType !== 'BLACKLIST') {
       try {
-        await learnKeywordsFromRecord(existing.id, existing.title, existing.description, existing.schoolId)
+        await learnKeywordsFromRecord(existing.id, updated.title, updated.description, existing.schoolId)
       } catch (e) {
         console.warn('[Discipline] Keyword learning failed:', e)
       }

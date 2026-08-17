@@ -46,7 +46,9 @@ export async function PUT(
     if (hasVerifyPermission) {
       for (const field of restrictedFields) {
         if (body[field] !== undefined) {
-          updateData[field] = body[field];
+          // CRITICAL: verifiedBy must always come from the authenticated user,
+          // never from the request body (prevents identity spoofing)
+          updateData[field] = field === 'verifiedBy' ? user.name : body[field];
         }
       }
 

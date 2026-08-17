@@ -1,8 +1,10 @@
+export type UserRole = import('./store').UserRole
+
 export interface SchoolData {
   id: string; name: string; shortName: string; email: string; phone: string;
   address: string; city: string; province: string; country: string;
   latitude?: number; longitude?: number; logo?: string; coverImage?: string;
-  description?: string; establishmentYear?: number; subscriptionTier: string;
+  description?: string; mission?: string; establishmentYear?: number; subscriptionTier: string;
   maxStudents: number; schoolType: string; schoolCategory: string;
   averageRating: number; totalReviews: number; studentCount: number; classCount: number;
   isActive: boolean; _count?: { students: number; classes: number; users: number };
@@ -25,7 +27,7 @@ export interface ClassData {
 export interface GradeData {
   id: string; studentId: string; subjectId: string; classId: string;
   trimester: string; score: number; comment?: string; schoolYearId: string;
-  student?: { id: string; firstName: string; lastName: string; matricule: string };
+  student?: { id: string; firstName: string; lastName: string; matricule: string; photoUrl?: string };
   subject?: { id: string; name: string; coefficient: number };
 }
 
@@ -34,14 +36,14 @@ export interface PaymentData {
   paidAmount: number; trimester: string; paymentMethod?: string;
   status: string; receiptNumber?: string; referenceNumber?: string; paidAt?: string; createdAt: string;
   verifiedBy?: string | null; verifiedAt?: string | null; verificationNote?: string | null;
-  student?: { id: string; firstName: string; lastName: string; matricule: string };
+  student?: { id: string; firstName: string; lastName: string; matricule: string; photoUrl?: string };
 }
 
 export interface DisciplineData {
   id: string; studentId: string; type: string; severity: string;
   title: string; description: string; points: number; listType: string;
   status: string; schoolId: string; createdAt: string;
-  student?: { id: string; firstName: string; lastName: string; matricule: string };
+  student?: { id: string; firstName: string; lastName: string; matricule: string; photoUrl?: string };
 }
 
 export interface DisciplineKeywordData {

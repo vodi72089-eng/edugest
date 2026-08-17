@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { requirePermission, sanitizeError } from '@/lib/auth';
+import { requirePermission, sanitizeError, safeParseInt } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const { user } = authResult;
 
     const { searchParams } = new URL(request.url);
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
+    const limit = safeParseInt(searchParams.get('limit'), 20, 1, 50);
 
     const notifications = await db.notification.findMany({
       where: { userId: user.id },
@@ -37,7 +37,8 @@ export async function PATCH(request: NextRequest) {
     const { notificationId } = body;
 
     if (notificationId) {
-      await db.notification.update({
+      // updateMany avoids P2025 (record not found) when the id doesn't exist
+      await db.notification.updateMany({
         where: { id: notificationId, userId: user.id },
         data: { isRead: true },
       });

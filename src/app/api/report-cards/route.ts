@@ -28,10 +28,18 @@ export async function GET(request: NextRequest) {
     if (studentId) where.studentId = studentId;
     if (trimester) where.trimester = trimester;
 
-    // If studentId specified, verify access for parents
-    if (studentId && user.role === 'PARENT') {
-      const student = await db.student.findUnique({ where: { id: studentId }, select: { parentId: true } });
-      if (student?.parentId !== user.id) {
+    // If studentId specified, verify access
+    if (studentId) {
+      const student = await db.student.findUnique({ where: { id: studentId }, select: { parentId: true, schoolId: true } });
+      if (!student) {
+        return NextResponse.json({ error: 'Élève non trouvé' }, { status: 404 });
+      }
+      // SECURITY: the student must belong to the requested school
+      if (user.role !== 'SUPER_ADMIN_GLOBAL' && student.schoolId !== schoolId) {
+        return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
+      }
+      // Parents can only read their own children
+      if (user.role === 'PARENT' && student.parentId !== user.id) {
         return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
       }
     }

@@ -1,6 +1,4 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
 const http = require('http');
-const qrcode = require('qrcode');
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
@@ -8,7 +6,8 @@ const fs = require('fs');
 try { require('dotenv').config(); } catch {}
 
 const PORT = parseInt(process.env.WHATSAPP_PORT || '3001');
-const LINKING_CODE = 'EDUGEST1';
+const LINKING_CODE = 'EDUC-GEST1';
+const SESSION_DIR = path.join(__dirname, 'baileys-auth');
 
 const API_KEY = process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key';
 if (!process.env.WHATSAPP_API_KEY) {
@@ -34,21 +33,7 @@ function generateOTP() {
   return String(crypto.randomInt(100000, 999999));
 }
 
-function findBrowserPath() {
-  const candidates = [
-    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-  ];
-  for (const p of candidates) { if (fs.existsSync(p)) return p; }
-  return undefined;
-}
-
-const BROWSER_PATH = findBrowserPath();
-if (BROWSER_PATH) console.log('[WA] Browser:', BROWSER_PATH);
-
-let client = null;
+let sock = null;
 let status = 'disconnected';
 let connectedPhone = null;
 let verified = false;
@@ -57,75 +42,104 @@ let starting = false;
 let qrData = null;
 let otpEntry = null;
 let clientReady = false;
-let pairingError = null;
+let pairingCode = null;
 
-function destroyClient() {
-  if (client) { try { client.destroy(); } catch {} client = null; }
+function resetState() {
+  sock = null;
   status = 'disconnected';
   connectedPhone = null;
   verified = false;
   verifyPhone = null;
   starting = false;
-  clientReady = false;
   qrData = null;
   otpEntry = null;
-  pairingError = null;
+  clientReady = false;
+  pairingCode = null;
 }
 
-function initClient() {
+async function initClient() {
   if (starting) { console.log('[WA] Deja en cours de demarrage...'); return; }
-  if (client) { console.log('[WA] Client existant, destruction...'); destroyClient(); }
   starting = true;
   clientReady = false;
   qrData = null;
-  pairingError = null;
+  pairingCode = null;
   status = 'connecting';
-  console.log('[WA] Demarrage du client WhatsApp...');
-  console.log('[WA] Navigateur:', BROWSER_PATH || 'defaut');
+  console.log('[WA] Demarrage du client Baileys...');
 
   try {
-    client = new Client({
-      authStrategy: new LocalAuth({ dataPath: path.join(__dirname, 'whatsapp-auth') }),
-      puppeteer: {
-        headless: true,
-        executablePath: BROWSER_PATH || undefined,
-        protocolTimeout: 120000,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-      },
+    const baileys = require('@whiskeysockets/baileys');
+    const makeWASocket = baileys.default;
+    const { useMultiFileAuthState } = baileys;
+    const { DisconnectReason, Browsers } = baileys;
+    console.log('[WA] Baileys charge OK');
+    const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
+    console.log('[WA] Auth state charge');
+
+    sock = makeWASocket({
+      auth: state,
+      printQRInTerminal: false,
+      browser: Browsers.windows('EduGest'),
+      markOnlineOnConnect: false,
+      generateHighQualityLinkPreview: false,
     });
 
-    client.on('qr', async (qr) => {
-      console.log('[WA] QR recu, conversion...');
-      status = 'connecting';
-      try {
-        qrData = await qrcode.toDataURL(qr);
-        console.log('[WA] QR pret, longueur:', qrData.length);
-      } catch (e) { console.error('[WA] Erreur conversion QR:', e.message); }
+    sock.ev.on('connection.update', async (update) => {
+      const { connection, lastDisconnect, qr } = update;
+
+      if (qr) {
+        console.log('[WA] QR recu');
+        status = 'connecting';
+        try {
+          const QRCode = require('qrcode');
+          qrData = await QRCode.toDataURL(qr);
+          console.log('[WA] QR pret');
+        } catch (e) { console.error('[WA] Erreur conversion QR:', e.message); }
+      }
+
+      if (connection === 'close') {
+        const statusCode = lastDisconnect?.error?.output?.statusCode;
+        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        console.log('[WA] Connexion fermee, code:', statusCode, 'reconnexion:', shouldReconnect);
+        if (statusCode === DisconnectReason.loggedOut) {
+          console.log('[WA] Session expiree, nettoyage...');
+          resetState();
+          if (fs.existsSync(SESSION_DIR)) {
+            try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }); } catch {}
+          }
+        } else if (shouldReconnect) {
+          console.log('[WA] Reconnexion...');
+          starting = false;
+          await initClient();
+        } else {
+          resetState();
+        }
+      }
+
+      if (connection === 'open') {
+        console.log('[WA] Connecte!');
+        status = 'connected';
+        starting = false;
+        clientReady = true;
+        qrData = null;
+        connectedPhone = sock.user?.id?.replace(/:.*@/, '@')?.split('@')[0] || null;
+        console.log('[WA] Telephone:', connectedPhone);
+      }
     });
 
-    client.on('ready', () => {
-      console.log('[WA] Connecte!');
-      status = 'connected';
-      starting = false;
-      clientReady = true;
-      qrData = null;
-      if (client.info && client.info.wid) connectedPhone = client.info.wid.user;
+    sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('messages.upsert', async (event) => {
+      for (const msg of event.messages) {
+        if (!msg.key.fromMe && event.type === 'notify') {
+          console.log('[WA] Message recu de', msg.key.remoteJid, ':', msg.message?.conversation || msg.message?.extendedTextMessage?.text || '(media)');
+        }
+      }
     });
 
-    client.on('authenticated', () => console.log('[WA] Authentifie'));
-    client.on('auth_failure', (msg) => { console.error('[WA] Echec auth:', msg); pairingError = msg; destroyClient(); });
-    client.on('disconnected', (reason) => { console.log('[WA] Deconnecte:', reason); pairingError = reason; destroyClient(); });
-    client.on('error', (err) => console.error('[WA] Erreur client:', err.message));
-
-    client.initialize().then(() => {
-      console.log('[WA] Client initialise, attente QR ou pret...');
-    }).catch(e => {
-      console.error('[WA] Echec init:', e.message);
-      destroyClient();
-    });
+    console.log('[WA] Client Baileys cree, en attente de connexion...');
   } catch (e) {
-    console.error('[WA] Echec creation client:', e.message);
-    destroyClient();
+    console.error('[WA] Erreur init:', e.message);
+    resetState();
   }
 }
 
@@ -161,7 +175,7 @@ const server = http.createServer(async (req, res) => {
 
     // ─── POST /start ────────────────────────────────────────────────────────
     } else if (url.pathname === '/start' && req.method === 'POST') {
-      initClient();
+      await initClient();
       json({ ok: true, status });
 
     // ─── POST /pair ─────────────────────────────────────────────────────────
@@ -173,78 +187,37 @@ const server = http.createServer(async (req, res) => {
       const phoneClean = phone.replace(/[^0-9]/g, '');
       console.log('[WA] ===== DEMANDE PARRAINAGE pour', phoneClean, '=====');
 
-      // 1) Si un client tourne deja, tenter requestPairingCode directement
-      if (client && client.pupPage && (status === 'connecting' || status === 'connected')) {
-        console.log('[WA] Client deja en cours (status=' + status + '), tentative directe...');
-        try {
-          const code = await client.requestPairingCode(phoneClean);
-          console.log('[WA] ===== CODE PARRAINAGE:', code, '=====');
-          return json({ ok: true, pairingCode: code });
-        } catch (e) {
-          console.error('[WA] Tentative directe echouee:', e.message);
-        }
+      // Si deja connecte, on ne peut pas demander un nouveau pairing
+      if (status === 'connected') {
+        return json({ ok: false, error: 'Deja connecte. Deconnectez d\'abord.' });
       }
 
-      // 2) Sinon, detruire le client existant
-      if (client) {
-        console.log('[WA] Destruction du client existant...');
-        destroyClient();
-        await new Promise(r => setTimeout(r, 1500));
-      }
+      // Si pas encore de client, en creer un
+      if (!sock || !clientReady) {
+        console.log('[WA] Creation d\'un nouveau client pour le parrainage...');
+        resetState();
+        await initClient();
 
-      // 3) Nettoyer les sessions WhatsApp
-      const sessionDir = path.join(__dirname, 'whatsapp-auth');
-      if (fs.existsSync(sessionDir)) {
-        console.log('[WA] Nettoyage des sessions...');
-        try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch {}
-      }
-
-      // 4) Demarrer un client frais
-      console.log('[WA] Demarrage d\'un client frais...');
-      pairingError = null;
-      initClient();
-
-      // 5) Attendre que pupPage soit disponible (max 45s)
-      console.log('[WA] Attente du navigateur...');
-      const pageStart = Date.now();
-      while (Date.now() - pageStart < 45000) {
-        if (client && client.pupPage) {
-          console.log('[WA] Navigateur pret apres', Date.now() - pageStart, 'ms');
-          break;
-        }
-        if (pairingError) {
-          return json({ ok: false, error: 'Client plante: ' + pairingError + '. Reessayez.' });
-        }
-        await new Promise(r => setTimeout(r, 500));
-      }
-
-      if (!client || !client.pupPage) {
-        return json({ ok: false, error: 'Navigateur non disponible (timeout 45s).' });
-      }
-
-      // 6) Attendre que WhatsApp Web soit charge (max 30s)
-      console.log('[WA] Attente du chargement WhatsApp Web...');
-      const loadStart = Date.now();
-      while (Date.now() - loadStart < 30000) {
-        try {
-          const loaded = await client.pupPage.evaluate(() => {
-            return !!(window.AuthStore && window.AuthStore.PairingCodeLinkUtils);
-          });
-          if (loaded) {
-            console.log('[WA] WhatsApp Web + AuthStore.PairingCodeLinkUtils charges apres', Date.now() - loadStart, 'ms');
-            break;
+        // Attendre que le client soit "connecting" (max 30s)
+        const waitStart = Date.now();
+        while (Date.now() - waitStart < 30000) {
+          if (status === 'connecting' && sock) break;
+          if (status === 'disconnected' && !starting) {
+            return json({ ok: false, error: 'Client plante. Reessayez.' });
           }
-        } catch {}
-        if (pairingError) {
-          return json({ ok: false, error: 'Client plante: ' + pairingError + '. Reessayez.' });
+          await new Promise(r => setTimeout(r, 500));
         }
-        await new Promise(r => setTimeout(r, 1000));
       }
 
-      // 7) Appeler requestPairingCode
+      if (!sock) {
+        return json({ ok: false, error: 'Client non disponible.' });
+      }
+
+      // Demander le code de parrainage avec le code personnalise
       console.log('[WA] Demande du code de parrainage...');
       try {
-        const code = await client.requestPairingCode(phoneClean);
+        const code = await sock.requestPairingCode(phoneClean, LINKING_CODE);
+        pairingCode = code;
         console.log('[WA] ===== CODE PARRAINAGE:', code, '=====');
         json({ ok: true, pairingCode: code });
       } catch (e) {
@@ -256,14 +229,17 @@ const server = http.createServer(async (req, res) => {
     } else if (url.pathname === '/generate-otp' && req.method === 'POST') {
       const body = await readBody(req);
       const { phone } = JSON.parse(body || '{}');
-      if (!client || status !== 'connected') return json({ ok: false, error: 'Bot non connecte.' });
+      if (!sock || status !== 'connected') return json({ ok: false, error: 'Bot non connecte.' });
       if (!phone) return json({ ok: false, error: 'Numero requis' });
       const otp = generateOTP();
       const phoneKey = phone.replace(/[^0-9]/g, '');
-      const chatId = phoneKey + '@c.us';
+      const chatId = phoneKey + '@s.whatsapp.net';
       const message = `🔐 Code de vérification EduGest\n\nVotre code OTP est : *${otp}*\n\nValable pendant 5 minutes.`;
       try {
-        await Promise.race([client.sendMessage(chatId, message), new Promise((_, r) => setTimeout(() => r(new Error('Timeout')), 15000))]);
+        await Promise.race([
+          sock.sendMessage(chatId, { text: message }),
+          new Promise((_, r) => setTimeout(() => r(new Error('Timeout')), 15000))
+        ]);
         otpEntry = { otp, phone: phoneKey, expiresAt: Date.now() + 5 * 60 * 1000, attempts: 0 };
         verifyPhone = phone;
         console.log('[WA] OTP envoye a', phone);
@@ -290,41 +266,34 @@ const server = http.createServer(async (req, res) => {
       otpEntry = null;
       json({ ok: true, verified: true });
 
-    // ─── GET /debug-modules ─────────────────────────────────────────────────
-    } else if (url.pathname === '/debug-modules' && req.method === 'GET') {
-      if (!client || !client.pupPage) return json({ ok: false, error: 'Pas de client' });
-      try {
-        const modules = await client.pupPage.evaluate(() => {
-          const results = {};
-          const moduleNames = ['WAWebAltDeviceLinkingApi', 'WAWebSocketModel', 'WAWebCmd', 'WAWebConnModel', 'WABase64', 'WAWebCompanionRegClientUtils', 'WAWebAdvSignatureApi', 'WAWebUserPrefsInfoStore', 'WAWebSignalStoreApi', 'WAWebPairingCode'];
-          for (const name of moduleNames) {
-            try { results[name] = typeof window.require(name); } catch { results[name] = 'not found'; }
-          }
-          try { results['AuthStore'] = window.AuthStore ? Object.keys(window.AuthStore) : 'undefined'; } catch { results['AuthStore'] = 'error'; }
-          return results;
-        });
-        json({ ok: true, modules });
-      } catch (e) { json({ ok: false, error: e.message }); }
-
     // ─── POST /send ─────────────────────────────────────────────────────────
     } else if (url.pathname === '/send' && req.method === 'POST') {
       const body = await readBody(req);
       const { phone, message } = JSON.parse(body || '{}');
-      if (!client || status !== 'connected') return json({ ok: false, error: 'Non connecte' });
-      const chatId = phone.replace(/[^0-9]/g, '') + '@c.us';
-      await Promise.race([client.sendMessage(chatId, message), new Promise((_, r) => setTimeout(() => r(new Error('Timeout')), 15000))]);
+      if (!sock || status !== 'connected') return json({ ok: false, error: 'Non connecte' });
+      const chatId = phone.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
+      await Promise.race([
+        sock.sendMessage(chatId, { text: message }),
+        new Promise((_, r) => setTimeout(() => r(new Error('Timeout')), 15000))
+      ]);
       console.log('[WA] Message envoye a', phone);
       json({ ok: true });
 
     // ─── POST /logout ───────────────────────────────────────────────────────
     } else if (url.pathname === '/logout' && req.method === 'POST') {
-      if (client) { try { client.logout(); } catch {} }
-      destroyClient();
-      const sessionDir = path.join(__dirname, 'whatsapp-auth');
-      if (fs.existsSync(sessionDir)) {
-        try { fs.rmSync(sessionDir, { recursive: true, force: true }); } catch {}
+      if (sock) {
+        try { sock.logout(); } catch {}
+        try { sock.end(); } catch {}
+      }
+      resetState();
+      if (fs.existsSync(SESSION_DIR)) {
+        try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }); } catch {}
       }
       json({ ok: true });
+
+    // ─── GET /debug-modules ─────────────────────────────────────────────────
+    } else if (url.pathname === '/debug-modules' && req.method === 'GET') {
+      json({ ok: true, modules: { baileys: true, pairingCode: LINKING_CODE, version: 'baileys-custom' } });
 
     } else {
       res.writeHead(404); res.end('Not found');
@@ -336,9 +305,9 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log('[WA] Serveur sur http://localhost:' + PORT);
+  console.log('[WA] Serveur Baileys sur http://localhost:' + PORT);
   console.log('[WA] Code de liaison:', LINKING_CODE);
-  destroyClient();
+  resetState();
   console.log('[WA] Pret — en attente d\'une demande /start ou /pair...');
 });
 server.on('error', (err) => console.error('[WA] Erreur serveur:', err.message));

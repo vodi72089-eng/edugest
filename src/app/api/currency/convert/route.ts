@@ -22,7 +22,10 @@ export async function POST(request: NextRequest) {
     const { amount, from, to } = body;
 
     // Validate amount
-    if (amount === undefined || amount === null || isNaN(Number(amount))) {
+    if (
+      amount === undefined || amount === null || amount === '' ||
+      isNaN(Number(amount)) || !Number.isFinite(Number(amount))
+    ) {
       return NextResponse.json(
         { error: 'Montant invalide' },
         { status: 400 }

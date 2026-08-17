@@ -15,7 +15,14 @@ export default function SchoolsManagementView() {
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    name: string; shortName: string; email: string; phone: string; address: string;
+    city: string; province: string; country: string; schoolType: string;
+    schoolCategory: string; maxStudents: number; establishmentYear: number | undefined;
+    description: string; mission: string; subscriptionTier: string;
+    latitude: number | null; longitude: number | null;
+    logo: string; coverImage: string;
+  }>({
     name: '', shortName: '', email: '', phone: '', address: '',
     city: '', province: '', country: 'RDC', schoolType: 'MIXTE',
     schoolCategory: 'PRIVEE', maxStudents: 200, establishmentYear: new Date().getFullYear(),

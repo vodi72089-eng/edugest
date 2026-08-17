@@ -105,6 +105,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate score is a finite number (prevents Prisma type errors)
+    if (typeof score !== 'number' || !Number.isFinite(score)) {
+      return NextResponse.json({ error: 'Score invalide' }, { status: 400 });
+    }
+
+    // Validate score range
+    if (score < 0 || score > 20) {
+      return NextResponse.json(
+        { error: 'Score must be between 0 and 20' },
+        { status: 400 }
+      );
+    }
+
     // schoolYearId auto-resolved below if missing or 'default' (legacy hardcode)
 
     // Verify school access by checking the student's school
@@ -117,6 +130,18 @@ export async function POST(request: NextRequest) {
     }
     if (!verifySchoolAccess(user, student.schoolId)) {
       return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
+    }
+
+    // Verify the class and subject belong to the student's school
+    const [cls, subject] = await Promise.all([
+      db.class.findUnique({ where: { id: classId }, select: { schoolId: true } }),
+      db.subject.findUnique({ where: { id: subjectId }, select: { schoolId: true } }),
+    ]);
+    if (!cls || cls.schoolId !== student.schoolId) {
+      return NextResponse.json({ error: 'Classe invalide pour cet élève' }, { status: 400 });
+    }
+    if (!subject || subject.schoolId !== student.schoolId) {
+      return NextResponse.json({ error: 'Matière invalide pour cette école' }, { status: 400 });
     }
 
     // Auto-resolve active school year if not provided (fixes 'default' hardcode)
@@ -142,14 +167,15 @@ export async function POST(request: NextRequest) {
       } else {
         finalYearId = activeYear.id;
       }
-    }
-
-    // Validate score range
-    if (score < 0 || score > 20) {
-      return NextResponse.json(
-        { error: 'Score must be between 0 and 20' },
-        { status: 400 }
-      );
+    } else {
+      // Validate a user-provided school year belongs to the student's school
+      const providedYear = await db.schoolYear.findUnique({
+        where: { id: finalYearId },
+        select: { schoolId: true },
+      });
+      if (!providedYear || providedYear.schoolId !== student.schoolId) {
+        return NextResponse.json({ error: 'Année scolaire invalide pour cette école' }, { status: 400 });
+      }
     }
 
     // Upsert grade based on unique constraint

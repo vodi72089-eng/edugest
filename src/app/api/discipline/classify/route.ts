@@ -32,6 +32,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 })
     }
 
+    // Verify the student exists and belongs to the target school
+    const student = await db.student.findUnique({
+      where: { id: studentId },
+      select: { schoolId: true },
+    })
+    if (!student) {
+      return NextResponse.json({ error: 'Élève non trouvé' }, { status: 404 })
+    }
+    if (student.schoolId !== schoolId) {
+      return NextResponse.json(
+        { error: "L'élève n'appartient pas à cette école" },
+        { status: 403 }
+      )
+    }
+
     // Run classification (no schoolYearId needed)
     const result = await classifyStudent(studentId, schoolId)
 
@@ -47,21 +62,32 @@ export async function POST(request: NextRequest) {
         data: { listType: result.listType }
       })
 
-      // Sync with list tables
+      // Sync with list tables: keep a single entry in the matching list and
+      // remove the student from the other lists (no duplicate accumulation)
       const reason = `${result.reason} (${result.details.totalPoints} pts)`
+      const listTables: Record<string, {
+        findFirst: (args: { where: { studentId: string; schoolId: string } }) => Promise<{ id: string } | null>
+        create: (args: { data: { studentId: string; schoolId: string; reason: string; addedBy: string } }) => Promise<unknown>
+        deleteMany: (args: { where: { studentId: string; schoolId: string } }) => Promise<unknown>
+      }> = {
+        BLACKLIST: db.blacklist,
+        WHITELIST: db.whitelist,
+        GREYLIST: db.greylist,
+      }
 
-      if (result.listType === 'BLACKLIST') {
-        await db.blacklist.create({
-          data: { studentId, schoolId, reason, addedBy: user.name || user.id }
-        })
-      } else if (result.listType === 'WHITELIST') {
-        await db.whitelist.create({
-          data: { studentId, schoolId, reason, addedBy: user.name || user.id }
-        })
-      } else {
-        await db.greylist.create({
-          data: { studentId, schoolId, reason, addedBy: user.name || user.id }
-        })
+      for (const [listName, model] of Object.entries(listTables)) {
+        if (listName === result.listType) {
+          const existingEntry = await model.findFirst({
+            where: { studentId, schoolId },
+          })
+          if (!existingEntry) {
+            await model.create({
+              data: { studentId, schoolId, reason, addedBy: user.name || user.id }
+            })
+          }
+        } else {
+          await model.deleteMany({ where: { studentId, schoolId } })
+        }
       }
     }
 

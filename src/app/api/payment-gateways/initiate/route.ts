@@ -58,7 +58,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (amount === undefined || amount === null || isNaN(Number(amount))) {
+    if (
+      amount === undefined || amount === null ||
+      isNaN(Number(amount)) || !Number.isFinite(Number(amount))
+    ) {
       return NextResponse.json(
         { error: 'Montant invalide' },
         { status: 400 }
@@ -85,6 +88,20 @@ export async function POST(request: NextRequest) {
         { error: 'Accès non autorisé à cette école' },
         { status: 403 }
       );
+    }
+
+    // Verify an optional paymentRecordId belongs to the target school
+    if (paymentRecordId) {
+      const paymentRecord = await db.paymentRecord.findUnique({
+        where: { id: paymentRecordId },
+        select: { schoolId: true },
+      });
+      if (!paymentRecord || paymentRecord.schoolId !== schoolId) {
+        return NextResponse.json(
+          { error: 'paymentRecordId invalide pour cette école' },
+          { status: 400 }
+        );
+      }
     }
 
     // Verify the gateway is configured & active for this school

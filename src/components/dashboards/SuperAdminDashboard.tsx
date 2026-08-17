@@ -31,7 +31,7 @@ interface AdminAnalytics {
   revenueBySchool: { schoolId: string; schoolName: string; schoolShortName: string; city: string; revenue: number; paymentCount: number }[]
   recentPayments: { id: string; amount: number; paidAmount: number; status: string; createdAt: string; student: { firstName: string; lastName: string; matricule: string } | null; school: { name: string; shortName: string; city: string } | null }[]
   recentDiscipline: { id: string; type: string; title: string; severity: string; createdAt: string; schoolId: string; student: { firstName: string; lastName: string; matricule: string } | null }[]
-  recentStudents: { id: string; firstName: string; lastName: string; matricule: string; createdAt: string; school: { name: string; shortName: string; city: string } | null; class: { name: string } | null }[]
+  recentStudents: { id: string; firstName: string; lastName: string; matricule: string; photoUrl?: string; createdAt: string; school: { name: string; shortName: string; city: string } | null; class: { name: string } | null }[]
 }
 
 export default function SuperAdminDashboard() {

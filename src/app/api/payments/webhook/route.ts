@@ -10,6 +10,37 @@ const WEBHOOK_SECRETS: Record<string, string | undefined> = {
   FLUTTERWAVE: process.env.FLUTTERWAVE_WEBHOOK_SECRET,
 }
 
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a)
+  const bufB = Buffer.from(b)
+  if (bufA.length !== bufB.length) return false
+  return crypto.timingSafeEqual(bufA, bufB)
+}
+
+// Stripe signs webhooks with: t=<timestamp>,v1=<hex signature>
+// where the signed payload is `${timestamp}.${rawBody}`.
+function verifyStripeSignature(body: string, signature: string, secret: string): boolean {
+  const parts: Record<string, string> = {}
+  for (const item of signature.split(',')) {
+    const idx = item.indexOf('=')
+    if (idx === -1) continue
+    parts[item.slice(0, idx)] = item.slice(idx + 1)
+  }
+  const timestamp = parts['t']
+  const sigV1 = parts['v1']
+  if (!timestamp || !sigV1) return false
+
+  // Reject replays older than 5 minutes
+  const ts = parseInt(timestamp, 10)
+  if (isNaN(ts) || Math.abs(Date.now() / 1000 - ts) > 300) return false
+
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(`${timestamp}.${body}`)
+    .digest('hex')
+  return safeEqual(sigV1, expected)
+}
+
 // Verify webhook signature (basic implementation)
 function verifySignature(
   gateway: string,
@@ -21,10 +52,13 @@ function verifySignature(
   if (!secret) return true // No secret configured — skip verification (dev mode)
 
   try {
+    if (gateway === 'STRIPE') {
+      return verifyStripeSignature(body, signature, secret)
+    }
     const hmac = crypto.createHmac('sha256', secret)
     hmac.update(body)
     const expected = hmac.digest('hex')
-    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))
+    return safeEqual(signature, expected)
   } catch {
     return false
   }
@@ -46,13 +80,22 @@ export async function POST(request: NextRequest) {
       || request.headers.get('stripe-signature')
       || request.headers.get('x-paypal-signature')
 
-    // Verify signature if secret is configured
-    if (WEBHOOK_SECRETS[gateway] && !verifySignature(gateway, rawBody, signature)) {
-      console.warn(`[Webhook] Invalid signature for ${gateway}`)
-      return NextResponse.json({ error: 'Signature invalide' }, { status: 401 })
+    // Verify signature if secret is configured.
+    // In production, a webhook without a configured secret is REJECTED —
+    // otherwise anyone could forge a "payment success" event and mark
+    // transactions as paid without actually paying.
+    const webhookSecret = WEBHOOK_SECRETS[gateway]
+    if (webhookSecret) {
+      if (!verifySignature(gateway, rawBody, signature)) {
+        console.warn(`[Webhook] Invalid signature for ${gateway}`)
+        return NextResponse.json({ error: 'Signature invalide' }, { status: 401 })
+      }
+    } else if (process.env.NODE_ENV === 'production') {
+      console.warn(`[Webhook] Aucun secret configuré pour ${gateway} en production — requête rejetée`)
+      return NextResponse.json({ error: 'Webhook non authentifié' }, { status: 401 })
     }
 
-    let payload: Record<string, unknown>
+    let payload: Record<string, any>
     try {
       payload = JSON.parse(rawBody)
     } catch {
@@ -69,7 +112,7 @@ export async function POST(request: NextRequest) {
       case 'STRIPE': {
         const event = payload
         const type = event.type as string
-        const data = event.data?.object as Record<string, unknown> | undefined
+        const data = event.data?.object as any
         if (type === 'checkout.session.completed') {
           reference = (data?.metadata?.reference as string) || null
           gatewayTransactionId = data?.payment_intent as string || data?.id as string || null

@@ -2218,62 +2218,6 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <div className="hidden md:flex items-center gap-2 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-1.5 w-[240px] focus-within:ring-2 focus-within:ring-[oklch(72%_0.15_65_/_0.3)] focus-within:border-[oklch(72%_0.15_65_/_0.5)] transition">
-          <Search size={14} style={{ color: TEXT_MUTED_LUXE }} />
-          <input placeholder="Rechercher..." className="flex-1 border-0 bg-transparent outline-none text-[13px]" />
-        </div>
-        <div className="relative">
-          <button onClick={() => setShowNotifications(!showNotifications)} className="w-9 h-9 rounded-xl bg-white border border-[oklch(90%_0.01_175)] grid place-items-center hover:shadow-sm transition relative">
-            <Bell size={16} />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full text-white text-[10px] font-bold grid place-items-center px-1" style={{ background: DANGER }}>
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
-          </button>
-          {showNotifications && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
-              <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-xl border border-[oklch(90%_0.01_175)] z-50 max-h-96 overflow-hidden flex flex-col">
-                <div className="flex items-center justify-between p-4 border-b border-[oklch(90%_0.01_175)] shrink-0">
-                  <h3 className="font-bold text-sm" style={{ color: TEXT_PRIMARY }}>Notifications</h3>
-                  {unreadCount > 0 && (
-                    <button onClick={async () => { await authFetch('/api/notifications/read-all', { method: 'PATCH' }); setUnreadCount(0); setNotifications(n => n.map(x => ({ ...x, isRead: true }))); }} className="text-[11px] font-medium" style={{ color: ACCENT }}>Tout lire</button>
-                  )}
-                </div>
-                <div className="overflow-y-auto flex-1">
-                  {notifications.length === 0 ? (
-                    <div className="p-8 text-center text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>Aucune notification</div>
-                  ) : notifications.map(n => (
-                    <div key={n.id} className={`px-4 py-3 border-b border-[oklch(90%_0.01_175)] last:border-0 cursor-pointer hover:bg-[oklch(97%_0.005_175)] transition ${!n.isRead ? 'bg-[oklch(97%_0.005_175)]' : ''}`}
-                      onClick={async () => {
-                        if (!n.isRead) {
-                          await authFetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notificationId: n.id }) });
-                          setUnreadCount(c => Math.max(0, c - 1));
-                          setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x));
-                        }
-                      }}>
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-lg grid place-items-center shrink-0 text-sm" style={{ background: n.type?.includes('APPROVED') ? `${SUCCESS}20` : n.type?.includes('REJECTED') ? `${DANGER}20` : `${ACCENT}20`, color: n.type?.includes('APPROVED') ? SUCCESS : n.type?.includes('REJECTED') ? DANGER : ACCENT }}>
-                          {n.type?.includes('APPROVED') ? '✓' : n.type?.includes('REJECTED') ? '✗' : '💰'}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{n.title}</div>
-                          <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{n.message}</div>
-                          <div className="text-[10px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>{new Date(n.createdAt).toLocaleString('fr-FR')}</div>
-                        </div>
-                        {!n.isRead && <div className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ background: ACCENT }} />}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-        <button onClick={() => setCurrentView('profile')} className="w-9 h-9 rounded-xl bg-white border border-[oklch(90%_0.01_175)] grid place-items-center hover:shadow-sm transition" title="Mon profil">
-          <Settings size={16} />
-        </button>
       </div>
     </header>
   )
@@ -2299,12 +2243,14 @@ function DashboardLayout() {
 // ===== WHATSAPP CONFIG VIEW =====
 function WhatsAppConfigView() {
   const [whatsappStatus, setWhatsappStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected')
+  const [connectionMode, setConnectionMode] = useState<'qr' | 'phone' | null>(null)
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [pairCode, setPairCode] = useState<string | null>(null)
   const [phoneNumber, setPhoneNumber] = useState('')
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
   const [requestingPair, setRequestingPair] = useState(false)
+  const [pairProgress, setPairProgress] = useState<string[]>([])
 
   useEffect(() => {
     checkStatus()
@@ -2318,48 +2264,81 @@ function WhatsAppConfigView() {
       if (res.ok) {
         const json = await res.json()
         setWhatsappStatus(json.data?.status || 'disconnected')
-        setQrCode(json.data?.qr || null)
-        if (json.data?.status === 'connected') setPairCode(null)
+        if (connectionMode === 'qr') setQrCode(json.data?.qr || null)
+        if (json.data?.status === 'connected') { setPairCode(null); setPairProgress([]) }
       }
     } catch {}
     finally { setLoading(false) }
   }
 
-  async function handleStart() {
+  async function handleStartQR() {
+    setConnectionMode('qr')
     setStarting(true)
     setPairCode(null)
     try {
       await authFetch('/api/whatsapp-status', { method: 'POST' })
-      toast.success('Démarrage du client WhatsApp...')
     } catch { toast.error('Erreur lors du démarrage') }
     finally { setStarting(false) }
   }
 
-  async function handlePairCode() {
-    if (!phoneNumber.trim()) {
-      toast.error('Entrez votre numéro de téléphone')
-      return
-    }
+  async function handleStartPhone() {
+    if (!phoneNumber.trim()) { toast.error('Entrez votre numéro de téléphone'); return }
+    setConnectionMode('phone')
     setRequestingPair(true)
+    setPairProgress([])
+    const steps = [
+      'Démarrage du client WhatsApp...',
+      'Chargement de WhatsApp Web...',
+      'Génération du code de parrainage...',
+    ]
+    steps.forEach((s, i) => setTimeout(() => setPairProgress(p => [...p, s]), i * 3000))
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 90000)
     try {
-      const res = await authFetch('/api/whatsapp-status', {
+      const res = await fetch('http://localhost:3001/pair', {
         method: 'POST',
-        body: JSON.stringify({ phone: phoneNumber.trim() })
+        headers: { 'Content-Type': 'application/json', 'x-api-key': '8d98caceba0ee17db42233ee61aab69b733d8ab706e5c160' },
+        body: JSON.stringify({ phone: phoneNumber.trim().replace(/[^0-9]/g, '') }),
+        signal: controller.signal,
       })
       const json = await res.json()
-      if (json.data?.code) {
-        setPairCode(json.data.code)
-        toast.success('Code de liaison généré !')
+      if (json.ok && json.pairingCode) {
+        setPairCode(json.pairingCode)
+        setPairProgress(p => [...p, 'Code généré !'])
+        toast.success('Code de parrainage généré !')
       } else {
-        toast.error(json.data?.error || 'Impossible de générer le code')
+        toast.error(json.error || 'Impossible de générer le code')
+        setPairProgress([])
       }
-    } catch { toast.error('Erreur lors de la génération du code') }
-    finally { setRequestingPair(false) }
+    } catch (e: any) {
+      if (e.name === 'AbortError') toast.error('Délai dépassé (90s). Vérifiez que le serveur WhatsApp fonctionne.')
+      else toast.error('Erreur de connexion au serveur WhatsApp')
+      setPairProgress([])
+    } finally { clearTimeout(timeoutId); setRequestingPair(false) }
   }
 
-  const statusColors = {
+  async function handleDisconnect() {
+    try {
+      const res = await fetch('http://localhost:3001/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': '8d98caceba0ee17db42233ee61aab69b733d8ab706e5c160' },
+      })
+      const json = await res.json()
+      if (json.ok) {
+        toast.success('Déconnecté')
+        setWhatsappStatus('disconnected')
+        setQrCode(null)
+        setPairCode(null)
+        setConnectionMode(null)
+        setPairProgress([])
+      }
+    } catch { toast.error('Erreur lors de la déconnexion') }
+  }
+
+  const statusColors: Record<string, { bg: string; text: string; dot: string; label: string }> = {
     connected: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', label: 'Connecté' },
-    connecting: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500', label: 'En attente du scan...' },
+    connecting: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500', label: connectionMode === 'phone' ? 'Préparation du code...' : connectionMode === 'qr' ? 'En attente du scan...' : 'En cours...' },
     disconnected: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500', label: 'Déconnecté' },
   }
   const st = statusColors[whatsappStatus]
@@ -2371,7 +2350,7 @@ function WhatsAppConfigView() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>WhatsApp Bot</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Connexion WhatsApp</h1>
       </div>
 
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl max-w-lg shadow-sm overflow-hidden">
@@ -2394,28 +2373,11 @@ function WhatsAppConfigView() {
             </div>
           ) : (
             <>
-              {/* Status */}
               <div className={`flex items-center gap-3 p-3 rounded-xl ${st.bg}`}>
                 <div className={`w-2.5 h-2.5 rounded-full ${st.dot} ${whatsappStatus === 'connecting' ? 'animate-pulse' : ''}`} />
                 <span className={`text-sm font-semibold ${st.text}`}>{st.label}</span>
               </div>
 
-              {/* QR Code */}
-              {whatsappStatus === 'connecting' && qrCode && (
-                <div className="text-center space-y-3">
-                  <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Scannez ce QR code avec WhatsApp sur votre téléphone :</p>
-                  <div className="inline-block p-4 bg-white border-2 border-[oklch(88%_0.01_175)] rounded-2xl shadow-inner">
-                    <img
-                      src={qrCode}
-                      alt="QR Code WhatsApp"
-                      className="w-56 h-56"
-                    />
-                  </div>
-                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>WhatsApp &rarr; Paramètres &rarr; Appareils connectés &rarr; Connecter un appareil</p>
-                </div>
-              )}
-
-              {/* Connected */}
               {whatsappStatus === 'connected' && (
                 <div className="text-center space-y-4">
                   <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 grid place-items-center">
@@ -2423,48 +2385,52 @@ function WhatsAppConfigView() {
                   </div>
                   <p className="text-sm font-semibold text-emerald-700">WhatsApp est connecté !</p>
                   <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Les codes OTP seront envoyés via ce téléphone.</p>
-
-                  {/* Pair code section (only when connected) */}
-                  <div className="pt-4 border-t border-[oklch(88%_0.01_175)] space-y-3">
-                    <p className="text-xs font-medium uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Lier un autre appareil</p>
-                    <div className="flex gap-2">
-                      <input
-                        type="tel"
-                        value={phoneNumber}
-                        onChange={e => setPhoneNumber(e.target.value)}
-                        placeholder="+243 8XX XXX XXX"
-                        className="flex-1 px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]"
-                        style={{ color: TEXT_PRIMARY }}
-                      />
-                      <button
-                        onClick={handlePairCode}
-                        disabled={requestingPair || !phoneNumber.trim()}
-                        className="px-4 py-2.5 rounded-lg font-semibold text-sm flex items-center gap-2 disabled:opacity-50 transition hover:opacity-90 text-white shrink-0"
-                        style={{ background: GOLD_COLOR }}
-                      >
-                        {requestingPair ? (
-                          <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <Hash size={14} />
-                        )}
-                        Code
-                      </button>
-                    </div>
-                    {pairCode && (
-                      <div className="text-center space-y-2 pt-2">
-                        <div className="inline-block px-6 py-3 bg-[oklch(97%_0.02_175)] border border-[oklch(88%_0.01_175)] rounded-xl">
-                          <span className="text-2xl font-mono font-bold tracking-[0.3em]" style={{ color: TEXT_PRIMARY }}>{pairCode}</span>
-                        </div>
-                        <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Entrez ce code sur l'autre appareil</p>
-                      </div>
-                    )}
-                  </div>
+                  <button onClick={handleDisconnect} className="w-full py-3 rounded-xl font-semibold text-sm border border-red-200 text-red-600 hover:bg-red-50 transition">Déconnecter</button>
                 </div>
               )}
 
-              {/* Phone input + buttons (disconnected, no QR yet) */}
-              {whatsappStatus === 'disconnected' && !qrCode && (
+              {whatsappStatus === 'connecting' && connectionMode === 'qr' && qrCode && (
+                <div className="text-center space-y-3">
+                  <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Scannez ce QR code avec WhatsApp sur votre téléphone :</p>
+                  <div className="inline-block p-4 bg-white border-2 border-[oklch(88%_0.01_175)] rounded-2xl shadow-inner">
+                    <img src={qrCode} alt="QR Code WhatsApp" className="w-56 h-56" />
+                  </div>
+                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>WhatsApp &rarr; Paramètres &rarr; Appareils connectés &rarr; Connecter un appareil</p>
+                  <button onClick={() => { setConnectionMode(null); setQrCode(null) }} className="text-xs underline" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+                </div>
+              )}
+
+              {whatsappStatus === 'connecting' && connectionMode === 'phone' && (
+                <div className="space-y-3">
+                  {pairProgress.map((step, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm" style={{ color: TEXT_PRIMARY }}>
+                      <div className="h-4 w-4 border-2 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin shrink-0" />
+                      {step}
+                    </div>
+                  ))}
+                  {pairCode && (
+                    <div className="text-center space-y-2 pt-2">
+                      <div className="inline-block px-6 py-3 bg-[oklch(97%_0.02_175)] border border-[oklch(88%_0.01_175)] rounded-xl">
+                        <span className="text-2xl font-mono font-bold tracking-[0.3em]" style={{ color: TEXT_PRIMARY }}>{pairCode}</span>
+                      </div>
+                      <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Entrez ce code sur votre téléphone WhatsApp</p>
+                      <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>WhatsApp &rarr; Appareils connectés &rarr; Connecter avec un numéro</p>
+                    </div>
+                  )}
+                  {!pairCode && (
+                    <button onClick={() => { setConnectionMode(null); setRequestingPair(false); setPairProgress([]) }} className="text-xs underline" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+                  )}
+                </div>
+              )}
+
+              {(!connectionMode && whatsappStatus !== 'connected') && (
                 <div className="space-y-4">
+                  {whatsappStatus !== 'disconnected' && (
+                    <button onClick={handleDisconnect} className="w-full py-2.5 rounded-xl font-semibold text-sm border border-red-200 text-red-600 hover:bg-red-50 transition">
+                      Déconnecter / Recommencer
+                    </button>
+                  )}
+
                   <div>
                     <label className="text-xs font-medium mb-1.5 block" style={{ color: TEXT_MUTED_LUXE }}>Numéro de téléphone</label>
                     <input
@@ -2478,7 +2444,7 @@ function WhatsAppConfigView() {
                   </div>
 
                   <button
-                    onClick={handleStart}
+                    onClick={handleStartQR}
                     disabled={starting}
                     className="w-full py-3 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition hover:opacity-90"
                     style={{ background: `linear-gradient(135deg, ${TEAL_COLOR}, ${GOLD_COLOR})` }}
@@ -2488,7 +2454,7 @@ function WhatsAppConfigView() {
                     ) : (
                       <QrCode size={16} />
                     )}
-                    {starting ? 'Démarrage...' : 'Générer le QR code'}
+                    {starting ? 'Démarrage...' : 'Option 1 : Scanner le QR Code'}
                   </button>
 
                   <div className="relative">
@@ -2501,7 +2467,7 @@ function WhatsAppConfigView() {
                   </div>
 
                   <button
-                    onClick={handlePairCode}
+                    onClick={handleStartPhone}
                     disabled={requestingPair || !phoneNumber.trim()}
                     className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm"
                     style={{ color: TEXT_PRIMARY }}
@@ -2511,26 +2477,9 @@ function WhatsAppConfigView() {
                     ) : (
                       <Hash size={16} />
                     )}
-                    {requestingPair ? 'Génération...' : 'Obtenir le code de liaison'}
+                    {requestingPair ? 'Génération...' : 'Option 2 : Code de parrainage'}
                   </button>
                 </div>
-              )}
-
-              {/* Refresh button (has QR but expired/disconnected) */}
-              {whatsappStatus === 'disconnected' && qrCode && (
-                <button
-                  onClick={handleStart}
-                  disabled={starting}
-                  className="w-full py-3 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition hover:opacity-90"
-                  style={{ background: `linear-gradient(135deg, ${TEAL_COLOR}, ${GOLD_COLOR})` }}
-                >
-                  {starting ? (
-                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <RefreshCw size={16} />
-                  )}
-                  {starting ? 'Redémarrage...' : 'Rafraîchir le QR code'}
-                </button>
               )}
             </>
           )}

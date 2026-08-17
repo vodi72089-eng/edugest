@@ -11,7 +11,17 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = {};
     if (schoolId) where.schoolId = schoolId;
-    if (approvedOnly) where.isApproved = true;
+    if (approvedOnly) {
+      where.isApproved = true;
+    } else {
+      // SECURITY: unapproved comments are internal (moderation queue) and
+      // must never be readable by anonymous visitors.
+      const authResult = await requirePermission(request, 'comments:approve');
+      if ('error' in authResult) {
+        return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
+      }
+      where.isApproved = false;
+    }
 
     const comments = await db.schoolComment.findMany({
       where,

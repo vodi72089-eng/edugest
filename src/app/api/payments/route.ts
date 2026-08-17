@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
     // Verify student exists
     const student = await db.student.findUnique({
       where: { id: resolvedStudentId },
-      select: { id: true, firstName: true, lastName: true, matricule: true, classId: true },
+      select: { id: true, firstName: true, lastName: true, matricule: true, classId: true, schoolId: true },
     });
 
     if (!student) {
@@ -171,6 +171,11 @@ export async function POST(request: NextRequest) {
         { error: 'Le nom de l\'élève a été mal écrit ou il n\'existe pas' },
         { status: 404 }
       );
+    }
+
+    // SECURITY: the student must belong to the payment's school
+    if (student.schoolId !== schoolId) {
+      return NextResponse.json({ error: 'Accès non autorisé à cet élève' }, { status: 403 });
     }
 
     // Generate receipt number if not provided

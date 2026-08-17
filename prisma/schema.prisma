@@ -130,6 +130,7 @@ model SchoolFee {
   id          String   @id @default(cuid())
   name        String
   amount      Float
+  currency    String   @default("CDF")
   trimester   String
   classId     String
   class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
