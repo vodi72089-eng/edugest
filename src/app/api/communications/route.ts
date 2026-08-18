@@ -30,18 +30,40 @@ export async function GET(request: NextRequest) {
     if (schoolId) where.schoolId = schoolId;
     if (type) where.type = type;
 
-    const [communications, total] = await Promise.all([
+    // Filter by status - non-admin only see APPROVED
+    if (user.role !== 'SUPER_ADMIN_GLOBAL' && user.role !== 'ADMIN') {
+      where.status = 'APPROVED';
+    }
+
+    // Filter by scope - directions only see their domain
+    if (user.role === 'DIRECTION_MATERNELLE') {
+      where.OR = [{ scope: null }, { scope: 'MATERNELLE' }];
+    } else if (user.role === 'DIRECTION_PRIMAIRE') {
+      where.OR = [{ scope: null }, { scope: 'PRIMAIRE' }];
+    } else if (user.role === 'DIRECTION_SECONDAIRE') {
+      where.OR = [{ scope: null }, { scope: 'SECONDAIRE' }];
+    }
+
+    const [communications, total, totalUsers] = await Promise.all([
       db.communication.findMany({
         where,
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { sentAt: 'desc' },
+        include: {
+          reads: {
+            include: { user: { select: { id: true, name: true, role: true } } },
+            orderBy: { readAt: 'desc' },
+          },
+        },
       }),
       db.communication.count({ where }),
+      db.user.count({ where: { schoolId, isActive: true } }),
     ]);
 
     return NextResponse.json({
       data: communications,
+      totalUsers,
       pagination: {
         page,
         limit,
@@ -90,6 +112,20 @@ export async function POST(request: NextRequest) {
     const senderId = user.id;
     const senderRole = user.role;
 
+    // Determine scope from sender role
+    let scope = null;
+    let status = 'APPROVED';
+    if (user.role === 'DIRECTION_MATERNELLE') {
+      scope = 'MATERNELLE';
+      status = 'PENDING';
+    } else if (user.role === 'DIRECTION_PRIMAIRE') {
+      scope = 'PRIMAIRE';
+      status = 'PENDING';
+    } else if (user.role === 'DIRECTION_SECONDAIRE') {
+      scope = 'SECONDAIRE';
+      status = 'PENDING';
+    }
+
     const communication = await db.communication.create({
       data: {
         senderId,
@@ -102,8 +138,29 @@ export async function POST(request: NextRequest) {
         targetId: targetId || null,
         sentToApp: sentToApp !== undefined ? sentToApp : true,
         sentToWhatsapp: sentToWhatsapp !== undefined ? sentToWhatsapp : true,
+        status,
+        scope,
       },
     });
+
+    // Notify admin if pending
+    if (status === 'PENDING') {
+      const admins = await db.user.findMany({
+        where: { schoolId, role: { in: ['SUPER_ADMIN_GLOBAL', 'ADMIN'] } },
+      });
+      for (const admin of admins) {
+        await db.notification.create({
+          data: {
+            userId: admin.id,
+            schoolId,
+            type: 'COMMUNICATION_PENDING',
+            title: 'Communication en attente',
+            message: `${user.name} a créé une communication "${title}" qui nécessite votre approbation.`,
+            read: false,
+          },
+        });
+      }
+    }
 
     return NextResponse.json({ data: communication }, { status: 201 });
   } catch (error) {
