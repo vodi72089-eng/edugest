@@ -2496,7 +2496,7 @@ function WhatsAppConfigView() {
 }
 
 function MainContent() {
-  const { currentView, userRole, userData } = useEduGestStore()
+  const { currentView, userRole, userData, setCurrentView } = useEduGestStore()
 
   switch (currentView) {
     case 'dashboard': return <RoleDashboard />
@@ -3996,11 +3996,26 @@ function CommunicationsView() {
   const [content, setContent] = useState('')
   const [whatsapp, setWhatsapp] = useState(true)
   const [app, setApp] = useState(true)
-  const { userData } = useEduGestStore()
+  const [scope, setScope] = useState('')
+  const { userData, userRole } = useEduGestStore()
+  const [totalUsers, setTotalUsers] = useState(0)
+  const [expandedComm, setExpandedComm] = useState<string | null>(null)
+  const canCreate = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const isDirection = ['DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
 
   useEffect(() => {
-    authFetch(`/api/communications?limit=20${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => { setComms(j.data || []); setLoading(false) }).catch(() => setLoading(false))
-  }, [userData?.schoolId])
+    authFetch(`/api/communications?limit=20${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => {
+      const data = j.data || []
+      setComms(data)
+      setTotalUsers(j.totalUsers || 0)
+      setLoading(false)
+      if (userData?.id && !canCreate) {
+        data.forEach((c: CommunicationData) => {
+          authFetch(`/api/communications/${c.id}/read`, { method: 'POST' }).catch(() => {})
+        })
+      }
+    }).catch(() => setLoading(false))
+  }, [userData?.schoolId, userData?.id, canCreate])
 
   async function handleSend() {
     if (!title || !content) return toast.error('Titre et contenu requis')
@@ -4011,7 +4026,7 @@ function CommunicationsView() {
         body: JSON.stringify({
           senderId: userData?.id || 'demo', senderRole: userData?.role || 'SECRETARY',
           schoolId: userData?.schoolId || 'demo', type, title, content, targetType,
-          sentToApp: app, sentToWhatsapp: whatsapp,
+          sentToApp: app, sentToWhatsapp: whatsapp, scope: scope || undefined,
         }),
       })
       if (res.ok) {
@@ -4019,8 +4034,25 @@ function CommunicationsView() {
         setTitle(''); setContent('')
         const json = await (await authFetch(`/api/communications?limit=20${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)).json()
         setComms(json.data || [])
+        setTotalUsers(json.totalUsers || 0)
       }
     } catch { toast.error('Erreur lors de l\'envoi') }
+  }
+
+  async function handleApprove(id: string, action: 'approve' | 'reject') {
+    try {
+      const res = await authFetch(`/api/communications/${id}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      if (res.ok) {
+        toast.success(action === 'approve' ? 'Communication approuvée !' : 'Communication rejetée')
+        const json = await (await authFetch(`/api/communications?limit=20${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)).json()
+        setComms(json.data || [])
+        setTotalUsers(json.totalUsers || 0)
+      }
+    } catch { toast.error('Erreur') }
   }
 
   return (
@@ -4030,8 +4062,9 @@ function CommunicationsView() {
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Communications</h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-6">
+      <div className={`grid grid-cols-1 gap-6 ${canCreate ? 'lg:grid-cols-[1fr_1fr]' : ''}`}>
         {/* Compose */}
+        {canCreate && (
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
           <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Nouvelle communication</h3>
           <div className="space-y-3">
@@ -4049,6 +4082,14 @@ function CommunicationsView() {
                 <option value="CLASS">Classe</option>
               </select>
             </div>
+            {isDirection && (
+              <select value={scope} onChange={e => setScope(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                <option value="">Toutes les classes</option>
+                <option value="MATERNELLE">Maternelle</option>
+                <option value="PRIMAIRE">Primaire</option>
+                <option value="SECONDAIRE">Secondaire</option>
+              </select>
+            )}
             <input placeholder="Titre" value={title} onChange={e => setTitle(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" />
             <textarea placeholder="Contenu du message..." value={content} onChange={e => setContent(e.target.value)} rows={4} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)] resize-none" />
             <div className="flex items-center gap-4 text-sm" style={{ color: TEXT_PRIMARY }}>
@@ -4060,26 +4101,80 @@ function CommunicationsView() {
             </button>
           </div>
         </div>
+        )}
 
         {/* History */}
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
           <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Historique</h3>
-          <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar">
+          <div className="space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar">
             {loading ? <div className="text-center py-4" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> :
-              comms.map(c => (
-                <div key={c.id} className="p-3 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium text-sm" style={{ color: TEXT_PRIMARY }}>{c.title}</span>
-                    <span className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(c.sentAt)}</span>
+              comms.map(c => {
+                const readCount = c.reads?.length || 0
+                const readRate = totalUsers > 0 ? Math.round(readCount / totalUsers * 100) : 0
+                const isExpanded = expandedComm === c.id
+                return (
+                  <div key={c.id} className="p-3 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-sm" style={{ color: TEXT_PRIMARY }}>{c.title}</span>
+                      <span className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(c.sentAt)}</span>
+                    </div>
+                    <p className="text-xs line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{c.content}</p>
+                    <div className="flex items-center gap-2 mt-2 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
+                      <span className={`px-1.5 py-0.5 rounded ${c.type === 'ANNOUNCEMENT' ? 'bg-[oklch(95%_0.04_175)] text-edu-accent' : 'bg-[oklch(95%_0.005_175)]'}`}>{c.type}</span>
+                      {c.sentToWhatsapp && <span className="text-edu-success">WhatsApp</span>}
+                      {c.sentToApp && <span className="text-edu-info">App</span>}
+                      {c.status === 'PENDING' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[oklch(95%_0.04_25)] text-edu-warning">En attente</span>}
+                      {c.status === 'REJECTED' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[oklch(95%_0.02_25)] text-edu-danger">Rejetée</span>}
+                    </div>
+                    {canCreate && c.status === 'PENDING' && (
+                      <div className="flex gap-2 mt-2">
+                        <button onClick={() => handleApprove(c.id, 'approve')} className="text-[10px] px-2 py-1 rounded-lg bg-edu-success/10 text-edu-success hover:bg-edu-success/20">
+                          Approuver
+                        </button>
+                        <button onClick={() => handleApprove(c.id, 'reject')} className="text-[10px] px-2 py-1 rounded-lg bg-edu-danger/10 text-edu-danger hover:bg-edu-danger/20">
+                          Rejeter
+                        </button>
+                      </div>
+                    )}
+                    {/* Read stats - only for admin/direction roles */}
+                    {canCreate && (
+                    <div className="mt-2 pt-2 border-t border-[oklch(93%_0.01_175)]">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ background: readRate >= 80 ? SUCCESS : readRate >= 50 ? WARNING : DANGER }} />
+                          <span className="text-xs font-medium" style={{ color: TEXT_PRIMARY }}>{readCount}/{totalUsers} lu{readCount > 1 ? 's' : ''}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: readRate >= 80 ? `${SUCCESS}15` : readRate >= 50 ? `${WARNING}15` : `${DANGER}15`, color: readRate >= 80 ? SUCCESS : readRate >= 50 ? WARNING : DANGER }}>{readRate}%</span>
+                        </div>
+                        <button onClick={() => {
+                          const newExpanded = isExpanded ? null : c.id
+                          setExpandedComm(newExpanded)
+                        }} className="text-[10px] px-2 py-0.5 rounded-lg hover:bg-[oklch(95%_0.01_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>
+                          {isExpanded ? 'Masquer' : 'Détails'}
+                        </button>
+                      </div>
+                      {isExpanded && (
+                        <div className="mt-2 space-y-1">
+                          {c.reads && c.reads.length > 0 ? (
+                            c.reads.map(r => (
+                              <div key={r.id} className="flex items-center justify-between text-[11px] py-1 px-2 rounded-lg bg-[oklch(97%_0.005_175)]">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold" style={{ background: `${ACCENT}20`, color: ACCENT }}>{r.user?.name?.charAt(0) || '?'}</div>
+                                  <span style={{ color: TEXT_PRIMARY }}>{r.user?.name || 'Inconnu'}</span>
+                                  <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: `${INFO}15`, color: INFO }}>{r.user?.role}</span>
+                                </div>
+                                <span style={{ color: TEXT_MUTED_LUXE }}>{r.readAt ? new Date(r.readAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-[11px] py-2 text-center" style={{ color: TEXT_MUTED_LUXE }}>Aucune lecture pour le moment</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    )}
                   </div>
-                  <p className="text-xs line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{c.content}</p>
-                  <div className="flex items-center gap-2 mt-2 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
-                    <span className={`px-1.5 py-0.5 rounded ${c.type === 'ANNOUNCEMENT' ? 'bg-[oklch(95%_0.04_175)] text-edu-accent' : 'bg-[oklch(95%_0.005_175)]'}`}>{c.type}</span>
-                    {c.sentToWhatsapp && <span className="text-edu-success">WhatsApp</span>}
-                    {c.sentToApp && <span className="text-edu-info">App</span>}
-                  </div>
-                </div>
-              ))
+                )
+              })
             }
           </div>
         </div>
@@ -4648,7 +4743,7 @@ function ConvocationView() {
   const [motif, setMotif] = useState('')
   const [date, setDate] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [convocations, setConvocations] = useState<{ id: string; motif: string; date: string; status: string; student: { firstName: string; lastName: string; matricule: string } }[]>([])
+  const [convocations, setConvocations] = useState<{ id: string; motif: string; date: string; status: string; student: { firstName: string; lastName: string; matricule: string; photoUrl?: string | null } }[]>([])
   const [loadingConvocations, setLoadingConvocations] = useState(true)
 
   // Student search autocomplete
