@@ -4002,6 +4002,7 @@ function CommunicationsView() {
   const [expandedComm, setExpandedComm] = useState<string | null>(null)
   const canCreate = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
   const isDirection = ['DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const pendingCount = comms.filter(c => c.status === 'PENDING').length
 
   useEffect(() => {
     authFetch(`/api/communications?limit=20${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => {
@@ -4060,6 +4061,11 @@ function CommunicationsView() {
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Communications</h1>
+        {canCreate && pendingCount > 0 && (
+          <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-edu-warning/20 text-edu-warning">
+            {pendingCount} en attente
+          </span>
+        )}
       </div>
 
       <div className={`grid grid-cols-1 gap-6 ${canCreate ? 'lg:grid-cols-[1fr_1fr]' : ''}`}>
