@@ -59,6 +59,8 @@ export interface CommunicationData {
   id: string; type: string; title: string; content: string;
   targetType: string; sentToApp: boolean; sentToWhatsapp: boolean;
   sentAt: string; senderId: string; senderRole: string; schoolId: string;
+  status?: string; scope?: string; targetLevel?: string;
+  reads?: { id: string; userId: string; readAt: string; user?: { id: string; name: string; role: string } }[];
 }
 
 export interface HomeworkData {
