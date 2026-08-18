@@ -2061,6 +2061,7 @@ function Sidebar() {
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
       { icon: <AlertTriangle size={16} />, label: 'Dettes', view: 'debts' as ViewType },
       { icon: <BarChart3 size={16} />, label: 'Situation financière', view: 'payments' },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
     PARENT: [
@@ -2071,6 +2072,7 @@ function Sidebar() {
       { icon: <CheckCircle size={16} />, label: 'Vérifier reçu', view: 'payment-verification' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <Star size={16} />, label: 'Avis école', view: 'school-reviews' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
@@ -2079,12 +2081,14 @@ function Sidebar() {
       { icon: <School size={16} />, label: 'Mes Classes', view: 'classes' },
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
     HEAD_TEACHER: [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <School size={16} />, label: 'Ma Classe', view: 'classes' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
   }
@@ -2102,6 +2106,7 @@ function Sidebar() {
       { icon: <School size={16} />, label: 'Classes', view: 'classes' },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
       { icon: <Megaphone size={16} />, label: 'Convocation', view: 'convocation' },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ]
   }
@@ -2112,6 +2117,7 @@ function Sidebar() {
       { icon: <Ban size={16} />, label: 'Liste Noire', view: 'discipline' },
       { icon: <AlertTriangle size={16} />, label: 'Liste Grise', view: 'discipline' },
       { icon: <Heart size={16} />, label: 'Liste Blanche', view: 'discipline' },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ]
   }
@@ -2490,7 +2496,7 @@ function WhatsAppConfigView() {
 }
 
 function MainContent() {
-  const { currentView, userRole } = useEduGestStore()
+  const { currentView, userRole, userData } = useEduGestStore()
 
   switch (currentView) {
     case 'dashboard': return <RoleDashboard />
@@ -4011,7 +4017,7 @@ function CommunicationsView() {
       if (res.ok) {
         toast.success('Communication envoyée!')
         setTitle(''); setContent('')
-        const json = await (await authFetch('/api/communications?limit=20')).json()
+        const json = await (await authFetch(`/api/communications?limit=20${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)).json()
         setComms(json.data || [])
       }
     } catch { toast.error('Erreur lors de l\'envoi') }
@@ -4439,29 +4445,33 @@ function ClassPassingView() {
 function BulletinView() {
   const { userData, userRole } = useEduGestStore()
   const [grades, setGrades] = useState<GradeData[]>([])
+  const [classes, setClasses] = useState<ClassData[]>([])
   const [loading, setLoading] = useState(true)
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
   const [studentSearchLoading, setStudentSearchLoading] = useState(false)
   const [selectedTrimester, setSelectedTrimester] = useState('T1')
+  const [selectedClassId, setSelectedClassId] = useState<string>('all')
   const isParent = userRole === 'PARENT'
 
   useEffect(() => {
-    const params = new URLSearchParams({ limit: '50', trimester: selectedTrimester })
+    const params = new URLSearchParams({ limit: '200', trimester: selectedTrimester })
     if (isParent && userData?.id) {
       params.set('parentId', userData.id)
-      if (selectedStudentId) {
-        params.delete('parentId')
-        params.set('studentId', selectedStudentId)
-      }
+      if (selectedStudentId) { params.delete('parentId'); params.set('studentId', selectedStudentId) }
     } else {
       if (userData?.schoolId) params.set('schoolId', userData.schoolId)
     }
     authFetch(`/api/grades?${params}`).then(r => r.json()).then(j => { setGrades(j.data || []); setLoading(false) }).catch(() => setLoading(false))
   }, [selectedTrimester, userData?.schoolId, userData?.id, isParent, selectedStudentId])
 
-  // Student search autocomplete
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (userData?.schoolId) params.set('schoolId', userData.schoolId)
+    authFetch(`/api/classes?${params}`).then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
+  }, [userData?.schoolId])
+
   useEffect(() => {
     if (studentSearch.length < 2) return
     const timer = setTimeout(() => {
@@ -4479,23 +4489,50 @@ function BulletinView() {
     return () => { clearTimeout(timer); setStudentSearchLoading(false) }
   }, [studentSearch, userData?.schoolId])
 
-  // Group grades by student
-  const studentGrades = grades.reduce<Record<string, { student: GradeData['student']; grades: GradeData[] }>>((acc, g) => {
-    if (!acc[g.studentId]) acc[g.studentId] = { student: g.student, grades: [] }
-    acc[g.studentId].grades.push(g)
-    return acc
-  }, {})
+  const classMap = useMemo(() => Object.fromEntries(classes.map(c => [c.id, c])), [classes])
 
-  // Filter by selected student
-  const filteredStudentGrades = selectedStudentId
-    ? studentGrades[selectedStudentId]
-      ? { [selectedStudentId]: studentGrades[selectedStudentId] }
-      : {}
-    : studentSearch.length >= 2
-      ? Object.fromEntries(Object.entries(studentGrades).filter(([_, data]) =>
-          `${data.student?.firstName} ${data.student?.lastName}`.toLowerCase().includes(studentSearch.toLowerCase())
-        ))
-      : studentGrades
+  const studentGrades = useMemo(() => {
+    const map: Record<string, { student: GradeData['student']; grades: GradeData[]; classId: string }> = {}
+    for (const g of grades) {
+      if (!map[g.studentId]) map[g.studentId] = { student: g.student, grades: [], classId: g.classId }
+      map[g.studentId].grades.push(g)
+    }
+    return map
+  }, [grades])
+
+  const filtered = useMemo(() => {
+    let entries = Object.entries(studentGrades)
+    if (selectedStudentId) entries = entries.filter(([id]) => id === selectedStudentId)
+    else if (studentSearch.length >= 2) entries = entries.filter(([_, d]) => `${d.student?.firstName} ${d.student?.lastName}`.toLowerCase().includes(studentSearch.toLowerCase()))
+    if (selectedClassId !== 'all') entries = entries.filter(([_, d]) => d.classId === selectedClassId)
+    return entries
+  }, [studentGrades, selectedStudentId, studentSearch, selectedClassId])
+
+  const byClass = useMemo(() => {
+    const groups: Record<string, { classId: string; className: string; students: { id: string; student: GradeData['student']; grades: GradeData[]; avg: number }[] }> = {}
+    for (const [id, data] of filtered) {
+      const cid = data.classId
+      if (!groups[cid]) groups[cid] = { classId: cid, className: classMap[cid]?.name || 'Classe inconnue', students: [] }
+      const avg = data.grades.length > 0 ? data.grades.reduce((s, g) => s + g.score * (g.subject?.coefficient || 1), 0) / data.grades.reduce((s, g) => s + (g.subject?.coefficient || 1), 0) : 0
+      groups[cid].students.push({ id, student: data.student, grades: data.grades, avg })
+    }
+    for (const g of Object.values(groups)) g.students.sort((a, b) => b.avg - a.avg)
+    return Object.values(groups).sort((a, b) => a.className.localeCompare(b.className, 'fr'))
+  }, [filtered, classMap])
+
+  const totalStudents = byClass.reduce((s, c) => s + c.students.length, 0)
+
+  const handleDownload = async (id: string, lastName?: string) => {
+    try {
+      const res = await authFetch(`/api/bulletins/${id}?trimester=${selectedTrimester}${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
+      if (!res.ok) { toast.error('Erreur lors du téléchargement'); return }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = `bulletin-${lastName || 'eleve'}-${selectedTrimester}.pdf`
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
+      toast.success('Bulletin téléchargé !')
+    } catch { toast.error('Erreur réseau') }
+  }
 
   return (
     <div>
@@ -4505,11 +4542,15 @@ function BulletinView() {
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bulletins</h1>
           </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(Object.keys(filteredStudentGrades).length)} bulletins</p>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(totalStudents)} bulletin{totalStudents > 1 ? 's' : ''} · {byClass.length} classe{byClass.length > 1 ? 's' : ''}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <select value={selectedTrimester} onChange={e => { setSelectedTrimester(e.target.value); setLoading(true) }} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
             <option value="T1">Trimestre 1</option><option value="T2">Trimestre 2</option><option value="T3">Trimestre 3</option>
+          </select>
+          <select value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+            <option value="all">Toutes les classes</option>
+            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <SearchAutocomplete
             placeholder="Tapez le nom de l'élève..."
@@ -4521,51 +4562,71 @@ function BulletinView() {
             onSearchChange={setStudentSearch}
             loading={studentSearchLoading}
             itemTypeName="élève"
-            className="w-full max-w-sm"
+            className="w-full max-w-xs"
           />
         </div>
       </div>
-      {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : Object.keys(filteredStudentGrades).length === 0 ? (
+      {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : byClass.length === 0 ? (
         <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun bulletin trouvé</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Object.entries(filteredStudentGrades).slice(0, 12).map(([id, data]) => {
-            const avg = data.grades.length > 0 ? data.grades.reduce((s, g) => s + g.score * (g.subject?.coefficient || 1), 0) / data.grades.reduce((s, g) => s + (g.subject?.coefficient || 1), 0) : 0
+        <div className="space-y-6">
+          {byClass.map(group => {
+            const classAvg = group.students.length > 0 ? group.students.reduce((s, st) => s + st.avg, 0) / group.students.length : 0
+            const passCount = group.students.filter(st => st.avg >= 10).length
+            const passRate = group.students.length > 0 ? Math.round(passCount / group.students.length * 100) : 0
             return (
-              <div key={id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <div className="font-semibold" style={{ color: TEXT_PRIMARY }}>{data.student?.firstName} {data.student?.lastName}</div>
-                    <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{data.student?.matricule}</div>
+              <div key={group.classId} className="rounded-2xl border border-[oklch(90%_0.01_175)] bg-white shadow-sm overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-[oklch(93%_0.01_175)] flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${GOLD}15, ${ACCENT}15)` }}>
+                      <GraduationCap size={18} style={{ color: GOLD }} />
+                    </div>
+                    <div>
+                      <div className="font-bold" style={{ color: TEXT_PRIMARY }}>{group.className}</div>
+                      <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{group.students.length} élève{group.students.length > 1 ? 's' : ''}</div>
+                    </div>
                   </div>
-                  <div className="text-2xl font-bold" style={{ color: avg >= 10 ? GOLD : DANGER }}>{avg.toFixed(1)}</div>
+                  <div className="flex items-center gap-4 text-xs">
+                    <div className="text-center">
+                      <div className="font-bold text-sm" style={{ color: classAvg >= 10 ? GOLD : DANGER }}>{classAvg.toFixed(1)}%</div>
+                      <div style={{ color: TEXT_MUTED_LUXE }}>Moy. classe</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-bold text-sm" style={{ color: SUCCESS }}>{passRate}%</div>
+                      <div style={{ color: TEXT_MUTED_LUXE }}>Taux réussite</div>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-1.5 text-xs">
-                  {data.grades.slice(0, 5).map(g => (
-                    <div key={g.id} className="flex justify-between">
-                      <span style={{ color: TEXT_MUTED_LUXE }}>{g.subject?.name}</span>
-                      <span className="font-medium" style={{ color: g.score >= 10 ? GOLD : DANGER }}>{g.score.toFixed(1)}/20</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-5">
+                  {group.students.map((st, idx) => (
+                    <div key={st.id} className="rounded-xl border border-[oklch(92%_0.01_175)] p-4 hover:shadow-md transition-all" style={{ background: idx === 0 && st.avg >= 10 ? `linear-gradient(135deg, ${GOLD}06, ${GOLD}03)` : undefined }}>
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: idx === 0 && st.avg >= 10 ? `linear-gradient(135deg, ${GOLD}, ${ACCENT})` : '#f3f4f6', color: idx === 0 && st.avg >= 10 ? '#fff' : TEXT_MUTED_LUXE }}>
+                            {idx + 1}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>{st.student?.firstName} {st.student?.lastName}</div>
+                            <div className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>{st.student?.matricule}</div>
+                          </div>
+                        </div>
+                        <div className="text-xl font-bold" style={{ color: st.avg >= 10 ? GOLD : DANGER }}>{st.avg.toFixed(1)}%</div>
+                      </div>
+                      <div className="space-y-1 text-[11px] mb-3">
+                        {st.grades.slice(0, 4).map(g => (
+                          <div key={g.id} className="flex justify-between">
+                            <span style={{ color: TEXT_MUTED_LUXE }}>{g.subject?.name}</span>
+                            <span className="font-medium" style={{ color: g.score >= 10 ? GOLD : DANGER }}>{g.score.toFixed(1)}/20</span>
+                          </div>
+                        ))}
+                        {st.grades.length > 4 && <div className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>+{st.grades.length - 4} matière{st.grades.length - 4 > 1 ? 's' : ''}</div>}
+                      </div>
+                      <button onClick={() => handleDownload(st.id, st.student?.lastName)} className="w-full py-1.5 rounded-lg text-xs font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] hover:shadow-sm transition inline-flex items-center justify-center gap-1.5" style={{ color: TEXT_PRIMARY }}>
+                        <FileText size={12} /> Voir bulletin
+                      </button>
                     </div>
                   ))}
                 </div>
-                <button onClick={async () => {
-                  try {
-                    const res = await authFetch(`/api/bulletins/${id}?trimester=${selectedTrimester}${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
-                    if (!res.ok) { toast.error('Erreur lors du téléchargement'); return }
-                    const blob = await res.blob()
-                    const url = URL.createObjectURL(blob)
-                    const a = document.createElement('a')
-                    a.href = url
-                    a.download = `bulletin-${data.student?.lastName || 'eleve'}-${selectedTrimester}.pdf`
-                    document.body.appendChild(a)
-                    a.click()
-                    document.body.removeChild(a)
-                    URL.revokeObjectURL(url)
-                    toast.success('Bulletin téléchargé !')
-                  } catch { toast.error('Erreur réseau') }
-                }} className="mt-3 w-full py-1.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] hover:shadow-sm transition inline-flex items-center justify-center gap-1.5" style={{ color: TEXT_PRIMARY }}>
-                  <FileText size={14} /> Voir bulletin
-                </button>
               </div>
             )
           })}

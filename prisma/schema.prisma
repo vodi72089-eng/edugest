@@ -71,6 +71,7 @@ model User {
   school          School   @relation(fields: [schoolId], references: [id])
   students        Student[] @relation("ParentChildren")
   notifications   Notification[]
+  reads           CommunicationRead[]
 }
 
 model Student {
@@ -317,10 +318,26 @@ model Communication {
   targetId      String?
   sentToApp     Boolean  @default(true)
   sentToWhatsapp Boolean @default(true)
+  status        String   @default("APPROVED")
+  scope         String?
+  targetLevel   String?
   sentAt        DateTime @default(now())
   createdAt     DateTime @default(now())
 
   school        School   @relation(fields: [schoolId], references: [id])
+  reads         CommunicationRead[]
+}
+
+model CommunicationRead {
+  id              String   @id @default(cuid())
+  userId          String
+  communicationId String
+  readAt          DateTime @default(now())
+
+  communication   Communication @relation(fields: [communicationId], references: [id], onDelete: Cascade)
+  user            User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, communicationId])
 }
 
 model PaymentRecord {

@@ -459,6 +459,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'school:read',
     'students:read',
     'payments:read', 'payments:create', 'payments:update', 'payments:verify',
+    'communications:read', 'communications:create',
     'stats:read', 'profile:read', 'profile:update',
     'payment-gateways:manage', 'currency:manage', 'transactions:read',
   ],
@@ -498,18 +499,21 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'school:read', 'students:read',
     'discipline:read', 'discipline:create', 'discipline:update',
     'convocations:read', 'convocations:create', 'convocations:update',
+    'communications:read', 'communications:create',
     'profile:read', 'profile:update',
   ],
   DISCIPLINE_PRIMAIRE: [
     'school:read', 'students:read',
     'discipline:read', 'discipline:create', 'discipline:update',
     'convocations:read', 'convocations:create', 'convocations:update',
+    'communications:read', 'communications:create',
     'profile:read', 'profile:update',
   ],
   DISCIPLINE_SECONDAIRE: [
     'school:read', 'students:read',
     'discipline:read', 'discipline:create', 'discipline:update',
     'convocations:read', 'convocations:create', 'convocations:update',
+    'communications:read', 'communications:create',
     'profile:read', 'profile:update',
   ],
   HEAD_TEACHER: [
@@ -520,6 +524,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'discipline:read', 'discipline:create',
     'convocations:read', 'convocations:create',
     'homework:read', 'homework:create',
+    'communications:read', 'communications:create',
     'stats:read',
   ],
   TEACHER: [
@@ -528,14 +533,17 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'classes:read', 'subjects:read',
     'homework:read', 'homework:create',
     'discipline:read',
+    'communications:read', 'communications:create',
   ],
   PARENT: [
     'students:read', 'payments:read', 'grades:read', 'convocations:read', 'profile:read', 'profile:update',
+    'communications:read', 'communications:create',
   ],
   DISCIPLINE: [
     'students:read',
     'discipline:read', 'discipline:create', 'discipline:update',
     'convocations:read', 'convocations:create',
+    'communications:read', 'communications:create',
     'stats:read',
   ],
   SCHOOL_ADMIN: [
