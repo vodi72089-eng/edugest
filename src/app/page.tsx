@@ -2177,21 +2177,41 @@ function Sidebar() {
 
 // ===== TOPBAR =====
 function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; onToggleSidebar: () => void }) {
-  const { currentView, sidebarOpen, setSidebarOpen, setCurrentView, userData } = useEduGestStore()
+  const { currentView, sidebarOpen, setSidebarOpen, setCurrentView, userData, userRole } = useEduGestStore()
   const [notifications, setNotifications] = useState<any[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0)
+  const [pendingCommsCount, setPendingCommsCount] = useState(0)
   const [showNotifications, setShowNotifications] = useState(false)
+
+  const adminRoles = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'SECRETARY']
+  const showPendingComms = adminRoles.includes(userRole || '')
+
+  const totalUnread = unreadNotifCount + (showPendingComms ? pendingCommsCount : 0)
 
   useEffect(() => {
     if (!userData?.id) return;
     const load = () => authFetch('/api/notifications?limit=20').then(r => r.json()).then(j => {
       setNotifications(j.data || []);
-      setUnreadCount(j.unreadCount || 0);
+      setUnreadNotifCount(j.unreadCount || 0);
     }).catch(() => {});
     load();
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
   }, [userData?.id]);
+
+  useEffect(() => {
+    if (!userData?.id || !showPendingComms) return;
+    const loadComms = () => {
+      const schoolParam = userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''
+      authFetch(`/api/communications?limit=100${schoolParam}`).then(r => r.json()).then(j => {
+        const data = j.data || []
+        setPendingCommsCount(data.filter((c: any) => c.status === 'PENDING').length)
+      }).catch(() => {})
+    }
+    loadComms()
+    const interval = setInterval(loadComms, 30000)
+    return () => clearInterval(interval)
+  }, [userData?.id, userData?.schoolId, showPendingComms])
 
   const viewTitles: Record<string, string> = {
     dashboard: 'Dashboard', students: 'Élèves', classes: 'Classes', grades: 'Notes',
@@ -2224,6 +2244,17 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
         </div>
       </div>
       <div className="flex items-center gap-2">
+        <button
+          onClick={() => setShowNotifications(!showNotifications)}
+          className="relative p-2 rounded-lg hover:bg-white/60 transition"
+        >
+          <Bell size={18} style={{ color: TEXT_MUTED_LUXE }} />
+          {totalUnread > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-[oklch(60%_0.25_25)] text-white text-[10px] font-bold px-1 rounded-full">
+              {totalUnread > 99 ? '99+' : totalUnread}
+            </span>
+          )}
+        </button>
       </div>
     </header>
   )
