@@ -417,6 +417,11 @@ function buildReceiptPDF(
     { align: 'center' }
   );
 
+  // ── Embed payment ID as machine-readable text (for import verification) ──
+  doc.setFontSize(4);
+  doc.setTextColor(255, 255, 255);
+  doc.text(`EDUGEST-ID:${payment.id}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 4, { align: 'center' });
+
   return Buffer.from(doc.output('arraybuffer'));
 }
 

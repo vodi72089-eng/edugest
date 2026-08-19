@@ -72,6 +72,10 @@ model User {
   students        Student[] @relation("ParentChildren")
   notifications   Notification[]
   reads           CommunicationRead[]
+  gradeReads      GradeRead[]
+  homeworkReads   HomeworkRead[]
+  convocationReads ConvocationRead[]
+  teacherAssignments TeacherAssignment[]
 }
 
 model Student {
@@ -123,8 +127,23 @@ model Class {
   subjects      Subject[]
   homeworks     Homework[]
   schoolFees    SchoolFee[]
+  teacherAssignments TeacherAssignment[]
 
   @@unique([name, schoolYearId])
+}
+
+model TeacherAssignment {
+  id          String   @id @default(cuid())
+  teacherId   String
+  classId     String
+  subjectId   String
+  createdAt   DateTime @default(now())
+
+  teacher     User     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, classId, subjectId])
 }
 
 model SchoolFee {
@@ -193,6 +212,7 @@ model Subject {
   schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
   class        Class    @relation(fields: [classId], references: [id])
   grades       Grade[]
+  teacherAssignments TeacherAssignment[]
 
   @@unique([name, schoolYearId])
 }
@@ -213,8 +233,21 @@ model Grade {
   subject      Subject  @relation(fields: [subjectId], references: [id])
   class        Class    @relation(fields: [classId], references: [id])
   schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
+  reads        GradeRead[]
 
   @@unique([studentId, subjectId, trimester, schoolYearId])
+}
+
+model GradeRead {
+  id        String   @id @default(cuid())
+  userId    String
+  gradeId   String
+  readAt    DateTime @default(now())
+
+  grade     Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gradeId])
 }
 
 model DisciplineRecord {
@@ -292,18 +325,36 @@ model SchoolComment {
 }
 
 model Convocation {
-  id          String   @id @default(cuid())
-  studentId   String
-  parentId    String?
-  motif       String
-  date        DateTime
-  status      String   @default("PENDING")
-  schoolId    String
-  createdBy   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String   @id @default(cuid())
+  studentId       String
+  parentId        String?
+  motif           String
+  date            DateTime
+  status          String   @default("PENDING")
+  schoolId        String
+  createdBy       String?
+  parentResponse  String?  // PRESENT, ABSENT, CUSTOM
+  parentResponseMessage String? // Custom message from parent
+  parentResponseAt DateTime?
+  rescheduledTo   DateTime?
+  rescheduledBy   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  student     Student  @relation(fields: [studentId], references: [id])
+  student         Student  @relation(fields: [studentId], references: [id])
+  reads           ConvocationRead[]
+}
+
+model ConvocationRead {
+  id             String   @id @default(cuid())
+  userId         String
+  convocationId  String
+  readAt         DateTime @default(now())
+
+  convocation    Convocation @relation(fields: [convocationId], references: [id], onDelete: Cascade)
+  user           User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, convocationId])
 }
 
 model Communication {
@@ -372,12 +423,26 @@ model Homework {
   isTitulaire   Boolean  @default(false)  // Whether the teacher is titulaire
   dueDate       DateTime
   schoolId      String
+  attachmentUrl String?   // Optional file attachment (txt, word, pdf)
 
   school        School   @relation(fields: [schoolId], references: [id])
   class         Class    @relation(fields: [classId], references: [id])
   isPublished   Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  reads         HomeworkRead[]
+}
+
+model HomeworkRead {
+  id         String   @id @default(cuid())
+  userId     String
+  homeworkId String
+  readAt     DateTime @default(now())
+
+  homework   Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, homeworkId])
 }
 
 model ReportCard {
@@ -525,4 +590,18 @@ model PaymentTransaction {
   initiatedAt    DateTime @default(now())
   completedAt    DateTime?
   updatedAt      DateTime @updatedAt
+}
+
+model SettingsApproval {
+  id          String   @id @default(cuid())
+  schoolId    String
+  requestedBy String
+  changeType  String   // 'school_info', 'school_fee', 'currency'
+  changeData  String   // JSON string of proposed changes
+  currentData String?  // JSON string of current values before change
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

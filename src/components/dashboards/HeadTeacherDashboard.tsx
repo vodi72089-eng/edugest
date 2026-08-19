@@ -8,29 +8,45 @@ import StatCard from './StatCard'
 
 export default function HeadTeacherDashboard() {
   const { userData, setCurrentView } = useEduGestStore()
-  const [classInfo, setClassInfo] = useState<{ name: string; studentCount: number } | null>(null)
+  const [classInfo, setClassInfo] = useState<{ id: string; name: string; studentCount: number } | null>(null)
+  const [subjectName, setSubjectName] = useState<string>('--')
+  const [isTitulaire, setIsTitulaire] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     function fetchData() {
-      if (userData?.schoolId) {
-        authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`)
-          .then(r => r.json())
-          .then(j => {
-            const allClasses: { id: string; name: string; _count?: { students: number } }[] = j.data || []
-            const teacherClassNames = userData?.classNames
-            let myClass: { id: string; name: string; _count?: { students: number } } | undefined
-            if (teacherClassNames) {
-              const nameList = teacherClassNames.split(',').map(n => n.trim().toLowerCase())
-              myClass = allClasses.find(c => nameList.some(n => c.name.toLowerCase().includes(n) || n.includes(c.name.toLowerCase())))
-            }
+      if (userData?.schoolId && userData?.id) {
+        Promise.all([
+          authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`).then(r => r.json()),
+          authFetch(`/api/teacher-assignments?teacherId=${userData.id}`).then(r => r.json()),
+        ])
+          .then(([classesJson, assignmentsJson]) => {
+            const allClasses: { id: string; name: string; headTeacherId?: string | null; _count?: { students: number } }[] = classesJson.data || []
+            const assignments: { class?: { id: string; name: string }; subject?: { name: string } }[] = assignmentsJson.data || []
+
+            const myClass = allClasses.find(c => c.headTeacherId === userData.id)
             if (myClass) {
-              setClassInfo({ name: myClass.name, studentCount: myClass._count?.students || 0 })
-            } else if (allClasses.length > 0 && teacherClassNames) {
-              setClassInfo(null)
-            } else if (!teacherClassNames && allClasses.length > 0) {
-              setClassInfo(null)
+              setClassInfo({ id: myClass.id, name: myClass.name, studentCount: myClass._count?.students || 0 })
+              setIsTitulaire(true)
+            } else {
+              const teacherClassNames = userData?.classNames
+              if (teacherClassNames) {
+                const nameList = teacherClassNames.split(',').map(n => n.trim().toLowerCase())
+                const fallback = allClasses.find(c => nameList.some(n => c.name.toLowerCase().includes(n) || n.includes(c.name.toLowerCase())))
+                if (fallback) {
+                  setClassInfo({ id: fallback.id, name: fallback.name, studentCount: fallback._count?.students || 0 })
+                }
+              }
+              setIsTitulaire(false)
             }
+
+            const subjects = assignments.map(a => a.subject?.name).filter(Boolean)
+            if (userData?.subjectName) {
+              setSubjectName(userData.subjectName)
+            } else if (subjects.length > 0) {
+              setSubjectName(subjects.join(', '))
+            }
+
             setLoading(false)
           })
           .catch(() => setLoading(false))
@@ -41,7 +57,7 @@ export default function HeadTeacherDashboard() {
     fetchData()
     const interval = setInterval(fetchData, 30000)
     return () => clearInterval(interval)
-  }, [userData?.schoolId])
+  }, [userData?.schoolId, userData?.id])
 
   return (
     <div>
@@ -55,9 +71,9 @@ export default function HeadTeacherDashboard() {
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
-        <StatCard label="Élèves" value={String(classInfo?.studentCount || 0)} icon={<Users size={16} />} color={ACCENT} onClick={() => setCurrentView('students')} />
-        <StatCard label="Matière" value={userData?.subjectName || '—'} icon={<Target size={16} />} color={SUCCESS} onClick={() => setCurrentView('grades')} />
-        <StatCard label="Titulaire" value={userData?.isTitulaire ? 'Oui' : 'Non'} icon={<Award size={16} />} color={INFO} />
+        <StatCard label="Élèves" value={String(classInfo?.studentCount || 0)} icon={<Users size={16} />} color={ACCENT} onClick={() => setCurrentView('classes')} />
+        <StatCard label="Matière" value={subjectName} icon={<Target size={16} />} color={SUCCESS} />
+        <StatCard label="Titulaire" value={isTitulaire ? 'Oui' : 'Non'} icon={<Award size={16} />} color={INFO} />
       </div>
     </div>
   )

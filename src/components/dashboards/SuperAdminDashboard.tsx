@@ -35,7 +35,7 @@ interface AdminAnalytics {
 }
 
 export default function SuperAdminDashboard() {
-  const { userData, setCurrentView } = useEduGestStore()
+  const { userData, setCurrentView, userRole } = useEduGestStore()
   const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [cityFilter, setCityFilter] = useState('')
@@ -61,8 +61,8 @@ export default function SuperAdminDashboard() {
     }
   }, [userData?.schoolId])
 
-  // School-admin specific dashboard
-  if (userData?.schoolId) {
+  // School-admin specific dashboard (only for non-global roles with a school)
+  if (userData?.schoolId && userRole !== 'SUPER_ADMIN_GLOBAL') {
     const totalStudents = (schoolStats?.students as Record<string, number>)?.total || 0
     const totalClasses = (schoolStats?.classes as Record<string, unknown>)?.total as number || 0
     const classDist = (schoolStats?.classes as Record<string, unknown>)?.distribution as { name: string; _count: { students: number } }[] | undefined

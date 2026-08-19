@@ -131,6 +131,27 @@ export async function POST(request: NextRequest) {
       data: { classCount: { increment: 1 } },
     });
 
+    // Create in-app notifications for school admins
+    try {
+      const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
+      const schoolAdmins = await db.user.findMany({
+        where: { schoolId, role: { in: adminRoles }, id: { not: user.id } },
+        select: { id: true },
+      });
+      for (const admin of schoolAdmins) {
+        await db.notification.create({
+          data: {
+            type: 'CLASS_CREATED',
+            title: 'Nouvelle classe créée',
+            message: `Classe "${name}" - ${section || ''} ${level || ''} - Capacité: ${capacity || 40}`,
+            userId: admin.id,
+            schoolId,
+            relatedId: cls.id,
+          },
+        });
+      }
+    } catch { /* notification failed, non-critical */ }
+
     return NextResponse.json({ data: cls }, { status: 201 });
   } catch (error) {
     console.error('Error creating class:', error);

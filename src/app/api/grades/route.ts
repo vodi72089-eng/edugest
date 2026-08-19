@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       where.student = { parentId: user.id };
     }
 
-    const [grades, total] = await Promise.all([
+    const [grades, total, totalUsers] = await Promise.all([
       db.grade.findMany({
         where,
         skip: (page - 1) * limit,
@@ -55,13 +55,52 @@ export async function GET(request: NextRequest) {
           student: { select: { id: true, firstName: true, lastName: true, matricule: true, photoUrl: true } },
           subject: { select: { id: true, name: true, coefficient: true } },
           class: { select: { id: true, name: true } },
+          reads: {
+            include: { user: { select: { id: true, name: true, role: true } } },
+            orderBy: { readAt: 'desc' },
+          },
         },
       }),
       db.grade.count({ where }),
+      db.user.count({ where: { schoolId, isActive: true } }),
     ]);
+
+    // For PARENT role: auto-mark all grades as read
+    if (user.role === 'PARENT') {
+      try {
+        const gradeIds = grades.map(g => g.id);
+        if (gradeIds.length > 0) {
+          await Promise.all(
+            gradeIds.map(gradeId =>
+              db.gradeRead.upsert({
+                where: { userId_gradeId: { userId: user.id, gradeId } },
+                update: { readAt: new Date() },
+                create: { userId: user.id, gradeId },
+              })
+            )
+          );
+          // Update the reads array for each grade
+          grades.forEach(grade => {
+            const alreadyRead = grade.reads.some(r => r.userId === user.id);
+            if (!alreadyRead) {
+              grade.reads.push({
+                id: 'temp',
+                userId: user.id,
+                gradeId: grade.id,
+                readAt: new Date(),
+                user: { id: user.id, name: user.name, role: user.role },
+              });
+            }
+          });
+        }
+      } catch (readError) {
+        console.error('Error marking grades as read:', readError);
+      }
+    }
 
     return NextResponse.json({
       data: grades,
+      totalUsers,
       pagination: {
         page,
         limit,
@@ -214,6 +253,43 @@ export async function POST(request: NextRequest) {
         where: { id: studentId },
         select: { parentId: true, firstName: true, lastName: true, schoolId: true },
       });
+
+      // Create in-app notifications for school admins
+      if (student?.schoolId) {
+        const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
+        const schoolAdmins = await db.user.findMany({
+          where: { schoolId: student.schoolId, role: { in: adminRoles }, id: { not: user.id } },
+          select: { id: true },
+        });
+        for (const admin of schoolAdmins) {
+          await db.notification.create({
+            data: {
+              type: 'GRADE_CREATED',
+              title: 'Note enregistrée',
+              message: `${student.firstName} ${student.lastName} - ${grade.subject.name}: ${score}/20 - ${trimester}`,
+              userId: admin.id,
+              schoolId: student.schoolId,
+              relatedId: grade.id,
+            },
+          });
+        }
+      }
+
+      // Create in-app notification for parent
+      if (student?.parentId) {
+        await db.notification.create({
+          data: {
+            type: 'GRADE_CREATED',
+            title: 'Nouvelle note',
+            message: `${student.firstName} ${student.lastName} a obtenu ${score}/20 en ${grade.subject.name} - ${trimester}`,
+            userId: student.parentId,
+            schoolId: student.schoolId,
+            relatedId: grade.id,
+          },
+        });
+      }
+
+      // WhatsApp notification
       if (student?.parentId) {
         const parent = await db.user.findUnique({
           where: { id: student.parentId },

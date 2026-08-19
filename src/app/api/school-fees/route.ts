@@ -46,6 +46,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Tous les champs sont requis' }, { status: 400 });
     }
 
+    // Check for duplicate: same name + same class + same trimester
+    const existing = await db.schoolFee.findFirst({
+      where: { name, classId, trimester, schoolId, isActive: true }
+    });
+    if (existing) {
+      return NextResponse.json({ error: 'Ce frais existe déjà pour cette classe et ce trimestre' }, { status: 409 });
+    }
+
     const fee = await db.schoolFee.create({
       data: { name, amount: parseFloat(amount), trimester, classId, schoolId },
       include: { class: { select: { id: true, name: true } } },

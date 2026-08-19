@@ -1,28 +1,41 @@
-# Task 3 Report: Discipline Classifier
+# Task 3 Report: Create Approval API Endpoint
 
-**Status:** Complete
+## What Was Implemented
 
-## What was done
+Created `src/app/api/communications/[id]/approve/route.ts` — a POST endpoint that allows admins to approve or reject pending communications.
 
-Created `src/lib/discipline-classifier.ts` — the core rule-based classification module for the disciplinary auto-classification system.
+### Endpoint Behavior
+- **Route:** `POST /api/communications/[id]/approve`
+- **Auth:** Requires `communications:create` permission
+- **Role check:** Only `SUPER_ADMIN_GLOBAL` and `ADMIN` roles allowed
+- **Request body:** `{ action: 'approve' | 'reject' }`
+- **Updates:** Communication status to `APPROVED` or `REJECTED`
+- **Notification:** Creates a notification for the sender with result
 
-### Exports
+### Error Handling
+- 403 if user is not an admin role
+- 400 if action is not 'approve' or 'reject'
+- 404 if communication not found
+- 400 if communication status is not `PENDING`
+- 500 with sanitized error for unexpected failures
 
-- `extractKeywords(text)` — Extracts meaningful keywords from text, filtering stop words and deduplicating
-- `classifyStudent(studentId, schoolId)` — Main classification function returning BLACKLIST/GREYLIST/WHITELIST
-- `learnKeywordsFromRecord(recordId, title, description, schoolId)` — Learns new blacklist keywords from manually-set records
+## Files Changed
 
-### Classification rules (in priority order)
+- `src/app/api/communications/[id]/approve/route.ts` (new file, 57 lines)
 
-1. **WHITELIST** — Positive points detected
-2. **BLACKLIST** — CRITICAL severity sanctions
-3. **BLACKLIST** — Static critical keywords found in descriptions
-4. **BLACKLIST** — Learned keywords found in descriptions
-5. **BLACKLIST** — Points threshold reached (≤ -10)
-6. **BLACKLIST** — Repeated grave types (3+ VIOLENCE or TRICHERIE)
-7. **GREYLIST** — Negative points (moderate sanctions)
-8. **GREYLIST** — No sanctions (default)
+## Testing
 
-### TypeScript verification
+- TypeScript compilation: No errors in new file (pre-existing errors in other files only)
+- Import validation: All imports (`db`, `NextRequest`, `NextResponse`, `requirePermission`, `sanitizeError`) verified to exist
 
-Ran `npx tsc --noEmit` — no errors in `discipline-classifier.ts`.
+## Self-Review Findings
+
+1. **Corrected schema field:** Task brief used `read: false` for Notification, but Prisma schema uses `isRead`. Fixed to `isRead: false`.
+
+2. **Note on ADMIN role:** The `ADMIN` role is not defined in `ROLE_PERMISSIONS` in `src/lib/auth.ts:428`. This means only `SUPER_ADMIN_GLOBAL` will pass the `requirePermission` check. The explicit role check on line 15 serves as a safeguard but `ADMIN` users without wildcard permissions would be blocked earlier. This is consistent with the task brief specification.
+
+3. **No authorization bypass:** The endpoint correctly derives user identity from the session, not from request body, preventing identity spoofing.
+
+## Commit
+
+- `915a953` — `feat: add communications approve/reject API endpoint`

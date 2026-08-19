@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useEduGestStore, authFetch } from '@/lib/store'
 import type { DisciplineData, StudentData, UserRole } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT, DANGER, WARNING, SUCCESS, SUCCESS_SOFT } from '@/lib/constants'
@@ -11,10 +11,17 @@ import { toast } from 'sonner'
 import SearchAutocomplete from './SearchAutocomplete'
 
 export default function DisciplineView() {
-  const { userRole, userData } = useEduGestStore()
+  const { userRole, userData, highlightedId } = useEduGestStore()
+  const highlightedRef = useRef<HTMLTableRowElement>(null)
+  useEffect(() => {
+    if (highlightedId && highlightedRef.current) {
+      highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlightedId])
   const [records, setRecords] = useState<DisciplineData[]>([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'BLACKLIST' | 'GREYLIST' | 'WHITELIST'>('GREYLIST')
+  const { disciplineTab } = useEduGestStore()
+  const [tab, setTab] = useState<'BLACKLIST' | 'GREYLIST' | 'WHITELIST'>(disciplineTab || 'GREYLIST')
   const [selectedChildId, setSelectedChildId] = useState('')
   const [myChildren, setMyChildren] = useState<StudentData[]>([])
   const [childSearch, setChildSearch] = useState('')
@@ -25,6 +32,10 @@ export default function DisciplineView() {
   const disciplineRoles: UserRole[] = ['DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE']
   const isDisciplineRole = disciplineRoles.includes(userRole as UserRole)
   const [sectionStudents, setSectionStudents] = useState<StudentData[]>([])
+
+  useEffect(() => {
+    if (disciplineTab) setTab(disciplineTab)
+  }, [disciplineTab])
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [selectedStudentSearchId, setSelectedStudentSearchId] = useState<string | null>(null)
@@ -702,7 +713,7 @@ export default function DisciplineView() {
               ) : records.length === 0 ? (
                 <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun enregistrement</td></tr>
               ) : records.map(r => (
-                <tr key={r.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
+                <tr ref={highlightedId === r.id ? highlightedRef : undefined} key={r.id} className={`hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0 ${highlightedId === r.id ? 'edu-highlight' : ''}`}>
                   {!isParent && (
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">

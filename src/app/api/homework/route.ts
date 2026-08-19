@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       where.teacherId = user.id;
     }
 
-    const [homeworks, total] = await Promise.all([
+    const [homeworks, total, totalUsers] = await Promise.all([
       db.homework.findMany({
         where,
         skip: (page - 1) * limit,
@@ -69,13 +69,52 @@ export async function GET(request: NextRequest) {
         include: {
           school: { select: { id: true, name: true } },
           class: { select: { id: true, name: true } },
+          reads: {
+            include: { user: { select: { id: true, name: true, role: true } } },
+            orderBy: { readAt: 'desc' },
+          },
         },
       }),
       db.homework.count({ where }),
+      db.user.count({ where: { schoolId, isActive: true } }),
     ]);
+
+    // For PARENT role: auto-mark all homework as read
+    if (user.role === 'PARENT') {
+      try {
+        const homeworkIds = homeworks.map(h => h.id);
+        if (homeworkIds.length > 0) {
+          await Promise.all(
+            homeworkIds.map(homeworkId =>
+              db.homeworkRead.upsert({
+                where: { userId_homeworkId: { userId: user.id, homeworkId } },
+                update: { readAt: new Date() },
+                create: { userId: user.id, homeworkId },
+              })
+            )
+          );
+          // Update the reads array for each homework
+          homeworks.forEach(homework => {
+            const alreadyRead = homework.reads.some(r => r.userId === user.id);
+            if (!alreadyRead) {
+              homework.reads.push({
+                id: 'temp',
+                userId: user.id,
+                homeworkId: homework.id,
+                readAt: new Date(),
+                user: { id: user.id, name: user.name, role: user.role },
+              });
+            }
+          });
+        }
+      } catch (readError) {
+        console.error('Error marking homework as read:', readError);
+      }
+    }
 
     return NextResponse.json({
       data: homeworks,
+      totalUsers,
       pagination: {
         page,
         limit,
@@ -111,6 +150,7 @@ export async function POST(request: NextRequest) {
       dueDate,
       schoolId,
       isPublished,
+      attachmentUrl,
     } = body;
 
     if (!title || !subjectName || !classId || !dueDate || !schoolId) {
@@ -159,6 +199,7 @@ export async function POST(request: NextRequest) {
         dueDate: homeworkDueDate,
         schoolId,
         isPublished: isPublished !== undefined ? isPublished : true,
+        attachmentUrl: attachmentUrl || null,
       },
     });
 
@@ -174,12 +215,46 @@ export async function POST(request: NextRequest) {
         select: { name: true },
       });
 
+      // Create in-app notifications for school admins
+      const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
+      const schoolAdmins = await db.user.findMany({
+        where: { schoolId, role: { in: adminRoles }, id: { not: user.id } },
+        select: { id: true },
+      });
+      const className = await db.class.findUnique({ where: { id: classId }, select: { name: true } });
+      for (const admin of schoolAdmins) {
+        await db.notification.create({
+          data: {
+            type: 'HOMEWORK_ASSIGNED',
+            title: 'Nouveau devoir',
+            message: `${subjectName} - ${title} - ${className?.name || ''} - Échéance: ${homeworkDueDate.toLocaleDateString('fr-FR')}`,
+            userId: admin.id,
+            schoolId,
+            relatedId: homework.id,
+          },
+        });
+      }
+
       if (school) {
-        // Envoyer à chaque parent (évite les doublons)
+        // Notify each parent (in-app + WhatsApp)
         const notifiedParents = new Set<string>();
         for (const student of classStudents) {
           if (student.parentId && !notifiedParents.has(student.parentId)) {
             notifiedParents.add(student.parentId);
+
+            // In-app notification
+            await db.notification.create({
+              data: {
+                type: 'HOMEWORK_ASSIGNED',
+                title: 'Nouveau devoir',
+                message: `${student.firstName} ${student.lastName} - ${subjectName}: ${title} - Échéance: ${homeworkDueDate.toLocaleDateString('fr-FR')}`,
+                userId: student.parentId,
+                schoolId,
+                relatedId: homework.id,
+              },
+            });
+
+            // WhatsApp notification
             const parent = await db.user.findUnique({
               where: { id: student.parentId },
               select: { phone: true },

@@ -2021,9 +2021,9 @@ function LoginView() {
 
 // ===== SIDEBAR =====
 function Sidebar() {
-  const { userRole, userData, currentView, setCurrentView, logout, sidebarOpen, setSidebarOpen } = useEduGestStore()
+  const { userRole, userData, currentView, setCurrentView, logout, sidebarOpen, setSidebarOpen, setDisciplineTab } = useEduGestStore()
 
-  type MenuItem = { icon: React.ReactNode; label: string; view: ViewType; badge?: number }
+  type MenuItem = { icon: React.ReactNode; label: string; view: ViewType; badge?: number; tab?: 'BLACKLIST' | 'GREYLIST' | 'WHITELIST' }
   const menus: Record<string, MenuItem[]> = {
     SUPER_ADMIN_GLOBAL: [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
@@ -2048,8 +2048,8 @@ function Sidebar() {
     SECRETARY: [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
+      { icon: <BookOpen size={16} />, label: 'Classes', view: 'classes' as ViewType },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
-      { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
@@ -2068,6 +2068,7 @@ function Sidebar() {
       { icon: <Users size={16} />, label: 'Mes enfants', view: 'dashboard' },
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
+      { icon: <Megaphone size={16} />, label: 'Convocations', view: 'convocation' },
       { icon: <CreditCard size={16} />, label: 'Payer en ligne', view: 'online-payment' as ViewType },
       { icon: <CheckCircle size={16} />, label: 'Vérifier reçu', view: 'payment-verification' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
@@ -2084,13 +2085,14 @@ function Sidebar() {
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
-    HEAD_TEACHER: [
-      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
-      { icon: <School size={16} />, label: 'Ma Classe', view: 'classes' },
-      { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
-      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
-      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
-    ],
+HEAD_TEACHER: [
+  { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
+  { icon: <School size={16} />, label: 'Ma Classe', view: 'classes' },
+  { icon: <BookOpen size={16} />, label: 'Notes reçues', view: 'grades' },
+  { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
+  { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+  { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+],
   }
 
   // Direction roles
@@ -2104,7 +2106,7 @@ function Sidebar() {
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
       { icon: <School size={16} />, label: 'Classes', view: 'classes' },
-      { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
+      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
       { icon: <Megaphone size={16} />, label: 'Convocation', view: 'convocation' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
@@ -2114,9 +2116,9 @@ function Sidebar() {
   if (disciplineRoles.includes(userRole as UserRole)) {
     menuItems = [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
-      { icon: <Ban size={16} />, label: 'Liste Noire', view: 'discipline' },
-      { icon: <AlertTriangle size={16} />, label: 'Liste Grise', view: 'discipline' },
-      { icon: <Heart size={16} />, label: 'Liste Blanche', view: 'discipline' },
+      { icon: <Ban size={16} />, label: 'Liste Noire', view: 'discipline', tab: 'BLACKLIST' as const },
+      { icon: <AlertTriangle size={16} />, label: 'Liste Grise', view: 'discipline', tab: 'GREYLIST' as const },
+      { icon: <Heart size={16} />, label: 'Liste Blanche', view: 'discipline', tab: 'WHITELIST' as const },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ]
@@ -2138,7 +2140,7 @@ function Sidebar() {
             {menuItems.map(item => (
               <button
                 key={item.label}
-                onClick={() => { setCurrentView(item.view); setSidebarOpen(false) }}
+                onClick={() => { if (item.tab) setDisciplineTab(item.tab); setCurrentView(item.view); setSidebarOpen(false) }}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] font-medium transition relative ${
                   currentView === item.view
                     ? 'text-[oklch(72%_0.15_65)] font-semibold'
@@ -2175,18 +2177,73 @@ function Sidebar() {
   )
 }
 
+// ===== NOTIFICATION TYPE → VIEW MAPPING =====
+function notifTypeToView(type: string): ViewType {
+  const map: Record<string, ViewType> = {
+    COMMUNICATION_PENDING: 'communications',
+    COMMUNICATION_APPROVED: 'communications',
+    COMMUNICATION_REJECTED: 'communications',
+    PAYMENT_CREATED: 'payments',
+    PAYMENT_APPROVED: 'payments',
+    PAYMENT_REJECTED: 'payments',
+    GRADE_CREATED: 'grades',
+    GRADE_UPDATED: 'grades',
+    STUDENT_ENROLLED: 'students',
+    STUDENT_ENROLLED_PARENT: 'students',
+    DISCIPLINE_INCIDENT: 'discipline',
+    HOMEWORK_ASSIGNED: 'homework',
+    CLASS_CREATED: 'classes',
+    BULLETIN_UPDATED: 'bulletin',
+    CONVOCATION_RESPONSE: 'convocation',
+    CONVOCATION: 'convocation',
+    CONVOCATION_RESCHEDULED: 'convocation',
+    ANNOUNCEMENT: 'communications',
+    NOTIFICATION: 'communications',
+    EVENT: 'communications',
+    ALERT: 'communications',
+  }
+  return map[type] || 'dashboard'
+}
+
+// ===== ROLE-BASED VIEW ACCESS =====
+const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
+  PARENT: ['dashboard', 'grades', 'bulletin', 'online-payment', 'payment-verification', 'discipline', 'homework', 'communications', 'school-reviews', 'profile', 'convocation'],
+  TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'communications', 'profile'],
+  HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'bulletin', 'communications', 'profile'],
+  SECRETARY: ['dashboard', 'students', 'classes', 'communications', 'payment-verification', 'class-passing', 'settings', 'profile'],
+  CASHIER: ['dashboard', 'payments', 'payment-verification', 'debts', 'communications', 'profile'],
+  DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'profile'],
+  DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'profile'],
+  DIRECTION_SECONDAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'profile'],
+  DISCIPLINE_MATERNELLE: ['dashboard', 'discipline', 'communications', 'profile'],
+  DISCIPLINE_PRIMAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
+  DISCIPLINE_SECONDAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
+  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'payment-config', 'pricing', 'discipline', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'settings', 'profile'],
+}
+
+function canAccessView(role: string | null, view: ViewType): boolean {
+  if (!role) return false
+  const allowed = VIEWS_BY_ROLE[role]
+  if (!allowed) return false
+  return allowed.includes(view)
+}
+
 // ===== TOPBAR =====
 function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; onToggleSidebar: () => void }) {
-  const { currentView, sidebarOpen, setSidebarOpen, setCurrentView, userData, userRole } = useEduGestStore()
+  const { currentView, sidebarOpen, setSidebarOpen, setCurrentView, userData, userRole, setHighlightedId } = useEduGestStore()
   const [notifications, setNotifications] = useState<any[]>([])
   const [unreadNotifCount, setUnreadNotifCount] = useState(0)
   const [pendingCommsCount, setPendingCommsCount] = useState(0)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [notifCycleIndex, setNotifCycleIndex] = useState(0)
+  const notifPanelRef = useRef<HTMLDivElement>(null)
 
   const adminRoles = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'SECRETARY']
   const showPendingComms = adminRoles.includes(userRole || '')
 
   const totalUnread = unreadNotifCount + (showPendingComms ? pendingCommsCount : 0)
+
+  const unreadNotifications = notifications.filter(n => !n.isRead)
 
   useEffect(() => {
     if (!userData?.id) return;
@@ -2212,6 +2269,77 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     const interval = setInterval(loadComms, 30000)
     return () => clearInterval(interval)
   }, [userData?.id, userData?.schoolId, showPendingComms])
+
+  useEffect(() => {
+    if (!showNotifications) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notifPanelRef.current && !notifPanelRef.current.contains(e.target as Node)) {
+        setShowNotifications(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showNotifications])
+
+  const markAsRead = async (notifId: string) => {
+    await authFetch('/api/notifications', { method: 'PATCH', body: JSON.stringify({ notificationId: notifId }) })
+    setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, isRead: true } : n))
+    setUnreadNotifCount(prev => Math.max(0, prev - 1))
+  }
+
+  const handleBellClick = () => {
+    if (unreadNotifications.length === 0) {
+      setShowNotifications(!showNotifications)
+      return
+    }
+    const notif = unreadNotifications[notifCycleIndex % unreadNotifications.length]
+    let targetView = notifTypeToView(notif.type)
+    if (!canAccessView(userRole, targetView)) targetView = 'dashboard'
+    setHighlightedId(notif.relatedId || null)
+    setCurrentView(targetView)
+    markAsRead(notif.id)
+    setNotifCycleIndex(prev => (prev + 1) % unreadNotifications.length)
+    setTimeout(() => setHighlightedId(null), 5000)
+  }
+
+  const handleNotifItemClick = (notif: any) => {
+    let targetView = notifTypeToView(notif.type)
+    if (!canAccessView(userRole, targetView)) targetView = 'dashboard'
+    setHighlightedId(notif.relatedId || null)
+    setCurrentView(targetView)
+    setShowNotifications(false)
+    if (!notif.isRead) markAsRead(notif.id)
+    setTimeout(() => setHighlightedId(null), 5000)
+  }
+
+  const notifIcon = (type: string) => {
+    if (type.includes('COMMUNICATION')) return <MessageSquare size={14} />
+    if (type.includes('PAYMENT')) return <DollarSign size={14} />
+    if (type.includes('GRADE') || type.includes('BULLETIN')) return <FileText size={14} />
+    if (type.includes('STUDENT')) return <GraduationCap size={14} />
+    if (type.includes('DISCIPLINE')) return <Shield size={14} />
+    if (type.includes('HOMEWORK')) return <FileText size={14} />
+    if (type.includes('CLASS')) return <Users size={14} />
+    return <Bell size={14} />
+  }
+
+  const notifIconBg = (type: string) => {
+    if (type.includes('COMMUNICATION')) return { bg: `linear-gradient(135deg, ${ACCENT}, ${ACCENT2})`, color: '#fff' }
+    if (type.includes('PAYMENT')) return { bg: `linear-gradient(135deg, ${GOLD}, ${GOLD_SOFT})`, color: '#fff' }
+    if (type.includes('APPROVED')) return { bg: `linear-gradient(135deg, ${SUCCESS}, ${ACCENT})`, color: '#fff' }
+    if (type.includes('REJECTED')) return { bg: `linear-gradient(135deg, ${DANGER}, ${WARNING})`, color: '#fff' }
+    return { bg: IVORY, color: TEXT_PRIMARY }
+  }
+
+  const timeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return "à l'instant"
+    if (mins < 60) return `${mins}min`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}h`
+    return `${Math.floor(hrs / 24)}j`
+  }
 
   const viewTitles: Record<string, string> = {
     dashboard: 'Dashboard', students: 'Élèves', classes: 'Classes', grades: 'Notes',
@@ -2243,18 +2371,81 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
           <div className="text-xs hidden sm:block" style={{ color: TEXT_MUTED_LUXE }}>EduGest · {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 relative" ref={notifPanelRef}>
         <button
-          onClick={() => setShowNotifications(!showNotifications)}
+          onClick={handleBellClick}
           className="relative p-2 rounded-lg hover:bg-white/60 transition"
+          title={unreadNotifications.length > 0 ? 'Cliquez pour voir la prochaine notification' : 'Notifications'}
         >
           <Bell size={18} style={{ color: TEXT_MUTED_LUXE }} />
           {totalUnread > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-[oklch(60%_0.25_25)] text-white text-[10px] font-bold px-1 rounded-full">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-[oklch(60%_0.25_25)] text-white text-[10px] font-bold px-1 rounded-full animate-pulse">
               {totalUnread > 99 ? '99+' : totalUnread}
             </span>
           )}
         </button>
+
+        {showNotifications && (
+          <div className="absolute right-0 top-full mt-2 w-[360px] max-h-[480px] rounded-2xl shadow-2xl border overflow-hidden" style={{ background: '#fff', borderColor: `oklch(88% 0.01 175)` }}>
+            <div className="px-4 py-3 flex items-center justify-between border-b" style={{ borderColor: `oklch(88% 0.01 175)` }}>
+              <div className="flex items-center gap-2">
+                <Bell size={15} style={{ color: TEXT_PRIMARY }} />
+                <span className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>Notifications</span>
+                {unreadNotifications.length > 0 && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: ACCENT, color: '#fff' }}>{unreadNotifications.length}</span>
+                )}
+              </div>
+              {unreadNotifications.length > 0 && (
+                <button
+                  onClick={async () => {
+                    await authFetch('/api/notifications', { method: 'PATCH', body: JSON.stringify({ notificationId: 'all' }) }).catch(() => {})
+                    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+                    setUnreadNotifCount(0)
+                  }}
+                  className="text-[11px] font-medium hover:underline"
+                  style={{ color: ACCENT }}
+                >Tout lire</button>
+              )}
+            </div>
+            <div className="overflow-y-auto" style={{ maxHeight: '420px' }}>
+              {notifications.length === 0 ? (
+                <div className="px-4 py-8 text-center" style={{ color: TEXT_MUTED_LUXE }}>
+                  <Bell size={24} className="mx-auto mb-2 opacity-30" />
+                  <div className="text-sm">Aucune notification</div>
+                </div>
+              ) : (
+                notifications.map((notif) => {
+                  const iconStyle = notifIconBg(notif.type)
+                  return (
+                    <button
+                      key={notif.id}
+                      onClick={() => handleNotifItemClick(notif)}
+                      className="w-full text-left px-4 py-3 flex gap-3 hover:bg-[oklch(97%_0.005_175)] transition border-b"
+                      style={{ borderColor: `oklch(92% 0.005 250)`, opacity: notif.isRead ? 0.6 : 1 }}
+                    >
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: iconStyle.bg, color: iconStyle.color }}>
+                        {notifIcon(notif.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] font-semibold truncate" style={{ color: TEXT_PRIMARY }}>{notif.title}</span>
+                          {!notif.isRead && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: ACCENT }} />}
+                        </div>
+                        <div className="text-[11px] leading-snug mt-0.5 line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{notif.message}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>{timeAgo(notif.createdAt)}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium" style={{ background: IVORY, color: TEXT_MUTED_LUXE }}>
+                            {viewTitles[notifTypeToView(notif.type)] || notif.type}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </header>
   )
@@ -2639,7 +2830,7 @@ function ClassesView() {
   const [loading, setLoading] = useState(true)
   const [classSearch, setClassSearch] = useState('')
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
-  const { userData, userRole } = useEduGestStore()
+  const { userData, userRole, highlightedId } = useEduGestStore()
   const [showAddClass, setShowAddClass] = useState(false)
   const [newClassName, setNewClassName] = useState('')
   const [newClassSection, setNewClassSection] = useState('PRIMAIRE')
@@ -2652,9 +2843,25 @@ function ClassesView() {
   const [classStudents, setClassStudents] = useState<StudentData[]>([])
   const [loadingStudents, setLoadingStudents] = useState(false)
   const canManage = userRole === 'SUPER_ADMIN_GLOBAL' || (userRole && userRole.startsWith('DIRECTION'))
+  const highlightedRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (highlightedId && highlightedRef.current) {
+      highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlightedId])
 
   useEffect(() => {
-    authFetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => { setClasses(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+    authFetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => {
+      let allClasses: ClassData[] = j.data || []
+      if (userRole === 'HEAD_TEACHER' && userData?.id) {
+        allClasses = allClasses.filter(c => (c as any).headTeacherId === userData.id)
+        if (allClasses.length === 1) {
+          setSelectedClassId(allClasses[0].id)
+          handleViewClass(allClasses[0].id, allClasses[0].name)
+        }
+      }
+      setClasses(allClasses); setLoading(false)
+    }).catch(() => setLoading(false))
   }, [userData?.schoolId])
 
   // Class search autocomplete - computed from local data
@@ -2761,7 +2968,7 @@ function ClassesView() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredClasses.map(c => (
-            <div key={c.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift cursor-pointer" onClick={() => handleViewClass(c.id, c.name)}>
+            <div ref={highlightedId === c.id ? highlightedRef : undefined} key={c.id} className={`bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift cursor-pointer ${highlightedId === c.id ? 'edu-highlight' : ''}`} onClick={() => handleViewClass(c.id, c.name)}>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{c.name}</h3>
                 <div className="flex items-center gap-2">
@@ -3544,7 +3751,6 @@ function PaymentVerificationView() {
     setSearching(true)
     setSearchResult(null)
     try {
-      // Search in children's payments
       if (userData?.id) {
         const childrenRes = await authFetch(`/api/students?parentId=${userData.id}&limit=20`)
         const childrenJson = await childrenRes.json()
@@ -3555,10 +3761,18 @@ function PaymentVerificationView() {
           const pRes = await authFetch(`/api/payments?studentId=${child.id}&limit=50`)
           const pJson = await pRes.json()
           const childPayments: PaymentData[] = pJson.data || []
+          const q = receiptSearch.trim().toLowerCase()
+          const qNoHyphens = q.replace(/-/g, '')
           const match = childPayments.find(p =>
-            (p.receiptNumber && p.receiptNumber.toLowerCase() === receiptSearch.trim().toLowerCase()) ||
-            (p.referenceNumber && p.referenceNumber.toLowerCase() === receiptSearch.trim().toLowerCase()) ||
-            p.id.slice(-8).toLowerCase() === receiptSearch.trim().toLowerCase()
+            (p.receiptNumber && p.receiptNumber.toLowerCase() === q) ||
+            (p.referenceNumber && p.referenceNumber.toLowerCase() === q) ||
+            p.id.toLowerCase() === q ||
+            p.id.toLowerCase().replace(/-/g, '') === qNoHyphens ||
+            p.id.slice(-8).toLowerCase() === q.slice(-8) ||
+            q.includes(p.id.toLowerCase()) || q.includes(p.id.slice(-8).toLowerCase()) ||
+            p.id.toLowerCase().includes(q) || p.id.slice(-8).toLowerCase().includes(q) ||
+            (p.receiptNumber && (q.includes(p.receiptNumber.toLowerCase()) || p.receiptNumber.toLowerCase().includes(q))) ||
+            (p.referenceNumber && (q.includes(p.referenceNumber.toLowerCase()) || p.referenceNumber.toLowerCase().includes(q)))
           )
           if (match) { found = match; break }
         }
@@ -3759,10 +3973,21 @@ function PaymentVerificationView() {
     setStaffSearching(true)
     setStaffSearchResult(null)
     try {
+      const q = staffReceiptSearch.trim().toLowerCase()
+      // Try direct API search first for ID-like queries
+      const isIdQuery = /^[a-z0-9]{20,}$/i.test(q.replace(/-/g, ''))
+      if (isIdQuery) {
+        try {
+          const verifyRes = await authFetch(`/api/payments/verify-receipt?id=${encodeURIComponent(staffReceiptSearch.trim())}&schoolId=${userData?.schoolId || ''}`)
+          if (verifyRes.ok) {
+            const verifyJson = await verifyRes.json()
+            if (verifyJson.data) { setStaffSearchResult(verifyJson.data); return }
+          }
+        } catch { /* fall through to local search */ }
+      }
       const res = await authFetch(`/api/payments?schoolId=${userData?.schoolId}&limit=500`)
       const json = await res.json()
       const allPayments: PaymentData[] = json.data || []
-      const q = staffReceiptSearch.trim().toLowerCase()
       const qNoHyphens = q.replace(/-/g, '')
       const match = allPayments.find(p => {
         if (p.receiptNumber && p.receiptNumber.toLowerCase() === q) return true
@@ -3771,8 +3996,9 @@ function PaymentVerificationView() {
         if (p.id.toLowerCase().replace(/-/g, '') === qNoHyphens) return true
         if (p.id.slice(-8).toLowerCase() === q.slice(-8)) return true
         if (q.includes(p.id.toLowerCase()) || q.includes(p.id.slice(-8).toLowerCase())) return true
-        if (p.receiptNumber && q.includes(p.receiptNumber.toLowerCase())) return true
-        if (p.referenceNumber && q.includes(p.referenceNumber.toLowerCase())) return true
+        if (p.id.toLowerCase().includes(q) || p.id.slice(-8).toLowerCase().includes(q)) return true
+        if (p.receiptNumber && (q.includes(p.receiptNumber.toLowerCase()) || p.receiptNumber.toLowerCase().includes(q))) return true
+        if (p.referenceNumber && (q.includes(p.referenceNumber.toLowerCase()) || p.referenceNumber.toLowerCase().includes(q))) return true
         return false
       })
       setStaffSearchResult(match || null)
@@ -3792,38 +4018,66 @@ function PaymentVerificationView() {
       if (!file) return
       setScanning(true)
       const rawName = file.name.replace(/\.[^.]+$/, '')
-      const cleanedName = rawName.replace(/^recu[-_]?/i, '').replace(/^receipt[-_]?/i, '').replace(/^facture[-_]?/i, '')
-      setStaffReceiptSearch(cleanedName)
-      toast.success('Fichier importé. Recherche du reçu...')
-      setTimeout(() => {
-        setScanning(false)
+      // Try to read embedded EDUGEST-ID from PDF
+      const reader = new FileReader()
+      reader.onload = async () => {
+        try {
+          const bytes = new Uint8Array(reader.result as ArrayBuffer)
+          const text = new TextDecoder('latin1').decode(bytes)
+          const idMatch = text.match(/EDUGEST-ID:([a-z0-9-]+)/i)
+          if (idMatch) {
+            const paymentId = idMatch[1]
+            setStaffReceiptSearch(paymentId)
+            toast.success('ID extrait du fichier. Recherche...')
+            // Search directly by ID
+            try {
+              const verifyRes = await authFetch(`/api/payments/verify-receipt?id=${encodeURIComponent(paymentId)}&schoolId=${userData?.schoolId || ''}`)
+              if (verifyRes.ok) {
+                const verifyJson = await verifyRes.json()
+                if (verifyJson.data) {
+                  setStaffSearchResult(verifyJson.data)
+                  setScanning(false)
+                  return
+                }
+              }
+            } catch { /* fall through */ }
+          }
+        } catch { /* ignore parse errors */ }
+        // Fallback: use filename-based search
+        const cleanedName = rawName.replace(/^recu[-_]?/i, '').replace(/^receipt[-_]?/i, '').replace(/^facture[-_]?/i, '')
         setStaffReceiptSearch(cleanedName)
-        setStaffSearching(true)
-        authFetch(`/api/payments?schoolId=${userData?.schoolId}&limit=500`)
-          .then(r => r.json())
-          .then(json => {
-            const allPayments: PaymentData[] = json.data || []
-            const searchLower = cleanedName.toLowerCase()
-            const rawLower = rawName.toLowerCase()
-            const searchNoHyphens = searchLower.replace(/-/g, '')
-            const match = allPayments.find(p => {
-              if (p.receiptNumber && (p.receiptNumber.toLowerCase() === searchLower || p.receiptNumber.toLowerCase() === rawLower)) return true
-              if (p.referenceNumber && (p.referenceNumber.toLowerCase() === searchLower || p.referenceNumber.toLowerCase() === rawLower)) return true
-              if (p.id.toLowerCase() === rawLower || p.id.toLowerCase() === searchLower) return true
-              if (p.id.toLowerCase().replace(/-/g, '') === searchNoHyphens) return true
-              if (p.id.slice(-8).toLowerCase() === searchLower.slice(-8) || p.id.slice(-8).toLowerCase() === rawLower.slice(-8)) return true
-              if (rawLower.includes(p.id.toLowerCase()) || rawLower.includes(p.id.slice(-8).toLowerCase())) return true
-              if (searchLower.includes(p.id.toLowerCase()) || searchLower.includes(p.id.slice(-8).toLowerCase())) return true
-              if (p.receiptNumber && (rawLower.includes(p.receiptNumber.toLowerCase()) || searchLower.includes(p.receiptNumber.toLowerCase()))) return true
-              if (p.referenceNumber && (rawLower.includes(p.referenceNumber.toLowerCase()) || searchLower.includes(p.referenceNumber.toLowerCase()))) return true
-              return false
+        toast.success('Fichier importé. Recherche du reçu...')
+        setTimeout(() => {
+          setScanning(false)
+          setStaffReceiptSearch(cleanedName)
+          setStaffSearching(true)
+          authFetch(`/api/payments?schoolId=${userData?.schoolId}&limit=500`)
+            .then(r => r.json())
+            .then(json => {
+              const allPayments: PaymentData[] = json.data || []
+              const searchLower = cleanedName.toLowerCase()
+              const rawLower = rawName.toLowerCase()
+              const searchNoHyphens = searchLower.replace(/-/g, '')
+              const match = allPayments.find(p => {
+                if (p.receiptNumber && (p.receiptNumber.toLowerCase() === searchLower || p.receiptNumber.toLowerCase() === rawLower)) return true
+                if (p.referenceNumber && (p.referenceNumber.toLowerCase() === searchLower || p.referenceNumber.toLowerCase() === rawLower)) return true
+                if (p.id.toLowerCase() === rawLower || p.id.toLowerCase() === searchLower) return true
+                if (p.id.toLowerCase().replace(/-/g, '') === searchNoHyphens) return true
+                if (p.id.slice(-8).toLowerCase() === searchLower.slice(-8) || p.id.slice(-8).toLowerCase() === rawLower.slice(-8)) return true
+                if (rawLower.includes(p.id.toLowerCase()) || rawLower.includes(p.id.slice(-8).toLowerCase())) return true
+                if (searchLower.includes(p.id.toLowerCase()) || searchLower.includes(p.id.slice(-8).toLowerCase())) return true
+                if (p.receiptNumber && (rawLower.includes(p.receiptNumber.toLowerCase()) || searchLower.includes(p.receiptNumber.toLowerCase()))) return true
+                if (p.referenceNumber && (rawLower.includes(p.referenceNumber.toLowerCase()) || searchLower.includes(p.referenceNumber.toLowerCase()))) return true
+                return false
+              })
+              setStaffSearchResult(match || null)
+              if (!match) toast.error('Aucun reçu trouvé pour ce fichier')
             })
-            setStaffSearchResult(match || null)
-            if (!match) toast.error('Aucun reçu trouvé pour ce fichier')
-          })
-          .catch(() => toast.error('Erreur lors de la recherche'))
-          .finally(() => setStaffSearching(false))
-      }, 500)
+            .catch(() => toast.error('Erreur lors de la recherche'))
+            .finally(() => setStaffSearching(false))
+        }, 500)
+      }
+      reader.readAsArrayBuffer(file)
     }
     input.click()
   }
@@ -4028,12 +4282,19 @@ function CommunicationsView() {
   const [whatsapp, setWhatsapp] = useState(true)
   const [app, setApp] = useState(true)
   const [scope, setScope] = useState('')
-  const { userData, userRole } = useEduGestStore()
+  const { userData, userRole, highlightedId } = useEduGestStore()
   const [totalUsers, setTotalUsers] = useState(0)
   const [expandedComm, setExpandedComm] = useState<string | null>(null)
   const canCreate = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const canSeeStats = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
   const isDirection = ['DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
   const pendingCount = comms.filter(c => c.status === 'PENDING').length
+  const highlightedRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (highlightedId && highlightedRef.current) {
+      highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlightedId])
 
   useEffect(() => {
     authFetch(`/api/communications?limit=20${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => {
@@ -4113,10 +4374,19 @@ function CommunicationsView() {
                 <option value="ALERT">Alerte</option>
               </select>
               <select value={targetType} onChange={e => setTargetType(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                <option value="ALL">Tout le monde</option>
-                <option value="PARENTS">Parents</option>
-                <option value="STAFF">Personnel</option>
-                <option value="CLASS">Classe</option>
+                {isDirection ? (
+                  <>
+                    <option value="PARENTS">Parents</option>
+                    <option value="CLASS">Classe</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="ALL">Tout le monde</option>
+                    <option value="PARENTS">Parents</option>
+                    <option value="STAFF">Personnel</option>
+                    <option value="CLASS">Classe</option>
+                  </>
+                )}
               </select>
             </div>
             {isDirection && (
@@ -4150,7 +4420,7 @@ function CommunicationsView() {
                 const readRate = totalUsers > 0 ? Math.round(readCount / totalUsers * 100) : 0
                 const isExpanded = expandedComm === c.id
                 return (
-                  <div key={c.id} className="p-3 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition">
+                  <div ref={highlightedId === c.id ? highlightedRef : undefined} key={c.id} className={`p-3 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition ${highlightedId === c.id ? 'edu-highlight' : ''}`}>
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-medium text-sm" style={{ color: TEXT_PRIMARY }}>{c.title}</span>
                       <span className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(c.sentAt)}</span>
@@ -4174,7 +4444,7 @@ function CommunicationsView() {
                       </div>
                     )}
                     {/* Read stats - only for admin/direction roles */}
-                    {canCreate && (
+                    {canSeeStats && (
                     <div className="mt-2 pt-2 border-t border-[oklch(93%_0.01_175)]">
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">
@@ -4222,11 +4492,15 @@ function CommunicationsView() {
 
 // ===== HOMEWORK VIEW =====
 function HomeworkView() {
-  const { userData, userRole } = useEduGestStore()
+  const { userData, userRole, highlightedId } = useEduGestStore()
   const [homework, setHomework] = useState<HomeworkData[]>([])
   const [loading, setLoading] = useState(true)
   const isTeacher = userRole === 'TEACHER' || userRole === 'HEAD_TEACHER'
   const isParent = userRole === 'PARENT'
+  const canCreate = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const canSeeStats = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const [totalUsers, setTotalUsers] = useState(0)
+  const [expandedHomework, setExpandedHomework] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [hwTitle, setHwTitle] = useState('')
   const [hwDesc, setHwDesc] = useState('')
@@ -4235,29 +4509,77 @@ function HomeworkView() {
   const [hwDueDate, setHwDueDate] = useState('')
   const [classes, setClasses] = useState<{ id: string; name: string; level?: string }[]>([])
   const [submitting, setSubmitting] = useState(false)
-
-  // Auto-fill subject from teacher's profile
+  const [hwAttachment, setHwAttachment] = useState<File | null>(null)
+  const [hwAttachmentUploading, setHwAttachmentUploading] = useState(false)
+  const [hwAttachmentUrl, setHwAttachmentUrl] = useState<string | null>(null)
+  const [teacherAssignments, setTeacherAssignments] = useState<{ classId: string; subjectId: string; class: { name: string }; subject: { name: string } }[]>([])
+  const highlightedRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (isTeacher && userData?.subjectName) {
-      setTimeout(() => setHwSubject(userData.subjectName || ''), 0)
+    if (highlightedId && highlightedRef.current) {
+      highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
-  }, [isTeacher, userData])
+  }, [highlightedId])
+
+  // Auto-fill subject from teacher's assignments
+  useEffect(() => {
+    if (isTeacher && userData?.id) {
+      authFetch(`/api/teacher-assignments?teacherId=${userData.id}`).then(r => r.json()).then(j => {
+        const assignments = j.data || []
+        setTeacherAssignments(assignments)
+        if (assignments.length === 1 && !hwSubject) {
+          setHwSubject(assignments[0].subject.name)
+        }
+        if (assignments.length > 0 && !hwClassId) {
+          setHwClassId(assignments[0].classId)
+        }
+      }).catch(() => {})
+    }
+  }, [isTeacher, userData?.id])
 
   useEffect(() => {
     if (isParent && userData?.id) {
-      authFetch(`/api/homework?parentId=${userData.id}&limit=30`).then(r => r.json()).then(j => { setHomework(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+      authFetch(`/api/homework?parentId=${userData.id}&limit=30`).then(r => r.json()).then(j => { setHomework(j.data || []); setTotalUsers(j.totalUsers || 0); setLoading(false) }).catch(() => setLoading(false))
     } else if (userData?.schoolId) {
-      authFetch(`/api/homework?schoolId=${userData.schoolId}&limit=30`).then(r => r.json()).then(j => { setHomework(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+      authFetch(`/api/homework?schoolId=${userData.schoolId}&limit=30`).then(r => r.json()).then(j => { setHomework(j.data || []); setTotalUsers(j.totalUsers || 0); setLoading(false) }).catch(() => setLoading(false))
     } else {
-      authFetch('/api/homework?limit=30').then(r => r.json()).then(j => { setHomework(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+      authFetch('/api/homework?limit=30').then(r => r.json()).then(j => { setHomework(j.data || []); setTotalUsers(j.totalUsers || 0); setLoading(false) }).catch(() => setLoading(false))
     }
   }, [isParent, userData?.id, userData?.schoolId])
 
   useEffect(() => {
     if (isTeacher && userData?.schoolId) {
-      authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
+      authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`).then(r => r.json()).then(j => {
+        const allClasses = j.data || []
+        if (teacherAssignments.length > 0) {
+          const assignedClassIds = [...new Set(teacherAssignments.map(a => a.classId))]
+          setClasses(allClasses.filter(c => assignedClassIds.includes(c.id)))
+        } else {
+          setClasses(allClasses)
+        }
+      }).catch(() => {})
     }
-  }, [isTeacher, userData?.schoolId])
+  }, [isTeacher, userData?.schoolId, teacherAssignments])
+
+  async function handleHomeworkFileUpload(file: File) {
+    const allowed = ['text/plain', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+    if (!allowed.includes(file.type)) { toast.error('Format non supporté. Utilisez TXT, PDF ou Word.'); return }
+    if (file.size > 10 * 1024 * 1024) { toast.error('Fichier trop volumineux (max 10 Mo)'); return }
+    setHwAttachmentUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('category', 'homework')
+      const res = await authFetch('/api/upload', { method: 'POST', body: formData })
+      if (res.ok) {
+        const j = await res.json()
+        setHwAttachmentUrl(j.url || j.data?.url || null)
+        toast.success('Fichier joint avec succès')
+      } else {
+        toast.error('Erreur lors de l\'upload')
+      }
+    } catch { toast.error('Erreur réseau lors de l\'upload') }
+    finally { setHwAttachmentUploading(false) }
+  }
 
   async function handleAddHomework() {
     if (!hwTitle || !hwSubject || !hwClassId || !hwDueDate || !userData?.schoolId) {
@@ -4279,6 +4601,7 @@ function HomeworkView() {
           isTitulaire: userData?.isTitulaire || false,
           dueDate: hwDueDate,
           schoolId: userData.schoolId,
+          attachmentUrl: hwAttachmentUrl || null,
         }),
       })
       if (res.ok) {
@@ -4356,6 +4679,18 @@ function HomeworkView() {
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Description</label>
               <textarea value={hwDesc} onChange={e => setHwDesc(e.target.value)} rows={3} placeholder="Instructions pour le devoir..." className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" />
             </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Fichier joint (optionnel)</label>
+              <div className="flex items-center gap-3">
+                <label className="flex-1 flex items-center gap-2 px-3 py-2.5 border border-dashed border-[oklch(90%_0.01_175)] rounded-xl text-sm cursor-pointer hover:border-[oklch(72%_0.15_65)] transition" style={{ color: TEXT_MUTED_LUXE }}>
+                  <Upload size={14} />
+                  {hwAttachment ? hwAttachment.name : 'Choisir un fichier (TXT, PDF, Word)'}
+                  <input type="file" accept=".txt,.pdf,.doc,.docx" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { setHwAttachment(f); handleHomeworkFileUpload(f) } }} />
+                </label>
+                {hwAttachmentUploading && <div className="h-4 w-4 border-2 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" />}
+                {hwAttachmentUrl && !hwAttachmentUploading && <Check size={14} style={{ color: SUCCESS }} />}
+              </div>
+            </div>
           </div>
           <div className="flex gap-3 mt-4">
             <button onClick={handleAddHomework} disabled={submitting || !hwTitle || !hwSubject || !hwClassId || !hwDueDate} className="edu-gold-cta px-6 py-2.5 rounded-xl font-semibold text-sm inline-flex items-center gap-2 disabled:opacity-50">
@@ -4374,45 +4709,89 @@ function HomeworkView() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {homework.map(h => (
-            <div key={h.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift">
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>{h.title}</h3>
-                <span className="text-xs px-2 py-1 rounded-full shrink-0" style={{ color: GOLD, background: GOLD_SOFT }}>{h.subjectName}</span>
-              </div>
-              <p className="text-sm mb-3 line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{h.description}</p>
-              <div className="flex items-center justify-between text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1" style={{ color: GOLD }}><Calendar size={12} /> Échéance: {formatDate(h.dueDate)}</span>
-                  {h.class?.name && <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium" style={{ background: IVORY, color: TEXT_MUTED_LUXE }}>{h.class.name}</span>}
+          {homework.map(h => {
+            const reads = h.reads || []
+            const readCount = reads.length
+            const readPercentage = totalUsers > 0 ? Math.round((readCount / totalUsers) * 100) : 0
+            const isExpanded = expandedHomework === h.id
+            return (
+              <div ref={highlightedId === h.id ? highlightedRef : undefined} key={h.id} className={`bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift ${highlightedId === h.id ? 'edu-highlight' : ''}`}>
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>{h.title}</h3>
+                  <span className="text-xs px-2 py-1 rounded-full shrink-0" style={{ color: GOLD, background: GOLD_SOFT }}>{h.subjectName}</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{h.teacherName}</span>
-                  {h.isTitulaire && (
-                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: GOLD_SOFT, color: GOLD }}>Titulaire</span>
-                  )}
-                </div>
-              </div>
-              {/* For parents: show course + teacher + titulaire prominently */}
-              {isParent && (
-                <div className="mt-3 pt-3 border-t border-[oklch(90%_0.01_175)]">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>
-                      <BookOpen size={10} /> {h.subjectName}
-                    </span>
-                    <span className="text-[11px] font-medium" style={{ color: TEXT_PRIMARY }}>
-                      Par {h.teacherName}
-                    </span>
+                <p className="text-sm mb-3 line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{h.description}</p>
+                {(h as any).attachmentUrl && (
+                  <a href={(h as any).attachmentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium mb-3 px-2.5 py-1.5 rounded-lg transition hover:opacity-80" style={{ background: `${ACCENT}15`, color: ACCENT }}>
+                    <FileText size={12} /> Voir la pièce jointe
+                  </a>
+                )}
+                <div className="flex items-center justify-between text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1" style={{ color: GOLD }}><Calendar size={12} /> Échéance: {formatDate(h.dueDate)}</span>
+                    {h.class?.name && <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium" style={{ background: IVORY, color: TEXT_MUTED_LUXE }}>{h.class.name}</span>}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{h.teacherName}</span>
                     {h.isTitulaire && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold" style={{ background: 'oklch(94% 0.05 145)', color: SUCCESS }}>
-                        <Award size={10} /> Titulaire
-                      </span>
+                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: GOLD_SOFT, color: GOLD }}>Titulaire</span>
                     )}
                   </div>
                 </div>
-              )}
-            </div>
-          ))}
+                {/* For parents: show course + teacher + titulaire prominently */}
+                {isParent && (
+                  <div className="mt-3 pt-3 border-t border-[oklch(90%_0.01_175)]">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>
+                        <BookOpen size={10} /> {h.subjectName}
+                      </span>
+                      <span className="text-[11px] font-medium" style={{ color: TEXT_PRIMARY }}>
+                        Par {h.teacherName}
+                      </span>
+                      {h.isTitulaire && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold" style={{ background: 'oklch(94% 0.05 145)', color: SUCCESS }}>
+                          <Award size={10} /> Titulaire
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {/* Read stats - only for admin/direction roles */}
+                {canSeeStats && (
+                  <div className="mt-3 pt-3 border-t border-[oklch(90%_0.01_175)]">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ background: readPercentage >= 80 ? SUCCESS : readPercentage >= 50 ? WARNING : DANGER }} />
+                        <span className="text-xs font-medium" style={{ color: TEXT_PRIMARY }}>{readCount}/{totalUsers} lu</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: readPercentage >= 80 ? `${SUCCESS}15` : readPercentage >= 50 ? `${WARNING}15` : `${DANGER}15`, color: readPercentage >= 80 ? SUCCESS : readPercentage >= 50 ? WARNING : DANGER }}>{readPercentage}%</span>
+                      </div>
+                      <button onClick={() => setExpandedHomework(isExpanded ? null : h.id)} className="text-[10px] px-2 py-0.5 rounded-lg hover:bg-[oklch(95%_0.01_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>
+                        {isExpanded ? 'Masquer' : 'Détails'}
+                      </button>
+                    </div>
+                    {isExpanded && (
+                      <div className="mt-2 space-y-1">
+                        {reads.length > 0 ? (
+                          reads.map(r => (
+                            <div key={r.id} className="flex items-center justify-between text-[11px] py-1 px-2 rounded-lg bg-[oklch(97%_0.005_175)]">
+                              <div className="flex items-center gap-2">
+                                <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold" style={{ background: `${ACCENT}20`, color: ACCENT }}>{r.user?.name?.charAt(0) || '?'}</div>
+                                <span style={{ color: TEXT_PRIMARY }}>{r.user?.name || 'Inconnu'}</span>
+                                <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: `${INFO}15`, color: INFO }}>{r.user?.role}</span>
+                              </div>
+                              <span style={{ color: TEXT_MUTED_LUXE }}>{r.readAt ? new Date(r.readAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-[11px] py-2 text-center" style={{ color: TEXT_MUTED_LUXE }}>Aucune lecture pour le moment</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -4575,7 +4954,7 @@ function ClassPassingView() {
 
 // ===== BULLETIN VIEW =====
 function BulletinView() {
-  const { userData, userRole } = useEduGestStore()
+  const { userData, userRole, highlightedId } = useEduGestStore()
   const [grades, setGrades] = useState<GradeData[]>([])
   const [classes, setClasses] = useState<ClassData[]>([])
   const [loading, setLoading] = useState(true)
@@ -4586,6 +4965,12 @@ function BulletinView() {
   const [selectedTrimester, setSelectedTrimester] = useState('T1')
   const [selectedClassId, setSelectedClassId] = useState<string>('all')
   const isParent = userRole === 'PARENT'
+  const highlightedRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (highlightedId && highlightedRef.current) {
+      highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlightedId])
 
   useEffect(() => {
     const params = new URLSearchParams({ limit: '200', trimester: selectedTrimester })
@@ -4731,7 +5116,7 @@ function BulletinView() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-5">
                   {group.students.map((st, idx) => (
-                    <div key={st.id} className="rounded-xl border border-[oklch(92%_0.01_175)] p-4 hover:shadow-md transition-all" style={{ background: idx === 0 && st.avg >= 10 ? `linear-gradient(135deg, ${GOLD}06, ${GOLD}03)` : undefined }}>
+                    <div ref={highlightedId === st.id ? highlightedRef : undefined} key={st.id} className={`rounded-xl border border-[oklch(92%_0.01_175)] p-4 hover:shadow-md transition-all ${highlightedId === st.id ? 'edu-highlight' : ''}`} style={{ background: idx === 0 && st.avg >= 10 ? `linear-gradient(135deg, ${GOLD}06, ${GOLD}03)` : undefined }}>
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: idx === 0 && st.avg >= 10 ? `linear-gradient(135deg, ${GOLD}, ${ACCENT})` : '#f3f4f6', color: idx === 0 && st.avg >= 10 ? '#fff' : TEXT_MUTED_LUXE }}>
@@ -4770,9 +5155,9 @@ function BulletinView() {
 
 // ===== CONVOCATION VIEW =====
 function ConvocationView() {
-  const { userData, userRole } = useEduGestStore()
-  const allowedRoles = ['SUPER_ADMIN_GLOBAL', 'ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE']
-  const canAccess = allowedRoles.includes(userRole || '')
+  const { userData, userRole, highlightedId } = useEduGestStore()
+  const isParent = userRole === 'PARENT'
+  const canCreate = ['SUPER_ADMIN_GLOBAL', 'ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE'].includes(userRole || '')
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
@@ -4780,8 +5165,23 @@ function ConvocationView() {
   const [motif, setMotif] = useState('')
   const [date, setDate] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [convocations, setConvocations] = useState<{ id: string; motif: string; date: string; status: string; student: { firstName: string; lastName: string; matricule: string; photoUrl?: string | null } }[]>([])
+  const [convocations, setConvocations] = useState<any[]>([])
   const [loadingConvocations, setLoadingConvocations] = useState(true)
+  const [totalUsers, setTotalUsers] = useState(0)
+  const [expandedConvocation, setExpandedConvocation] = useState<string | null>(null)
+  const [responseModal, setResponseModal] = useState<{ convocationId: string; motif: string } | null>(null)
+  const [responseType, setResponseType] = useState<'PRESENT' | 'ABSENT' | 'CUSTOM'>('PRESENT')
+  const [responseMessage, setResponseMessage] = useState('')
+  const [responding, setResponding] = useState(false)
+  const [rescheduleModal, setRescheduleModal] = useState<{ convocationId: string; currentDate: string } | null>(null)
+  const [rescheduleDate, setRescheduleDate] = useState('')
+  const [rescheduling, setRescheduling] = useState(false)
+  const highlightedRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (highlightedId && highlightedRef.current) {
+      highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlightedId])
 
   // Student search autocomplete
   useEffect(() => {
@@ -4806,13 +5206,17 @@ function ConvocationView() {
     if (userData?.schoolId) {
       authFetch(`/api/convocations?schoolId=${userData.schoolId}&limit=30`)
         .then(r => r.json())
-        .then(j => { setConvocations(j.data || []); setLoadingConvocations(false) })
+        .then(j => { setConvocations(j.data || []); setTotalUsers(j.totalUsers || 0); setLoadingConvocations(false) })
+        .catch(() => setLoadingConvocations(false))
+    } else if (isParent && userData?.id) {
+      authFetch(`/api/convocations?limit=30`)
+        .then(r => r.json())
+        .then(j => { setConvocations(j.data || []); setTotalUsers(j.totalUsers || 0); setLoadingConvocations(false) })
         .catch(() => setLoadingConvocations(false))
     } else {
-      // eslint-disable-next-line react-hooks/purity
       queueMicrotask(() => setLoadingConvocations(false))
     }
-  }, [userData?.schoolId])
+  }, [userData?.schoolId, isParent, userData?.id])
 
   async function handleSendConvocation() {
     if (!selectedStudentId) { toast.error('Veuillez sélectionner un élève'); return }
@@ -4821,7 +5225,6 @@ function ConvocationView() {
     if (!userData?.schoolId) { toast.error('Erreur: école non trouvée'); return }
     setSubmitting(true)
     try {
-      // Look up student to get parentId
       let parentId = null
       try {
         const studentRes = await authFetch(`/api/students/${selectedStudentId}`)
@@ -4847,10 +5250,10 @@ function ConvocationView() {
         setDate('')
         setSelectedStudentId(null)
         setStudentSearch('')
-        // Refresh convocations list
         const listRes = await authFetch(`/api/convocations?schoolId=${userData.schoolId}&limit=30`)
         const listJson = await listRes.json()
         setConvocations(listJson.data || [])
+        setTotalUsers(listJson.totalUsers || 0)
       } else {
         const json = await res.json()
         toast.error(json.error || 'Erreur lors de l\'envoi')
@@ -4861,68 +5264,283 @@ function ConvocationView() {
     setSubmitting(false)
   }
 
+  async function handleRespond(convocationId: string) {
+    setResponding(true)
+    try {
+      const res = await authFetch(`/api/convocations/${convocationId}/respond`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ response: responseType, message: responseType === 'CUSTOM' ? responseMessage : undefined }),
+      })
+      if (res.ok) {
+        toast.success('Réponse enregistrée !')
+        setResponseModal(null)
+        setResponseMessage('')
+        // Refresh convocations
+        const listRes = await authFetch(`/api/convocations?limit=30`)
+        const listJson = await listRes.json()
+        setConvocations(listJson.data || [])
+      } else {
+        const json = await res.json()
+        toast.error(json.error || 'Erreur lors de la réponse')
+      }
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setResponding(false)
+  }
+
+  async function handleReschedule(convocationId: string) {
+    if (!rescheduleDate) { toast.error('Veuillez sélectionner une date'); return }
+    setRescheduling(true)
+    try {
+      const res = await authFetch(`/api/convocations/${convocationId}/reschedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newDate: rescheduleDate }),
+      })
+      if (res.ok) {
+        toast.success('Convocation reportée !')
+        setRescheduleModal(null)
+        setRescheduleDate('')
+        const listRes = await authFetch(`/api/convocations?schoolId=${userData?.schoolId}&limit=30`)
+        const listJson = await listRes.json()
+        setConvocations(listJson.data || [])
+      } else {
+        const json = await res.json()
+        toast.error(json.error || 'Erreur lors du report')
+      }
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setRescheduling(false)
+  }
+
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Convocations</h1>
       </div>
-      {!canAccess ? (
+
+      {/* Response Modal */}
+      {responseModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Répondre à la convocation</h3>
+            <p className="text-sm mb-4" style={{ color: TEXT_MUTED_LUXE }}>{responseModal.motif}</p>
+            <div className="space-y-2 mb-4">
+              <button onClick={() => setResponseType('PRESENT')} className={`w-full p-3 rounded-xl border text-left text-sm font-medium transition ${responseType === 'PRESENT' ? 'border-edu-success bg-edu-success/10 text-edu-success' : 'border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]'}`} style={{ color: responseType === 'PRESENT' ? undefined : TEXT_PRIMARY }}>
+                <CheckCircle size={16} className="inline mr-2" /> Présent
+              </button>
+              <button onClick={() => setResponseType('ABSENT')} className={`w-full p-3 rounded-xl border text-left text-sm font-medium transition ${responseType === 'ABSENT' ? 'border-edu-danger bg-edu-danger/10 text-edu-danger' : 'border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]'}`} style={{ color: responseType === 'ABSENT' ? undefined : TEXT_PRIMARY }}>
+                <X size={16} className="inline mr-2" /> Absent
+              </button>
+              <button onClick={() => setResponseType('CUSTOM')} className={`w-full p-3 rounded-xl border text-left text-sm font-medium transition ${responseType === 'CUSTOM' ? 'border-edu-info bg-edu-info/10 text-edu-info' : 'border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]'}`} style={{ color: responseType === 'CUSTOM' ? undefined : TEXT_PRIMARY }}>
+                <MessageCircle size={16} className="inline mr-2" /> Autre réponse
+              </button>
+            </div>
+            {responseType === 'CUSTOM' && (
+              <textarea value={responseMessage} onChange={e => setResponseMessage(e.target.value)} placeholder="Votre message..." rows={3} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none mb-4" />
+            )}
+            <div className="flex gap-3">
+              <button onClick={() => handleRespond(responseModal.convocationId)} disabled={responding || (responseType === 'CUSTOM' && !responseMessage.trim())} className="flex-1 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: GOLD, color: '#fff' }}>
+                {responding ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send size={14} />} Envoyer
+              </button>
+              <button onClick={() => { setResponseModal(null); setResponseMessage('') }} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {rescheduleModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Reporter la convocation</h3>
+            <div className="mb-4">
+              <label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Nouvelle date</label>
+              <input type="date" value={rescheduleDate} onChange={e => setRescheduleDate(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => handleReschedule(rescheduleModal.convocationId)} disabled={rescheduling || !rescheduleDate} className="flex-1 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: GOLD, color: '#fff' }}>
+                {rescheduling ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Calendar size={14} />} Reporter
+              </button>
+              <button onClick={() => { setRescheduleModal(null); setRescheduleDate('') }} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isParent ? (
+        /* Parent View */
+        <div className="space-y-4">
+          {loadingConvocations ? (
+            <div className="text-center py-8 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div>
+          ) : convocations.length === 0 ? (
+            <div className="text-center py-12 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl">
+              <Megaphone size={32} className="mx-auto mb-3 opacity-30" style={{ color: TEXT_MUTED_LUXE }} />
+              <p className="font-medium" style={{ color: TEXT_PRIMARY }}>Aucune convocation</p>
+            </div>
+          ) : (
+            convocations.map(c => {
+              const reads = c.reads || []
+              const hasResponded = !!c.parentResponse
+              const isRescheduled = !!c.rescheduledTo
+              return (
+                <div ref={highlightedId === c.id ? highlightedRef : undefined} key={c.id} className={`bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm ${highlightedId === c.id ? 'edu-highlight' : ''}`}>
+                  <div className="flex items-start gap-4">
+                    <StudentAvatar firstName={c.student.firstName} lastName={c.student.lastName} photoUrl={c.student.photoUrl} size={48} className="text-white font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${WARNING}, ${GOLD})` }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>{c.student.firstName} {c.student.lastName}</h3>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: `${INFO}15`, color: INFO }}>{c.student.matricule}</span>
+                      </div>
+                      <p className="text-sm mb-2" style={{ color: TEXT_MUTED_LUXE }}>{c.motif}</p>
+                      <div className="flex items-center gap-3 text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                        <span className="flex items-center gap-1"><Calendar size={12} /> {formatDate(isRescheduled ? c.rescheduledTo : c.date)}</span>
+                        {isRescheduled && <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: `${WARNING}15`, color: WARNING }}>Reportée</span>}
+                      </div>
+                      {hasResponded && (
+                        <div className="mt-3 p-3 rounded-xl" style={{ background: c.parentResponse === 'PRESENT' ? 'rgba(34,197,94,0.1)' : c.parentResponse === 'ABSENT' ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)' }}>
+                          <div className="flex items-center gap-2 text-sm font-medium" style={{ color: c.parentResponse === 'PRESENT' ? SUCCESS : c.parentResponse === 'ABSENT' ? DANGER : INFO }}>
+                            {c.parentResponse === 'PRESENT' ? <CheckCircle size={14} /> : c.parentResponse === 'ABSENT' ? <X size={14} /> : <MessageCircle size={14} />}
+                            {c.parentResponse === 'PRESENT' ? 'Présent confirmé' : c.parentResponse === 'ABSENT' ? 'Absent signalé' : 'Autre réponse'}
+                          </div>
+                          {c.parentResponseMessage && <p className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>{c.parentResponseMessage}</p>}
+                        </div>
+                      )}
+                      {!hasResponded && (
+                        <button onClick={() => setResponseModal({ convocationId: c.id, motif: c.motif })} className="mt-3 px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-2" style={{ background: GOLD, color: '#fff' }}>
+                          <Send size={12} /> Répondre
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      ) : !canCreate ? (
         <div className="text-center py-12 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl">
           <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Vous n&apos;avez pas accès à cette page</p>
         </div>
       ) : (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-          <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Nouvelle convocation</h3>
-          <div className="space-y-3">
-            <SearchAutocomplete
-              label="Élève concerné"
-              placeholder="Tapez le nom de l'élève..."
-              items={studentSuggestions}
-              selectedId={selectedStudentId}
-              onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
-              onClear={() => { setSelectedStudentId(null); setStudentSearch('') }}
-              searchQuery={studentSearch}
-              onSearchChange={setStudentSearch}
-              loading={studentSearchLoading}
-              itemTypeName="élève"
-            />
-            <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Motif</label><textarea placeholder="Motif de la convocation..." value={motif} onChange={e => setMotif(e.target.value)} rows={3} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" /></div>
-            <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
-            <button onClick={handleSendConvocation} disabled={submitting || !selectedStudentId || !motif || !date} className="edu-gold-cta w-full py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50">
-              {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Send size={14} />} Envoyer la convocation
-            </button>
+        /* Admin/Direction View */
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+            <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Nouvelle convocation</h3>
+            <div className="space-y-3">
+              <SearchAutocomplete
+                label="Élève concerné"
+                placeholder="Tapez le nom de l'élève..."
+                items={studentSuggestions}
+                selectedId={selectedStudentId}
+                onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
+                onClear={() => { setSelectedStudentId(null); setStudentSearch('') }}
+                searchQuery={studentSearch}
+                onSearchChange={setStudentSearch}
+                loading={studentSearchLoading}
+                itemTypeName="élève"
+              />
+              <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Motif</label><textarea placeholder="Motif de la convocation..." value={motif} onChange={e => setMotif(e.target.value)} rows={3} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" /></div>
+              <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
+              <button onClick={handleSendConvocation} disabled={submitting || !selectedStudentId || !motif || !date} className="edu-gold-cta w-full py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50">
+                {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Send size={14} />} Envoyer la convocation
+              </button>
+            </div>
+          </div>
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+            <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Convocations existantes</h3>
+            {loadingConvocations ? (
+              <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div>
+            ) : convocations.length === 0 ? (
+              <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>
+                <Megaphone size={32} className="mx-auto mb-3 opacity-30" />
+                <p className="text-sm">Aucune convocation</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {convocations.map(c => {
+                  const reads = c.reads || []
+                  const readCount = reads.length
+                  const readPercentage = totalUsers > 0 ? Math.round((readCount / totalUsers) * 100) : 0
+                  const isExpanded = expandedConvocation === c.id
+                  const hasResponded = !!c.parentResponse
+                  const isRescheduled = !!c.rescheduledTo
+                  return (
+                    <div ref={highlightedId === c.id ? highlightedRef : undefined} key={c.id} className={`p-3 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition ${highlightedId === c.id ? 'edu-highlight' : ''}`}>
+                      <div className="flex items-center gap-3">
+                        <StudentAvatar firstName={c.student.firstName} lastName={c.student.lastName} photoUrl={c.student.photoUrl} size={36} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${WARNING}, ${GOLD})` }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{c.student.firstName} {c.student.lastName}</div>
+                          <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{c.motif}</div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${c.status === 'PENDING' ? 'bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]' : c.status === 'CONFIRMED' ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>{c.status === 'PENDING' ? 'En attente' : c.status === 'CONFIRMED' ? 'Confirmée' : c.status}</span>
+                          <div className="text-[10px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(isRescheduled ? c.rescheduledTo : c.date)}</div>
+                        </div>
+                      </div>
+                      {/* Response status */}
+                      {hasResponded && (
+                        <div className="mt-2 p-2 rounded-lg text-[11px]" style={{ background: c.parentResponse === 'PRESENT' ? 'rgba(34,197,94,0.1)' : c.parentResponse === 'ABSENT' ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)' }}>
+                          <span className="font-medium" style={{ color: c.parentResponse === 'PRESENT' ? SUCCESS : c.parentResponse === 'ABSENT' ? DANGER : INFO }}>
+                            {c.parentResponse === 'PRESENT' ? 'Présent' : c.parentResponse === 'ABSENT' ? 'Absent' : 'Autre réponse'}
+                          </span>
+                          {c.parentResponseMessage && <span style={{ color: TEXT_MUTED_LUXE }}> - {c.parentResponseMessage}</span>}
+                        </div>
+                      )}
+                      {!hasResponded && (
+                        <div className="mt-2 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>En attente de réponse</div>
+                      )}
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-2 mt-2">
+                        <button onClick={() => setRescheduleModal({ convocationId: c.id, currentDate: c.date })} className="text-[10px] px-2 py-1 rounded-lg border border-[oklch(90%_0.01_175)] hover:bg-[oklch(95%_0.01_175)] transition inline-flex items-center gap-1" style={{ color: TEXT_MUTED_LUXE }}>
+                          <Calendar size={10} /> Reporter
+                        </button>
+                        <button onClick={() => setExpandedConvocation(isExpanded ? null : c.id)} className="text-[10px] px-2 py-0.5 rounded-lg hover:bg-[oklch(95%_0.01_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>
+                          {isExpanded ? 'Masquer' : 'Détails'}
+                        </button>
+                      </div>
+                      {/* Expanded details */}
+                      {isExpanded && (
+                        <div className="mt-2 pt-2 border-t border-[oklch(93%_0.01_175)] space-y-2">
+                          {/* Read stats */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full" style={{ background: readPercentage >= 80 ? SUCCESS : readPercentage >= 50 ? WARNING : DANGER }} />
+                              <span className="text-[11px] font-medium" style={{ color: TEXT_PRIMARY }}>{readCount}/{totalUsers} lu{readCount > 1 ? 's' : ''}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: readPercentage >= 80 ? `${SUCCESS}15` : readPercentage >= 50 ? `${WARNING}15` : `${DANGER}15`, color: readPercentage >= 80 ? SUCCESS : readPercentage >= 50 ? WARNING : DANGER }}>{readPercentage}%</span>
+                            </div>
+                          </div>
+                          {/* Read list */}
+                          {reads.length > 0 && (
+                            <div className="space-y-1">
+                              {reads.map(r => (
+                                <div key={r.id} className="flex items-center justify-between text-[11px] py-1 px-2 rounded-lg bg-[oklch(97%_0.005_175)]">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold" style={{ background: `${ACCENT}20`, color: ACCENT }}>{r.user?.name?.charAt(0) || '?'}</div>
+                                    <span style={{ color: TEXT_PRIMARY }}>{r.user?.name || 'Inconnu'}</span>
+                                    <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: `${INFO}15`, color: INFO }}>{r.user?.role}</span>
+                                  </div>
+                                  <span style={{ color: TEXT_MUTED_LUXE }}>{r.readAt ? new Date(r.readAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {reads.length === 0 && (
+                            <div className="text-[11px] py-2 text-center" style={{ color: TEXT_MUTED_LUXE }}>Aucune lecture pour le moment</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
-        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-          <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Convocations existantes</h3>
-          {loadingConvocations ? (
-            <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div>
-          ) : convocations.length === 0 ? (
-            <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>
-              <Megaphone size={32} className="mx-auto mb-3 opacity-30" />
-              <p className="text-sm">Aucune convocation</p>
-            </div>
-          ) : (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {convocations.map(c => (
-                <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition">
-                  <StudentAvatar firstName={c.student.firstName} lastName={c.student.lastName} photoUrl={c.student.photoUrl} size={36} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${WARNING}, ${GOLD})` }} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{c.student.firstName} {c.student.lastName}</div>
-                    <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{c.motif}</div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${c.status === 'PENDING' ? 'bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]' : c.status === 'CONFIRMED' ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>{c.status === 'PENDING' ? 'En attente' : c.status === 'CONFIRMED' ? 'Confirmée' : c.status}</span>
-                    <div className="text-[10px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(c.date)}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
       )}
     </div>
   )

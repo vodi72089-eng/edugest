@@ -33,8 +33,58 @@ export default function PersonnelView() {
     subjectName: '', classNames: '', isTitulaire: false,
   })
   const [availableClasses, setAvailableClasses] = useState<{ id: string; name: string; _count?: { students: number } }[]>([])
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false)
+  const [assignmentTeacher, setAssignmentTeacher] = useState<{ id: string; name: string } | null>(null)
+  const [assignments, setAssignments] = useState<{ id: string; class: { id: string; name: string }; subject: { id: string; name: string } }[]>([])
+  const [assignClassId, setAssignClassId] = useState('')
+  const [assignSubjectId, setAssignSubjectId] = useState('')
+  const [assignSubjects, setAssignSubjects] = useState<{ id: string; name: string; coefficient: number }[]>([])
+  const [assignLoading, setAssignLoading] = useState(false)
 
   const isTeacherForm = form.role === 'TEACHER' || form.role === 'HEAD_TEACHER'
+
+  function openAssignmentModal(teacher: { id: string; name: string }) {
+    setAssignmentTeacher(teacher)
+    setShowAssignmentModal(true)
+    setAssignClassId('')
+    setAssignSubjectId('')
+    authFetch(`/api/teacher-assignments?teacherId=${teacher.id}`).then(r => r.json()).then(j => setAssignments(j.data || [])).catch(() => {})
+  }
+
+  useEffect(() => {
+    if (assignClassId && userData?.schoolId) {
+      authFetch(`/api/subjects?classId=${assignClassId}&limit=20`).then(r => r.json()).then(j => { setAssignSubjects(j.data || []); setAssignSubjectId('') }).catch(() => {})
+    }
+  }, [assignClassId, userData?.schoolId])
+
+  async function handleAddAssignment() {
+    if (!assignmentTeacher || !assignClassId || !assignSubjectId) return
+    setAssignLoading(true)
+    try {
+      const res = await authFetch('/api/teacher-assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teacherId: assignmentTeacher.id, classId: assignClassId, subjectId: assignSubjectId })
+      })
+      if (res.ok) {
+        const j = await res.json()
+        setAssignments(prev => [...prev, j.data])
+        setAssignClassId(''); setAssignSubjectId('')
+        toast.success('Assignation ajoutée')
+      } else {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || 'Erreur')
+      }
+    } catch { toast.error('Erreur de connexion') }
+    setAssignLoading(false)
+  }
+
+  async function handleRemoveAssignment(id: string) {
+    try {
+      const res = await authFetch('/api/teacher-assignments', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+      if (res.ok) { setAssignments(prev => prev.filter(a => a.id !== id)); toast.success('Assignation supprimée') }
+    } catch { toast.error('Erreur') }
+  }
 
   useEffect(() => {
     if ((showAddModal || editingUser) && isTeacherForm && userData?.schoolId) {
@@ -331,6 +381,11 @@ export default function PersonnelView() {
                           <button onClick={() => handleToggleActive(user)} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition" title={user.isActive ? 'Désactiver' : 'Réactiver'}>
                             {user.isActive ? <Ban size={14} style={{ color: DANGER }} /> : <CheckCircle size={14} style={{ color: SUCCESS }} />}
                           </button>
+                          {(user.role === 'TEACHER' || user.role === 'HEAD_TEACHER') && (
+                            <button onClick={() => openAssignmentModal({ id: user.id, name: user.name })} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition" title="Assigner classes/matières">
+                              <Award size={14} style={{ color: GOLD }} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -497,6 +552,75 @@ export default function PersonnelView() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Teacher Assignment Modal */}
+      {showAssignmentModal && assignmentTeacher && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowAssignmentModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-[oklch(90%_0.01_175)] shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl grid place-items-center text-white" style={{ background: `linear-gradient(135deg, ${GOLD}, ${ACCENT})` }}>
+                  <Award size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>Assigner des matières</h2>
+                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{assignmentTeacher.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAssignmentModal(false)} className="p-2 rounded-lg hover:bg-[oklch(95%_0.04_175)] transition"><X size={18} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Current assignments */}
+              <div>
+                <label className="text-[13px] font-medium mb-2 block" style={{ color: TEXT_PRIMARY }}>Assignations actuelles</label>
+                {assignments.length === 0 ? (
+                  <p className="text-sm py-3 px-4 rounded-xl" style={{ color: TEXT_MUTED_LUXE, background: IVORY }}>Aucune assignation</p>
+                ) : (
+                  <div className="space-y-2">
+                    {assignments.map(a => (
+                      <div key={a.id} className="flex items-center justify-between px-4 py-2.5 rounded-xl border border-[oklch(90%_0.01_175)]" style={{ background: IVORY }}>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{a.class.name}</span>
+                          <span className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>→</span>
+                          <span className="text-sm font-medium" style={{ color: GOLD }}>{a.subject.name}</span>
+                        </div>
+                        <button onClick={() => handleRemoveAssignment(a.id)} className="p-1.5 rounded-lg hover:bg-[oklch(95%_0.02_25)] transition" title="Supprimer">
+                          <Ban size={13} style={{ color: DANGER }} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Add new assignment */}
+              <div className="p-4 rounded-xl border border-[oklch(88%_0.01_175)]" style={{ background: GOLD_SOFT }}>
+                <label className="text-[13px] font-semibold mb-3 block" style={{ color: GOLD }}>Nouvelle assignation</label>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[12px] font-medium mb-1 block" style={{ color: TEXT_PRIMARY }}>Classe *</label>
+                    <select value={assignClassId} onChange={e => setAssignClassId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                      <option value="">Sélectionner une classe</option>
+                      {availableClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[12px] font-medium mb-1 block" style={{ color: TEXT_PRIMARY }}>Matière *</label>
+                    <select value={assignSubjectId} onChange={e => setAssignSubjectId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" disabled={!assignClassId}>
+                      <option value="">{assignClassId ? 'Sélectionner une matière' : 'D\'abord choisir une classe'}</option>
+                      {assignSubjects.map(s => <option key={s.id} value={s.id}>{s.name} (coef. {s.coefficient})</option>)}
+                    </select>
+                  </div>
+                  <button onClick={handleAddAssignment} disabled={assignLoading || !assignClassId || !assignSubjectId} className="edu-gold-cta px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+                    {assignLoading ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check size={14} />}
+                    Assigner
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

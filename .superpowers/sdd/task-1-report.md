@@ -1,25 +1,36 @@
-# Task 1 Report: Add DisciplineKeyword Model
+# Task 1 Report: Update Prisma Schema
 
-## Status: DONE
+## What I Implemented
 
-## What I Did
-- Added `DisciplineKeyword` model to `prisma/schema.prisma` after the `Whitelist` model (line 228)
-- Ran `npx prisma generate` — Prisma Client v6.19.3 generated successfully
-- Ran `npx prisma db push --accept-data-loss` — SQLite database synced in 2.11s
-- Committed: `feat(discipline): add DisciplineKeyword model for learned keywords` (2579efa)
+Added three new fields to the `Communication` model in `prisma/schema.prisma`:
 
-## Model Fields
-- `id` — CUID primary key
-- `keyword` — The learned keyword string
-- `listType` — BLACKLIST, GREYLIST, or WHITELIST
-- `schoolId` — School scope
-- `learnedFrom` — Optional reference to DisciplineRecord ID
-- `createdAt` — Timestamp
-- Unique constraint on `[keyword, schoolId]`
+- `status String @default("APPROVED")` — PENDING, APPROVED, REJECTED for admin approval workflow
+- `scope String?` — MATERNELLE, PRIMAIRE, SECONDAIRE, null for ALL
+- `targetLevel String?` — alias for scope, derived from sender role
 
-## Concerns
-None.
+## What I Tested
 
-## Test Results
-- `npx prisma generate`: ✔ Generated Prisma Client (v6.19.3)
-- `npx prisma db push --accept-data-loss`: ✔ Database synced, 0 errors
+- `npx prisma db push` — Schema synced to SQLite database successfully
+- `npx prisma generate` — Prisma client regenerated (required killing locked node processes)
+- Verified schema file contains all three new fields at lines 321-323
+
+## Files Changed
+
+- `prisma/schema.prisma` — Added 3 fields to Communication model
+- `prisma/db/custom.db` — Database updated to match schema
+
+## Commit
+
+- `a68766f` — `feat: add status, scope, targetLevel fields to Communication model`
+
+## Self-Review
+
+- Fields match the exact specification from the task brief
+- `status` defaults to "APPROVED" (existing comms auto-approved)
+- `scope` and `targetLevel` are nullable (optional for backward compatibility)
+- Database and client both regenerated successfully
+- No concerns
+
+## Issues/Concerns
+
+- Node.js processes were locking the Prisma client files; required `taskkill` to free them

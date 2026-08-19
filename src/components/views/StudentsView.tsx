@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useEduGestStore, authFetch } from '@/lib/store'
 import type { StudentData, ClassData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT } from '@/lib/constants'
@@ -37,7 +37,13 @@ export default function StudentsView() {
   const [editGender, setEditGender] = useState('M')
   const [editClassId, setEditClassId] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
-  const { userData } = useEduGestStore()
+  const { userData, highlightedId } = useEduGestStore()
+  const highlightedRef = useRef<HTMLTableRowElement>(null)
+  useEffect(() => {
+    if (highlightedId && highlightedRef.current) {
+      highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlightedId])
 
   useEffect(() => {
     async function load() {
@@ -208,7 +214,7 @@ export default function StudentsView() {
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={6} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun élève trouvé</td></tr>
               ) : filtered.map(s => (
-                <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
+                <tr ref={highlightedId === s.id ? highlightedRef : undefined} key={s.id} className={`hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0 ${highlightedId === s.id ? 'edu-highlight' : ''}`}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <StudentAvatar firstName={s.firstName} lastName={s.lastName} photoUrl={s.photoUrl} size={32} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />

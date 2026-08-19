@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useEduGestStore, authFetch } from '@/lib/store'
 import type { GradeData, ClassData, StudentData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, DANGER } from '@/lib/constants'
@@ -11,7 +11,13 @@ import { toast } from 'sonner'
 import SearchAutocomplete from './SearchAutocomplete'
 
 export default function GradesView() {
-  const { userRole, userData } = useEduGestStore()
+  const { userRole, userData, highlightedId } = useEduGestStore()
+  const highlightedRef = useRef<HTMLTableRowElement>(null)
+  useEffect(() => {
+    if (highlightedId && highlightedRef.current) {
+      highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlightedId])
   const [grades, setGrades] = useState<GradeData[]>([])
   const [classes, setClasses] = useState<ClassData[]>([])
   const [loading, setLoading] = useState(true)
@@ -25,6 +31,9 @@ export default function GradesView() {
   const [selectedChildSearchId, setSelectedChildSearchId] = useState<string | null>(null)
   const isParent = userRole === 'PARENT'
   const isTeacher = userRole === 'TEACHER' || userRole === 'HEAD_TEACHER'
+  const canCreate = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const [totalUsers, setTotalUsers] = useState(0)
+  const [expandedGrade, setExpandedGrade] = useState<string | null>(null)
   const [showGradeForm, setShowGradeForm] = useState(false)
   const [gradeStudentId, setGradeStudentId] = useState('')
   const [gradeStudentSearch, setGradeStudentSearch] = useState('')
@@ -37,13 +46,35 @@ export default function GradesView() {
   const [gradeSubmitting, setGradeSubmitting] = useState(false)
   const [subjects, setSubjects] = useState<{ id: string; name: string; coefficient: number }[]>([])
   const [classStudents, setClassStudents] = useState<StudentData[]>([])
+  const [teacherAssignments, setTeacherAssignments] = useState<{ classId: string; subjectId: string; class: { name: string }; subject: { name: string } }[]>([])
+  const [teacherClassIds, setTeacherClassIds] = useState<string[]>([])
+
+  useEffect(() => {
+    if (isTeacher && userData?.id) {
+      authFetch(`/api/teacher-assignments?teacherId=${userData.id}`).then(r => r.json()).then(j => {
+        const assignments: { classId: string; subjectId: string; class: { name: string }; subject: { name: string } }[] = j.data || []
+        setTeacherAssignments(assignments)
+        setTeacherClassIds([...new Set(assignments.map(a => a.classId))])
+      }).catch(() => {})
+    }
+  }, [isTeacher, userData?.id])
 
   useEffect(() => {
     if (gradeClassId) {
-      authFetch(`/api/subjects?classId=${gradeClassId}&limit=20`).then(r => r.json()).then(j => setSubjects(j.data || [])).catch(() => {})
+      authFetch(`/api/subjects?classId=${gradeClassId}&limit=20`).then(r => r.json()).then(j => {
+        const allSubjects = j.data || []
+        if (isTeacher && teacherAssignments.length > 0) {
+          const allowedSubjectIds = teacherAssignments.filter(a => a.classId === gradeClassId).map(a => a.subjectId)
+          const filtered = allSubjects.filter((s: { id: string }) => allowedSubjectIds.includes(s.id))
+          setSubjects(filtered)
+          if (filtered.length === 1) setGradeSubjectId(filtered[0].id)
+        } else {
+          setSubjects(allSubjects)
+        }
+      }).catch(() => {})
       authFetch(`/api/students?classId=${gradeClassId}&limit=50`).then(r => r.json()).then(j => setClassStudents(j.data || [])).catch(() => {})
     }
-  }, [gradeClassId])
+  }, [gradeClassId, isTeacher, teacherAssignments])
 
   const gradeStudentSuggestions = useMemo(() => {
     if (gradeStudentSearch.length < 1) return classStudents.map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule }))
@@ -53,14 +84,29 @@ export default function GradesView() {
   }, [gradeStudentSearch, classStudents])
 
   useEffect(() => {
-    authFetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
+    authFetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => {
+      const allClasses = j.data || []
+      if (userRole === 'HEAD_TEACHER' && userData?.id) {
+        const myClass = allClasses.find((c: any) => c.headTeacherId === userData.id)
+        if (myClass) {
+          setClasses([myClass])
+          if (!selectedClass) setSelectedClass(myClass.id)
+        } else {
+          setClasses([])
+        }
+      } else if (isTeacher && teacherClassIds.length > 0) {
+        setClasses(allClasses.filter((c: { id: string }) => teacherClassIds.includes(c.id)))
+      } else {
+        setClasses(allClasses)
+      }
+    }).catch(() => {})
     if (isParent && userData?.id) {
       authFetch(`/api/students?parentId=${userData.id}&limit=20`)
         .then(r => r.json())
         .then(j => setMyChildren(j.data || []))
         .catch(() => {})
     }
-  }, [userData?.schoolId, isParent, userData?.id])
+  }, [userData?.schoolId, isParent, userData?.id, isTeacher, teacherClassIds, userRole])
 
   useEffect(() => {
     loadGrades()
@@ -84,6 +130,7 @@ export default function GradesView() {
       const res = await authFetch(`/api/grades?${params}`)
       const json = await res.json()
       setGrades(json.data || [])
+      setTotalUsers(json.totalUsers || 0)
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
@@ -297,7 +344,7 @@ export default function GradesView() {
                     </thead>
                     <tbody>
                       {studentGrades.map(g => (
-                        <tr key={g.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
+                        <tr ref={highlightedId === g.id ? highlightedRef : undefined} key={g.id} className={`hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0 ${highlightedId === g.id ? 'edu-highlight' : ''}`}>
                           <td className="px-3 py-2 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{g.subject?.name}</td>
                           <td className="px-3 py-2">
                             <span className="text-[13px] font-semibold" style={{ color: g.score >= 10 ? GOLD : DANGER }}>{g.score.toFixed(1)}</span>
@@ -322,6 +369,7 @@ export default function GradesView() {
                   <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Matière</th>
                   <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Note /20</th>
                   <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Coef.</th>
+                  {canCreate && <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-3 py-2.5" style={{ color: GOLD }}>Lu par</th>}
                 </tr>
               </thead>
               <tbody>
@@ -329,18 +377,54 @@ export default function GradesView() {
                   <tr><td colSpan={4} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
                 ) : grades.length === 0 ? (
                   <tr><td colSpan={4} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucune note</td></tr>
-                ) : grades.slice(0, 30).map(g => (
-                  <tr key={g.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
-                    <td className="px-3 py-2.5 text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{g.student?.firstName} {g.student?.lastName}</td>
-                    <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{g.subject?.name}</td>
-                    <td className="px-3 py-2.5">
-                      <span className="text-[13px] font-semibold" style={{ color: g.score >= 10 ? GOLD : DANGER }}>
-                        {g.score.toFixed(1)}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>×{g.subject?.coefficient || 1}</td>
-                  </tr>
-                ))}
+                ) : grades.slice(0, 30).map(g => {
+                  const reads = g.reads || []
+                  const readCount = reads.length
+                  const readPercentage = totalUsers > 0 ? Math.round((readCount / totalUsers) * 100) : 0
+                  const isExpanded = expandedGrade === g.id
+                  return (
+                    <tr ref={highlightedId === g.id ? highlightedRef : undefined} key={g.id} className={`hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0 ${highlightedId === g.id ? 'edu-highlight' : ''}`}>
+                      <td className="px-3 py-2.5 text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{g.student?.firstName} {g.student?.lastName}</td>
+                      <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{g.subject?.name}</td>
+                      <td className="px-3 py-2.5">
+                        <span className="text-[13px] font-semibold" style={{ color: g.score >= 10 ? GOLD : DANGER }}>
+                          {g.score.toFixed(1)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>×{g.subject?.coefficient || 1}</td>
+                      {canCreate && (
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full" style={{ background: readPercentage >= 80 ? '#22c55e' : readPercentage >= 50 ? '#f59e0b' : '#ef4444' }} />
+                            <span className="text-[11px] font-medium" style={{ color: TEXT_PRIMARY }}>{readCount}/{totalUsers} lu</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: readPercentage >= 80 ? 'rgba(34,197,94,0.15)' : readPercentage >= 50 ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)', color: readPercentage >= 80 ? '#22c55e' : readPercentage >= 50 ? '#f59e0b' : '#ef4444' }}>{readPercentage}%</span>
+                            <button onClick={() => setExpandedGrade(isExpanded ? null : g.id)} className="text-[10px] px-2 py-0.5 rounded-lg hover:bg-[oklch(95%_0.01_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>
+                              {isExpanded ? 'Masquer' : 'Détails'}
+                            </button>
+                          </div>
+                          {isExpanded && (
+                            <div className="mt-2 space-y-1">
+                              {reads.length > 0 ? (
+                                reads.map(r => (
+                                  <div key={r.id} className="flex items-center justify-between text-[11px] py-1 px-2 rounded-lg bg-[oklch(97%_0.005_175)]">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold" style={{ background: `${ACCENT}20`, color: ACCENT }}>{r.user?.name?.charAt(0) || '?'}</div>
+                                      <span style={{ color: TEXT_PRIMARY }}>{r.user?.name || 'Inconnu'}</span>
+                                      <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: 'rgba(59,130,246,0.15)', color: '#3b82f6' }}>{r.user?.role}</span>
+                                    </div>
+                                    <span style={{ color: TEXT_MUTED_LUXE }}>{r.readAt ? new Date(r.readAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="text-[11px] py-2 text-center" style={{ color: TEXT_MUTED_LUXE }}>Aucune lecture pour le moment</div>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

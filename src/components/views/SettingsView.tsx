@@ -53,8 +53,9 @@ function SettingsViewInner() {
   const [fees, setFees] = useState<any[]>([])
   const [classes, setClasses] = useState<any[]>([])
   const [showFeeModal, setShowFeeModal] = useState(false)
-  const [feeForm, setFeeForm] = useState({ name: '', amount: '', currency: 'CDF', trimester: 'Tranche 1', classId: '' })
+  const [feeForm, setFeeForm] = useState({ name: '', amount: '', currency: 'CDF', trimester: 'T1', classId: '' })
   const [editingFee, setEditingFee] = useState<any>(null)
+  const [selectedFeeClass, setSelectedFeeClass] = useState<string | null>(null)
 
   // Form fields
   const [name, setName] = useState('')
@@ -79,6 +80,8 @@ function SettingsViewInner() {
   const [loadingSessions, setLoadingSessions] = useState(false)
   const [revokingSid, setRevokingSid] = useState<string | null>(null)
   const [revokingAll, setRevokingAll] = useState(false)
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([])
+  const isAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
 
   function loadSessions() {
     setLoadingSessions(true)
@@ -154,6 +157,13 @@ function SettingsViewInner() {
         .then(r => r.json())
         .then(j => setComments(j.data || []))
         .catch(() => {})
+      // Fetch pending settings approvals (admin only)
+      if (userRole === 'SUPER_ADMIN_GLOBAL') {
+        authFetch(`/api/settings-approval?status=PENDING`)
+          .then(r => r.json())
+          .then(j => setPendingApprovals(j.data || []))
+          .catch(() => {})
+      }
     }
   }, [userData?.schoolId])
 
@@ -168,23 +178,52 @@ function SettingsViewInner() {
     if (!userData?.schoolId) return
     setSaving(true)
     try {
-      const res = await authFetch(`/api/schools/${userData.schoolId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      if (!isAdmin) {
+        // Non-admin: create approval request instead of saving directly
+        const changeData = {
           name, shortName, email, phone, address, city, province, country,
           description, history, mission,
           establishmentYear: establishmentYear ? parseInt(establishmentYear) : null,
           schoolType, schoolCategory,
           maxStudents: parseInt(maxStudents) || 100,
-        }),
-      })
-      if (res.ok) {
-        const j = await res.json()
-        setSchool(j.data)
-        toast.success('Paramètres mis à jour avec succès !')
+        }
+        const currentData = school ? {
+          name: school.name, shortName: school.shortName, email: school.email, phone: school.phone,
+          address: school.address, city: school.city, province: school.province, country: school.country,
+          description: school.description, history: school.history, mission: school.mission,
+          establishmentYear: school.establishmentYear, schoolType: school.schoolType,
+          schoolCategory: school.schoolCategory, maxStudents: school.maxStudents,
+        } : null
+        const res = await authFetch('/api/settings-approval', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ changeType: 'school_info', changeData, currentData }),
+        })
+        if (res.ok) {
+          toast.success('Demande d\'approbation envoyée à l\'administrateur')
+        } else {
+          toast.error('Erreur lors de l\'envoi')
+        }
       } else {
-        toast.error('Erreur lors de la mise à jour')
+        // Admin: save directly
+        const res = await authFetch(`/api/schools/${userData.schoolId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name, shortName, email, phone, address, city, province, country,
+            description, history, mission,
+            establishmentYear: establishmentYear ? parseInt(establishmentYear) : null,
+            schoolType, schoolCategory,
+            maxStudents: parseInt(maxStudents) || 100,
+          }),
+        })
+        if (res.ok) {
+          const j = await res.json()
+          setSchool(j.data)
+          toast.success('Paramètres mis à jour avec succès !')
+        } else {
+          toast.error('Erreur lors de la mise à jour')
+        }
       }
     } catch {
       toast.error('Erreur de connexion')
@@ -223,6 +262,46 @@ function SettingsViewInner() {
     }
     if (type === 'logo') setUploadingLogo(false)
     else setUploadingCover(false)
+  }
+
+  async function handleApprovalDecision(id: string, decision: 'APPROVED' | 'REJECTED') {
+    try {
+      const approval = pendingApprovals.find(a => a.id === id)
+      if (!approval) return
+      if (decision === 'APPROVED') {
+        const changeData = JSON.parse(approval.changeData)
+        const res = await authFetch(`/api/schools/${userData?.schoolId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(changeData),
+        })
+        if (!res.ok) { toast.error('Erreur lors de l\'application'); return }
+        const j = await res.json()
+        setSchool(j.data)
+        setName(changeData.name || '')
+        setShortName(changeData.shortName || '')
+        setEmail(changeData.email || '')
+        setPhone(changeData.phone || '')
+        setAddress(changeData.address || '')
+        setCity(changeData.city || '')
+        setProvince(changeData.province || '')
+        setCountry(changeData.country || '')
+        setDescription(changeData.description || '')
+        setHistory(changeData.history || '')
+        setMission(changeData.mission || '')
+        setEstablishmentYear(changeData.establishmentYear ? String(changeData.establishmentYear) : '')
+        setSchoolType(changeData.schoolType || 'MIXTE')
+        setSchoolCategory(changeData.schoolCategory || 'PRIVEE')
+        setMaxStudents(String(changeData.maxStudents || 100))
+      }
+      await authFetch('/api/settings-approval', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: decision }),
+      })
+      setPendingApprovals(prev => prev.filter(a => a.id !== id))
+      toast.success(decision === 'APPROVED' ? 'Changements appliqués' : 'Demande rejetée')
+    } catch { toast.error('Erreur') }
   }
 
   async function handleApproveComment(id: string) {
@@ -273,6 +352,33 @@ function SettingsViewInner() {
           <Monitor size={14} className="inline mr-1" /> Appareils connectés
         </button>
       </div>
+
+      {/* Pending Approvals (Admin only) */}
+      {isAdmin && pendingApprovals.length > 0 && (
+        <div className="mb-6 bg-white border-2 border-[oklch(72%_0.15_65_/_0.3)] rounded-2xl p-6 shadow-sm">
+          <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: ACCENT }}>
+            <Star size={16} style={{ color: ACCENT }} /> Demandes d&apos;approbation en attente ({pendingApprovals.length})
+          </h3>
+          <div className="space-y-3">
+            {pendingApprovals.map(a => {
+              const data = JSON.parse(a.changeData || '{}')
+              return (
+                <div key={a.id} className="flex items-center justify-between p-3 rounded-xl border border-[oklch(90%_0.01_175)]" style={{ background: GOLD_SOFT }}>
+                  <div className="text-sm">
+                    <span className="font-semibold" style={{ color: TEXT_PRIMARY }}>{a.changeType}</span>
+                    <span className="text-xs ml-2" style={{ color: TEXT_MUTED_LUXE }}>par {a.requestedBy}</span>
+                    {data.name && <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Nom: {data.name}</div>}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleApprovalDecision(a.id, 'APPROVED')} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white" style={{ background: SUCCESS }}>Approuver</button>
+                    <button onClick={() => handleApprovalDecision(a.id, 'REJECTED')} className="px-3 py-1.5 rounded-lg text-xs font-semibold border" style={{ color: DANGER, borderColor: DANGER + '40' }}>Rejeter</button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Cover Image */}
       <div className="mb-6 rounded-2xl overflow-hidden border border-[oklch(90%_0.01_175)] shadow-sm">
@@ -413,9 +519,14 @@ function SettingsViewInner() {
           </div>
 
           {/* Save button */}
+          {!isAdmin && (
+            <div className="px-4 py-2.5 rounded-xl text-xs mb-3" style={{ background: `${ACCENT}10`, color: ACCENT }}>
+              Les modifications seront envoyées à l&apos;administrateur pour approbation avant d&apos;être appliquées.
+            </div>
+          )}
           <button onClick={handleSave} disabled={saving} className="edu-gold-cta px-8 py-3 rounded-xl font-semibold text-sm inline-flex items-center justify-center gap-2 disabled:opacity-50">
             {saving ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Save size={16} />}
-            Enregistrer les modifications
+            {isAdmin ? 'Enregistrer les modifications' : 'Demander l\'approbation'}
           </button>
         </div>
 
@@ -493,7 +604,7 @@ function SettingsViewInner() {
               <GraduationCap size={16} style={{ color: GOLD }} /> Frais scolaires
             </h3>
             <button
-              onClick={() => { setEditingFee(null); setFeeForm({ name: '', amount: '', currency: 'CDF', trimester: 'Tranche 1', classId: '' }); setShowFeeModal(true) }}
+              onClick={() => { setEditingFee(null); setFeeForm({ name: '', amount: '', currency: 'CDF', trimester: 'T1', classId: '' }); setShowFeeModal(true) }}
               className="px-4 py-2 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-1.5"
               style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}
             >
@@ -504,30 +615,51 @@ function SettingsViewInner() {
           {fees.length === 0 ? (
             <p className="text-sm text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun frais scolaire enregistré</p>
           ) : (
+            <>
+              {/* Class filter chips */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                <button onClick={() => setSelectedFeeClass(null)} className={`px-3 py-1 rounded-lg text-xs font-medium transition ${!selectedFeeClass ? 'text-white' : ''}`} style={!selectedFeeClass ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE, border: '1px solid oklch(90% 0.01 175)' }}>
+                  Toutes les classes
+                </button>
+                {[...new Set(fees.map(f => f.classId))].map(classId => {
+                  const cls = classes.find(c => c.id === classId)
+                  if (!cls) return null
+                  const classFees = fees.filter(f => f.classId === classId)
+                  return (
+                    <button key={classId} onClick={() => setSelectedFeeClass(selectedFeeClass === classId ? null : classId)} className={`px-3 py-1 rounded-lg text-xs font-medium transition ${selectedFeeClass === classId ? 'text-white' : ''}`} style={selectedFeeClass === classId ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE, border: '1px solid oklch(90% 0.01 175)' }}>
+                      {cls.name} ({classFees.length})
+                    </button>
+                  )
+                })}
+              </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[oklch(90%_0.01_175)]">
                     <th className="text-left py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Nom</th>
                     <th className="text-left py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant</th>
-                    <th className="text-left py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Tranche</th>
+                    <th className="text-left py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Frais</th>
                     <th className="text-left py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Classe</th>
                     <th className="text-right py-3 px-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {fees.map(fee => (
+                  {fees.filter(f => !selectedFeeClass || f.classId === selectedFeeClass).map(fee => (
                     <tr key={fee.id} className="border-b border-[oklch(92%_0.008_175)] last:border-0">
                       <td className="py-3 px-2 font-medium" style={{ color: TEXT_PRIMARY }}>{fee.name}</td>
                       <td className="py-3 px-2" style={{ color: TEXT_PRIMARY }}>{Number(fee.amount).toLocaleString()} {fee.currency || 'CDF'}</td>
                       <td className="py-3 px-2">
-                        <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>{fee.trimester}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>{fee.trimester === 'T1' ? 'Trimestre 1' : fee.trimester === 'T2' ? 'Trimestre 2' : fee.trimester === 'T3' ? 'Trimestre 3' : fee.trimester}</span>
                       </td>
-                      <td className="py-3 px-2" style={{ color: TEXT_PRIMARY }}>{classes.find(c => c.id === fee.classId)?.name || '—'}</td>
+                      <td className="py-3 px-2">
+                        <button onClick={() => setSelectedFeeClass(selectedFeeClass === fee.classId ? null : fee.classId)} className="text-xs font-medium underline" style={{ color: ACCENT }}>
+                          {classes.find(c => c.id === fee.classId)?.name || '—'}
+                        </button>
+                      </td>
                       <td className="py-3 px-2 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => { setEditingFee(fee); setFeeForm({ name: fee.name, amount: String(fee.amount), currency: fee.currency || 'CDF', trimester: fee.trimester, classId: fee.classId || '' }); setShowFeeModal(true) }}
+                            onClick={() => { setEditingFee(fee); setFeeForm({ name: fee.name, amount: String(fee.amount), currency: fee.currency || 'CDF', trimester: fee.trimester || 'T1', classId: fee.classId || '' }); setShowFeeModal(true) }}
                             className="p-1.5 rounded-lg border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition"
                             style={{ color: ACCENT }}
                           >
@@ -554,6 +686,7 @@ function SettingsViewInner() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       )}
@@ -681,8 +814,12 @@ function SettingsViewInner() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Tranche *</label>
-                <input value={feeForm.trimester} onChange={e => setFeeForm(f => ({ ...f, trimester: e.target.value }))} placeholder="Ex: Tranche 1, Frais d'inscription..." className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Frais *</label>
+                <select value={feeForm.trimester} onChange={e => setFeeForm(f => ({ ...f, trimester: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                  <option value="T1">T1 - Trimestre 1</option>
+                  <option value="T2">T2 - Trimestre 2</option>
+                  <option value="T3">T3 - Trimestre 3</option>
+                </select>
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>

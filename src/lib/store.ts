@@ -157,8 +157,17 @@ interface EduGestStore {
   selectedStudentId: string | null
   setSelectedStudentId: (id: string | null) => void
 
+  highlightedId: string | null
+  setHighlightedId: (id: string | null) => void
+
+  pendingPaymentStudent: { id: string; firstName: string; lastName: string; matricule: string; classId?: string; tranche?: string; amount?: number } | null
+  setPendingPaymentStudent: (student: { id: string; firstName: string; lastName: string; matricule: string; classId?: string; tranche?: string; amount?: number } | null) => void
+
   sidebarOpen: boolean
   setSidebarOpen: (open: boolean) => void
+
+  disciplineTab: 'BLACKLIST' | 'GREYLIST' | 'WHITELIST'
+  setDisciplineTab: (tab: 'BLACKLIST' | 'GREYLIST' | 'WHITELIST') => void
 
   searchQuery: string
   setSearchQuery: (q: string) => void
@@ -217,11 +226,20 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
   selectedStudentId: null,
   setSelectedStudentId: (id) => set({ selectedStudentId: id }),
 
+  highlightedId: null,
+  setHighlightedId: (id) => set({ highlightedId: id }),
+
+  pendingPaymentStudent: null,
+  setPendingPaymentStudent: (student) => set({ pendingPaymentStudent: student }),
+
   sidebarOpen: initial.sidebarOpen,
   setSidebarOpen: (open) => {
     set({ sidebarOpen: open });
     saveSession({ sidebar: open });
   },
+
+  disciplineTab: 'GREYLIST',
+  setDisciplineTab: (tab) => set({ disciplineTab: tab }),
 
   searchQuery: '',
   setSearchQuery: (q) => set({ searchQuery: q }),

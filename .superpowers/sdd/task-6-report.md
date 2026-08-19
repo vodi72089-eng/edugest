@@ -1,23 +1,27 @@
-# Task 6 Report: Wire Auto-Classification into Discipline CRUD
+# Task 6 Report: Add Notification Badge for Pending
 
-## Status: ✅ Complete
+## What I Implemented
 
-## What was done
+Added a pending communications badge to the CommunicationsView header:
 
-Modified `src/app/api/discipline/route.ts` to integrate auto-classification:
+1. **pendingCount calculation** (`src/app/page.tsx:4005`): Computed `comms.filter(c => c.status === 'PENDING').length` after `canCreate`/`isDirection` declarations.
 
-1. **Added import** for `classifyStudent` and `learnKeywordsFromRecord` from `@/lib/discipline-classifier`.
+2. **Badge in header** (`src/app/page.tsx:4064-4068`): A warning-colored badge (`bg-edu-warning/20 text-edu-warning`) that shows the count and "en attente" text, conditionally rendered only when `canCreate` is true and `pendingCount > 0`.
 
-2. **POST handler** — After the WhatsApp notification block, added auto-classification logic:
-   - Calls `classifyStudent(studentId, schoolId)` after a new sanction is created
-   - If the auto-classified `listType` differs from the submitted one, updates the record accordingly
-   - Errors are caught and logged as warnings (non-blocking)
+## Testing
 
-3. **PUT handler** — After the record update, added keyword learning:
-   - When staff manually changes a record's `listType` to `BLACKLIST` (and it wasn't already), calls `learnKeywordsFromRecord()` to feed the keyword learning system
-   - Uses the `existing` variable (the pre-update record) to get title, description, and schoolId
-   - Errors are caught and logged as warnings (non-blocking)
+- **TypeScript**: `npx tsc --noEmit` — no errors in `src/app/page.tsx` (pre-existing errors in other files unrelated to this change)
+- **Visual verification**: Badge renders conditionally with proper Tailwind styling and warning colors
+- **Logic**: Badge only visible to admin/secretary users (`canCreate` guard) and only when pending communications exist
 
-## Verification
+## Files Changed
 
-- `npx tsc --noEmit --pretty | Select-String "discipline/route"` — no TypeScript errors
+- `src/app/page.tsx` — Added `pendingCount` variable and badge JSX in CommunicationsView header
+
+## Self-Review Findings
+
+No issues found. The implementation matches the task specification exactly.
+
+## Commit
+
+- `6e86bc8` — feat: add notification badge for pending communications

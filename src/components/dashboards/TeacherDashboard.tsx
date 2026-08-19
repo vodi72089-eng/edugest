@@ -6,43 +6,55 @@ import { School, Users, PenTool, BookOpen } from 'lucide-react'
 import { ACCENT, SUCCESS, WARNING, DANGER, INFO, GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE } from '@/lib/constants'
 import StatCard from './StatCard'
 
+interface TeacherAssignment {
+  id: string
+  class: { id: string; name: string; _count?: { students: number } }
+  subject: { id: string; name: string }
+  teacher: { id: string; name: string }
+}
+
 export default function TeacherDashboard() {
   const { userData, setCurrentView } = useEduGestStore()
   const [classCount, setClassCount] = useState(0)
   const [studentCount, setStudentCount] = useState(0)
   const [homeworkCount, setHomeworkCount] = useState(0)
+  const [subjects, setSubjects] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     function fetchData() {
-      if (userData?.schoolId) {
-        authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`)
-          .then(r => r.json())
-          .then(j => {
-            const allClasses: { id: string; name: string; _count?: { students: number } }[] = j.data || []
-            const teacherClassNames = userData?.classNames
-            let myClasses = allClasses
-            if (teacherClassNames) {
-              const nameList = teacherClassNames.split(',').map(n => n.trim().toLowerCase())
-              myClasses = allClasses.filter(c => nameList.some(n => c.name.toLowerCase().includes(n) || n.includes(c.name.toLowerCase())))
-            }
-            setClassCount(myClasses.length)
-            const totalStudents = myClasses.reduce((sum, c) => sum + (c._count?.students || 0), 0)
-            setStudentCount(totalStudents)
-          })
-          .catch(() => {})
-        authFetch(`/api/homework?schoolId=${userData.schoolId}&limit=50`)
-          .then(r => r.json())
-          .then(j => {
-            const allHw: { teacherId?: string; teacherName: string }[] = j.data || []
-            const myHw = allHw.filter(h => h.teacherId === userData?.id || h.teacherName === userData?.name)
-            setHomeworkCount(myHw.length)
-          })
-          .catch(() => {})
-          .finally(() => setLoading(false))
-      } else {
-        setTimeout(() => setLoading(false), 0)
+      if (!userData?.schoolId) {
+        setLoading(false)
+        return
       }
+      authFetch(`/api/teacher-assignments?teacherId=${userData.id}`)
+        .then(r => r.json())
+        .then(j => {
+          const assignments: TeacherAssignment[] = j.data || []
+          const classMap = new Map<string, { name: string; students: number }>()
+          const subjectSet = new Set<string>()
+          let totalStudents = 0
+          for (const a of assignments) {
+            if (!classMap.has(a.class.id)) {
+              classMap.set(a.class.id, { name: a.class.name, students: a.class._count?.students || 0 })
+              totalStudents += a.class._count?.students || 0
+            }
+            subjectSet.add(a.subject.name)
+          }
+          setClassCount(classMap.size)
+          setStudentCount(totalStudents)
+          setSubjects([...subjectSet])
+        })
+        .catch(() => {})
+      authFetch(`/api/homework?schoolId=${userData.schoolId}&limit=50`)
+        .then(r => r.json())
+        .then(j => {
+          const allHw: { teacherId?: string; teacherName: string }[] = j.data || []
+          const myHw = allHw.filter(h => h.teacherId === userData?.id || h.teacherName === userData?.name)
+          setHomeworkCount(myHw.length)
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false))
     }
     fetchData()
     const interval = setInterval(fetchData, 30000)
@@ -58,7 +70,7 @@ export default function TeacherDashboard() {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour {userData?.name || 'Professeur'}</h1>
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>
-            {userData?.isTitulaire ? '🎓 Titulaire' : 'Enseignant'} · {userData?.subjectName || 'Vos classes et notes'}
+            {userData?.isTitulaire ? 'Titulaire' : 'Enseignant'} · {subjects.length > 0 ? subjects.join(', ') : 'Aucune matière assignée'}
           </p>
         </div>
       </div>
@@ -66,7 +78,7 @@ export default function TeacherDashboard() {
         <StatCard label="Mes classes" value={String(classCount)} icon={<School size={16} />} color={ACCENT} onClick={() => setCurrentView('students')} />
         <StatCard label="Élèves total" value={String(studentCount)} icon={<Users size={16} />} color={INFO} onClick={() => setCurrentView('students')} />
         <StatCard label="Devoirs créés" value={String(homeworkCount)} icon={<PenTool size={16} />} color={WARNING} onClick={() => setCurrentView('homework')} />
-        <StatCard label="Matière" value={userData?.subjectName || '—'} icon={<BookOpen size={16} />} color={DANGER} onClick={() => setCurrentView('grades')} />
+        <StatCard label="Matières" value={subjects.length > 0 ? subjects.join(', ') : '—'} icon={<BookOpen size={16} />} color={DANGER} onClick={() => setCurrentView('grades')} />
       </div>
     </div>
   )

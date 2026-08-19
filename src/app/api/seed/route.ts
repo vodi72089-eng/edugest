@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
       students: 0,
       grades: 0,
       disciplineRecords: 0,
+      schoolFees: 0,
       paymentRecords: 0,
       communications: 0,
       homeworks: 0,
@@ -423,6 +424,33 @@ export async function GET(request: NextRequest) {
           addedBy: 'Directrice Maternelle',
         } as any,
       }) as any;
+    }
+
+    // ----- School Fees (frais scolaires par classe × trimestre) -----
+    const feeAmounts: Record<string, number> = {
+      'Maternelle': 50000,
+      'CP1': 100000, 'CP2': 100000,
+      '6eA': 150000, '6eB': 150000,
+      '5eA': 150000,
+      '4eA': 150000,
+      '3eA': 150000,
+      '2ndeA': 160000,
+      'TleS': 170000,
+    };
+    for (const cls of lumiereClasses) {
+      for (const trimester of ['T1', 'T2', 'T3']) {
+        const feePerTrimester = feeAmounts[cls.name] || 150000;
+        await db.schoolFee.create({
+          data: {
+            name: `Minerval ${trimester}`,
+            amount: feePerTrimester,
+            trimester,
+            classId: cls.id,
+            schoolId: lumiere.id,
+          },
+        });
+        counts.schoolFees = (counts.schoolFees || 0) + 1;
+      }
     }
 
     // ----- Payment Records -----

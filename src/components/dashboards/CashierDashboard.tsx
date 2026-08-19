@@ -5,11 +5,13 @@ import { useEduGestStore, authFetch } from '@/lib/store'
 import { DollarSign, Wallet, TrendingUp, AlertTriangle, CreditCard } from 'lucide-react'
 import { ACCENT, SUCCESS, WARNING, DANGER, INFO, GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE } from '@/lib/constants'
 import { formatCurrency } from '@/lib/helpers'
+import { useCurrency } from '@/hooks/useCurrency'
 import StatCard from './StatCard'
 
 export default function CashierDashboard() {
   const { userData, setCurrentView } = useEduGestStore()
   const [stats, setStats] = useState<Record<string, unknown> | null>(null)
+  const { displayCurrency, changeCurrency, format: fmt, supportedCurrencies } = useCurrency(userData?.schoolId)
 
   useEffect(() => {
     function fetchStats() {
@@ -36,11 +38,21 @@ export default function CashierDashboard() {
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi financier — {userData?.schoolName || 'École'}</p>
         </div>
+        <select
+          value={displayCurrency}
+          onChange={(e) => changeCurrency(e.target.value)}
+          className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+          style={{ color: TEXT_PRIMARY }}
+        >
+          {supportedCurrencies.map(c => (
+            <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
+          ))}
+        </select>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
-        <StatCard label="Total encaissé" value={formatCurrency(paymentStats?.collectedAmount || 0)} icon={<DollarSign size={16} />} color={ACCENT} onClick={() => setCurrentView('payments')} />
-        <StatCard label="Montant attendu" value={formatCurrency(paymentStats?.expectedAmount || 0)} icon={<Wallet size={16} />} color={INFO} onClick={() => setCurrentView('payments')} />
+        <StatCard label="Total encaissé" value={fmt(paymentStats?.collectedAmount || 0)} icon={<DollarSign size={16} />} color={ACCENT} onClick={() => setCurrentView('payments')} />
+        <StatCard label="Montant attendu" value={fmt(paymentStats?.expectedAmount || 0)} icon={<Wallet size={16} />} color={INFO} onClick={() => setCurrentView('payments')} />
         <StatCard label="Taux recouvrement" value={`${paymentStats?.collectionRate?.toFixed(0) || 0}%`} icon={<TrendingUp size={16} />} color={SUCCESS} onClick={() => setCurrentView('payments')} />
         <StatCard label="Impayés" value={String(paymentStats?.overdue || 0)} delta={`${paymentStats?.pending || 0} en attente`} icon={<AlertTriangle size={16} />} color={DANGER} onClick={() => setCurrentView('payments')} />
       </div>

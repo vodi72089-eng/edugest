@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { requirePermission, safeParseInt, sanitizeError } from '@/lib/auth';
+import { getEffectiveStatus } from '@/lib/helpers';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -69,25 +70,42 @@ export async function GET(request: NextRequest) {
       db.subject.count({ where: { schoolId: effectiveSchoolId, schoolYearId: activeYearId || undefined } }),
     ]);
 
-    // Payment stats
+    // Payment stats — compute effective status from paidAmount vs amount
     const paymentWhere: Record<string, unknown> = { schoolId: effectiveSchoolId };
-    const [
-      totalPayments,
-      paidPayments,
-      pendingPayments,
-      partialPayments,
-      overduePayments,
-      totalExpected,
-      totalCollected,
-    ] = await Promise.all([
-      db.paymentRecord.count({ where: paymentWhere }),
-      db.paymentRecord.count({ where: { ...paymentWhere, status: 'PAID' } }),
-      db.paymentRecord.count({ where: { ...paymentWhere, status: 'PENDING' } }),
-      db.paymentRecord.count({ where: { ...paymentWhere, status: 'PARTIAL' } }),
-      db.paymentRecord.count({ where: { ...paymentWhere, status: 'OVERDUE' } }),
-      db.paymentRecord.aggregate({ where: paymentWhere, _sum: { amount: true } }),
-      db.paymentRecord.aggregate({ where: paymentWhere, _sum: { paidAmount: true } }),
-    ]);
+    const allPayments = await db.paymentRecord.findMany({
+      where: paymentWhere,
+      select: { amount: true, paidAmount: true, status: true },
+    });
+    let totalPayments = allPayments.length;
+    let paidPayments = 0;
+    let pendingPayments = 0;
+    let partialPayments = 0;
+    let overduePayments = 0;
+    let totalCollected = 0;
+    for (const p of allPayments) {
+      totalCollected += p.paidAmount;
+      const eff = getEffectiveStatus(p.amount, p.paidAmount, p.status);
+      if (eff === 'PAID') paidPayments++;
+      else if (eff === 'PARTIAL') partialPayments++;
+      else if (eff === 'OVERDUE') overduePayments++;
+      else pendingPayments++;
+    }
+
+    // Calculate REAL expected amount from school fees × students per class
+    const schoolFees = await db.schoolFee.findMany({
+      where: { schoolId: effectiveSchoolId, isActive: true },
+      select: { classId: true, amount: true },
+    });
+    const classesWithStudents = await db.class.findMany({
+      where: { schoolId: effectiveSchoolId, schoolYearId: activeYearId || undefined },
+      select: { id: true, _count: { select: { students: true } } },
+    });
+    const studentCountByClass = new Map(classesWithStudents.map(c => [c.id, c._count.students]));
+    let totalExpected = 0;
+    for (const fee of schoolFees) {
+      const studentCount = studentCountByClass.get(fee.classId) || 0;
+      totalExpected += fee.amount * studentCount;
+    }
 
     // Discipline stats
     const disciplineWhere: Record<string, unknown> = { schoolId: effectiveSchoolId };
@@ -137,9 +155,9 @@ export async function GET(request: NextRequest) {
     });
 
     // Payment collection rate
-    const expectedAmount = totalExpected._sum.amount || 0;
-    const collectedAmount = totalCollected._sum.paidAmount || 0;
-    const collectionRate = expectedAmount > 0 ? (collectedAmount / expectedAmount) * 100 : 0;
+    const expectedAmount = totalExpected;
+    const collectedAmount = totalCollected;
+    const collectionRate = expectedAmount > 0 ? Math.min((collectedAmount / expectedAmount) * 100, 100) : 0;
 
     return NextResponse.json({
       data: {

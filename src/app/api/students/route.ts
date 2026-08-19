@@ -207,6 +207,28 @@ export async function POST(request: NextRequest) {
       data: { studentCount: { increment: 1 } },
     });
 
+    // Create in-app notifications for school admins
+    try {
+      const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
+      const schoolAdmins = await db.user.findMany({
+        where: { schoolId, role: { in: adminRoles }, id: { not: user.id } },
+        select: { id: true },
+      });
+      const className = await db.class.findUnique({ where: { id: classId }, select: { name: true } });
+      for (const admin of schoolAdmins) {
+        await db.notification.create({
+          data: {
+            type: 'STUDENT_ENROLLED',
+            title: 'Nouvel élève inscrit',
+            message: `${firstName} ${lastName} - ${className?.name || ''} - Matricule: ${matricule}`,
+            userId: admin.id,
+            schoolId,
+            relatedId: student.id,
+          },
+        });
+      }
+    } catch { /* notification failed, non-critical */ }
+
     return NextResponse.json({ data: student }, { status: 201 });
   } catch (error) {
     console.error('Error creating student:', error);

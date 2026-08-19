@@ -131,6 +131,50 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Create in-app notifications
+    try {
+      const student = await db.student.findUnique({
+        where: { id: studentId },
+        select: { firstName: true, lastName: true, parentId: true, schoolId: true },
+      });
+      if (student) {
+        const decisionLabel = decision === 'PASSED' ? 'Admis' : decision === 'REPEAT' ? 'Redoublant' : 'En attente';
+
+        // Notify admins
+        const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
+        const schoolAdmins = await db.user.findMany({
+          where: { schoolId: student.schoolId, role: { in: adminRoles }, id: { not: user.id } },
+          select: { id: true },
+        });
+        for (const admin of schoolAdmins) {
+          await db.notification.create({
+            data: {
+              type: 'BULLETIN_UPDATED',
+              title: 'Bulletin mis à jour',
+              message: `${student.firstName} ${student.lastName} - ${trimester} - ${decisionLabel}${average ? ` - Moy: ${average}` : ''}`,
+              userId: admin.id,
+              schoolId: student.schoolId,
+              relatedId: reportCard.id,
+            },
+          });
+        }
+
+        // Notify parent
+        if (student.parentId) {
+          await db.notification.create({
+            data: {
+              type: 'BULLETIN_UPDATED',
+              title: 'Bulletin disponible',
+              message: `${student.firstName} ${student.lastName} - ${trimester} - ${decisionLabel}${average ? ` - Moyenne: ${average}` : ''}`,
+              userId: student.parentId,
+              schoolId: student.schoolId,
+              relatedId: reportCard.id,
+            },
+          });
+        }
+      }
+    } catch { /* notification failed, non-critical */ }
+
     return NextResponse.json({
       data: reportCard,
       message: 'Décision enregistrée avec succès',

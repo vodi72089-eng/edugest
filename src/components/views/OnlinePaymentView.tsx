@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react'
 import { useEduGestStore, authFetch } from '@/lib/store'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials, formatNumber } from '@/lib/helpers'
-import { CreditCard, Smartphone, CheckCircle, ArrowLeft, Loader2, Download, FileText } from 'lucide-react'
+import { CreditCard, Smartphone, CheckCircle, ArrowLeft, Loader2, Download, FileText, ArrowRightLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete, { AutocompleteItem } from './SearchAutocomplete'
-import type { StudentData } from '@/lib/types'
+import type { StudentData, PaymentData } from '@/lib/types'
+import { SUPPORTED_CURRENCIES } from '@/lib/exchange-rate'
 
 type PaymentStep = 'select' | 'confirm' | 'success'
 
@@ -27,7 +28,14 @@ export default function OnlinePaymentView() {
   const [amount, setAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('ORANGE_MONEY')
   const [phone, setPhone] = useState('')
-  const [trimester, setTrimester] = useState('Tranche 1')
+  const [tranche, setTranche] = useState('Tranche 1')
+  const [classFees, setClassFees] = useState<any[]>([])
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null)
+  const [payCurrency, setPayCurrency] = useState('CDF')
+  const [payConvertedAmount, setPayConvertedAmount] = useState<string>('')
+  const [amountConverted, setAmountConverted] = useState<string>('')
+  const [currencyConfig, setCurrencyConfig] = useState<any>(null)
+  const [allPaid, setAllPaid] = useState(false)
 
   // Result state
   const [resultRef, setResultRef] = useState('')
@@ -71,29 +79,136 @@ export default function OnlinePaymentView() {
     return () => { clearTimeout(timer); setStudentSearchLoading(false) }
   }, [studentSearch, userData?.id])
 
+  // Fetch class fees + student payments + auto-select tranche when student selected
+  useEffect(() => {
+    if (!selectedStudentId || !userData?.schoolId) {
+      setClassFees([]); setAllPaid(false); setTranche(''); setAmount(''); setPayCurrency('CDF'); setPayConvertedAmount(''); setAmountConverted(''); return
+    }
+    let cancelled = false
+    const load = async () => {
+      try {
+        // Resolve classId: try from selectedStudent first, then fetch from API
+        let classId = selectedStudent?.classId
+        if (!classId) {
+          const sRes = await authFetch(`/api/students/${selectedStudentId}`)
+          const sJson = await sRes.json()
+          classId = sJson.data?.classId
+        }
+        if (!classId || cancelled) { setClassFees([]); setAllPaid(false); setTranche(''); setAmount(''); return }
+
+        const feesRes = await authFetch(`/api/school-fees?schoolId=${userData.schoolId}&classId=${classId}`)
+        const feesJson = await feesRes.json()
+        const allFees: any[] = feesJson.data || []
+
+        const payRes = await authFetch(`/api/payments?studentId=${selectedStudentId}&limit=100`)
+        const payJson = await payRes.json()
+        const pays: PaymentData[] = payJson.data || []
+
+        if (cancelled) return
+
+        const trancheNames = [...new Set(allFees.map(f => f.trimester))].sort()
+        if (trancheNames.length === 0) { setClassFees([]); setAllPaid(false); setTranche(''); setAmount(''); return }
+
+        const trancheStatus = trancheNames.map(name => {
+          const feesForTranche = allFees.filter(f => f.trimester === name)
+          const totalFee = feesForTranche.reduce((s: number, f: any) => s + f.amount, 0)
+          const paidForTranche = pays
+            .filter(p => p.trimester === name && (p.status === 'PAID' || p.status === 'PARTIAL'))
+            .reduce((s: number, p: PaymentData) => s + (p.paidAmount || 0), 0)
+          const remaining = Math.max(0, totalFee - paidForTranche)
+          const isFullyPaid = remaining === 0 && totalFee > 0
+          return { name, fees: feesForTranche, totalFee, paidForTranche, remaining, isFullyPaid }
+        })
+
+        const nextUnpaid = trancheStatus.find(t => !t.isFullyPaid)
+
+        if (!nextUnpaid) {
+          setAllPaid(true); setTranche(''); setAmount(''); setClassFees([])
+          setPayCurrency('CDF'); setPayConvertedAmount(''); setAmountConverted('')
+        } else {
+          setAllPaid(false)
+          setTranche(nextUnpaid.name)
+          setClassFees(nextUnpaid.fees)
+          setAmount(String(Math.round(nextUnpaid.totalFee)))
+          setPayCurrency('CDF'); setPayConvertedAmount(''); setAmountConverted('')
+        }
+      } catch { setClassFees([]); setAllPaid(false); setTranche(''); setAmount('') }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [selectedStudentId, selectedStudent?.classId, userData?.schoolId])
+
+  // Fetch school currency config
+  useEffect(() => {
+    if (userData?.schoolId) {
+      authFetch(`/api/school-currency?schoolId=${userData.schoolId}`)
+        .then(r => r.json())
+        .then(j => { if (j.data) setCurrencyConfig(j.data) })
+        .catch(() => {})
+    }
+  }, [userData?.schoolId])
+
+  // Fetch exchange rate when pay currency changes
+  useEffect(() => {
+    if (payCurrency === 'CDF') { setExchangeRate(null); setPayConvertedAmount(''); setAmountConverted(''); return }
+    const rateSource = currencyConfig?.useManualRates && currencyConfig?.manualRates
+      ? (() => { try { return JSON.parse(currencyConfig.manualRates)[payCurrency] } catch { return null } })()
+      : null
+    if (rateSource) { setExchangeRate(rateSource) }
+    else {
+      authFetch(`/api/exchange-rate?from=${payCurrency}&to=CDF&amount=1`)
+        .then(r => r.json())
+        .then(j => { if (j.data?.rate) setExchangeRate(j.data.rate) })
+        .catch(() => {})
+    }
+  }, [payCurrency, currencyConfig])
+
+  // Update converted amounts
+  useEffect(() => {
+    if (payCurrency !== 'CDF' && exchangeRate) {
+      if (amount) {
+        const val = parseFloat(amount)
+        if (!isNaN(val)) setAmountConverted(String(Math.round(val / exchangeRate)))
+      }
+    } else { setAmountConverted('') }
+  }, [amount, exchangeRate, payCurrency])
+
   function handleSelectStudent(item: AutocompleteItem) {
     setSelectedStudentId(item.id)
     const found = children.find(s => s.id === item.id) || null
     setSelectedStudent(found)
     setStudentSearch('')
+    setAllPaid(false)
+    setClassFees([])
+    setTranche('')
+    setAmount('')
+    setPayCurrency('CDF')
+    setPayConvertedAmount('')
+    setAmountConverted('')
   }
 
   async function handleSubmit() {
     if (!selectedStudentId) { toast.error('Sélectionnez un élève'); return }
     if (!amount || Number(amount) <= 0) { toast.error('Entrez un montant valide'); return }
     if (!phone.trim()) { toast.error('Entrez votre numéro de téléphone'); return }
+    if (allPaid) { toast.error('Cet élève a déjà payé toutes ses tranches'); return }
 
     setSubmitting(true)
     try {
+      // Convert paid amount to CDF if non-CDF currency
+      let amountInCDF = parseInt(amount)
+      if (payCurrency !== 'CDF' && exchangeRate) {
+        amountInCDF = Math.round(parseFloat(amount) * exchangeRate)
+      }
       const res = await authFetch('/api/payments/online', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentId: selectedStudentId,
-          amount: Number(amount),
+          amount: amountInCDF,
           paymentMethod,
           phone: phone.trim(),
-          trimester,
+          trimester: tranche,
         }),
       })
       const json = await res.json()
@@ -122,6 +237,12 @@ export default function OnlinePaymentView() {
     setPhone('')
     setResultRef('')
     setResultPaymentId('')
+    setTranche('Tranche 1')
+    setClassFees([])
+    setAllPaid(false)
+    setPayCurrency('CDF')
+    setPayConvertedAmount('')
+    setAmountConverted('')
   }
 
   async function downloadReceipt() {
@@ -246,19 +367,41 @@ export default function OnlinePaymentView() {
 
               <div>
                 <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Tranche *</label>
-                <input value={trimester} onChange={e => setTrimester(e.target.value)} placeholder="Ex: Tranche 1" className="w-full mt-1 px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+                <input
+                  value={tranche}
+                  readOnly
+                  placeholder="Sélectionnez un élève"
+                  className="w-full mt-1 px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-[oklch(97%_0.005_175)] outline-none cursor-not-allowed"
+                  style={{ color: tranche ? TEXT_PRIMARY : TEXT_MUTED_LUXE }}
+                />
               </div>
 
               <div>
-                <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant (CDF) *</label>
+                <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant à payer (CDF) *</label>
                 <input
-                  placeholder="Entrez le montant à payer"
+                  placeholder="Montant"
                   value={amount}
-                  onChange={e => setAmount(e.target.value)}
+                  readOnly
                   type="number"
-                  min="1"
-                  className="w-full mt-1 px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]"
+                  className="w-full mt-1 px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-[oklch(97%_0.005_175)] outline-none cursor-not-allowed"
+                  style={{ color: amount ? ACCENT : TEXT_MUTED_LUXE }}
                 />
+                {payCurrency !== 'CDF' && exchangeRate && amount && (
+                  <div className="mt-1 flex items-center gap-1.5 text-[11px] px-3 py-2 rounded-lg" style={{ background: `${ACCENT}10`, color: TEXT_MUTED_LUXE }}>
+                    <ArrowRightLeft size={11} />
+                    <span>≈ {formatNumber(parseInt(amountConverted))} {payCurrency}</span>
+                  </div>
+                )}
+                {classFees.length > 0 && (
+                  <div className="mt-1 text-[11px] px-3 py-2 rounded-lg" style={{ background: `${ACCENT}10`, color: TEXT_MUTED_LUXE }}>
+                    {classFees.map((f: any) => `${f.name}: ${formatNumber(f.amount)}`).join(' + ')} = <strong style={{ color: ACCENT }}>{formatNumber(classFees.reduce((s: number, f: any) => s + f.amount, 0))} CDF</strong>
+                  </div>
+                )}
+                {allPaid && (
+                  <div className="mt-2 px-3 py-2 rounded-lg text-[12px] font-medium" style={{ background: `${SUCCESS}18`, color: SUCCESS }}>
+                    Cet élève a déjà payé toutes ses tranches. Aucun paiement à enregistrer.
+                  </div>
+                )}
               </div>
 
               <div>
@@ -301,7 +444,7 @@ export default function OnlinePaymentView() {
 
               <button
                 onClick={handleSubmit}
-                disabled={submitting || !selectedStudentId || !amount || !phone}
+                disabled={submitting || !selectedStudentId || !amount || !phone || allPaid}
                 className="w-full edu-gold-cta px-6 py-3 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {submitting ? (

@@ -185,8 +185,45 @@ export async function POST(request: NextRequest) {
     try {
       const student = await db.student.findUnique({
         where: { id: studentId },
-        select: { parentId: true, firstName: true, lastName: true },
+        select: { parentId: true, firstName: true, lastName: true, schoolId: true },
       });
+
+      // Create in-app notifications for school admins
+      if (student?.schoolId) {
+        const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
+        const schoolAdmins = await db.user.findMany({
+          where: { schoolId: student.schoolId, role: { in: adminRoles }, id: { not: user.id } },
+          select: { id: true },
+        });
+        for (const admin of schoolAdmins) {
+          await db.notification.create({
+            data: {
+              type: 'DISCIPLINE_INCIDENT',
+              title: 'Incident de discipline',
+              message: `${student.firstName} ${student.lastName} - ${title} (${severity})`,
+              userId: admin.id,
+              schoolId: student.schoolId,
+              relatedId: record.id,
+            },
+          });
+        }
+      }
+
+      // Create in-app notification for parent
+      if (student?.parentId) {
+        await db.notification.create({
+          data: {
+            type: 'DISCIPLINE_INCIDENT',
+            title: 'Incident de discipline',
+            message: `${student.firstName} ${student.lastName} - ${title}: ${description}`,
+            userId: student.parentId,
+            schoolId: student.schoolId,
+            relatedId: record.id,
+          },
+        });
+      }
+
+      // WhatsApp notification
       if (student?.parentId) {
         const parent = await db.user.findUnique({
           where: { id: student.parentId },

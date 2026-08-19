@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { requireRole, sanitizeError } from '@/lib/auth';
+import { getEffectiveStatus } from '@/lib/helpers';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -16,18 +17,24 @@ export async function GET(request: NextRequest) {
     if (city) schoolWhere.city = city;
 
     // ===== OVERVIEW STATS =====
-    const [totalSchools, totalStudents, totalUsers, totalRevenue] = await Promise.all([
+    const [totalSchools, totalStudents, totalUsers] = await Promise.all([
       db.school.count({ where: schoolWhere }),
       db.student.count(),
       db.user.count({ where: { isActive: true } }),
-      db.paymentRecord.aggregate({
-        where: { status: 'PAID' },
-        _sum: { paidAmount: true },
-      }),
     ]);
 
+    // Fetch all payments once and compute effective status from amounts
+    const allPayments = await db.paymentRecord.findMany({
+      where: city ? { school: { city } } : {},
+      select: { id: true, schoolId: true, studentId: true, amount: true, paidAmount: true, status: true, paidAt: true },
+    });
+    const paymentsWithEffective = allPayments.map(p => ({
+      ...p,
+      effectiveStatus: getEffectiveStatus(p.amount, p.paidAmount, p.status),
+    }));
+
     // ===== SCHOOLS WITH MOST STUDENTS =====
-    const schoolsWithMostStudents = await db.school.findMany({
+    const schoolsWithMostStudentsRaw = await db.school.findMany({
       where: schoolWhere,
       select: {
         id: true,
@@ -36,16 +43,19 @@ export async function GET(request: NextRequest) {
         city: true,
         country: true,
         subscriptionTier: true,
-        studentCount: true,
-        classCount: true,
-        _count: { select: { students: true, users: true } },
+        _count: { select: { students: true, classes: true, users: true } },
       },
-      orderBy: { studentCount: 'desc' },
+      orderBy: { students: { _count: 'desc' } },
       take: 10,
     });
+    const schoolsWithMostStudents = schoolsWithMostStudentsRaw.map(s => ({
+      ...s,
+      studentCount: s._count.students,
+      classCount: s._count.classes,
+    }));
 
     // ===== SCHOOLS WITH FEWEST STUDENTS =====
-    const schoolsWithFewestStudents = await db.school.findMany({
+    const schoolsWithFewestStudentsRaw = await db.school.findMany({
       where: schoolWhere,
       select: {
         id: true,
@@ -54,22 +64,32 @@ export async function GET(request: NextRequest) {
         city: true,
         country: true,
         subscriptionTier: true,
-        studentCount: true,
-        classCount: true,
-        _count: { select: { students: true, users: true } },
+        _count: { select: { students: true, classes: true, users: true } },
       },
-      orderBy: { studentCount: 'asc' },
+      orderBy: { students: { _count: 'asc' } },
       take: 10,
     });
+    const schoolsWithFewestStudents = schoolsWithFewestStudentsRaw.map(s => ({
+      ...s,
+      studentCount: s._count.students,
+      classCount: s._count.classes,
+    }));
 
-    // ===== SCHOOLS BY CITY =====
-    const schoolsByCity = await db.school.groupBy({
-      by: ['city'],
+    // ===== SCHOOLS BY CITY (real student counts) =====
+    const citySchools = await db.school.findMany({
       where: schoolWhere,
-      _count: { id: true },
-      _sum: { studentCount: true },
-      orderBy: { _count: { id: 'desc' } },
+      select: { city: true, _count: { select: { students: true } } },
     });
+    const cityMap = new Map<string, { id: number; studentCount: number }>();
+    for (const s of citySchools) {
+      const cur = cityMap.get(s.city) || { id: 0, studentCount: 0 };
+      cur.id += 1;
+      cur.studentCount += s._count.students;
+      cityMap.set(s.city, cur);
+    }
+    const schoolsByCity = [...cityMap.entries()]
+      .map(([city, v]) => ({ city, _count: { id: v.id }, _sum: { studentCount: v.studentCount } }))
+      .sort((a, b) => b._count.id - a._count.id);
 
     // ===== SUBSCRIPTION DISTRIBUTION =====
     const subscriptionDistribution = await db.school.groupBy({
@@ -78,61 +98,65 @@ export async function GET(request: NextRequest) {
       orderBy: { _count: { id: 'desc' } },
     });
 
-    // ===== STUDENTS WITH DEBTS (per school) =====
-    const debtStats = await db.paymentRecord.groupBy({
-      by: ['schoolId'],
-      where: {
-        status: { in: ['OVERDUE', 'PARTIAL', 'PENDING'] },
-      },
-      _count: { id: true },
-      _sum: { amount: true, paidAmount: true },
-    });
+    // ===== STUDENTS WITH DEBTS (per school) — computed from effective status =====
+    const debtPayments = paymentsWithEffective.filter(p => ['OVERDUE', 'PARTIAL', 'PENDING'].includes(p.effectiveStatus));
+    const debtBySchool = new Map<string, { debtCount: number; totalOwed: number; totalAmount: number; totalPaid: number }>();
+    for (const p of debtPayments) {
+      const cur = debtBySchool.get(p.schoolId) || { debtCount: 0, totalOwed: 0, totalAmount: 0, totalPaid: 0 };
+      cur.debtCount++;
+      cur.totalAmount += p.amount;
+      cur.totalPaid += p.paidAmount;
+      cur.totalOwed += p.amount - p.paidAmount;
+      debtBySchool.set(p.schoolId, cur);
+    }
 
     // Enrich debt stats with school names
-    const schoolIds = debtStats.map(d => d.schoolId);
+    const schoolIds = [...debtBySchool.keys()];
     const debtSchools = await db.school.findMany({
       where: { id: { in: schoolIds } },
-      select: { id: true, name: true, shortName: true, city: true, studentCount: true },
+      select: { id: true, name: true, shortName: true, city: true, _count: { select: { students: true } } },
     });
 
-    const debtStatsEnriched = debtStats.map(d => {
-      const school = debtSchools.find(s => s.id === d.schoolId);
+    const debtStatsEnriched = [...debtBySchool.entries()].map(([schoolId, v]) => {
+      const school = debtSchools.find(s => s.id === schoolId);
       return {
-        schoolId: d.schoolId,
+        schoolId,
         schoolName: school?.name || 'Inconnu',
         schoolShortName: school?.shortName || '',
         city: school?.city || '',
-        studentCount: school?.studentCount || 0,
-        debtCount: d._count.id,
-        totalOwed: (d._sum.amount || 0) - (d._sum.paidAmount || 0),
-        totalAmount: d._sum.amount || 0,
-        totalPaid: d._sum.paidAmount || 0,
+        studentCount: school?._count?.students || 0,
+        debtCount: v.debtCount,
+        totalOwed: v.totalOwed,
+        totalAmount: v.totalAmount,
+        totalPaid: v.totalPaid,
       };
     }).sort((a, b) => b.totalOwed - a.totalOwed);
 
-    // ===== PAID STUDENTS STATS =====
-    const paidStats = await db.paymentRecord.groupBy({
-      by: ['schoolId'],
-      where: { status: 'PAID' },
-      _count: { id: true },
-      _sum: { paidAmount: true },
-    });
+    // ===== PAID STUDENTS STATS — computed from effective status =====
+    const paidPayments = paymentsWithEffective.filter(p => p.effectiveStatus === 'PAID');
+    const paidBySchool = new Map<string, { paidCount: number; totalPaid: number }>();
+    for (const p of paidPayments) {
+      const cur = paidBySchool.get(p.schoolId) || { paidCount: 0, totalPaid: 0 };
+      cur.paidCount++;
+      cur.totalPaid += p.paidAmount;
+      paidBySchool.set(p.schoolId, cur);
+    }
 
     const paidSchools = await db.school.findMany({
-      where: { id: { in: paidStats.map(p => p.schoolId) } },
-      select: { id: true, name: true, shortName: true, city: true, studentCount: true },
+      where: { id: { in: [...paidBySchool.keys()] } },
+      select: { id: true, name: true, shortName: true, city: true, _count: { select: { students: true } } },
     });
 
-    const paidStatsEnriched = paidStats.map(p => {
-      const school = paidSchools.find(s => s.id === p.schoolId);
+    const paidStatsEnriched = [...paidBySchool.entries()].map(([schoolId, v]) => {
+      const school = paidSchools.find(s => s.id === schoolId);
       return {
-        schoolId: p.schoolId,
+        schoolId,
         schoolName: school?.name || 'Inconnu',
         schoolShortName: school?.shortName || '',
         city: school?.city || '',
-        studentCount: school?.studentCount || 0,
-        paidCount: p._count.id,
-        totalPaid: p._sum.paidAmount || 0,
+        studentCount: school?._count?.students || 0,
+        paidCount: v.paidCount,
+        totalPaid: v.totalPaid,
       };
     }).sort((a, b) => b.totalPaid - a.totalPaid);
 
@@ -182,31 +206,34 @@ export async function GET(request: NextRequest) {
     });
 
     // ===== RECENT ACTIVITIES =====
-    const recentPaymentsRaw = await db.paymentRecord.findMany({
-      where: city ? { school: { city } } : {},
-      include: {
-        school: { select: { name: true, shortName: true, city: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 15,
-    });
+    const recentPaymentsRaw = paymentsWithEffective
+      .sort((a, b) => (b.paidAt?.getTime() || 0) - (a.paidAt?.getTime() || 0))
+      .slice(0, 15);
 
     // Enrich payment records with student data
-    const paymentStudentIds = [...new Set(recentPaymentsRaw.map(p => p.studentId))];
+    const paymentStudentIds = [...new Set(recentPaymentsRaw.map(p => p.studentId).filter(Boolean))];
     const paymentStudents = await db.student.findMany({
       where: { id: { in: paymentStudentIds } },
       select: { id: true, firstName: true, lastName: true, matricule: true, photoUrl: true },
     });
+
+    // Get school data for recent payments
+    const recentPaymentSchoolIds = [...new Set(recentPaymentsRaw.map(p => p.schoolId))];
+    const recentPaymentSchools = await db.school.findMany({
+      where: { id: { in: recentPaymentSchoolIds } },
+      select: { id: true, name: true, shortName: true, city: true },
+    });
+
     const recentPayments = recentPaymentsRaw.map(p => ({
       id: p.id,
       studentId: p.studentId,
       schoolId: p.schoolId,
       amount: p.amount,
       paidAmount: p.paidAmount,
-      status: p.status,
-      createdAt: p.createdAt,
+      status: p.effectiveStatus,
+      createdAt: p.paidAt || new Date(),
       student: paymentStudents.find(s => s.id === p.studentId) || null,
-      school: p.school,
+      school: recentPaymentSchools.find(s => s.id === p.schoolId) || null,
     }));
 
     const recentDiscipline = await db.disciplineRecord.findMany({
@@ -228,55 +255,61 @@ export async function GET(request: NextRequest) {
       take: 15,
     });
 
-    // ===== MONTHLY REVENUE (last 12 months) =====
+    // ===== MONTHLY REVENUE (last 12 months) — computed from effective status =====
     const twelveMonthsAgo = new Date();
     twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
 
-    const monthlyRevenue = await db.paymentRecord.groupBy({
-      by: ['schoolId'],
-      where: {
-        status: 'PAID',
-        paidAt: { gte: twelveMonthsAgo },
-      },
-      _sum: { paidAmount: true },
-      _count: { id: true },
-    });
+    const recentPaidPayments = paymentsWithEffective.filter(
+      p => p.effectiveStatus === 'PAID' && p.paidAt && p.paidAt >= twelveMonthsAgo
+    );
+    const revenueBySchool = new Map<string, { revenue: number; paymentCount: number }>();
+    for (const p of recentPaidPayments) {
+      const cur = revenueBySchool.get(p.schoolId) || { revenue: 0, paymentCount: 0 };
+      cur.revenue += p.paidAmount;
+      cur.paymentCount++;
+      revenueBySchool.set(p.schoolId, cur);
+    }
 
     const revenueSchools = await db.school.findMany({
-      where: { id: { in: monthlyRevenue.map(r => r.schoolId) } },
+      where: { id: { in: [...revenueBySchool.keys()] } },
       select: { id: true, name: true, shortName: true, city: true },
     });
 
-    const revenueEnriched = monthlyRevenue.map(r => {
-      const school = revenueSchools.find(s => s.id === r.schoolId);
+    const revenueEnriched = [...revenueBySchool.entries()].map(([schoolId, v]) => {
+      const school = revenueSchools.find(s => s.id === schoolId);
       return {
-        schoolId: r.schoolId,
+        schoolId,
         schoolName: school?.name || 'Inconnu',
         schoolShortName: school?.shortName || '',
         city: school?.city || '',
-        revenue: r._sum.paidAmount || 0,
-        paymentCount: r._count.id,
+        revenue: v.revenue,
+        paymentCount: v.paymentCount,
       };
     }).sort((a, b) => b.revenue - a.revenue);
 
-    // ===== TOTAL OVERDUE =====
-    const overdueStats = await db.paymentRecord.aggregate({
-      where: { status: 'OVERDUE' },
-      _sum: { amount: true },
-      _count: { id: true },
-    });
+    // ===== TOTAL OVERDUE/PARTIAL/PENDING — computed from effective status =====
+    const overduePayments = paymentsWithEffective.filter(p => p.effectiveStatus === 'OVERDUE');
+    const overdueStats = {
+      amount: overduePayments.reduce((s, p) => s + p.amount, 0),
+      count: overduePayments.length,
+    };
 
-    const partialStats = await db.paymentRecord.aggregate({
-      where: { status: 'PARTIAL' },
-      _sum: { amount: true, paidAmount: true },
-      _count: { id: true },
-    });
+    const partialPayments = paymentsWithEffective.filter(p => p.effectiveStatus === 'PARTIAL');
+    const partialStats = {
+      amount: partialPayments.reduce((s, p) => s + p.amount, 0),
+      paidAmount: partialPayments.reduce((s, p) => s + p.paidAmount, 0),
+      count: partialPayments.length,
+    };
 
-    const pendingStats = await db.paymentRecord.aggregate({
-      where: { status: 'PENDING' },
-      _sum: { amount: true },
-      _count: { id: true },
-    });
+    const pendingPaymentsList = paymentsWithEffective.filter(p => p.effectiveStatus === 'PENDING');
+    const pendingStats = {
+      amount: pendingPaymentsList.reduce((s, p) => s + p.amount, 0),
+      count: pendingPaymentsList.length,
+    };
+
+    // ===== TOTAL REVENUE (from effective PAID payments) =====
+    const totalPaidPayments = paymentsWithEffective.filter(p => p.effectiveStatus === 'PAID');
+    const totalRevenueComputed = totalPaidPayments.reduce((s, p) => s + p.paidAmount, 0);
 
     return NextResponse.json({
       data: {
@@ -284,20 +317,20 @@ export async function GET(request: NextRequest) {
           totalSchools,
           totalStudents,
           totalUsers,
-          totalRevenue: totalRevenue._sum.paidAmount || 0,
+          totalRevenue: totalRevenueComputed,
           overdue: {
-            amount: overdueStats._sum.amount || 0,
-            count: overdueStats._count.id,
+            amount: overdueStats.amount,
+            count: overdueStats.count,
           },
           partial: {
-            owed: (partialStats._sum.amount || 0) - (partialStats._sum.paidAmount || 0),
-            count: partialStats._count.id,
+            owed: partialStats.amount - partialStats.paidAmount,
+            count: partialStats.count,
           },
           pending: {
-            amount: pendingStats._sum.amount || 0,
-            count: pendingStats._count.id,
+            amount: pendingStats.amount,
+            count: pendingStats.count,
           },
-          totalDebt: (overdueStats._sum.amount || 0) + ((partialStats._sum.amount || 0) - (partialStats._sum.paidAmount || 0)) + (pendingStats._sum.amount || 0),
+          totalDebt: overdueStats.amount + (partialStats.amount - partialStats.paidAmount) + pendingStats.amount,
         },
         schoolsWithMostStudents,
         schoolsWithFewestStudents,

@@ -29,6 +29,7 @@ export interface GradeData {
   trimester: string; score: number; comment?: string; schoolYearId: string;
   student?: { id: string; firstName: string; lastName: string; matricule: string; photoUrl?: string };
   subject?: { id: string; name: string; coefficient: number };
+  reads?: { id: string; userId: string; readAt: string; user?: { id: string; name: string; role: string } }[];
 }
 
 export interface PaymentData {
@@ -67,4 +68,5 @@ export interface HomeworkData {
   id: string; title: string; description: string; subjectName: string;
   classId: string; teacherName: string; teacherId?: string; isTitulaire?: boolean;
   dueDate: string; schoolId: string; class?: { id: string; name: string };
+  reads?: { id: string; userId: string; readAt: string; user?: { id: string; name: string; role: string } }[];
 }

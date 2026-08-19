@@ -36,8 +36,12 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { notificationId } = body;
 
-    if (notificationId) {
-      // updateMany avoids P2025 (record not found) when the id doesn't exist
+    if (notificationId === 'all') {
+      await db.notification.updateMany({
+        where: { userId: user.id, isRead: false },
+        data: { isRead: true },
+      });
+    } else if (notificationId) {
       await db.notification.updateMany({
         where: { id: notificationId, userId: user.id },
         data: { isRead: true },

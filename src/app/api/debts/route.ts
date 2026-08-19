@@ -18,23 +18,40 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
     }
 
-    const payments = await db.paymentRecord.findMany({
-      where: {
-        schoolId,
-        status: { notIn: ['PAID', 'CANCELLED', 'REFUNDED'] },
-      },
+    // Get active school year
+    const activeYear = await db.schoolYear.findFirst({
+      where: { schoolId, isActive: true },
       orderBy: { createdAt: 'desc' },
     })
 
-    const studentIds = [...new Set(payments.map(p => p.studentId))]
+    // Get all school fees for this school
+    const schoolFees = await db.schoolFee.findMany({
+      where: { schoolId, isActive: true },
+      select: { classId: true, trimester: true, amount: true },
+    })
+
+    // Group fees by classId → trimester → amount
+    const feeByClassTrimester = new Map<string, Map<string, number>>()
+    for (const fee of schoolFees) {
+      if (!feeByClassTrimester.has(fee.classId)) {
+        feeByClassTrimester.set(fee.classId, new Map())
+      }
+      feeByClassTrimester.get(fee.classId)!.set(fee.trimester, fee.amount)
+    }
+
+    // Get all students in this school (active year)
+    const studentWhere: Record<string, unknown> = { schoolId }
+    if (activeYear) studentWhere.schoolYearId = activeYear.id
+
     const students = await db.student.findMany({
-      where: { id: { in: studentIds } },
+      where: studentWhere,
       select: {
         id: true,
         firstName: true,
         lastName: true,
         matricule: true,
         photoUrl: true,
+        classId: true,
         parentId: true,
         parent: {
           select: { id: true, name: true, phone: true },
@@ -45,21 +62,68 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    const studentMap = new Map(students.map(s => [s.id, s]))
+    // Get all payments for this school
+    const payments = await db.paymentRecord.findMany({
+      where: { schoolId },
+      select: { studentId: true, trimester: true, paidAmount: true },
+    })
 
-    const debts = payments
-      .filter((p) => p.paidAmount < p.amount)
-      .map((p) => ({
-        id: p.id,
-        student: studentMap.get(p.studentId) || null,
-        amount: p.amount,
-        paidAmount: p.paidAmount,
-        remaining: p.amount - p.paidAmount,
-        trimester: p.trimester,
-        status: p.status,
-        paymentMethod: p.paymentMethod,
-        createdAt: p.createdAt,
-      }))
+    // Sum paidAmount per student per trimester
+    const paidByStudentTrimester = new Map<string, Map<string, number>>()
+    for (const p of payments) {
+      if (!paidByStudentTrimester.has(p.studentId)) {
+        paidByStudentTrimester.set(p.studentId, new Map())
+      }
+      const triMap = paidByStudentTrimester.get(p.studentId)!
+      triMap.set(p.trimester, (triMap.get(p.trimester) || 0) + p.paidAmount)
+    }
+
+    // Calculate debts per student per trimester
+    const allTrimesters = ['T1', 'T2', 'T3']
+    const debts: Array<{
+      id: string
+      student: typeof students[0] | null
+      amount: number
+      paidAmount: number
+      remaining: number
+      trimester: string
+      status: string
+      paymentMethod: null
+      createdAt: Date
+    }> = []
+
+    for (const student of students) {
+      const fees = feeByClassTrimester.get(student.classId)
+      if (!fees) continue
+
+      const paidMap = paidByStudentTrimester.get(student.id)
+
+      for (const trimester of allTrimesters) {
+        const feeAmount = fees.get(trimester)
+        if (!feeAmount) continue
+
+        const paid = paidMap?.get(trimester) || 0
+        const remaining = feeAmount - paid
+
+        if (remaining > 0) {
+          const status = paid >= feeAmount ? 'PAID' : paid > 0 ? 'PARTIAL' : 'PENDING'
+          debts.push({
+            id: `${student.id}-${trimester}`,
+            student,
+            amount: feeAmount,
+            paidAmount: paid,
+            remaining,
+            trimester,
+            status,
+            paymentMethod: null,
+            createdAt: new Date(),
+          })
+        }
+      }
+    }
+
+    // Sort by remaining descending
+    debts.sort((a, b) => b.remaining - a.remaining)
 
     return NextResponse.json(debts)
   } catch (error) {

@@ -13,7 +13,7 @@ export function formatNumber(n: number) {
 }
 
 export function formatCurrency(n: number) {
-  return n.toLocaleString('fr-FR') + '$'
+  return n.toLocaleString('fr-FR') + ' CDF'
 }
 
 export function getSchoolTypeLabel(type: string, category: string) {
@@ -54,6 +54,13 @@ export function getRoleLabel(role: UserRole): string {
     PARENT: 'Parent',
   }
   return map[role] || role
+}
+
+export function getEffectiveStatus(amount: number, paidAmount: number, storedStatus: string): string {
+  if (paidAmount >= amount && amount > 0) return 'PAID'
+  if (paidAmount > 0 && paidAmount < amount) return 'PARTIAL'
+  if (storedStatus === 'OVERDUE') return 'OVERDUE'
+  return 'PENDING'
 }
 
 export function getStatusPill(status: string) {

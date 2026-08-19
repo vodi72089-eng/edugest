@@ -181,46 +181,70 @@ export async function POST(request: NextRequest) {
     // Generate receipt number if not provided
     const receiptNum = receiptNumber || `REC-${Date.now().toString(36).toUpperCase()}`;
 
-    // Force status to PENDING on creation — do not allow client to set status directly
+    // Auto-compute status from paidAmount vs amount
+    const paymentAmount = parseInt(amount) || 0;
+    const paymentPaidAmount = parseInt(paidAmount) || 0;
+    let computedStatus = 'PENDING';
+    if (paymentPaidAmount >= paymentAmount && paymentAmount > 0) {
+      computedStatus = 'PAID';
+    } else if (paymentPaidAmount > 0 && paymentPaidAmount < paymentAmount) {
+      computedStatus = 'PARTIAL';
+    }
+
     const payment = await db.paymentRecord.create({
       data: {
         studentId: resolvedStudentId,
         schoolId,
-        amount,
-        paidAmount: paidAmount || 0,
+        amount: paymentAmount,
+        paidAmount: paymentPaidAmount,
         trimester,
         paymentMethod: paymentMethod || null,
         referenceNumber: referenceNumber || null,
-        status: 'PENDING',
+        status: computedStatus,
         receiptNumber: receiptNum,
-        paidAt: null,
+        paidAt: computedStatus === 'PAID' ? new Date() : null,
       },
     });
 
     // Return payment with student data for immediate use
-    // Create in-app notifications for school users
+      // Create in-app notifications for school admins + parent
     try {
-      const schoolUsers = user.schoolId ? await db.user.findMany({
-        where: { 
-          schoolId: user.schoolId, 
-          role: { in: ['SECRETARY', 'CASHIER'] },
-          id: { not: user.id }
-        },
+      const studentName = `${student.firstName} ${student.lastName}`;
+      const trimesterLabel = body.trimester || 'N/A';
+      const amount = Number(body.amount || 0);
+
+      // Notify admins (direction + secretary + cashier)
+      const adminRoles = ['SUPER_ADMIN_GLOBAL', 'CASHIER', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
+      const schoolAdmins = user.schoolId ? await db.user.findMany({
+        where: { schoolId: user.schoolId, role: { in: adminRoles }, id: { not: user.id } },
         select: { id: true, phone: true, name: true },
       }) : [];
 
-      const studentName = `${student.firstName} ${student.lastName}`;
-      const trimesterLabel = body.trimester || 'N/A';
-      const schoolData = user.schoolId ? await db.school.findUnique({ where: { id: user.schoolId }, select: { name: true } }) : null;
-
-      // Create in-app notifications
-      for (const u of schoolUsers) {
+      for (const admin of schoolAdmins) {
         await db.notification.create({
           data: {
             type: 'PAYMENT_CREATED',
             title: 'Nouveau paiement',
-            message: `${studentName} - ${Number(body.amount || 0).toLocaleString('fr-FR')} CDF - ${trimesterLabel}`,
-            userId: u.id,
+            message: `${studentName} - ${amount.toLocaleString('fr-FR')} CDF - ${trimesterLabel}`,
+            userId: admin.id,
+            schoolId: user.schoolId!,
+            relatedId: payment.id,
+          },
+        });
+      }
+
+      // Notify parent
+      const parentData = await db.student.findUnique({
+        where: { id: resolvedStudentId },
+        select: { parentId: true, parent: { select: { phone: true, name: true } } },
+      });
+      if (parentData?.parentId) {
+        await db.notification.create({
+          data: {
+            type: 'PAYMENT_CREATED',
+            title: 'Paiement enregistré',
+            message: `Paiement de ${amount.toLocaleString('fr-FR')} CDF pour ${studentName} - ${trimesterLabel}`,
+            userId: parentData.parentId,
             schoolId: user.schoolId!,
             relatedId: payment.id,
           },
@@ -229,18 +253,14 @@ export async function POST(request: NextRequest) {
 
       // Send WhatsApp notifications
       const { notifyPaymentCreated } = await import('@/lib/whatsapp-agent');
-      const recipients = schoolUsers.filter(u => u.phone).map(u => ({ phone: u.phone!, name: u.name }));
-      // Also notify parent if available
-      const parentData = await db.student.findUnique({ 
-        where: { id: resolvedStudentId }, 
-        select: { parent: { select: { phone: true, name: true } } } 
-      });
+      const schoolData = user.schoolId ? await db.school.findUnique({ where: { id: user.schoolId }, select: { name: true } }) : null;
+      const recipients = schoolAdmins.filter(u => u.phone).map(u => ({ phone: u.phone!, name: u.name }));
       if (parentData?.parent?.phone) {
         recipients.push({ phone: parentData.parent.phone, name: parentData.parent.name });
       }
       const className = await db.class.findUnique({ where: { id: student.classId }, select: { name: true } });
-      notifyPaymentCreated(recipients, studentName, className?.name || '', Number(body.amount || 0), trimesterLabel, schoolData?.name || '');
-    } catch { /* WhatsApp notification failed, non-critical */ }
+      notifyPaymentCreated(recipients, studentName, className?.name || '', amount, trimesterLabel, schoolData?.name || '');
+    } catch { /* notification failed, non-critical */ }
 
     return NextResponse.json({ 
       data: {

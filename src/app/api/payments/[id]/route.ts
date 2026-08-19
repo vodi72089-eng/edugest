@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { requirePermission, verifySchoolAccess, sanitizeError } from '@/lib/auth';
+import { getEffectiveStatus } from '@/lib/helpers';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function PUT(
@@ -46,14 +47,18 @@ export async function PUT(
     if (hasVerifyPermission) {
       for (const field of restrictedFields) {
         if (body[field] !== undefined) {
-          // CRITICAL: verifiedBy must always come from the authenticated user,
-          // never from the request body (prevents identity spoofing)
           updateData[field] = field === 'verifiedBy' ? user.name : body[field];
         }
       }
 
+      // Auto-compute status from effective paidAmount/amount
+      const newAmount = body.amount !== undefined ? body.amount : existing.amount;
+      const newPaidAmount = body.paidAmount !== undefined ? body.paidAmount : existing.paidAmount;
+      const computedStatus = getEffectiveStatus(newAmount, newPaidAmount, body.status || existing.status);
+      updateData.status = computedStatus;
+
       // If status changed to PAID, set paidAt
-      if (body.status === 'PAID' && existing.status !== 'PAID') {
+      if (computedStatus === 'PAID' && existing.status !== 'PAID') {
         updateData.paidAt = new Date();
       }
     } else {
