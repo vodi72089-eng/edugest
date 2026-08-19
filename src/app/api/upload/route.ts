@@ -11,8 +11,13 @@ const ALLOWED_TYPES: Record<string, string> = {
   'image/png': 'png',
   'image/gif': 'gif',
   'image/webp': 'webp',
+  // Homework document types
+  'application/pdf': 'pdf',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'text/plain': 'txt',
 }
-const MAX_SIZE = 5 * 1024 * 1024
+const MAX_SIZE = 10 * 1024 * 1024
 
 function ensureDir(dir: string) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
@@ -36,7 +41,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Aucun fichier fourni' }, { status: 400 })
     }
     const file = formData.get('file') as File | null
-    const ALLOWED_CATEGORIES = ['general', 'profiles', 'students', 'schools']
+    const ALLOWED_CATEGORIES = ['general', 'profiles', 'students', 'schools', 'homework']
     const rawCategory = (formData.get('category') as string) || 'general'
     const category = ALLOWED_CATEGORIES.includes(rawCategory) ? rawCategory : 'general'
 
@@ -49,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: 'Le fichier ne doit pas dépasser 5MB' }, { status: 400 })
+      return NextResponse.json({ error: 'Le fichier ne doit pas dépasser 10MB' }, { status: 400 })
     }
 
     const categoryDir = path.join(UPLOAD_DIR, category)

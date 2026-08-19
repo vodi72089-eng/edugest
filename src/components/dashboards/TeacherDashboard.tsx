@@ -27,25 +27,51 @@ export default function TeacherDashboard() {
         setLoading(false)
         return
       }
+
+      // Try teacher assignments first
       authFetch(`/api/teacher-assignments?teacherId=${userData.id}`)
         .then(r => r.json())
         .then(j => {
           const assignments: TeacherAssignment[] = j.data || []
-          const classMap = new Map<string, { name: string; students: number }>()
-          const subjectSet = new Set<string>()
-          let totalStudents = 0
-          for (const a of assignments) {
-            if (!classMap.has(a.class.id)) {
-              classMap.set(a.class.id, { name: a.class.name, students: a.class._count?.students || 0 })
-              totalStudents += a.class._count?.students || 0
+          if (assignments.length > 0) {
+            const classMap = new Map<string, { name: string; students: number }>()
+            const subjectSet = new Set<string>()
+            let totalStudents = 0
+            for (const a of assignments) {
+              if (!classMap.has(a.class.id)) {
+                classMap.set(a.class.id, { name: a.class.name, students: a.class._count?.students || 0 })
+                totalStudents += a.class._count?.students || 0
+              }
+              subjectSet.add(a.subject.name)
             }
-            subjectSet.add(a.subject.name)
+            setClassCount(classMap.size)
+            setStudentCount(totalStudents)
+            setSubjects([...subjectSet])
+          } else {
+            // No assignments — fallback to all school classes
+            authFetch(`/api/classes?schoolId=${userData.schoolId}&limit=50`)
+              .then(r => r.json())
+              .then(j => {
+                const classes: { id: string; name: string; _count?: { students: number } }[] = j.data || []
+                setClassCount(classes.length)
+                setStudentCount(classes.reduce((sum, c) => sum + (c._count?.students || 0), 0))
+              })
+              .catch(() => {})
           }
-          setClassCount(classMap.size)
-          setStudentCount(totalStudents)
-          setSubjects([...subjectSet])
         })
-        .catch(() => {})
+        .catch(() => {
+          // Fallback to all school classes
+          authFetch(`/api/classes?schoolId=${userData.schoolId}&limit=50`)
+            .then(r => r.json())
+            .then(j => {
+              const classes: { id: string; name: string; _count?: { students: number } }[] = j.data || []
+              setClassCount(classes.length)
+              setStudentCount(classes.reduce((sum, c) => sum + (c._count?.students || 0), 0))
+            })
+            .catch(() => {})
+        })
+        .finally(() => setLoading(false))
+
       authFetch(`/api/homework?schoolId=${userData.schoolId}&limit=50`)
         .then(r => r.json())
         .then(j => {
@@ -54,7 +80,6 @@ export default function TeacherDashboard() {
           setHomeworkCount(myHw.length)
         })
         .catch(() => {})
-        .finally(() => setLoading(false))
     }
     fetchData()
     const interval = setInterval(fetchData, 30000)

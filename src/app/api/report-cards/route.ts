@@ -28,6 +28,25 @@ export async function GET(request: NextRequest) {
     if (studentId) where.studentId = studentId;
     if (trimester) where.trimester = trimester;
 
+    // For TEACHER/HEAD_TEACHER, only show report cards from their assigned classes
+    if (user.role === 'TEACHER' || user.role === 'HEAD_TEACHER') {
+      const assignments = await db.teacherAssignment.findMany({
+        where: { teacherId: user.id },
+        select: { classId: true },
+      });
+      const classIds = [...new Set(assignments.map(a => a.classId))];
+      if (classIds.length > 0) {
+        where.student = { classId: { in: classIds } };
+      } else {
+        where.student = { classId: '__NONE__' };
+      }
+    }
+
+    // For PARENT role, only show their children's report cards
+    if (user.role === 'PARENT') {
+      where.student = { parentId: user.id };
+    }
+
     // If studentId specified, verify access
     if (studentId) {
       const student = await db.student.findUnique({ where: { id: studentId }, select: { parentId: true, schoolId: true } });

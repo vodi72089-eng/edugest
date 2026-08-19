@@ -44,6 +44,13 @@ export async function GET(request: NextRequest) {
       where.OR = [{ scope: null }, { scope: 'SECONDAIRE' }];
     }
 
+    // Filter by targetType - teachers see ALL+STAFF, parents see ALL+PARENTS
+    if (user.role === 'TEACHER' || user.role === 'HEAD_TEACHER') {
+      where.targetType = { in: ['ALL', 'STAFF'] };
+    } else if (user.role === 'PARENT') {
+      where.targetType = { in: ['ALL', 'PARENTS'] };
+    }
+
     const [communications, total, totalUsers] = await Promise.all([
       db.communication.findMany({
         where,

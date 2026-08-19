@@ -3942,11 +3942,12 @@ function PaymentVerificationView() {
                 <iframe src={receiptUrl} className="w-full h-[70vh] border-0" title="Reçu PDF" />
               </div>
             </div>
-          </div>
-        )}
-      </div>
-    )
-  }
+        </div>
+      )}
+
+    </div>
+  )
+}
 
   // ===== STAFF VIEW (Admin, Cashier, Secretary) =====
   async function downloadReceiptFile(paymentId: string) {
@@ -4513,12 +4514,20 @@ function HomeworkView() {
   const [hwAttachmentUploading, setHwAttachmentUploading] = useState(false)
   const [hwAttachmentUrl, setHwAttachmentUrl] = useState<string | null>(null)
   const [teacherAssignments, setTeacherAssignments] = useState<{ classId: string; subjectId: string; class: { name: string }; subject: { name: string } }[]>([])
+  const [schoolData, setSchoolData] = useState<{ name: string; logo?: string | null } | null>(null)
+  const [previewAttachment, setPreviewAttachment] = useState<string | null>(null)
   const highlightedRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (highlightedId && highlightedRef.current) {
       highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
   }, [highlightedId])
+
+  useEffect(() => {
+    if (isParent && userData?.schoolId) {
+      authFetch(`/api/schools/${userData.schoolId}`).then(r => r.json()).then(j => { if (j.data) setSchoolData(j.data) }).catch(() => {})
+    }
+  }, [isParent, userData?.schoolId])
 
   // Auto-fill subject from teacher's assignments
   useEffect(() => {
@@ -4622,6 +4631,23 @@ function HomeworkView() {
 
   return (
     <div>
+      {/* School Logo Header for Parents */}
+      {isParent && schoolData && (
+        <div className="flex items-center gap-3 mb-6 p-4 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl shadow-sm">
+          {schoolData.logo ? (
+            <img src={schoolData.logo} alt="Logo" className="w-12 h-12 rounded-xl object-cover border-2 border-white shadow-md" />
+          ) : (
+            <div className="w-12 h-12 rounded-xl grid place-items-center text-white text-lg font-bold border-2 border-white shadow-md" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+              {schoolData.name?.substring(0, 2).toUpperCase() || 'EG'}
+            </div>
+          )}
+          <div>
+            <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{schoolData.name || 'EduGest'}</h2>
+            <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Devoirs assignés</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
@@ -4722,9 +4748,9 @@ function HomeworkView() {
                 </div>
                 <p className="text-sm mb-3 line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{h.description}</p>
                 {(h as any).attachmentUrl && (
-                  <a href={(h as any).attachmentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium mb-3 px-2.5 py-1.5 rounded-lg transition hover:opacity-80" style={{ background: `${ACCENT}15`, color: ACCENT }}>
+                  <button onClick={() => setPreviewAttachment((h as any).attachmentUrl)} className="inline-flex items-center gap-1.5 text-xs font-medium mb-3 px-2.5 py-1.5 rounded-lg transition hover:opacity-80" style={{ background: `${ACCENT}15`, color: ACCENT }}>
                     <FileText size={12} /> Voir la pièce jointe
-                  </a>
+                  </button>
                 )}
                 <div className="flex items-center justify-between text-xs" style={{ color: TEXT_MUTED_LUXE }}>
                   <div className="flex items-center gap-2">
@@ -4792,6 +4818,43 @@ function HomeworkView() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Attachment Preview Modal */}
+      {previewAttachment && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setPreviewAttachment(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-[oklch(90%_0.01_175)]" style={{ background: `linear-gradient(135deg, ${ACCENT}08, ${GOLD}08)` }}>
+              {schoolData?.logo ? (
+                <img src={schoolData.logo} alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-sm" />
+              ) : (
+                <div className="w-10 h-10 rounded-xl grid place-items-center text-white text-sm font-bold shadow-sm" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                  {schoolData?.name?.substring(0, 2).toUpperCase() || 'EG'}
+                </div>
+              )}
+              <div className="flex-1">
+                <h3 className="font-bold text-sm" style={{ color: TEXT_PRIMARY }}>{schoolData?.name || 'EduGest'}</h3>
+                <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Pièce jointe du devoir</p>
+              </div>
+              <button onClick={() => setPreviewAttachment(null)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[oklch(95%_0.01_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto">
+              {previewAttachment.endsWith('.pdf') ? (
+                <iframe src={previewAttachment} className="w-full h-[70vh] border-0" title="Aperçu du fichier" />
+              ) : (
+                <div className="p-8 text-center">
+                  <FileText size={48} className="mx-auto mb-4" style={{ color: TEXT_MUTED_LUXE }} />
+                  <p className="font-medium mb-2" style={{ color: TEXT_PRIMARY }}>Aperçu non disponible pour ce format</p>
+                  <a href={previewAttachment} download className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: ACCENT }}>
+                    <FileText size={14} /> Télécharger le fichier
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -5478,7 +5541,7 @@ function ConvocationView() {
                           <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{c.motif}</div>
                         </div>
                         <div className="text-right shrink-0">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${c.status === 'PENDING' ? 'bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]' : c.status === 'CONFIRMED' ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>{c.status === 'PENDING' ? 'En attente' : c.status === 'CONFIRMED' ? 'Confirmée' : c.status}</span>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${c.status === 'PENDING' ? 'bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]' : c.status === 'CONFIRMED' ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : c.status === 'RESPONDED' ? 'bg-[oklch(94%_0.08_250)] text-[oklch(45%_0.15_250)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>{c.status === 'PENDING' ? 'En attente' : c.status === 'CONFIRMED' ? 'Confirmée' : c.status === 'RESPONDED' ? 'Répondu' : c.status}</span>
                           <div className="text-[10px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(isRescheduled ? c.rescheduledTo : c.date)}</div>
                         </div>
                       </div>

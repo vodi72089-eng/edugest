@@ -45,6 +45,21 @@ export async function GET(request: NextRequest) {
       where.student = { parentId: user.id };
     }
 
+    // For TEACHER/HEAD_TEACHER, only show grades from their assigned classes
+    if (user.role === 'TEACHER' || user.role === 'HEAD_TEACHER') {
+      const assignments = await db.teacherAssignment.findMany({
+        where: { teacherId: user.id },
+        select: { classId: true },
+      });
+      const classIds = [...new Set(assignments.map(a => a.classId))];
+      if (classIds.length > 0) {
+        where.classId = { in: classIds };
+      } else {
+        // No assignments → no grades visible
+        where.classId = '__NONE__';
+      }
+    }
+
     const [grades, total, totalUsers] = await Promise.all([
       db.grade.findMany({
         where,

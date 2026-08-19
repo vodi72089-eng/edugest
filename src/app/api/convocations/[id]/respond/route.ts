@@ -48,6 +48,7 @@ export async function POST(
         parentResponse: response,
         parentResponseMessage: response === 'CUSTOM' ? message?.trim() : null,
         parentResponseAt: new Date(),
+        status: 'RESPONDED',
       },
       include: {
         student: { select: { id: true, firstName: true, lastName: true, matricule: true, parentId: true, photoUrl: true } },
