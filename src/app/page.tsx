@@ -2241,7 +2241,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   const adminRoles = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'SECRETARY']
   const showPendingComms = adminRoles.includes(userRole || '')
 
-  const totalUnread = unreadNotifCount + (showPendingComms ? pendingCommsCount : 0)
+  const totalUnread = unreadNotifCount
 
   const unreadNotifications = notifications.filter(n => !n.isRead)
 
@@ -2288,18 +2288,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   }
 
   const handleBellClick = () => {
-    if (unreadNotifications.length === 0) {
-      setShowNotifications(!showNotifications)
-      return
-    }
-    const notif = unreadNotifications[notifCycleIndex % unreadNotifications.length]
-    let targetView = notifTypeToView(notif.type)
-    if (!canAccessView(userRole, targetView)) targetView = 'dashboard'
-    setHighlightedId(notif.relatedId || null)
-    setCurrentView(targetView)
-    markAsRead(notif.id)
-    setNotifCycleIndex(prev => (prev + 1) % unreadNotifications.length)
-    setTimeout(() => setHighlightedId(null), 5000)
+    setShowNotifications(!showNotifications)
   }
 
   const handleNotifItemClick = (notif: any) => {
@@ -2817,7 +2806,8 @@ interface AdminAnalytics {
 
 // ===== DIRECTION DASHBOARD =====
 function DirectionDashboard() {
-  return <SecretaryDashboard />
+  const { userRole } = useEduGestStore()
+  return <SecretaryDashboard role={userRole || undefined} />
 }
 
 // DisciplineDashboardView imported from @/components/dashboards/DisciplineDashboard
@@ -4298,7 +4288,9 @@ function CommunicationsView() {
   }, [highlightedId])
 
   useEffect(() => {
-    authFetch(`/api/communications?limit=20${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => {
+    const adminRoles = ['SUPER_ADMIN_GLOBAL', 'ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE']
+    const mineParam = adminRoles.includes(userRole as string) ? '&mine=true' : ''
+    authFetch(`/api/communications?limit=20${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}${mineParam}`).then(r => r.json()).then(j => {
       const data = j.data || []
       setComms(data)
       setTotalUsers(j.totalUsers || 0)
@@ -4431,6 +4423,7 @@ function CommunicationsView() {
                       <span className={`px-1.5 py-0.5 rounded ${c.type === 'ANNOUNCEMENT' ? 'bg-[oklch(95%_0.04_175)] text-edu-accent' : 'bg-[oklch(95%_0.005_175)]'}`}>{c.type}</span>
                       {c.sentToWhatsapp && <span className="text-edu-success">WhatsApp</span>}
                       {c.sentToApp && <span className="text-edu-info">App</span>}
+                      <span className="px-1.5 py-0.5 rounded" style={{ background: `${ACCENT}15`, color: ACCENT }}>{c.senderRole}</span>
                       {c.status === 'PENDING' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[oklch(95%_0.04_25)] text-edu-warning">En attente</span>}
                       {c.status === 'REJECTED' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[oklch(95%_0.02_25)] text-edu-danger">Rejetée</span>}
                     </div>
@@ -5541,7 +5534,11 @@ function ConvocationView() {
                           <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{c.motif}</div>
                         </div>
                         <div className="text-right shrink-0">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${c.status === 'PENDING' ? 'bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]' : c.status === 'CONFIRMED' ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : c.status === 'RESPONDED' ? 'bg-[oklch(94%_0.08_250)] text-[oklch(45%_0.15_250)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>{c.status === 'PENDING' ? 'En attente' : c.status === 'CONFIRMED' ? 'Confirmée' : c.status === 'RESPONDED' ? 'Répondu' : c.status}</span>
+                          {hasResponded ? (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${c.parentResponse === 'PRESENT' ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : c.parentResponse === 'ABSENT' ? 'bg-[oklch(94%_0.06_25)] text-[oklch(45%_0.13_25)]' : 'bg-[oklch(94%_0.08_250)] text-[oklch(45%_0.15_250)]'}`}>{c.parentResponse === 'PRESENT' ? 'Présent' : c.parentResponse === 'ABSENT' ? 'Absent' : 'Réponse'}</span>
+                          ) : (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${c.status === 'PENDING' ? 'bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]' : c.status === 'CONFIRMED' ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : c.status === 'RESPONDED' ? 'bg-[oklch(94%_0.08_250)] text-[oklch(45%_0.15_250)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>{c.status === 'PENDING' ? 'En attente' : c.status === 'CONFIRMED' ? 'Confirmée' : c.status === 'RESPONDED' ? 'Répondu' : c.status}</span>
+                          )}
                           <div className="text-[10px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(isRescheduled ? c.rescheduledTo : c.date)}</div>
                         </div>
                       </div>

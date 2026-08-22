@@ -93,8 +93,8 @@ async function startWhatsApp(): Promise<void> {
     }
   });
 
-  sock.ev.on('messages.upsert', ({ messages }) => {
-    for (const msg of messages) {
+  sock.ev.on('messages.upsert', (upsert) => {
+    for (const msg of upsert.messages) {
       if (!msg.key.fromMe && msg.message) {
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
         if (text) console.log(`[WhatsApp] ${msg.key.remoteJid}: ${text}`);

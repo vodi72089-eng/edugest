@@ -8,10 +8,11 @@ import { ACCENT, SUCCESS, WARNING, DANGER, INFO, GOLD, TEXT_PRIMARY, TEXT_MUTED_
 import { formatNumber } from '@/lib/helpers'
 import StatCard from './StatCard'
 
-export default function SecretaryDashboard() {
+export default function SecretaryDashboard({ role }: { role?: string } = {}) {
   const { setCurrentView, userData } = useEduGestStore()
   const [stats, setStats] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(true)
+  const isDirection = role?.startsWith('DIRECTION') || false
 
   useEffect(() => {
     function fetchStats() {
@@ -49,7 +50,7 @@ export default function SecretaryDashboard() {
         <StatCard label="Total élèves" value={formatNumber(totalStudents)} icon={<Users size={16} />} color={ACCENT} onClick={() => setCurrentView('students')} />
         <StatCard label="Classes actives" value={String(totalClasses)} icon={<School size={16} />} color={INFO} onClick={() => setCurrentView('classes')} />
         <StatCard label="Avertissements" value={String(disciplineStats?.greylist || 0)} icon={<AlertTriangle size={16} />} color={WARNING} onClick={() => setCurrentView('discipline')} />
-        <StatCard label="Impayés" value={String(paymentStats?.overdue || 0)} icon={<Clock size={16} />} color={DANGER} onClick={() => setCurrentView('payments')} />
+        {!isDirection && <StatCard label="Impayés" value={String(paymentStats?.overdue || 0)} icon={<Clock size={16} />} color={DANGER} onClick={() => setCurrentView('payments')} />}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-6 mb-6">
@@ -88,7 +89,7 @@ export default function SecretaryDashboard() {
             {[
               { icon: <UserPlus size={20} />, label: 'Ajouter élève', view: 'students' as ViewType, color: ACCENT },
               { icon: <MessageSquare size={20} />, label: 'Communication', view: 'communications' as ViewType, color: INFO },
-              { icon: <CreditCard size={20} />, label: 'Paiement', view: 'payments' as ViewType, color: SUCCESS },
+              ...(!isDirection ? [{ icon: <CreditCard size={20} />, label: 'Paiement', view: 'payments' as ViewType, color: SUCCESS }] : []),
               { icon: <Megaphone size={20} />, label: 'Convocation', view: 'convocation' as ViewType, color: WARNING },
             ].map(a => (
               <button key={a.label} onClick={() => setCurrentView(a.view)} className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.3)] hover:shadow-md edu-card-lift transition">

@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'School ID required' }, { status: 403 });
     }
     const type = searchParams.get('type') || '';
+    const mine = searchParams.get('mine') === 'true';
     const page = safeParseInt(searchParams.get('page'), 1, 1, 1000);
     const limit = safeParseInt(searchParams.get('limit'), 20, 1, 200);
 
@@ -29,6 +30,7 @@ export async function GET(request: NextRequest) {
 
     if (schoolId) where.schoolId = schoolId;
     if (type) where.type = type;
+    if (mine) where.senderId = user.id;
 
     // Filter by status - non-admin only see APPROVED
     if (user.role !== 'SUPER_ADMIN_GLOBAL' && user.role !== 'ADMIN') {

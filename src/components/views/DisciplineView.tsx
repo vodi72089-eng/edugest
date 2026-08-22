@@ -13,11 +13,18 @@ import SearchAutocomplete from './SearchAutocomplete'
 export default function DisciplineView() {
   const { userRole, userData, highlightedId } = useEduGestStore()
   const highlightedRef = useRef<HTMLTableRowElement>(null)
+  const tabBarRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (highlightedId && highlightedRef.current) {
       highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
   }, [highlightedId])
+
+  useEffect(() => {
+    if (!highlightedId && tabBarRef.current) {
+      setTimeout(() => tabBarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+    }
+  }, [])
   const [records, setRecords] = useState<DisciplineData[]>([])
   const [loading, setLoading] = useState(true)
   const { disciplineTab } = useEduGestStore()
@@ -164,6 +171,25 @@ export default function DisciplineView() {
     authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { if (!cancelled) { setRecords(j.data || []); setLoading(false) } }).catch(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [tab, isParent, userData?.id, selectedChildId, isDisciplineRole, selectedStudentId, userData?.schoolId])
+
+  const displayRecords = useMemo(() => {
+    if (tab !== 'WHITELIST' || !isDisciplineRole) return records
+    const studentIdsWithRecords = new Set(records.map(r => r.studentId))
+    const cleanStudents = sectionStudents.filter(s => !studentIdsWithRecords.has(s.id))
+    const cleanRecords = cleanStudents.map(s => ({
+      id: `clean-${s.id}`,
+      studentId: s.id,
+      student: { id: s.id, firstName: s.firstName, lastName: s.lastName, matricule: s.matricule, photoUrl: s.photoUrl },
+      title: 'Aucune infraction',
+      type: 'CLEAN',
+      severity: 'NONE',
+      points: 0,
+      listType: 'WHITELIST',
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString(),
+    }))
+    return [...records, ...cleanRecords]
+  }, [tab, records, sectionStudents, isDisciplineRole])
 
   const selectedChildName = selectedChildId ? myChildren.find(c => c.id === selectedChildId) : null
   const selectedStudentName = selectedStudentId ? sectionStudents.find(s => s.id === selectedStudentId) : null
@@ -676,7 +702,7 @@ export default function DisciplineView() {
         </div>
       )}
 
-      <div className="flex gap-0.5 border-b border-[oklch(90%_0.01_175)] mb-5">
+      <div ref={tabBarRef} className="flex gap-0.5 border-b border-[oklch(90%_0.01_175)] mb-5">
         {[
           { key: 'BLACKLIST' as const, label: 'Liste Noire', icon: <Ban size={14} />, color: DANGER },
           { key: 'GREYLIST' as const, label: 'Liste Grise', icon: <AlertTriangle size={14} />, color: WARNING },
@@ -710,9 +736,9 @@ export default function DisciplineView() {
             <tbody>
               {loading ? (
                 <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
-              ) : records.length === 0 ? (
+              ) : displayRecords.length === 0 ? (
                 <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun enregistrement</td></tr>
-              ) : records.map(r => (
+              ) : displayRecords.map(r => (
                 <tr ref={highlightedId === r.id ? highlightedRef : undefined} key={r.id} className={`hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0 ${highlightedId === r.id ? 'edu-highlight' : ''}`}>
                   {!isParent && (
                     <td className="px-4 py-3">
