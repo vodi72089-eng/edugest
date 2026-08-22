@@ -4288,8 +4288,8 @@ function CommunicationsView() {
   }, [highlightedId])
 
   useEffect(() => {
-    const adminRoles = ['SUPER_ADMIN_GLOBAL', 'ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE']
-    const mineParam = adminRoles.includes(userRole as string) ? '&mine=true' : ''
+    const superAdminRoles = ['SUPER_ADMIN_GLOBAL', 'ADMIN']
+    const mineParam = superAdminRoles.includes(userRole as string) ? '&mine=true' : ''
     authFetch(`/api/communications?limit=20${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}${mineParam}`).then(r => r.json()).then(j => {
       const data = j.data || []
       setComms(data)

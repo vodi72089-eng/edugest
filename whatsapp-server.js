@@ -6,7 +6,7 @@ const fs = require('fs');
 try { require('dotenv').config(); } catch {}
 
 const PORT = parseInt(process.env.WHATSAPP_PORT || '3001');
-const LINKING_CODE = 'EDUC-GEST1';
+const LINKING_CODE = 'EDUGEST1'; // Baileys exige exactement 8 caracteres
 const SESSION_DIR = path.join(__dirname, 'baileys-auth');
 
 const API_KEY = process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key';
@@ -193,36 +193,51 @@ const server = http.createServer(async (req, res) => {
       }
 
       // Si pas encore de client, en creer un
-      if (!sock || !clientReady) {
+      if (!sock) {
         console.log('[WA] Creation d\'un nouveau client pour le parrainage...');
         resetState();
         await initClient();
+      }
 
-        // Attendre que le client soit "connecting" (max 30s)
-        const waitStart = Date.now();
-        while (Date.now() - waitStart < 30000) {
-          if (status === 'connecting' && sock) break;
-          if (status === 'disconnected' && !starting) {
-            return json({ ok: false, error: 'Client plante. Reessayez.' });
-          }
-          await new Promise(r => setTimeout(r, 500));
+      // Attendre que le socket soit reellement pret a appairer.
+      // La reception du QR prouve que le handshake avec les serveurs WhatsApp est termine ;
+      // appeler requestPairingCode avant provoque "Connection Closed When Requesting Pairing Code".
+      const waitStart = Date.now();
+      while (Date.now() - waitStart < 45000) {
+        if (status === 'connected') {
+          return json({ ok: false, error: 'Deja connecte. Deconnectez d\'abord.' });
         }
+        if (qrData && sock) break;
+        if (status === 'disconnected' && !starting) {
+          return json({ ok: false, error: 'Client plante. Reessayez.' });
+        }
+        await new Promise(r => setTimeout(r, 500));
       }
 
       if (!sock) {
         return json({ ok: false, error: 'Client non disponible.' });
       }
 
-      // Demander le code de parrainage avec le code personnalise
+      // Demander le code de parrainage avec le code personnalise (8 caracteres obligatoire)
       console.log('[WA] Demande du code de parrainage...');
-      try {
-        const code = await sock.requestPairingCode(phoneClean, LINKING_CODE);
+      let code = null;
+      let lastError = null;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          code = await sock.requestPairingCode(phoneClean, LINKING_CODE);
+          break;
+        } catch (e) {
+          lastError = e;
+          console.error('[WA] Erreur requestPairingCode (tentative ' + attempt + '):', e.message);
+          if (attempt < 2) await new Promise(r => setTimeout(r, 3000));
+        }
+      }
+      if (code) {
         pairingCode = code;
         console.log('[WA] ===== CODE PARRAINAGE:', code, '=====');
         json({ ok: true, pairingCode: code });
-      } catch (e) {
-        console.error('[WA] Erreur requestPairingCode:', e.message);
-        json({ ok: false, error: 'Code indisponible: ' + e.message });
+      } else {
+        json({ ok: false, error: 'Code indisponible: ' + (lastError?.message || 'erreur inconnue') });
       }
 
     // ─── POST /generate-otp ─────────────────────────────────────────────────
