@@ -164,7 +164,7 @@ export default function PaymentsView() {
           setAllPaid(target.isFullyPaid)
           setTranche(target.name)
           setClassFees(target.fees)
-          setAmount(String(Math.round(target.totalFee)))
+          setAmount(String(Math.round(target.remaining)))
           if (!preFilledTranche) { setPaidAmount(''); setPayCurrency('CDF'); setPayConvertedAmount('') }
         }
       } catch { setClassFees([]); setAllPaid(false); setTranche(''); setAmount('') }
@@ -294,10 +294,10 @@ export default function PaymentsView() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Paiements</h1>
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Paiements</h1>
       </div>
 
-      {userRole !== 'PARENT' && userRole !== 'SECRETARY' && (
+      {userRole !== 'PARENT' && (
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 mb-6 shadow-sm" style={{ borderLeft: `4px solid ${GOLD}` }}>
         <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Enregistrer un paiement</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
@@ -317,7 +317,7 @@ export default function PaymentsView() {
           <div>
             <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant à payer (CDF)</label>
             <input
-              placeholder="Montant"
+              placeholder="Reste à payer"
               value={amount}
               readOnly
               type="number"
@@ -332,7 +332,7 @@ export default function PaymentsView() {
             )}
             {classFees.length > 0 && (
               <div className="mt-1 text-[11px] px-3 py-2 rounded-lg" style={{ background: `${ACCENT}10`, color: TEXT_MUTED_LUXE }}>
-                {classFees.map((f: any) => `${f.name}: ${formatNumber(f.amount)}`).join(' + ')} = <strong style={{ color: ACCENT }}>{formatNumber(classFees.reduce((s: number, f: any) => s + f.amount, 0))} CDF</strong>
+                {classFees.map((f: any) => `${f.name}: ${formatNumber(f.amount)}`).join(' + ')} = {formatNumber(classFees.reduce((s: number, f: any) => s + f.amount, 0))} CDF total
               </div>
             )}
             {allPaid && (
@@ -457,7 +457,7 @@ export default function PaymentsView() {
                     {isPaid ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: `${SUCCESS}18`, color: SUCCESS }}>✓ En ordre</span>
                     ) : (
-                      userRole !== 'SECRETARY' && (
+                      (
                       <button
                         onClick={(e) => {
                           e.stopPropagation()

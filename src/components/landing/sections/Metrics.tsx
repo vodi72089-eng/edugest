@@ -154,7 +154,7 @@ export default function Metrics() {
         {/* Header */}
         <ScrollReveal>
           <div className="text-center mb-12 sm:mb-16">
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#FAFAFA] mb-4">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tighter edu-heading-display text-[#FAFAFA] mb-4">
               L&apos;impact EduGest en{' '}
               <span
                 style={{

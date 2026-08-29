@@ -40,7 +40,7 @@ export default function SecretaryDashboard({ role }: { role?: string } = {}) {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour {userData?.name || 'Secrétaire'}</h1>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Bonjour {userData?.name || 'Secrétaire'}</h1>
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{userData?.schoolName || 'Gestion scolaire'}</p>
         </div>
@@ -54,10 +54,11 @@ export default function SecretaryDashboard({ role }: { role?: string } = {}) {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-6 mb-6">
-        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-          <div className="mb-4">
+        <div className="bg-white rounded-2xl p-6 overflow-hidden relative" style={{ boxShadow: '0 1px 3px oklch(20% 0.02 250 / 0.04), 0 8px 24px oklch(20% 0.02 250 / 0.04)' }}>
+          <div className="absolute top-0 right-0 w-[120px] h-[120px] rounded-bl-[120px] opacity-30" style={{ background: `radial-gradient(closest-side, ${ACCENT}12, transparent)` }} />
+          <div className="mb-5 relative">
             <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Élèves par classe</div>
-            <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Année scolaire en cours</div>
+            <div className="text-xs mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>Année scolaire en cours</div>
           </div>
           {barData.length > 0 ? (
             <div className="h-[240px]">
@@ -81,8 +82,9 @@ export default function SecretaryDashboard({ role }: { role?: string } = {}) {
           )}
         </div>
 
-        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
-          <div className="mb-4">
+        <div className="bg-white rounded-2xl p-6 overflow-hidden relative" style={{ boxShadow: '0 1px 3px oklch(20% 0.02 250 / 0.04), 0 8px 24px oklch(20% 0.02 250 / 0.04)' }}>
+          <div className="absolute bottom-0 right-0 w-[80px] h-[80px] rounded-tl-[80px] opacity-20" style={{ background: `radial-gradient(closest-side, ${GOLD}15, transparent)` }} />
+          <div className="mb-5 relative">
             <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Actions rapides</div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -92,9 +94,9 @@ export default function SecretaryDashboard({ role }: { role?: string } = {}) {
               ...(!isDirection ? [{ icon: <CreditCard size={20} />, label: 'Paiement', view: 'payments' as ViewType, color: SUCCESS }] : []),
               { icon: <Megaphone size={20} />, label: 'Convocation', view: 'convocation' as ViewType, color: WARNING },
             ].map(a => (
-              <button key={a.label} onClick={() => setCurrentView(a.view)} className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.3)] hover:shadow-md edu-card-lift transition">
-                <div className="w-10 h-10 rounded-full grid place-items-center" style={{ color: 'white', background: `linear-gradient(135deg, ${a.color}, oklch(72% 0.15 65))` }}>{a.icon}</div>
-                <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{a.label}</span>
+              <button key={a.label} onClick={() => setCurrentView(a.view)} className="group flex flex-col items-center gap-2.5 p-4 rounded-2xl border border-[oklch(92%_0.005_250)] hover:border-[oklch(72%_0.15_65_/_0.3)] transition-all duration-300 hover:-translate-y-0.5" style={{ boxShadow: '0 1px 2px oklch(20% 0.02 250 / 0.03)' }}>
+                <div className="w-11 h-11 rounded-xl grid place-items-center transition-all duration-300 group-hover:scale-110 group-hover:rotate-3" style={{ color: 'white', background: `linear-gradient(135deg, ${a.color}, oklch(72% 0.15 65))`, boxShadow: `0 4px 12px ${a.color}25` }}>{a.icon}</div>
+                <span className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{a.label}</span>
               </button>
             ))}
           </div>

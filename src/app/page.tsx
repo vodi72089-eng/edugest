@@ -37,7 +37,7 @@ import {
   Info, Zap, Globe, Lock, Award, Ban, CircleDot, ListChecks,
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
-  ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash
+   ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -1156,11 +1156,17 @@ function PricingView() {
 // ===== CREATE SCHOOL VIEW =====
 function CreateSchoolView() {
   const { setCurrentView, login } = useEduGestStore()
-  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [loading, setLoading] = useState(false)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [logoUploading, setLogoUploading] = useState(false)
   const [showAdminPassword, setShowAdminPassword] = useState(false)
+  const [createdUserId, setCreatedUserId] = useState<string | null>(null)
+  const [otpCode, setOtpCode] = useState('')
+  const [otpChannel, setOtpChannel] = useState<'whatsapp' | 'email'>('whatsapp')
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [otpError, setOtpError] = useState('')
+  const [otpSent, setOtpSent] = useState(false)
   const [form, setForm] = useState({
     name: '', shortName: '', email: '', phone: '', address: '', city: '',
     province: 'Kinshasa', country: 'RD Congo', description: '', schoolType: 'MIXTE',
@@ -1223,7 +1229,14 @@ function CreateSchoolView() {
       })
       const json = await res.json()
       if (json.data?.school) {
-        // Auto-login with admin credentials
+        // Store admin user ID for OTP verification
+        if (json.data.adminUser?.id) {
+          setCreatedUserId(json.data.adminUser.id)
+          setOtpSent(true)
+          setStep(3) // Go to verification step
+          return
+        }
+        // Fallback: auto-login if no admin user created
         const loginRes = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1253,6 +1266,7 @@ function CreateSchoolView() {
             schoolId: apiUser.schoolId, schoolName: json.data.school.name,
             initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
             profileImageUrl: null,
+            subscriptionTier: json.data.school.subscriptionTier || 'FREEMIUM',
           }, loginJson.data.token)
           toast.success('École crée avec succès ! Bienvenue !')
           setStep(3)
@@ -1270,8 +1284,148 @@ function CreateSchoolView() {
     }
   }
 
-  // Success screen
+  // OTP Verification screen
   if (step === 3) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+        <div className="max-w-md w-full">
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 rounded-full mx-auto mb-6 grid place-items-center" style={{ background: 'oklch(60% 0.15 145)' }}>
+              <ShieldCheck size={40} className="text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-3">Vérifiez votre compte</h1>
+            <p className="text-white/60 text-sm">Un code à 6 chiffres a été envoyé via {otpChannel === 'whatsapp' ? 'WhatsApp' : 'Email'}. Entrez-le ci-dessous.</p>
+          </div>
+
+          {/* Channel selector */}
+          <div className="flex gap-3 mb-6">
+            <button
+              onClick={() => { setOtpChannel('whatsapp'); setOtpCode(''); setOtpError('') }}
+              className={`flex-1 p-3 rounded-xl border text-sm font-medium transition ${otpChannel === 'whatsapp' ? 'border-[#25d366]/50 bg-[#25d366]/10 text-[#25d366]' : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20'}`}
+            >
+              📱 WhatsApp
+            </button>
+            <button
+              onClick={() => { setOtpChannel('email'); setOtpCode(''); setOtpError('') }}
+              className={`flex-1 p-3 rounded-xl border text-sm font-medium transition ${otpChannel === 'email' ? 'border-[#f5a623]/50 bg-[#f5a623]/10 text-[#f5a623]' : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20'}`}
+            >
+              ✉️ Email
+            </button>
+          </div>
+
+          {/* OTP Input */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-6">
+            <label className="text-xs font-medium text-white/60 mb-3 block">Code de vérification</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={otpCode}
+              onChange={e => { setOtpCode(e.target.value.replace(/\D/g, '')); setOtpError('') }}
+              placeholder="000000"
+              className="w-full bg-transparent border-b-2 border-white/20 text-center text-3xl font-mono font-bold text-[#f5a623] tracking-[0.5em] outline-none focus:border-[#f5a623] transition py-3"
+              autoFocus
+            />
+            {otpError && (
+              <p className="text-red-400 text-xs mt-3 text-center">{otpError}</p>
+            )}
+          </div>
+
+          {/* Verify button */}
+          <button
+            onClick={async () => {
+              if (otpCode.length !== 6) { setOtpError('Entrez un code à 6 chiffres'); return }
+              setOtpLoading(true); setOtpError('')
+              try {
+                const res = await fetch('/api/auth/verify-otp', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId: createdUserId, code: otpCode, channel: otpChannel }),
+                })
+                const json = await res.json()
+                if (json.data?.verified) {
+                  // Auto-login after verification
+                  const loginRes = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: form.adminEmail, password: form.adminPassword || 'admin123' }),
+                  })
+                  const loginJson = await loginRes.json()
+                  if (loginJson.data) {
+                    const apiUser = loginJson.data
+                    const roleMap: Record<string, UserRole> = {
+                      SUPER_ADMIN_GLOBAL: 'SUPER_ADMIN_GLOBAL', SCHOOL_ADMIN: 'SUPER_ADMIN_GLOBAL',
+                      SECRETARY: 'SECRETARY', CASHIER: 'CASHIER',
+                      DIRECTION_MATERNELLE: 'DIRECTION_MATERNELLE', DIRECTION_PRIMAIRE: 'DIRECTION_PRIMAIRE',
+                      DIRECTION_SECONDAIRE: 'DIRECTION_SECONDAIRE', DISCIPLINE_MATERNELLE: 'DISCIPLINE_MATERNELLE',
+                      DISCIPLINE_PRIMAIRE: 'DISCIPLINE_PRIMAIRE', DISCIPLINE_SECONDAIRE: 'DISCIPLINE_SECONDAIRE',
+                      TEACHER: 'TEACHER', HEAD_TEACHER: 'HEAD_TEACHER', PARENT: 'PARENT',
+                    }
+                    const role = roleMap[apiUser.role] || 'SUPER_ADMIN_GLOBAL'
+                    login(role, {
+                      id: apiUser.id, name: apiUser.name, role,
+                      schoolId: apiUser.schoolId, schoolName: form.name,
+                      initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
+                      profileImageUrl: null,
+                      subscriptionTier: 'FREEMIUM',
+                    }, loginJson.data.token)
+                    toast.success('Compte vérifié et connecté !')
+                    setStep(4)
+                  } else {
+                    toast.success('Compte vérifié ! Connectez-vous.')
+                    setCurrentView('login')
+                  }
+                } else {
+                  setOtpError(json.error || 'Erreur de vérification')
+                }
+              } catch { setOtpError('Erreur réseau') }
+              finally { setOtpLoading(false) }
+            }}
+            disabled={otpLoading || otpCode.length !== 6}
+            className="w-full bg-[#f5a623] hover:bg-[#ffb643] text-[#0a0f0d] px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)] disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {otpLoading ? <><div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> Vérification...</> : 'Vérifier le compte'}
+          </button>
+
+          {/* Resend */}
+          <div className="text-center mt-4">
+            <button
+              onClick={async () => {
+                setOtpLoading(true); setOtpError('')
+                try {
+                  const res = await fetch('/api/auth/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: createdUserId, channel: otpChannel }),
+                  })
+                  const json = await res.json()
+                  if (json.data) toast.success('Nouveau code envoyé !')
+                  else toast.error(json.error || 'Erreur envoi')
+                } catch { toast.error('Erreur réseau') }
+                finally { setOtpLoading(false) }
+              }}
+              className="text-white/40 hover:text-white/70 text-xs font-medium transition"
+            >
+              Renvoyer le code
+            </button>
+          </div>
+
+          {/* Skip for now */}
+          <div className="text-center mt-6">
+            <button
+              onClick={() => setCurrentView('login')}
+              className="text-white/30 hover:text-white/50 text-xs transition"
+            >
+              Passer et se connecter plus tard
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Success screen
+  if (step === 4) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
         <div className="max-w-md w-full text-center">
@@ -1305,11 +1459,12 @@ function CreateSchoolView() {
             {[
               { n: 1, label: 'Informations' },
               { n: 2, label: 'Compte admin' },
+              { n: 3, label: 'Vérification' },
             ].map(s => (
               <div key={s.n} className="flex items-center gap-2">
                 <div className={`w-8 h-8 rounded-full grid place-items-center text-xs font-bold transition ${step >= s.n ? 'bg-[#f5a623] text-[#0a0f0d]' : 'bg-white/10 text-white/40'}`}>{s.n}</div>
                 <span className={`text-xs font-medium ${step >= s.n ? 'text-white' : 'text-white/40'}`}>{s.label}</span>
-                {s.n < 2 && <div className={`w-12 h-px ${step > s.n ? 'bg-[#f5a623]' : 'bg-white/10'}`} />}
+                {s.n < 3 && <div className={`w-12 h-px ${step > s.n ? 'bg-[#f5a623]' : 'bg-white/10'}`} />}
               </div>
             ))}
           </div>
@@ -1562,6 +1717,7 @@ function LoginView() {
             subjectName: apiUser.subjectName || null,
             classNames: apiUser.classNames || null,
             isTitulaire: apiUser.isTitulaire || false,
+            subscriptionTier: apiUser.school?.subscriptionTier || 'FREEMIUM',
           }, json.data.token)
           toast.success(`Bienvenue, ${apiUser.name}!`)
           return
@@ -1987,6 +2143,7 @@ function LoginView() {
                             schoolName: apiUser.school?.name || 'EduGest',
                             initials: getInitials(apiUser.name),
                             profileImageUrl: apiUser.profileImageUrl || null,
+                            subscriptionTier: apiUser.school?.subscriptionTier || 'FREEMIUM',
                           }, json.data.token)
                           toast.success(`Bienvenue, ${apiUser.name}!`)
                           setShowWhatsappModal(false)
@@ -2101,7 +2258,18 @@ HEAD_TEACHER: [
 
   let menuItems: MenuItem[] = menus[userRole || ''] || menus.SECRETARY
 
-  if (directionRoles.includes(userRole as UserRole)) {
+  // FREEMIUM restrictions: DIRECTION_* on FREEMIUM sees restricted menu
+  const isFreemium = userData?.subscriptionTier === 'FREEMIUM'
+  if (isFreemium && (directionRoles.includes(userRole as UserRole) || userRole === 'SUPER_ADMIN_GLOBAL')) {
+    menuItems = [
+      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
+      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
+      { icon: <BookOpen size={16} />, label: 'Classes', view: 'classes' as ViewType },
+      { icon: <CreditCard size={16} />, label: 'Enregistrer paiement', view: 'payments' },
+      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+    ]
+  } else if (directionRoles.includes(userRole as UserRole)) {
     menuItems = [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
@@ -2109,6 +2277,8 @@ HEAD_TEACHER: [
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
       { icon: <Megaphone size={16} />, label: 'Convocation', view: 'convocation' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
+      { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ]
   }
@@ -2128,10 +2298,10 @@ HEAD_TEACHER: [
     <>
       {/* Mobile overlay */}
       {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
-      <aside className={`fixed lg:sticky top-0 left-0 z-50 lg:z-auto h-screen w-[240px] flex flex-col transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} style={{ background: DARK }}>
+      <aside className={`fixed lg:sticky top-0 left-0 z-50 lg:z-auto h-screen w-[240px] flex flex-col transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} style={{ background: DARK, boxShadow: '4px 0 24px oklch(10% 0.02 250 / 0.3)' }}>
         <div className="p-[18px] flex items-center gap-2.5 border-b border-white/10">
           <BrandMark height={32} />
-          <div className="text-[11px] text-white/50 font-medium">{getRoleLabel(userRole!)}</div>
+          <div className="text-[11px] text-white/50 font-medium">{userData?.subscriptionTier === 'FREEMIUM' ? 'Direction' : getRoleLabel(userRole!)}</div>
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar py-2">
@@ -2141,12 +2311,12 @@ HEAD_TEACHER: [
               <button
                 key={item.label}
                 onClick={() => { if (item.tab) setDisciplineTab(item.tab); setCurrentView(item.view); setSidebarOpen(false) }}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] font-medium transition relative ${
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13.5px] font-medium transition-all duration-200 ${
                   currentView === item.view
                     ? 'text-[oklch(72%_0.15_65)] font-semibold'
-                    : 'text-white/70 hover:text-white hover:bg-white/5'
+                    : 'text-white/60 hover:text-white hover:bg-white/5'
                 }`}
-                style={currentView === item.view ? { background: 'oklch(72% 0.15 65 / 0.08)', borderLeft: '3px solid oklch(72% 0.15 65)' } : { borderLeft: '3px solid transparent' }}
+                style={currentView === item.view ? { background: 'oklch(72% 0.15 65 / 0.10)', borderLeft: '3px solid oklch(72% 0.15 65)', boxShadow: 'inset 0 0 20px oklch(72% 0.15 65 / 0.05)' } : { borderLeft: '3px solid transparent' }}
               >
                 <span className={currentView === item.view ? 'text-[oklch(72%_0.15_65)]' : ''}>{item.icon}</span>
                 {item.label}
@@ -2212,17 +2382,23 @@ const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'bulletin', 'communications', 'profile'],
   SECRETARY: ['dashboard', 'students', 'classes', 'communications', 'payment-verification', 'class-passing', 'settings', 'profile'],
   CASHIER: ['dashboard', 'payments', 'payment-verification', 'debts', 'communications', 'profile'],
-  DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'profile'],
-  DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'profile'],
-  DIRECTION_SECONDAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'profile'],
+  DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'my-subscription', 'settings', 'profile'],
+  DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'my-subscription', 'settings', 'profile'],
+  DIRECTION_SECONDAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'my-subscription', 'settings', 'profile'],
   DISCIPLINE_MATERNELLE: ['dashboard', 'discipline', 'communications', 'profile'],
   DISCIPLINE_PRIMAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
   DISCIPLINE_SECONDAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
   SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'payment-config', 'pricing', 'discipline', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'settings', 'profile'],
 }
 
-function canAccessView(role: string | null, view: ViewType): boolean {
+const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment-verification', 'payment-config', 'my-subscription', 'settings', 'profile']
+
+function canAccessView(role: string | null, view: ViewType, subscriptionTier?: string): boolean {
   if (!role) return false
+  // DIRECTION_* on FREEMIUM → vues restreintes
+  if (subscriptionTier === 'FREEMIUM' && role.startsWith('DIRECTION')) {
+    return FREEMIUM_VIEWS.includes(view)
+  }
   const allowed = VIEWS_BY_ROLE[role]
   if (!allowed) return false
   return allowed.includes(view)
@@ -2293,7 +2469,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
 
   const handleNotifItemClick = (notif: any) => {
     let targetView = notifTypeToView(notif.type)
-    if (!canAccessView(userRole, targetView)) targetView = 'dashboard'
+    if (!canAccessView(userRole, targetView, userData?.subscriptionTier)) targetView = 'dashboard'
     setHighlightedId(notif.relatedId || null)
     setCurrentView(targetView)
     setShowNotifications(false)
@@ -2343,21 +2519,21 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   }
 
   return (
-    <header className="sticky top-0 z-20 h-16 flex items-center justify-between px-4 sm:px-6" style={{ background: IVORY }}>
+    <header className="sticky top-0 z-20 h-16 flex items-center justify-between px-4 sm:px-6" style={{ background: 'rgba(252, 251, 249, 0.85)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '1px solid oklch(90% 0.005 175 / 0.5)' }}>
       <div className="flex items-center gap-4">
-        <button className="lg:hidden p-2 rounded-lg hover:bg-white/60 transition" onClick={() => setSidebarOpen(!sidebarOpen)}>
+        <button className="lg:hidden p-2 rounded-xl hover:bg-white/80 transition-all duration-200" onClick={() => setSidebarOpen(!sidebarOpen)}>
           {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
         </button>
         <button
           onClick={onToggleSidebar}
-          className="hidden lg:flex p-2 rounded-lg hover:bg-white/60 transition items-center gap-1.5"
+          className="hidden lg:flex p-2 rounded-xl hover:bg-white/80 transition-all duration-200 items-center gap-1.5"
           title={sidebarVisible ? 'Masquer le menu' : 'Afficher le menu'}
         >
           {sidebarVisible ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
         </button>
         <div>
-          <div className="text-lg font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>{viewTitles[currentView] || 'Dashboard'}</div>
-          <div className="text-xs hidden sm:block" style={{ color: TEXT_MUTED_LUXE }}>EduGest · {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          <div className="text-lg font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>{viewTitles[currentView] || 'Dashboard'}</div>
+          <div className="text-xs hidden sm:block font-medium" style={{ color: TEXT_MUTED_LUXE }}>EduGest · {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
         </div>
       </div>
       <div className="flex items-center gap-2 relative" ref={notifPanelRef}>
@@ -2567,7 +2743,7 @@ function WhatsAppConfigView() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Connexion WhatsApp</h1>
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Connexion WhatsApp</h1>
       </div>
 
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl max-w-lg shadow-sm overflow-hidden">
@@ -2732,6 +2908,7 @@ function MainContent() {
     case 'whatsapp-config': return <WhatsAppConfigView />
     case 'settings': return <SettingsView />
     case 'school-reviews': return <SchoolReviewsView />
+    case 'my-subscription': return <SubscriptionUpgradeView />
     default: return <RoleDashboard />
   }
 }
@@ -2832,6 +3009,7 @@ function ClassesView() {
   const [viewingClassName, setViewingClassName] = useState('')
   const [classStudents, setClassStudents] = useState<StudentData[]>([])
   const [loadingStudents, setLoadingStudents] = useState(false)
+  const [activeSchoolYear, setActiveSchoolYear] = useState<string>('')
   const canManage = userRole === 'SUPER_ADMIN_GLOBAL' || (userRole && userRole.startsWith('DIRECTION'))
   const highlightedRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -2852,6 +3030,14 @@ function ClassesView() {
       }
       setClasses(allClasses); setLoading(false)
     }).catch(() => setLoading(false))
+    // Fetch active school year
+    if (userData?.schoolId) {
+      authFetch(`/api/schools/${userData.schoolId}`).then(r => r.json()).then(j => {
+        const years = j.data?.schoolYears || []
+        const active = years.find((y: any) => y.isActive)
+        if (active) setActiveSchoolYear(active.id)
+      }).catch(() => {})
+    }
   }, [userData?.schoolId])
 
   // Class search autocomplete - computed from local data
@@ -2880,6 +3066,7 @@ function ClassesView() {
           section: newClassSection,
           capacity: parseInt(newClassCapacity) || 40,
           schoolId: userData?.schoolId,
+          schoolYearId: activeSchoolYear,
         }),
       })
       if (res.ok) {
@@ -2930,7 +3117,7 @@ function ClassesView() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Classes</h1>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Classes</h1>
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filteredClasses.length)} classes</p>
         </div>
@@ -3086,24 +3273,25 @@ const GATEWAY_SVG_LOGOS: Record<string, string> = {
   ORANGE_MONEY: '/logos/orange-money.svg',
   MPESA: '/logos/m-pesa.svg',
   AIRTEL_MONEY: '/logos/airtel-money.svg',
-  DPO: '/logos/dpo.svg',
-  STRIPE: '/logos/stripe.svg',
-  PAYPAL: '/logos/paypal.svg',
-  FLUTTERWAVE: '/logos/flutterwave.svg',
   MANUAL: '/logos/manual.svg',
 }
 
 function PaymentConfigView() {
   const { userData } = useEduGestStore()
-  const [activeTab, setActiveTab] = useState<'gateways' | 'currency' | 'transactions'>('gateways')
+  const [activeTab, setActiveTab] = useState<'gateways' | 'currency' | 'transactions' | 'fees'>('gateways')
   const [gateways, setGateways] = useState<any[]>([])
   const [availableGateways, setAvailableGateways] = useState<any[]>([])
   const [currencyConfig, setCurrencyConfig] = useState<any>(null)
   const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({})
   const [transactions, setTransactions] = useState<any[]>([])
+  const [schoolFees, setSchoolFees] = useState<any[]>([])
+  const [classes, setClasses] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [showGatewayModal, setShowGatewayModal] = useState<string | null>(null)
+  const [showFeeModal, setShowFeeModal] = useState(false)
+  const [editingFee, setEditingFee] = useState<any>(null)
+  const [feeForm, setFeeForm] = useState({ name: '', amount: '', trimester: 'T1', classId: '' })
   const [gatewayForm, setGatewayForm] = useState<any>({})
   const [currencyForm, setCurrencyForm] = useState<any>({
     baseCurrency: 'CDF',
@@ -3121,6 +3309,8 @@ function PaymentConfigView() {
     loadGateways()
     loadCurrencyConfig()
     loadTransactions()
+    loadSchoolFees()
+    loadClasses()
   }, [userData?.schoolId])
 
   async function loadGateways() {
@@ -3164,6 +3354,72 @@ function PaymentConfigView() {
       const json = await res.json()
       if (json.data) setTransactions(json.data.transactions || json.data)
     } catch (e) { console.error(e) }
+  }
+
+  async function loadSchoolFees() {
+    try {
+      const res = await authFetch(`/api/school-fees?schoolId=${userData?.schoolId}`)
+      const json = await res.json()
+      if (json.data) setSchoolFees(json.data)
+    } catch (e) { console.error(e) }
+  }
+
+  async function loadClasses() {
+    try {
+      const res = await authFetch(`/api/classes?schoolId=${userData?.schoolId}`)
+      const json = await res.json()
+      if (json.data) setClasses(json.data)
+    } catch (e) { console.error(e) }
+  }
+
+  async function saveSchoolFee() {
+    if (!feeForm.name || !feeForm.amount || !feeForm.classId) {
+      toast.error('Remplissez tous les champs')
+      return
+    }
+    setSaving(true)
+    try {
+      const url = editingFee ? `/api/school-fees/${editingFee.id}` : '/api/school-fees'
+      const method = editingFee ? 'PUT' : 'POST'
+      const res = await authFetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...feeForm, schoolId: userData?.schoolId }),
+      })
+      const json = await res.json()
+      if (json.data) {
+        toast.success(editingFee ? 'Frais modifié !' : 'Frais ajouté !')
+        setShowFeeModal(false)
+        setEditingFee(null)
+        setFeeForm({ name: '', amount: '', trimester: 'T1', classId: '' })
+        loadSchoolFees()
+      } else {
+        toast.error(json.error || 'Erreur')
+      }
+    } catch (e) { toast.error('Erreur réseau') }
+    finally { setSaving(false) }
+  }
+
+  async function deleteSchoolFee(feeId: string) {
+    if (!confirm('Supprimer ce frais ?')) return
+    try {
+      const res = await authFetch(`/api/school-fees/${feeId}`, { method: 'DELETE' })
+      if (res.ok) {
+        toast.success('Frais supprimé !')
+        loadSchoolFees()
+      }
+    } catch (e) { toast.error('Erreur') }
+  }
+
+  function openFeeEditor(fee?: any) {
+    if (fee) {
+      setEditingFee(fee)
+      setFeeForm({ name: fee.name, amount: fee.amount.toString(), trimester: fee.trimester, classId: fee.classId })
+    } else {
+      setEditingFee(null)
+      setFeeForm({ name: '', amount: '', trimester: 'T1', classId: '' })
+    }
+    setShowFeeModal(true)
   }
 
   async function refreshRates() {
@@ -3306,6 +3562,14 @@ function PaymentConfigView() {
           Passerelles de Paiement
         </button>
         <button
+          onClick={() => setActiveTab('fees')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
+            activeTab === 'fees' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Frais Scolaires
+        </button>
+        <button
           onClick={() => setActiveTab('currency')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
             activeTab === 'currency' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -3386,6 +3650,105 @@ function PaymentConfigView() {
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* School Fees Tab */}
+      {activeTab === 'fees' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>Frais Scolaires</h3>
+              <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Gérez les frais par classe et par trimestre</p>
+            </div>
+            <button onClick={() => openFeeEditor()} className="bg-[#f5a623] hover:bg-[#ffb643] text-[#0a0f0d] px-4 py-2 rounded-xl text-xs font-bold transition">
+              + Ajouter un frais
+            </button>
+          </div>
+
+          {schoolFees.length === 0 ? (
+            <div className="text-center py-12 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl">
+              <CreditCard size={32} className="mx-auto mb-3 text-gray-300" />
+              <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Aucun frais configuré</p>
+              <button onClick={() => openFeeEditor()} className="mt-3 text-xs text-[#f5a623] font-medium hover:underline">Ajouter le premier frais</button>
+            </div>
+          ) : (
+            <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[oklch(90%_0.01_175)]">
+                    <th className="text-left px-4 py-3 font-semibold text-xs" style={{ color: TEXT_PRIMARY }}>Nom</th>
+                    <th className="text-left px-4 py-3 font-semibold text-xs" style={{ color: TEXT_PRIMARY }}>Classe</th>
+                    <th className="text-left px-4 py-3 font-semibold text-xs" style={{ color: TEXT_PRIMARY }}>Trimestre</th>
+                    <th className="text-right px-4 py-3 font-semibold text-xs" style={{ color: TEXT_PRIMARY }}>Montant</th>
+                    <th className="text-right px-4 py-3 font-semibold text-xs" style={{ color: TEXT_PRIMARY }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {schoolFees.map((fee: any) => (
+                    <tr key={fee.id} className="border-b border-[oklch(90%_0.01_175)] last:border-0 hover:bg-[oklch(97%_0.005_175)]">
+                      <td className="px-4 py-3 font-medium text-xs" style={{ color: TEXT_PRIMARY }}>{fee.name}</td>
+                      <td className="px-4 py-3 text-xs" style={{ color: TEXT_MUTED_LUXE }}>{fee.class?.name || '-'}</td>
+                      <td className="px-4 py-3">
+                        <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ background: GOLD_SOFT, color: GOLD }}>{fee.trimester}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-xs" style={{ color: TEXT_PRIMARY }}>{fee.amount?.toLocaleString()} $</td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex gap-1 justify-end">
+                          <button onClick={() => openFeeEditor(fee)} className="p-1.5 rounded-lg hover:bg-[oklch(95%_0.03_250)] transition" title="Modifier">
+                            <Edit size={14} className="text-gray-400" />
+                          </button>
+                          <button onClick={() => deleteSchoolFee(fee.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition" title="Supprimer">
+                            <Trash2 size={14} className="text-red-400" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Fee Modal */}
+          {showFeeModal && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowFeeModal(false)}>
+              <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+                <h3 className="text-lg font-bold mb-4" style={{ color: TEXT_PRIMARY }}>{editingFee ? 'Modifier le frais' : 'Ajouter un frais'}</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Nom du frais *</label>
+                    <input value={feeForm.name} onChange={e => setFeeForm({ ...feeForm, name: e.target.value })} placeholder="Ex: Minerval, Inscription..." className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#f5a623]" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Montant ($) *</label>
+                    <input type="number" value={feeForm.amount} onChange={e => setFeeForm({ ...feeForm, amount: e.target.value })} placeholder="0" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#f5a623]" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Classe *</label>
+                    <select value={feeForm.classId} onChange={e => setFeeForm({ ...feeForm, classId: e.target.value })} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#f5a623]">
+                      <option value="">Sélectionner une classe</option>
+                      {classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Trimestre *</label>
+                    <select value={feeForm.trimester} onChange={e => setFeeForm({ ...feeForm, trimester: e.target.value })} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#f5a623]">
+                      <option value="T1">T1</option>
+                      <option value="T2">T2</option>
+                      <option value="T3">T3</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button onClick={() => setShowFeeModal(false)} className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium hover:bg-gray-50 transition">Annuler</button>
+                  <button onClick={saveSchoolFee} disabled={saving} className="flex-1 py-2 rounded-xl bg-[#f5a623] text-[#0a0f0d] text-sm font-bold hover:bg-[#ffb643] transition disabled:opacity-50">
+                    {saving ? 'Enregistrement...' : editingFee ? 'Modifier' : 'Ajouter'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -3666,12 +4029,6 @@ function PaymentConfigView() {
                       <input type="text" value={gatewayForm.phoneNumber || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, phoneNumber: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder="+243..." style={{ color: TEXT_PRIMARY }} />
                     </div>
                   )}
-                  {(showGatewayModal === 'PAYPAL' || showGatewayModal === 'STRIPE') && (
-                    <div>
-                      <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Email du compte</label>
-                      <input type="email" value={gatewayForm.accountEmail || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, accountEmail: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder="email@example.com" style={{ color: TEXT_PRIMARY }} />
-                    </div>
-                  )}
                   <div>
                     <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Monnaie</label>
                     <select value={gatewayForm.currency} onChange={(e) => setGatewayForm({ ...gatewayForm, currency: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }}>
@@ -3783,7 +4140,7 @@ function PaymentVerificationView() {
       <div>
         <div className="flex items-center gap-3 mb-6">
           <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Vérifier un reçu</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Vérifier un reçu</h1>
         </div>
 
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm mb-6">
@@ -4077,7 +4434,7 @@ function PaymentVerificationView() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Vérification des paiements</h1>
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Vérification des paiements</h1>
       </div>
 
       {/* Search Card */}
@@ -4345,7 +4702,7 @@ function CommunicationsView() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Communications</h1>
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Communications</h1>
         {canCreate && pendingCount > 0 && (
           <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-edu-warning/20 text-edu-warning">
             {pendingCount} en attente
@@ -4644,7 +5001,7 @@ function HomeworkView() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Devoirs</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Devoirs</h1>
         </div>
         {isTeacher && (
           <button onClick={() => setShowForm(!showForm)} className="edu-gold-cta px-4 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-2">
@@ -4928,7 +5285,7 @@ function ClassPassingView() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Passage de classe</h1>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Passage de classe</h1>
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filteredStudents.length)} élèves</p>
         </div>
@@ -5113,7 +5470,7 @@ function BulletinView() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bulletins</h1>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Bulletins</h1>
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(totalStudents)} bulletin{totalStudents > 1 ? 's' : ''} · {byClass.length} classe{byClass.length > 1 ? 's' : ''}</p>
         </div>
@@ -5376,7 +5733,7 @@ function ConvocationView() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Convocations</h1>
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Convocations</h1>
       </div>
 
       {/* Response Modal */}
@@ -5674,7 +6031,7 @@ function SchoolReviewsView() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Avis sur l&apos;école</h1>
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Avis sur l&apos;école</h1>
       </div>
 
       {/* School Header Card */}
@@ -5818,6 +6175,357 @@ function SchoolReviewsView() {
   )
 }
 
+// ===== SUBSCRIPTION UPGRADE VIEW =====
+function SubscriptionUpgradeView() {
+  const { userData, setCurrentView } = useEduGestStore()
+  const [requests, setRequests] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [requesting, setRequesting] = useState<string | null>(null)
+  const [selectedTier, setSelectedTier] = useState<string | null>(null)
+  const [modalMode, setModalMode] = useState<'request' | 'pay'>('request')
+  const [activeGateways, setActiveGateways] = useState<any[]>([])
+  const [selectedGateway, setSelectedGateway] = useState<string>('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [paying, setPaying] = useState(false)
+  const [notes, setNotes] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const currentTier = userData?.subscriptionTier || 'FREEMIUM'
+  // Ordre hiérarchique réel des formules (SUBSCRIPTION_TIERS est un ordre d'affichage, pas de prix)
+  const TIER_ORDER = ['FREEMIUM', 'ESSENTIEL', 'STANDARD', 'PREMIUM', 'ENTERPRISE', 'CORPORATE']
+  const currentTierIndex = TIER_ORDER.indexOf(currentTier)
+
+  const tiers = [
+    { id: 'FREEMIUM', name: 'Freemium', price: 0, color: MUTED, features: ['Élèves', 'Classes', 'Notes', 'Parents'] },
+    { id: 'ESSENTIEL', name: 'Essentiel', price: 100, color: INFO, features: ['Élèves', 'Classes', 'Notes', 'Parents', 'Paiements', 'Devoirs', 'Discipline'] },
+    { id: 'STANDARD', name: 'Standard', price: 250, color: ACCENT, features: ['Tout Essentiel', 'Bulletins', 'Communications', 'Convocations'] },
+    { id: 'PREMIUM', name: 'Professionnel', price: 500, color: WARNING, features: ['Tout Standard', 'Analytics', 'Multi-années'] },
+    { id: 'ENTERPRISE', name: 'Enterprise', price: 1000, color: SUCCESS, features: ['Tout Premium', 'API', 'Support prioritaire', 'Branding custom'] },
+    { id: 'CORPORATE', name: 'Corporate', price: 0, color: DANGER, features: ['Tout Enterprise', 'Prix sur mesure'] },
+  ]
+
+  useEffect(() => {
+    authFetch('/api/subscription/request').then(r => r.json()).then(j => {
+      setRequests(j.data || [])
+      setLoading(false)
+    }).catch(() => setLoading(false))
+    // Vérifier si un agrégateur de paiement est VRAIMENT connecté (actif + clés renseignées)
+    authFetch('/api/payment-gateways').then(r => r.json()).then(j => {
+      const configured = j.data?.configured || []
+      const connected = configured.filter((g: any) => g.isActive && g.hasCredentials)
+      setActiveGateways(connected)
+      if (connected.length > 0) setSelectedGateway(connected[0].gatewayType)
+    }).catch(() => {})
+  }, [])
+
+  async function handleRequest(tier: string) {
+    if (!confirm(`Demander un upgrade vers ${tier} ?`)) return
+    setSubmitting(true)
+    try {
+      const res = await authFetch('/api/subscription/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestedTier: tier, notes: notes || null }),
+      })
+      const j = await res.json()
+      if (res.ok) {
+        toast.success('Demande envoyée ! L\'administrateur sera notifié.')
+        setRequests(prev => [j.data, ...prev])
+        setSelectedTier(null)
+        setNotes('')
+      } else {
+        toast.error(j.error || 'Erreur lors de l\'envoi')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setSubmitting(false) }
+  }
+
+  async function handlePay() {
+    const tier = tiers.find(t => t.id === selectedTier)
+    if (!tier || !selectedGateway) { toast.error('Choisissez un moyen de paiement'); return }
+    setPaying(true)
+    try {
+      const res = await authFetch('/api/payment-gateways/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schoolId: userData?.schoolId,
+          gatewayType: selectedGateway,
+          amount: tier.price,
+          description: `Abonnement ${tier.name} - ${userData?.schoolName || 'EduGest'}`,
+          customerPhone: customerPhone || undefined,
+        }),
+      })
+      const j = await res.json()
+      if (res.ok || res.status === 202) {
+        toast.success(j.message || 'Paiement initié avec succès !')
+        // Tracer la demande pour l'admin (le paiement en ligne est vérifié via webhook)
+        const ref = j.data?.reference || j.data?.transactionId || j.data?.transaction?.id || ''
+        authFetch('/api/subscription/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requestedTier: selectedTier, notes: `Paiement en ligne via ${selectedGateway}${ref ? ` — réf: ${ref}` : ''}` }),
+        }).catch(() => {})
+        setSelectedTier(null)
+        setCustomerPhone('')
+        const r2 = await authFetch('/api/subscription/request').then(r => r.json()).catch(() => null)
+        if (r2) setRequests(r2.data || [])
+      } else {
+        toast.error(j.error || 'Erreur lors du paiement')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setPaying(false) }
+  }
+
+  const pendingRequest = requests.find(r => r.status === 'PENDING')
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Mon Abonnement</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Formule actuelle : <strong>{getSubscriptionLabel(currentTier)}</strong></p>
+        </div>
+      </div>
+
+      {/* Current plan highlight */}
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 mb-8 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Votre formule</div>
+            <div className="text-2xl font-bold" style={{ color: GOLD }}>{getSubscriptionLabel(currentTier)}</div>
+            <div className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>{getSubscriptionPrice(currentTier)}</div>
+          </div>
+          <div className="w-16 h-16 rounded-2xl grid place-items-center" style={{ background: GOLD_SOFT }}>
+            <Crown size={28} style={{ color: GOLD }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Upgrade prompt */}
+      {currentTier !== 'CORPORATE' && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Changer de formule</h2>
+          <p className="text-sm mb-4" style={{ color: TEXT_MUTED_LUXE }}>
+            Sélectionnez la formule souhaitée et envoyez une demande à l&apos;administrateur de la plateforme.
+          </p>
+        </div>
+      )}
+
+      {/* Plans grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
+        {tiers.map((tier, i) => {
+          const isCurrent = tier.id === currentTier
+          const isUpgradable = TIER_ORDER.indexOf(tier.id) > currentTierIndex
+          const isDowngrade = TIER_ORDER.indexOf(tier.id) < currentTierIndex
+          const hasPending = !!pendingRequest
+
+          return (
+            <div
+              key={tier.id}
+              className={`relative bg-white border rounded-2xl p-5 transition-all ${
+                isCurrent ? 'border-[oklch(72%_0.15_65)] shadow-md ring-2 ring-[oklch(72%_0.15_65_/_0.15)]' :
+                isUpgradable ? 'border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-md cursor-pointer' :
+                'border-[oklch(90%_0.01_175)] opacity-50'
+              }`}
+            >
+              {isCurrent && (
+                <div className="absolute -top-3 left-4 px-3 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: GOLD }}>
+                  ACTUELLE
+                </div>
+              )}
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>{tier.name}</h3>
+                <div className="w-8 h-8 rounded-lg grid place-items-center" style={{ background: `${tier.color}15` }}>
+                  <Crown size={16} style={{ color: tier.color }} />
+                </div>
+              </div>
+              <div className="mb-3">
+                <span className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>
+                  {tier.price === 0 ? (tier.id === 'FREEMIUM' ? 'Gratuit' : 'Sur mesure') : `${tier.price}$`}
+                </span>
+                {tier.price > 0 && <span className="text-sm ml-1" style={{ color: TEXT_MUTED_LUXE }}>/mois</span>}
+              </div>
+              <ul className="space-y-1.5 mb-4">
+                {tier.features.map(f => (
+                  <li key={f} className="flex items-center gap-2 text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>
+                    <Check size={12} style={{ color: SUCCESS }} /> {f}
+                  </li>
+                ))}
+              </ul>
+              {isCurrent ? (
+                <div className="w-full py-2.5 rounded-xl text-center text-sm font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>
+                  Formule actuelle
+                </div>
+              ) : isUpgradable ? (
+                activeGateways.length > 0 && tier.price > 0 ? (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setSelectedTier(tier.id); setModalMode('pay') }}
+                      disabled={!!pendingRequest || submitting}
+                      className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-white transition disabled:opacity-50"
+                      style={{ background: tier.color }}
+                      title="Payer maintenant en ligne"
+                    >
+                      Payer en ligne
+                    </button>
+                    <button
+                      onClick={() => { setSelectedTier(tier.id); setModalMode('request') }}
+                      disabled={!!pendingRequest || submitting}
+                      className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition disabled:opacity-50 border"
+                      style={{ borderColor: tier.color, color: tier.color }}
+                      title="Envoyer une demande à l'administrateur"
+                    >
+                      Demander
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setSelectedTier(tier.id); setModalMode('request') }}
+                    disabled={!!pendingRequest || submitting}
+                    className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:opacity-50"
+                    style={{ background: tier.color }}
+                  >
+                    {pendingRequest ? 'Demande en cours...' : 'Demander'}
+                  </button>
+                )
+              ) : isDowngrade ? (
+                <div className="w-full py-2.5 rounded-xl text-center text-sm font-medium border border-[oklch(90%_0.01_175)]" style={{ color: TEXT_MUTED_LUXE }}>
+                  Inférieure à votre formule
+                </div>
+              ) : null}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Request modal */}
+      {selectedTier && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setSelectedTier(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>{modalMode === 'pay' ? 'Payer en ligne' : 'Demander un upgrade'}</h3>
+              <button onClick={() => setSelectedTier(null)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-gray-100 transition"><X size={16} className="text-gray-500" /></button>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div className="p-4 rounded-xl" style={{ background: GOLD_SOFT }}>
+                <div className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>
+                  {getSubscriptionLabel(currentTier)} → <strong>{getSubscriptionLabel(selectedTier)}</strong>
+                </div>
+                <div className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>
+                  {getSubscriptionPrice(selectedTier)}
+                </div>
+              </div>
+
+              {modalMode === 'pay' ? (
+                <>
+                  <div>
+                    <label className="text-xs font-medium mb-2 block" style={{ color: TEXT_MUTED_LUXE }}>Moyen de paiement</label>
+                    <div className="space-y-2">
+                      {activeGateways.map((g: any) => (
+                        <button
+                          key={g.gatewayType}
+                          type="button"
+                          onClick={() => setSelectedGateway(g.gatewayType)}
+                          className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-medium transition ${
+                            selectedGateway === g.gatewayType ? 'border-[oklch(72%_0.15_65)] bg-[oklch(72%_0.15_65_/_0.06)]' : 'border-[oklch(90%_0.01_175)] hover:border-[oklch(80%_0.01_175)]'
+                          }`}
+                          style={{ color: TEXT_PRIMARY }}
+                        >
+                          <span>{g.displayName || g.name || g.gatewayType}</span>
+                          {selectedGateway === g.gatewayType && <Check size={14} style={{ color: GOLD }} />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Téléphone (ex: +243 81...)</label>
+                    <input
+                      type="tel"
+                      value={customerPhone}
+                      onChange={e => setCustomerPhone(e.target.value)}
+                      placeholder="+243 81 234 5678"
+                      className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+                      style={{ color: TEXT_PRIMARY }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Notes (optionnel)</label>
+                  <textarea
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    placeholder="Précisez votre besoin..."
+                    className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none"
+                    rows={3}
+                    style={{ color: TEXT_PRIMARY }}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setSelectedTier(null)} className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)]" style={{ color: TEXT_PRIMARY }}>Annuler</button>
+              {modalMode === 'pay' ? (
+                <button
+                  onClick={handlePay}
+                  disabled={paying || !selectedGateway}
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-2 disabled:opacity-50"
+                  style={{ background: GOLD }}
+                >
+                  {paying ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CreditCard size={14} />}
+                  Payer {(() => { const t = tiers.find(x => x.id === selectedTier); return t && t.price > 0 ? `${t.price}$` : '' })()}
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleRequest(selectedTier)}
+                  disabled={submitting}
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-2 disabled:opacity-50"
+                  style={{ background: GOLD }}
+                >
+                  {submitting ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send size={14} />}
+                  Envoyer la demande
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Previous requests */}
+      {requests.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Demandes précédentes</h2>
+          <div className="space-y-3">
+            {requests.map(r => (
+              <div key={r.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-xl p-4 flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>
+                    {r.currentTier} → {r.requestedTier}
+                  </div>
+                  <div className="text-[11px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>
+                    Demandé le {new Date(r.createdAt).toLocaleDateString('fr-FR')} par {r.requestedByName}
+                  </div>
+                </div>
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                  r.status === 'APPROVED' ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' :
+                  r.status === 'REJECTED' ? 'bg-[oklch(94%_0.05_25)] text-[oklch(45%_0.18_25)]' :
+                  'bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]'
+                }`}>
+                  {r.status === 'PENDING' ? 'En attente' : r.status === 'APPROVED' ? 'Approuvée' : 'Refusée'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ===== PRICING DASHBOARD (for sidebar) =====
 function PricingDashboard() {
   return <PricingView />
@@ -5825,12 +6533,27 @@ function PricingDashboard() {
 
 // ===== MAIN HOME COMPONENT =====
 export default function Home() {
-  const { currentView, userRole, logout, setCurrentView } = useEduGestStore()
+  const { currentView, userRole, logout, setCurrentView, userData, setUserData } = useEduGestStore()
+  const [subscriptionRequired, setSubscriptionRequired] = useState<{ tier: string; expired: boolean } | null>(null)
 
   // Restore session from localStorage after first render (avoids hydration mismatch)
   useEffect(() => {
     restoreSession()
   }, [])
+
+  // Fetch subscription tier if missing from existing sessions
+  useEffect(() => {
+    if (userData && !userData.subscriptionTier && userData.schoolId) {
+      authFetch(`/api/schools/${userData.schoolId}`)
+        .then(r => r.json())
+        .then(json => {
+          if (json.data?.subscriptionTier) {
+            setUserData({ ...userData, subscriptionTier: json.data.subscriptionTier })
+          }
+        })
+        .catch(() => {})
+    }
+  }, [userData?.schoolId])
 
   // Report device fingerprint once when authenticated (best-effort)
   useEffect(() => {
@@ -5848,6 +6571,61 @@ export default function Home() {
     window.addEventListener('auth:unauthorized', handler)
     return () => window.removeEventListener('auth:unauthorized', handler)
   }, [logout, setCurrentView])
+
+  // Handle subscription required events from authFetch
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      setSubscriptionRequired({ tier: detail.tier, expired: detail.expired })
+    }
+    window.addEventListener('subscription:required', handler)
+    return () => window.removeEventListener('subscription:required', handler)
+  }, [])
+
+  // Subscription wall
+  if (subscriptionRequired && userRole) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+        <div className="max-w-md w-full text-center">
+          <div className="w-20 h-20 rounded-full mx-auto mb-6 grid place-items-center" style={{ background: 'oklch(60% 0.15 145)' }}>
+            <Lock size={40} className="text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-3">
+            {subscriptionRequired.expired ? 'Abonnement expiré' : 'Abonnement requis'}
+          </h1>
+          <p className="text-white/60 mb-4 text-sm">
+            {subscriptionRequired.expired
+              ? `Votre formule ${subscriptionRequired.tier} a expiré. Renouvelez pour continuer.`
+              : `Cette fonctionnalité nécessite un abonnement payant. Formule actuelle : ${subscriptionRequired.tier}`
+            }
+          </p>
+          <p className="text-white/40 text-xs mb-8">
+            Contactez l&apos;administrateur de la plateforme pour souscrire.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => { setSubscriptionRequired(null); setCurrentView('my-subscription') }}
+              className="bg-[#f5a623] hover:bg-[#ffb643] text-[#0a0f0d] px-6 py-3 rounded-xl font-bold text-sm transition-all"
+            >
+              Voir les formules
+            </button>
+            <button
+              onClick={() => setSubscriptionRequired(null)}
+              className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-medium text-sm transition-all"
+            >
+              Continuer
+            </button>
+            <button
+              onClick={() => { setSubscriptionRequired(null); logout(); setCurrentView('login') }}
+              className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-medium text-sm transition-all"
+            >
+              Se déconnecter
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (!userRole) {
     switch (currentView) {

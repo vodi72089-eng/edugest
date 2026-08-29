@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
 import { notifyDiscipline } from '@/lib/whatsapp-agent';
 import { classifyStudent, learnKeywordsFromRecord } from '@/lib/discipline-classifier';
 
@@ -73,6 +73,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const subCheck = await requireActiveSubscription(request);
+    if ('error' in subCheck) return subCheck.error;
+
     const authResult = await requirePermission(request, 'discipline:create');
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;

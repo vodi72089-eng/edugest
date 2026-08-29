@@ -76,7 +76,7 @@ export default function SuperAdminDashboard() {
           <div>
             <div className="flex items-center gap-3 mb-1">
               <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Bonjour {userData.name}</h1>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Bonjour {userData.name}</h1>
             </div>
             <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{userData.schoolName || 'Gestion scolaire'}</p>
           </div>
@@ -150,7 +150,7 @@ export default function SuperAdminDashboard() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Administration EduGest</h1>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Administration EduGest</h1>
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Contrôle et supervision de la plateforme</p>
         </div>
@@ -349,17 +349,17 @@ export default function SuperAdminDashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm" style={{ borderLeft: `4px solid ${DANGER}` }}>
                   <div className="text-xs font-medium uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Impayés en retard</div>
-                  <div className="text-2xl font-bold mt-1" style={{ color: DANGER }}>{formatCurrency(ov?.overdue.amount || 0)}</div>
+                  <div className="text-2xl font-bold mt-1 font-mono-premium" style={{ color: DANGER }}>{formatCurrency(ov?.overdue.amount || 0)}</div>
                   <div className="text-xs mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{ov?.overdue.count || 0} dossiers</div>
                 </div>
                 <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm" style={{ borderLeft: `4px solid ${WARNING}` }}>
                   <div className="text-xs font-medium uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Paiements partiels</div>
-                  <div className="text-2xl font-bold mt-1" style={{ color: WARNING }}>{formatCurrency(ov?.partial.owed || 0)}</div>
+                  <div className="text-2xl font-bold mt-1 font-mono-premium" style={{ color: WARNING }}>{formatCurrency(ov?.partial.owed || 0)}</div>
                   <div className="text-xs mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{ov?.partial.count || 0} dossiers</div>
                 </div>
                 <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm" style={{ borderLeft: `4px solid ${INFO}` }}>
                   <div className="text-xs font-medium uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>En attente</div>
-                  <div className="text-2xl font-bold mt-1" style={{ color: INFO }}>{formatCurrency(ov?.pending.amount || 0)}</div>
+                  <div className="text-2xl font-bold mt-1 font-mono-premium" style={{ color: INFO }}>{formatCurrency(ov?.pending.amount || 0)}</div>
                   <div className="text-xs mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{ov?.pending.count || 0} dossiers</div>
                 </div>
               </div>

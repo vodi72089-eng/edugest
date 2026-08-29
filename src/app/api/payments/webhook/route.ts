@@ -4,10 +4,9 @@ import crypto from 'crypto'
 
 // Webhook secret per gateway (from env)
 const WEBHOOK_SECRETS: Record<string, string | undefined> = {
-  STRIPE: process.env.STRIPE_WEBHOOK_SECRET,
-  DPO: process.env.DPO_WEBHOOK_SECRET,
-  PAYPAL: process.env.PAYPAL_WEBHOOK_SECRET,
-  FLUTTERWAVE: process.env.FLUTTERWAVE_WEBHOOK_SECRET,
+  MPESA: process.env.MPESA_WEBHOOK_SECRET,
+  ORANGE_MONEY: process.env.ORANGE_MONEY_WEBHOOK_SECRET,
+  AIRTEL_MONEY: process.env.AIRTEL_MONEY_WEBHOOK_SECRET,
 }
 
 function safeEqual(a: string, b: string): boolean {
@@ -17,31 +16,6 @@ function safeEqual(a: string, b: string): boolean {
   return crypto.timingSafeEqual(bufA, bufB)
 }
 
-// Stripe signs webhooks with: t=<timestamp>,v1=<hex signature>
-// where the signed payload is `${timestamp}.${rawBody}`.
-function verifyStripeSignature(body: string, signature: string, secret: string): boolean {
-  const parts: Record<string, string> = {}
-  for (const item of signature.split(',')) {
-    const idx = item.indexOf('=')
-    if (idx === -1) continue
-    parts[item.slice(0, idx)] = item.slice(idx + 1)
-  }
-  const timestamp = parts['t']
-  const sigV1 = parts['v1']
-  if (!timestamp || !sigV1) return false
-
-  // Reject replays older than 5 minutes
-  const ts = parseInt(timestamp, 10)
-  if (isNaN(ts) || Math.abs(Date.now() / 1000 - ts) > 300) return false
-
-  const expected = crypto
-    .createHmac('sha256', secret)
-    .update(`${timestamp}.${body}`)
-    .digest('hex')
-  return safeEqual(sigV1, expected)
-}
-
-// Verify webhook signature (basic implementation)
 function verifySignature(
   gateway: string,
   body: string,
@@ -49,12 +23,9 @@ function verifySignature(
 ): boolean {
   if (!signature) return false
   const secret = WEBHOOK_SECRETS[gateway]
-  if (!secret) return true // No secret configured — skip verification (dev mode)
+  if (!secret) return true
 
   try {
-    if (gateway === 'STRIPE') {
-      return verifyStripeSignature(body, signature, secret)
-    }
     const hmac = crypto.createHmac('sha256', secret)
     hmac.update(body)
     const expected = hmac.digest('hex')
@@ -67,23 +38,16 @@ function verifySignature(
 // POST /api/payments/webhook
 export async function POST(request: NextRequest) {
   try {
-    // Detect gateway from query param or header
     const { searchParams } = new URL(request.url)
     const gateway = searchParams.get('gateway')?.toUpperCase() || ''
 
-    if (!gateway || !['STRIPE', 'DPO', 'PAYPAL', 'FLUTTERWAVE'].includes(gateway)) {
+    if (!gateway || !['MPESA', 'ORANGE_MONEY', 'AIRTEL_MONEY'].includes(gateway)) {
       return NextResponse.json({ error: 'Gateway non supporté' }, { status: 400 })
     }
 
     const rawBody = await request.text()
     const signature = request.headers.get('x-webhook-signature')
-      || request.headers.get('stripe-signature')
-      || request.headers.get('x-paypal-signature')
 
-    // Verify signature if secret is configured.
-    // In production, a webhook without a configured secret is REJECTED —
-    // otherwise anyone could forge a "payment success" event and mark
-    // transactions as paid without actually paying.
     const webhookSecret = WEBHOOK_SECRETS[gateway]
     if (webhookSecret) {
       if (!verifySignature(gateway, rawBody, signature)) {
@@ -102,58 +66,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'JSON invalide' }, { status: 400 })
     }
 
-    // Parse gateway-specific payload
     let reference: string | null = null
     let gatewayTransactionId: string | null = null
     let status: string = 'PENDING'
     let amount: number | null = null
 
     switch (gateway) {
-      case 'STRIPE': {
-        const event = payload
-        const type = event.type as string
-        const data = event.data?.object as any
-        if (type === 'checkout.session.completed') {
-          reference = (data?.metadata?.reference as string) || null
-          gatewayTransactionId = data?.payment_intent as string || data?.id as string || null
-          status = 'SUCCESS'
-          amount = data?.amount_total ? Number(data.amount_total) / 100 : null
-        } else if (type === 'payment_intent.payment_failed') {
-          reference = (data?.metadata?.reference as string) || null
-          gatewayTransactionId = data?.id as string || null
-          status = 'FAILED'
-        }
+      case 'MPESA': {
+        reference = payload.AccountReference as string || payload.MerchantRequestID as string || null
+        gatewayTransactionId = payload.CheckoutRequestID as string || payload.MpesaReceiptNumber as string || null
+        const mpesaResult = payload.ResultCode as string || payload.ResultDesc as string || ''
+        if (mpesaResult === '0' || mpesaResult.startsWith('0')) status = 'SUCCESS'
+        else if (mpesaResult && mpesaResult !== '0') status = 'FAILED'
+        amount = payload.Amount ? Number(payload.Amount) : null
         break
       }
-      case 'DPO': {
-        const data = payload
-        reference = data.merchantTransactionId as string || data.transactionId as string || null
-        gatewayTransactionId = data.id as string || null
-        const resultCode = data.result?.code as string || ''
-        if (resultCode.startsWith('000')) status = 'SUCCESS'
-        else if (resultCode) status = 'FAILED'
+      case 'ORANGE_MONEY': {
+        reference = payload.order_id as string || payload.txnid as string || null
+        gatewayTransactionId = payload.pay_token as string || payload.notif_token as string || null
+        const omStatus = payload.status as string
+        if (omStatus === 'SUCCESS' || omStatus === 'INITIATED') status = omStatus === 'SUCCESS' ? 'SUCCESS' : 'PENDING'
+        else if (omStatus === 'FAILED') status = 'FAILED'
+        amount = payload.amount ? Number(payload.amount) : null
         break
       }
-      case 'PAYPAL': {
-        const event = payload
-        const eventType = event.event_type as string
-        const resource = event.resource as Record<string, unknown> | undefined
-        reference = resource?.custom_id as string || resource?.invoice_id as string || null
-        gatewayTransactionId = resource?.id as string || null
-        if (eventType === 'PAYMENT.CAPTURE.COMPLETED') status = 'SUCCESS'
-        else if (eventType === 'PAYMENT.CAPTURE.DENIED') status = 'FAILED'
+      case 'AIRTEL_MONEY': {
+        const txData = payload.data?.transaction as Record<string, unknown> | undefined
+        reference = payload.data?.reference as string || txData?.transaction_id as string || null
+        gatewayTransactionId = txData?.id as string || null
+        const amStatus = txData?.status as string || payload.status as string
+        if (amStatus === 'success' || amStatus === 'SUCCESS') status = 'SUCCESS'
+        else if (amStatus === 'failed' || amStatus === 'FAILED') status = 'FAILED'
         else status = 'PENDING'
-        break
-      }
-      case 'FLUTTERWAVE': {
-        const data = payload.data as Record<string, unknown> | undefined
-        reference = data?.tx_ref as string || null
-        gatewayTransactionId = data?.id?.toString() || null
-        const fwStatus = data?.status as string
-        if (fwStatus === 'successful') status = 'SUCCESS'
-        else if (fwStatus === 'failed') status = 'FAILED'
-        else status = 'PENDING'
-        amount = data?.amount ? Number(data.amount) : null
+        amount = txData?.amount ? Number(txData.amount) : null
         break
       }
     }
@@ -163,7 +108,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Référence manquante' }, { status: 400 })
     }
 
-    // Find the transaction by reference
     const transaction = await db.paymentTransaction.findFirst({
       where: { reference },
     })
@@ -173,7 +117,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Transaction non trouvée' }, { status: 404 })
     }
 
-    // Update transaction
     const updatedTransaction = await db.paymentTransaction.update({
       where: { id: transaction.id },
       data: {
@@ -184,10 +127,9 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // If payment succeeded and linked to a PaymentRecord, update it too
     if (status === 'SUCCESS' && transaction.paymentRecordId) {
       const paidAmount = amount != null
-        ? Math.round(amount * 100) // Convert to cents if needed
+        ? Math.round(amount * 100)
         : transaction.amount
 
       await db.paymentRecord.update({
@@ -201,7 +143,6 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      // Notify parent
       try {
         const record = await db.paymentRecord.findUnique({
           where: { id: transaction.paymentRecordId },

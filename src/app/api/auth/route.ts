@@ -90,6 +90,22 @@ export async function POST(request: NextRequest) {
     // ── Clear rate limit on success ──────────────────────────────────────
     loginAttempts.delete(identifier);
 
+    // ── Check account verification ─────────────────────────────────────
+    // First user (SUPER_ADMIN_GLOBAL) is auto-verified during school creation
+    // Other users must verify via OTP before logging in
+    if (!user.isVerified && user.role !== 'SUPER_ADMIN_GLOBAL') {
+      return NextResponse.json(
+        {
+          error: 'Compte non vérifié. Vérifiez votre email ou téléphone.',
+          requiresVerification: true,
+          userId: user.id,
+          phone: user.phone,
+          email: user.email,
+        },
+        { status: 403 }
+      );
+    }
+
     // ── Update last login ────────────────────────────────────────────────
     await db.user.update({
       where: { id: user.id },
@@ -115,7 +131,7 @@ export async function POST(request: NextRequest) {
 
     const school = await db.school.findUnique({
       where: { id: user.schoolId },
-      select: { id: true, name: true, shortName: true, city: true, country: true },
+      select: { id: true, name: true, shortName: true, city: true, country: true, subscriptionTier: true },
     });
 
     const response = NextResponse.json({
@@ -136,8 +152,8 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
-  } catch (error) {
-    console.error('Error during login:', error);
-    return NextResponse.json({ error: 'Login failed' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Error during login:', error?.message, error?.stack);
+    return NextResponse.json({ error: 'Login failed', detail: error?.message }, { status: 500 });
   }
 }

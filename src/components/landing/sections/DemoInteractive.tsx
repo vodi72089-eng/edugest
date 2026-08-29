@@ -820,7 +820,7 @@ export default function DemoInteractive() {
         {/* Header */}
         <ScrollReveal>
           <div className="text-center mb-12 sm:mb-16">
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#FAFAFA] mb-4">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tighter edu-heading-display text-[#FAFAFA] mb-4">
               <span
                 style={{
                   background: 'linear-gradient(135deg, #4F9EFF 0%, #A78BFA 50%, #F472B6 100%)',

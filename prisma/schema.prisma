@@ -27,12 +27,15 @@ model School {
   establishmentYear Int?
   subscriptionTier  String   @default("FREEMIUM")
   subscriptionStatus String  @default("ACTIVE")
+  subscriptionStartDate DateTime?
+  subscriptionEndDate   DateTime?
   maxStudents       Int      @default(100)
   isActive          Boolean  @default(true)
   averageRating     Float    @default(0)
   totalReviews      Int      @default(0)
   schoolType        String   @default("MIXTE")
   schoolCategory    String   @default("PRIVEE")
+  educationalSystem String   @default("RDC")
   studentCount      Int      @default(0)
   classCount        Int      @default(0)
   createdAt         DateTime @default(now())
@@ -49,6 +52,7 @@ model School {
   homeworks         Homework[]
   schoolFees        SchoolFee[]
   notifications     Notification[]
+  subscriptionRequests SubscriptionRequest[]
 }
 
 model User {
@@ -65,8 +69,13 @@ model User {
   subjectName     String?   // Course/subject the teacher teaches
   classNames      String?   // Comma-separated class names the teacher occupies
   isTitulaire     Boolean   @default(false)  // Whether teacher is homeroom (titulaire)
+  isVerified      Boolean   @default(false)  // Account verified via OTP
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  verificationTokens VerificationToken[]
 
   school          School   @relation(fields: [schoolId], references: [id])
   students        Student[] @relation("ParentChildren")
@@ -604,4 +613,43 @@ model SettingsApproval {
   reviewedAt  DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model SubscriptionRequest {
+  id              String   @id @default(cuid())
+  schoolId        String
+  requestedTier   String
+  currentTier     String
+  status          String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  requestedByName String
+  requestedById   String
+  notes           String?
+  resolvedByName  String?
+  resolvedById    String?
+  resolvedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@index([status])
+}
+
+model VerificationToken {
+  id         String   @id @default(cuid())
+  userId     String
+  code       String   // 6-digit OTP code
+  channel    String   // "whatsapp" or "email"
+  purpose    String   @default("registration") // "registration", "login", "password_reset"
+  expiresAt  DateTime // TTL: 10 minutes
+  attempts   Int      @default(0)
+  maxAttempts Int     @default(3)
+  used       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, channel, purpose])
+  @@index([expiresAt])
 }

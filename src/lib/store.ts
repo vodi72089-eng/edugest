@@ -82,6 +82,18 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
     }
   }
 
+  if (res.status === 403) {
+    try {
+      const cloned = res.clone();
+      const body = await cloned.json();
+      if (body.subscriptionRequired) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('subscription:required', { detail: body }));
+        }
+      }
+    } catch { /* not JSON */ }
+  }
+
   return res;
 }
 
@@ -113,6 +125,7 @@ export type ViewType =
   | 'payment-config'
   | 'online-payment'
   | 'debts'
+  | 'my-subscription'
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'
@@ -139,6 +152,7 @@ export interface UserData {
   subjectName?: string | null
   classNames?: string | null
   isTitulaire?: boolean
+  subscriptionTier?: string
 }
 
 interface EduGestStore {

@@ -1,28 +1,30 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
+import { Outfit, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
 import { Toaster } from "sonner";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 const playfairDisplay = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
-  style: ["italic"],
-  weight: ["700"],
+  style: ["italic", "normal"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
-  title: "EduGest — Gestion Scolaire",
+  title: "EduGest — Gestion Scolaire Premium",
   description: "La plateforme de gestion scolaire multi-écoles qui simplifie la vie des directions, enseignants et parents.",
   icons: {
     icon: "/edugest-logo.png",
@@ -37,7 +39,7 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} antialiased bg-background text-foreground`}
+        className={`${outfit.variable} ${jetbrainsMono.variable} ${playfairDisplay.variable} antialiased bg-background text-foreground`}
       >
         {children}
         <Toaster position="top-right" richColors />

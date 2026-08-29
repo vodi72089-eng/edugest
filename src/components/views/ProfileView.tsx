@@ -336,7 +336,7 @@ export default function ProfileView() {
     <div className="max-w-3xl">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Mon profil</h1>
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Mon profil</h1>
       </div>
 
       {/* ── Profile card (photo + name) ───────────────────────────────────── */}
@@ -364,7 +364,7 @@ export default function ProfileView() {
           </div>
           <div className="mt-3">
             <div className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{userData?.name || 'Utilisateur'}</div>
-            <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{getRoleLabel(userData?.role || 'SECRETARY')}</div>
+            <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{userData?.subscriptionTier === 'FREEMIUM' && userData?.role?.startsWith('DIRECTION') ? 'Direction' : getRoleLabel(userData?.role || 'SECRETARY')}</div>
           </div>
           <div className="space-y-3 mt-5">
             <div>

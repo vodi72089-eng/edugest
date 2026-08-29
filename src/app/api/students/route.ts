@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
 
 function generateRandomPassword(length: number = 12): string {
   return crypto.randomBytes(length).toString('base64').slice(0, length);
@@ -91,6 +91,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const subCheck = await requireActiveSubscription(request);
+    if ('error' in subCheck) return subCheck.error;
+
     const authResult = await requirePermission(request, 'students:create');
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;

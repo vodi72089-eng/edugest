@@ -279,7 +279,7 @@ export default function OnlinePaymentView() {
       <div>
         <div className="flex items-center gap-3 mb-6">
           <div className="w-1 h-8 rounded-full" style={{ background: SUCCESS }} />
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Paiement enregistré</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Paiement enregistré</h1>
         </div>
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-8 shadow-sm text-center max-w-lg mx-auto">
           <div className="w-16 h-16 rounded-full mx-auto mb-4 grid place-items-center" style={{ background: 'oklch(94% 0.05 145)' }}>
@@ -335,7 +335,7 @@ export default function OnlinePaymentView() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Payer en ligne</h1>
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Payer en ligne</h1>
       </div>
 
       {loading ? (

@@ -25,10 +25,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'École non trouvée' }, { status: 404 });
     }
 
-    // Mettre à jour le tier d'abonnement de l'école
+    // Mettre à jour le tier d'abonnement de l'école avec les dates
+    const now = new Date();
+    const endDate = new Date(now);
+    endDate.setMonth(endDate.getMonth() + 1); // 1 month from now
+
     await db.school.update({
       where: { id: schoolId },
-      data: { subscriptionTier, subscriptionStatus: 'ACTIVE' },
+      data: {
+        subscriptionTier,
+        subscriptionStatus: 'ACTIVE',
+        subscriptionStartDate: now,
+        subscriptionEndDate: endDate,
+      },
     });
 
     // Créer un enregistrement de paiement pour l'abonnement

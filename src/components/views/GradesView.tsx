@@ -203,7 +203,7 @@ export default function GradesView() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Notes</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Notes</h1>
         </div>
         {isTeacher && (
           <button onClick={() => setShowGradeForm(!showGradeForm)} className="edu-gold-cta px-4 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-2">

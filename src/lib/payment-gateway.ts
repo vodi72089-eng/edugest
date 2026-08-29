@@ -1,7 +1,6 @@
 /**
  * Service de passerelles de paiement
- * Supporte: DPO, Stripe, PayPal, Flutterwave, M-Pesa, Orange Money, Airtel Money
- * Chaque passerelle a sa propre logique d'intégration
+ * Supporte: M-Pesa, Orange Money, Airtel Money, Paiement Manuel
  */
 
 import { db } from '@/lib/db';
@@ -9,10 +8,6 @@ import { convertCurrency } from '@/lib/exchange-rate';
 import { decryptSecret } from '@/lib/gateway-keys';
 
 export type GatewayType =
-  | 'DPO'
-  | 'STRIPE'
-  | 'PAYPAL'
-  | 'FLUTTERWAVE'
   | 'MPESA'
   | 'ORANGE_MONEY'
   | 'AIRTEL_MONEY'
@@ -53,42 +48,6 @@ export const GATEWAY_INFO: Record<GatewayType, {
   icon: string;
   requiresWebhook: boolean;
 }> = {
-  DPO: {
-    name: 'DPO',
-    displayName: 'DPO Group',
-    description: 'Passerelle de paiement panafricaine - Carte, Mobile Money',
-    supportedCurrencies: ['USD', 'EUR', 'CDF', 'NGN', 'GHS', 'KES', 'TZS', 'UGX', 'ZAR'],
-    supportedMethods: ['card', 'mobile_money'],
-    icon: '💳',
-    requiresWebhook: true,
-  },
-  STRIPE: {
-    name: 'STRIPE',
-    displayName: 'Stripe',
-    description: 'Paiement par carte internationale',
-    supportedCurrencies: ['USD', 'EUR', 'GBP', 'CAD'],
-    supportedMethods: ['card'],
-    icon: '💳',
-    requiresWebhook: true,
-  },
-  PAYPAL: {
-    name: 'PAYPAL',
-    displayName: 'PayPal',
-    description: 'Paiement via compte PayPal ou carte',
-    supportedCurrencies: ['USD', 'EUR', 'GBP', 'CAD'],
-    supportedMethods: ['paypal', 'card'],
-    icon: '🅿️',
-    requiresWebhook: true,
-  },
-  FLUTTERWAVE: {
-    name: 'FLUTTERWAVE',
-    displayName: 'Flutterwave',
-    description: 'Mobile Money et carte pour l\'Afrique',
-    supportedCurrencies: ['USD', 'EUR', 'NGN', 'GHS', 'KES', 'ZAR'],
-    supportedMethods: ['mobile_money', 'card', 'bank_transfer'],
-    icon: '🦋',
-    requiresWebhook: true,
-  },
   MPESA: {
     name: 'MPESA',
     displayName: 'M-Pesa',
@@ -134,7 +93,6 @@ export async function initiatePayment(
   gatewayType: GatewayType,
   request: PaymentRequest
 ): Promise<PaymentResponse> {
-  // Récupérer la configuration de la passerelle pour cette école
   const config = await db.paymentGatewayConfig.findUnique({
     where: {
       schoolId_gatewayType: {
@@ -153,10 +111,6 @@ export async function initiatePayment(
     };
   }
 
-  // Déchiffrer les secrets au repos avant utilisation. En cas de clé de
-  // chiffrement manquante/invalide, une erreur explicite est remontée
-  // (jamais de clé chiffrée envoyée à l'API externe, jamais de paiement
-  // de test simulé par accident).
   const credConfig = {
     ...config,
     apiKey: decryptSecret(config.apiKey),
@@ -164,14 +118,12 @@ export async function initiatePayment(
     webhookSecret: decryptSecret(config.webhookSecret),
   } as any;
 
-  // Récupérer la configuration de monnaie de l'école
   const currencyConfig = await db.schoolCurrencyConfig.findUnique({
     where: { schoolId: request.schoolId },
   });
 
   const baseCurrency = currencyConfig?.baseCurrency || 'USD';
 
-  // Convertir le montant si la monnaie du paiement diffère de la base
   let convertedAmount = request.amount;
   if (request.currency !== baseCurrency) {
     try {
@@ -182,7 +134,6 @@ export async function initiatePayment(
     }
   }
 
-  // Créer l'enregistrement de transaction
   const reference = `PAY-${Date.now().toString(36).toUpperCase()}`;
   const transaction = await db.paymentTransaction.create({
     data: {
@@ -204,23 +155,10 @@ export async function initiatePayment(
     },
   });
 
-  // Traiter selon le type de passerelle
   try {
     let response: PaymentResponse;
 
     switch (gatewayType) {
-      case 'DPO':
-        response = await processDPOPayment(credConfig, request, reference);
-        break;
-      case 'STRIPE':
-        response = await processStripePayment(credConfig, request, reference);
-        break;
-      case 'PAYPAL':
-        response = await processPaypalPayment(credConfig, request, reference);
-        break;
-      case 'FLUTTERWAVE':
-        response = await processFlutterwavePayment(credConfig, request, reference);
-        break;
       case 'MPESA':
         response = await processMpesaPayment(credConfig, request, reference);
         break;
@@ -242,7 +180,6 @@ export async function initiatePayment(
         };
     }
 
-    // Mettre à jour la transaction avec le résultat
     await db.paymentTransaction.update({
       where: { id: transaction.id },
       data: {
@@ -277,307 +214,6 @@ export async function initiatePayment(
   }
 }
 
-// ─── DPO Group ──────────────────────────────────────────────────────────────
-
-async function processDPOPayment(
-  config: any,
-  request: PaymentRequest,
-  reference: string
-): Promise<PaymentResponse> {
-  const isTest = config.isTestMode;
-  const apiUrl = isTest
-    ? 'https://test.oppwa.com/v1/payments'
-    : 'https://oppwa.com/v1/payments';
-
-  // En mode test, simuler un paiement réussi
-  if (isTest || !config.apiKey) {
-    return {
-      success: true,
-      reference,
-      gatewayTransactionId: `DPO-TEST-${Date.now()}`,
-      checkoutUrl: isTest ? `${apiUrl}?reference=${reference}` : undefined,
-      status: 'SUCCESS',
-      message: 'Paiement de test réussi (mode test)',
-    };
-  }
-
-  try {
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify({
-        merchantId: config.merchantId,
-        amount: request.amount,
-        currency: request.currency,
-        paymentType: request.paymentMethod || 'card',
-        merchantTransactionId: reference,
-        customer: {
-          email: request.customerEmail,
-          phone: request.customerPhone,
-          name: request.customerName,
-        },
-        description: request.description,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok && data.result?.code === '000.100.110') {
-      return {
-        success: true,
-        reference,
-        gatewayTransactionId: data.id,
-        status: 'SUCCESS',
-        message: 'Paiement DPO réussi',
-      };
-    }
-
-    return {
-      success: false,
-      reference,
-      gatewayTransactionId: data.id,
-      status: 'FAILED',
-      message: data.result?.description || 'Paiement échoué',
-    };
-  } catch (error) {
-    return {
-      success: false,
-      reference,
-      status: 'FAILED',
-      message: error instanceof Error ? error.message : 'Erreur DPO',
-    };
-  }
-}
-
-// ─── Stripe ─────────────────────────────────────────────────────────────────
-
-async function processStripePayment(
-  config: any,
-  request: PaymentRequest,
-  reference: string
-): Promise<PaymentResponse> {
-  // En mode test, simuler
-  if (config.isTestMode || !config.secretKey) {
-    return {
-      success: true,
-      reference,
-      gatewayTransactionId: `STRIPE-TEST-${Date.now()}`,
-      checkoutUrl: 'https://checkout.stripe.com/test-session',
-      status: 'SUCCESS',
-      message: 'Paiement Stripe de test réussi',
-    };
-  }
-
-  try {
-    const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.secretKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        'mode': 'payment',
-        'amount': Math.round(request.amount * 100).toString(),
-        'currency': request.currency.toLowerCase(),
-        'success_url': `${process.env.NEXTAUTH_URL || ''}/payment/success?ref=${reference}`,
-        'cancel_url': `${process.env.NEXTAUTH_URL || ''}/payment/cancel?ref=${reference}`,
-        'metadata[reference]': reference,
-        'metadata[schoolId]': request.schoolId,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok && data.id) {
-      return {
-        success: true,
-        reference,
-        gatewayTransactionId: data.id,
-        checkoutUrl: data.url,
-        status: 'PENDING',
-        message: 'Session Stripe créée',
-      };
-    }
-
-    return {
-      success: false,
-      reference,
-      status: 'FAILED',
-      message: data.error?.message || 'Erreur Stripe',
-    };
-  } catch (error) {
-    return {
-      success: false,
-      reference,
-      status: 'FAILED',
-      message: error instanceof Error ? error.message : 'Erreur Stripe',
-    };
-  }
-}
-
-// ─── PayPal ─────────────────────────────────────────────────────────────────
-
-async function processPaypalPayment(
-  config: any,
-  request: PaymentRequest,
-  reference: string
-): Promise<PaymentResponse> {
-  if (config.isTestMode || !config.apiKey) {
-    return {
-      success: true,
-      reference,
-      gatewayTransactionId: `PAYPAL-TEST-${Date.now()}`,
-      checkoutUrl: 'https://www.paypal.com/checkout/test',
-      status: 'SUCCESS',
-      message: 'Paiement PayPal de test réussi',
-    };
-  }
-
-  const baseUrl = config.isTestMode
-    ? 'https://api-m.sandbox.paypal.com'
-    : 'https://api-m.paypal.com';
-
-  try {
-    // Obtenir le token d'accès
-    const tokenResponse = await fetch(`${baseUrl}/v1/oauth2/token`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${Buffer.from(`${config.merchantId}:${config.secretKey}`).toString('base64')}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: 'grant_type=client_credentials',
-    });
-
-    const tokenData = await tokenResponse.json();
-
-    // Créer l'ordre
-    const orderResponse = await fetch(`${baseUrl}/v2/checkout/orders`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${tokenData.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        intent: 'CAPTURE',
-        purchase_units: [{
-          reference_id: reference,
-          amount: {
-            currency_code: request.currency,
-            value: request.amount.toFixed(2),
-          },
-          description: request.description,
-        }],
-      }),
-    });
-
-    const orderData = await orderResponse.json();
-
-    if (orderResponse.ok && orderData.id) {
-      const approveLink = orderData.links?.find((l: any) => l.rel === 'approve')?.href;
-      return {
-        success: true,
-        reference,
-        gatewayTransactionId: orderData.id,
-        checkoutUrl: approveLink,
-        status: 'PENDING',
-        message: 'Commande PayPal créée',
-      };
-    }
-
-    return {
-      success: false,
-      reference,
-      status: 'FAILED',
-      message: orderData.message || 'Erreur PayPal',
-    };
-  } catch (error) {
-    return {
-      success: false,
-      reference,
-      status: 'FAILED',
-      message: error instanceof Error ? error.message : 'Erreur PayPal',
-    };
-  }
-}
-
-// ─── Flutterwave ────────────────────────────────────────────────────────────
-
-async function processFlutterwavePayment(
-  config: any,
-  request: PaymentRequest,
-  reference: string
-): Promise<PaymentResponse> {
-  if (config.isTestMode || !config.secretKey) {
-    return {
-      success: true,
-      reference,
-      gatewayTransactionId: `FLW-TEST-${Date.now()}`,
-      checkoutUrl: 'https://checkout.flutterwave.com/test',
-      status: 'SUCCESS',
-      message: 'Paiement Flutterwave de test réussi',
-    };
-  }
-
-  const baseUrl = config.isTestMode
-    ? 'https://api.flutterwave.com/v3'
-    : 'https://api.flutterwave.com/v3';
-
-  try {
-    const response = await fetch(`${baseUrl}/payments`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.secretKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        tx_ref: reference,
-        amount: request.amount,
-        currency: request.currency,
-        payment_options: request.paymentMethod || 'card,mobilemoney',
-        customer: {
-          email: request.customerEmail || 'customer@school.com',
-          phonenumber: request.customerPhone,
-          name: request.customerName,
-        },
-        customizations: {
-          title: 'Paiement Scolarité',
-          description: request.description,
-        },
-      }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok && data.status === 'success') {
-      return {
-        success: true,
-        reference,
-        gatewayTransactionId: data.data?.id?.toString(),
-        checkoutUrl: data.data?.link,
-        status: 'PENDING',
-        message: 'Lien Flutterwave généré',
-      };
-    }
-
-    return {
-      success: false,
-      reference,
-      status: 'FAILED',
-      message: data.message || 'Erreur Flutterwave',
-    };
-  } catch (error) {
-    return {
-      success: false,
-      reference,
-      status: 'FAILED',
-      message: error instanceof Error ? error.message : 'Erreur Flutterwave',
-    };
-  }
-}
-
 // ─── M-Pesa ─────────────────────────────────────────────────────────────────
 
 async function processMpesaPayment(
@@ -585,7 +221,6 @@ async function processMpesaPayment(
   request: PaymentRequest,
   reference: string
 ): Promise<PaymentResponse> {
-  // Test mode: simulate STK push
   if (config.isTestMode || !config.apiKey) {
     return {
       success: true,
@@ -599,7 +234,6 @@ async function processMpesaPayment(
   const baseUrl = 'https://api.safaricom.co.ke';
 
   try {
-    // Get OAuth token
     const authResponse = await fetch(`${baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
       method: 'GET',
       headers: {
@@ -611,7 +245,6 @@ async function processMpesaPayment(
       return { success: false, reference, status: 'FAILED', message: 'Échec authentification M-Pesa' };
     }
 
-    // Initiate STK Push
     const stkResponse = await fetch(`${baseUrl}/mpesa/stkpush/v1/processrequest`, {
       method: 'POST',
       headers: {
@@ -657,7 +290,6 @@ async function processOrangeMoneyPayment(
   request: PaymentRequest,
   reference: string
 ): Promise<PaymentResponse> {
-  // Test mode: simulate payment request
   if (config.isTestMode || !config.apiKey) {
     return {
       success: true,
@@ -671,7 +303,6 @@ async function processOrangeMoneyPayment(
   const baseUrl = 'https://api.orange.com/orange-money-webpay/dev/v1';
 
   try {
-    // Get OAuth token
     const authResponse = await fetch('https://api.orange.com/oauth/v3/token', {
       method: 'POST',
       headers: {
@@ -685,7 +316,6 @@ async function processOrangeMoneyPayment(
       return { success: false, reference, status: 'FAILED', message: 'Échec authentification Orange Money' };
     }
 
-    // Create payment
     const payResponse = await fetch(`${baseUrl}/webpayment`, {
       method: 'POST',
       headers: {
@@ -729,7 +359,6 @@ async function processAirtelMoneyPayment(
   request: PaymentRequest,
   reference: string
 ): Promise<PaymentResponse> {
-  // Test mode: simulate payment request
   if (config.isTestMode || !config.apiKey) {
     return {
       success: true,
@@ -743,7 +372,6 @@ async function processAirtelMoneyPayment(
   const baseUrl = 'https://openapi.airtel.africa';
 
   try {
-    // Get OAuth token
     const authResponse = await fetch(`${baseUrl}/auth/oauth2/token`, {
       method: 'POST',
       headers: {
@@ -757,7 +385,6 @@ async function processAirtelMoneyPayment(
       return { success: false, reference, status: 'FAILED', message: 'Échec authentification Airtel Money' };
     }
 
-    // Initiate collection
     const payResponse = await fetch(`${baseUrl}/merchant/v1/payments/`, {
       method: 'POST',
       headers: {

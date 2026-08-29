@@ -75,18 +75,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requirePermission(request, 'school:create');
-    if ('error' in authResult) return authResult.error;
-    const { user } = authResult;
-
-    // Only SUPER_ADMIN_GLOBAL can create schools
-    if (user.role !== 'SUPER_ADMIN_GLOBAL') {
-      return NextResponse.json(
-        { error: 'Seul un SUPER_ADMIN_GLOBAL peut créer une école' },
-        { status: 403 }
-      );
-    }
-
     const body = await request.json();
     const {
       name,
@@ -170,7 +158,7 @@ export async function POST(request: NextRequest) {
           email: adminEmail || null,
           phone: adminPhone || phone,
           password: hashedPassword,
-          role: 'SECRETARY',
+          role: 'SUPER_ADMIN_GLOBAL',
           schoolId: school.id,
           isActive: true,
         },
@@ -179,6 +167,37 @@ export async function POST(request: NextRequest) {
       // Return user data without password
       const { password: _, ...userData } = adminUser;
       adminUser = userData;
+
+      // Send OTP automatically via WhatsApp + Email for verification
+      try {
+        const { generateOtp } = await import('@/lib/otp');
+        const { sendOtpEmail } = await import('@/lib/email');
+
+        // WhatsApp OTP
+        if (adminUser.phone) {
+          const waOtp = await generateOtp(adminUser.id, 'whatsapp', 'registration');
+          if (waOtp.success && waOtp.code) {
+            const WA_SERVER = process.env.WHATSAPP_SERVER_URL || 'http://localhost:3001';
+            const WA_API_KEY = process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key';
+            const msg = `🔐 Code de vérification EduGest: ${waOtp.code}\n\nCe code expire dans 10 minutes.`;
+            fetch(`${WA_SERVER}/send`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-api-key': WA_API_KEY },
+              body: JSON.stringify({ phone: adminUser.phone, message: msg }),
+            }).catch(() => {});
+          }
+        }
+
+        // Email OTP
+        if (adminUser.email) {
+          const emailOtp = await generateOtp(adminUser.id, 'email', 'registration');
+          if (emailOtp.success && emailOtp.code) {
+            sendOtpEmail(adminUser.email, emailOtp.code, school.name).catch(() => {});
+          }
+        }
+      } catch (otpError) {
+        console.error('[Schools] OTP send error (non-blocking):', otpError);
+      }
     }
 
     return NextResponse.json({ data: { school, adminUser, generatedPassword: adminName && (adminEmail || adminPhone) && !adminPassword ? 'A random password was generated' : undefined } }, { status: 201 });

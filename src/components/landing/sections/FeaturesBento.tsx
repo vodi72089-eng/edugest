@@ -469,7 +469,7 @@ export default function FeaturesBento() {
         {/* Heading */}
         <ScrollReveal>
           <div className="text-center mb-16 md:mb-20">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-[#FAFAFA]">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tighter edu-heading-display text-[#FAFAFA]">
               Tout ce qu&apos;il vous faut.{' '}
               <span
                 className="bg-clip-text text-transparent"

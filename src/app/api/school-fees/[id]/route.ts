@@ -9,11 +9,6 @@ export async function PUT(
   try {
     const authResult = await requirePermission(request, 'school:update');
     if ('error' in authResult) return authResult.error;
-    const { user } = authResult;
-
-    if (!['SUPER_ADMIN_GLOBAL', 'SECRETARY'].includes(user.role)) {
-      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
-    }
 
     const { id } = await params;
     const body = await request.json();
@@ -42,11 +37,6 @@ export async function DELETE(
   try {
     const authResult = await requirePermission(request, 'school:update');
     if ('error' in authResult) return authResult.error;
-    const { user } = authResult;
-
-    if (!['SUPER_ADMIN_GLOBAL', 'SECRETARY'].includes(user.role)) {
-      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
-    }
 
     const { id } = await params;
     await db.schoolFee.delete({ where: { id } });

@@ -5,6 +5,16 @@ const fs = require('fs');
 
 try { require('dotenv').config(); } catch {}
 
+// Diagnostic: tous les logs vont aussi dans wa-log.txt
+(function () {
+  const origLog = console.log.bind(console);
+  const origErr = console.error.bind(console);
+  const write = (line) => { try { fs.appendFileSync(path.join(__dirname, 'wa-log.txt'), line + '\n'); } catch {} };
+  const fmt = (a) => a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ');
+  console.log = (...a) => { origLog(...a); write(new Date().toISOString() + ' ' + fmt(a)); };
+  console.error = (...a) => { origErr(...a); write(new Date().toISOString() + ' ERR ' + fmt(a)); };
+})();
+
 const PORT = parseInt(process.env.WHATSAPP_PORT || '3001');
 const LINKING_CODE = 'EDUGEST1'; // Baileys exige exactement 8 caracteres
 const SESSION_DIR = path.join(__dirname, 'baileys-auth');
@@ -78,13 +88,14 @@ async function initClient() {
     sock = makeWASocket({
       auth: state,
       printQRInTerminal: false,
-      browser: Browsers.windows('EduGest'),
+      browser: Browsers.macOS('Desktop'),
       markOnlineOnConnect: false,
       generateHighQualityLinkPreview: false,
     });
 
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
+      console.log('[WA] connection.update:', JSON.stringify({ connection, statusCode: lastDisconnect?.error?.output?.statusCode, hasQr: !!qr }));
 
       if (qr) {
         console.log('[WA] QR recu');
@@ -186,6 +197,7 @@ const server = http.createServer(async (req, res) => {
 
       const phoneClean = phone.replace(/[^0-9]/g, '');
       console.log('[WA] ===== DEMANDE PARRAINAGE pour', phoneClean, '=====');
+      console.log('[WA] Timestamp:', new Date().toISOString());
 
       // Si deja connecte, on ne peut pas demander un nouveau pairing
       if (status === 'connected') {
@@ -218,18 +230,19 @@ const server = http.createServer(async (req, res) => {
         return json({ ok: false, error: 'Client non disponible.' });
       }
 
-      // Demander le code de parrainage avec le code personnalise (8 caracteres obligatoire)
-      console.log('[WA] Demande du code de parrainage...');
+      // Baileys v6 genere automatiquement un code de parrainage numerique
+      // On ne passe PAS de code custom — WhatsApp doit generer le sien
+      console.log('[WA] Demande du code de parrainage pour', phoneClean, '...');
       let code = null;
       let lastError = null;
-      for (let attempt = 1; attempt <= 2; attempt++) {
+      for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          code = await sock.requestPairingCode(phoneClean, LINKING_CODE);
+          code = await sock.requestPairingCode(phoneClean);
           break;
         } catch (e) {
           lastError = e;
           console.error('[WA] Erreur requestPairingCode (tentative ' + attempt + '):', e.message);
-          if (attempt < 2) await new Promise(r => setTimeout(r, 3000));
+          if (attempt < 3) await new Promise(r => setTimeout(r, 2000));
         }
       }
       if (code) {
@@ -319,11 +332,24 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error('[WA] Port ' + PORT + ' deja utilise. Tuez l\'autre processus et relancez.');
+    process.exit(1);
+  }
+  console.error('[WA] Erreur serveur:', err.message);
+});
+
 server.listen(PORT, () => {
   console.log('[WA] Serveur Baileys sur http://localhost:' + PORT);
   console.log('[WA] Code de liaison:', LINKING_CODE);
   resetState();
   console.log('[WA] Pret — en attente d\'une demande /start ou /pair...');
 });
-server.on('error', (err) => console.error('[WA] Erreur serveur:', err.message));
-process.on('uncaughtException', (err) => console.error('[WA] Exception:', err.message));
+
+process.on('uncaughtException', (err) => {
+  console.error('[WA] Exception:', err.message);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[WA] Rejet non gere:', reason);
+});

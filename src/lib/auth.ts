@@ -449,7 +449,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'classes:read', 'classes:create',
     'subjects:read', 'subjects:create',
     'grades:read',
-    'payments:read', 'payments:create', 'payments:verify',
+    'payments:read', 'payments:verify',
     'discipline:read', 'communications:read', 'communications:create',
     'homework:read', 'convocations:read', 'convocations:create',
     'stats:read', 'profile:read', 'profile:update',
@@ -563,10 +563,29 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
 };
 
+// ─── School-tier-aware permission resolution ─────────────────────────────────
+// Pour les écoles FREEMIUM, les rôles DIRECTION_* obtiennent les permissions
+// SECRETARY en bonus (pas l'inverse — SECRETARY reste un rôle standard)
+const FREEMIUM_ADMIN_ROLES = ['DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE']
+
+async function getEffectivePermissions(role: string, schoolId: string | null): Promise<string[]> {
+  const base = ROLE_PERMISSIONS[role] || []
+  if (!FREEMIUM_ADMIN_ROLES.includes(role) || !schoolId) return base
+  // Vérifier si l'école est FREEMIUM
+  const school = await db.school.findUnique({ where: { id: schoolId }, select: { subscriptionTier: true } })
+  if (!school || school.subscriptionTier !== 'FREEMIUM') return base
+  // Fusionner les permissions SECRETARY (union des deux tableaux)
+  const secretaryPerms = ROLE_PERMISSIONS['SECRETARY'] || []
+  const merged = [...new Set([...base, ...secretaryPerms])]
+  // FREEMIUM DIRECTION obtient school:update en bonus (pas dans SECRETARY)
+  merged.push('school:update')
+  return merged
+}
+
 export async function requirePermission(request: NextRequest, permission: string): Promise<{ user: AuthUser } | { error: Response }> {
   const authResult = await requireAuth(request);
   if ('error' in authResult) return authResult;
-  const perms = ROLE_PERMISSIONS[authResult.user.role] || [];
+  const perms = await getEffectivePermissions(authResult.user.role, authResult.user.schoolId)
   if (!perms.includes('*') && !perms.includes(permission)) {
     return { error: Response.json({ error: 'Permission insuffisante' }, { status: 403 }) };
   }
@@ -634,4 +653,40 @@ export function sanitizeError(error: unknown): string {
     return process.env.NODE_ENV === 'production' ? 'Une erreur interne est survenue' : error.message;
   }
   return 'Une erreur inconnue est survenue';
+}
+
+// ─── Subscription enforcement ─────────────────────────────────────────────
+import { checkSubscription } from '@/lib/subscription';
+
+/**
+ * Require an active subscription for the school.
+ * FREEMIUM schools are always allowed (limited features).
+ * Paid tiers must have subscriptionStatus === 'ACTIVE' and subscriptionEndDate > now.
+ * SUPER_ADMIN_GLOBAL bypasses subscription checks.
+ */
+export async function requireActiveSubscription(
+  request: NextRequest
+): Promise<{ ok: true } | { error: Response }> {
+  const authResult = await requireAuth(request);
+  if ('error' in authResult) return authResult;
+
+  // SUPER_ADMIN_GLOBAL bypasses subscription checks
+  if (authResult.user.role === 'SUPER_ADMIN_GLOBAL') return { ok: true };
+
+  const sub = await checkSubscription(authResult.user.schoolId);
+  if (!sub.active) {
+    return {
+      error: Response.json(
+        {
+          error: sub.error || 'Abonnement requis',
+          subscriptionRequired: true,
+          tier: sub.tier,
+          expired: sub.expired,
+        },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return { ok: true };
 }

@@ -1,9 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <rect width="200" height="200" rx="40" fill="white" stroke="#e5e7eb" stroke-width="1"/>
-  <!-- Red M box (Safaricom/M-Pesa brand red) -->
-  <rect x="30" y="45" width="75" height="110" rx="10" fill="#E60026"/>
-  <!-- White M letter -->
-  <path d="M45 138V62h13l13 21 13-21h13v76h-13V98l-13 21-13-21v40H45z" fill="white"/>
-  <!-- Green -PESA text (Safaricom green) -->
-  <text x="155" y="105" text-anchor="middle" fill="#4CAF50" font-size="34" font-weight="900" font-family="Arial,Helvetica,sans-serif">-PESA</text>
+  <defs>
+    <linearGradient id="mp-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4CAF50"/>
+      <stop offset="100%" style="stop-color:#2E7D32"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="44" fill="url(#mp-grad)"/>
+  <!-- Phone icon -->
+  <rect x="78" y="42" width="44" height="72" rx="8" fill="none" stroke="white" stroke-width="4"/>
+  <line x1="94" y1="104" x2="106" y2="104" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  <!-- Signal waves -->
+  <path d="M70 68 Q60 55 70 42" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+  <path d="M62 74 Q48 55 62 36" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+  <!-- Dollar sign -->
+  <text x="100" y="78" text-anchor="middle" fill="white" font-size="22" font-weight="700" font-family="Arial,sans-serif">$</text>
+  <!-- M-Pesa text -->
+  <text x="100" y="148" text-anchor="middle" fill="white" font-size="26" font-weight="800" font-family="'Helvetica Neue',Arial,sans-serif" letter-spacing="0.5">M-Pesa</text>
+  <text x="100" y="170" text-anchor="middle" fill="white" font-size="13" font-weight="400" font-family="Arial,sans-serif" opacity="0.8">Safaricom</text>
 </svg>

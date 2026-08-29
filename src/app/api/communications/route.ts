@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -88,6 +88,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const subCheck = await requireActiveSubscription(request);
+    if ('error' in subCheck) return subCheck.error;
+
     const authResult = await requirePermission(request, 'communications:create');
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
@@ -122,7 +125,7 @@ export async function POST(request: NextRequest) {
     const senderRole = user.role;
 
     // Determine scope from sender role
-    let scope = null;
+    let scope: string | null = null;
     let status = 'APPROVED';
     if (user.role === 'DIRECTION_MATERNELLE') {
       scope = 'MATERNELLE';
@@ -165,7 +168,7 @@ export async function POST(request: NextRequest) {
             type: 'COMMUNICATION_PENDING',
             title: 'Communication en attente',
             message: `${user.name} a créé une communication "${title}" qui nécessite votre approbation.`,
-            read: false,
+            isRead: false,
           },
         });
       }

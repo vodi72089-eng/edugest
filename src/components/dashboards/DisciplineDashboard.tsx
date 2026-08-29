@@ -43,7 +43,7 @@ export default function DisciplineDashboardView() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Dashboard Discipline</h1>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Dashboard Discipline</h1>
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi disciplinaire{sectionLevel ? ` — ${sectionLevel}` : ''} · {stats.totalStudents} cas</p>
         </div>

@@ -38,6 +38,7 @@ export default function StudentsView() {
   const [editClassId, setEditClassId] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
   const { userData, highlightedId } = useEduGestStore()
+  const [activeSchoolYear, setActiveSchoolYear] = useState('')
   const highlightedRef = useRef<HTMLTableRowElement>(null)
   useEffect(() => {
     if (highlightedId && highlightedRef.current) {
@@ -55,6 +56,16 @@ export default function StudentsView() {
       finally { setLoading(false) }
     }
     load()
+  }, [userData?.schoolId])
+
+  useEffect(() => {
+    if (userData?.schoolId) {
+      authFetch(`/api/schools/${userData.schoolId}`).then(r => r.json()).then(j => {
+        const years = j.data?.schoolYears || []
+        const active = years.find((y: any) => y.isActive)
+        if (active) setActiveSchoolYear(active.id)
+      }).catch(() => {})
+    }
   }, [userData?.schoolId])
 
   useEffect(() => {
@@ -101,11 +112,13 @@ export default function StudentsView() {
     setAdding(true)
     const fd = new FormData(e.currentTarget)
     try {
+      if (!selectedClassId) { toast.error('Veuillez sélectionner une classe'); setAdding(false); return }
+      if (!activeSchoolYear) { toast.error('Aucune année scolaire active'); setAdding(false); return }
       const body: Record<string, unknown> = {
         firstName: fd.get('firstName'), lastName: fd.get('lastName'),
         gender: fd.get('gender'), dateOfBirth: fd.get('dob'),
-        classId: selectedClassId || students[0]?.classId, schoolId: userData?.schoolId || 'demo',
-        schoolYearId: students[0]?.schoolYearId || 'demo',
+        classId: selectedClassId, schoolId: userData?.schoolId || 'demo',
+        schoolYearId: activeSchoolYear,
       }
       if (showParentSection && parentName) {
         body.parentName = parentName
@@ -170,7 +183,7 @@ export default function StudentsView() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Élèves</h1>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Élèves</h1>
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filtered.length)} élèves inscrits</p>
         </div>
@@ -272,7 +285,13 @@ export default function StudentsView() {
               <div className="border border-[oklch(90%_0.01_175)] rounded-xl overflow-hidden">
                 <button
                   type="button"
-                  onClick={() => setShowParentSection(!showParentSection)}
+                  onClick={() => {
+                    if (userData?.subscriptionTier === 'FREEMIUM') {
+                      toast.error("Votre abonnement ne supporte pas cette fonctionnalité")
+                      return
+                    }
+                    setShowParentSection(!showParentSection)
+                  }}
                   className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium transition hover:bg-[oklch(97%_0.005_175)]"
                   style={{ color: TEXT_PRIMARY }}
                 >

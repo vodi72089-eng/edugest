@@ -33,11 +33,6 @@ export async function POST(request: NextRequest) {
   try {
     const authResult = await requirePermission(request, 'school:update');
     if ('error' in authResult) return authResult.error;
-    const { user } = authResult;
-
-    if (!['SUPER_ADMIN_GLOBAL', 'SECRETARY'].includes(user.role)) {
-      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
-    }
 
     const body = await request.json();
     const { name, amount, trimester, classId, schoolId } = body;

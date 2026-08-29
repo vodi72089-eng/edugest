@@ -10,14 +10,14 @@ import { toast } from 'sonner'
 import { detectDevice, formatDeviceTitle, formatDeviceSummary } from '@/lib/detect-device'
 
 export default function SettingsView() {
-  const { userRole, setCurrentView } = useEduGestStore()
+  const { userRole, userData, setCurrentView } = useEduGestStore()
 
   // ── Defense-in-depth role guard ────────────────────────────────────────
-  // School settings are restricted to SUPER_ADMIN_GLOBAL and SECRETARY.
-  // The Topbar gear now routes everyone to 'profile', but this guard ensures
-  // that even a direct view switch (e.g. legacy sidebar, dev tools, stale
-  // state) cannot land a non-admin on this page.
-  const canManageSchool = userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SECRETARY'
+  // School settings are restricted to SUPER_ADMIN_GLOBAL, SECRETARY, and
+  // DIRECTION_* on FREEMIUM schools (they are the admin of the school).
+  const isFreemium = userData?.subscriptionTier === 'FREEMIUM'
+  const isDirection = userRole?.startsWith('DIRECTION')
+  const canManageSchool = userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SECRETARY' || (isFreemium && isDirection)
   if (!canManageSchool) {
     return (
       <div className="max-w-md mx-auto mt-16 text-center">
@@ -338,7 +338,7 @@ function SettingsViewInner() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>Paramètres de l&apos;école</h1>
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Paramètres de l&apos;école</h1>
       </div>
 
       <div className="flex gap-2 mb-6">
@@ -554,9 +554,18 @@ function SettingsViewInner() {
                 <span style={{ color: TEXT_MUTED_LUXE }}>Avis</span>
                 <span className="font-semibold" style={{ color: TEXT_PRIMARY }}>{school?.totalReviews || 0}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-sm items-center">
                 <span style={{ color: TEXT_MUTED_LUXE }}>Abonnement</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>{school?.subscriptionTier || 'FREEMIUM'}</span>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>{school?.subscriptionTier || 'FREEMIUM'}</span>
+                  <button
+                    onClick={() => setCurrentView('my-subscription')}
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full transition hover:opacity-80"
+                    style={{ background: GOLD, color: '#0a0f0d' }}
+                  >
+                    Upgrade
+                  </button>
+                </div>
               </div>
             </div>
           </div>
