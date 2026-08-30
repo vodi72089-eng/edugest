@@ -91,20 +91,19 @@ export async function POST(request: NextRequest) {
     loginAttempts.delete(identifier);
 
     // ── Check account verification ─────────────────────────────────────
-    // First user (SUPER_ADMIN_GLOBAL) is auto-verified during school creation
-    // Other users must verify via OTP before logging in
-    if (!user.isVerified && user.role !== 'SUPER_ADMIN_GLOBAL') {
-      return NextResponse.json(
-        {
-          error: 'Compte non vérifié. Vérifiez votre email ou téléphone.',
-          requiresVerification: true,
-          userId: user.id,
-          phone: user.phone,
-          email: user.email,
-        },
-        { status: 403 }
-      );
-    }
+    // OTP verification disabled: allow all users to login
+    // if (!user.isVerified && user.role !== 'SUPER_ADMIN_GLOBAL') {
+    //   return NextResponse.json(
+    //     {
+    //       error: 'Compte non vérifié. Vérifiez votre email ou téléphone.',
+    //       requiresVerification: true,
+    //       userId: user.id,
+    //       phone: user.phone,
+    //       email: user.email,
+    //     },
+    //     { status: 403 }
+    //   );
+    // }
 
     // ── Update last login ────────────────────────────────────────────────
     await db.user.update({

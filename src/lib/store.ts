@@ -129,6 +129,7 @@ export type ViewType =
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'
+  | 'SCHOOL_ADMIN'
   | 'SECRETARY'
   | 'CASHIER'
   | 'DIRECTION_MATERNELLE'

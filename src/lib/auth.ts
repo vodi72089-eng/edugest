@@ -564,20 +564,52 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
 };
 
 // ─── School-tier-aware permission resolution ─────────────────────────────────
-// Pour les écoles FREEMIUM, les rôles DIRECTION_* obtiennent les permissions
-// SECRETARY en bonus (pas l'inverse — SECRETARY reste un rôle standard)
+// Tier ESSENTIEL: Élèves, Classes, Notes, Parents, Paiements, Devoirs, Discipline
+// Tier STANDARD: Tout Essentiel + Bulletins, Communications, Convocations
+// Tier FREEMIUM: Élèves, Classes, Notes, Parents (le plus limité)
+
+// Permissions RESTREINTES au tier ESSENTIEL (retirées par rapport à STANDARD+)
+const ESSENTIEL_DENIED = [
+  'communications:read', 'communications:create',
+  'convocations:read', 'convocations:create', 'convocations:update',
+  'payments:verify', // Pas de vérification de paiements côté admin essentiel
+  'school:update', 'users:delete', // Pas de suppression d'utilisateurs
+  'payment-gateways:manage', 'currency:manage', 'transactions:read', // Pas de config paiements
+]
+
+// Permissions RESTREINTES au tier FREEMIUM (le plus limité)
+const FREEMIUM_DENIED = [
+  ...ESSENTIEL_DENIED,
+  'payments:create', 'payments:update', 'payments:verify',
+  'homework:create', 'homework:read',
+  'discipline:create', 'discipline:update',
+  'subjects:create',
+  'users:create', 'users:delete',
+  'school:update',
+]
+
+// Permissions ajoutées aux DIRECTION_* en FREEMIUM (bonus)
 const FREEMIUM_ADMIN_ROLES = ['DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE']
 
 async function getEffectivePermissions(role: string, schoolId: string | null): Promise<string[]> {
   const base = ROLE_PERMISSIONS[role] || []
-  if (!FREEMIUM_ADMIN_ROLES.includes(role) || !schoolId) return base
-  // Vérifier si l'école est FREEMIUM
+  if (!schoolId) return base
+
   const school = await db.school.findUnique({ where: { id: schoolId }, select: { subscriptionTier: true } })
-  if (!school || school.subscriptionTier !== 'FREEMIUM') return base
-  // Fusionner les permissions SECRETARY (union des deux tableaux)
+  const tier = school?.subscriptionTier || 'FREEMIUM'
+
+  // --- SCHOOL_ADMIN: apply tier restrictions ---
+  if (role === 'SCHOOL_ADMIN') {
+    const denied = tier === 'FREEMIUM' ? FREEMIUM_DENIED : tier === 'ESSENTIEL' ? ESSENTIEL_DENIED : []
+    if (denied.length === 0) return base // STANDARD+ gets full SCHOOL_ADMIN permissions
+    return base.filter(p => !denied.includes(p))
+  }
+
+  // --- FREEMIUM DIRECTION roles: get SECRETARY bonus permissions ---
+  if (!FREEMIUM_ADMIN_ROLES.includes(role)) return base
+  if (tier !== 'FREEMIUM') return base
   const secretaryPerms = ROLE_PERMISSIONS['SECRETARY'] || []
   const merged = [...new Set([...base, ...secretaryPerms])]
-  // FREEMIUM DIRECTION obtient school:update en bonus (pas dans SECRETARY)
   merged.push('school:update')
   return merged
 }
