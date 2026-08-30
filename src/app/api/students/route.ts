@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
+import { checkCanCreateStudent, getTierLimits } from '@/lib/subscription';
 
 function generateRandomPassword(length: number = 12): string {
   return crypto.randomBytes(length).toString('base64').slice(0, length);
@@ -129,6 +130,18 @@ export async function POST(request: NextRequest) {
         { error: 'Accès non autorisé à cette école' },
         { status: 403 }
       );
+    }
+
+    // ── Tier limit: maxStudents ────────────────────────────────────────
+    const limitCheck = await checkCanCreateStudent(schoolId);
+    if (!limitCheck.ok) {
+      return NextResponse.json({ error: limitCheck.error, limit: limitCheck.limit, current: limitCheck.current, tierLimit: true }, { status: 403 });
+    }
+
+    // ── FREEMIUM: block parent account creation ────────────────────────
+    const tierSchool = await db.school.findUnique({ where: { id: schoolId }, select: { subscriptionTier: true } });
+    if (tierSchool && !getTierLimits(tierSchool.subscriptionTier || 'FREEMIUM').canManageParentAccounts && (parentName || parentPhone)) {
+      return NextResponse.json({ error: 'Votre forfait ne permet pas de créer des comptes parents.' }, { status: 403 });
     }
 
     // Resolve parentId: from explicit parentId, or by creating/linking a parent user

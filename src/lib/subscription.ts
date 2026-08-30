@@ -9,8 +9,14 @@ export const SUBSCRIPTION_PRICES: Record<string, number> = {
   CORPORATE: 0, // Custom pricing
 };
 
-export const SUBSCRIPTION_FEATURES: Record<string, string[]> = {
-  FREEMIUM: ['students', 'classes', 'grades', 'parents'],
+export type TierFeature =
+  | 'students' | 'classes' | 'grades' | 'parents'
+  | 'payments' | 'homework' | 'discipline' | 'report_cards'
+  | 'communications' | 'convocations' | 'analytics' | 'multi_years'
+  | 'api_access' | 'priority_support' | 'custom_branding';
+
+export const SUBSCRIPTION_FEATURES: Record<string, TierFeature[]> = {
+  FREEMIUM: ['students', 'classes', 'grades'],
   ESSENTIEL: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline'],
   STANDARD: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations'],
   PREMIUM: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations', 'analytics', 'multi_years'],
@@ -30,7 +36,10 @@ export interface SubscriptionCheck {
  * Check if a school's subscription is active and not expired.
  * FREEMIUM schools always have access (no expiration).
  */
-export async function checkSubscription(schoolId: string): Promise<SubscriptionCheck> {
+export async function checkSubscription(schoolId: string | null | undefined): Promise<SubscriptionCheck> {
+  if (!schoolId) {
+    return { active: false, tier: 'FREEMIUM', expired: false, daysRemaining: null, error: 'École introuvable' };
+  }
   const school = await db.school.findUnique({
     where: { id: schoolId },
     select: {
@@ -78,22 +87,120 @@ export async function checkSubscription(schoolId: string): Promise<SubscriptionC
 /**
  * Check if a school has access to a specific feature based on its subscription tier.
  */
-export function hasFeatureAccess(tier: string, feature: string): boolean {
+export function hasFeatureAccess(tier: string, feature: TierFeature): boolean {
   const features = SUBSCRIPTION_FEATURES[tier] || SUBSCRIPTION_FEATURES.FREEMIUM;
   return features.includes(feature);
 }
 
-/**
- * Get the number of students a school can enroll based on its tier.
- */
-export function getMaxStudentsForTier(tier: string): number {
-  const limits: Record<string, number> = {
-    FREEMIUM: 30,
-    ESSENTIEL: 100,
-    STANDARD: 500,
-    PREMIUM: 2000,
-    ENTERPRISE: 10000,
-    CORPORATE: 99999,
+// ─── Tier limits (validated with product owner) ─────────────────────────────
+export interface TierLimits {
+  maxStudents: number;
+  maxAdmins: number;      // Direction, Secretary, Cashier, Discipline... (staff accounts)
+  maxTeachers: number;
+  whatsappMonthly: number;
+  canConfigPayments: boolean;   // payment gateways (Orange Money, M-Pesa...)
+  canManageParentAccounts: boolean;
+}
+
+export function getTierLimits(tier: string): TierLimits {
+  const limits: Record<string, TierLimits> = {
+    FREEMIUM: {
+      maxStudents: 100,
+      maxAdmins: 1,
+      maxTeachers: 0,
+      whatsappMonthly: 0,
+      canConfigPayments: false,
+      canManageParentAccounts: false,
+    },
+    ESSENTIEL: {
+      maxStudents: 500,
+      maxAdmins: 1,
+      maxTeachers: 25,
+      whatsappMonthly: 500,
+      canConfigPayments: false,
+      canManageParentAccounts: true,
+    },
+    STANDARD: {
+      maxStudents: 9999,
+      maxAdmins: 5,
+      maxTeachers: 50,
+      whatsappMonthly: 999999,
+      canConfigPayments: true,
+      canManageParentAccounts: true,
+    },
+    PREMIUM: {
+      maxStudents: 9999,
+      maxAdmins: 99,
+      maxTeachers: 9999,
+      whatsappMonthly: 999999,
+      canConfigPayments: true,
+      canManageParentAccounts: true,
+    },
+    ENTERPRISE: {
+      maxStudents: 99999,
+      maxAdmins: 9999,
+      maxTeachers: 9999,
+      whatsappMonthly: 999999,
+      canConfigPayments: true,
+      canManageParentAccounts: true,
+    },
+    CORPORATE: {
+      maxStudents: 99999,
+      maxAdmins: 9999,
+      maxTeachers: 9999,
+      whatsappMonthly: 999999,
+      canConfigPayments: true,
+      canManageParentAccounts: true,
+    },
   };
   return limits[tier] || limits.FREEMIUM;
+}
+
+/**
+ * @deprecated Use getTierLimits instead.
+ */
+export function getMaxStudentsForTier(tier: string): number {
+  return getTierLimits(tier).maxStudents;
+}
+
+// ─── Enforcement helpers (called from API routes) ──────────────────────────
+export const ADMIN_ROLES = ['DIRECTION','DIRECTION_MATERNELLE','DIRECTION_PRIMAIRE','DIRECTION_SECONDAIRE','SECRETARY','CASHIER','DISCIPLINE','DISCIPLINE_MATERNELLE','DISCIPLINE_PRIMAIRE','DISCIPLINE_SECONDAIRE','SCHOOL_ADMIN'];
+export const TEACHER_ROLES = ['TEACHER','HEAD_TEACHER'];
+
+export async function checkCanCreateStudent(schoolId: string | null | undefined): Promise<{ ok: true } | { ok: false; error: string; limit: number; current: number }> {
+  if (!schoolId) return { ok: true };
+  const school = await db.school.findUnique({ where: { id: schoolId }, select: { subscriptionTier: true } });
+  const tier = school?.subscriptionTier || 'FREEMIUM';
+  const limits = getTierLimits(tier);
+  const current = await db.student.count({ where: { schoolId } });
+  if (current >= limits.maxStudents) {
+    return { ok: false, error: `Limite d'élèves atteinte (${limits.maxStudents} max pour ${tier}). Passez au forfait supérieur.`, limit: limits.maxStudents, current };
+  }
+  return { ok: true };
+}
+
+export async function checkCanCreateUser(schoolId: string | null | undefined, role: string): Promise<{ ok: true } | { ok: false; error: string; limit: number; current: number }> {
+  if (!schoolId) return { ok: true };
+  const school = await db.school.findUnique({ where: { id: schoolId }, select: { subscriptionTier: true } });
+  const tier = school?.subscriptionTier || 'FREEMIUM';
+  const limits = getTierLimits(tier);
+
+  if (role === 'PARENT') return { ok: true }; // parents unlimited (or via student creation)
+  if (ADMIN_ROLES.includes(role)) {
+    const current = await db.user.count({ where: { schoolId, role: { in: ADMIN_ROLES } } });
+    if (current >= limits.maxAdmins) {
+      return { ok: false, error: `Limite d'admins atteinte (${limits.maxAdmins} max pour ${tier}).`, limit: limits.maxAdmins, current };
+    }
+  }
+  if (TEACHER_ROLES.includes(role)) {
+    const current = await db.user.count({ where: { schoolId, role: { in: TEACHER_ROLES } } });
+    if (current >= limits.maxTeachers) {
+      return { ok: false, error: `Limite de professeurs atteinte (${limits.maxTeachers} max pour ${tier}).`, limit: limits.maxTeachers, current };
+    }
+  }
+  return { ok: true };
+}
+
+export function canTierConfigPayments(tier: string): boolean {
+  return getTierLimits(tier).canConfigPayments;
 }

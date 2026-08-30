@@ -178,6 +178,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ── Tier limit: canConfigPayments ──────────────────────────────────
+    const { getTierLimits: getTierLimitsPg } = await import('@/lib/subscription');
+    const tierSchoolPg = await db.school.findUnique({ where: { id: schoolId }, select: { subscriptionTier: true } });
+    if (!getTierLimitsPg(tierSchoolPg?.subscriptionTier || 'FREEMIUM').canConfigPayments) {
+      return NextResponse.json({ error: 'Votre forfait ne permet pas de configurer les paiements mobiles (Orange Money, M-Pesa...). Passez au forfait Standard ou supérieur.', tierLimit: true }, { status: 403 });
+    }
+
     // Build the upsert data — only include credential fields that are
     // provided so we don't accidentally blank out credentials during
     // partial updates from the masked GET response.

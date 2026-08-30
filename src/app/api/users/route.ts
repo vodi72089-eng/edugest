@@ -165,6 +165,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ── Tier limit: maxAdmins / maxTeachers ────────────────────────────
+    const { checkCanCreateUser } = await import('@/lib/subscription');
+    const tierCheck = await checkCanCreateUser(schoolId, role);
+    if (!tierCheck.ok) {
+      return NextResponse.json({ error: tierCheck.error, limit: tierCheck.limit, current: tierCheck.current, tierLimit: true }, { status: 403 });
+    }
+
     // Generate random password if none provided
     // Use bcrypt cost 12
     const rawPassword = password || generateRandomPassword();
