@@ -7,14 +7,19 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await requirePermission(request, 'school:read');
-    if ('error' in authResult) return authResult.error;
-    const { user } = authResult;
-
     const { id } = await params;
 
-    // Verify school access
-    if (!verifySchoolAccess(user, id)) {
+    // Allow public access for active schools (SchoolDetailView is public)
+    // Authenticated users get school access verification
+    let user: { schoolId?: string } | null = null;
+    try {
+      const authResult = await requirePermission(request, 'school:read');
+      if (!('error' in authResult)) {
+        user = authResult.user;
+      }
+    } catch {}
+
+    if (user && !verifySchoolAccess(user, id)) {
       return NextResponse.json(
         { error: 'Accès non autorisé à cette école' },
         { status: 403 }
@@ -22,7 +27,7 @@ export async function GET(
     }
 
     const school = await db.school.findUnique({
-      where: { id },
+      where: { id, isActive: true },
       include: {
         classes: {
           include: {
