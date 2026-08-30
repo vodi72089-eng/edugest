@@ -7,7 +7,9 @@ import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
 import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, DisciplineData, CommunicationData, HomeworkData } from '@/lib/types'
 import { ACCENT, ACCENT2, ACCENT_SOFT, SUCCESS, WARNING, DANGER, INFO, MUTED, BORDER, GOLD, GOLD_SOFT, GOLD_GLOW, DARK, DARK_ALT, IVORY, IVORY_WARM, TEXT_PRIMARY, TEXT_MUTED_LUXE, SUCCESS_SOFT, SUBSCRIPTION_TIERS, PROVINCES, FILTER_CHIPS, COVER_GRADIENTS, LOGO_COLORS, ENROLLMENT_DATA, SUBSCRIPTION_DATA } from '@/lib/constants'
 import { getInitials, formatDate, formatNumber, formatCurrency, getSchoolTypeLabel, getSubscriptionLabel, getSubscriptionPrice, getRoleLabel, getStatusPill } from '@/lib/helpers'
+import { EDUCATIONAL_SYSTEMS_LIST } from '@/lib/educational-systems'
 import StudentAvatar from '@/components/ui/StudentAvatar'
+import { FlagIcon } from '@/components/FlagIcon'
 import dynamic from 'next/dynamic'
 const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
 import SuperAdminDashboard from '@/components/dashboards/SuperAdminDashboard'
@@ -1170,7 +1172,7 @@ function CreateSchoolView() {
   const [form, setForm] = useState({
     name: '', shortName: '', email: '', phone: '', address: '', city: '',
     province: 'Kinshasa', country: 'RD Congo', description: '', schoolType: 'MIXTE',
-    schoolCategory: 'PRIVEE', maxStudents: '200', establishmentYear: '', mission: '',
+    schoolCategory: 'PRIVEE', educationalSystem: 'RDC', maxStudents: '200', establishmentYear: '', mission: '',
     subscriptionTier: 'FREEMIUM',
     adminName: '', adminEmail: '', adminPhone: '', adminPassword: '',
     latitude: null as number | null, longitude: null as number | null,
@@ -1178,6 +1180,23 @@ function CreateSchoolView() {
   })
 
   const updateForm = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }))
+  const [eduSysSearch, setEduSysSearch] = useState('')
+  const [eduSysOpen, setEduSysOpen] = useState(false)
+  const eduSysRef = useRef<HTMLDivElement>(null)
+  const eduSysFiltered = useMemo(() => {
+    if (!eduSysSearch) return EDUCATIONAL_SYSTEMS_LIST
+    const q = eduSysSearch.toLowerCase()
+    return EDUCATIONAL_SYSTEMS_LIST.filter(s => s.name.toLowerCase().includes(q) || s.shortLabel.toLowerCase().includes(q) || s.country.toLowerCase().includes(q))
+  }, [eduSysSearch])
+
+  // Close edu system dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (eduSysRef.current && !eduSysRef.current.contains(e.target as Node)) setEduSysOpen(false)
+    }
+    if (eduSysOpen) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [eduSysOpen])
 
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -1229,14 +1248,7 @@ function CreateSchoolView() {
       })
       const json = await res.json()
       if (json.data?.school) {
-        // Store admin user ID for OTP verification
-        if (json.data.adminUser?.id) {
-          setCreatedUserId(json.data.adminUser.id)
-          setOtpSent(true)
-          setStep(3) // Go to verification step
-          return
-        }
-        // Fallback: auto-login if no admin user created
+        // OTP disabled: auto-login directly
         const loginRes = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1247,7 +1259,7 @@ function CreateSchoolView() {
           const apiUser = loginJson.data
           const roleMap: Record<string, UserRole> = {
             SUPER_ADMIN_GLOBAL: 'SUPER_ADMIN_GLOBAL',
-            SCHOOL_ADMIN: 'SUPER_ADMIN_GLOBAL',
+            SCHOOL_ADMIN: 'SCHOOL_ADMIN',
             SECRETARY: 'SECRETARY',
             CASHIER: 'CASHIER',
             DIRECTION_MATERNELLE: 'DIRECTION_MATERNELLE',
@@ -1268,10 +1280,9 @@ function CreateSchoolView() {
             profileImageUrl: null,
             subscriptionTier: json.data.school.subscriptionTier || 'FREEMIUM',
           }, loginJson.data.token)
-          toast.success('École crée avec succès ! Bienvenue !')
-          setStep(3)
+          toast.success('École créée avec succès ! Bienvenue !')
         } else {
-          toast.success('École crée ! Connectez-vous avec vos identifiants.')
+          toast.success('École créée ! Connectez-vous avec vos identifiants.')
           setCurrentView('login')
         }
       } else {
@@ -1354,7 +1365,7 @@ function CreateSchoolView() {
                   if (loginJson.data) {
                     const apiUser = loginJson.data
                     const roleMap: Record<string, UserRole> = {
-                      SUPER_ADMIN_GLOBAL: 'SUPER_ADMIN_GLOBAL', SCHOOL_ADMIN: 'SUPER_ADMIN_GLOBAL',
+                      SUPER_ADMIN_GLOBAL: 'SUPER_ADMIN_GLOBAL', SCHOOL_ADMIN: 'SCHOOL_ADMIN',
                       SECRETARY: 'SECRETARY', CASHIER: 'CASHIER',
                       DIRECTION_MATERNELLE: 'DIRECTION_MATERNELLE', DIRECTION_PRIMAIRE: 'DIRECTION_PRIMAIRE',
                       DIRECTION_SECONDAIRE: 'DIRECTION_SECONDAIRE', DISCIPLINE_MATERNELLE: 'DISCIPLINE_MATERNELLE',
@@ -1569,6 +1580,75 @@ function CreateSchoolView() {
                       <option value="PUBLIQUE" className="bg-[#0a0f0d]">Publique</option>
                     </select>
                   </div>
+                  <div className="sm:col-span-2 relative" ref={eduSysRef}>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Système éducatif</label>
+                    {/* Selected chip */}
+                    {form.educationalSystem && !eduSysOpen && (
+                      <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl mb-1.5" style={{ background: 'rgba(245,166,35,0.1)', border: '1px solid rgba(245,166,35,0.25)' }}>
+                        <div className="w-8 h-5 rounded overflow-hidden">
+                          <FlagIcon countryCode={EDUCATIONAL_SYSTEMS_LIST.find(s => s.id === form.educationalSystem)?.countryCode || ''} className="w-full h-full" />
+                        </div>
+                        <span className="text-sm font-medium text-[#f5a623]">{EDUCATIONAL_SYSTEMS_LIST.find(s => s.id === form.educationalSystem)?.name}</span>
+                        <button type="button" onClick={() => { updateForm('educationalSystem', ''); setEduSysSearch(''); setEduSysOpen(true) }} className="ml-auto text-white/40 hover:text-white/70 transition">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
+                    {/* Search input */}
+                    <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus-within:border-[#f5a623]/50 focus-within:ring-[3px] focus-within:ring-[rgba(245,166,35,0.15)] transition">
+                      <Search size={16} className="text-white/40 shrink-0" />
+                      <input
+                        type="text"
+                        value={eduSysSearch}
+                        onFocus={() => setEduSysOpen(true)}
+                        onChange={e => { setEduSysSearch(e.target.value); setEduSysOpen(true) }}
+                        placeholder={form.educationalSystem ? '' : 'Rechercher un système éducatif...'}
+                        className="flex-1 bg-transparent border-none text-white text-sm outline-none placeholder-white/30"
+                      />
+                      {eduSysSearch && (
+                        <button type="button" onClick={() => { setEduSysSearch(''); setEduSysOpen(true) }} className="text-white/40 hover:text-white/70 transition">
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                    {/* Dropdown */}
+                    {eduSysOpen && (
+                      <div className="absolute z-40 top-full left-0 right-0 mt-1 rounded-xl overflow-hidden shadow-2xl" style={{ background: 'rgba(26,37,32,0.95)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest border-b border-white/10" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                          {eduSysFiltered.length} Système{eduSysFiltered.length > 1 ? 's' : ''} trouvé{eduSysFiltered.length > 1 ? 's' : ''}
+                        </div>
+                        {eduSysFiltered.length === 0 ? (
+                          <div className="px-4 py-6 text-center text-sm text-white/40">Aucun résultat</div>
+                        ) : (
+                          eduSysFiltered.map(sys => {
+                            const isSelected = form.educationalSystem === sys.id
+                            return (
+                              <button
+                                key={sys.id}
+                                type="button"
+                                onClick={() => { updateForm('educationalSystem', sys.id); setEduSysSearch(''); setEduSysOpen(false) }}
+                                className={`w-full text-left px-4 py-3 flex items-center gap-3 transition border-b border-white/5 last:border-0 cursor-pointer group
+                                  ${isSelected ? 'bg-[rgba(245,166,35,0.12)]' : 'hover:bg-white/[0.06]'}`}
+                              >
+                                <div className="w-10 h-7 rounded overflow-hidden shrink-0">
+                                  <FlagIcon countryCode={sys.countryCode} className="w-full h-full" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-semibold text-white group-hover:text-[#f5a623] transition truncate">{sys.name}</div>
+                                  <div className="text-[11px] text-white/40 truncate">{sys.description}</div>
+                                </div>
+                                {isSelected ? (
+                                  <Check size={16} className="text-[#f5a623] shrink-0" />
+                                ) : (
+                                  <ChevronRight size={14} className="text-white/20 group-hover:text-white/40 transition shrink-0" />
+                                )}
+                              </button>
+                            )
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <div>
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Capacité max</label>
                     <input type="number" value={form.maxStudents} onChange={e => updateForm('maxStudents', e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
@@ -1669,6 +1749,12 @@ function LoginView() {
   const [typewriterLine1, setTypewriterLine1] = useState('')
   const [typewriterLine2, setTypewriterLine2] = useState('')
   const [typewriterActiveLine, setTypewriterActiveLine] = useState<1 | 2 | null>(1)
+  const [schools, setSchools] = useState<{ id: string; name: string; shortName: string; city: string }[]>([])
+  const [selectedSchoolId, setSelectedSchoolId] = useState('')
+
+  useEffect(() => {
+    fetch('/api/schools?limit=50').then(r => r.json()).then(j => setSchools(j.data || [])).catch(() => {})
+  }, [])
 
   // Vérifie que le rôle correspond à l'onglet sélectionné
   function validateRoleForTab(role: UserRole | null): { valid: boolean; message?: string } {
@@ -1738,7 +1824,7 @@ function LoginView() {
   function mapApiRole(role: string): UserRole | null {
     const map: Record<string, UserRole> = {
       SUPER_ADMIN_GLOBAL: 'SUPER_ADMIN_GLOBAL',
-      SCHOOL_ADMIN: 'SUPER_ADMIN_GLOBAL',
+      SCHOOL_ADMIN: 'SCHOOL_ADMIN',
       SECRETARY: 'SECRETARY',
       CASHIER: 'CASHIER',
       DIRECTION_MATERNELLE: 'DIRECTION_MATERNELLE',
@@ -1967,6 +2053,25 @@ function LoginView() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-medium text-white/70">École</label>
+              <div className="relative">
+                <select
+                  value={selectedSchoolId}
+                  onChange={e => setSelectedSchoolId(e.target.value)}
+                  className="w-full px-4 py-3.5 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)] focus:border-[rgba(245,166,35,0.5)] appearance-none cursor-pointer"
+                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                >
+                  <option value="" className="bg-[#0a0f0d] text-white">Sélectionnez votre école</option>
+                  {schools.map(s => (
+                    <option key={s.id} value={s.id} className="bg-[#0a0f0d] text-white">{s.name} — {s.city}</option>
+                  ))}
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-white/40">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                </div>
+              </div>
+            </div>
             <div className="space-y-1.5">
               <label className="text-[13px] font-medium text-white/70">{tab === 'parent' ? 'Email ou numéro WhatsApp' : 'Email professionnel'}</label>
               <input
@@ -2918,6 +3023,7 @@ function RoleDashboard() {
   const { userRole } = useEduGestStore()
   switch (userRole) {
     case 'SUPER_ADMIN_GLOBAL': return <SuperAdminDashboard />
+    case 'SCHOOL_ADMIN': return <SecretaryDashboard />
     case 'SECRETARY': return <SecretaryDashboard />
     case 'CASHIER': return <CashierDashboard />
     case 'PARENT': return <ParentDashboard />
