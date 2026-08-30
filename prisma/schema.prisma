@@ -35,6 +35,7 @@ model School {
   totalReviews      Int      @default(0)
   schoolType        String   @default("MIXTE")
   schoolCategory    String   @default("PRIVEE")
+  schoolLevel       String?  
   educationalSystem String   @default("RDC")
   studentCount      Int      @default(0)
   classCount        Int      @default(0)

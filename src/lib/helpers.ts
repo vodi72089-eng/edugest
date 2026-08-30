@@ -16,10 +16,15 @@ export function formatCurrency(n: number) {
   return n.toLocaleString('fr-FR') + ' CDF'
 }
 
-export function getSchoolTypeLabel(type: string, category: string) {
+export function getSchoolTypeLabel(type: string, category: string, level?: string | null) {
   const t = type === 'MIXTE' ? 'Mixte' : type === 'FILLES' ? 'Filles' : 'Garçons'
   const c = category === 'PRIVEE' ? 'Privée' : 'Publique'
-  return `${t} · ${c}`
+  const parts = [t, c]
+  if (level) {
+    const l = level === 'MATERNELLE' ? 'Maternelle' : level === 'PRIMAIRE' ? 'Primaire' : level === 'SECONDAIRE' ? 'Secondaire' : 'Polyvalente'
+    parts.push(l)
+  }
+  return parts.join(' · ')
 }
 
 export function getSubscriptionLabel(tier: string) {
@@ -41,6 +46,7 @@ export function getSubscriptionPrice(tier: string) {
 export function getRoleLabel(role: UserRole): string {
   const map: Record<UserRole, string> = {
     SUPER_ADMIN_GLOBAL: 'Super Admin',
+    SCHOOL_ADMIN: 'Admin École',
     SECRETARY: 'Secrétaire',
     CASHIER: 'Caissier',
     DIRECTION_MATERNELLE: 'Dir. Maternelle',
