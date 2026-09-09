@@ -10,6 +10,8 @@ import { CreditCard, FileText, Download, X, ArrowRightLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete, { AutocompleteItem } from './SearchAutocomplete'
 import { SUPPORTED_CURRENCIES } from '@/lib/exchange-rate'
+import { useFeatureAccess } from '@/hooks/useFeatureAccess'
+import { useRouter } from 'next/navigation'
 
 export default function PaymentsView() {
   const [payments, setPayments] = useState<PaymentData[]>([])
@@ -38,6 +40,15 @@ export default function PaymentsView() {
   const { userData, userRole, highlightedId, pendingPaymentStudent, setPendingPaymentStudent } = useEduGestStore()
   const isParent = userRole === 'PARENT'
   const highlightedRef = useRef<HTMLTableRowElement>(null)
+  const { hasAccess, requiredTier } = useFeatureAccess('payments')
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!hasAccess) {
+      router.push(`/subscription-required?feature=paiements&requiredTier=${requiredTier}`)
+    }
+  }, [hasAccess, requiredTier, router])
+
   useEffect(() => {
     if (highlightedId && highlightedRef.current) {
       highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -213,6 +224,8 @@ export default function PaymentsView() {
       setAmountConverted('')
     }
   }, [paidAmount, amount, exchangeRate, payCurrency])
+
+  if (!hasAccess) return null
 
   async function handlePayment() {
     if (!selectedStudent && !studentSearch) { toast.error('Veuillez sélectionner un élève'); return }

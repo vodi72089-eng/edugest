@@ -441,6 +441,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'stats:read', 'profile:read', 'profile:update',
     'schools:read',
     'payment-gateways:manage', 'currency:manage', 'transactions:read',
+    'notifications:read',
   ],
   SECRETARY: [
     'school:read',
@@ -454,6 +455,17 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'homework:read', 'convocations:read', 'convocations:create',
     'stats:read', 'profile:read', 'profile:update',
     'payment-gateways:manage', 'currency:manage', 'transactions:read',
+    'notifications:read',
+  ],
+  ADMIN_FREEMIUM: [
+    'school:read',
+    'users:read', 'users:create', 'users:update',
+    'students:read', 'students:create', 'students:update',
+    'classes:read', 'classes:create',
+    'subjects:read', 'subjects:create',
+    'grades:read',
+    'profile:read', 'profile:update',
+    'notifications:read',
   ],
   CASHIER: [
     'school:read',
@@ -462,6 +474,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'communications:read',
     'stats:read', 'profile:read', 'profile:update',
     'payment-gateways:manage', 'currency:manage', 'transactions:read',
+    'notifications:read',
   ],
   DIRECTION_MATERNELLE: [
     'school:read', 'users:read', 'students:read', 'students:update', 'students:create',
@@ -472,6 +485,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'homework:read', 'homework:create',
     'convocations:read', 'convocations:create', 'convocations:update',
     'stats:read', 'profile:read', 'profile:update',
+    'notifications:read',
   ],
   DIRECTION_PRIMAIRE: [
     'school:read', 'users:read', 'students:read', 'students:update', 'students:create',
@@ -483,6 +497,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'convocations:read', 'convocations:create', 'convocations:update',
     'stats:read', 'profile:read', 'profile:update',
     'payment-gateways:manage', 'currency:manage', 'transactions:read',
+    'notifications:read',
   ],
   DIRECTION_SECONDAIRE: [
     'school:read', 'users:read', 'students:read', 'students:update', 'students:create',
@@ -494,6 +509,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'convocations:read', 'convocations:create', 'convocations:update',
     'stats:read', 'profile:read', 'profile:update',
     'payment-gateways:manage', 'currency:manage', 'transactions:read',
+    'notifications:read',
   ],
   DISCIPLINE_MATERNELLE: [
     'school:read', 'students:read',
@@ -526,6 +542,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'homework:read', 'homework:create',
     'communications:read',
     'stats:read',
+    'notifications:read',
   ],
   TEACHER: [
     'students:read',
@@ -534,10 +551,12 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'homework:read', 'homework:create',
     'discipline:read',
     'communications:read',
+    'notifications:read',
   ],
   PARENT: [
     'students:read', 'payments:read', 'grades:read', 'convocations:read', 'convocations:update', 'profile:read', 'profile:update',
     'communications:read', 'homework:read', 'discipline:read', 'stats:read',
+    'notifications:read',
   ],
   DISCIPLINE: [
     'students:read',
@@ -545,6 +564,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'convocations:read', 'convocations:create',
     'communications:read',
     'stats:read',
+    'notifications:read',
   ],
   SCHOOL_ADMIN: [
     'users:read', 'users:create', 'users:update', 'users:delete',
@@ -560,6 +580,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'stats:read', 'profile:read', 'profile:update',
     'schools:read',
     'payment-gateways:manage', 'currency:manage', 'transactions:read',
+    'notifications:read',
   ],
 };
 

@@ -6,7 +6,7 @@ import type { StudentData, ClassData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT } from '@/lib/constants'
 import { getInitials, formatNumber, getStatusPill } from '@/lib/helpers'
 import StudentAvatar from '@/components/ui/StudentAvatar'
-import { Plus, X, Users, ChevronDown, Eye, EyeOff, Edit, Trash2, Check } from 'lucide-react'
+import { Plus, X, Users, ChevronDown, Eye, EyeOff, Edit, Trash2, Check, Archive } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete, { AutocompleteItem } from './SearchAutocomplete'
 
@@ -39,6 +39,9 @@ export default function StudentsView() {
   const [savingEdit, setSavingEdit] = useState(false)
   const { userData, highlightedId } = useEduGestStore()
   const [activeSchoolYear, setActiveSchoolYear] = useState('')
+  const [archivedCount, setArchivedCount] = useState(0)
+  const [archivedStudents, setArchivedStudents] = useState<any[]>([])
+  const [showArchives, setShowArchives] = useState(false)
   const highlightedRef = useRef<HTMLTableRowElement>(null)
   useEffect(() => {
     if (highlightedId && highlightedRef.current) {
@@ -65,6 +68,18 @@ export default function StudentsView() {
         const active = years.find((y: any) => y.isActive)
         if (active) setActiveSchoolYear(active.id)
       }).catch(() => {})
+    }
+  }, [userData?.schoolId])
+
+  useEffect(() => {
+    if (userData?.schoolId) {
+      authFetch(`/api/schools/${userData.schoolId}/archived-students`)
+        .then(res => res.json())
+        .then(data => {
+          setArchivedStudents(data.data || [])
+          setArchivedCount(data.data?.length || 0)
+        })
+        .catch(() => {})
     }
   }, [userData?.schoolId])
 
@@ -190,6 +205,11 @@ export default function StudentsView() {
         <button onClick={() => setShowAdd(true)} className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
           <Plus size={14} /> Ajouter un élève
         </button>
+        {archivedCount > 0 && (
+          <button onClick={() => setShowArchives(!showArchives)} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-[oklch(85%_0.02_175)]" style={{ color: TEXT_PRIMARY }}>
+            <Archive size={14} /> Archives ({archivedCount})
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-3 mb-4">
@@ -253,6 +273,42 @@ export default function StudentsView() {
           </table>
         </div>
       </div>
+
+      {showArchives && archivedStudents.length > 0 && (
+        <div className="mt-6">
+          <h3 className="text-lg font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Élèves archivés</h3>
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr style={{ background: IVORY }}>
+                    <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>
+                    <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Classe</th>
+                    <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Archivé le</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {archivedStudents.map((student: any) => (
+                    <tr key={student.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <StudentAvatar firstName={student.firstName} lastName={student.lastName} photoUrl={student.photoUrl} size={32} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
+                          <div>
+                            <div className="font-medium text-[13px]" style={{ color: TEXT_PRIMARY }}>{student.firstName} {student.lastName}</div>
+                            <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{student.gender === 'M' ? 'Garçon' : 'Fille'}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_PRIMARY }}>{student.class?.name || '—'}</td>
+                      <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{student.archivedAt ? new Date(student.archivedAt).toLocaleDateString('fr-FR') : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowAdd(false)}>

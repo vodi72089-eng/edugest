@@ -8,6 +8,9 @@ let cachedAdminPhone: string | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Cache par école
+const schoolPhoneCache: Map<string, { phone: string | null; timestamp: number }> = new Map();
+
 /**
  * Récupère le numéro WhatsApp admin configuré (depuis GlobalApiConfig)
  */
@@ -37,6 +40,42 @@ async function getAdminPhone(): Promise<string | null> {
   }
 
   return null;
+}
+
+/**
+ * Récupère le numéro WhatsApp d'une école spécifique
+ */
+export async function getSchoolWhatsAppNumber(schoolId: string): Promise<string | null> {
+  const now = Date.now();
+  const cached = schoolPhoneCache.get(schoolId);
+  if (cached && now - cached.timestamp < CACHE_TTL) {
+    return cached.phone;
+  }
+
+  try {
+    const config = await db.globalApiConfig.findUnique({
+      where: { key: `WHATSAPP_SCHOOL_CONFIG_${schoolId}` },
+    });
+
+    if (config) {
+      const parsed = JSON.parse(config.value);
+      const phone = parsed.phoneNumber || null;
+      schoolPhoneCache.set(schoolId, { phone, timestamp: now });
+      return phone;
+    }
+  } catch (error) {
+    console.error(`[WhatsApp Agent] Error fetching school ${schoolId} phone:`, error);
+  }
+
+  schoolPhoneCache.set(schoolId, { phone: null, timestamp: now });
+  return null;
+}
+
+/**
+ * Invalide le cache du numéro WhatsApp d'une école
+ */
+export function invalidateSchoolPhoneCache(schoolId: string): void {
+  schoolPhoneCache.delete(schoolId);
 }
 
 /**
@@ -100,11 +139,18 @@ export async function notifyConvocation(params: {
   motif: string;
   date: Date;
   schoolName: string;
+  schoolId: string;
 }): Promise<boolean> {
-  const { parentPhone, studentName, motif, date, schoolName } = params;
+  const { parentPhone, studentName, motif, date, schoolName, schoolId } = params;
 
   if (await isRecipientAdmin(parentPhone)) {
     console.log('[WhatsApp Agent] Skipping notification to admin phone');
+    return false;
+  }
+
+  const schoolPhone = await getSchoolWhatsAppNumber(schoolId);
+  if (!schoolPhone) {
+    console.log(`[WhatsApp Agent] No WhatsApp number configured for school ${schoolId}`);
     return false;
   }
 
@@ -141,11 +187,18 @@ export async function notifyHomework(params: {
   title: string;
   dueDate: Date;
   schoolName: string;
+  schoolId: string;
 }): Promise<boolean> {
-  const { parentPhone, studentName, subject, title, dueDate, schoolName } = params;
+  const { parentPhone, studentName, subject, title, dueDate, schoolName, schoolId } = params;
 
   if (await isRecipientAdmin(parentPhone)) {
     console.log('[WhatsApp Agent] Skipping notification to admin phone');
+    return false;
+  }
+
+  const schoolPhone = await getSchoolWhatsAppNumber(schoolId);
+  if (!schoolPhone) {
+    console.log(`[WhatsApp Agent] No WhatsApp number configured for school ${schoolId}`);
     return false;
   }
 
@@ -182,11 +235,18 @@ export async function notifyGrade(params: {
   maxScore: number;
   trimester: string;
   schoolName: string;
+  schoolId: string;
 }): Promise<boolean> {
-  const { parentPhone, studentName, subject, score, maxScore, trimester, schoolName } = params;
+  const { parentPhone, studentName, subject, score, maxScore, trimester, schoolName, schoolId } = params;
 
   if (await isRecipientAdmin(parentPhone)) {
     console.log('[WhatsApp Agent] Skipping notification to admin phone');
+    return false;
+  }
+
+  const schoolPhone = await getSchoolWhatsAppNumber(schoolId);
+  if (!schoolPhone) {
+    console.log(`[WhatsApp Agent] No WhatsApp number configured for school ${schoolId}`);
     return false;
   }
 
@@ -224,11 +284,18 @@ export async function notifyBulletin(params: {
   ranking: number;
   totalStudents: number;
   schoolName: string;
+  schoolId: string;
 }): Promise<boolean> {
-  const { parentPhone, studentName, trimester, average, ranking, totalStudents, schoolName } = params;
+  const { parentPhone, studentName, trimester, average, ranking, totalStudents, schoolName, schoolId } = params;
 
   if (await isRecipientAdmin(parentPhone)) {
     console.log('[WhatsApp Agent] Skipping notification to admin phone');
+    return false;
+  }
+
+  const schoolPhone = await getSchoolWhatsAppNumber(schoolId);
+  if (!schoolPhone) {
+    console.log(`[WhatsApp Agent] No WhatsApp number configured for school ${schoolId}`);
     return false;
   }
 
@@ -259,11 +326,18 @@ export async function notifyDiscipline(params: {
   title: string;
   description: string;
   schoolName: string;
+  schoolId: string;
 }): Promise<boolean> {
-  const { parentPhone, studentName, type, severity, title, description, schoolName } = params;
+  const { parentPhone, studentName, type, severity, title, description, schoolName, schoolId } = params;
 
   if (await isRecipientAdmin(parentPhone)) {
     console.log('[WhatsApp Agent] Skipping notification to admin phone');
+    return false;
+  }
+
+  const schoolPhone = await getSchoolWhatsAppNumber(schoolId);
+  if (!schoolPhone) {
+    console.log(`[WhatsApp Agent] No WhatsApp number configured for school ${schoolId}`);
     return false;
   }
 
@@ -318,8 +392,15 @@ export async function notifyPaymentCreated(
   className: string,
   amount: number,
   trimester: string,
-  schoolName: string
+  schoolName: string,
+  schoolId: string
 ) {
+  const schoolPhone = await getSchoolWhatsAppNumber(schoolId);
+  if (!schoolPhone) {
+    console.log(`[WhatsApp Agent] No WhatsApp number configured for school ${schoolId}`);
+    return;
+  }
+
   if (!(await isWhatsAppConnected())) return;
   const msg = `💰 *Nouveau paiement enregistré*\n\n` +
     `Élève: ${studentName}\nClasse: ${className}\n` +
@@ -337,8 +418,15 @@ export async function notifyPaymentApproved(
   studentName: string,
   amount: number,
   trimester: string,
-  schoolName: string
+  schoolName: string,
+  schoolId: string
 ) {
+  const schoolPhone = await getSchoolWhatsAppNumber(schoolId);
+  if (!schoolPhone) {
+    console.log(`[WhatsApp Agent] No WhatsApp number configured for school ${schoolId}`);
+    return;
+  }
+
   if (!(await isWhatsAppConnected())) return;
   const msg = `✅ *Paiement approuvé*\n\n` +
     `Élève: ${studentName}\nMontant: ${amount.toLocaleString('fr-FR')} CDF\n` +
@@ -353,8 +441,15 @@ export async function notifyPaymentRejected(
   amount: number,
   trimester: string,
   schoolName: string,
+  schoolId: string,
   reason?: string
 ) {
+  const schoolPhone = await getSchoolWhatsAppNumber(schoolId);
+  if (!schoolPhone) {
+    console.log(`[WhatsApp Agent] No WhatsApp number configured for school ${schoolId}`);
+    return;
+  }
+
   if (!(await isWhatsAppConnected())) return;
   const msg = `❌ *Paiement rejeté*\n\n` +
     `Élève: ${studentName}\nMontant: ${amount.toLocaleString('fr-FR')} CDF\n` +

@@ -9,9 +9,21 @@ import StudentAvatar from '@/components/ui/StudentAvatar'
 import { Plus, Check, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete from './SearchAutocomplete'
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { useRouter } from 'next/navigation';
 
 export default function GradesView() {
   const { userRole, userData, highlightedId } = useEduGestStore()
+  const { hasAccess, requiredTier } = useFeatureAccess('grades');
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!hasAccess) {
+      router.push(`/subscription-required?feature=notes&requiredTier=${requiredTier}`);
+    }
+  }, [hasAccess, requiredTier, router]);
+
+  if (!hasAccess) return null;
   const highlightedRef = useRef<HTMLTableRowElement>(null)
   useEffect(() => {
     if (highlightedId && highlightedRef.current) {

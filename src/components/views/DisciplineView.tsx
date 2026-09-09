@@ -9,11 +9,24 @@ import StudentAvatar from '@/components/ui/StudentAvatar'
 import { Shield, Megaphone, Users, Ban, AlertTriangle, Award, Send, Check, X, Edit, Brain } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete from './SearchAutocomplete'
+import { useFeatureAccess } from '@/hooks/useFeatureAccess'
+import { useRouter } from 'next/navigation'
 
 export default function DisciplineView() {
   const { userRole, userData, highlightedId } = useEduGestStore()
   const highlightedRef = useRef<HTMLTableRowElement>(null)
   const tabBarRef = useRef<HTMLDivElement>(null)
+  const { hasAccess, requiredTier } = useFeatureAccess('discipline')
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!hasAccess) {
+      router.push(`/subscription-required?feature=discipline&requiredTier=${requiredTier}`)
+    }
+  }, [hasAccess, requiredTier, router])
+
+  if (!hasAccess) return null
+
   useEffect(() => {
     if (highlightedId && highlightedRef.current) {
       highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })

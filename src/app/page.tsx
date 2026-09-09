@@ -12,6 +12,7 @@ import StudentAvatar from '@/components/ui/StudentAvatar'
 import { FlagIcon } from '@/components/FlagIcon'
 import dynamic from 'next/dynamic'
 const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
+import { AnimatedCounter, ScrollReveal, StaggerContainer, StaggerItem, GlowCard, MagneticButton, AuroraBackground, BlurText, GradientText } from '@/components/animated'
 import SuperAdminDashboard from '@/components/dashboards/SuperAdminDashboard'
 import SecretaryDashboard from '@/components/dashboards/SecretaryDashboard'
 import CashierDashboard from '@/components/dashboards/CashierDashboard'
@@ -39,12 +40,15 @@ import {
   Info, Zap, Globe, Lock, Award, Ban, CircleDot, ListChecks,
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
-   ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown
+   ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown,
+  User, Landmark, Palette
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell
 } from 'recharts'
+import { useFeatureAccess } from '@/hooks/useFeatureAccess'
+import { useRouter } from 'next/navigation'
 
 // ===== Types (imported from @/lib/types) =====
 // ===== CONSTANTS (imported from @/lib/constants) =====
@@ -208,8 +212,9 @@ function PublicHeader({ dark = false }: { dark?: boolean }) {
   return (
     <header className={`sticky top-0 z-50 ${dark ? 'bg-transparent' : 'bg-white/85 backdrop-blur-xl border-b border-edu-border'}`}>
       <div className="container-premium h-16 flex items-center justify-between">
-        <button onClick={() => setCurrentView('home')} className="flex items-center gap-2.5 font-bold text-base">
-          <BrandMark />
+        <button onClick={() => setCurrentView('home')} className="flex items-center gap-2 font-bold text-base">
+          <i className="ri-graduation-cap-fill text-xl" style={{ color: '#f5a623' }}></i>
+          EduGest
         </button>
         <nav className="hidden sm:flex items-center gap-1">
           <button onClick={() => setCurrentView('home')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Écoles</button>
@@ -237,6 +242,7 @@ function PublicHeader({ dark = false }: { dark?: boolean }) {
 function Footer() {
   const { setCurrentView } = useEduGestStore()
   return (
+    <ScrollReveal direction="up">
     <footer style={{ background: DARK }} className="mt-auto text-white">
       <div className="container-premium py-16 sm:py-20 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
         <div>
@@ -271,6 +277,7 @@ function Footer() {
         <span className="mt-2 sm:mt-0">Conditions · Confidentialité · Cookies</span>
       </div>
     </footer>
+    </ScrollReveal>
   )
 }
 
@@ -549,6 +556,7 @@ function HomeView() {
     <div className="min-h-screen flex flex-col">
       {/* ===== HERO SECTION — Institutional Excellence ===== */}
       <section className="relative w-full min-h-[700px] sm:min-h-[900px] flex flex-col overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+        <AuroraBackground>
         {/* Parallax floating icons container */}
         <div id="stitch-parallax-container" className="absolute inset-0 pointer-events-none overflow-hidden z-0" />
 
@@ -580,7 +588,7 @@ function HomeView() {
               <span className="italic font-playfair inline-block relative" style={{ color: '#f5a623', textShadow: '0 0 25px rgba(245, 166, 35, 0.5), 0 0 50px rgba(245, 166, 35, 0.2)' }}>{typewriterLine2}{typewriterActiveLine === 2 && <span className="animate-pulse">|</span>}</span>
             </h1>
             <p className="text-gray-300 text-base sm:text-lg md:text-xl max-w-2xl mx-auto font-medium leading-relaxed opacity-80">
-              La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants pour un avenir meilleur.
+              <BlurText text="La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants pour un avenir meilleur." delay={60} stepDuration={0.4} />
             </p>
           </div>
 
@@ -618,18 +626,23 @@ function HomeView() {
           {/* Stats cards with tilt */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-3xl px-4 relative z-20">
             {[
-              { value: '240+', label: 'Établissements', glow: 'bg-[#f5a623]/5 group-hover:bg-[#f5a623]/10', pos: '-top-10 -right-10' },
-              { value: '50 000+', label: 'Familles', glow: 'bg-emerald-500/5 group-hover:bg-emerald-500/10', pos: '-bottom-10 -left-10' },
-              { value: '98%', label: 'Satisfaction', glow: 'bg-cyan-500/5 group-hover:bg-cyan-500/10', pos: 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2' },
+              { value: 240, suffix: '+', label: 'Établissements', glow: 'oklch(72% 0.15 65 / 0.3)', icon: '🏫' },
+              { value: 50000, suffix: '+', label: 'Familles', glow: 'oklch(72% 0.22 165 / 0.3)', icon: '👨‍👩‍👧‍👦' },
+              { value: 98, suffix: '%', label: 'Satisfaction', glow: 'oklch(72% 0.15 210 / 0.3)', icon: '⭐' },
             ].map((stat) => (
-              <div key={stat.label} className="p-5 rounded-2xl flex flex-col items-center justify-center group cursor-default border-white/5 overflow-hidden relative" style={{ background: 'rgba(26, 37, 32, 0.4)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)', transformStyle: 'preserve-3d', transition: 'transform 0.4s cubic-bezier(0.23, 1, 0.32, 1)' }}>
-                <div className={`absolute ${stat.pos} w-32 h-32 ${stat.glow} blur-3xl rounded-full transition-colors`} />
-                <span className="text-3xl font-black text-white tracking-tighter mb-1.5 group-hover:text-[#f5a623] transition-colors duration-500">{stat.value}</span>
-                <span className="text-[9px] text-gray-400 uppercase tracking-[0.3em] font-extrabold group-hover:text-white transition-colors duration-500">{stat.label}</span>
-              </div>
+              <GlowCard key={stat.label} glowColor={stat.glow}>
+                <div className="p-6 flex flex-col items-center justify-center group cursor-default">
+                  <span className="text-2xl mb-2">{stat.icon}</span>
+                  <span className="text-3xl font-black text-white tracking-tighter mb-1.5 group-hover:text-[#f5a623] transition-colors duration-500">
+                    <AnimatedCounter target={stat.value} suffix={stat.suffix} duration={2.5} />
+                  </span>
+                  <span className="text-[9px] text-gray-400 uppercase tracking-[0.3em] font-extrabold group-hover:text-white transition-colors duration-500">{stat.label}</span>
+                </div>
+              </GlowCard>
             ))}
           </div>
         </main>
+        </AuroraBackground>
       </section>
 
       {/* ===== TRUST SIGNALS BAR ===== */}
@@ -704,10 +717,10 @@ function HomeView() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
               {filteredSchools.map((school, idx) => (
+                <ScrollReveal key={school.id} direction="up" delay={idx * 0.08}>
                 <button
-                  key={school.id}
                   onClick={() => { setSelectedSchoolId(school.id); setCurrentView('school-detail') }}
-                  className="block text-left bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden edu-card-lift group"
+                  className="block w-full text-left bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden edu-card-lift group"
                 >
                   <div className={`h-[120px] relative bg-gradient-to-br ${COVER_GRADIENTS[idx % COVER_GRADIENTS.length]} flex items-end p-4`}>
                     {/* Mesh gradient overlay */}
@@ -751,6 +764,7 @@ function HomeView() {
                     </div>
                   </div>
                 </button>
+                </ScrollReveal>
               ))}
             </div>
           )}
@@ -765,23 +779,25 @@ function HomeView() {
             <span style={{ color: GOLD }}>►</span>
           </div>
           <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
-            Pourquoi choisir <span style={{ color: GOLD }}>EduGest</span>
+            Pourquoi choisir <GradientText className="inline-block" colors={['#f5a623', '#e8962d', '#d4860f']}>EduGest</GradientText>
           </h2>
           <p className="text-base max-w-[500px] mx-auto mb-12" style={{ color: TEXT_MUTED_LUXE }}>
             Une plateforme conçue pour les réalités africaines, avec les outils qu&apos;il vous faut.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8" staggerDelay={0.1}>
             {FEATURES.map((feature, idx) => (
-              <div key={idx} className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl p-8 text-left edu-card-lift group">
+              <StaggerItem key={idx}>
+              <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl p-8 text-left edu-card-lift group">
                 <div className="edu-icon-gradient w-12 h-12 rounded-xl mb-5 group-hover:scale-110 transition-transform duration-300">
                   {feature.icon}
                 </div>
                 <h3 className="text-[17px] sm:text-[21px] font-bold mb-2" style={{ color: TEXT_PRIMARY }}>{feature.title}</h3>
                 <p className="text-sm leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>{feature.desc}</p>
               </div>
+              </StaggerItem>
             ))}
-          </div>
+            </StaggerContainer>
         </div>
       </section>
 
@@ -797,7 +813,13 @@ function SchoolDetailView() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!selectedSchoolId) return
+    if (!selectedSchoolId) {
+      // No school selected (e.g. stale restored view) — self-heal to home
+      // instead of spinning forever.
+      setLoading(false)
+      setCurrentView('home')
+      return
+    }
     async function load() {
       try {
         const res = await fetch(`/api/schools/${selectedSchoolId}`)
@@ -1281,6 +1303,7 @@ function CreateSchoolView() {
           login(role, {
             id: apiUser.id, name: apiUser.name, role,
             schoolId: apiUser.schoolId, schoolName: json.data.school.name,
+            schoolLogo: json.data.school.logo || null,
             initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
             profileImageUrl: null,
             subscriptionTier: json.data.school.subscriptionTier || 'FREEMIUM',
@@ -1381,6 +1404,7 @@ function CreateSchoolView() {
                     login(role, {
                       id: apiUser.id, name: apiUser.name, role,
                       schoolId: apiUser.schoolId, schoolName: form.name,
+                      schoolLogo: form.logo || null,
                       initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
                       profileImageUrl: null,
                       subscriptionTier: 'FREEMIUM',
@@ -1491,24 +1515,6 @@ function CreateSchoolView() {
                 <h2 className="text-xl font-bold text-white mb-1">Créer votre école</h2>
                 <p className="text-white/50 text-sm mb-6">Renseignez les informations de votre établissement</p>
 
-                {/* Logo upload */}
-                <div className="mb-6 flex items-center gap-4">
-                  <label className="w-20 h-20 rounded-xl border-2 border-dashed border-white/20 hover:border-[#f5a623]/50 flex items-center justify-center cursor-pointer transition group overflow-hidden">
-                    {logoPreview ? (
-                      <img src={logoPreview} alt="Logo" className="w-full h-full object-cover rounded-xl" />
-                    ) : logoUploading ? (
-                      <div className="h-5 w-5 border-2 border-white/30 border-t-[#f5a623] rounded-full animate-spin" />
-                    ) : (
-                      <div className="text-center text-white/30 group-hover:text-white/50 transition">
-                        <ImagePlus size={20} />
-                        <span className="text-[9px] block mt-1">Logo</span>
-                      </div>
-                    )}
-                    <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-                  </label>
-                  <div className="text-xs text-white/40">Logo de l&apos;école<br /><span className="text-white/25">JPG, PNG max 5MB</span></div>
-                </div>
-
                 {/* Auto-geolocation map */}
                 <div className="mb-6">
                   <div className="flex items-center gap-2 mb-2">
@@ -1571,16 +1577,34 @@ function CreateSchoolView() {
                     <input value={form.country} onChange={e => updateForm('country', e.target.value)} placeholder="Auto-remplie par la carte" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Logo de l&apos;école</label>
+                    <div className="flex items-center gap-3">
+                      <label className="w-14 h-14 rounded-xl border-2 border-dashed border-white/20 hover:border-[#f5a623]/50 flex items-center justify-center cursor-pointer transition group overflow-hidden shrink-0">
+                        {logoPreview ? (
+                          <img src={logoPreview} alt="Logo" className="w-full h-full object-cover rounded-xl" />
+                        ) : logoUploading ? (
+                          <div className="h-4 w-4 border-2 border-white/30 border-t-[#f5a623] rounded-full animate-spin" />
+                        ) : (
+                          <div className="text-center text-white/30 group-hover:text-white/50 transition">
+                            <ImagePlus size={18} />
+                          </div>
+                        )}
+                        <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                      </label>
+                      <span className="text-[10px] text-white/30">JPG, PNG<br />max 5MB</span>
+                    </div>
+                  </div>
+                  <div>
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Type</label>
                     <div className="flex gap-2">
                       {[
-                        { value: 'MIXTE', label: 'Mixte', icon: '👥' },
-                        { value: 'FILLES', label: 'Filles', icon: '👧' },
-                        { value: 'GARCONS', label: 'Garçons', icon: '👦' },
+                        { value: 'MIXTE', label: 'Mixte', icon: <Users size={18} /> },
+                        { value: 'FILLES', label: 'Filles', icon: <User size={18} /> },
+                        { value: 'GARCONS', label: 'Garçons', icon: <UserCircle size={18} /> },
                       ].map(opt => (
                         <button key={opt.value} type="button" onClick={() => updateForm('schoolType', opt.value)}
                           className={`flex-1 py-3 rounded-xl border text-sm font-medium transition-all ${form.schoolType === opt.value ? 'border-[#f5a623] bg-[#f5a623]/10 text-[#f5a623]' : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70'}`}>
-                          <span className="block text-lg mb-0.5">{opt.icon}</span>
+                          <span className="block mb-0.5">{opt.icon}</span>
                           {opt.label}
                         </button>
                       ))}
@@ -1590,12 +1614,12 @@ function CreateSchoolView() {
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Catégorie</label>
                     <div className="flex gap-2">
                       {[
-                        { value: 'PRIVEE', label: 'Privée', icon: '🏫' },
-                        { value: 'PUBLIQUE', label: 'Publique', icon: '🏛️' },
+                        { value: 'PRIVEE', label: 'Privée', icon: <Building2 size={18} /> },
+                        { value: 'PUBLIQUE', label: 'Publique', icon: <Landmark size={18} /> },
                       ].map(opt => (
                         <button key={opt.value} type="button" onClick={() => updateForm('schoolCategory', opt.value)}
                           className={`flex-1 py-3 rounded-xl border text-sm font-medium transition-all ${form.schoolCategory === opt.value ? 'border-[#f5a623] bg-[#f5a623]/10 text-[#f5a623]' : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70'}`}>
-                          <span className="block text-lg mb-0.5">{opt.icon}</span>
+                          <span className="block mb-0.5">{opt.icon}</span>
                           {opt.label}
                         </button>
                       ))}
@@ -1605,10 +1629,10 @@ function CreateSchoolView() {
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Niveau scolaire</label>
                     <div className="flex gap-2 flex-wrap">
                       {[
-                        { value: 'MATERNELLE', label: 'Maternelle', icon: '🎨' },
-                        { value: 'PRIMAIRE', label: 'Primaire', icon: '📚' },
-                        { value: 'SECONDAIRE', label: 'Secondaire', icon: '🎓' },
-                        { value: 'POLYVALENTE', label: 'Polyvalente', icon: '🏛️' },
+                        { value: 'MATERNELLE', label: 'Maternelle', icon: <Palette size={18} /> },
+                        { value: 'PRIMAIRE', label: 'Primaire', icon: <BookOpen size={18} /> },
+                        { value: 'SECONDAIRE', label: 'Secondaire', icon: <GraduationCap size={18} /> },
+                        { value: 'POLYVALENTE', label: 'Polyvalente', icon: <Building2 size={18} /> },
                       ].map(opt => (
                         <button key={opt.value} type="button" onClick={() => updateForm('schoolLevel', form.schoolLevel === opt.value ? '' : opt.value)}
                           className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all ${form.schoolLevel === opt.value ? 'border-[#f5a623] bg-[#f5a623]/10 text-[#f5a623]' : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70'}`}>
@@ -1833,6 +1857,7 @@ function LoginView() {
             role,
             schoolId: apiUser.schoolId,
             schoolName: apiUser.school?.name || 'EduGest',
+            schoolLogo: apiUser.school?.logo || null,
             initials: getInitials(apiUser.name),
             profileImageUrl: apiUser.profileImageUrl || null,
             subjectName: apiUser.subjectName || null,
@@ -1940,25 +1965,6 @@ function LoginView() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-white/70">École</label>
-              <div className="relative">
-                <select
-                  value={selectedSchoolId}
-                  onChange={e => setSelectedSchoolId(e.target.value)}
-                  className="w-full px-4 py-3.5 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)] focus:border-[oklch(55%_0.15_175_/_0.5)] appearance-none cursor-pointer"
-                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
-                >
-                  <option value="" className="bg-[#0a0f0d] text-white">Sélectionnez votre école</option>
-                  {schools.map(s => (
-                    <option key={s.id} value={s.id} className="bg-[#0a0f0d] text-white">{s.name} — {s.city}</option>
-                  ))}
-                </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-white/40">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-                </div>
-              </div>
-            </div>
             <div className="space-y-1.5">
               <label className="text-[13px] font-medium text-white/70">{tab === 'parent' ? 'Email ou numéro WhatsApp' : 'Email professionnel'}</label>
               <input
@@ -2133,6 +2139,7 @@ function LoginView() {
                             role,
                             schoolId: apiUser.schoolId,
                             schoolName: apiUser.school?.name || 'EduGest',
+                            schoolLogo: apiUser.school?.logo || null,
                             initials: getInitials(apiUser.name),
                             profileImageUrl: apiUser.profileImageUrl || null,
                             subscriptionTier: apiUser.school?.subscriptionTier || 'FREEMIUM',
@@ -2292,7 +2299,11 @@ HEAD_TEACHER: [
       {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
       <aside className={`fixed lg:sticky top-0 left-0 z-50 lg:z-auto h-screen w-[240px] flex flex-col transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} style={{ background: DARK, boxShadow: '4px 0 24px oklch(10% 0.02 250 / 0.3)' }}>
         <div className="p-[18px] flex items-center gap-2.5 border-b border-white/10">
-          <BrandMark height={32} />
+          {userData?.schoolLogo ? (
+            <img src={userData.schoolLogo} alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
+          ) : (
+            <BrandMark height={32} />
+          )}
           <div className="text-[11px] text-white/50 font-medium">{userData?.subscriptionTier === 'FREEMIUM' ? 'Direction' : getRoleLabel(userRole!)}</div>
         </div>
 
@@ -4614,6 +4625,15 @@ function PaymentVerificationView() {
 
 // ===== COMMUNICATIONS VIEW =====
 function CommunicationsView() {
+  const { hasAccess, requiredTier } = useFeatureAccess('communications')
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!hasAccess) {
+      router.push(`/subscription-required?feature=communications&requiredTier=${requiredTier}`)
+    }
+  }, [hasAccess, requiredTier, router])
+
   const [comms, setComms] = useState<CommunicationData[]>([])
   const [loading, setLoading] = useState(true)
   const [type, setType] = useState('ANNOUNCEMENT')
@@ -4636,6 +4656,8 @@ function CommunicationsView() {
       highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
   }, [highlightedId])
+
+  if (!hasAccess) return null
 
   useEffect(() => {
     const superAdminRoles = ['SUPER_ADMIN_GLOBAL', 'ADMIN']
@@ -5561,6 +5583,15 @@ function BulletinView() {
 
 // ===== CONVOCATION VIEW =====
 function ConvocationView() {
+  const { hasAccess, requiredTier } = useFeatureAccess('convocations')
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!hasAccess) {
+      router.push(`/subscription-required?feature=convocations&requiredTier=${requiredTier}`)
+    }
+  }, [hasAccess, requiredTier, router])
+
   const { userData, userRole, highlightedId } = useEduGestStore()
   const isParent = userRole === 'PARENT'
   const canCreate = ['SUPER_ADMIN_GLOBAL', 'ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE'].includes(userRole || '')
@@ -5574,6 +5605,8 @@ function ConvocationView() {
   const [convocations, setConvocations] = useState<any[]>([])
   const [loadingConvocations, setLoadingConvocations] = useState(true)
   const [totalUsers, setTotalUsers] = useState(0)
+
+  if (!hasAccess) return null
   const [expandedConvocation, setExpandedConvocation] = useState<string | null>(null)
   const [responseModal, setResponseModal] = useState<{ convocationId: string; motif: string } | null>(null)
   const [responseType, setResponseType] = useState<'PRESENT' | 'ABSENT' | 'CUSTOM'>('PRESENT')

@@ -172,7 +172,7 @@ export async function checkCanCreateStudent(schoolId: string | null | undefined)
   const school = await db.school.findUnique({ where: { id: schoolId }, select: { subscriptionTier: true } });
   const tier = school?.subscriptionTier || 'FREEMIUM';
   const limits = getTierLimits(tier);
-  const current = await db.student.count({ where: { schoolId } });
+  const current = await db.student.count({ where: { schoolId, isArchived: false } });
   if (current >= limits.maxStudents) {
     return { ok: false, error: `Limite d'élèves atteinte (${limits.maxStudents} max pour ${tier}). Passez au forfait supérieur.`, limit: limits.maxStudents, current };
   }
@@ -203,4 +203,27 @@ export async function checkCanCreateUser(schoolId: string | null | undefined, ro
 
 export function canTierConfigPayments(tier: string): boolean {
   return getTierLimits(tier).canConfigPayments;
+}
+
+export async function getSchoolTier(schoolId: string): Promise<string> {
+  const school = await db.school.findUnique({
+    where: { id: schoolId },
+    select: { subscriptionTier: true },
+  });
+  return school?.subscriptionTier || 'FREEMIUM';
+}
+
+// Ordre des tiers pour déterminer le minimum requis
+const TIER_ORDER = ['FREEMIUM', 'ESSENTIEL', 'STANDARD', 'PREMIUM', 'ENTERPRISE', 'CORPORATE'];
+
+/**
+ * Retourne le tier minimum requis pour une fonctionnalité
+ */
+export function getMinTierForFeature(feature: string): string {
+  for (const tier of TIER_ORDER) {
+    if (SUBSCRIPTION_FEATURES[tier]?.includes(feature as TierFeature)) {
+      return tier;
+    }
+  }
+  return 'FREEMIUM';
 }
