@@ -68,9 +68,19 @@ server.log
 # Download
 /download/
 
-# Mini services
-/mini-services/
+# Mini services — source is versioned, runtime artifacts are not
+/mini-services/*/node_modules/
+/mini-services/*/.env*
+/mini-services/*/db/
+/mini-services/*/.sessions/
 
+# Environment build scripts (sandbox tooling, not app code)
+/tests/
+.zscripts/dev.pid
+
+# Verification screenshots (agent tooling)
+/update-verified.png
+/verify-*.png
 # Caddyfile
 Caddyfile
 tool-results/
@@ -85,3 +95,7 @@ whatsapp-auth/
 
 # Sessions
 .sessions/
+
+# Sandbox runtime build scripts
+.zscripts/database-runtime-build.sh
+.zscripts/python-runtime-build.sh

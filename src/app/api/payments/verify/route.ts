@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { notify } from '@/lib/notify';
 import { requirePermission, verifySchoolAccess, sanitizeError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
         
         // In-app notification to parent
         if (studentData?.parentId) {
-          await db.notification.create({
+          await notify({
             data: {
               type: 'PAYMENT_APPROVED',
               title: 'Paiement approuvé',
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
         
         // In-app notification to parent
         if (studentData?.parentId) {
-          await db.notification.create({
+          await notify({
             data: {
               type: 'PAYMENT_REJECTED',
               title: 'Paiement rejeté',

@@ -86,6 +86,7 @@ model User {
   homeworkReads   HomeworkRead[]
   convocationReads ConvocationRead[]
   teacherAssignments TeacherAssignment[]
+  pushSubscriptions PushSubscription[]
 }
 
 model Student {
@@ -103,6 +104,8 @@ model Student {
   schoolId      String
   schoolYearId  String
   isExcluded    Boolean   @default(false)
+  isArchived    Boolean   @default(false)
+  archivedAt    DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -190,6 +193,20 @@ model Notification {
 
   @@index([userId, isRead])
   @@index([schoolId])
+}
+
+// Web Push browser subscription (for real push notifications even when the app is closed)
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model SchoolYear {

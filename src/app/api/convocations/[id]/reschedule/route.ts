@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, sanitizeError } from '@/lib/auth';
 
@@ -58,7 +59,7 @@ export async function POST(
     // Create notification for the parent
     try {
       if (convocation.student.parentId) {
-        await db.notification.create({
+        await notify({
           data: {
             type: 'CONVOCATION_RESCHEDULED',
             title: 'Convocation reportée',

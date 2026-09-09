@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
 
@@ -161,7 +162,7 @@ export async function POST(request: NextRequest) {
         where: { schoolId, role: { in: ['SUPER_ADMIN_GLOBAL', 'ADMIN'] } },
       });
       for (const admin of admins) {
-        await db.notification.create({
+        await notify({
           data: {
             userId: admin.id,
             schoolId,

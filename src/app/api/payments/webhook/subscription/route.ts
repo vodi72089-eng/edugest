@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
       });
 
       for (const admin of superAdmins) {
-        await db.notification.create({
+        await notify({
           data: {
             type: 'SUBSCRIPTION_PAYMENT',
             title: 'Paiement d\'abonnement reçu',

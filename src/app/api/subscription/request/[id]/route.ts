@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { notify } from '@/lib/notify';
 import { requireRole, sanitizeError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -95,7 +96,7 @@ export async function PATCH(
     });
 
     for (const u of schoolUsers) {
-      await db.notification.create({
+      await notify({
         data: {
           userId: u.id,
           schoolId: subRequest.schoolId,

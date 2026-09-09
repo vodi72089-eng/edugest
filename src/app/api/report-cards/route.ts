@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { notify } from '@/lib/notify';
 import { requireAuth, requireRole, verifySchoolAccess, sanitizeError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -166,7 +167,7 @@ export async function POST(request: NextRequest) {
           select: { id: true },
         });
         for (const admin of schoolAdmins) {
-          await db.notification.create({
+          await notify({
             data: {
               type: 'BULLETIN_UPDATED',
               title: 'Bulletin mis à jour',
@@ -180,7 +181,7 @@ export async function POST(request: NextRequest) {
 
         // Notify parent
         if (student.parentId) {
-          await db.notification.create({
+          await notify({
             data: {
               type: 'BULLETIN_UPDATED',
               title: 'Bulletin disponible',

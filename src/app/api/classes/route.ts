@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
 
@@ -142,7 +143,7 @@ export async function POST(request: NextRequest) {
         select: { id: true },
       });
       for (const admin of schoolAdmins) {
-        await db.notification.create({
+        await notify({
           data: {
             type: 'CLASS_CREATED',
             title: 'Nouvelle classe créée',

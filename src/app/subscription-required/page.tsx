@@ -5,7 +5,7 @@ import { useEduGestStore } from '@/lib/store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Lock, ArrowUpRight } from 'lucide-react';
+import { Lock, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
 
@@ -15,7 +15,7 @@ function SubscriptionRequiredContent() {
   
   const feature = searchParams.get('feature') || 'cette fonctionnalité';
   const requiredTier = searchParams.get('requiredTier') || 'STANDARD';
-  const currentTier = userData?.school?.subscriptionTier || 'FREEMIUM';
+  const currentTier = userData?.subscriptionTier || (userData as { school?: { subscriptionTier?: string } } | undefined)?.school?.subscriptionTier || 'FREEMIUM';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -46,11 +46,14 @@ function SubscriptionRequiredContent() {
           </div>
           
           <Button asChild className="w-full">
-            <Link href="/pricing">
-              Upgrader mon forfait
-              <ArrowUpRight className="ml-2 h-4 w-4" />
+            <Link href="/">
+              Retour à l&apos;application
+              <ArrowLeft className="ml-2 h-4 w-4" />
             </Link>
           </Button>
+          <p className="text-xs text-center text-muted-foreground">
+            Consultez et comparez les forfaits depuis le menu « Tarifs » de l&apos;application.
+          </p>
         </CardContent>
       </Card>
     </div>

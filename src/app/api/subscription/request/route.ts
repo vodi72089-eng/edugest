@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { notify } from '@/lib/notify';
 import { requireAuth, sanitizeError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
     });
 
     for (const admin of superAdmins) {
-      await db.notification.create({
+      await notify({
         data: {
           userId: admin.id,
           schoolId: user.schoolId!,

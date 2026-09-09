@@ -40,8 +40,8 @@ import {
   Info, Zap, Globe, Lock, Award, Ban, CircleDot, ListChecks,
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
-   ChevronUp, ExternalLink, Check, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown,
-  User, Landmark, Palette
+   ChevronUp, ExternalLink, Check, Copy, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown,
+  User, Landmark, Palette, BellRing
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -2407,6 +2407,16 @@ function canAccessView(role: string | null, view: ViewType, subscriptionTier?: s
   return allowed.includes(view)
 }
 
+// ===== WEB PUSH : conversion clé VAPID base64url -> Uint8Array =====
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(new ArrayBuffer(rawData.length));
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
 // ===== TOPBAR =====
 function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; onToggleSidebar: () => void }) {
   const { currentView, sidebarOpen, setSidebarOpen, setCurrentView, userData, userRole, setHighlightedId } = useEduGestStore()
@@ -2416,6 +2426,8 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   const [showNotifications, setShowNotifications] = useState(false)
   const [notifCycleIndex, setNotifCycleIndex] = useState(0)
   const notifPanelRef = useRef<HTMLDivElement>(null)
+  const [pushStatus, setPushStatus] = useState<'unsupported' | 'default' | 'granted' | 'denied' | 'subscribed'>('default')
+  const [pushLoading, setPushLoading] = useState(false)
 
   const adminRoles = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'SECRETARY']
   const showPendingComms = adminRoles.includes(userRole || '')
@@ -2434,6 +2446,67 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
   }, [userData?.id]);
+
+  // ===== WEB PUSH : enregistrement du service worker + auto-abonnement =====
+  useEffect(() => {
+    if (!userData?.id) return;
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || typeof Notification === 'undefined') {
+      setPushStatus('unsupported');
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const reg = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.ready;
+        if (cancelled) return;
+        const perm = Notification.permission;
+        if (perm !== 'granted') { setPushStatus(perm === 'denied' ? 'denied' : 'default'); return; }
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) { setPushStatus('subscribed'); return; }
+        // Permission déjà accordée mais pas encore d'abonnement -> abonnement silencieux
+        setPushStatus('granted');
+        await enablePush(reg);
+      } catch {
+        if (!cancelled) setPushStatus('default');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userData?.id]);
+
+  const enablePush = useCallback(async (registration?: ServiceWorkerRegistration) => {
+    if (pushLoading) return;
+    try {
+      setPushLoading(true);
+      if (typeof Notification === 'undefined' || !('serviceWorker' in navigator)) { setPushStatus('unsupported'); return; }
+      const reg = registration || await navigator.serviceWorker.ready;
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { setPushStatus(perm === 'denied' ? 'denied' : 'default'); return; }
+      const keyRes = await authFetch('/api/push/vapid');
+      if (!keyRes.ok) { toast.error('Notifications non configurées sur le serveur'); setPushStatus('granted'); return; }
+      const { publicKey } = await keyRes.json();
+      if (!publicKey) { toast.error('Clé push indisponible'); return; }
+      const existing = await reg.pushManager.getSubscription();
+      const sub = existing || await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+      const subJson = sub.toJSON();
+      const res = await authFetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
+      });
+      if (!res.ok) throw new Error('Enregistrement impossible');
+      setPushStatus('subscribed');
+      toast.success('Notifications push activées 🔔');
+    } catch (e: any) {
+      toast.error(e?.message || 'Impossible d\u2019activer les notifications');
+      setPushStatus(Notification.permission === 'granted' ? 'granted' : 'default');
+    } finally {
+      setPushLoading(false);
+    }
+  }, [pushLoading]);
 
   useEffect(() => {
     if (!userData?.id || !showPendingComms) return;
@@ -2575,6 +2648,27 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
                 >Tout lire</button>
               )}
             </div>
+            {(pushStatus === 'default' || pushStatus === 'granted') && (
+              <div className="px-4 py-2.5 flex items-center justify-between gap-2 border-b" style={{ borderColor: `oklch(92% 0.005 250)`, background: GOLD_SOFT }}>
+                <div className="flex items-center gap-2 text-[11px] font-medium leading-tight" style={{ color: TEXT_PRIMARY }}>
+                  <BellRing size={13} style={{ color: GOLD }} className="shrink-0" />
+                  <span>Être alerté(e) même quand l&apos;app est fermée</span>
+                </div>
+                <button
+                  onClick={() => enablePush()}
+                  disabled={pushLoading}
+                  className="text-[11px] font-bold px-3 py-1.5 rounded-lg edu-gold-cta shrink-0 disabled:opacity-60"
+                >
+                  {pushLoading ? '...' : 'Activer'}
+                </button>
+              </div>
+            )}
+            {pushStatus === 'denied' && (
+              <div className="px-4 py-2 flex items-center gap-2 border-b text-[10px]" style={{ borderColor: `oklch(92% 0.005 250)`, color: TEXT_MUTED_LUXE }}>
+                <BellRing size={11} className="shrink-0 opacity-50" />
+                <span>Notifications bloquées — autorisez-les dans les paramètres du navigateur</span>
+              </div>
+            )}
             <div className="overflow-y-auto" style={{ maxHeight: '420px' }}>
               {notifications.length === 0 ? (
                 <div className="px-4 py-8 text-center" style={{ color: TEXT_MUTED_LUXE }}>
@@ -2678,12 +2772,14 @@ function WhatsAppConfigView() {
   }
 
   async function handleStartPhone() {
-    if (!phoneNumber.trim()) { toast.error('Entrez votre numéro de téléphone'); return }
+    const cleanedPhone = phoneNumber.trim().replace(/[^0-9]/g, '')
+    if (!cleanedPhone || cleanedPhone.length < 7) { toast.error('Entrez un numéro valide (min. 7 chiffres, format international)'); return }
     setConnectionMode('phone')
     setRequestingPair(true)
     setPairProgress([])
+    setPairCode(null)
     const steps = [
-      'Démarrage du client WhatsApp...',
+      'Démarrage du client WhatsApp (natsu-baileys-v10)...',
       'Chargement de WhatsApp Web...',
       'Génération du code de parrainage...',
     ]
@@ -2692,19 +2788,18 @@ function WhatsAppConfigView() {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 90000)
     try {
-      const res = await fetch('http://localhost:3001/pair', {
+      const res = await authFetch('/api/whatsapp-status', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': '8d98caceba0ee17db42233ee61aab69b733d8ab706e5c160' },
-        body: JSON.stringify({ phone: phoneNumber.trim().replace(/[^0-9]/g, '') }),
+        body: JSON.stringify({ action: 'pair', phone: cleanedPhone }),
         signal: controller.signal,
       })
       const json = await res.json()
-      if (json.ok && json.pairingCode) {
-        setPairCode(json.pairingCode)
+      if (json.data?.ok && json.data?.pairingCode) {
+        setPairCode(json.data.pairingCode)
         setPairProgress(p => [...p, 'Code généré !'])
         toast.success('Code de parrainage généré !')
       } else {
-        toast.error(json.error || 'Impossible de générer le code')
+        toast.error(json.data?.error || json.error || 'Impossible de générer le code')
         setPairProgress([])
       }
     } catch (e: any) {
@@ -2716,12 +2811,12 @@ function WhatsAppConfigView() {
 
   async function handleDisconnect() {
     try {
-      const res = await fetch('http://localhost:3001/logout', {
+      const res = await authFetch('/api/whatsapp-status', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': '8d98caceba0ee17db42233ee61aab69b733d8ab706e5c160' },
+        body: JSON.stringify({ action: 'logout' }),
       })
       const json = await res.json()
-      if (json.ok) {
+      if (json.data?.ok) {
         toast.success('Déconnecté')
         setWhatsappStatus('disconnected')
         setQrCode(null)
@@ -2796,7 +2891,7 @@ function WhatsAppConfigView() {
                 </div>
               )}
 
-              {whatsappStatus === 'connecting' && connectionMode === 'phone' && (
+              {whatsappStatus !== 'connected' && connectionMode === 'phone' && (
                 <div className="space-y-3">
                   {pairProgress.map((step, i) => (
                     <div key={i} className="flex items-center gap-2 text-sm" style={{ color: TEXT_PRIMARY }}>
@@ -2805,16 +2900,55 @@ function WhatsAppConfigView() {
                     </div>
                   ))}
                   {pairCode && (
-                    <div className="text-center space-y-2 pt-2">
-                      <div className="inline-block px-6 py-3 bg-[oklch(97%_0.02_175)] border border-[oklch(88%_0.01_175)] rounded-xl">
-                        <span className="text-2xl font-mono font-bold tracking-[0.3em]" style={{ color: TEXT_PRIMARY }}>{pairCode}</span>
+                    <div className="space-y-3 pt-2">
+                      <div className="text-center space-y-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: TEXT_MUTED_LUXE }}>Votre code de parrainage</p>
+                        <div className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl border-2" style={{ borderColor: 'oklch(72% 0.15 65)', background: 'linear-gradient(135deg, oklch(97% 0.02 175), oklch(97% 0.04 65))' }}>
+                          <span className="text-3xl font-mono font-bold tracking-[0.25em] select-all" style={{ color: TEXT_PRIMARY }}>{pairCode}</span>
+                          <button
+                            onClick={() => { navigator.clipboard?.writeText(pairCode).then(() => toast.success('Code copié !')).catch(() => toast.error('Copie impossible')) }}
+                            className="p-2 rounded-lg hover:bg-white/60 transition shrink-0"
+                            title="Copier le code"
+                            aria-label="Copier le code de parrainage"
+                          >
+                            <Copy size={18} style={{ color: GOLD }} />
+                          </button>
+                        </div>
+                        {phoneNumber && (
+                          <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Numéro : <span className="font-mono font-semibold" style={{ color: TEXT_PRIMARY }}>+{phoneNumber.replace(/[^0-9]/g, '')}</span></p>
+                        )}
                       </div>
-                      <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Entrez ce code sur votre téléphone WhatsApp</p>
-                      <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>WhatsApp &rarr; Appareils connectés &rarr; Connecter avec un numéro</p>
+                      <div className="rounded-xl bg-[oklch(97% 0.02_175)] border border-[oklch(88% 0.01_175)] p-3 space-y-2">
+                        <p className="text-xs font-semibold" style={{ color: TEXT_PRIMARY }}>Sur votre téléphone WhatsApp :</p>
+                        <ol className="text-xs space-y-1.5 list-decimal list-inside" style={{ color: TEXT_MUTED_LUXE }}>
+                          <li>Ouvrez <b>Paramètres</b> &rarr; <b>Appareils connectés</b></li>
+                          <li>Touchez <b>Connecter un appareil</b></li>
+                          <li>Choisissez <b>Connecter avec un numéro de téléphone</b></li>
+                          <li>Saisissez le code ci-dessus</li>
+                        </ol>
+                        <p className="text-[11px] italic" style={{ color: TEXT_MUTED_LUXE }}>⏱ Le code expire après quelques minutes. En attente de la validation...</p>
+                      </div>
+                      <div className="flex items-center justify-center gap-2 text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                        <div className="h-3 w-3 border-2 border-[oklch(72% 0.15_65)] border-t-transparent rounded-full animate-spin" />
+                        En attente que vous saisissiez le code sur votre téléphone...
+                      </div>
+                      {whatsappStatus === 'disconnected' && (
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
+                          <p className="text-xs text-amber-700">⚠️ La connexion a été fermée — le code a probablement expiré.</p>
+                          <button onClick={handleStartPhone} disabled={requestingPair} className="w-full py-2.5 rounded-xl text-white font-semibold text-sm disabled:opacity-50 transition hover:opacity-90" style={{ background: `linear-gradient(135deg, ${TEAL_COLOR}, ${GOLD_COLOR})` }}>
+                            {requestingPair ? 'Génération...' : 'Générer un nouveau code'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                   {!pairCode && (
-                    <button onClick={() => { setConnectionMode(null); setRequestingPair(false); setPairProgress([]) }} className="text-xs underline" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+                    <div className="flex items-center gap-3 pt-1">
+                      {!requestingPair && (
+                        <button onClick={handleStartPhone} className="text-xs font-semibold underline" style={{ color: GOLD }}>Réessayer</button>
+                      )}
+                      <button onClick={() => { setConnectionMode(null); setRequestingPair(false); setPairProgress([]) }} className="text-xs underline" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+                    </div>
                   )}
                 </div>
               )}
@@ -2840,17 +2974,17 @@ function WhatsAppConfigView() {
                   </div>
 
                   <button
-                    onClick={handleStartQR}
-                    disabled={starting}
+                    onClick={handleStartPhone}
+                    disabled={requestingPair || !phoneNumber.trim()}
                     className="w-full py-3 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition hover:opacity-90"
                     style={{ background: `linear-gradient(135deg, ${TEAL_COLOR}, ${GOLD_COLOR})` }}
                   >
-                    {starting ? (
+                    {requestingPair ? (
                       <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     ) : (
-                      <QrCode size={16} />
+                      <Hash size={16} />
                     )}
-                    {starting ? 'Démarrage...' : 'Option 1 : Scanner le QR Code'}
+                    {requestingPair ? 'Génération du code...' : 'Option 1 : Obtenir le code de parrainage'}
                   </button>
 
                   <div className="relative">
@@ -2863,17 +2997,17 @@ function WhatsAppConfigView() {
                   </div>
 
                   <button
-                    onClick={handleStartPhone}
-                    disabled={requestingPair || !phoneNumber.trim()}
+                    onClick={handleStartQR}
+                    disabled={starting}
                     className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm"
                     style={{ color: TEXT_PRIMARY }}
                   >
-                    {requestingPair ? (
+                    {starting ? (
                       <div className="h-4 w-4 border-2 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" />
                     ) : (
-                      <Hash size={16} />
+                      <QrCode size={16} />
                     )}
-                    {requestingPair ? 'Génération...' : 'Option 2 : Code de parrainage'}
+                    {starting ? 'Démarrage...' : 'Option 2 : Scanner le QR Code'}
                   </button>
                 </div>
               )}

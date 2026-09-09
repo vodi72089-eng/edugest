@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { notify } from '@/lib/notify';
 import { requirePermission, verifySchoolAccess, verifyParentAccess, safeParseInt, sanitizeError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -221,7 +222,7 @@ export async function POST(request: NextRequest) {
       }) : [];
 
       for (const admin of schoolAdmins) {
-        await db.notification.create({
+        await notify({
           data: {
             type: 'PAYMENT_CREATED',
             title: 'Nouveau paiement',
@@ -239,7 +240,7 @@ export async function POST(request: NextRequest) {
         select: { parentId: true, parent: { select: { phone: true, name: true } } },
       });
       if (parentData?.parentId) {
-        await db.notification.create({
+        await notify({
           data: {
             type: 'PAYMENT_CREATED',
             title: 'Paiement enregistré',

@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, sanitizeError } from '@/lib/auth';
 
@@ -38,7 +39,7 @@ export async function POST(
       data: { status: newStatus },
     });
 
-    await db.notification.create({
+    await notify({
       data: {
         userId: comm.senderId,
         schoolId: comm.schoolId,

@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
 import { notifyConvocation } from '@/lib/whatsapp-agent';
@@ -171,7 +172,7 @@ export async function POST(request: NextRequest) {
         });
 
         // Notification in-app pour le parent
-        await db.notification.create({
+        await notify({
           data: {
             userId: student.parentId,
             type: 'CONVOCATION',

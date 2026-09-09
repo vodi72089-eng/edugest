@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, sanitizeError } from '@/lib/auth';
 
@@ -65,7 +66,7 @@ export async function POST(
 
       const responseLabel = response === 'PRESENT' ? 'Présent' : response === 'ABSENT' ? 'Absent' : 'Autre réponse';
       for (const admin of schoolAdmins) {
-        await db.notification.create({
+        await notify({
           data: {
             type: 'CONVOCATION_RESPONSE',
             title: 'Réponse à la convocation',

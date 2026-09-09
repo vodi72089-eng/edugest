@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -232,7 +233,7 @@ export async function POST(request: NextRequest) {
       });
       const className = await db.class.findUnique({ where: { id: classId }, select: { name: true } });
       for (const admin of schoolAdmins) {
-        await db.notification.create({
+        await notify({
           data: {
             type: 'STUDENT_ENROLLED',
             title: 'Nouvel élève inscrit',

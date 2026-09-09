@@ -12,7 +12,9 @@ import { hasFeatureAccess, getMinTierForFeature } from '@/lib/subscription';
  */
 export function useFeatureAccess(feature: string) {
   const { userData } = useEduGestStore();
-  const tier = userData?.school?.subscriptionTier || 'FREEMIUM';
+  // Le store persiste le tier directement sur userData (structure aplatie),
+  // avec fallback sur l'objet school imbriqué pour compatibilité.
+  const tier = userData?.subscriptionTier || (userData as { school?: { subscriptionTier?: string } } | undefined)?.school?.subscriptionTier || 'FREEMIUM';
   
   return {
     hasAccess: hasFeatureAccess(tier, feature),

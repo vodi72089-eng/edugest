@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
 import { notifyDiscipline } from '@/lib/whatsapp-agent';
@@ -199,7 +200,7 @@ export async function POST(request: NextRequest) {
           select: { id: true },
         });
         for (const admin of schoolAdmins) {
-          await db.notification.create({
+          await notify({
             data: {
               type: 'DISCIPLINE_INCIDENT',
               title: 'Incident de discipline',
@@ -214,7 +215,7 @@ export async function POST(request: NextRequest) {
 
       // Create in-app notification for parent
       if (student?.parentId) {
-        await db.notification.create({
+        await notify({
           data: {
             type: 'DISCIPLINE_INCIDENT',
             title: 'Incident de discipline',

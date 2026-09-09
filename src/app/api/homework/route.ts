@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
 import { notifyHomework } from '@/lib/whatsapp-agent';
@@ -226,7 +227,7 @@ export async function POST(request: NextRequest) {
       });
       const className = await db.class.findUnique({ where: { id: classId }, select: { name: true } });
       for (const admin of schoolAdmins) {
-        await db.notification.create({
+        await notify({
           data: {
             type: 'HOMEWORK_ASSIGNED',
             title: 'Nouveau devoir',
@@ -246,7 +247,7 @@ export async function POST(request: NextRequest) {
             notifiedParents.add(student.parentId);
 
             // In-app notification
-            await db.notification.create({
+            await notify({
               data: {
                 type: 'HOMEWORK_ASSIGNED',
                 title: 'Nouveau devoir',

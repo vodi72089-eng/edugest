@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { notify } from '@/lib/notify'
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 
@@ -154,7 +155,7 @@ export async function POST(request: NextRequest) {
             select: { firstName: true, lastName: true, parentId: true },
           })
           if (student?.parentId) {
-            await db.notification.create({
+            await notify({
               data: {
                 type: 'PAYMENT_APPROVED',
                 title: 'Paiement confirmé',
