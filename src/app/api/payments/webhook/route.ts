@@ -129,8 +129,10 @@ export async function POST(request: NextRequest) {
     })
 
     if (status === 'SUCCESS' && transaction.paymentRecordId) {
-      const paidAmount = amount != null
-        ? Math.round(amount * 100)
+      // Les webhooks des passerelles renvoient le montant dans l'unité monétaire
+      // (pas en centimes) — on l'utilise tel quel, sinon montant de la transaction.
+      const paidAmount = amount != null && Number.isFinite(Number(amount))
+        ? Math.round(Number(amount))
         : transaction.amount
 
       await db.paymentRecord.update({

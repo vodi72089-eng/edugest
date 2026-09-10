@@ -191,6 +191,7 @@ export async function POST(request: NextRequest) {
             motif,
             date: convocationDate,
             schoolName: school.name,
+            schoolId,
           });
         }
       }

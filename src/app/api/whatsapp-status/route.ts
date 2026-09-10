@@ -7,10 +7,19 @@ const WA_API_KEY = process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key';
 async function waFetch(path: string, method: string = 'GET', body?: any) {
   const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json', 'x-api-key': WA_API_KEY } };
   if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(`${WA_SERVER}${path}`, opts);
-  return res.json();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 95000);
+  try {
+    const res = await fetch(`${WA_SERVER}${path}`, { ...opts, signal: controller.signal });
+    clearTimeout(timeout);
+    return await res.json();
+  } catch (e) {
+    clearTimeout(timeout);
+    throw e;
+  }
 }
 
+// GET /api/whatsapp-status — statut temps-réel de l'agent WhatsApp (mini-service)
 export async function GET(request: NextRequest) {
   try {
     const authResult = await requireRole(request, ['SUPER_ADMIN_GLOBAL']);
@@ -18,30 +27,32 @@ export async function GET(request: NextRequest) {
     const data = await waFetch('/status');
     return NextResponse.json({ data });
   } catch {
-    return NextResponse.json({ data: { status: 'disconnected', connectedPhone: null, verified: false, qr: null, linkingCode: 'EDUGEST1' } });
+    return NextResponse.json({ data: { status: 'disconnected', qr: null, connectedPhone: null, pairingCode: null, server: 'natsu-baileys-v10' } });
   }
 }
 
+// POST /api/whatsapp-status — actions sur l'agent WhatsApp
+// Actions supportées (correspondent aux endpoints RÉELS du mini-service 3001) :
+//   {} (défaut)        → /start   : démarre le client (QR + pairing disponibles)
+//   { action: 'pair' } → /pair    : code de parrainage pour un numéro
+//   { action: 'logout' } → /logout : déconnexion + suppression de la session
+//   { action: 'reset' } → /reset  : nouvelle session neuve immédiate
 export async function POST(request: NextRequest) {
   try {
     const authResult = await requireRole(request, ['SUPER_ADMIN_GLOBAL']);
     if ('error' in authResult) return authResult.error;
     const body = await request.json().catch(() => ({}));
 
-    if (body.action === 'generate-otp') {
-      const data = await waFetch('/generate-otp', 'POST', { phone: body.phone });
-      return NextResponse.json({ data });
-    }
     if (body.action === 'pair') {
       const data = await waFetch('/pair', 'POST', { phone: body.phone });
       return NextResponse.json({ data });
     }
-    if (body.action === 'verify-otp') {
-      const data = await waFetch('/verify-otp', 'POST', { code: body.code, phone: body.phone });
-      return NextResponse.json({ data });
-    }
     if (body.action === 'logout') {
       const data = await waFetch('/logout', 'POST');
+      return NextResponse.json({ data });
+    }
+    if (body.action === 'reset') {
+      const data = await waFetch('/reset', 'POST');
       return NextResponse.json({ data });
     }
 

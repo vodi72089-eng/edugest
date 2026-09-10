@@ -327,6 +327,7 @@ export async function POST(request: NextRequest) {
             maxScore: 20,
             trimester,
             schoolName: school.name,
+            schoolId: student.schoolId,
           });
         }
       }

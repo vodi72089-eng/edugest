@@ -246,6 +246,7 @@ export async function POST(request: NextRequest) {
             title,
             description,
             schoolName: school.name,
+            schoolId,
           });
         }
       }

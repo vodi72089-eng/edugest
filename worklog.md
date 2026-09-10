@@ -594,3 +594,38 @@ Stage Summary:
 - Pairing WhatsApp re-testé avec succès (2 codes frais générés) + durcissement anti-hang et fail-fast 429
 - Design inchangé ; 0 erreur console ; responsive vérifié
 - Repo GitHub à jour avec : pairing Baileys natsu en mini-service, Web Push, fixes (notify strip, gate abonnement, animated), logos passerelles, DB démo à jour
+
+---
+Task ID: 15
+Agent: main (orchestrator)
+Task: Vérifier que les APIs de paiement marcheront réellement en mode live, que l'agent WhatsApp de l'école pourra envoyer communications/convocations/devoirs/bulletins, corriger les problèmes, et pousser sur GitHub
+
+Work Log:
+- AUDIT SYSTÈME : Next.js 3000 + mini-service WhatsApp 3001 actifs ; commit 638e00e déjà poussé (git ls-remote vérifié) ; design intact (VLM : « premium et intact, aucun chevauchement » desktop + mobile 390px)
+- TESTS E2E PAIEMENT (réels, via HTTP + Prisma) :
+  * Config passerelle POST /api/payment-gateways → 201 ; apiKey/secretKey chiffrées AES-256-GCM au repos (enc:v1:) ; round-trip déchiffrement OK ; GET masque les secrets
+  * Initiation mode test → PENDING simulé (OM-TEST-…) + transaction en DB (initiatedBy = admin)
+  * Webhook POST /api/payments/webhook?gateway=ORANGE_MONEY (payload SUCCESS) → transaction SUCCESS + PaymentRecord PAID (paidAmount+paidAt) + notification PAYMENT_APPROVED créée pour le parent
+  * Webhook réf inconnue → 404 ; passerelle non configurée → 400 propre ; paiement parent /api/payments/online → 200
+- CORRECTIONS MODE LIVE (payment-gateway.ts) :
+  * M-Pesa : OAuth = Consumer Key/Consumer Secret (apiKey:secretKey — avant : merchantId:secretKey faux) ; STK Password = base64(ShortCode + Passkey + Timestamp) avec Passkey = publicKey (avant : secretKey réutilisé) ; nouveaux champs requis validés avec messages clairs ; numéros sanitizés (2547XXXXXXXX)
+  * Orange Money : merchant_key = apiKey (avant : merchantId réutilisé) ; URL production (sans /dev) en mode live ; garde URL publique
+  * Airtel Money : X-Country dérivé de la monnaie (CDF→CD, KES→KE…) au lieu de 'CD' codé en dur ; validation identifiants live
+  * Guardes communes : NEXT_PUBLIC_APP_URL localhost/127.0.0.1 rejetée en mode live avec message actionnable ; sanitizeMsisdn()
+  * PREUVE d'appel réel : Airtel mode live avec faux identifiants → vrai appel openapi.airtel.africa → « Échec authentification Airtel Money » (400 propre)
+- UI PASSERELLES (page.tsx) : labels dynamiques par passerelle (Business ShortCode/Consumer Key/Consumer Secret/Passkey pour M-Pesa ; Client ID/Merchant Key/Client Secret pour Orange ; Client ID/Client Secret pour Airtel) + champ Passkey M-Pesa (publicKey) + hints explicatifs
+- AGENT WHATSAPP :
+  * Doublon de processus détecté (2× bun --hot index.ts sur le même dossier auth → sessions Baileys qui se remplacent) → tués + redémarrage d'une instance unique propre ; QR actif
+  * Rate-limit WhatsApp 428 (externe, dû aux ~8 codes demandés aujourd'hui) → levé après nettoyage ; codes générés avec succès : PS48-DP53 (27ms, direct 3001) puis KKFA-75PZ via le proxy Next.js /api/whatsapp-status dans l'UI navigateur (VLM confirmé : code XXXX-XXXX visible, copiable)
+  * Fail-safe vérifié : /api/bulletins/[id]/whatsapp → 503 « L'agent WhatsApp de l'école n'est pas connecté. Connectez-le dans Connexion WhatsApp » ; mini-service /send → ok:false sans crash
+  * Tous les points d'envoi vérifiés dans le code : communications (récipients + scope + plafond anti-ban 200 + espacement 1,2s), convocations, devoirs, notes, bulletins (PDF via /send-document), discipline, paiements — chacun gate sur checkSchoolAgentReady + auto-liaison du numéro connecté à l'école
+- BUG CRITIQUE CORRIGÉ : src/app/api/upload/route.ts supprimé de l'arbre de travail alors que 5+ endroits du frontend l'appellent (photos profil, logos école, pièces jointes) → restauré depuis HEAD ; autres fichiers supprimés restaurés (skills/ etc.) ; seuls les scripts de test root supprimés (check-phone.js, fix-*.js)
+- État DB : ORANGE_MONEY mode test active (démo initiation simulée) ; configs M-Pesa/Airtel de test supprimées (clés fake) ; transactions de test nettoyées
+- Lint : payment-gateway.ts 0 erreur ; page.tsx 13 erreurs préexistantes (rules-of-hooks lignes 4826-5833, héritées, hors de mes zones)
+- VERDICT MODE LIVE POUR L'UTILISATEUR : (1) renseigner les vrais identifiants selon les nouveaux labels ; (2) passer isTestMode off ; (3) définir NEXT_PUBLIC_APP_URL = URL publique HTTPS (les webhooks Orange/M-Pesa doivent joindre le serveur) — sans ça, rejet clair
+
+Stage Summary:
+- APIs de paiement : chaîne complète testée réellement (config chiffrée → initiation → webhook → PAID → notification) + 5 corrections du mode live (M-Pesa OAuth/Passkey, Orange merchant_key/URL prod, Airtel pays, garde URL publique, sanitize msisdn) + UI avec labels par passerelle et champ Passkey
+- Agent WhatsApp : instance unique propre, pairing OK (KKFA-75PZ via UI), fail-safe 503/ok:false, tous les canaux de notification (communications, convocations, devoirs, bulletins PDF, notes, discipline, paiements) branchés sur le mini-service Baileys natsu-baileys-v10
+- Route /api/upload restaurée (suppression accidentelle)
+- Prêt à pousser sur GitHub (vodi72089-eng/edugest, main)

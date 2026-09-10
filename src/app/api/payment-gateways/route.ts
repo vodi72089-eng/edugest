@@ -203,37 +203,22 @@ export async function POST(request: NextRequest) {
     };
 
     // Only overwrite credentials when the caller provides a non-empty value
-    // that is not a masked value (e.g. '****' returned by the GET response),
-    // otherwise the real keys would be replaced by asterisks.
-    const isMaskedValue = (v: string) => /^\*+.{0,4}$/.test(v);
-    if (
-      apiKey !== undefined && apiKey !== null && apiKey !== '' &&
-      !isMaskedValue(apiKey)
-    ) {
-      data.apiKey = apiKey;
-    }
-    if (
-      secretKey !== undefined && secretKey !== null && secretKey !== '' &&
-      !isMaskedValue(secretKey)
-    ) {
-      data.secretKey = secretKey;
-    }
-    if (
-      webhookSecret !== undefined && webhookSecret !== null && webhookSecret !== '' &&
-      !isMaskedValue(webhookSecret)
-    ) {
-      data.webhookSecret = webhookSecret;
-    }
-    if (secretKey !== undefined && secretKey !== null && secretKey !== '') {
-      data.secretKey = encryptSecret(secretKey);
-    }
-    if (
-      webhookSecret !== undefined &&
-      webhookSecret !== null &&
-      webhookSecret !== ''
-    ) {
-      data.webhookSecret = encryptSecret(webhookSecret);
-    }
+    // that is not a masked value (e.g. '****1234' returned by the GET response),
+    // otherwise the real keys would be replaced by asterisks. Les secrets sont
+    // chiffrés au repos (AES-256-GCM, voir src/lib/gateway-keys.ts) ; une
+    // valeur masquée ou absente laisse le secret existant inchangé.
+    const isMaskedValue = (v: unknown) =>
+      typeof v === 'string' && /^\*+.{0,4}$/.test(v);
+
+    const setSecretField = (field: 'apiKey' | 'secretKey' | 'webhookSecret', value: unknown) => {
+      if (value === undefined || value === null || value === '') return; // champ non fourni → inchangé
+      if (isMaskedValue(value)) return; // valeur masquée renvoyée par l'UI → inchangé
+      data[field] = encryptSecret(String(value));
+    };
+
+    setSecretField('apiKey', apiKey);
+    setSecretField('secretKey', secretKey);
+    setSecretField('webhookSecret', webhookSecret);
 
     const config = await db.paymentGatewayConfig.upsert({
       where: {

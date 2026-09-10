@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
 import { requireAuth, requireRole, verifySchoolAccess, sanitizeError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
+import { notifyBulletin } from '@/lib/whatsapp-agent';
 
 const CONFIG_ROLES = ['SUPER_ADMIN_GLOBAL', 'ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'HEAD_TEACHER'];
 
@@ -151,11 +152,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create in-app notifications
+    // Create in-app notifications + WhatsApp au parent
     try {
       const student = await db.student.findUnique({
         where: { id: studentId },
-        select: { firstName: true, lastName: true, parentId: true, schoolId: true },
+        select: { firstName: true, lastName: true, parentId: true, schoolId: true, classId: true },
       });
       if (student) {
         const decisionLabel = decision === 'PASSED' ? 'Admis' : decision === 'REPEAT' ? 'Redoublant' : 'En attente';
@@ -179,7 +180,7 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Notify parent
+        // Notify parent (in-app)
         if (student.parentId) {
           await notify({
             data: {
@@ -191,6 +192,48 @@ export async function POST(request: NextRequest) {
               relatedId: reportCard.id,
             },
           });
+
+          // ── WhatsApp au parent : résumé du bulletin avec rang de classe ──
+          const parent = await db.user.findUnique({
+            where: { id: student.parentId },
+            select: { phone: true },
+          });
+          const school = await db.school.findUnique({
+            where: { id: student.schoolId },
+            select: { name: true },
+          });
+          if (parent?.phone && school) {
+            // Calcul du rang : moyennes des bulletins de la classe pour ce trimestre
+            let ranking = 1;
+            let totalClassStudents = 1;
+            try {
+              const classmates = await db.student.findMany({
+                where: { classId: student.classId, isArchived: false, isExcluded: false },
+                select: { id: true },
+              });
+              const ids = classmates.map(c => c.id);
+              const cards = await db.reportCard.findMany({
+                where: { studentId: { in: ids }, trimester, schoolYearId: schoolYear.id, average: { not: null } },
+                select: { studentId: true, average: true },
+              });
+              const sorted = [...cards].sort((a, b) => (b.average ?? 0) - (a.average ?? 0));
+              const rank = sorted.findIndex(c => c.studentId === studentId) + 1;
+              if (rank > 0) ranking = rank;
+              totalClassStudents = Math.max(sorted.length, 1);
+            } catch { /* classement best-effort */ }
+
+            const finalAverage = Number(average ?? reportCard.average ?? 0);
+            void notifyBulletin({
+              parentPhone: parent.phone,
+              studentName: `${student.firstName} ${student.lastName}`,
+              trimester,
+              average: finalAverage,
+              ranking,
+              totalStudents: totalClassStudents,
+              schoolName: school.name,
+              schoolId: student.schoolId,
+            }).catch(e => console.error('[ReportCard] WhatsApp bulletin failed:', e));
+          }
         }
       }
     } catch { /* notification failed, non-critical */ }

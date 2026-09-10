@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
           const parent = await db.user.findUnique({ where: { id: studentData.parentId }, select: { phone: true } });
           if (parent?.phone) {
             const { notifyPaymentApproved } = await import('@/lib/whatsapp-agent');
-            notifyPaymentApproved(parent.phone, `${studentData.firstName} ${studentData.lastName}`, Number(payment.amount), payment.trimester, schoolData?.name || '');
+            notifyPaymentApproved(parent.phone, `${studentData.firstName} ${studentData.lastName}`, Number(payment.amount), payment.trimester, schoolData?.name || '', payment.schoolId);
           }
         }
       } catch { /* notification failed, non-critical */ }
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
           const parent = await db.user.findUnique({ where: { id: studentData.parentId }, select: { phone: true } });
           if (parent?.phone) {
             const { notifyPaymentRejected } = await import('@/lib/whatsapp-agent');
-            notifyPaymentRejected(parent.phone, `${studentData.firstName} ${studentData.lastName}`, Number(payment.amount), payment.trimester, schoolData?.name || '', verificationNote || 'Paiement rejeté');
+            notifyPaymentRejected(parent.phone, `${studentData.firstName} ${studentData.lastName}`, Number(payment.amount), payment.trimester, schoolData?.name || '', payment.schoolId, verificationNote || 'Paiement rejeté');
           }
         }
       } catch { /* notification failed, non-critical */ }

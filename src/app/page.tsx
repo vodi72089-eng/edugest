@@ -2741,6 +2741,7 @@ function WhatsAppConfigView() {
   const [starting, setStarting] = useState(false)
   const [requestingPair, setRequestingPair] = useState(false)
   const [pairProgress, setPairProgress] = useState<string[]>([])
+  const boundRef = useRef(false)
 
   useEffect(() => {
     checkStatus()
@@ -2755,7 +2756,20 @@ function WhatsAppConfigView() {
         const json = await res.json()
         setWhatsappStatus(json.data?.status || 'disconnected')
         if (connectionMode === 'qr') setQrCode(json.data?.qr || null)
-        if (json.data?.status === 'connected') { setPairCode(null); setPairProgress([]) }
+        if (json.data?.status === 'connected') {
+          setPairCode(null); setPairProgress([])
+          // Liaison automatique de l'agent WhatsApp au numéro de l'école
+          // (persiste le numéro réellement connecté pour les notifications)
+          if (!boundRef.current) {
+            boundRef.current = true
+            authFetch('/api/whatsapp-config/connect', { method: 'POST' })
+              .then(r => (r.ok ? r.json() : null))
+              .then(j => { if (j?.message) toast.success(j.message) })
+              .catch(() => {})
+          }
+        } else if (json.data?.status === 'disconnected') {
+          boundRef.current = false
+        }
       }
     } catch {}
     finally { setLoading(false) }
@@ -2852,7 +2866,7 @@ function WhatsAppConfigView() {
             </div>
             <div className="text-white">
               <div className="font-bold text-lg">WhatsApp Bot</div>
-              <div className="text-white/70 text-sm">Liez votre téléphone pour envoyer des OTP</div>
+              <div className="text-white/70 text-sm">Agent de l'école : OTP + notifications parents</div>
             </div>
           </div>
         </div>
@@ -2875,7 +2889,7 @@ function WhatsAppConfigView() {
                     <CheckCircle size={32} className="text-emerald-600" />
                   </div>
                   <p className="text-sm font-semibold text-emerald-700">WhatsApp est connecté !</p>
-                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Les codes OTP seront envoyés via ce téléphone.</p>
+                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Les codes OTP et les notifications (communications, convocations, devoirs, bulletins, paiements) partiront via ce numéro, au nom de l'école.</p>
                   <button onClick={handleDisconnect} className="w-full py-3 rounded-xl font-semibold text-sm border border-red-200 text-red-600 hover:bg-red-50 transition">Déconnecter</button>
                 </div>
               )}
@@ -4150,17 +4164,33 @@ function PaymentConfigView() {
               {showGatewayModal !== 'MANUAL' && (
                 <>
                   <div>
-                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Merchant ID</label>
-                    <input type="text" value={gatewayForm.merchantId || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, merchantId: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder="Identifiant marchand" style={{ color: TEXT_PRIMARY }} />
+                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>
+                      {showGatewayModal === 'MPESA' ? 'Business ShortCode' : showGatewayModal === 'ORANGE_MONEY' ? 'Client ID' : showGatewayModal === 'AIRTEL_MONEY' ? 'Client ID' : 'Merchant ID'}
+                    </label>
+                    <input type="text" value={gatewayForm.merchantId || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, merchantId: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder={showGatewayModal === 'MPESA' ? 'ex: 174379' : showGatewayModal === 'ORANGE_MONEY' || showGatewayModal === 'AIRTEL_MONEY' ? 'Identifiant OAuth (client_id)' : 'Identifiant marchand'} style={{ color: TEXT_PRIMARY }} />
+                    <p className="text-[10px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>
+                      {showGatewayModal === 'MPESA' ? 'Code court du compte Lipa Na M-Pesa (jusqu\'à 7 chiffres)' : showGatewayModal === 'ORANGE_MONEY' ? 'Client ID de votre application Orange Money' : showGatewayModal === 'AIRTEL_MONEY' ? 'Client ID de votre compte Airtel Money Open API' : 'Identifiant fourni par la passerelle'}
+                    </p>
                   </div>
                   <div>
-                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>API Key</label>
-                    <input type="password" value={gatewayForm.apiKey || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, apiKey: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder="Clé API" style={{ color: TEXT_PRIMARY }} />
+                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>
+                      {showGatewayModal === 'MPESA' ? 'Consumer Key' : showGatewayModal === 'ORANGE_MONEY' ? 'Merchant Key' : showGatewayModal === 'AIRTEL_MONEY' ? 'API Key' : 'API Key'}
+                    </label>
+                    <input type="password" value={gatewayForm.apiKey || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, apiKey: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder={showGatewayModal === 'MPESA' ? 'Consumer Key de l\'app Safaricom' : showGatewayModal === 'ORANGE_MONEY' ? 'Clé marchand du compte' : 'Clé API'} style={{ color: TEXT_PRIMARY }} />
                   </div>
                   <div>
-                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Secret Key</label>
-                    <input type="password" value={gatewayForm.secretKey || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, secretKey: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder="Clé secrète" style={{ color: TEXT_PRIMARY }} />
+                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>
+                      {showGatewayModal === 'MPESA' ? 'Consumer Secret' : showGatewayModal === 'ORANGE_MONEY' ? 'Client Secret' : showGatewayModal === 'AIRTEL_MONEY' ? 'Client Secret' : 'Secret Key'}
+                    </label>
+                    <input type="password" value={gatewayForm.secretKey || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, secretKey: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder={showGatewayModal === 'MPESA' ? 'Consumer Secret de l\'app Safaricom' : 'Secret OAuth'} style={{ color: TEXT_PRIMARY }} />
                   </div>
+                  {showGatewayModal === 'MPESA' && (
+                    <div>
+                      <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Passkey (Lipa Na M-Pesa)</label>
+                      <input type="password" value={gatewayForm.publicKey || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, publicKey: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder="Passkey du till/paybill" style={{ color: TEXT_PRIMARY }} />
+                      <p className="text-[10px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>Requis en mode live pour le STK Push (fourni par Safaricom avec votre ShortCode)</p>
+                    </div>
+                  )}
                   {(showGatewayModal === 'MPESA' || showGatewayModal === 'ORANGE_MONEY' || showGatewayModal === 'AIRTEL_MONEY') && (
                     <div>
                       <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Numéro de téléphone du marchand</label>
@@ -5613,6 +5643,26 @@ function BulletinView() {
     } catch { toast.error('Erreur réseau') }
   }
 
+  const [waSendingId, setWaSendingId] = useState<string | null>(null)
+  const handleSendWhatsApp = async (id: string, lastName?: string) => {
+    if (waSendingId) return
+    setWaSendingId(id)
+    try {
+      const res = await authFetch(`/api/bulletins/${id}/whatsapp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trimester: selectedTrimester, schoolId: userData?.schoolId || undefined }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data?.sent) {
+        toast.success(`Bulletin envoyé sur WhatsApp (${json.data.phone})`)
+      } else {
+        toast.error(json.error || "Échec de l'envoi WhatsApp")
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setWaSendingId(null) }
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
@@ -5703,6 +5753,11 @@ function BulletinView() {
                       <button onClick={() => handleDownload(st.id, st.student?.lastName)} className="w-full py-1.5 rounded-lg text-xs font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] hover:shadow-sm transition inline-flex items-center justify-center gap-1.5" style={{ color: TEXT_PRIMARY }}>
                         <FileText size={12} /> Voir bulletin
                       </button>
+                      {!isParent && (
+                        <button onClick={() => handleSendWhatsApp(st.id, st.student?.lastName)} disabled={waSendingId === st.id} className="w-full py-1.5 rounded-lg text-xs font-medium border border-[oklch(70%_0.12_175)]/40 bg-[oklch(97%_0.02_175)] hover:bg-[oklch(94%_0.04_175)] hover:shadow-sm transition disabled:opacity-60 inline-flex items-center justify-center gap-1.5" style={{ color: 'oklch(45%_0.1_175)' }}>
+                          {waSendingId === st.id ? <div className="h-3 w-3 border-2 border-[oklch(45%_0.1_175)] border-t-transparent rounded-full animate-spin" /> : <Send size={12} />} Envoyer sur WhatsApp
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

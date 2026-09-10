@@ -159,6 +159,7 @@ async function requestPairingCodeNatsu(phoneNumber: string): Promise<string> {
 async function startWhatsApp(): Promise<void> {
   if (sock) return;
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- fonction Baileys, pas un hook React
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
   sock = await makeWASocketNatsu({ creds: (state as any).creds, keys: (state as any).keys });
@@ -281,6 +282,38 @@ async function sendMessage(phone: string, message: string): Promise<boolean> {
     return true;
   } catch (error) {
     console.error('[WhatsApp] Échec envoi :', (error as Error)?.message);
+    return false;
+  }
+}
+
+// Envoi d'un document (PDF, image…) avec légende optionnelle
+async function sendDocument(params: {
+  phone: string;
+  fileBase64: string;
+  filename: string;
+  mimetype?: string;
+  caption?: string;
+}): Promise<boolean> {
+  if (!sock || connectionStatus !== 'connected') return false;
+  try {
+    const jid = params.phone.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
+    const buffer = Buffer.from(params.fileBase64, 'base64');
+    if (buffer.length === 0) return false;
+    // Limite de sécurité WhatsApp : ~100 Mo, on borne à 16 Mo ici
+    if (buffer.length > 16 * 1024 * 1024) {
+      console.error('[WhatsApp] Document trop volumineux (>16 Mo)');
+      return false;
+    }
+    await sock.sendMessage(jid, {
+      document: buffer,
+      fileName: params.filename || 'document.pdf',
+      mimetype: params.mimetype || 'application/pdf',
+      caption: params.caption || undefined,
+    });
+    console.log(`[WhatsApp] Document ${params.filename} envoyé à ${params.phone} (${Math.round(buffer.length / 1024)} Ko)`);
+    return true;
+  } catch (error) {
+    console.error('[WhatsApp] Échec envoi document :', (error as Error)?.message);
     return false;
   }
 }
@@ -411,6 +444,22 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/send' && req.method === 'POST') {
       const body = JSON.parse((await readBody(req)) || '{}');
       const ok = await sendMessage(body.phone, body.message);
+      return json(200, { ok });
+    }
+
+    // Envoi de document (bulletins PDF, pièces jointes…)
+    if (url.pathname === '/send-document' && req.method === 'POST') {
+      const body = JSON.parse((await readBody(req)) || '{}');
+      if (!body.phone || !body.fileBase64) {
+        return json(400, { ok: false, error: 'phone et fileBase64 sont requis' });
+      }
+      const ok = await sendDocument({
+        phone: String(body.phone),
+        fileBase64: String(body.fileBase64),
+        filename: String(body.filename || 'document.pdf'),
+        mimetype: body.mimetype ? String(body.mimetype) : 'application/pdf',
+        caption: body.caption ? String(body.caption) : undefined,
+      });
       return json(200, { ok });
     }
 

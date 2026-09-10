@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
+import { notifyCommunication } from '@/lib/whatsapp-agent';
 
 export async function GET(request: NextRequest) {
   try {
@@ -173,6 +174,32 @@ export async function POST(request: NextRequest) {
           },
         });
       }
+    }
+
+    // ── Diffusion WhatsApp RÉELLE via l'agent de l'école ──────────────────
+    // Exécutée en arrière-plan (les envois sont espacés d'1,2s anti-ban) :
+    // la réponse HTTP reste rapide, les messages partent réellement.
+    if (communication.sentToWhatsapp && communication.status === 'APPROVED') {
+      void (async () => {
+        try {
+          const school = await db.school.findUnique({
+            where: { id: schoolId },
+            select: { name: true },
+          });
+          await notifyCommunication({
+            schoolId,
+            schoolName: school?.name || '',
+            title: communication.title,
+            content: communication.content,
+            type: communication.type,
+            targetType: communication.targetType,
+            targetId: communication.targetId,
+            scope: communication.scope,
+          });
+        } catch (e) {
+          console.error('[Communications] Diffusion WhatsApp échouée:', e);
+        }
+      })();
     }
 
     return NextResponse.json({ data: communication }, { status: 201 });

@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, sanitizeError } from '@/lib/auth';
+import { notifyCommunication } from '@/lib/whatsapp-agent';
 
 export async function POST(
   request: NextRequest,
@@ -49,6 +50,31 @@ export async function POST(
         isRead: false,
       },
     });
+
+    // ── Diffusion WhatsApp RÉELLE au moment de l'approbation ────────────
+    // Les communications PENDING des directions ne partent qu'une fois approuvées.
+    if (newStatus === 'APPROVED' && comm.sentToWhatsapp) {
+      void (async () => {
+        try {
+          const school = await db.school.findUnique({
+            where: { id: comm.schoolId },
+            select: { name: true },
+          });
+          await notifyCommunication({
+            schoolId: comm.schoolId,
+            schoolName: school?.name || '',
+            title: comm.title,
+            content: comm.content,
+            type: comm.type,
+            targetType: comm.targetType,
+            targetId: comm.targetId,
+            scope: comm.scope,
+          });
+        } catch (e) {
+          console.error('[Communications] Diffusion WhatsApp (approbation) échouée:', e);
+        }
+      })();
+    }
 
     return NextResponse.json({ data: updated });
   } catch (error) {

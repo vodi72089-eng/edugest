@@ -260,7 +260,7 @@ export async function POST(request: NextRequest) {
         recipients.push({ phone: parentData.parent.phone, name: parentData.parent.name });
       }
       const className = await db.class.findUnique({ where: { id: student.classId }, select: { name: true } });
-      notifyPaymentCreated(recipients, studentName, className?.name || '', amount, trimesterLabel, schoolData?.name || '');
+      notifyPaymentCreated(recipients, studentName, className?.name || '', amount, trimesterLabel, schoolData?.name || '', payment.schoolId);
     } catch { /* notification failed, non-critical */ }
 
     return NextResponse.json({ 

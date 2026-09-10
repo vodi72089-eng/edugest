@@ -51,7 +51,7 @@ export const GATEWAY_INFO: Record<GatewayType, {
   MPESA: {
     name: 'MPESA',
     displayName: 'M-Pesa',
-    description: 'Mobile Money - Safaricom Kenya',
+    description: 'Mobile Money - Safaricom Kenya (STK Push)',
     supportedCurrencies: ['KES', 'USD', 'EUR'],
     supportedMethods: ['mobile_money'],
     icon: '📱',
@@ -214,8 +214,40 @@ export async function initiatePayment(
   }
 }
 
-// ─── M-Pesa ─────────────────────────────────────────────────────────────────
+// URL publique valide requise en mode live : les webhooks des passerelles
+// (Safaricom, Orange, Airtel) doivent pouvoir joindre l'application depuis
+// Internet. Une URL localhost/127.0.0.1 est rejetée avec un message clair.
+function assertPublicAppUrl(gateway: string, appUrl: string): string | null {
+  if (!appUrl) {
+    return `NEXT_PUBLIC_APP_URL non configuré — URL de callback ${gateway} invalide (requis en mode live)`;
+  }
+  try {
+    const u = new URL(appUrl);
+    if (
+      u.hostname === 'localhost' ||
+      u.hostname === '127.0.0.1' ||
+      u.hostname === '0.0.0.0' ||
+      u.hostname === '[::1]' ||
+      u.hostname.endsWith('.local')
+    ) {
+      return `NEXT_PUBLIC_APP_URL vaut « ${appUrl} » — les webhooks ${gateway} ne peuvent pas joindre une URL locale. Configurez l'URL publique de votre serveur (ex: https://votre-domaine.com) dans la variable NEXT_PUBLIC_APP_URL.`;
+    }
+  } catch { /* URL invalide */ }
+  return null;
+}
 
+// Nettoie un numéro de téléphone au format international sans « + » ni
+// espaces (format attendu par M-Pesa PartyA/PhoneNumber et Airtel msisdn).
+function sanitizeMsisdn(phone: string | undefined): string {
+  return String(phone || '').replace(/[^0-9]/g, '');
+}
+
+// ─── M-Pesa ─────────────────────────────────────────────────────────────────
+// Mapping des identifiants (mode live) :
+//   merchantId  = Business ShortCode (ex: 174379)
+//   apiKey      = Consumer Key (application Safaricom)
+//   secretKey   = Consumer Secret (application Safaricom)
+//   publicKey   = Passkey « Lipa Na M-Pesa »
 async function processMpesaPayment(
   config: any,
   request: PaymentRequest,
@@ -232,18 +264,62 @@ async function processMpesaPayment(
   }
 
   const baseUrl = 'https://api.safaricom.co.ke';
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+  const appUrlError = assertPublicAppUrl('M-Pesa', appUrl);
+  if (appUrlError) {
+    return {
+      success: false,
+      reference,
+      status: 'FAILED',
+      message: appUrlError,
+    };
+  }
+
+  // Identifiants live requis : Shortcode + Consumer Key + Consumer Secret + Passkey
+  const missing: string[] = [];
+  if (!config.merchantId) missing.push('Merchant ID (Business ShortCode)');
+  if (!config.apiKey) missing.push('API Key (Consumer Key)');
+  if (!config.secretKey) missing.push('Secret Key (Consumer Secret)');
+  if (!config.publicKey) missing.push('Passkey (Lipa Na M-Pesa)');
+  if (missing.length > 0) {
+    return {
+      success: false,
+      reference,
+      status: 'FAILED',
+      message: `Identifiants M-Pesa incomplets — renseignez : ${missing.join(', ')}`,
+    };
+  }
+
+  const customerMsisdn = sanitizeMsisdn(request.customerPhone);
+  if (!customerMsisdn || customerMsisdn.length < 10) {
+    return {
+      success: false,
+      reference,
+      status: 'FAILED',
+      message: 'Numéro de téléphone du payeur invalide (format international attendu, ex: 2547XXXXXXXX)',
+    };
+  }
 
   try {
+    // OAuth Safaricom : Consumer Key (apiKey) + Consumer Secret (secretKey)
     const authResponse = await fetch(`${baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
       method: 'GET',
       headers: {
-        'Authorization': `Basic ${Buffer.from(`${config.merchantId}:${config.secretKey}`).toString('base64')}`,
+        'Authorization': `Basic ${Buffer.from(`${config.apiKey}:${config.secretKey}`).toString('base64')}`,
       },
     });
     const authData = await authResponse.json();
     if (!authData.access_token) {
-      return { success: false, reference, status: 'FAILED', message: 'Échec authentification M-Pesa' };
+      return { success: false, reference, status: 'FAILED', message: 'Échec authentification M-Pesa (vérifiez Consumer Key et Consumer Secret)' };
     }
+
+    // Un seul calcul du timestamp : Password et Timestamp doivent correspondre
+    // exactement (YYYYMMDDHHMMSS en heure de Nairobi/EAT, UTC+3).
+    // Password = base64(ShortCode + Passkey + Timestamp)
+    const timestamp = new Date(Date.now() + 3 * 60 * 60 * 1000)
+      .toISOString()
+      .replace(/[-T:Z.]/g, '')
+      .slice(0, 14);
 
     const stkResponse = await fetch(`${baseUrl}/mpesa/stkpush/v1/processrequest`, {
       method: 'POST',
@@ -253,16 +329,16 @@ async function processMpesaPayment(
       },
       body: JSON.stringify({
         BusinessShortCode: config.merchantId,
-        Password: Buffer.from(`${config.merchantId}${config.secretKey}${new Date().toISOString().replace(/[-T:Z.]/g, '').slice(0, 14)}`).toString('base64'),
-        Timestamp: new Date().toISOString().replace(/[-T:Z.]/g, '').slice(0, 14),
+        Password: Buffer.from(`${config.merchantId}${config.publicKey}${timestamp}`).toString('base64'),
+        Timestamp: timestamp,
         TransactionType: 'CustomerPayBillOnline',
         Amount: request.amount,
-        PartyA: request.customerPhone,
+        PartyA: customerMsisdn,
         PartyB: config.merchantId,
-        PhoneNumber: request.customerPhone,
-        CallBackURL: `${process.env.NEXT_PUBLIC_APP_URL || ''}/api/payments/webhook?gateway=MPESA`,
-        AccountReference: reference,
-        TransactionDesc: request.description,
+        PhoneNumber: customerMsisdn,
+        CallBackURL: `${appUrl}/api/payments/webhook?gateway=MPESA`,
+        AccountReference: reference.slice(0, 12), // limite M-Pesa : 12 caractères
+        TransactionDesc: request.description.slice(0, 20), // limite M-Pesa : 20 caractères
       }),
     });
     const stkData = await stkResponse.json();
@@ -277,14 +353,17 @@ async function processMpesaPayment(
       };
     }
 
-    return { success: false, reference, status: 'FAILED', message: stkData.ResponseDescription || 'Échec STK Push M-Pesa' };
+    return { success: false, reference, status: 'FAILED', message: stkData.errorMessage || stkData.ResponseDescription || 'Échec STK Push M-Pesa' };
   } catch (error) {
     return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur M-Pesa' };
   }
 }
 
 // ─── Orange Money ───────────────────────────────────────────────────────────
-
+// Mapping des identifiants (mode live) :
+//   merchantId  = Client ID (OAuth)
+//   secretKey   = Client Secret (OAuth)
+//   apiKey      = Merchant Key (clé marchand du compte Orange Money)
 async function processOrangeMoneyPayment(
   config: any,
   request: PaymentRequest,
@@ -300,7 +379,33 @@ async function processOrangeMoneyPayment(
     };
   }
 
-  const baseUrl = 'https://api.orange.com/orange-money-webpay/dev/v1';
+  // Environnement : production par défaut en mode live, sandbox si isTestMode
+  const baseUrl = config.isTestMode
+    ? 'https://api.orange.com/orange-money-webpay/dev/v1'
+    : 'https://api.orange.com/orange-money-webpay/v1';
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+  const appUrlError = assertPublicAppUrl('Orange Money', appUrl);
+  if (appUrlError) {
+    return {
+      success: false,
+      reference,
+      status: 'FAILED',
+      message: appUrlError,
+    };
+  }
+
+  const missing: string[] = [];
+  if (!config.merchantId) missing.push('Merchant ID (Client ID)');
+  if (!config.secretKey) missing.push('Secret Key (Client Secret)');
+  if (!config.apiKey) missing.push('API Key (Merchant Key)');
+  if (missing.length > 0) {
+    return {
+      success: false,
+      reference,
+      status: 'FAILED',
+      message: `Identifiants Orange Money incomplets — renseignez : ${missing.join(', ')}`,
+    };
+  }
 
   try {
     const authResponse = await fetch('https://api.orange.com/oauth/v3/token', {
@@ -313,7 +418,7 @@ async function processOrangeMoneyPayment(
     });
     const authData = await authResponse.json();
     if (!authData.access_token) {
-      return { success: false, reference, status: 'FAILED', message: 'Échec authentification Orange Money' };
+      return { success: false, reference, status: 'FAILED', message: 'Échec authentification Orange Money (vérifiez Client ID et Client Secret)' };
     }
 
     const payResponse = await fetch(`${baseUrl}/webpayment`, {
@@ -323,13 +428,13 @@ async function processOrangeMoneyPayment(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        merchant_key: config.merchantId,
+        merchant_key: config.apiKey,
         currency: request.currency,
         order_id: reference,
         amount: request.amount,
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/payment/success?ref=${reference}`,
-        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/payment/cancel?ref=${reference}`,
-        notif_url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/api/payments/webhook?gateway=ORANGE_MONEY`,
+        return_url: `${appUrl}/?payment=success&ref=${reference}`,
+        cancel_url: `${appUrl}/?payment=cancel&ref=${reference}`,
+        notif_url: `${appUrl}/api/payments/webhook?gateway=ORANGE_MONEY`,
         lang: 'fr',
       }),
     });
@@ -353,7 +458,9 @@ async function processOrangeMoneyPayment(
 }
 
 // ─── Airtel Money ───────────────────────────────────────────────────────────
-
+// Mapping des identifiants (mode live) :
+//   merchantId  = Client ID (OAuth Airtel)
+//   secretKey   = Client Secret (OAuth Airtel)
 async function processAirtelMoneyPayment(
   config: any,
   request: PaymentRequest,
@@ -369,7 +476,28 @@ async function processAirtelMoneyPayment(
     };
   }
 
+  // Pays dérivé de la monnaie (Airtel exige l'en-tête X-Country)
+  const COUNTRY_BY_CURRENCY: Record<string, string> = {
+    CDF: 'CD', KES: 'KE', XOF: 'NE', NGN: 'NG', TZS: 'TZ',
+    UGX: 'UG', ZMW: 'ZM', RWF: 'RW', MWK: 'MW', INR: 'IN',
+  };
+  const country = COUNTRY_BY_CURRENCY[request.currency] || 'CD';
+
   const baseUrl = 'https://openapi.airtel.africa';
+
+  const missing: string[] = [];
+  if (!config.merchantId) missing.push('Merchant ID (Client ID)');
+  if (!config.secretKey) missing.push('Secret Key (Client Secret)');
+  if (missing.length > 0) {
+    return {
+      success: false,
+      reference,
+      status: 'FAILED',
+      message: `Identifiants Airtel Money incomplets — renseignez : ${missing.join(', ')}`,
+    };
+  }
+
+  const customerMsisdn = sanitizeMsisdn(request.customerPhone);
 
   try {
     const authResponse = await fetch(`${baseUrl}/auth/oauth2/token`, {
@@ -382,7 +510,7 @@ async function processAirtelMoneyPayment(
     });
     const authData = await authResponse.json();
     if (!authData.access_token) {
-      return { success: false, reference, status: 'FAILED', message: 'Échec authentification Airtel Money' };
+      return { success: false, reference, status: 'FAILED', message: 'Échec authentification Airtel Money (vérifiez Client ID et Client Secret)' };
     }
 
     const payResponse = await fetch(`${baseUrl}/merchant/v1/payments/`, {
@@ -390,19 +518,19 @@ async function processAirtelMoneyPayment(
       headers: {
         'Authorization': `Bearer ${authData.access_token}`,
         'Content-Type': 'application/json',
-        'X-Country': 'CD',
+        'X-Country': country,
         'X-Currency': request.currency,
       },
       body: JSON.stringify({
         reference,
         transaction: {
           amount: request.amount,
-          country: 'CD',
+          country,
           currency: request.currency,
         },
         customer: {
           email: request.customerEmail || '',
-          msisdn: request.customerPhone || '',
+          msisdn: customerMsisdn,
         },
         product: {
           serviceCode: config.merchantId || 'EDUGEST',
@@ -422,7 +550,7 @@ async function processAirtelMoneyPayment(
       };
     }
 
-    return { success: false, reference, status: 'FAILED', message: payData.message || 'Erreur Airtel Money' };
+    return { success: false, reference, status: 'FAILED', message: payData.message || payData.status?.message || 'Erreur Airtel Money' };
   } catch (error) {
     return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur Airtel Money' };
   }

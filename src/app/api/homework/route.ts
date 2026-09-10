@@ -271,6 +271,7 @@ export async function POST(request: NextRequest) {
                 title,
                 dueDate: homeworkDueDate,
                 schoolName: school.name,
+                schoolId,
               });
             }
           }
