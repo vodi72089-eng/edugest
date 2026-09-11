@@ -16,7 +16,7 @@ export type TierFeature =
   | 'api_access' | 'priority_support' | 'custom_branding';
 
 export const SUBSCRIPTION_FEATURES: Record<string, TierFeature[]> = {
-  FREEMIUM: ['students', 'classes', 'grades'],
+  FREEMIUM: ['students', 'classes', 'grades', 'payments'],
   ESSENTIEL: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline'],
   STANDARD: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations'],
   PREMIUM: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations', 'analytics', 'multi_years'],

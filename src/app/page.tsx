@@ -2257,15 +2257,17 @@ HEAD_TEACHER: [
 
   let menuItems: MenuItem[] = menus[userRole || ''] || menus.SECRETARY
 
-  // FREEMIUM restrictions: DIRECTION_* on FREEMIUM sees restricted menu
+  // FREEMIUM restrictions: DIRECTION_*, SECRETARY (admin freemium) and SUPER_ADMIN_GLOBAL see restricted menu
+  // (pas de Passage de classe, Communications ni Paramètres en FREEMIUM — passage à un forfait supérieur requis)
   const isFreemium = userData?.subscriptionTier === 'FREEMIUM'
-  if (isFreemium && (directionRoles.includes(userRole as UserRole) || userRole === 'SUPER_ADMIN_GLOBAL')) {
+  if (isFreemium && (directionRoles.includes(userRole as UserRole) || userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SECRETARY')) {
     menuItems = [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
       { icon: <BookOpen size={16} />, label: 'Classes', view: 'classes' as ViewType },
       { icon: <CreditCard size={16} />, label: 'Enregistrer paiement', view: 'payments' },
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ]
   } else if (directionRoles.includes(userRole as UserRole)) {
@@ -2304,7 +2306,7 @@ HEAD_TEACHER: [
           ) : (
             <BrandMark height={32} />
           )}
-          <div className="text-[11px] text-white/50 font-medium">{userData?.subscriptionTier === 'FREEMIUM' ? 'Direction' : getRoleLabel(userRole!)}</div>
+          <div className="text-[11px] text-white/50 font-medium">{userData?.subscriptionTier === 'FREEMIUM' ? 'Admin Freemium' : getRoleLabel(userRole!)}</div>
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar py-2">
@@ -2398,8 +2400,8 @@ const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment
 
 function canAccessView(role: string | null, view: ViewType, subscriptionTier?: string): boolean {
   if (!role) return false
-  // DIRECTION_* on FREEMIUM → vues restreintes
-  if (subscriptionTier === 'FREEMIUM' && role.startsWith('DIRECTION')) {
+  // DIRECTION_* et SECRETARY (admin freemium) sur FREEMIUM → vues restreintes
+  if (subscriptionTier === 'FREEMIUM' && (role.startsWith('DIRECTION') || role === 'SECRETARY')) {
     return FREEMIUM_VIEWS.includes(view)
   }
   const allowed = VIEWS_BY_ROLE[role]
@@ -5395,8 +5397,11 @@ function HomeworkView() {
 // ===== CLASS PASSING VIEW =====
 function ClassPassingView() {
   const { userData, userRole } = useEduGestStore()
+  const router = useRouter()
   const allowedRoles = ['SUPER_ADMIN_GLOBAL', 'ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'HEAD_TEACHER']
-  const canAccess = allowedRoles.includes(userRole || '')
+  // Passage de classe non inclus dans le forfait FREEMIUM
+  const isFreemiumTier = (userData?.subscriptionTier || 'FREEMIUM') === 'FREEMIUM'
+  const canAccess = !isFreemiumTier && allowedRoles.includes(userRole || '')
   const [students, setStudents] = useState<StudentData[]>([])
   const [loading, setLoading] = useState(true)
   const [studentSearch, setStudentSearch] = useState('')
@@ -5406,6 +5411,12 @@ function ClassPassingView() {
   const [decisions, setDecisions] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
   const [selectedTrimester, setSelectedTrimester] = useState('T1')
+
+  useEffect(() => {
+    if (isFreemiumTier) {
+      router.push(`/subscription-required?feature=${encodeURIComponent('passage de classe')}&requiredTier=ESSENTIEL`)
+    }
+  }, [isFreemiumTier, router])
 
   useEffect(() => {
     const params = new URLSearchParams({ limit: '50' })
@@ -6411,7 +6422,7 @@ function SubscriptionUpgradeView() {
   const currentTierIndex = TIER_ORDER.indexOf(currentTier)
 
   const tiers = [
-    { id: 'FREEMIUM', name: 'Freemium', price: 0, color: MUTED, features: ['Élèves', 'Classes', 'Notes', 'Parents'] },
+    { id: 'FREEMIUM', name: 'Freemium', price: 0, color: MUTED, features: ['Élèves', 'Classes', 'Notes', 'Paiements'] },
     { id: 'ESSENTIEL', name: 'Essentiel', price: 100, color: INFO, features: ['Élèves', 'Classes', 'Notes', 'Parents', 'Paiements', 'Devoirs', 'Discipline'] },
     { id: 'STANDARD', name: 'Standard', price: 250, color: ACCENT, features: ['Tout Essentiel', 'Bulletins', 'Communications', 'Convocations'] },
     { id: 'PREMIUM', name: 'Professionnel', price: 500, color: WARNING, features: ['Tout Standard', 'Analytics', 'Multi-années'] },

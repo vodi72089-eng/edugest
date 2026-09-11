@@ -364,7 +364,7 @@ export default function ProfileView() {
           </div>
           <div className="mt-3">
             <div className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{userData?.name || 'Utilisateur'}</div>
-            <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{userData?.subscriptionTier === 'FREEMIUM' && userData?.role?.startsWith('DIRECTION') ? 'Direction' : getRoleLabel(userData?.role || 'SECRETARY')}</div>
+            <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{userData?.subscriptionTier === 'FREEMIUM' ? 'Admin Freemium' : getRoleLabel(userData?.role || 'SECRETARY')}</div>
           </div>
           <div className="space-y-3 mt-5">
             <div>
@@ -377,7 +377,7 @@ export default function ProfileView() {
             </div>
             <div>
               <label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Rôle</label>
-              <input defaultValue={getRoleLabel(userData?.role || 'SECRETARY')} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none bg-[oklch(97%_0.005_175)]" disabled />
+              <input defaultValue={userData?.subscriptionTier === 'FREEMIUM' ? 'Admin Freemium' : getRoleLabel(userData?.role || 'SECRETARY')} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none bg-[oklch(97%_0.005_175)]" disabled />
             </div>
           </div>
           <button onClick={handleSaveName} disabled={saving} className="edu-gold-cta mt-5 px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">

@@ -142,7 +142,7 @@ export default function PaymentsView() {
 
         // 3. Group fees by trimester (tranche name)
         const trancheNames = [...new Set(allFees.map(f => f.trimester))].sort()
-        if (trancheNames.length === 0) { setClassFees([]); setAllPaid(false); setTranche(''); setAmount(''); return }
+        if (trancheNames.length === 0) { setClassFees([]); setAllPaid(false); setTranche('T1'); setAmount(''); return }
 
         // 4. For each tranche, compute total fee and total paid
         const trancheStatus = trancheNames.map(name => {
@@ -330,11 +330,12 @@ export default function PaymentsView() {
           <div>
             <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant à payer (CDF)</label>
             <input
-              placeholder="Reste à payer"
+              placeholder={classFees.length > 0 ? 'Reste à payer' : 'Entrez le montant'}
               value={amount}
-              readOnly
+              readOnly={classFees.length > 0}
+              onChange={e => setAmount(e.target.value)}
               type="number"
-              className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-[oklch(97%_0.005_175)] outline-none cursor-not-allowed"
+              className={`w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)] ${classFees.length > 0 ? 'bg-[oklch(97%_0.005_175)] cursor-not-allowed' : 'bg-white'}`}
               style={{ color: amount ? ACCENT : TEXT_MUTED_LUXE }}
             />
             {payCurrency !== 'CDF' && exchangeRate && amount && (
@@ -380,9 +381,10 @@ export default function PaymentsView() {
             <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Tranche</label>
             <input
               value={tranche}
-              readOnly
+              readOnly={classFees.length > 0}
+              onChange={e => setTranche(e.target.value)}
               placeholder="Sélectionnez un élève"
-              className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-[oklch(97%_0.005_175)] outline-none cursor-not-allowed"
+              className={`w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)] ${classFees.length > 0 ? 'bg-[oklch(97%_0.005_175)] cursor-not-allowed' : 'bg-white'}`}
               style={{ color: tranche ? TEXT_PRIMARY : TEXT_MUTED_LUXE }}
             />
           </div>

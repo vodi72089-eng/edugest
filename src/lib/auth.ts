@@ -450,7 +450,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'classes:read', 'classes:create',
     'subjects:read', 'subjects:create',
     'grades:read',
-    'payments:read', 'payments:verify',
+    'payments:read', 'payments:verify', 'payments:create', 'payments:update',
     'discipline:read', 'communications:read', 'communications:create',
     'homework:read', 'convocations:read', 'convocations:create',
     'stats:read', 'profile:read', 'profile:update',
@@ -588,7 +588,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
 // ─── School-tier-aware permission resolution ─────────────────────────────────
 // Tier ESSENTIEL: Élèves, Classes, Notes, Parents, Paiements, Devoirs, Discipline
 // Tier STANDARD: Tout Essentiel + Bulletins, Communications, Convocations
-// Tier FREEMIUM: Élèves, Classes, Notes, Parents (le plus limité)
+// Tier FREEMIUM: Élèves, Classes, Notes, Paiements (le plus limité)
 
 // Permissions RESTREINTES au tier ESSENTIEL (retirées par rapport à STANDARD+)
 const ESSENTIEL_DENIED = [
