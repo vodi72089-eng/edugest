@@ -3316,7 +3316,7 @@ function ClassesView() {
                 </div>
               </div>
               <div className="flex items-center justify-between text-sm" style={{ color: TEXT_MUTED_LUXE }}>
-                <span>{c._count?.students || 0} élèves</span>
+                <span>{c._count?.students || 0} {(c._count?.students || 0) === 1 ? 'élève' : 'élèves'}</span>
                 <span>Capacité: {c.capacity}</span>
               </div>
               <div className="mt-3 h-2 bg-[oklch(92%_0.005_175)] rounded-full overflow-hidden">

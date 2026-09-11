@@ -556,6 +556,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   PARENT: [
     'students:read', 'payments:read', 'grades:read', 'convocations:read', 'convocations:update', 'profile:read', 'profile:update',
     'communications:read', 'homework:read', 'discipline:read', 'stats:read',
+    'classes:read', 'subjects:read', 'school:read',
     'notifications:read',
   ],
   DISCIPLINE: [
