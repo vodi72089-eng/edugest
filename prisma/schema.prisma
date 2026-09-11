@@ -642,6 +642,7 @@ model SubscriptionRequest {
   requestedByName String
   requestedById   String
   notes           String?
+  paymentRef      String?
   resolvedByName  String?
   resolvedById    String?
   resolvedAt      DateTime?

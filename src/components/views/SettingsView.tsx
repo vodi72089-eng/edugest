@@ -40,7 +40,7 @@ export default function SettingsView() {
 }
 
 function SettingsViewInner() {
-  const { userData, userRole } = useEduGestStore()
+  const { userData, userRole, setCurrentView } = useEduGestStore()
   const [school, setSchool] = useState<SchoolData | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)

@@ -32,7 +32,7 @@ export async function POST(
 
     const convocation = await db.convocation.findUnique({
       where: { id: convocationId },
-      include: { student: { select: { schoolId: true, parentId: true } } },
+      include: { student: { select: { schoolId: true, parentId: true, firstName: true, lastName: true } } },
     });
 
     if (!convocation) {

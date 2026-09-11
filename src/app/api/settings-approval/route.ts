@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { verifySchoolAccess } from '@/lib/auth'
+import { requireAuth, verifySchoolAccess } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
-  const auth = verifySchoolAccess(req)
-  if (!auth) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  const authResult = await requireAuth(req)
+  if ('error' in authResult) return authResult.error
+  const { user } = authResult
 
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status') || 'PENDING'
 
   const approvals = await db.settingsApproval.findMany({
-    where: { schoolId: auth.schoolId, status },
+    where: { schoolId: user.schoolId || '', status },
     orderBy: { createdAt: 'desc' }
   })
 
@@ -18,8 +19,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = verifySchoolAccess(req)
-  if (!auth) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  const authResult = await requireAuth(req)
+  if ('error' in authResult) return authResult.error
+  const { user } = authResult
 
   const { changeType, changeData, currentData } = await req.json()
   if (!changeType || !changeData) {
@@ -28,8 +30,8 @@ export async function POST(req: NextRequest) {
 
   const approval = await db.settingsApproval.create({
     data: {
-      schoolId: auth.schoolId,
-      requestedBy: auth.userId,
+      schoolId: user.schoolId || '',
+      requestedBy: user.id,
       changeType,
       changeData: JSON.stringify(changeData),
       currentData: currentData ? JSON.stringify(currentData) : null,
@@ -40,8 +42,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const auth = verifySchoolAccess(req)
-  if (!auth) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  const authResult = await requireAuth(req)
+  if ('error' in authResult) return authResult.error
+  const { user } = authResult
 
   const { id, status } = await req.json()
   if (!id || !status) {
@@ -52,9 +55,18 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Status invalide' }, { status: 400 })
   }
 
+  // Only the school owning the approval (or the global super admin) may review it
+  const existing = await db.settingsApproval.findUnique({ where: { id }, select: { schoolId: true } })
+  if (!existing) {
+    return NextResponse.json({ error: 'Demande introuvable' }, { status: 404 })
+  }
+  if (!verifySchoolAccess(user, existing.schoolId)) {
+    return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 })
+  }
+
   const approval = await db.settingsApproval.update({
     where: { id },
-    data: { status, reviewedBy: auth.userId, reviewedAt: new Date() }
+    data: { status, reviewedBy: user.id, reviewedAt: new Date() }
   })
 
   return NextResponse.json({ data: approval })

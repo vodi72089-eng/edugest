@@ -14,11 +14,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Resolve the subscription request: either the reference embeds the id
+    // (legacy "SUB-<id>" form) or the referenced payment transaction carries it
+    // in paymentRecordId (set by /api/payment-gateways/initiate-subscription).
     const subscriptionRequestId = reference.replace('SUB-', '');
 
-    const subscriptionRequest = await db.subscriptionRequest.findUnique({
+    let subscriptionRequest = await db.subscriptionRequest.findUnique({
       where: { id: subscriptionRequestId },
     });
+
+    if (!subscriptionRequest) {
+      const transaction = await db.paymentTransaction.findFirst({
+        where: { reference },
+        orderBy: { initiatedAt: 'desc' },
+      });
+      if (transaction?.paymentRecordId) {
+        subscriptionRequest = await db.subscriptionRequest.findUnique({
+          where: { id: transaction.paymentRecordId },
+        });
+      }
+    }
 
     if (!subscriptionRequest) {
       return NextResponse.json({ error: 'Demande introuvable' }, { status: 404 });
@@ -26,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     if (status === 'SUCCESS' || status === 'COMPLETED') {
       await db.subscriptionRequest.update({
-        where: { id: subscriptionRequestId },
+        where: { id: subscriptionRequest.id },
         data: {
           status: 'PAID',
           paymentRef: transactionId,

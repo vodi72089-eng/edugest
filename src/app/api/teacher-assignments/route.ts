@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { verifySchoolAccess } from '@/lib/auth'
+import { requireAuth, verifySchoolAccess } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
-  const auth = verifySchoolAccess(req)
-  if (!auth) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  const authResult = await requireAuth(req)
+  if ('error' in authResult) return authResult.error
+  const { user } = authResult
 
   const { searchParams } = new URL(req.url)
   const teacherId = searchParams.get('teacherId')
@@ -22,12 +23,22 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = verifySchoolAccess(req)
-  if (!auth) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  const authResult = await requireAuth(req)
+  if ('error' in authResult) return authResult.error
+  const { user } = authResult
 
   const { teacherId, classId, subjectId } = await req.json()
   if (!teacherId || !classId || !subjectId) {
     return NextResponse.json({ error: 'teacherId, classId, subjectId requis' }, { status: 400 })
+  }
+
+  // School-scope check: the class must belong to the caller's school (SUPER_ADMIN_GLOBAL bypasses)
+  const targetClass = await db.class.findUnique({ where: { id: classId }, select: { schoolId: true } })
+  if (!targetClass) {
+    return NextResponse.json({ error: 'Classe introuvable' }, { status: 404 })
+  }
+  if (!verifySchoolAccess(user, targetClass.schoolId)) {
+    return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 })
   }
 
   const existing = await db.teacherAssignment.findUnique({
@@ -46,8 +57,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const auth = verifySchoolAccess(req)
-  if (!auth) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  const authResult = await requireAuth(req)
+  if ('error' in authResult) return authResult.error
+  const { user } = authResult
 
   const { id } = await req.json()
   if (!id) return NextResponse.json({ error: 'id requis' }, { status: 400 })

@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
         where: { id: requestId },
         data: {
           status: 'REJECTED',
-          resolvedBy: user.name,
+          resolvedByName: user.name,
           resolvedById: user.id,
           resolvedAt: new Date(),
         },
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       where: { id: requestId },
       data: {
         status: 'VALIDATED',
-        resolvedBy: user.name,
+        resolvedByName: user.name,
         resolvedById: user.id,
         resolvedAt: new Date(),
       },

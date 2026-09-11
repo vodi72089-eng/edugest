@@ -32,16 +32,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
     }
 
-    const paymentResult = await initiatePayment({
+    const paymentResult = await initiatePayment(gatewayType, {
       schoolId: user.schoolId,
       amount: 0,
       currency: 'USD',
-      gatewayType,
-      reference: `SUB-${subscriptionRequest.id}`,
-      metadata: {
-        subscriptionRequestId: subscriptionRequest.id,
-        requestedTier: subscriptionRequest.requestedTier,
-      },
+      description: `Abonnement ${subscriptionRequest.requestedTier} — ${subscriptionRequest.school.name}`,
+      // Carry the subscription request id so the gateway webhook can resolve it
+      // (initiatePayment auto-generates its own PAY-* reference).
+      paymentRecordId: subscriptionRequest.id,
+      initiatedBy: user.id,
     });
 
     return NextResponse.json({
