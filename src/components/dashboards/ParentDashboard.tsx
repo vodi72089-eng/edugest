@@ -7,11 +7,14 @@ import type { StudentData } from '@/lib/types'
 import { Users, Shield, PenTool, BookOpen, FileText, CreditCard, Edit, Check, Camera, Bell, Calendar } from 'lucide-react'
 import { ACCENT, GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, WARNING, DANGER, INFO } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
+import { tierAllowsParentGrades } from '@/lib/subscription'
 import StudentAvatar from '@/components/ui/StudentAvatar'
 import StatCard from './StatCard'
 
 export default function ParentDashboard() {
   const { userData, setCurrentView, setSelectedStudentId } = useEduGestStore()
+  // Forfait sans notes/bulletins aux parents (Freemium, Essentiel) → puces retirées
+  const parentGradesAllowed = tierAllowsParentGrades(userData?.subscriptionTier || 'FREEMIUM')
   const [children, setChildren] = useState<StudentData[]>([])
   const [loading, setLoading] = useState(true)
   const [editingChild, setEditingChild] = useState<string | null>(null)
@@ -209,8 +212,10 @@ export default function ParentDashboard() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { label: 'Notes', view: 'grades' as ViewType, icon: <BookOpen size={14} /> },
-                    { label: 'Bulletin', view: 'bulletin' as ViewType, icon: <FileText size={14} /> },
+                    ...(parentGradesAllowed ? [
+                      { label: 'Notes', view: 'grades' as ViewType, icon: <BookOpen size={14} /> },
+                      { label: 'Bulletin', view: 'bulletin' as ViewType, icon: <FileText size={14} /> },
+                    ] : []),
                     { label: 'Paiements', view: 'payments' as ViewType, icon: <CreditCard size={14} /> },
                     { label: 'Discipline', view: 'discipline' as ViewType, icon: <Shield size={14} /> },
                   ].map(chip => (

@@ -10,6 +10,7 @@ import { Plus, Check, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete from './SearchAutocomplete'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { tierAllowsParentGrades } from '@/lib/subscription';
 import { useRouter } from 'next/navigation';
 
 export default function GradesView() {
@@ -17,13 +18,22 @@ export default function GradesView() {
   const { hasAccess, requiredTier } = useFeatureAccess('grades');
   const router = useRouter();
 
+  // Parents : interface Notes retirée si le forfait de l'école ne les inclut pas (Freemium/Essentiel)
+  const parentBlocked = userRole === 'PARENT' && !tierAllowsParentGrades(userData?.subscriptionTier || 'FREEMIUM');
+
   useEffect(() => {
     if (!hasAccess) {
       router.push(`/subscription-required?feature=notes&requiredTier=${requiredTier}`);
     }
   }, [hasAccess, requiredTier, router]);
 
-  if (!hasAccess) return null;
+  useEffect(() => {
+    if (parentBlocked) {
+      router.push('/subscription-required?feature=notes pour les parents&requiredTier=STANDARD');
+    }
+  }, [parentBlocked, router]);
+
+  if (!hasAccess || parentBlocked) return null;
   const highlightedRef = useRef<HTMLTableRowElement>(null)
   useEffect(() => {
     if (highlightedId && highlightedRef.current) {

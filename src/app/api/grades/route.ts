@@ -3,6 +3,7 @@ import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, verifyParentAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
 import { notifyGrade } from '@/lib/whatsapp-agent';
+import { tierAllowsParentGrades } from '@/lib/subscription';
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,6 +44,14 @@ export async function GET(request: NextRequest) {
 
     // For PARENT role, filter by parentId - only show their children's grades
     if (user.role === 'PARENT') {
+      // Forfait sans notes aux parents (Freemium, Essentiel) → interface retirée
+      const school = await db.school.findUnique({ where: { id: schoolId }, select: { subscriptionTier: true } });
+      if (!tierAllowsParentGrades(school?.subscriptionTier || 'FREEMIUM')) {
+        return NextResponse.json(
+          { error: `Le forfait ${school?.subscriptionTier || 'FREEMIUM'} de votre école n'inclut pas les notes pour les parents. La direction doit passer au forfait Standard ou supérieur.` },
+          { status: 403 }
+        );
+      }
       where.student = { parentId: user.id };
     }
 

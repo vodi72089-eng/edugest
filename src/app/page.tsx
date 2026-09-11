@@ -48,6 +48,8 @@ import {
   BarChart, Bar, PieChart, Pie, Cell
 } from 'recharts'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
+import { tierAllowsParentGrades } from '@/lib/subscription'
+import WhatsappUsageCard from '@/components/views/WhatsappUsageCard'
 import { useRouter } from 'next/navigation'
 
 // ===== Types (imported from @/lib/types) =====
@@ -2257,6 +2259,12 @@ HEAD_TEACHER: [
 
   let menuItems: MenuItem[] = menus[userRole || ''] || menus.SECRETARY
 
+  // Parents : Notes & Bulletins visibles uniquement si le forfait de l'école
+  // les inclut (Standard et plus — retirés en Freemium/Essentiel)
+  if (userRole === 'PARENT' && !tierAllowsParentGrades(userData?.subscriptionTier || 'FREEMIUM')) {
+    menuItems = menuItems.filter(m => m.view !== 'grades' && m.view !== 'bulletin')
+  }
+
   // FREEMIUM restrictions: DIRECTION_*, SECRETARY (admin freemium) and SUPER_ADMIN_GLOBAL see restricted menu
   // (pas de Passage de classe, Communications ni Paramètres en FREEMIUM — passage à un forfait supérieur requis)
   const isFreemium = userData?.subscriptionTier === 'FREEMIUM'
@@ -2403,6 +2411,10 @@ function canAccessView(role: string | null, view: ViewType, subscriptionTier?: s
   // DIRECTION_* et SECRETARY (admin freemium) sur FREEMIUM → vues restreintes
   if (subscriptionTier === 'FREEMIUM' && (role.startsWith('DIRECTION') || role === 'SECRETARY')) {
     return FREEMIUM_VIEWS.includes(view)
+  }
+  // Parents : notes/bulletins retirés si le forfait de l'école ne les inclut pas (Freemium/Essentiel)
+  if (role === 'PARENT' && subscriptionTier && !tierAllowsParentGrades(subscriptionTier)) {
+    if (view === 'grades' || view === 'bulletin') return false
   }
   const allowed = VIEWS_BY_ROLE[role]
   if (!allowed) return false
@@ -3031,6 +3043,9 @@ function WhatsAppConfigView() {
           )}
         </div>
       </div>
+
+      {/* Suivi en temps réel des messages WhatsApp de l'école */}
+      <WhatsappUsageCard />
     </div>
   )
 }
@@ -3432,7 +3447,7 @@ const GATEWAY_SVG_LOGOS: Record<string, string> = {
 
 function PaymentConfigView() {
   const { userData } = useEduGestStore()
-  const [activeTab, setActiveTab] = useState<'gateways' | 'currency' | 'transactions' | 'fees'>('gateways')
+  const [activeTab, setActiveTab] = useState<'gateways' | 'currency' | 'transactions' | 'fees' | 'whatsapp-api'>('gateways')
   const [gateways, setGateways] = useState<any[]>([])
   const [availableGateways, setAvailableGateways] = useState<any[]>([])
   const [currencyConfig, setCurrencyConfig] = useState<any>(null)
@@ -3457,6 +3472,13 @@ function PaymentConfigView() {
   const [convertForm, setConvertForm] = useState({ amount: 100, from: 'CDF', to: 'USD' })
   const [convertResult, setConvertResult] = useState<any>(null)
   const [supportedCurrencies, setSupportedCurrencies] = useState<any[]>([])
+  // API WhatsApp personnelle de l'école (Meta Cloud API)
+  const [waConfig, setWaConfig] = useState<any>(null)
+  const [waTierAllows, setWaTierAllows] = useState(true)
+  const [waForm, setWaForm] = useState({ phoneNumberId: '', accessToken: '', businessAccountId: '', webhookVerifyToken: '', isActive: false })
+  const [waSaving, setWaSaving] = useState(false)
+  const [waTestPhone, setWaTestPhone] = useState('')
+  const [waTesting, setWaTesting] = useState(false)
 
   useEffect(() => {
     if (!userData?.schoolId) return
@@ -3465,7 +3487,28 @@ function PaymentConfigView() {
     loadTransactions()
     loadSchoolFees()
     loadClasses()
+    loadWhatsappApi()
   }, [userData?.schoolId])
+
+  async function loadWhatsappApi() {
+    try {
+      const res = await authFetch(`/api/whatsapp-api?schoolId=${userData?.schoolId}`)
+      const json = await res.json()
+      if (json.data) {
+        setWaConfig(json.data.config)
+        setWaTierAllows(json.data.tierAllowsCustomApi !== false)
+        if (json.data.config) {
+          setWaForm({
+            phoneNumberId: json.data.config.phoneNumberId || '',
+            accessToken: '', // masqué — laisser vide pour conserver
+            businessAccountId: json.data.config.businessAccountId || '',
+            webhookVerifyToken: '', // masqué — laisser vide pour conserver
+            isActive: json.data.config.isActive || false,
+          })
+        }
+      }
+    } catch (e) { console.error('[PaymentConfig] loadWhatsappApi:', e) }
+  }
 
   async function loadGateways() {
     try {
@@ -3616,6 +3659,50 @@ function PaymentConfigView() {
     finally { setSaving(false) }
   }
 
+  async function saveWhatsappApi() {
+    if (!waForm.phoneNumberId.trim() || (!waForm.accessToken.trim() && !waConfig)) {
+      toast.error('Phone Number ID et Access Token sont requis')
+      return
+    }
+    setWaSaving(true)
+    try {
+      const res = await authFetch('/api/whatsapp-api', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schoolId: userData?.schoolId, ...waForm }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success('API WhatsApp configurée !')
+        loadWhatsappApi()
+      } else {
+        toast.error(json.error || 'Erreur lors de la configuration')
+      }
+    } catch (e) { toast.error('Erreur réseau') }
+    finally { setWaSaving(false) }
+  }
+
+  async function testWhatsappApi() {
+    if (!waTestPhone.trim()) { toast.error('Entrez un numéro à tester'); return }
+    setWaTesting(true)
+    try {
+      const res = await authFetch('/api/whatsapp-api/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schoolId: userData?.schoolId, phone: waTestPhone }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success('Message de test envoyé ! Vérifiez le téléphone.')
+      } else {
+        toast.error(json.error || 'Échec du test')
+      }
+      // Rafraîchit le statut du dernier test (réussi/échoué)
+      loadWhatsappApi()
+    } catch (e) { toast.error('Erreur réseau') }
+    finally { setWaTesting(false) }
+  }
+
   async function saveGatewayConfig() {
     setSaving(true)
     try {
@@ -3739,6 +3826,16 @@ function PaymentConfigView() {
         >
           Transactions
         </button>
+        <button
+          onClick={() => setActiveTab('whatsapp-api')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition flex items-center gap-1.5 ${
+            activeTab === 'whatsapp-api' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <MessageCircle size={14} />
+          API WhatsApp
+          {waConfig?.isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="API active" />}
+        </button>
       </div>
 
       {/* Gateways Tab */}
@@ -3804,6 +3901,164 @@ function PaymentConfigView() {
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* WhatsApp API Tab — API WhatsApp personnelle du client */}
+      {activeTab === 'whatsapp-api' && (
+        <div className="space-y-5 max-w-3xl">
+          {/* Suivi temps réel du quota */}
+          <WhatsappUsageCard />
+
+          {/* Explication */}
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl grid place-items-center shrink-0" style={{ background: GOLD_SOFT }}>
+                <MessageCircle size={20} style={{ color: GOLD }} />
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>Connecter votre propre API WhatsApp</h3>
+                <p className="text-[12px] mt-1 leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
+                  Utilisez votre <strong>propre numéro WhatsApp Business via l&apos;API officielle de Meta</strong> (WhatsApp Cloud API).
+                  Vos notifications partent alors via <strong>votre numéro et votre token</strong> :
+                  <strong> plus aucune limite de messages EduGest</strong> — vous êtes uniquement limité par les tokens que vous achetez auprès de Meta.
+                </p>
+              </div>
+            </div>
+            <ol className="text-[12px] space-y-1 list-decimal list-inside pl-1" style={{ color: TEXT_MUTED_LUXE }}>
+              <li>Créez une application sur <span className="font-medium">developers.facebook.com</span> et ajoutez le produit WhatsApp</li>
+              <li>Copiez le <strong>Phone Number ID</strong> et générez un <strong>Access Token</strong> permanent</li>
+              <li>Collez-les ci-dessous, activez, puis envoyez un message de test</li>
+            </ol>
+          </div>
+
+          {!waTierAllows ? (
+            <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 text-center shadow-sm">
+              <Crown size={28} className="mx-auto mb-3" style={{ color: GOLD }} />
+              <h3 className="font-bold text-sm mb-1" style={{ color: TEXT_PRIMARY }}>Fonctionnalité Standard et supérieur</h3>
+              <p className="text-[12px] mb-4" style={{ color: TEXT_MUTED_LUXE }}>
+                Votre forfait actuel ne permet pas de connecter une API WhatsApp personnelle.
+                Passez au forfait <strong>Standard</strong> ou supérieur pour des messages illimités via votre propre API.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Formulaire de configuration */}
+              <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>
+                    {waConfig ? 'Configuration actuelle' : 'Nouvelle configuration'}
+                  </h3>
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${waConfig?.isActive ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>
+                    {waConfig ? (waConfig.isActive ? 'API active' : 'API inactive') : 'Non configurée'}
+                  </span>
+                </div>
+
+                {waConfig && (waConfig.lastTestAt) && (
+                  <div className={`text-[11px] px-3 py-2 rounded-lg ${waConfig.lastTestOk ? 'bg-[oklch(97%_0.02_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(97%_0.02_25)] text-[oklch(50%_0.15_25)]'}`}>
+                    Dernier test : {new Date(waConfig.lastTestAt).toLocaleString('fr-FR')} — {waConfig.lastTestOk ? '✅ réussi' : '❌ échoué (vérifiez vos identifiants)'}
+                  </div>
+                )}
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Phone Number ID (Meta) *</label>
+                    <input
+                      type="text"
+                      value={waForm.phoneNumberId}
+                      onChange={e => setWaForm(f => ({ ...f, phoneNumberId: e.target.value }))}
+                      placeholder="ex : 123456789012345"
+                      className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]"
+                      style={{ color: TEXT_PRIMARY }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>
+                      Access Token {waConfig ? '(laisser vide pour conserver)' : '*'}
+                    </label>
+                    <input
+                      type="password"
+                      value={waForm.accessToken}
+                      onChange={e => setWaForm(f => ({ ...f, accessToken: e.target.value }))}
+                      placeholder={waConfig ? '•••••••• (conservé)' : 'EAAG...'}
+                      className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]"
+                      style={{ color: TEXT_PRIMARY }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>WhatsApp Business Account ID (optionnel)</label>
+                    <input
+                      type="text"
+                      value={waForm.businessAccountId}
+                      onChange={e => setWaForm(f => ({ ...f, businessAccountId: e.target.value }))}
+                      placeholder="ex : 987654321098765"
+                      className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]"
+                      style={{ color: TEXT_PRIMARY }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Webhook Verify Token (optionnel)</label>
+                    <input
+                      type="password"
+                      value={waForm.webhookVerifyToken}
+                      onChange={e => setWaForm(f => ({ ...f, webhookVerifyToken: e.target.value }))}
+                      placeholder={waConfig?.webhookVerifyToken ? '•••••••• (conservé)' : 'mon-token-webhook'}
+                      className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]"
+                      style={{ color: TEXT_PRIMARY }}
+                    />
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={waForm.isActive}
+                    onChange={e => setWaForm(f => ({ ...f, isActive: e.target.checked }))}
+                    className="w-4 h-4 accent-[#f5a623]"
+                  />
+                  <span className="text-[13px]" style={{ color: TEXT_PRIMARY }}>
+                    Activer cette API — les notifications partiront via mon numéro (messages illimités, limité par mes tokens Meta)
+                  </span>
+                </label>
+
+                <button
+                  onClick={saveWhatsappApi}
+                  disabled={waSaving}
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold transition edu-gold-cta disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {waSaving ? <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <Save size={15} />}
+                  {waSaving ? 'Enregistrement...' : (waConfig ? 'Mettre à jour la configuration' : 'Enregistrer la configuration')}
+                </button>
+              </div>
+
+              {/* Test d'envoi */}
+              {waConfig && (
+                <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
+                  <h3 className="font-semibold text-sm mb-1" style={{ color: TEXT_PRIMARY }}>Tester l&apos;envoi</h3>
+                  <p className="text-[12px] mb-3" style={{ color: TEXT_MUTED_LUXE }}>Envoie un message de test via votre API pour valider vos identifiants.</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="tel"
+                      value={waTestPhone}
+                      onChange={e => setWaTestPhone(e.target.value)}
+                      placeholder="+243 8XX XXX XXX"
+                      className="flex-1 px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]"
+                      style={{ color: TEXT_PRIMARY }}
+                    />
+                    <button
+                      onClick={testWhatsappApi}
+                      disabled={waTesting}
+                      className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:opacity-50 flex items-center gap-2"
+                      style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}
+                    >
+                      {waTesting ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send size={14} />}
+                      {waTesting ? 'Envoi...' : 'Envoyer le test'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 
@@ -5642,6 +5897,9 @@ function BulletinView() {
 
   const totalStudents = byClass.reduce((s, c) => s + c.students.length, 0)
 
+  // Parents : interface Bulletins retirée si le forfait de l'école ne les inclut pas (Freemium/Essentiel)
+  const parentBlocked = isParent && !tierAllowsParentGrades(userData?.subscriptionTier || 'FREEMIUM')
+
   const handleDownload = async (id: string, lastName?: string) => {
     try {
       const res = await authFetch(`/api/bulletins/${id}?trimester=${selectedTrimester}${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
@@ -5672,6 +5930,28 @@ function BulletinView() {
       }
     } catch { toast.error('Erreur réseau') }
     finally { setWaSendingId(null) }
+  }
+
+  if (parentBlocked) {
+    return (
+      <div>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Bulletins</h1>
+        </div>
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-8 text-center shadow-sm max-w-lg mx-auto">
+          <div className="w-14 h-14 mx-auto rounded-2xl grid place-items-center mb-4" style={{ background: GOLD_SOFT }}>
+            <Crown size={26} style={{ color: GOLD }} />
+          </div>
+          <h2 className="text-lg font-bold mb-2" style={{ color: TEXT_PRIMARY }}>Bulletins non inclus dans votre forfait</h2>
+          <p className="text-sm mb-5" style={{ color: TEXT_MUTED_LUXE }}>
+            Le forfait <strong>{getSubscriptionLabel(userData?.subscriptionTier || 'FREEMIUM')}</strong> de votre école
+            n&apos;inclut pas l&apos;accès des parents aux notes et bulletins. La direction de l&apos;école peut
+            passer au forfait <strong>Standard</strong> ou supérieur pour activer cette fonctionnalité.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -6422,12 +6702,12 @@ function SubscriptionUpgradeView() {
   const currentTierIndex = TIER_ORDER.indexOf(currentTier)
 
   const tiers = [
-    { id: 'FREEMIUM', name: 'Freemium', price: 0, color: MUTED, features: ['Élèves', 'Classes', 'Notes', 'Paiements'] },
-    { id: 'ESSENTIEL', name: 'Essentiel', price: 100, color: INFO, features: ['Élèves', 'Classes', 'Notes', 'Parents', 'Paiements', 'Devoirs', 'Discipline'] },
-    { id: 'STANDARD', name: 'Standard', price: 250, color: ACCENT, features: ['Tout Essentiel', 'Bulletins', 'Communications', 'Convocations'] },
-    { id: 'PREMIUM', name: 'Professionnel', price: 500, color: WARNING, features: ['Tout Standard', 'Analytics', 'Multi-années'] },
-    { id: 'ENTERPRISE', name: 'Enterprise', price: 1000, color: SUCCESS, features: ['Tout Premium', 'API', 'Support prioritaire', 'Branding custom'] },
-    { id: 'CORPORATE', name: 'Corporate', price: 0, color: DANGER, features: ['Tout Enterprise', 'Prix sur mesure'] },
+    { id: 'FREEMIUM', name: 'Freemium', price: 0, color: MUTED, features: ['1 admin', '100 élèves max', '0 msg WhatsApp', 'Élèves, classes, notes, paiements'] },
+    { id: 'ESSENTIEL', name: 'Essentiel', price: 100, color: INFO, features: ['1 admin', '5 professeurs', '250 élèves max', 'Comptes parents', '500 msg WhatsApp/mois', 'Notes/bulletins aux parents : non'] },
+    { id: 'STANDARD', name: 'Standard', price: 250, color: ACCENT, features: ['Tout Essentiel', '5 admins (secrétariat, admin école, caissier, direction, discipline)', 'Notes & bulletins envoyés aux parents', '1000 élèves max', '1500 msg WhatsApp/mois'] },
+    { id: 'PREMIUM', name: 'Professionnel', price: 500, color: WARNING, features: ['Tout Standard', 'Admins illimités', 'Profs illimités', 'App mobile dédiée', "Personnalisation de l'app", 'Support prioritaire', '2500 élèves max', '5000 msg WhatsApp/mois'] },
+    { id: 'ENTERPRISE', name: 'Enterprise', price: 1000, color: SUCCESS, features: ['Tout Professionnel', 'Multi-écoles (3 incluses)', '9999 admins', '99999 élèves (total écoles)', 'Messages WhatsApp illimités', 'Serveur dédié', 'Formation équipe', 'SLA garanti'] },
+    { id: 'CORPORATE', name: 'Corporate', price: 0, color: DANGER, features: ['Tout Enterprise', 'Groupes scolaires', 'Admins & élèves illimités', 'Écoles illimitées', 'Sur mesure', 'On-premise', 'Marque blanche', 'Intégration sur mesure'] },
   ]
 
   useEffect(() => {
@@ -6518,7 +6798,7 @@ function SubscriptionUpgradeView() {
       </div>
 
       {/* Current plan highlight */}
-      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 mb-8 shadow-sm">
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 mb-6 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Votre formule</div>
@@ -6529,6 +6809,11 @@ function SubscriptionUpgradeView() {
             <Crown size={28} style={{ color: GOLD }} />
           </div>
         </div>
+      </div>
+
+      {/* Suivi en temps réel des messages WhatsApp */}
+      <div className="mb-8 max-w-2xl">
+        <WhatsappUsageCard />
       </div>
 
       {/* Upgrade prompt */}

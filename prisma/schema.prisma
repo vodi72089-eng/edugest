@@ -655,6 +655,41 @@ model SubscriptionRequest {
   @@index([status])
 }
 
+// Configuration WhatsApp API personnelle du client (Meta WhatsApp Cloud API).
+// Quand l'école configure sa propre API WhatsApp, les messages partent via SON
+// numéro/SON token Meta → plus de limite mensuelle EduGest (limité uniquement
+// par les tokens achetés auprès de Meta).
+model WhatsappApiConfig {
+  id                 String    @id @default(cuid())
+  schoolId           String    @unique
+  provider           String    @default("META_CLOUD_API") // META_CLOUD_API
+  phoneNumberId      String    // Phone Number ID (Meta)
+  accessToken        String    // Token permanent (chiffré au repos)
+  businessAccountId  String?   // WABA ID (optionnel)
+  webhookVerifyToken String?   // Token de vérification webhook (optionnel)
+  isActive           Boolean   @default(false)
+  lastTestAt         DateTime?
+  lastTestOk         Boolean?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+// Journal des messages WhatsApp envoyés (compteur quota mensuel + audit).
+// channel = 'agent' (agent WhatsApp EduGest, compté dans le quota)
+//         | 'custom_api' (API WhatsApp du client, illimité)
+model WhatsappMessageLog {
+  id        String   @id @default(cuid())
+  schoolId  String
+  phone     String
+  type      String   @default("message") // message | document
+  channel   String   @default("agent")
+  status    String   @default("SENT") // SENT | FAILED
+  createdAt DateTime @default(now())
+
+  @@index([schoolId, createdAt])
+  @@index([schoolId, channel, createdAt])
+}
+
 model VerificationToken {
   id         String   @id @default(cuid())
   userId     String
