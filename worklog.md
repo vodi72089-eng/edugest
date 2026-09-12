@@ -894,3 +894,56 @@ Work Log:
 
 Stage Summary:
 - Voir commit: systèmes scolaires v2 + passage de classe premium + repêchage + plateforme contrôle + medical/EPS + fixes
+
+---
+Task ID: 0-a/0-b/0-c
+Agent: Z.ai Code (main)
+Task: Pré-travail — mise à jour repo + vérification routes downgrade/upgrade abonnements + mise à jour projet
+
+Work Log:
+- Analyse git : remote origin/main = 799e2bd, local en avance de 1 commit (b926da1, travail précédent jamais poussé). RIEN à récupérer du distant.
+- Token GitHub fourni par l'utilisateur testé : INVALIDE (401 API GitHub, 39 caractères au lieu de 40 — probablement tronqué au copier-coller). Push bloqué en attendant un token complet avec scope écriture.
+- Vérifié les 5 routes d'abonnement : POST /api/subscription/downgrade, POST /api/subscription/request, PATCH /api/subscription/request/[id], POST /api/subscription/validate, POST /api/payments/subscription/renew — toutes compatibles tiers FREEMIUM→CORPORATE.
+- Corrigé 2 bugs dans renew/route.ts : (1) tiers à prix 0 (CORPORATE) rejetés à tort → test par présence de clé ; (2) SCHOOL_ADMIN ajouté aux rôles autorisés.
+- Test live E2E réussi : downgrade PREMIUM→STANDARD→PREMIUM, demande upgrade→ENTERPRISE créée + approuvée, renew CORPORATE OK, tier invalide rejeté 400.
+- École de test restaurée à l'état initial (PREMIUM, fin 2026-10-12), artefacts de test supprimés.
+- bun install (0 change), prisma db push (sync OK), lint : 93 erreurs pré-existantes ailleurs, fichiers modifiés propres.
+
+Stage Summary:
+- Routes downgrade/upgrade 100% fonctionnelles avec les nouveaux abonnements (Essentiel→Corporate).
+- Push GitHub en attente : token tronqué/invalide fourni — l'utilisateur devra en fournir un complet (40 car., scope Contents Read & Write).
+
+---
+Task ID: 1,2
+Agent: Z.ai Code (main)
+Task: Vérification systèmes scolaires (classes officielles par système/type d'école) + horaires
+
+Work Log:
+- Audité src/lib/educational-systems.ts (612 lignes, v2) : 5 systèmes (RDC, BELGIUM, FRANCE, ANGLOPHONE, FRANCOPHONE) avec parcours par section.
+- Test live getClassesForSystem : RDC×POLYVALENTE=29 classes (3 maternelle + 1P-6P + 7EB,8EB,1H,2H + 3H/4H × 7 options DRC officielles) ; SECONDAIRE seule=20 ; PRIMAIRE seule=6 (1P-6P) ; MATERNELLE seule=3. Conforme.
+- Horaires présents pour les 3 sections de chaque système (RDC : maternelle 8h-12h, primaire 7h30-12h30, humanités 7h30-15h30, périodes détaillées COURS/PAUSE/DEJEUNER/ACCUEIL).
+- Vérifié le branchement réel : POST /api/schools extrait educationalSystem + schoolLevel du body, les persiste sur School (schéma : educationalSystem @default("RDC"), schoolLevel), puis getClassesForSystem(educationalSystem, schoolLevel, true) → db.class.createMany. Chaîne complète OK.
+- API publique GET /api/educational-systems expose les systèmes (pour la landing page).
+
+Stage Summary:
+- Tâche 1 VALIDÉE : chaque système délivre bien ses classes officielles selon le type d'école (congolais/polyvalente = tout ; secondaire/primaire/maternelle = section seule), options DRC aux 3H/4H.
+- Tâche 2 VALIDÉE : horaires extraits et disponibles par système + section via parcours[].horaire.
+
+---
+Task ID: 3-8 (vérification)
+Agent: Z.ai Code (main)
+Task: Vérification navigateur end-to-end de toutes les fonctionnalités du commit b926da1 (passage de classe, repêchage, contrôle plateforme, landing systèmes, mobile)
+
+Work Log:
+- API smoke tests : GET /api/educational-systems 200 public (28 Ko) ; GET /api/class-passing 200 (20 élèves, stats complètes) ; GET /api/platform-events/status 200 (CLASS_PASSING source PLATFORM_EVENT visible, BULLETIN_PUBLICATION fenêtre 21 jours) ; GET /api/dispenses 200 ; GET /api/class-passing/repechage 200 ; GET / 200.
+- Browser landing (session vierge) : section « Les systèmes scolaires intégrés » avec 5 cartes cliquables (vrais drapeaux) ; clic RDC → SystemParcoursExplorer s'ouvre (état actif « Masquer ») ; onglets Maternelle (1M-3M, horaire 08:00) / Primaire (1P-6P, 07:30-12:30) / Secondaire (7EB, 8EB, 1H-4H, options Commerciale & Gestion + Électronique, horaire 15:30 avec Déjeuner) tous fonctionnels.
+- Browser login admin (admin@edugest.app) : menus « Passage de classe » et « Contrôle plateforme » présents ; vue Passage de classe → « 20 élèves évalués », stats ÉVALUÉS 20 / À RISQUE 2, bandeau « Période ouverte — date officielle : 1 octobre 2026 », onglets Délibération/Repêchage.
+- Browser repêchage : recherche « Banza » → « 1 ÉLÈVE TROUVÉ » (Banza Ngandu, 6eB, 5 matières < 10) ; carte dépliée → 5 cases à cocher avec notes (Maths 6.4, Français 9.3, Anglais 7.8, Histoire-Géo 8.3, EPS 5.4), champ Date de l'examen + Note optionnelle, bouton « Créer & envoyer (App + WhatsApp) », historique « Examens envoyés » avec badges.
+- Browser Contrôle plateforme : 2 blocs (Passage de classe / Publication des bulletins) chacun avec Date officielle + Apparition X jours avant + École concernée (Toutes les écoles + 6 écoles) + Message + bouton Programmer ; 2 événements programmés (« PASSAGE DE CLASSE, Toutes les écoles, officielle 1 oct 2026, visible dès le 22 août »).
+- Mobile 390×844 : aucun overflow-X ; footer poussé naturellement (page longue) ; rendu premium confirmé par screenshots.
+- dev.log : aucune erreur 500/exception pendant toute la session. agent-browser : 0 erreur console/page.
+- Note technique : le clic agent-browser ne déclenche pas toujours les events React sur certains boutons custom → utiliser eval JS avec el.click() + native setter pour les inputs.
+
+Stage Summary:
+- TOUTES les fonctionnalités du lot sont opérationnelles et vérifiées en conditions réelles : systèmes scolaires par niveau + horaires, passage de classe premium (notes+discipline+risque), repêchage (recherche élève → matières → envoi App+WhatsApp + historique), contrôle plateforme global (déclencheurs passage de classe + bulletins, fenêtre d'apparition configurable 21 jours par défaut), landing interactive.
+- Seul point ouvert : push GitHub (commit b926da1 + fix renew du jour) en attente d'un token valide — le token fourni (39 car., API 401) est tronqué.

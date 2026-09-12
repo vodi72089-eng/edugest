@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const { user } = authResult;
 
     // Only school admins can renew
-    if (!['SUPER_ADMIN_GLOBAL', 'SECRETARY'].includes(user.role)) {
+    if (!['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'SECRETARY'].includes(user.role)) {
       return NextResponse.json(
         { error: 'Seuls les administrateurs peuvent renouveler l\'abonnement' },
         { status: 403 }
@@ -26,7 +26,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { tier, paymentMethod } = body;
 
-    if (!tier || !SUBSCRIPTION_PRICES[tier]) {
+    // Note : SUBSCRIPTION_PRICES[tier] peut valoir 0 (FREEMIUM/CORPORATE) →
+    // on teste la présence de la clé, pas la vérité de la valeur.
+    if (!tier || SUBSCRIPTION_PRICES[tier] === undefined) {
       return NextResponse.json(
         { error: 'Formule d\'abonnement invalide' },
         { status: 400 }
