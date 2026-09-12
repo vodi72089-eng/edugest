@@ -274,8 +274,8 @@ export default function OnlinePaymentView() {
     MASTERCARD: { label: 'Mastercard', color: '#EB001B', icon: '💳', svg: '/logos/payment/mastercard.svg' },
     PAYPAL: { label: 'PayPal', color: '#003087', icon: '🅿️', svg: '/logos/payment/paypal.svg' },
     STRIPE: { label: 'Stripe', color: '#635BFF', icon: '🔷', svg: '/logos/payment/stripe.svg' },
-    FLUTTERWAVE: { label: 'Flutterwave', color: '#FF6D00', icon: '🌊', svg: '/logos/payment/flutterwave.svg' },
-    DPO: { label: 'DPO Pay', color: '#0B3C7C', icon: '🔵', svg: '/logos/payment/dpo.svg' },
+    FLUTTERWAVE: { label: 'Flutterwave', color: '#FF6D00', icon: '🌊', svg: '/logos/payment/flutterwave.png' },
+    DPO: { label: 'DPO Pay', color: '#0B3C7C', icon: '🔵', svg: '/logos/payment/dpo.png' },
     ORANGE_MONEY: { label: 'Orange Money', color: '#FF6600', icon: '🟠', svg: '/logos/payment/orange_money.svg' },
     MPESA: { label: 'M-Pesa', color: '#00A651', icon: '🟢', svg: '/logos/payment/mpesa.svg' },
     AIRTEL_MONEY: { label: 'Airtel Money', color: '#E40000', icon: '🔴', svg: '/logos/payment/airtel_money.svg' },
@@ -426,7 +426,7 @@ export default function OnlinePaymentView() {
                       }`}
                       style={{ background: paymentMethod === key ? 'oklch(97% 0.005 175)' : 'white' }}
                     >
-                      <img src={info.svg} alt={info.label} className="w-8 h-8 mx-auto mb-1 rounded-lg object-cover" />
+                      <div className="h-8 w-full flex items-center justify-center mb-1 bg-white rounded-lg border border-[oklch(90%_0.01_175)] p-1"><img src={info.svg} alt={info.label} className="max-w-full max-h-full w-auto h-auto object-contain" /></div>
                       <div className="text-[11px] font-semibold" style={{ color: TEXT_PRIMARY }}>{info.label}</div>
                     </button>
                   ))}
@@ -490,7 +490,7 @@ export default function OnlinePaymentView() {
               <div className="space-y-2">
                 {Object.entries(methodLabels).map(([key, info]) => (
                   <div key={key} className="flex items-center gap-2.5 p-2 rounded-lg" style={{ background: paymentMethod === key ? 'oklch(97% 0.005 175)' : 'transparent' }}>
-                    <img src={info.svg} alt={info.label} className="w-6 h-6 rounded-md object-cover shrink-0" />
+                    <img src={info.svg} alt={info.label} className="h-6 w-10 rounded-md object-contain shrink-0 bg-white border border-[oklch(90%_0.01_175)] p-0.5" />
                     <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{info.label}</span>
                   </div>
                 ))}

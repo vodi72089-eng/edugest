@@ -3636,19 +3636,23 @@ const GATEWAY_SVG_LOGOS: Record<string, string> = {
   MASTERCARD: '/logos/payment/mastercard.svg',
   PAYPAL: '/logos/payment/paypal.svg',
   STRIPE: '/logos/payment/stripe.svg',
-  FLUTTERWAVE: '/logos/payment/flutterwave.svg',
-  DPO: '/logos/payment/dpo.svg',
+  FLUTTERWAVE: '/logos/payment/flutterwave.png',
+  DPO: '/logos/payment/dpo.png',
   ORANGE_MONEY: '/logos/payment/orange_money.svg',
   MPESA: '/logos/payment/mpesa.svg',
   AIRTEL_MONEY: '/logos/payment/airtel_money.svg',
   MANUAL: '/logos/payment/cash.svg',
 }
 
-// Carte de logo officielle réutilisable (img + repli emoji si logo absent)
+// Carte de logo officielle réutilisable (plaque blanche + img object-contain = jamais rogné)
 function GatewayLogo({ gatewayType, name, icon, className }: { gatewayType: string; name?: string; icon?: string; className?: string }) {
   const logo = GATEWAY_SVG_LOGOS[gatewayType]
   if (logo) {
-    return <img src={logo} alt={name || gatewayType} className={className || 'w-10 h-10 rounded-xl object-contain bg-white shrink-0'} />
+    return (
+      <div className={`bg-white border border-[oklch(90%_0.01_175)] rounded-xl flex items-center justify-center overflow-hidden shrink-0 ${className || 'w-20 h-10 p-1.5'}`}>
+        <img src={logo} alt={name || gatewayType} className="max-w-full max-h-full w-auto h-auto object-contain" />
+      </div>
+    )
   }
   return <span className={className || 'text-2xl'}>{icon || '💳'}</span>
 }
@@ -7871,7 +7875,7 @@ function SubscriptionUpgradeView() {
                           style={{ color: TEXT_PRIMARY }}
                         >
                           <span className="flex items-center gap-3">
-                            <GatewayLogo gatewayType={g.gatewayType} name={g.displayName} icon={g.icon} className="w-12 h-8 rounded-lg object-contain bg-white shrink-0" />
+                            <GatewayLogo gatewayType={g.gatewayType} name={g.displayName} icon={g.icon} className="w-14 h-8 rounded-lg p-1" />
                             <span>
                               {g.displayName || g.gatewayType}
                               {g.isTestMode && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]">TEST</span>}

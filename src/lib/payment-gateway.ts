@@ -115,7 +115,7 @@ export const GATEWAY_INFO: Record<GatewayType, {
     supportedCurrencies: ['USD', 'NGN', 'GHS', 'KES', 'XOF', 'CDF', 'ZAR'],
     supportedMethods: ['card', 'mobile_money', 'bank_transfer'],
     icon: '🌊',
-    logo: '/logos/payment/flutterwave.svg',
+    logo: '/logos/payment/flutterwave.png',
     requiresWebhook: true,
   },
   DPO: {
@@ -125,7 +125,7 @@ export const GATEWAY_INFO: Record<GatewayType, {
     supportedCurrencies: ['USD', 'EUR', 'CDF', 'XOF', 'KES', 'TZS', 'UGX', 'RWF'],
     supportedMethods: ['card', 'mobile_money'],
     icon: '🔵',
-    logo: '/logos/payment/dpo.svg',
+    logo: '/logos/payment/dpo.png',
     requiresWebhook: true,
   },
   MPESA: {
