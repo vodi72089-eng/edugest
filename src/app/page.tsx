@@ -2261,7 +2261,6 @@ function Sidebar() {
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
-      { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
       { icon: <Globe size={16} />, label: 'Contrôle plateforme', view: 'platform-control' as ViewType },
       { icon: <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>, label: 'Connexion WhatsApp', view: 'whatsapp-config' as ViewType },
@@ -2274,8 +2273,25 @@ function Sidebar() {
       { icon: <BookOpen size={16} />, label: 'Classes', view: 'classes' as ViewType },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
+      { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
+      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+    ],
+    // Administrateur d'école (compte avec schoolId) — SEUL rôle avec le Passage de classe
+    SCHOOL_ADMIN: [
+      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
+      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
+      { icon: <School size={16} />, label: 'Classes', view: 'classes' },
+      { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
+      { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
+      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
+      { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <Megaphone size={16} />, label: 'Convocation', view: 'convocation' },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
+      { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
@@ -2346,10 +2362,10 @@ HEAD_TEACHER: [
     menuItems = menuItems.filter(m => m.view !== 'grades' && m.view !== 'bulletin')
   }
 
-  // FREEMIUM restrictions: DIRECTION_*, SECRETARY (admin freemium) and SUPER_ADMIN_GLOBAL see restricted menu
+  // FREEMIUM restrictions: DIRECTION_*, SECRETARY, SCHOOL_ADMIN (admin freemium) and SUPER_ADMIN_GLOBAL see restricted menu
   // (pas de Passage de classe, Communications ni Paramètres en FREEMIUM — passage à un forfait supérieur requis)
   const isFreemium = userData?.subscriptionTier === 'FREEMIUM'
-  if (isFreemium && (directionRoles.includes(userRole as UserRole) || userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SECRETARY')) {
+  if (isFreemium && (directionRoles.includes(userRole as UserRole) || userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SECRETARY' || userRole === 'SCHOOL_ADMIN')) {
     menuItems = [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
@@ -2474,7 +2490,8 @@ const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   PARENT: ['dashboard', 'grades', 'bulletin', 'online-payment', 'payment-verification', 'discipline', 'homework', 'communications', 'school-reviews', 'profile', 'convocation'],
   TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'communications', 'profile'],
   HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'bulletin', 'communications', 'profile'],
-  SECRETARY: ['dashboard', 'students', 'classes', 'communications', 'payment-verification', 'class-passing', 'settings', 'profile'],
+  SECRETARY: ['dashboard', 'students', 'classes', 'communications', 'payment-verification', 'settings', 'profile'],
+  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'discipline', 'homework', 'communications', 'convocation', 'class-passing', 'bulletin', 'my-subscription', 'settings', 'profile'],
   CASHIER: ['dashboard', 'payments', 'payment-verification', 'debts', 'communications', 'profile'],
   DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'my-subscription', 'settings', 'profile'],
   DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'my-subscription', 'settings', 'profile'],
@@ -2482,15 +2499,15 @@ const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   DISCIPLINE_MATERNELLE: ['dashboard', 'discipline', 'communications', 'profile'],
   DISCIPLINE_PRIMAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
   DISCIPLINE_SECONDAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
-  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'payment-config', 'pricing', 'discipline', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'settings', 'profile'],
+  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'payment-config', 'pricing', 'discipline', 'communications', 'homework', 'bulletin', 'convocation', 'whatsapp-config', 'settings', 'profile'],
 }
 
 const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment-verification', 'payment-config', 'my-subscription', 'settings', 'profile']
 
 function canAccessView(role: string | null, view: ViewType, subscriptionTier?: string): boolean {
   if (!role) return false
-  // DIRECTION_* et SECRETARY (admin freemium) sur FREEMIUM → vues restreintes
-  if (subscriptionTier === 'FREEMIUM' && (role.startsWith('DIRECTION') || role === 'SECRETARY')) {
+  // DIRECTION_*, SECRETARY et SCHOOL_ADMIN (admin freemium) sur FREEMIUM → vues restreintes
+  if (subscriptionTier === 'FREEMIUM' && (role.startsWith('DIRECTION') || role === 'SECRETARY' || role === 'SCHOOL_ADMIN')) {
     return FREEMIUM_VIEWS.includes(view)
   }
   // Parents : notes/bulletins retirés si le forfait de l'école ne les inclut pas (Freemium/Essentiel)
@@ -3559,16 +3576,33 @@ function ClassesView() {
 // PaymentsView imported from @/components/views/PaymentsView
 
 // ===== PAYMENT CONFIGURATION VIEW =====
+// Logos officiels des passerelles de paiement (fichiers servis depuis /public/logos/payment)
 const GATEWAY_SVG_LOGOS: Record<string, string> = {
-  ORANGE_MONEY: '/logos/orange-money.svg',
-  MPESA: '/logos/m-pesa.svg',
-  AIRTEL_MONEY: '/logos/airtel-money.svg',
-  MANUAL: '/logos/manual.svg',
+  VISA: '/logos/payment/visa.svg',
+  MASTERCARD: '/logos/payment/mastercard.svg',
+  PAYPAL: '/logos/payment/paypal.svg',
+  STRIPE: '/logos/payment/stripe.svg',
+  FLUTTERWAVE: '/logos/payment/flutterwave.svg',
+  DPO: '/logos/payment/dpo.svg',
+  ORANGE_MONEY: '/logos/payment/orange_money.svg',
+  MPESA: '/logos/payment/mpesa.svg',
+  AIRTEL_MONEY: '/logos/payment/airtel_money.svg',
+  MANUAL: '/logos/payment/cash.svg',
+}
+
+// Carte de logo officielle réutilisable (img + repli emoji si logo absent)
+function GatewayLogo({ gatewayType, name, icon, className }: { gatewayType: string; name?: string; icon?: string; className?: string }) {
+  const logo = GATEWAY_SVG_LOGOS[gatewayType]
+  if (logo) {
+    return <img src={logo} alt={name || gatewayType} className={className || 'w-10 h-10 rounded-xl object-contain bg-white shrink-0'} />
+  }
+  return <span className={className || 'text-2xl'}>{icon || '💳'}</span>
 }
 
 function PaymentConfigView() {
-  const { userData } = useEduGestStore()
-  const [activeTab, setActiveTab] = useState<'gateways' | 'currency' | 'transactions' | 'fees' | 'whatsapp-api'>('gateways')
+  const { userData, userRole } = useEduGestStore()
+  const [activeTab, setActiveTab] = useState<'gateways' | 'currency' | 'transactions' | 'fees' | 'whatsapp-api' | 'platform'>('gateways')
+  const isPlatformAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
   const [gateways, setGateways] = useState<any[]>([])
   const [availableGateways, setAvailableGateways] = useState<any[]>([])
   const [currencyConfig, setCurrencyConfig] = useState<any>(null)
@@ -3600,6 +3634,13 @@ function PaymentConfigView() {
   const [waSaving, setWaSaving] = useState(false)
   const [waTestPhone, setWaTestPhone] = useState('')
   const [waTesting, setWaTesting] = useState(false)
+  // Passerelles de paiement de la PLATEFORME (abonnements EduGest) — SUPER_ADMIN_GLOBAL
+  const [platformCatalog, setPlatformCatalog] = useState<any[]>([])
+  const [platformConfigs, setPlatformConfigs] = useState<any[]>([])
+  const [platformLoading, setPlatformLoading] = useState(false)
+  const [platformEditor, setPlatformEditor] = useState<string | null>(null)
+  const [platformForm, setPlatformForm] = useState<any>({})
+  const [platformSaving, setPlatformSaving] = useState(false)
 
   useEffect(() => {
     if (!userData?.schoolId) return
@@ -3609,7 +3650,89 @@ function PaymentConfigView() {
     loadSchoolFees()
     loadClasses()
     loadWhatsappApi()
+    if (userRole === 'SUPER_ADMIN_GLOBAL') loadPlatformGateways()
   }, [userData?.schoolId])
+
+  async function loadPlatformGateways() {
+    try {
+      setPlatformLoading(true)
+      const res = await authFetch('/api/platform-payment-gateways')
+      const json = await res.json()
+      if (json.data) {
+        setPlatformCatalog(json.data.catalog || [])
+        setPlatformConfigs(json.data.configured || [])
+      }
+    } catch (e) { console.error('[PaymentConfig] loadPlatformGateways:', e) }
+    finally { setPlatformLoading(false) }
+  }
+
+  function openPlatformEditor(gatewayType: string) {
+    const cfg = platformConfigs.find((c: any) => c.gatewayType === gatewayType)
+    setPlatformForm({
+      gatewayType,
+      merchantId: cfg?.merchantId || '',
+      apiKey: '',       // masqué — vide = conserver
+      secretKey: '',    // masqué — vide = conserver
+      publicKey: cfg?.publicKey || '',
+      phoneNumber: cfg?.phoneNumber || '',
+      accountEmail: cfg?.accountEmail || '',
+      currency: cfg?.currency || 'USD',
+      feePercent: cfg?.feePercent ?? 0,
+      isTestMode: cfg?.isTestMode ?? true,
+      hasCredentials: cfg?.hasCredentials || false,
+    })
+    setPlatformEditor(gatewayType)
+  }
+
+  async function savePlatformGateway() {
+    if (!platformForm.gatewayType) return
+    setPlatformSaving(true)
+    try {
+      const res = await authFetch('/api/platform-payment-gateways', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gatewayType: platformForm.gatewayType,
+          isActive: true,
+          isTestMode: platformForm.isTestMode,
+          merchantId: platformForm.merchantId || undefined,
+          apiKey: platformForm.apiKey || undefined,
+          secretKey: platformForm.secretKey || undefined,
+          publicKey: platformForm.publicKey || undefined,
+          phoneNumber: platformForm.phoneNumber || undefined,
+          accountEmail: platformForm.accountEmail || undefined,
+          currency: platformForm.currency,
+          feePercent: platformForm.feePercent,
+        }),
+      })
+      const j = await res.json()
+      if (res.ok) {
+        toast.success(j.message || 'Passerelle plateforme enregistrée')
+        setPlatformEditor(null)
+        loadPlatformGateways()
+      } else {
+        toast.error(j.error || 'Erreur lors de l\'enregistrement')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setPlatformSaving(false) }
+  }
+
+  async function togglePlatformGateway(gatewayType: string, isActive: boolean) {
+    try {
+      const res = await authFetch('/api/platform-payment-gateways', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gatewayType, isActive }),
+      })
+      const j = await res.json()
+      if (res.ok) {
+        toast.success(j.message || 'Statut mis à jour')
+        loadPlatformGateways()
+      } else {
+        toast.error(j.error || 'Erreur')
+      }
+    } catch { toast.error('Erreur réseau') }
+  }
 
   async function loadWhatsappApi() {
     try {
@@ -3957,6 +4080,18 @@ function PaymentConfigView() {
           API WhatsApp
           {waConfig?.isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="API active" />}
         </button>
+        {isPlatformAdmin && (
+          <button
+            onClick={() => setActiveTab('platform')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition flex items-center gap-1.5 ${
+              activeTab === 'platform' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Globe size={14} />
+            Plateforme (abonnements)
+            {platformConfigs.some((c: any) => c.isActive) && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="APIs actives" />}
+          </button>
+        )}
       </div>
 
       {/* Gateways Tab */}
@@ -3970,16 +4105,11 @@ function PaymentConfigView() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {availableGateways.map((gw: any) => {
               const configured = gateways.find((g: any) => g.gatewayType === gw.gatewayType)
-              const svgLogo = GATEWAY_SVG_LOGOS[gw.gatewayType]
               return (
                 <div key={gw.gatewayType} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      {svgLogo ? (
-                        <img src={svgLogo} alt={gw.displayName} className="w-10 h-10 rounded-xl object-cover shrink-0" />
-                      ) : (
-                        <span className="text-2xl">{gw.icon}</span>
-                      )}
+                      <GatewayLogo gatewayType={gw.gatewayType} name={gw.displayName} icon={gw.icon} />
                       <div>
                         <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>{gw.displayName}</h3>
                         {configured ? (
@@ -4018,6 +4148,159 @@ function PaymentConfigView() {
                       </button>
                     )}
                   </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Plateforme Tab — passerelles d'encaissement des ABONNEMENTS EduGest (SUPER_ADMIN_GLOBAL) */}
+      {activeTab === 'platform' && isPlatformAdmin && (
+        <div className="space-y-4">
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl grid place-items-center shrink-0" style={{ background: GOLD_SOFT }}>
+                <Globe size={20} style={{ color: GOLD }} />
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>APIs de paiement de la plateforme</h3>
+                <p className="text-[12px] mt-1 leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
+                  Ce sont <strong>vos</strong> passerelles : les écoles qui s&apos;abonnent paient <strong>ici</strong>.
+                  Si aucune API n&apos;est active, les clients voient un <strong>formulaire de paiement manuel</strong> et leur demande
+                  vous est notifiée pour validation. Configurez au moins une passerelle (ex : Visa) pour encaisser en ligne.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {platformLoading && (
+            <div className="text-center py-8">
+              <div className="inline-block w-6 h-6 border-2 border-[#f5a623] border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {platformCatalog.map((gw: any) => {
+              const cfg = platformConfigs.find((c: any) => c.gatewayType === gw.gatewayType)
+              return (
+                <div key={gw.gatewayType} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <GatewayLogo gatewayType={gw.gatewayType} name={gw.displayName} icon={gw.icon} />
+                      <div>
+                        <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>{gw.displayName}</h3>
+                        {cfg ? (
+                          <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${cfg.isActive ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>
+                            {cfg.isActive ? (cfg.isTestMode ? 'Actif (test)' : 'Actif') : 'Inactif'}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]">
+                            Non configurée
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[12px] mb-3" style={{ color: TEXT_MUTED_LUXE }}>{gw.description}</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => openPlatformEditor(gw.gatewayType)}
+                      className="flex-1 text-[12px] py-2 px-3 rounded-xl font-semibold transition edu-gold-cta"
+                    >
+                      {cfg ? 'Configurer' : 'Ajouter l\'API'}
+                    </button>
+                    {cfg && (
+                      <button
+                        onClick={() => togglePlatformGateway(gw.gatewayType, !cfg.isActive)}
+                        className={`text-[12px] py-2 px-3 rounded-xl font-semibold transition ${
+                          cfg.isActive ? 'bg-[oklch(95%_0.04_25)] text-[oklch(55%_0.18_25)] hover:bg-[oklch(93%_0.04_25)]' : 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)] hover:bg-[oklch(92%_0.05_145)]'
+                        }`}
+                      >
+                        {cfg.isActive ? 'Désactiver' : 'Activer'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Éditeur en ligne de la passerelle plateforme */}
+                  {platformEditor === gw.gatewayType && (
+                    <div className="mt-4 pt-4 border-t border-[oklch(92%_0.01_175)] space-y-2.5">
+                      <input
+                        value={platformForm.merchantId}
+                        onChange={(e) => setPlatformForm({ ...platformForm, merchantId: e.target.value })}
+                        placeholder="Merchant / Client ID"
+                        className="w-full text-[12px] px-3 py-2 border border-[oklch(88%_0.01_175)] rounded-xl focus:outline-none focus:border-[#f5a623]"
+                      />
+                      <input
+                        value={platformForm.apiKey}
+                        onChange={(e) => setPlatformForm({ ...platformForm, apiKey: e.target.value })}
+                        placeholder={platformForm.hasCredentials ? 'API Key — laisser vide pour conserver' : 'API Key'}
+                        className="w-full text-[12px] px-3 py-2 border border-[oklch(88%_0.01_175)] rounded-xl focus:outline-none focus:border-[#f5a623]"
+                      />
+                      <input
+                        value={platformForm.secretKey}
+                        onChange={(e) => setPlatformForm({ ...platformForm, secretKey: e.target.value })}
+                        placeholder={platformForm.hasCredentials ? 'Secret Key — laisser vide pour conserver' : 'Secret Key'}
+                        type="password"
+                        className="w-full text-[12px] px-3 py-2 border border-[oklch(88%_0.01_175)] rounded-xl focus:outline-none focus:border-[#f5a623]"
+                      />
+                      <input
+                        value={platformForm.publicKey}
+                        onChange={(e) => setPlatformForm({ ...platformForm, publicKey: e.target.value })}
+                        placeholder="Clé publique / Passkey (optionnel)"
+                        className="w-full text-[12px] px-3 py-2 border border-[oklch(88%_0.01_175)] rounded-xl focus:outline-none focus:border-[#f5a623]"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          value={platformForm.phoneNumber}
+                          onChange={(e) => setPlatformForm({ ...platformForm, phoneNumber: e.target.value })}
+                          placeholder="Tél. marchand (mobile money)"
+                          className="w-full text-[12px] px-3 py-2 border border-[oklch(88%_0.01_175)] rounded-xl focus:outline-none focus:border-[#f5a623]"
+                        />
+                        <input
+                          value={platformForm.accountEmail}
+                          onChange={(e) => setPlatformForm({ ...platformForm, accountEmail: e.target.value })}
+                          placeholder="E-mail marchand (PayPal/Stripe)"
+                          className="w-full text-[12px] px-3 py-2 border border-[oklch(88%_0.01_175)] rounded-xl focus:outline-none focus:border-[#f5a623]"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={platformForm.currency}
+                          onChange={(e) => setPlatformForm({ ...platformForm, currency: e.target.value })}
+                          className="w-full text-[12px] px-3 py-2 border border-[oklch(88%_0.01_175)] rounded-xl bg-white focus:outline-none focus:border-[#f5a623]"
+                        >
+                          {gw.supportedCurrencies.map((c: string) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                        <label className="flex items-center gap-2 text-[12px] px-3 py-2 border border-[oklch(88%_0.01_175)] rounded-xl cursor-pointer" style={{ color: TEXT_MUTED_LUXE }}>
+                          <input
+                            type="checkbox"
+                            checked={platformForm.isTestMode}
+                            onChange={(e) => setPlatformForm({ ...platformForm, isTestMode: e.target.checked })}
+                            className="accent-[#f5a623]"
+                          />
+                          Mode test
+                        </label>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={savePlatformGateway}
+                          disabled={platformSaving}
+                          className="flex-1 text-[12px] py-2 rounded-xl font-semibold edu-gold-cta disabled:opacity-60"
+                        >
+                          {platformSaving ? 'Enregistrement…' : 'Enregistrer & activer'}
+                        </button>
+                        <button
+                          onClick={() => setPlatformEditor(null)}
+                          className="text-[12px] py-2 px-3 rounded-xl font-semibold bg-[oklch(95%_0.005_250)] text-[oklch(52%_0.015_250)] hover:bg-[oklch(93%_0.005_250)]"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -7186,11 +7469,17 @@ function SubscriptionUpgradeView() {
   const [loading, setLoading] = useState(true)
   const [requesting, setRequesting] = useState<string | null>(null)
   const [selectedTier, setSelectedTier] = useState<string | null>(null)
-  const [modalMode, setModalMode] = useState<'request' | 'pay'>('request')
-  const [activeGateways, setActiveGateways] = useState<any[]>([])
+  const [modalMode, setModalMode] = useState<'request' | 'pay' | 'manual'>('request')
+  // API de paiement de la PLATEFORME (abonnements) — configurée par EduGest
+  const [platformConfigured, setPlatformConfigured] = useState<boolean | null>(null)
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([])
   const [selectedGateway, setSelectedGateway] = useState<string>('')
   const [customerPhone, setCustomerPhone] = useState('')
+  const [customerEmail, setCustomerEmail] = useState('')
   const [paying, setPaying] = useState(false)
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null)
+  // Formulaire de paiement manuel (quand la plateforme n'a pas d'API configurée)
+  const [manualForm, setManualForm] = useState({ method: 'Virement bancaire', reference: '', payerName: '', payerPhone: '', note: '' })
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -7213,13 +7502,14 @@ function SubscriptionUpgradeView() {
       setRequests(j.data || [])
       setLoading(false)
     }).catch(() => setLoading(false))
-    // Vérifier si un agrégateur de paiement est VRAIMENT connecté (actif + clés renseignées)
-    authFetch('/api/payment-gateways').then(r => r.json()).then(j => {
-      const configured = j.data?.configured || []
-      const connected = configured.filter((g: any) => g.isActive && g.hasCredentials)
-      setActiveGateways(connected)
-      if (connected.length > 0) setSelectedGateway(connected[0].gatewayType)
-    }).catch(() => {})
+    // L'API de paiement est-elle configurée par la PLATEFORME (abonnements) ?
+    // platformConfigured=true  → le client paie en ligne (Visa, M-Pesa…) → demande de paiement
+    // platformConfigured=false → le client remplit le formulaire de paiement manuel
+    authFetch('/api/subscription/payment-methods').then(r => r.json()).then(j => {
+      setPlatformConfigured(!!j.data?.platformConfigured)
+      setPaymentMethods(j.data?.methods || [])
+      if (j.data?.methods?.length > 0) setSelectedGateway(j.data.methods[0].gatewayType)
+    }).catch(() => setPlatformConfigured(false))
   }, [])
 
   async function handleRequest(tier: string) {
@@ -7244,41 +7534,76 @@ function SubscriptionUpgradeView() {
     finally { setSubmitting(false) }
   }
 
+  // Demande de paiement en ligne via une passerelle PLATEFORME (Visa, M-Pesa…)
   async function handlePay() {
     const tier = tiers.find(t => t.id === selectedTier)
     if (!tier || !selectedGateway) { toast.error('Choisissez un moyen de paiement'); return }
     setPaying(true)
     try {
-      const res = await authFetch('/api/payment-gateways/initiate', {
+      const res = await authFetch('/api/payment-gateways/initiate-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          schoolId: userData?.schoolId,
+          requestedTier: selectedTier,
           gatewayType: selectedGateway,
-          amount: tier.price,
-          description: `Abonnement ${tier.name} - ${userData?.schoolName || 'EduGest'}`,
           customerPhone: customerPhone || undefined,
+          customerEmail: customerEmail || undefined,
+          customerName: userData?.name || undefined,
         }),
       })
       const j = await res.json()
-      if (res.ok || res.status === 202) {
-        toast.success(j.message || 'Paiement initié avec succès !')
-        // Tracer la demande pour l'admin (le paiement en ligne est vérifié via webhook)
-        const ref = j.data?.reference || j.data?.transactionId || j.data?.transaction?.id || ''
-        authFetch('/api/subscription/request', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ requestedTier: selectedTier, notes: `Paiement en ligne via ${selectedGateway}${ref ? ` — réf: ${ref}` : ''}` }),
-        }).catch(() => {})
-        setSelectedTier(null)
+      if (res.ok || res.status === 201) {
+        toast.success(j.message || 'Demande de paiement envoyée !')
+        setCheckoutUrl(j.data?.payment?.checkoutUrl || null)
+        if (!j.data?.payment?.checkoutUrl) {
+          setSelectedTier(null)
+        }
         setCustomerPhone('')
+        setCustomerEmail('')
         const r2 = await authFetch('/api/subscription/request').then(r => r.json()).catch(() => null)
         if (r2) setRequests(r2.data || [])
+      } else if (res.status === 409 && j.platformConfigured === false) {
+        // API plateforme non configurée → basculer sur le formulaire manuel
+        toast.info('Paiement en ligne indisponible — utilisez le formulaire de paiement')
+        setModalMode('manual')
       } else {
         toast.error(j.error || 'Erreur lors du paiement')
       }
     } catch { toast.error('Erreur réseau') }
     finally { setPaying(false) }
+  }
+
+  // Formulaire de paiement manuel — API plateforme NON configurée
+  async function handleManualSubmit() {
+    const tier = tiers.find(t => t.id === selectedTier)
+    if (!tier) return
+    if (!manualForm.reference.trim()) { toast.error('La référence du paiement est requise'); return }
+    setSubmitting(true)
+    try {
+      const details = [
+        'Paiement manuel',
+        `Moyen: ${manualForm.method}`,
+        `Référence: ${manualForm.reference.trim()}`,
+        manualForm.payerName.trim() ? `Payeur: ${manualForm.payerName.trim()}` : '',
+        manualForm.payerPhone.trim() ? `Téléphone: ${manualForm.payerPhone.trim()}` : '',
+        manualForm.note.trim() ? `Note: ${manualForm.note.trim()}` : '',
+      ].filter(Boolean).join(' — ')
+      const res = await authFetch('/api/subscription/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestedTier: selectedTier, notes: details }),
+      })
+      const j = await res.json()
+      if (res.ok) {
+        toast.success('Formulaire de paiement envoyé ! L\'administrateur va vérifier votre paiement.')
+        setRequests(prev => [j.data, ...prev])
+        setSelectedTier(null)
+        setManualForm({ method: 'Virement bancaire', reference: '', payerName: '', payerPhone: '', note: '' })
+      } else {
+        toast.error(j.error || 'Erreur lors de l\'envoi')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setSubmitting(false) }
   }
 
   const pendingRequest = requests.find(r => r.status === 'PENDING')
@@ -7319,7 +7644,9 @@ function SubscriptionUpgradeView() {
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Changer de formule</h2>
           <p className="text-sm mb-4" style={{ color: TEXT_MUTED_LUXE }}>
-            Sélectionnez la formule souhaitée et envoyez une demande à l&apos;administrateur de la plateforme.
+            Sélectionnez la formule souhaitée : {platformConfigured
+              ? 'payez en ligne via les moyens officiels acceptés par la plateforme (Visa, M-Pesa, Orange Money…)'
+              : "la plateforme n'a pas d'API de paiement configurée — un formulaire de paiement manuel vous sera proposé, votre demande sera validée après vérification"}.
           </p>
         </div>
       )}
@@ -7370,7 +7697,7 @@ function SubscriptionUpgradeView() {
                   Formule actuelle
                 </div>
               ) : isUpgradable ? (
-                activeGateways.length > 0 && tier.price > 0 ? (
+                tier.price > 0 && platformConfigured ? (
                   <div className="flex gap-2">
                     <button
                       onClick={() => { setSelectedTier(tier.id); setModalMode('pay') }}
@@ -7391,6 +7718,17 @@ function SubscriptionUpgradeView() {
                       Demander
                     </button>
                   </div>
+                ) : tier.price > 0 ? (
+                  // API de paiement plateforme NON configurée → formulaire de paiement manuel
+                  <button
+                    onClick={() => { setSelectedTier(tier.id); setModalMode('manual') }}
+                    disabled={!!pendingRequest || submitting}
+                    className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:opacity-50"
+                    style={{ background: tier.color }}
+                    title="Remplir le formulaire de paiement manuel"
+                  >
+                    {pendingRequest ? 'Demande en cours...' : 'Formulaire de paiement'}
+                  </button>
                 ) : (
                   <button
                     onClick={() => { setSelectedTier(tier.id); setModalMode('request') }}
@@ -7429,12 +7767,46 @@ function SubscriptionUpgradeView() {
                 </div>
               </div>
 
+              {checkoutUrl && (
+                <div className="p-4 rounded-xl border border-[oklch(88%_0.06_145)] bg-[oklch(96%_0.03_145)] text-center">
+                  <p className="text-sm font-semibold mb-2" style={{ color: 'oklch(40%_0.13_145)' }}>
+                    Demande de paiement créée avec succès !
+                  </p>
+                  <p className="text-[12px] mb-3" style={{ color: TEXT_MUTED_LUXE }}>
+                    Cliquez ci-dessous pour finaliser votre paiement sur la page sécurisée de la passerelle.
+                    Votre abonnement sera activé après confirmation.
+                  </p>
+                  <a
+                    href={checkoutUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
+                    style={{ background: GOLD }}
+                  >
+                    <CreditCard size={14} />
+                    Finaliser le paiement
+                  </a>
+                  <button
+                    onClick={() => { setCheckoutUrl(null); setSelectedTier(null) }}
+                    className="block mx-auto mt-3 text-[12px] font-medium hover:underline"
+                    style={{ color: TEXT_MUTED_LUXE }}
+                  >
+                    Fermer
+                  </button>
+                </div>
+              )}
+
               {modalMode === 'pay' ? (
                 <>
+                  <div className="p-3 rounded-xl border border-[oklch(90%_0.01_175)] bg-[oklch(97%_0.005_175)]">
+                    <p className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>
+                      <strong>Paiement sécurisé</strong> — votre demande est transmise à l&apos;administrateur EduGest qui encaisse via sa passerelle officielle.
+                    </p>
+                  </div>
                   <div>
-                    <label className="text-xs font-medium mb-2 block" style={{ color: TEXT_MUTED_LUXE }}>Moyen de paiement</label>
+                    <label className="text-xs font-medium mb-2 block" style={{ color: TEXT_MUTED_LUXE }}>Moyen de paiement accepté par la plateforme</label>
                     <div className="space-y-2">
-                      {activeGateways.map((g: any) => (
+                      {paymentMethods.map((g: any) => (
                         <button
                           key={g.gatewayType}
                           type="button"
@@ -7444,7 +7816,13 @@ function SubscriptionUpgradeView() {
                           }`}
                           style={{ color: TEXT_PRIMARY }}
                         >
-                          <span>{g.displayName || g.name || g.gatewayType}</span>
+                          <span className="flex items-center gap-3">
+                            <GatewayLogo gatewayType={g.gatewayType} name={g.displayName} icon={g.icon} className="w-12 h-8 rounded-lg object-contain bg-white shrink-0" />
+                            <span>
+                              {g.displayName || g.gatewayType}
+                              {g.isTestMode && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]">TEST</span>}
+                            </span>
+                          </span>
                           {selectedGateway === g.gatewayType && <Check size={14} style={{ color: GOLD }} />}
                         </button>
                       ))}
@@ -7460,6 +7838,84 @@ function SubscriptionUpgradeView() {
                       className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
                       style={{ color: TEXT_PRIMARY }}
                     />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>E-mail (reçu de paiement)</label>
+                    <input
+                      type="email"
+                      value={customerEmail}
+                      onChange={e => setCustomerEmail(e.target.value)}
+                      placeholder="tresorier@ecole.cd"
+                      className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+                      style={{ color: TEXT_PRIMARY }}
+                    />
+                  </div>
+                </>
+              ) : modalMode === 'manual' ? (
+                <>
+                  <div className="p-3 rounded-xl border border-[oklch(88%_0.04_250)] bg-[oklch(96%_0.01_250)]">
+                    <p className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>
+                      La plateforme n&apos;a pas encore d&apos;API de paiement configurée. <strong>Remplissez ce formulaire</strong> après avoir payé
+                      par virement, mobile money ou espèces — l&apos;administrateur vérifiera votre paiement puis activera votre abonnement.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2">
+                      <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Moyen de paiement utilisé *</label>
+                      <select
+                        value={manualForm.method}
+                        onChange={e => setManualForm({ ...manualForm, method: e.target.value })}
+                        className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+                        style={{ color: TEXT_PRIMARY }}
+                      >
+                        <option>Virement bancaire</option>
+                        <option>Mobile Money (M-Pesa / Orange / Airtel)</option>
+                        <option>Espèces (dépôt en bureau)</option>
+                        <option>Chèque</option>
+                        <option>Autre</option>
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Référence de la transaction *</label>
+                      <input
+                        value={manualForm.reference}
+                        onChange={e => setManualForm({ ...manualForm, reference: e.target.value })}
+                        placeholder="ex: MP-240912.1432.ABC ou n° de bordereau"
+                        className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+                        style={{ color: TEXT_PRIMARY }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom du payeur</label>
+                      <input
+                        value={manualForm.payerName}
+                        onChange={e => setManualForm({ ...manualForm, payerName: e.target.value })}
+                        placeholder={userData?.name || 'Votre nom'}
+                        className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+                        style={{ color: TEXT_PRIMARY }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Téléphone du payeur</label>
+                      <input
+                        value={manualForm.payerPhone}
+                        onChange={e => setManualForm({ ...manualForm, payerPhone: e.target.value })}
+                        placeholder="+243 81 234 5678"
+                        className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+                        style={{ color: TEXT_PRIMARY }}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Note (optionnel)</label>
+                      <textarea
+                        value={manualForm.note}
+                        onChange={e => setManualForm({ ...manualForm, note: e.target.value })}
+                        placeholder="Précisions sur votre paiement…"
+                        rows={2}
+                        className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none"
+                        style={{ color: TEXT_PRIMARY }}
+                      />
+                    </div>
                   </div>
                 </>
               ) : (
@@ -7486,7 +7942,17 @@ function SubscriptionUpgradeView() {
                   style={{ background: GOLD }}
                 >
                   {paying ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CreditCard size={14} />}
-                  Payer {(() => { const t = tiers.find(x => x.id === selectedTier); return t && t.price > 0 ? `${t.price}$` : '' })()}
+                  Demander le paiement {(() => { const t = tiers.find(x => x.id === selectedTier); return t && t.price > 0 ? `${t.price}$` : '' })()}
+                </button>
+              ) : modalMode === 'manual' ? (
+                <button
+                  onClick={handleManualSubmit}
+                  disabled={submitting || !manualForm.reference.trim()}
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-2 disabled:opacity-50"
+                  style={{ background: GOLD }}
+                >
+                  {submitting ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send size={14} />}
+                  Envoyer le formulaire de paiement
                 </button>
               ) : (
                 <button

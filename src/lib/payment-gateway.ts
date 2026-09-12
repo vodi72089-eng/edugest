@@ -1,16 +1,29 @@
 /**
  * Service de passerelles de paiement
- * Supporte: M-Pesa, Orange Money, Airtel Money, Paiement Manuel
+ * Mobile : M-Pesa, Orange Money, Airtel Money
+ * Cartes / internationales : Visa, Mastercard, PayPal, Stripe, Flutterwave, DPO
+ * Manuel : espèces, virement
+ * Paiements d'abonnement EduGest : passerelles configurées au niveau
+ * plateforme (schoolId sentinelle PLATFORM_SCHOOL_ID).
  */
 
 import { db } from '@/lib/db';
 import { convertCurrency } from '@/lib/exchange-rate';
 import { decryptSecret } from '@/lib/gateway-keys';
 
+/** École sentinelle : passerelles de paiement de la PLATEFORME (abonnements EduGest) */
+export const PLATFORM_SCHOOL_ID = '__PLATFORM__';
+
 export type GatewayType =
   | 'MPESA'
   | 'ORANGE_MONEY'
   | 'AIRTEL_MONEY'
+  | 'VISA'
+  | 'MASTERCARD'
+  | 'PAYPAL'
+  | 'STRIPE'
+  | 'FLUTTERWAVE'
+  | 'DPO'
   | 'MANUAL';
 
 export interface PaymentRequest {
@@ -24,6 +37,11 @@ export interface PaymentRequest {
   customerEmail?: string;
   customerName?: string;
   paymentMethod?: string;
+  /** Paiement carte (Visa/Mastercard) — uniquement encaissement direct */
+  cardNumber?: string;
+  cardExpiryMonth?: string | number;
+  cardExpiryYear?: string | number;
+  cardCvv?: string;
   initiatedBy: string;
 }
 
@@ -46,8 +64,70 @@ export const GATEWAY_INFO: Record<GatewayType, {
   supportedCurrencies: string[];
   supportedMethods: string[];
   icon: string;
+  /** Logo officiel servi depuis /public/logos/payment */
+  logo: string;
   requiresWebhook: boolean;
 }> = {
+  VISA: {
+    name: 'VISA',
+    displayName: 'Visa',
+    description: 'Cartes bancaires Visa (autorisation de paiement directe)',
+    supportedCurrencies: ['USD', 'EUR', 'CDF', 'XOF', 'GBP'],
+    supportedMethods: ['card'],
+    icon: '💳',
+    logo: '/logos/payment/visa.svg',
+    requiresWebhook: false,
+  },
+  MASTERCARD: {
+    name: 'MASTERCARD',
+    displayName: 'Mastercard',
+    description: 'Cartes bancaires Mastercard (passerelle de paiement)',
+    supportedCurrencies: ['USD', 'EUR', 'CDF', 'XOF', 'GBP'],
+    supportedMethods: ['card'],
+    icon: '💳',
+    logo: '/logos/payment/mastercard.svg',
+    requiresWebhook: false,
+  },
+  PAYPAL: {
+    name: 'PAYPAL',
+    displayName: 'PayPal',
+    description: 'Paiement international via compte PayPal (checkout Orders v2)',
+    supportedCurrencies: ['USD', 'EUR', 'GBP', 'CAD'],
+    supportedMethods: ['wallet'],
+    icon: '🅿️',
+    logo: '/logos/payment/paypal.svg',
+    requiresWebhook: false,
+  },
+  STRIPE: {
+    name: 'STRIPE',
+    displayName: 'Stripe',
+    description: 'Encaissement carte universel via Stripe (Payment Intents)',
+    supportedCurrencies: ['USD', 'EUR', 'GBP', 'CAD', 'XOF'],
+    supportedMethods: ['card'],
+    icon: '🔷',
+    logo: '/logos/payment/stripe.svg',
+    requiresWebhook: true,
+  },
+  FLUTTERWAVE: {
+    name: 'FLUTTERWAVE',
+    displayName: 'Flutterwave',
+    description: 'Agrégateur africain : carte, transfert, mobile money (V3)',
+    supportedCurrencies: ['USD', 'NGN', 'GHS', 'KES', 'XOF', 'CDF', 'ZAR'],
+    supportedMethods: ['card', 'mobile_money', 'bank_transfer'],
+    icon: '🌊',
+    logo: '/logos/payment/flutterwave.svg',
+    requiresWebhook: true,
+  },
+  DPO: {
+    name: 'DPO',
+    displayName: 'DPO Pay',
+    description: 'Agrégateur DPO (3G Direct Pay) : cartes et mobile money Afrique',
+    supportedCurrencies: ['USD', 'EUR', 'CDF', 'XOF', 'KES', 'TZS', 'UGX', 'RWF'],
+    supportedMethods: ['card', 'mobile_money'],
+    icon: '🔵',
+    logo: '/logos/payment/dpo.svg',
+    requiresWebhook: true,
+  },
   MPESA: {
     name: 'MPESA',
     displayName: 'M-Pesa',
@@ -55,6 +135,7 @@ export const GATEWAY_INFO: Record<GatewayType, {
     supportedCurrencies: ['KES', 'USD', 'EUR'],
     supportedMethods: ['mobile_money'],
     icon: '📱',
+    logo: '/logos/payment/mpesa.svg',
     requiresWebhook: true,
   },
   ORANGE_MONEY: {
@@ -64,6 +145,7 @@ export const GATEWAY_INFO: Record<GatewayType, {
     supportedCurrencies: ['CDF', 'XOF', 'EUR'],
     supportedMethods: ['mobile_money'],
     icon: '🟠',
+    logo: '/logos/payment/orange_money.svg',
     requiresWebhook: true,
   },
   AIRTEL_MONEY: {
@@ -73,6 +155,7 @@ export const GATEWAY_INFO: Record<GatewayType, {
     supportedCurrencies: ['CDF', 'XOF', 'NGN'],
     supportedMethods: ['mobile_money'],
     icon: '🔴',
+    logo: '/logos/payment/airtel_money.svg',
     requiresWebhook: true,
   },
   MANUAL: {
@@ -82,21 +165,26 @@ export const GATEWAY_INFO: Record<GatewayType, {
     supportedCurrencies: ['USD', 'EUR', 'CDF', 'NGN', 'XOF', 'GHS', 'KES', 'ZAR', 'GBP', 'CAD'],
     supportedMethods: ['cash', 'bank_transfer', 'check'],
     icon: '💵',
+    logo: '/logos/payment/cash.svg',
     requiresWebhook: false,
   },
 };
 
 /**
  * Initier un paiement via la passerelle configurée
+ * @param configSchoolId Lire les identifiants depuis une autre école
+ *                       (ex: PLATFORM_SCHOOL_ID pour les abonnements EduGest)
  */
 export async function initiatePayment(
   gatewayType: GatewayType,
-  request: PaymentRequest
+  request: PaymentRequest,
+  options?: { configSchoolId?: string }
 ): Promise<PaymentResponse> {
+  const configSchoolId = options?.configSchoolId || request.schoolId;
   const config = await db.paymentGatewayConfig.findUnique({
     where: {
       schoolId_gatewayType: {
-        schoolId: request.schoolId,
+        schoolId: configSchoolId,
         gatewayType,
       },
     },
@@ -107,7 +195,7 @@ export async function initiatePayment(
       success: false,
       reference: '',
       status: 'FAILED',
-      message: `La passerelle ${gatewayType} n'est pas configurée ou inactive pour cette école`,
+      message: `La passerelle ${gatewayType} n'est pas configurée ou inactive`,
     };
   }
 
@@ -167,6 +255,24 @@ export async function initiatePayment(
         break;
       case 'AIRTEL_MONEY':
         response = await processAirtelMoneyPayment(credConfig, request, reference);
+        break;
+      case 'VISA':
+        response = await processVisaPayment(credConfig, request, reference);
+        break;
+      case 'MASTERCARD':
+        response = await processMastercardPayment(credConfig, request, reference);
+        break;
+      case 'PAYPAL':
+        response = await processPaypalPayment(credConfig, request, reference);
+        break;
+      case 'STRIPE':
+        response = await processStripePayment(credConfig, request, reference);
+        break;
+      case 'FLUTTERWAVE':
+        response = await processFlutterwavePayment(credConfig, request, reference);
+        break;
+      case 'DPO':
+        response = await processDpoPayment(credConfig, request, reference);
         break;
       case 'MANUAL':
         response = await processManualPayment(credConfig, request, reference);
@@ -570,6 +676,483 @@ async function processManualPayment(
     status: 'SUCCESS',
     message: 'Paiement manuel enregistré - En attente de validation',
   };
+}
+
+// ─── Cartes bancaires : helpers communs ─────────────────────────────────────
+// Format E.123 compact : supprime espaces/tirets, garde les chiffres.
+const compactPan = (pan: string) => String(pan || '').replace(/[^0-9]/g, '');
+
+/** Simulation commune mode TEST pour les paiements carte */
+function simulateCardPayment(prefix: string, reference: string): PaymentResponse {
+  return {
+    success: true,
+    reference,
+    gatewayTransactionId: `${prefix}-TEST-${Date.now()}`,
+    status: 'PENDING',
+    message: 'Paiement carte simulé (mode test) — en attente de capture',
+  };
+}
+
+// ─── Visa (Visa Direct / Cybersource REST) ──────────────────────────────────
+// Mapping des identifiants (mode live) :
+//   merchantId  = Merchant ID (identifiant marchand Cybersource/Visa)
+//   apiKey      = User ID (utilisateur REST marchand)
+//   secretKey   = Password (secret REST marchand)
+//   publicKey   = (optionnel) clé publique / shared secret
+async function processVisaPayment(
+  config: any,
+  request: PaymentRequest,
+  reference: string
+): Promise<PaymentResponse> {
+  if (config.isTestMode || !config.apiKey) {
+    return simulateCardPayment('VISA', reference);
+  }
+
+  const missing: string[] = [];
+  if (!config.merchantId) missing.push('Merchant ID');
+  if (!config.apiKey) missing.push('User ID (API)');
+  if (!config.secretKey) missing.push('Password (secret API)');
+  if (missing.length > 0) {
+    return {
+      success: false,
+      reference,
+      status: 'FAILED',
+      message: `Identifiants Visa incomplets — renseignez : ${missing.join(', ')}`,
+    };
+  }
+
+  try {
+    // API Cybersource (plateforme d'acquisition Visa) : autorisation de paiement
+    const response = await fetch('https://api.visa.com/cybersource/v2/payments', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`${config.apiKey}:${config.secretKey}`).toString('base64')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        clientReferenceInformation: { code: reference },
+        paymentInformation: {
+          card: {
+            number: compactPan(request.cardNumber || ''),
+            expirationMonth: String(request.cardExpiryMonth || ''),
+            expirationYear: String(request.cardExpiryYear || ''),
+            securityCode: String(request.cardCvv || ''),
+          },
+        },
+        orderInformation: {
+          amountDetails: { totalAmount: String(request.amount), currency: request.currency },
+          billTo: {
+            firstName: (request.customerName || 'Client').split(' ')[0],
+            lastName: (request.customerName || 'Client').split(' ').slice(1).join(' ') || 'EduGest',
+            email: request.customerEmail || undefined,
+          },
+        },
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (response.ok && (data.status === 'AUTHORIZED' || data.status === 'PENDING_AUTH')) {
+      return {
+        success: true,
+        reference,
+        gatewayTransactionId: data.id || reference,
+        status: data.status === 'AUTHORIZED' ? 'SUCCESS' : 'PENDING',
+        message: 'Paiement Visa autorisé',
+      };
+    }
+
+    return {
+      success: false,
+      reference,
+      status: 'FAILED',
+      message: data.errorInformation?.message || data.responseInformation?.reason || `Autorisation Visa refusée (${response.status})`,
+    };
+  } catch (error) {
+    return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur Visa' };
+  }
+}
+
+// ─── Mastercard (Mastercard Payment Gateway Services) ───────────────────────
+// Mapping des identifiants (mode live) :
+//   merchantId  = Merchant ID (MPGS)
+//   apiKey      = User ID (API)
+//   secretKey   = Password (API)
+async function processMastercardPayment(
+  config: any,
+  request: PaymentRequest,
+  reference: string
+): Promise<PaymentResponse> {
+  if (config.isTestMode || !config.apiKey) {
+    return simulateCardPayment('MC', reference);
+  }
+
+  const missing: string[] = [];
+  if (!config.merchantId) missing.push('Merchant ID');
+  if (!config.apiKey) missing.push('User ID (API)');
+  if (!config.secretKey) missing.push('Password (API)');
+  if (missing.length > 0) {
+    return {
+      success: false,
+      reference,
+      status: 'FAILED',
+      message: `Identifiants Mastercard incomplets — renseignez : ${missing.join(', ')}`,
+    };
+  }
+
+  try {
+    // MPGS : PAY session via REST (région par défaut : Afrique)
+    const baseUrl = config.publicKey || 'https://gateway-mastercard.cloud/api';
+    const response = await fetch(`${baseUrl}/rest/version/100/merchant/${config.merchantId}/order/${reference}/transaction/1`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`merchant.${config.merchantId}:${config.apiKey}:${config.secretKey}`).toString('base64')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        apiOperation: 'PAY',
+        order: { amount: String(request.amount), currency: request.currency, reference },
+        sourceOfFunds: {
+          type: 'CARD',
+          provided: {
+            card: {
+              number: compactPan(request.cardNumber || ''),
+              expiry: { month: String(request.cardExpiryMonth || ''), year: String(request.cardExpiryYear || '') },
+              securityCode: String(request.cardCvv || ''),
+            },
+          },
+        },
+        transaction: { reference },
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (data.result === 'SUCCESS') {
+      return {
+        success: true,
+        reference,
+        gatewayTransactionId: data.transaction?.id || reference,
+        status: 'SUCCESS',
+        message: 'Paiement Mastercard accepté',
+      };
+    }
+
+    return {
+      success: false,
+      reference,
+      status: 'FAILED',
+      message: data.error?.explanation || data.response?.gatewayMessage || `Paiement Mastercard refusé (${response.status})`,
+    };
+  } catch (error) {
+    return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur Mastercard' };
+  }
+}
+
+// ─── PayPal (Checkout Orders v2) ────────────────────────────────────────────
+// Mapping des identifiants (mode live) :
+//   merchantId  = Client ID (application REST PayPal)
+//   secretKey   = Client Secret
+async function processPaypalPayment(
+  config: any,
+  request: PaymentRequest,
+  reference: string
+): Promise<PaymentResponse> {
+  if (config.isTestMode || !config.merchantId) {
+    return {
+      success: true,
+      reference,
+      gatewayTransactionId: `PP-TEST-${Date.now()}`,
+      checkoutUrl: undefined,
+      status: 'PENDING',
+      message: 'Checkout PayPal simulé (mode test) — demande en attente',
+    };
+  }
+
+  const missing: string[] = [];
+  if (!config.merchantId) missing.push('Client ID');
+  if (!config.secretKey) missing.push('Client Secret');
+  if (missing.length > 0) {
+    return {
+      success: false,
+      reference,
+      status: 'FAILED',
+      message: `Identifiants PayPal incomplets — renseignez : ${missing.join(', ')}`,
+    };
+  }
+
+  const baseUrl = config.isTestMode ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+
+  try {
+    const authResponse = await fetch(`${baseUrl}/v1/oauth2/token`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`${config.merchantId}:${config.secretKey}`).toString('base64')}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: 'grant_type=client_credentials',
+    });
+    const authData = await authResponse.json();
+    if (!authData.access_token) {
+      return { success: false, reference, status: 'FAILED', message: 'Échec authentification PayPal (vérifiez Client ID et Secret)' };
+    }
+
+    const orderResponse = await fetch(`${baseUrl}/v2/checkout/orders`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authData.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        intent: 'CAPTURE',
+        purchase_units: [{
+          reference_id: reference,
+          description: request.description.slice(0, 127),
+          amount: { currency_code: request.currency, value: String(request.amount) },
+        }],
+        application_context: {
+          return_url: appUrl ? `${appUrl}/?payment=success&ref=${reference}` : undefined,
+          cancel_url: appUrl ? `${appUrl}/?payment=cancel&ref=${reference}` : undefined,
+        },
+      }),
+    });
+    const orderData = await orderResponse.json();
+
+    if (orderData.id) {
+      const approve = (orderData.links || []).find((l: any) => l.rel === 'approve');
+      return {
+        success: true,
+        reference,
+        gatewayTransactionId: orderData.id,
+        checkoutUrl: approve?.href,
+        status: 'PENDING',
+        message: 'Commande PayPal créée — finalisez le paiement sur PayPal',
+      };
+    }
+
+    return { success: false, reference, status: 'FAILED', message: orderData.message || 'Erreur PayPal' };
+  } catch (error) {
+    return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur PayPal' };
+  }
+}
+
+// ─── Stripe (Payment Intents) ───────────────────────────────────────────────
+// Mapping des identifiants (mode live) :
+//   secretKey   = Clé secrète (sk_live_…)
+//   publicKey   = Clé publiable (pk_live_…) — optionnel, transmis au client
+async function processStripePayment(
+  config: any,
+  request: PaymentRequest,
+  reference: string
+): Promise<PaymentResponse> {
+  if (config.isTestMode || !config.secretKey) {
+    return {
+      success: true,
+      reference,
+      gatewayTransactionId: `STRIPE-TEST-${Date.now()}`,
+      status: 'PENDING',
+      message: 'Payment Intent Stripe simulé (mode test)',
+    };
+  }
+
+  if (!config.secretKey) {
+    return {
+      success: false,
+      reference,
+      status: 'FAILED',
+      message: 'Identifiants Stripe incomplets — renseignez la clé secrète (sk_live_…)',
+    };
+  }
+
+  try {
+    // Stripe exige un montant entier dans la plus petite unité (centimes)
+    const zeroDecimal = ['XOF', 'JPY', 'KRW', 'CLP'];
+    const amountMinor = zeroDecimal.includes(request.currency)
+      ? Math.round(request.amount)
+      : Math.round(request.amount * 100);
+
+    const body = new URLSearchParams({
+      amount: String(amountMinor),
+      currency: request.currency.toLowerCase(),
+      description: request.description.slice(0, 300),
+      'metadata[reference]': reference,
+      'metadata[schoolId]': request.schoolId,
+    });
+    if (request.customerEmail) body.set('receipt_email', request.customerEmail);
+
+    const response = await fetch('https://api.stripe.com/v1/payment_intents', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.secretKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: body.toString(),
+    });
+    const data = await response.json();
+
+    if (data.id && data.client_secret) {
+      return {
+        success: true,
+        reference,
+        gatewayTransactionId: data.id,
+        checkoutUrl: undefined,
+        status: 'PENDING',
+        message: 'Payment Intent Stripe créé — finalisez le paiement côté client',
+      };
+    }
+
+    return { success: false, reference, status: 'FAILED', message: data.error?.message || 'Erreur Stripe' };
+  } catch (error) {
+    return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur Stripe' };
+  }
+}
+
+// ─── Flutterwave (V3 standard payment) ──────────────────────────────────────
+// Mapping des identifiants (mode live) :
+//   secretKey   = SECRET_KEY (FLWSECK-…)
+//   publicKey   = PUBLIC_KEY (FLWPUBK-…) — optionnel
+async function processFlutterwavePayment(
+  config: any,
+  request: PaymentRequest,
+  reference: string
+): Promise<PaymentResponse> {
+  if (config.isTestMode || !config.secretKey) {
+    return {
+      success: true,
+      reference,
+      gatewayTransactionId: `FLW-TEST-${Date.now()}`,
+      status: 'PENDING',
+      message: 'Lien de paiement Flutterwave simulé (mode test)',
+    };
+  }
+
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+
+  try {
+    const response = await fetch('https://api.flutterwave.com/v3/payments', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.secretKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        tx_ref: reference,
+        amount: request.amount,
+        currency: request.currency,
+        redirect_url: appUrl ? `${appUrl}/?payment=flutterwave&ref=${reference}` : undefined,
+        customer: {
+          email: request.customerEmail || 'client@edugest.app',
+          name: request.customerName || 'Client EduGest',
+          phonenumber: request.customerPhone || undefined,
+        },
+        customizations: {
+          title: 'EduGest',
+          description: request.description.slice(0, 100),
+        },
+      }),
+    });
+    const data = await response.json();
+
+    if (data.status === 'success' && data.data?.link) {
+      return {
+        success: true,
+        reference,
+        gatewayTransactionId: data.data.id ? String(data.data.id) : reference,
+        checkoutUrl: data.data.link,
+        status: 'PENDING',
+        message: 'Lien de paiement Flutterwave généré',
+      };
+    }
+
+    return { success: false, reference, status: 'FAILED', message: data.message || 'Erreur Flutterwave' };
+  } catch (error) {
+    return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur Flutterwave' };
+  }
+}
+
+// ─── DPO Pay (3G Direct Pay, API v6) ────────────────────────────────────────
+// Mapping des identifiants (mode live) :
+//   merchantId  = Company Token (DPO)
+//   secretKey   = Service Type (optionnel)
+//   apiKey      = (optionnel) clé API complémentaire
+async function processDpoPayment(
+  config: any,
+  request: PaymentRequest,
+  reference: string
+): Promise<PaymentResponse> {
+  if (config.isTestMode || !config.merchantId) {
+    return {
+      success: true,
+      reference,
+      gatewayTransactionId: `DPO-TEST-${Date.now()}`,
+      status: 'PENDING',
+      message: 'Token DPO simulé (mode test)',
+    };
+  }
+
+  if (!config.merchantId) {
+    return {
+      success: false,
+      reference,
+      status: 'FAILED',
+      message: 'Identifiants DPO incomplets — renseignez le Company Token',
+    };
+  }
+
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+  const companyToken = config.merchantId;
+  const service = config.secretKey || 'EDUGEST';
+
+  try {
+    // DPO : création d'un token de paiement via l'API XML/POST v6
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+<API3G>
+  <CompanyToken>${companyToken}</CompanyToken>
+  <Request>createToken</Request>
+  <Transaction>
+    <PaymentAmount>${request.amount}</PaymentAmount>
+    <PaymentCurrency>${request.currency}</PaymentCurrency>
+    <CompanyRef>${reference}</CompanyRef>
+    <CompanyRefUnique>0</CompanyRefUnique>
+    <PTLtype>1</PTLtype>
+    <PTL>5</PTL>
+    <CustomerEmail>${request.customerEmail || 'client@edugest.app'}</CustomerEmail>
+    <CustomerName>${(request.customerName || 'Client EduGest').replace(/[^A-Za-z0-9 ]/g, '')}</CustomerName>
+    <ServiceType>${service}</ServiceType>
+  </Transaction>
+  <ReturnURL>${appUrl ? `${appUrl}/?payment=dpo&ref=${reference}` : ''}</ReturnURL>
+  <CancelURL>${appUrl ? `${appUrl}/?payment=cancel&ref=${reference}` : ''}</CancelURL>
+</API3G>`;
+
+    const response = await fetch('https://secure.3gdirectpay.com/API/v6.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/xml' },
+      body: xml,
+    });
+    const text = await response.text();
+
+    const tokenMatch = text.match(/<TransToken>([^<]+)<\/TransToken>/);
+    const resultMatch = text.match(/<Result>([^<]+)<\/Result>/);
+
+    if (tokenMatch) {
+      return {
+        success: true,
+        reference,
+        gatewayTransactionId: tokenMatch[1],
+        checkoutUrl: `https://secure.3gdirectpay.com/payv3.php?ID=${tokenMatch[1]}`,
+        status: 'PENDING',
+        message: 'Token DPO créé — finalisez le paiement sur la page DPO',
+      };
+    }
+
+    return {
+      success: false,
+      reference,
+      status: 'FAILED',
+      message: resultMatch?.[1] || 'Erreur DPO (réponse invalide)',
+    };
+  } catch (error) {
+    return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur DPO' };
+  }
 }
 
 /**

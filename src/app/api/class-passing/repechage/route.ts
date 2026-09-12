@@ -6,11 +6,8 @@ import { notify } from '@/lib/notify'
 import { notifyRepechage } from '@/lib/whatsapp-agent'
 import { NextRequest, NextResponse } from 'next/server'
 
-const REPECHAGE_ROLES = [
-  'SUPER_ADMIN_GLOBAL', 'SECRETARY',
-  'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE',
-  'HEAD_TEACHER'
-]
+// Repêchage réservé aux administrateurs d'école (SCHOOL_ADMIN)
+const REPECHAGE_ROLES = ['SCHOOL_ADMIN']
 
 const PREMIUM_TIERS = ['PREMIUM', 'ENTERPRISE', 'CORPORATE']
 
@@ -52,8 +49,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 })
     }
 
-    // Gate forfait : PREMIUM minimum (SUPER_ADMIN_GLOBAL bypass)
-    if (user.role !== 'SUPER_ADMIN_GLOBAL') {
+    // Gate forfait : PREMIUM minimum
+    {
       const tier = await getSchoolTier(schoolId)
       if (!PREMIUM_TIERS.includes(tier)) {
         return NextResponse.json(
@@ -203,8 +200,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 })
     }
 
-    // Gate forfait : PREMIUM minimum (SUPER_ADMIN_GLOBAL bypass)
-    if (user.role !== 'SUPER_ADMIN_GLOBAL') {
+    // Gate forfait : PREMIUM minimum
+    {
       const tier = await getSchoolTier(student.schoolId)
       if (!PREMIUM_TIERS.includes(tier)) {
         return NextResponse.json(
