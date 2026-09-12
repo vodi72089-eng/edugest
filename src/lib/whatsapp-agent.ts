@@ -523,6 +523,115 @@ export async function notifyBulletin(params: {
 }
 
 /**
+ * Notifie les parents d'un élève des examens de repêchage à passer.
+ *
+ * Suit le pattern de notifyBulletin : gate forfait (parentGradesAccess) →
+ * checkSchoolAgentReady → résolution des téléphones des parents → exclusion
+ * admin/agent → envoi espacé (~1,2s anti-ban) avec suivi du quota.
+ *
+ * @returns { sent, failed, detail } — detail est un résumé textuel destiné à
+ *          être stocké dans RepechageExam.whatsappDetail
+ */
+export async function notifyRepechage(params: {
+  student: { id: string; firstName: string; lastName: string; className?: string | null };
+  schoolId: string;
+  subjects: Array<{ name: string; score?: number | null }>;
+  examDate?: Date | string | null;
+  note?: string | null;
+}): Promise<{ sent: number; failed: number; detail: string }> {
+  const { student, schoolId, subjects, examDate, note } = params;
+  const result = { sent: 0, failed: 0, detail: '' };
+
+  // Forfait sans notes/bulletins aux parents (Freemium, Essentiel) → pas d'envoi
+  const schoolTier = await db.school.findUnique({ where: { id: schoolId }, select: { subscriptionTier: true } });
+  if (!tierAllowsParentGrades(schoolTier?.subscriptionTier || 'FREEMIUM')) {
+    result.detail = `Non envoyé — forfait ${schoolTier?.subscriptionTier || 'FREEMIUM'} sans notes aux parents`;
+    console.log(`[WhatsApp Agent] Repêchage non envoyé — ${result.detail}`);
+    return result;
+  }
+
+  const gate = await checkSchoolAgentReady(schoolId);
+  if (!gate.ok) {
+    result.detail = `Non envoyé — ${gate.reason}`;
+    console.log(`[WhatsApp Agent] Repêchage non envoyé — ${gate.reason}`);
+    return result;
+  }
+
+  // ── Résolution des téléphones des parents de l'élève ─────────────────────
+  const studentRow = await db.student.findUnique({
+    where: { id: student.id },
+    select: { parentId: true },
+  });
+  if (!studentRow?.parentId) {
+    result.detail = 'Non envoyé — aucun parent lié à cet élève';
+    console.log('[WhatsApp Agent] Repêchage non envoyé — aucun parent lié');
+    return result;
+  }
+
+  const parent = await db.user.findUnique({
+    where: { id: studentRow.parentId },
+    select: { phone: true, isActive: true, name: true },
+  });
+  let recipients: string[] = parent?.phone && parent.isActive ? [parent.phone] : [];
+
+  // Déduplication par numéro
+  const seen = new Set<string>();
+  recipients = recipients.filter(p => {
+    const key = p.replace(/[^0-9]/g, '');
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  // Exclure le numéro admin (agent lui-même)
+  const filtered: string[] = [];
+  for (const p of recipients) {
+    if (await isRecipientAdmin(p)) continue;
+    filtered.push(p);
+  }
+
+  // Exclure le numéro de l'agent WhatsApp connecté
+  const live = await getWhatsAppLiveStatus();
+  const finalRecipients = live.connectedPhone
+    ? filtered.filter(p => p.replace(/[^0-9]/g, '') !== live.connectedPhone!.replace(/[^0-9]/g, ''))
+    : filtered;
+
+  if (finalRecipients.length === 0) {
+    result.detail = 'Non envoyé — aucun parent avec numéro WhatsApp valide';
+    console.log('[WhatsApp Agent] Repêchage non envoyé — aucun destinataire valide');
+    return result;
+  }
+
+  // ── Message FR ────────────────────────────────────────────────────────────
+  const subjectLines = subjects
+    .map(s => (s.score !== undefined && s.score !== null ? `• ${s.name} (moyenne: ${s.score}/20)` : `• ${s.name}`))
+    .join('\n');
+  const examDateStr = examDate
+    ? new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(examDate))
+    : 'à communiquer';
+
+  const message = `📚 *Examens de repêchage*\n\n` +
+    `Bonjour, votre enfant ${student.firstName} ${student.lastName} (${student.className || 'classe non définie'}) doit repêcher les matières suivantes :\n` +
+    `${subjectLines}\n\n` +
+    `📅 Date de l'examen : ${examDateStr}\n\n` +
+    (note ? `${note}\n\n` : '') +
+    `Rendez-vous à l'école. Bon courage !\n\n` +
+    `_EduGest_`;
+
+  // Envoi espacé (anti-ban WhatsApp ~1,2s entre les envois)
+  for (const phone of finalRecipients) {
+    const ok = await sendWhatsAppMessage(phone, message, schoolId);
+    if (ok) result.sent++;
+    else result.failed++;
+    await new Promise(res => setTimeout(res, 1200));
+  }
+
+  result.detail = `${result.sent} message(s) envoyé(s), ${result.failed} échec(s)`;
+  console.log(`[WhatsApp Agent] Repêchage "${student.firstName} ${student.lastName}" : ${result.detail}`);
+  return result;
+}
+
+/**
  * Notifie un parent d'un enregistrement de discipline
  */
 export async function notifyDiscipline(params: {

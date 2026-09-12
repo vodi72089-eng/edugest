@@ -57,6 +57,8 @@ export function getRoleLabel(role: UserRole): string {
     DISCIPLINE_SECONDAIRE: 'Disc. Secondaire',
     TEACHER: 'Enseignant',
     HEAD_TEACHER: 'Prof. Principal',
+    EPS: 'Prof. EPS',
+    MEDICAL: 'Service Médical',
     PARENT: 'Parent',
   }
   return map[role] || role

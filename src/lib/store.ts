@@ -126,6 +126,8 @@ export type ViewType =
   | 'online-payment'
   | 'debts'
   | 'my-subscription'
+  | 'platform-control'
+  | 'dispenses'
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'
@@ -140,6 +142,8 @@ export type UserRole =
   | 'DISCIPLINE_SECONDAIRE'
   | 'TEACHER'
   | 'HEAD_TEACHER'
+  | 'EPS'
+  | 'MEDICAL'
   | 'PARENT'
 
 export interface UserData {

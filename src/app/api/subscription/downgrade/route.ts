@@ -1,11 +1,13 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, verifySchoolAccess, sanitizeError } from '@/lib/auth';
+import { requireRole, verifySchoolAccess, sanitizeError } from '@/lib/auth';
 import { archiveExcessStudents } from '@/lib/archive';
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireAuth(request);
+    // Sécurité : seul un SUPER_ADMIN_GLOBAL ou le SCHOOL_ADMIN de l'école peut
+    // changer le tier (tout utilisateur authentifié pouvait le faire avant).
+    const authResult = await requireRole(request, ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN']);
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
 

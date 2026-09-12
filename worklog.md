@@ -781,3 +781,116 @@ Stage Summary:
 - Nouveau : suivi temps réel (10 s) du quota WhatsApp partout où c'est utile (connexion WhatsApp, abonnement, config paiement) avec alertes 80 %/100 %
 - Parents Freemium/Essentiel : interfaces Notes et Bulletins retirées (UI + API 403 + pas de notifications WhatsApp grades/bulletins)
 - Fichiers : schema.prisma, subscription.ts, whatsapp-usage.ts*, whatsapp-api.ts*, whatsapp-agent.ts, api/whatsapp-api/*, api/whatsapp/usage/*, api/grades, api/bulletins/[studentId], api/pricing, page.tsx, WhatsappUsageCard.tsx*, ParentDashboard.tsx, GradesView.tsx, scripts/sync-pricing.ts
+
+---
+Task ID: 1
+Agent: Z.ai (orchestrator)
+Task: Pull repo updates + verify subscription upgrade/downgrade routes compatibility
+
+Work Log:
+- git fetch: remote moved +62 commits (vodi72089-eng/edugest), local was ahead 1 (obsolete payment-logos commit already superseded upstream)
+- Rebased: skipped obsolete local commit fa10d98, hard-synced to origin/main @ 799e2bd
+- bun install (40 pkgs updated), bun run db:push → schema in sync
+- Code review of subscription routes: /api/subscription/downgrade (missing role restriction - to fix), /api/subscription/validate (SUPER_ADMIN_GLOBAL, archive/restore students by TIER_ORDER) — both handle all 6 tiers FREEMIUM→CORPORATE
+- Live route testing deferred to final verification phase
+
+Stage Summary:
+- Repo synced to 799e2bd. DB schema in sync. 6-tier system (FREEMIUM/ESSENTIEL/STANDARD/PREMIUM/ENTERPRISE/CORPORATE) consistent across routes.
+- Found issues to fix: /api/subscription/downgrade has no role gate (any authed user can change tier); /api/subscription/validate vs request/[id] divergent behaviors.
+- Educational systems data exists in src/lib/educational-systems.ts but class generation is NEVER wired; no options/filières, no horaires; ClassPassingView ignores the rich deliberation API; no publication gating; no MEDICAL/EPS roles.
+
+---
+Task ID: 2-b
+Agent: frontend-styling-expert
+Task: Créer 3 composants UI autonomes (standalone, 'use client') : SystemParcoursExplorer, PlatformControlView, DispensesView
+
+Work Log:
+- Créé src/components/views/SystemParcoursExplorer.tsx : explorateur public des parcours par système éducatif (props { systemId, compact?, className? }) ; fetch GET /api/educational-systems (json.data, système trouvé par id) ; skeleton de chargement + états erreur/système introuvable ; header drapeau + nom + shortLabel + description ; pills horizontales de sections (Maternelle/Primaire/Secondaire, défaut = PRIMAIRE sinon 1ère) ; panneau actif avec 3 blocs : « Classes officielles » (grille responsive de chips : badge level + nom + cap. N), « Options / Filières populaires » (badge shortName + nom + description + « Niveaux : … », seulement si options présentes), « Horaire type » (header « jours · start - end », tableau desktop hidden md:table + cartes empilées mobile, badges type COURS=SUCCESS/PAUSE=ambre/DEJEUNER=orange/ACCUEIL=INFO) ; mode compact (paddings/tailles réduits) ; max-h-[420px] overflow-y-auto custom-scrollbar hors compact ; export nommé + défaut
+- Créé src/components/views/PlatformControlView.tsx : vue admin plateforme (GET /api/platform-events + GET /api/schools?limit=100 via authFetch) ; 2 cartes md:grid-cols-2 « Passage de classe » (CLASS_PASSING, ListChecks, défaut 14 jours) et « Publication des bulletins » (BULLETIN_PUBLICATION, FileText, défaut 21 jours) avec formulaire datetime-local→ISO, « Apparition X jours avant », sélecteur école (« Toutes les écoles » = null), message optionnel, bouton Programmer (POST) + loading ; liste groupée par clé : badge libellé, école ou « Toutes les écoles », date officielle FR, « visible dès le {officialDate - visibleDaysBefore} », toggle activé/désactivé (PATCH enabled) et suppression avec confirm() (DELETE) ; toasts sonner + refetch après succès ; skeleton + état vide ; export défaut
+- Créé src/components/views/DispensesView.tsx : vue dispensés EPS double-mode (props { mode?: 'EPS' | 'MEDICAL' }) ; GET /api/dispenses?schoolId={userData.schoolId}&status=ALL ; header HeartPulse/Dumbbell + titre/sous-titre différentiés (lien médical↔EPS) ; stats Actives/Terminées/Total ; MEDICAL : formulaire repliable « Nouvelle dispense » avec autocomplete élève custom (GET /api/students?search=&limit=8&schoolId=, debounce 300 ms, min 2 caractères, fermeture au clic extérieur), motif requis, dates début (défaut aujourd'hui)/fin optionnelle, note, POST /api/dispenses → toast 'Dispense enregistrée — les professeurs EPS ont été notifiés' + reset + refetch ; PUT /api/dispenses/{id} boutons « Clôturer » (EXPIRED) / « Annuler » (CANCELLED) sur cartes ACTIVE ; liste cartes (pas de table) avec pills Toutes/Actives/Terminées/Annulées, StudentAvatar, nom + matricule + badge classe, motif, période « du X au Y », badge statut (ACTIVE=verte/EXPIRED=ambre/CANCELLED=rouge), note italique, createdByName + date ; max-h-[520px] overflow-y-auto custom-scrollbar pr-1 ; état vide « Aucune dispense enregistrée » ; export défaut
+- Style : tokens '@/lib/constants' (GOLD/ACCENT/SUCCESS/WARNING/DANGER/INFO/IVORY/TEXT_PRIMARY/TEXT_MUTED_LUXE), cartes bg-white border-[oklch(90%_0.01_175)] rounded-2xl shadow-sm, titres barre gold + font-extrabold, texte muted, 100 % français, responsive mobile-first, dates toLocaleDateString('fr-FR')
+- Vérifications : bunx tsc --noEmit → 0 erreur sur les 3 fichiers (erreurs préexistantes ailleurs non touchées) ; eslint → 0 erreur (fix react-hooks/set-state-in-effect dans SystemParcoursExplorer) ; aucun fichier existant modifié
+
+Stage Summary:
+- 3 nouveaux composants autonomes prêts à être intégrés par les agents propriétaires de page.tsx : SystemParcoursExplorer (landing + création d'école, modes compact/normal), PlatformControlView (programmation plateforme des événements CLASS_PASSING/BULLETIN_PUBLICATION avec apparition N jours avant), DispensesView (lecture seule EPS / création+clôture MEDICAL)
+- API consommées (à créer par les agents backend) : /api/educational-systems, /api/platform-events (GET/POST/PATCH/DELETE), /api/dispenses (GET/POST/PUT), /api/students?search=
+- Fichiers : SystemParcoursExplorer.tsx, PlatformControlView.tsx, DispensesView.tsx (tous 'use client', aucune modification des fichiers existants)
+
+---
+Task ID: 2-a
+Agent: Z.ai Code (backend)
+Task: Backend 4 features — (1) systèmes éducatifs v2 (classes+options+horaires, génération à la création d'école), (2) fenêtres de visibilité « Passage de classe »/« Publication des bulletins » contrôlées par la plateforme, (3) passage de classe v2 (moyennes+risque+repêchage), (4) DISPENSE EPS (compte médical ↔ compte EPS)
+
+Work Log:
+- prisma/schema.prisma : Class.option String? ; nouveaux modèles Dispense, PlatformEvent, RepechageExam (+index) ; relations ajoutées sur Student (dispenses, repechageExams) et School (dispenses, platformEvents, repechageExams) ; `bun run db:push` OK (« already in sync » à la revérification)
+- src/lib/educational-systems.ts (v2, rétrocompatible) : ClassTemplate.option?, OptionTemplate, HorairePeriod ('COURS'|'PAUSE'|'DEJEUNER'|'ACCUEIL'), SectionHoraire, SectionInfo, SectionKey ; chaque système reçoit `parcours` (maternelle incluse si présente) + `defaultOptions` ; options RDC (COMMERCIALE/PEDAGOGIE/MATH_PHYS/BIO_CHIMIE/LITTERAIRE/SECRETARIAT/ELECTRONIQUE, niveaux 3H-4H), Belgique (G/T/P/Q S3-S6), France (G/T/P 1ERE-TLE), Anglophone (Science/Arts/Commerce F3-F5), Francophone (A4/C4/D4 1ERE-TLE) ; horaires réalistes FR par système/section (jours 'Lundi, Mardi, Jeudi, Vendredi' pour l'élémentaire France, 'mercredi après-midi libre' pour la Belgique, 'Monday - Friday' pour l'anglophone) ; nouvelles fonctions getClassesForSystem(systemId, schoolLevel?, includeOptions?=true) (émet 1 classe par option applicable, ex. « 3ème Humanités Commerciale & Gestion », champ option) et getParcoursForSystem(systemId) ; getDefaultClassesForSystem conservé (classes de base aplaties)
+- src/lib/platform-events.ts (nouveau) : findPlatformEvent (activé, schoolId match OU global null ; spécifique prioritaire puis officialDate la plus récente) + resolveEventVisibility(key, schoolId, activeSchoolYear?) → { visible, openDate, officialDate, daysRemaining, message, source } ; visible = now ∈ [officialDate − visibleDaysBefore j ; officialDate + 60 j] ; fallback CLASS_PASSING → getClassPassingTimeline (source SCHOOL_YEAR), fallback BULLETIN_PUBLICATION → toujours visible (source DEFAULT)
+- src/app/api/educational-systems/route.ts (nouveau) : GET PUBLIC { data: EDUCATIONAL_SYSTEMS_LIST } avec parcours complets
+- src/app/api/platform-events/route.ts (nouveau) : GET (SUPER_ADMIN_GLOBAL, tri createdAt desc, school {name,shortName}) ; POST (SUPER_ADMIN_GLOBAL) validation key/officialDate/visibleDaysBefore, école vérifiée, à la création si enabled=true → notify() au personnel actif (SCHOOL_ADMIN, SECRETARY, DIRECTION, DIRECTION_*) de la/des école(s) ciblée(s) — global = toutes écoles plafonné à 500 — message FR avec date d'ouverture + date officielle, type Notification = key (type String libre)
+- src/app/api/platform-events/[id]/route.ts (nouveau) : PATCH (officialDate/visibleDaysBefore/enabled/message/schoolYearLabel) + DELETE, SUPER_ADMIN_GLOBAL
+- src/app/api/platform-events/status/route.ts (nouveau) : tout user authentifié, school-scoped (verifySchoolAccess) → { data: { CLASS_PASSING, BULLETIN_PUBLICATION } }
+- src/app/api/class-passing/route.ts (REWRITE) : rôles sans 'ADMIN' fantôme ; gate forfait PREMIUM/ENTERPRISE/CORPORATE (getSchoolTier), SUPER_ADMIN_GLOBAL bypass → sinon 403 { error, featureRequired:'passage de classe', tierRequired:'PREMIUM', currentTier } ; réponse = timeline + visibility (même résolution que /status) + activeSchoolYear + stats (9 compteurs dont atRiskCount = risque ELEVE+CRITIQUE, repechageCount = ≥1 matière <10/20) + data TOUS les élèves : annualAverage (moyenne pondérée des moyennes pondérées T1-T3), trimesterAverages (Σscore×coef/Σcoef via 2 requêtes grades+subjects agrégées en JS), failingSubjects (moyenne matière sur trimestres disponibles <10), disciplinePoints/sanctionCount/hasCriticalSanctions (severity CRITICAL|HIGH), riskScore 0-100 (70% déficit notes plafonné + 30% discipline min(|pts|,10)/10×30 + bonus 15 critique, cap 100), riskLevel (≥60 CRITIQUE, ≥35 ELEVE, ≥15 MODERE, sinon FAIBLE), decision (PENDING/PASSED/REPEAT/RATTRAPAGE), qualification {category, badgeLabel, reason} ; tri CRITIQUE d'abord → annualAverage ASC nulls-last → disciplinePoints ASC ; fenêtre fermée + non-SUPER_ADMIN → 200 avec data:[] et stats à zéro (pas de fuite)
+- src/app/api/class-passing/repechage/route.ts (nouveau) : GET (schoolId/studentId/search insensible à la casse via filtrage JS, take 100, newest first, subjects parsés du JSON) + POST (élève validé ∈ école, subjects [{subjectId,name,score}]|string[] normalisés, UNE ligne RepechageExam avec schoolYearId de l'élève) ; gate PREMIUM+ identique ; notifications : a) notify() type 'REPECHAGE' au parent lié (relation parentId, pattern report-cards) b) notifyRepechage() WhatsApp ; mise à jour sentViaApp/sentViaWhatsapp/whatsappDetail ; réponse { data, notifications: { appSent, whatsappSent, whatsappDetail } }
+- src/lib/whatsapp-agent.ts : notifyRepechage() exporté — pattern notifyBulletin exact : gate tierAllowsParentGrades → checkSchoolAgentReady (API perso → agent → quota) → résolution tél. parent(s) via student.parentId → dédoublonnage + exclusions admin/agent connecté → sendWhatsAppMessage par parent avec 1,2 s d'espacement anti-ban ; message FR « 📚 *Examens de repêchage* … (moyenne: x/20) … 📅 Date de l'examen … Bon courage ! » ; retour { sent, failed, detail }
+- src/app/api/dispenses/route.ts (nouveau) : GET rôles MEDICAL/EPS/SCHOOL_ADMIN/SUPER_ADMIN_GLOBAL/SECRETARY/DIRECTION/DIRECTION_* — défaut status=ACTIVE (status='ACTIVE' ET endDate null ou ≥ now), ALL=tout, filtres classId/studentId, createdAt desc, take 200, include élève+classe ; POST (MEDICAL/SUPER_ADMIN_GLOBAL/SCHOOL_ADMIN) → création + notify() type 'DISPENSE' « Nouvel élève dispensé (EPS) » aux utilisateurs actifs EPS (+SCHOOL_ADMIN) de l'école, message FR motif/dates/note ; réponse { data, notifications: { epsNotified } } ; PUT [id] (MEDICAL/SUPER_ADMIN_GLOBAL/SCHOOL_ADMIN) status ACTIVE|EXPIRED|CANCELLED/endDate/reason/note
+- src/lib/auth.ts : ROLE_PERMISSIONS += EPS (11 perms dont dispenses:read) et MEDICAL (dispenses:read/create/update, students:update, communications:create) ; ALLOWED_CREATION_ROLES += 'EPS','MEDICAL' (requirePermission/dispenses:read OK pour EPS — pas d'effet tier FREEMIUM sur ce rôle)
+- src/lib/subscription.ts : EPS ajouté à TEACHER_ROLES, MEDICAL à ADMIN_ROLES (checkCanCreateUser compte EPS comme prof, MEDICAL comme admin)
+- src/app/api/users/route.ts : POST/PUT — EPS se comporte comme TEACHER (subjectName, classNames, isTitulaire)
+- src/app/api/subscription/downgrade/route.ts : SÉCURITÉ — requireAuth → requireRole(['SUPER_ADMIN_GLOBAL','SCHOOL_ADMIN']) (verifySchoolAccess + archiveExcessStudents conservés)
+- src/app/api/schools/route.ts POST : après School+admin → création année scolaire par défaut (label Y-Y+1 si mois ≥ août sinon Y-1/Y, 1er oct → 31 juil, isActive) puis génération des classes via getClassesForSystem(educationalSystem, schoolLevel, true) (capacity ?? 40, option), skip si body.skipDefaultClasses ; réponse + classesCreated (champs existants conservés)
+- src/app/api/schools/[id]/route.ts PUT : 'educationalSystem' et 'schoolLevel' ajoutés à l'allowlist
+- Tests live (server dev, token session) : GET /api/educational-systems 200 public avec parcours/options/horaires complets ; POST /api/platform-events → 201 + 4 notifications staff ; status CSL → source PLATFORM_EVENT, daysRemaining 69, message FR ; status école sans événement → CLASS_PASSING source SCHOOL_YEAR, BULLETIN source DEFAULT visible ; class-passing SUPER_ADMIN → 20 élèves, moyennes T1-T3/annuelles, risque (ex. 57 ELEVE, BLACKLIST), stats complètes ; class-passing secrétaire fenêtre fermée → 200 data:[] stats zéro ; class-passing + repechage GET/POST staff FREEMIUM → 403 tier gate exact ; dispenses : POST MEDICAL 201 epsNotified 1, GET EPS 200, POST EPS 403, PUT → CANCELLED ; repechage POST → 1 ligne, appSent 1 (parent), WhatsApp gated proprement (détail « Aucun agent WhatsApp connecté »), recherche « KABONGO » insensible à la casse OK ; PATCH event (disable) → status retombe sur SCHOOL_YEAR ; DELETE event OK ; POST /api/schools RDC/SECONDAIRE → classesCreated 20 (6 base + 14 options « 3ème Humanités Commerciale & Gestion » etc.), année 2026-2027 (01/10→31/07) active
+- Nettoyage : toutes données de test supprimées (école, classes, année, users MEDICAL/EPS de test, dispense, repechage exam, notifications, événement, sessions) — compteurs DB revenus à l'état initial ; serveur dev relancé pour recharger le Prisma Client (nouveau schéma)
+
+Décisions :
+- repechageCount = élèves avec ≥1 matière annuelle <10/20 ; atRiskCount = riskLevel ELEVE+CRITIQUE (le contrat ne fixait pas la définition)
+- Recherche insensible à la casse faite en JS (SQLite sans mode:'insensitive')
+- Le repêchage WhatsApp respecte aussi le gate parentGradesAccess (Freemium/Essentiel) comme notifyBulletin
+- Rattrapage WhatsApp = 1 seul destinataire max (un parent par élève dans le schéma), le code supporte une liste
+- RESTART du serveur dev nécessaire (Prisma Client en mémoire sans les nouveaux modèles) — relancé avec la commande système habituelle, vérifié 200
+
+Stage Summary:
+- Endpoints livrés et testés en live : /api/educational-systems (public), /api/platform-events (+[id], +status), /api/class-passing (v2), /api/class-passing/repechage (GET+POST), /api/dispenses (GET+POST+[id] PUT) — contrats respectés à la lettre
+- Modèles Dispense/PlatformEvent/RepechageExam + Class.option en base (db:push in sync)
+- Sécurité : downgrade tier restreint SUPER_ADMIN_GLOBAL/SCHOOL_ADMIN ; visibilité plateforme sans fuite de données élèves ; gates tier PREMIUM+ sur passage de classe/repêchage
+- Rôles EPS/MEDICAL créables et permissionnés (EPS compté prof, MEDICAL admin, EPS lecture seule sur les dispenses)
+- Lint ESLint : 0 erreur/0 warning sur tous les fichiers touchés ; tsc : aucune erreur dans les fichiers du task (erreurs préexistantes page.tsx/feature-gate/subscription-status non touchées)
+- Fichiers : prisma/schema.prisma ; src/lib/{educational-systems,platform-events*,auth,subscription,whatsapp-agent}.ts ; src/app/api/{educational-systems,platform-events,platform-events/[id],platform-events/status,class-passing,class-passing/repechage*,dispenses*,dispenses/[id]*,schools,schools/[id],users,subscription/downgrade}/route.ts (*=nouveaux)
+
+---
+Task ID: 3
+Agent: Z.ai (orchestrator)
+Task: Frontend wiring — landing systems section, create-school parcours preview, ClassPassingView v2 + repêchage, bulletin publication gate, EPS/MEDICAL menus, platform control
+
+Work Log:
+- store.ts: ViewType += platform-control, dispenses; UserRole += EPS, MEDICAL
+- helpers.ts: getRoleLabel += Prof. EPS / Service Médical
+- PersonnelView.tsx: ROLES += EPS, MEDICAL; isTeacherForm includes EPS (subject/class extras)
+- page.tsx landing (HomeView): new "Systèmes scolaires intégrés" section — 5 system cards (flag, country, sampleClasses); click expands SystemParcoursExplorer with parcours/classes/options/horaires
+- page.tsx CreateSchoolView: parcours preview auto-shown under the system picker (compact explorer) + note that classes will be generated per school level
+- page.tsx ClassPassingView: full v2 rewrite — tabs Délibération/Repêchage; stats cards; table (moyenne annuelle + T1/T2/T3, matières en échec, discipline, badge risque CRITIQUE/ÉLEVÉ/MODÉRÉ/FAIBLE); décision PASSED/REPEAT/RATTRAPAGE; visibility banner (platform event countdown, locked state); repêchage tab: recherche élève local → checkboxes matières <10/20 → date + note → POST → toast App/WhatsApp counts; historique examens envoyés avec badges sentViaApp/sentViaWhatsapp; tier gate PREMIUM+ (redirect subscription-required)
+- page.tsx BulletinView: staff gate — locked panel ("Publication des bulletins non ouverte", 21 jours avant la date officielle, date officielle + ouverture + jours restants) via /api/platform-events/status; parents non affectés; SUPER_ADMIN bypass
+- page.tsx Sidebar: SUPER_ADMIN_GLOBAL += "Contrôle plateforme"; new EPS + MEDICAL menus; SECRETARY += Bulletins
+- page.tsx MainContent += platform-control, dispenses (mode MEDICAL/EPS); RoleDashboard: EPS→TeacherDashboard, MEDICAL→MedicalDashboard (cartes + DispensesView MEDICAL)
+- LoginView/create-school roleMaps += EPS, MEDICAL (sinon login rejetait les nouveaux rôles)
+- Fix hooks-order pre-existants: CommunicationsView + ConvocationView (early return déplacé après tous les hooks) → page.tsx 100% lint clean
+- Fix report-cards POST: validDecisions += RATTRAPAGE
+- Fix class-passing failingSubjects: basé sur les matières où l'élève a des notes (robuste si subjects rattachées à une autre classe)
+
+Stage Summary:
+- Vérifié navigateur (agent-browser): landing systems section (RDC→Maternelle/Primaire/Secondaire + 7 options RDC + horaires), login admin, Contrôle plateforme (POST/PATCH/DELETE events + confirm), Passage de classe v2 (20 élèves, visibilité PLATFORM_EVENT, banner ouverte/verrouillée), repêchage envoyé (App:1, WhatsApp:0 car agent non connecté), bulletin staff verrouillé (21 jours avant, 9 jours restants), login MEDICAL → dashboard + dispense créée (notification EPS reçue en DB), login EPS → liste lecture-seule avec la dispense
+- Subscription routes testées live: request → validate APPROVE (downgrade PREMIUM→STANDARD + archive 0), upgrade STANDARD→PREMIUM (restore), /downgrade 403 pour SECRETARY (fix sécurité), OK pour SUPER_ADMIN_GLOBAL; tier final restauré PREMIUM
+- Création d'école via wizard UI: RDC + POLYVALENTE → 29 classes générées (3M + 6P + 7EB/8EB + 1H-4H + 14 options 3H/4H); API SECONDAIRE seul → 20 classes secondaire uniquement; écoles de test supprimées ensuite
+
+---
+Task ID: 4
+Agent: Z.ai (orchestrator)
+Task: Final verification + lint + commit/push
+
+Work Log:
+- Mobile 390px: section systèmes responsive, pas d'overflow-X, footer poussé naturellement (footerBottom=viewport au bas de page), 0 erreur console
+- dev.log: aucune erreur 500 ni exception runtime; restart du serveur effectué (kill accidentel via job shell) puis smoke tests API 200 (class-passing, dispenses, educational-systems, convocations, platform-events)
+- Lint: page.tsx et tous les fichiers modifiés propres; erreurs restantes uniquement dans des fichiers amont non touchés (scripts/, useCurrency, SchoolMap, DisciplineView, GradesView, PaymentsView)
+
+Stage Summary:
+- Voir commit: systèmes scolaires v2 + passage de classe premium + repêchage + plateforme contrôle + medical/EPS + fixes

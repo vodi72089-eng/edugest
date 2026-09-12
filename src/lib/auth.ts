@@ -567,6 +567,17 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'stats:read',
     'notifications:read',
   ],
+  EPS: [
+    'school:read', 'students:read', 'classes:read', 'grades:read', 'subjects:read',
+    'dispenses:read', 'communications:read', 'homework:read',
+    'profile:read', 'profile:update', 'notifications:read',
+  ],
+  MEDICAL: [
+    'school:read', 'students:read', 'students:update', 'classes:read',
+    'dispenses:read', 'dispenses:create', 'dispenses:update',
+    'communications:read', 'communications:create',
+    'profile:read', 'profile:update', 'notifications:read',
+  ],
   SCHOOL_ADMIN: [
     'users:read', 'users:create', 'users:update', 'users:delete',
     'students:read', 'students:create', 'students:update', 'students:delete',
@@ -685,7 +696,7 @@ export function checkRateLimit(key: string, maxRequests: number, windowMs: numbe
 }
 
 // ─── Role validation ───────────────────────────────────────────────────────
-const ALLOWED_CREATION_ROLES = ['SECRETARY', 'CASHIER', 'TEACHER', 'HEAD_TEACHER', 'PARENT', 'DISCIPLINE', 'DIRECTION'];
+const ALLOWED_CREATION_ROLES = ['SECRETARY', 'CASHIER', 'TEACHER', 'HEAD_TEACHER', 'PARENT', 'DISCIPLINE', 'DIRECTION', 'EPS', 'MEDICAL'];
 const DIRECTION_ROLES = ['DIRECTION', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
 const DISCIPLINE_ROLES = ['DISCIPLINE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE'];
 

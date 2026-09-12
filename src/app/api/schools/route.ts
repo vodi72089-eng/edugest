@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { requirePermission, safeParseInt, sanitizeError } from '@/lib/auth';
+import { getClassesForSystem } from '@/lib/educational-systems';
 
 function generateRandomPassword(length: number = 12): string {
   return crypto.randomBytes(length).toString('base64').slice(0, length);
@@ -98,6 +99,7 @@ export async function POST(request: NextRequest) {
       subscriptionTier,
       logo,
       coverImage,
+      skipDefaultClasses,
       // Admin account fields
       adminName,
       adminEmail,
@@ -184,7 +186,42 @@ export async function POST(request: NextRequest) {
       // }
     }
 
-    return NextResponse.json({ data: { school, adminUser, generatedPassword: adminName && (adminEmail || adminPhone) && !adminPassword ? 'A random password was generated' : undefined } }, { status: 201 });
+    // ── Année scolaire par défaut (ex: "2025-2026") ─────────────────────────
+    // Année académique : mois >= août (8) → Y/Y+1, sinon Y-1/Y
+    const nowDate = new Date();
+    const startYear = nowDate.getMonth() >= 8 ? nowDate.getFullYear() : nowDate.getFullYear() - 1;
+    const endYear = startYear + 1;
+    const schoolYear = await db.schoolYear.create({
+      data: {
+        label: `${startYear}-${endYear}`,
+        startDate: new Date(startYear, 9, 1),   // 1er octobre de l'année de début
+        endDate: new Date(endYear, 6, 31),      // 31 juillet de l'année de fin
+        isActive: true,
+        schoolId: school.id,
+      },
+    });
+
+    // ── Génération des classes selon le système éducatif (avec options) ────
+    let classesCreated = 0;
+    if (!skipDefaultClasses) {
+      const templates = getClassesForSystem(educationalSystem, schoolLevel, true);
+      if (templates.length > 0) {
+        const result = await db.class.createMany({
+          data: templates.map(t => ({
+            name: t.name,
+            section: t.section,
+            level: t.level,
+            capacity: t.capacity ?? 40,
+            schoolId: school.id,
+            schoolYearId: schoolYear.id,
+            option: t.option ?? null,
+          })),
+        });
+        classesCreated = result.count;
+      }
+    }
+
+    return NextResponse.json({ data: { school, adminUser, classesCreated, generatedPassword: adminName && (adminEmail || adminPhone) && !adminPassword ? 'A random password was generated' : undefined } }, { status: 201 });
   } catch (error) {
     console.error('Error creating school:', error);
     return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });

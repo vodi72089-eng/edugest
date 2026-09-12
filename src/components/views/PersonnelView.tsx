@@ -41,7 +41,7 @@ export default function PersonnelView() {
   const [assignSubjects, setAssignSubjects] = useState<{ id: string; name: string; coefficient: number }[]>([])
   const [assignLoading, setAssignLoading] = useState(false)
 
-  const isTeacherForm = form.role === 'TEACHER' || form.role === 'HEAD_TEACHER'
+  const isTeacherForm = form.role === 'TEACHER' || form.role === 'HEAD_TEACHER' || form.role === 'EPS'
 
   function openAssignmentModal(teacher: { id: string; name: string }) {
     setAssignmentTeacher(teacher)
@@ -97,6 +97,8 @@ export default function PersonnelView() {
     { value: 'CASHIER', label: 'Caissier', color: 'oklch(72% 0.15 65)' },
     { value: 'TEACHER', label: 'Enseignant', color: 'oklch(60% 0.15 145)' },
     { value: 'HEAD_TEACHER', label: 'Prof. Principal', color: 'oklch(55% 0.15 175)' },
+    { value: 'EPS', label: 'Prof. EPS', color: 'oklch(55% 0.14 130)' },
+    { value: 'MEDICAL', label: 'Service Médical', color: 'oklch(58% 0.16 15)' },
     { value: 'DIRECTION_MATERNELLE', label: 'Dir. Maternelle', color: 'oklch(60% 0.13 280)' },
     { value: 'DIRECTION_PRIMAIRE', label: 'Dir. Primaire', color: 'oklch(55% 0.15 175)' },
     { value: 'DIRECTION_SECONDAIRE', label: 'Dir. Secondaire', color: 'oklch(45% 0.13 200)' },

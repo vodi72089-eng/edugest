@@ -50,6 +50,9 @@ import {
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import { tierAllowsParentGrades } from '@/lib/subscription'
 import WhatsappUsageCard from '@/components/views/WhatsappUsageCard'
+import SystemParcoursExplorer from '@/components/views/SystemParcoursExplorer'
+import PlatformControlView from '@/components/views/PlatformControlView'
+import DispensesView from '@/components/views/DispensesView'
 import { useRouter } from 'next/navigation'
 
 // ===== Types (imported from @/lib/types) =====
@@ -345,6 +348,7 @@ function HomeView() {
   const [province, setProvince] = useState('Toutes provinces')
   const [activeFilter, setActiveFilter] = useState('all')
   const [showMap, setShowMap] = useState(false)
+  const [activeSystemId, setActiveSystemId] = useState<string | null>(null)
   const [typewriterLine1, setTypewriterLine1] = useState('')
   const [typewriterLine2, setTypewriterLine2] = useState('')
   const [typewriterActiveLine, setTypewriterActiveLine] = useState<1 | 2 | null>(1)
@@ -768,6 +772,52 @@ function HomeView() {
                 </button>
                 </ScrollReveal>
               ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ===== SYSTÈMES SCOLAIRES ===== */}
+      <section id="systems-section" className="edu-ivory-texture py-16 sm:py-20 border-t border-[oklch(88%_0.01_175)]">
+        <div className="container-premium">
+          <div className="text-center mb-10">
+            <div className="edu-ornament mb-4"><span style={{ color: GOLD }}>►</span></div>
+            <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
+              Les <GradientText className="inline-block" colors={['#f5a623', '#e8962d', '#d4860f']}>systèmes scolaires</GradientText> intégrés
+            </h2>
+            <p className="text-base max-w-[560px] mx-auto" style={{ color: TEXT_MUTED_LUXE }}>
+              Cliquez sur un système pour découvrir ses parcours officiels : classes, options/filières populaires et horaires types.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
+            {EDUCATIONAL_SYSTEMS_LIST.map(sys => {
+              const isActive = activeSystemId === sys.id
+              return (
+                <button
+                  key={sys.id}
+                  onClick={() => setActiveSystemId(isActive ? null : sys.id)}
+                  className={`text-left bg-white border rounded-2xl p-5 transition-all edu-card-lift ${isActive ? 'border-[oklch(72%_0.15_65)] shadow-md ring-2 ring-[oklch(72%_0.15_65_/_0.2)]' : 'border-[oklch(88%_0.01_175)] hover:shadow-md'}`}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-8 rounded-lg overflow-hidden shadow-sm shrink-0">
+                      <FlagIcon countryCode={sys.countryCode} className="w-full h-full" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold truncate" style={{ color: TEXT_PRIMARY }}>{sys.shortLabel}</div>
+                      <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{sys.country}</div>
+                    </div>
+                  </div>
+                  <div className="text-[12px] leading-relaxed line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{sys.sampleClasses}</div>
+                  <div className="mt-3 text-[12px] font-semibold flex items-center gap-1" style={{ color: GOLD }}>
+                    {isActive ? 'Masquer' : 'Voir les parcours'} <ChevronDown size={13} className={`transition-transform ${isActive ? 'rotate-180' : ''}`} />
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+          {activeSystemId && (
+            <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl shadow-sm overflow-hidden">
+              <SystemParcoursExplorer systemId={activeSystemId} />
             </div>
           )}
         </div>
@@ -1299,6 +1349,8 @@ function CreateSchoolView() {
             DISCIPLINE_SECONDAIRE: 'DISCIPLINE_SECONDAIRE',
             TEACHER: 'TEACHER',
             HEAD_TEACHER: 'HEAD_TEACHER',
+            EPS: 'EPS',
+            MEDICAL: 'MEDICAL',
             PARENT: 'PARENT',
           }
           const role = roleMap[apiUser.role] || 'SUPER_ADMIN_GLOBAL'
@@ -1400,7 +1452,7 @@ function CreateSchoolView() {
                       DIRECTION_MATERNELLE: 'DIRECTION_MATERNELLE', DIRECTION_PRIMAIRE: 'DIRECTION_PRIMAIRE',
                       DIRECTION_SECONDAIRE: 'DIRECTION_SECONDAIRE', DISCIPLINE_MATERNELLE: 'DISCIPLINE_MATERNELLE',
                       DISCIPLINE_PRIMAIRE: 'DISCIPLINE_PRIMAIRE', DISCIPLINE_SECONDAIRE: 'DISCIPLINE_SECONDAIRE',
-                      TEACHER: 'TEACHER', HEAD_TEACHER: 'HEAD_TEACHER', PARENT: 'PARENT',
+                      TEACHER: 'TEACHER', HEAD_TEACHER: 'HEAD_TEACHER', EPS: 'EPS', MEDICAL: 'MEDICAL', PARENT: 'PARENT',
                     }
                     const role = roleMap[apiUser.role] || 'SUPER_ADMIN_GLOBAL'
                     login(role, {
@@ -1713,6 +1765,16 @@ function CreateSchoolView() {
                       </div>
                     )}
                   </div>
+                  {form.educationalSystem && !eduSysOpen && (
+                    <div className="sm:col-span-2 -mt-1 mb-1">
+                      <div className="text-[11px] font-medium mb-2 flex items-center gap-1.5" style={{ color: '#f5a623' }}>
+                        <Check size={12} /> Parcours officiels de ce système — les classes ci-dessous seront créées automatiquement selon votre niveau scolaire ({form.schoolLevel ? form.schoolLevel.toLowerCase() : 'polyvalente'}), avec options et horaires :
+                      </div>
+                      <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        <SystemParcoursExplorer systemId={form.educationalSystem} compact />
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Capacité max</label>
                     <input type="number" value={form.maxStudents} onChange={e => updateForm('maxStudents', e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
@@ -1899,6 +1961,8 @@ function LoginView() {
       DISCIPLINE: 'DISCIPLINE_PRIMAIRE',
       TEACHER: 'TEACHER',
       HEAD_TEACHER: 'HEAD_TEACHER',
+      EPS: 'EPS',
+      MEDICAL: 'MEDICAL',
       PARENT: 'PARENT',
     }
     return map[role] || null
@@ -2199,6 +2263,7 @@ function Sidebar() {
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
+      { icon: <Globe size={16} />, label: 'Contrôle plateforme', view: 'platform-control' as ViewType },
       { icon: <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>, label: 'Connexion WhatsApp', view: 'whatsapp-config' as ViewType },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
@@ -2210,6 +2275,7 @@ function Sidebar() {
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
+      { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
@@ -2240,6 +2306,21 @@ function Sidebar() {
       { icon: <School size={16} />, label: 'Mes Classes', view: 'classes' },
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+    ],
+    EPS: [
+      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
+      { icon: <Heart size={16} />, label: 'Élèves dispensés', view: 'dispenses' as ViewType },
+      { icon: <School size={16} />, label: 'Mes Classes', view: 'classes' },
+      { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+    ],
+    MEDICAL: [
+      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
+      { icon: <Heart size={16} />, label: 'Élèves dispensés', view: 'dispenses' as ViewType },
+      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
@@ -3069,6 +3150,8 @@ function MainContent() {
     case 'profile': return <ProfileView />
     case 'class-passing': return <ClassPassingView />
     case 'bulletin': return <BulletinView />
+    case 'platform-control': return <PlatformControlView />
+    case 'dispenses': return <DispensesView mode={userRole === 'MEDICAL' ? 'MEDICAL' : 'EPS'} />
     case 'convocation': return <ConvocationView />
     case 'schools': return <SchoolsManagementView />
     case 'personnel': return <PersonnelView />
@@ -3092,11 +3175,49 @@ function RoleDashboard() {
     case 'PARENT': return <ParentDashboard />
     case 'TEACHER': return <TeacherDashboard />
     case 'HEAD_TEACHER': return <HeadTeacherDashboard />
+    case 'EPS': return <TeacherDashboard />
+    case 'MEDICAL': return <MedicalDashboard />
     default:
       if (userRole?.startsWith('DIRECTION')) return <DirectionDashboard />
       if (userRole?.startsWith('DISCIPLINE')) return <DisciplineDashboardView />
       return <SecretaryDashboard />
   }
+}
+
+// ===== MEDICAL DASHBOARD (service médical ↔ EPS) =====
+function MedicalDashboard() {
+  const { setCurrentView } = useEduGestStore()
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Service médical</h1>
+        </div>
+        <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>
+          Suivi santé des élèves — vos dispensés sont communiqués automatiquement aux professeurs d&apos;EPS.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <button onClick={() => setCurrentView('dispenses')} className="text-left bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 hover:shadow-md transition edu-card-lift">
+          <div className="w-10 h-10 rounded-full grid place-items-center mb-3 text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}><Heart size={18} /></div>
+          <div className="text-[15px] font-bold" style={{ color: TEXT_PRIMARY }}>Élèves dispensés</div>
+          <div className="text-[12px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>Créer et gérer les dispenses EPS — les profs EPS sont notifiés instantanément</div>
+        </button>
+        <button onClick={() => setCurrentView('students')} className="text-left bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 hover:shadow-md transition edu-card-lift">
+          <div className="w-10 h-10 rounded-full grid place-items-center mb-3 text-white" style={{ background: `linear-gradient(135deg, ${ACCENT2}, ${ACCENT})` }}><Users size={18} /></div>
+          <div className="text-[15px] font-bold" style={{ color: TEXT_PRIMARY }}>Dossiers élèves</div>
+          <div className="text-[12px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>Consulter les informations des élèves de l&apos;école</div>
+        </button>
+        <button onClick={() => setCurrentView('communications')} className="text-left bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 hover:shadow-md transition edu-card-lift">
+          <div className="w-10 h-10 rounded-full grid place-items-center mb-3 text-white" style={{ background: `linear-gradient(135deg, ${GOLD}, ${WARNING})` }}><MessageSquare size={18} /></div>
+          <div className="text-[15px] font-bold" style={{ color: TEXT_PRIMARY }}>Communications</div>
+          <div className="text-[12px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>Informer les parents (convalescences, vaccinations...)</div>
+        </button>
+      </div>
+      <DispensesView mode="MEDICAL" />
+    </div>
+  )
 }
 
 // ===== STAT CARD =====
@@ -5078,8 +5199,6 @@ function CommunicationsView() {
     }
   }, [highlightedId])
 
-  if (!hasAccess) return null
-
   useEffect(() => {
     const superAdminRoles = ['SUPER_ADMIN_GLOBAL', 'ADMIN']
     const mineParam = superAdminRoles.includes(userRole as string) ? '&mine=true' : ''
@@ -5095,6 +5214,8 @@ function CommunicationsView() {
       }
     }).catch(() => setLoading(false))
   }, [userData?.schoolId, userData?.id, canCreate])
+
+  if (!hasAccess) return null
 
   async function handleSend() {
     if (!title || !content) return toast.error('Titre et contenu requis')
@@ -5650,73 +5771,183 @@ function HomeworkView() {
 // ProfileView imported from @/components/views/ProfileView
 
 // ===== CLASS PASSING VIEW =====
+// ===== CLASS PASSING VIEW (v2 : délibération notes + discipline & repêchage) =====
+interface PassingStudent {
+  id: string
+  matricule: string
+  firstName: string
+  lastName: string
+  photoUrl?: string | null
+  class: { id: string; name: string; section?: string } | null
+  annualAverage: number | null
+  trimesterAverages: { T1?: number | null; T2?: number | null; T3?: number | null }
+  failingSubjects: { subjectId: string; name: string; score: number }[]
+  disciplinePoints: number
+  sanctionCount: number
+  hasCriticalSanctions: boolean
+  riskScore: number
+  riskLevel: 'CRITIQUE' | 'ELEVE' | 'MODERE' | 'FAIBLE'
+  decision: string
+  qualification: { category: string; badgeLabel: string; reason: string }
+}
+
+interface PassingVisibility {
+  visible: boolean
+  openDate: string | null
+  officialDate: string | null
+  daysRemaining: number | null
+  message: string
+  source: string
+}
+
+interface RepechageExamData {
+  id: string
+  studentId: string
+  student: { id: string; firstName: string; lastName: string; matricule?: string; photoUrl?: string; class?: { name?: string } | null }
+  subjects: { subjectId?: string; name: string; score?: number }[]
+  examDate?: string | null
+  status: string
+  sentViaApp?: boolean
+  sentViaWhatsapp?: boolean
+  createdByName?: string
+  createdAt: string
+}
+
+const RISK_BADGE: Record<string, { label: string; color: string }> = {
+  CRITIQUE: { label: 'Critique', color: DANGER },
+  ELEVE: { label: 'Élevé', color: WARNING },
+  MODERE: { label: 'Modéré', color: INFO },
+  FAIBLE: { label: 'Faible', color: SUCCESS },
+}
+
 function ClassPassingView() {
   const { userData, userRole } = useEduGestStore()
   const router = useRouter()
-  const allowedRoles = ['SUPER_ADMIN_GLOBAL', 'ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'HEAD_TEACHER']
-  // Passage de classe non inclus dans le forfait FREEMIUM
-  const isFreemiumTier = (userData?.subscriptionTier || 'FREEMIUM') === 'FREEMIUM'
-  const canAccess = !isFreemiumTier && allowedRoles.includes(userRole || '')
-  const [students, setStudents] = useState<StudentData[]>([])
+  const allowedRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'HEAD_TEACHER']
+  // Passage de classe : réservé aux admins abonnés au forfait Professionnel (PREMIUM) et plus
+  const tier = userData?.subscriptionTier || 'FREEMIUM'
+  const isSuperAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
+  const tierOk = isSuperAdmin || ['PREMIUM', 'ENTERPRISE', 'CORPORATE'].includes(tier)
+  const canAccess = tierOk && allowedRoles.includes(userRole || '')
+  const [tab, setTab] = useState<'deliberation' | 'repechage'>('deliberation')
+  const [students, setStudents] = useState<PassingStudent[]>([])
   const [loading, setLoading] = useState(true)
-  const [studentSearch, setStudentSearch] = useState('')
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
-  const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
-  const [studentSearchLoading, setStudentSearchLoading] = useState(false)
+  const [visibility, setVisibility] = useState<PassingVisibility | null>(null)
+  const [stats, setStats] = useState<Record<string, number>>({})
+  const [listSearch, setListSearch] = useState('')
   const [decisions, setDecisions] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
-  const [selectedTrimester, setSelectedTrimester] = useState('T1')
+  // Repêchage
+  const [repStudent, setRepStudent] = useState<PassingStudent | null>(null)
+  const [repSearch, setRepSearch] = useState('')
+  const [repSelected, setRepSelected] = useState<string[]>([])
+  const [repDate, setRepDate] = useState('')
+  const [repNote, setRepNote] = useState('')
+  const [repSending, setRepSending] = useState(false)
+  const [repHistory, setRepHistory] = useState<RepechageExamData[]>([])
+  const [repHistoryLoading, setRepHistoryLoading] = useState(false)
 
   useEffect(() => {
-    if (isFreemiumTier) {
-      router.push(`/subscription-required?feature=${encodeURIComponent('passage de classe')}&requiredTier=ESSENTIEL`)
+    if (!tierOk) {
+      router.push(`/subscription-required?feature=${encodeURIComponent('passage de classe')}&requiredTier=PREMIUM`)
     }
-  }, [isFreemiumTier, router])
+  }, [tierOk, router])
 
-  useEffect(() => {
-    const params = new URLSearchParams({ limit: '50' })
-    if (userData?.schoolId) params.set('schoolId', userData.schoolId)
-    authFetch(`/api/students?${params}`).then(r => r.json()).then(j => { setStudents(j.data || []); setLoading(false) }).catch(() => setLoading(false))
-  }, [userData?.schoolId])
-
-  // Load existing decisions
-  useEffect(() => {
+  const loadClassPassing = useCallback(async () => {
     if (!userData?.schoolId) return
-    authFetch(`/api/report-cards?trimester=${selectedTrimester}&schoolId=${userData.schoolId}`)
-      .then(r => r.json())
-      .then(j => {
+    setLoading(true)
+    try {
+      const res = await authFetch(`/api/class-passing?schoolId=${userData.schoolId}`)
+      const j = await res.json()
+      if (res.ok) {
+        setStudents(j.data || [])
+        setVisibility(j.visibility || null)
+        setStats(j.stats || {})
         const existing: Record<string, string> = {}
-        for (const rc of (j.data || [])) {
-          if (rc.decision) existing[rc.studentId] = rc.decision
+        for (const s of (j.data || [])) {
+          if (s.decision && s.decision !== 'PENDING') existing[s.id] = s.decision
         }
         setDecisions(prev => ({ ...existing, ...prev }))
+      } else {
+        toast.error(j.error || 'Erreur de chargement')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setLoading(false) }
+  }, [userData?.schoolId])
+
+  useEffect(() => { loadClassPassing() }, [loadClassPassing])
+
+  const loadRepHistory = useCallback(async () => {
+    if (!userData?.schoolId) return
+    setRepHistoryLoading(true)
+    try {
+      const res = await authFetch(`/api/class-passing/repechage?schoolId=${userData.schoolId}`)
+      const j = await res.json()
+      if (res.ok) setRepHistory(j.data || [])
+    } catch { /* silencieux */ }
+    finally { setRepHistoryLoading(false) }
+  }, [userData?.schoolId])
+
+  useEffect(() => { if (tab === 'repechage') loadRepHistory() }, [tab, loadRepHistory])
+
+  // Recherche repêchage : filtre local sur les élèves chargés (notes + discipline déjà calculées)
+  const repSuggestions: AutocompleteItem[] = repSearch.length >= 2
+    ? students
+        .filter(s => `${s.firstName} ${s.lastName}`.toLowerCase().includes(repSearch.toLowerCase()) || s.matricule.toLowerCase().includes(repSearch.toLowerCase()))
+        .slice(0, 8)
+        .map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: `${s.matricule} · ${s.class?.name || ''} · ${s.failingSubjects.length} matière(s) < 10`, photoUrl: s.photoUrl }))
+    : []
+
+  const selectRepStudent = (id: string) => {
+    const s = students.find(x => x.id === id) || null
+    setRepStudent(s)
+    setRepSelected(s ? s.failingSubjects.map(f => f.subjectId) : [])
+    setRepSearch('')
+  }
+
+  const sendRepechage = async () => {
+    if (!repStudent) { toast.error('Sélectionnez un élève'); return }
+    if (repSelected.length === 0) { toast.error('Cochez au moins une matière à repêcher'); return }
+    setRepSending(true)
+    try {
+      const subjects = repStudent.failingSubjects.filter(f => repSelected.includes(f.subjectId))
+      const res = await authFetch('/api/class-passing/repechage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: repStudent.id,
+          schoolId: userData?.schoolId,
+          subjects,
+          examDate: repDate || undefined,
+          note: repNote || undefined,
+          sendWhatsApp: true,
+        }),
       })
-      .catch(() => {})
-  }, [userData?.schoolId, selectedTrimester])
+      const j = await res.json()
+      if (res.ok) {
+        const n = j.notifications || {}
+        toast.success(`Examens de repêchage envoyés — App : ${n.appSent || 0} notif(s), WhatsApp : ${n.whatsappSent || 0} message(s)`)
+        setRepStudent(null); setRepSelected([]); setRepDate(''); setRepNote('')
+        loadRepHistory()
+      } else {
+        toast.error(j.error || 'Erreur lors de l\'envoi')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setRepSending(false) }
+  }
 
-  // Student search autocomplete
-  useEffect(() => {
-    if (studentSearch.length < 2) return
-    const timer = setTimeout(() => {
-      setStudentSearchLoading(true)
-      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
-        .then(r => r.json())
-        .then(j => {
-          setStudentSuggestions((j.data || []).map((s: StudentData) => ({
-            id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: `${s.matricule} · ${s.class?.name || ''}`, photoUrl: s.photoUrl
-          })))
-          setStudentSearchLoading(false)
-        })
-        .catch(() => setStudentSearchLoading(false))
-    }, 300)
-    return () => { clearTimeout(timer); setStudentSearchLoading(false) }
-  }, [studentSearch, userData?.schoolId])
+  const startRepFromRow = (s: PassingStudent) => {
+    setTab('repechage')
+    setRepStudent(s)
+    setRepSelected(s.failingSubjects.map(f => f.subjectId))
+    setRepSearch('')
+  }
 
-  const filteredStudents = selectedStudentId
-    ? students.filter(s => s.id === selectedStudentId)
-    : studentSearch.length >= 2
-      ? students.filter(s => `${s.firstName} ${s.lastName}`.toLowerCase().includes(studentSearch.toLowerCase()) || s.matricule.toLowerCase().includes(studentSearch.toLowerCase()))
-      : students
+  const filteredList = listSearch.length >= 2
+    ? students.filter(s => `${s.firstName} ${s.lastName}`.toLowerCase().includes(listSearch.toLowerCase()) || s.matricule.toLowerCase().includes(listSearch.toLowerCase()))
+    : students
+
+  const riskColor = (level: string) => RISK_BADGE[level] || RISK_BADGE.FAIBLE
 
   return (
     <div>
@@ -5732,41 +5963,102 @@ function ClassPassingView() {
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Passage de classe</h1>
           </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filteredStudents.length)} élèves</p>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>
+            Fin d&apos;année — délibération basée sur les plus mauvaises notes et la discipline · {formatNumber(students.length)} élèves évalués
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <select value={selectedTrimester} onChange={e => setSelectedTrimester(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-            <option value="T1">Trimestre 1</option><option value="T2">Trimestre 2</option><option value="T3">Trimestre 3</option>
-          </select>
-          <SearchAutocomplete
-            placeholder="Tapez le nom de l'élève..."
-            items={studentSuggestions}
-            selectedId={selectedStudentId}
-            onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
-            onClear={() => { setSelectedStudentId(null); setStudentSearch('') }}
-            searchQuery={studentSearch}
-            onSearchChange={setStudentSearch}
-            loading={studentSearchLoading}
-            itemTypeName="élève"
-            className="w-full max-w-sm"
-          />
+        <div className="flex items-center gap-2">
+          <button onClick={() => setTab('deliberation')} className={`px-4 py-2 rounded-xl text-sm font-medium transition border ${tab === 'deliberation' ? 'text-white border-transparent shadow-sm' : 'bg-white border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)]'}`} style={tab === 'deliberation' ? { background: ACCENT } : { color: TEXT_PRIMARY }}>
+            <ListChecks size={14} className="inline mr-1.5 -mt-0.5" /> Délibération
+          </button>
+          <button onClick={() => setTab('repechage')} className={`px-4 py-2 rounded-xl text-sm font-medium transition border ${tab === 'repechage' ? 'text-white border-transparent shadow-sm' : 'bg-white border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)]'}`} style={tab === 'repechage' ? { background: ACCENT } : { color: TEXT_PRIMARY }}>
+            <RotateCcw size={14} className="inline mr-1.5 -mt-0.5" /> Repêchage {repHistory.length > 0 && <span className="ml-1 px-1.5 py-px rounded-full text-[10px] font-bold" style={{ background: GOLD, color: '#1a1a1a' }}>{repHistory.length}</span>}
+          </button>
         </div>
       </div>
+
+      {/* Bandeau de visibilité contrôlé par l'admin global de la plateforme */}
+      {visibility && !visibility.visible && (
+        <div className="mb-6 rounded-2xl border p-5 flex items-start gap-3" style={{ background: GOLD_SOFT, borderColor: 'oklch(85%_0.08_85)' }}>
+          <Lock size={18} style={{ color: GOLD }} className="mt-0.5 shrink-0" />
+          <div>
+            <div className="text-sm font-bold mb-0.5" style={{ color: TEXT_PRIMARY }}>Interface verrouillée — ouverture programmée</div>
+            <div className="text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
+              {visibility.openDate && visibility.officialDate
+                ? `Disponible à partir du ${new Date(visibility.openDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} · Date officielle : ${new Date(visibility.officialDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                : visibility.message}
+              {visibility.daysRemaining != null && visibility.daysRemaining > 0 ? ` · Dans ${visibility.daysRemaining} jour(s)` : ''}
+            </div>
+          </div>
+        </div>
+      )}
+      {visibility && visibility.visible && visibility.source === 'PLATFORM_EVENT' && (
+        <div className="mb-6 rounded-2xl border p-4 flex items-center gap-3" style={{ background: SUCCESS_SOFT, borderColor: 'oklch(88%_0.06_145)' }}>
+          <CheckCircle size={16} style={{ color: SUCCESS }} className="shrink-0" />
+          <div className="text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
+            Période de passage de classe ouverte{visibility.officialDate ? ` — date officielle : ${new Date(visibility.officialDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
+          </div>
+        </div>
+      )}
+
+      {tab === 'deliberation' && (
+      <>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4">
+          <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: TEXT_MUTED_LUXE }}>Évalués</div>
+          <div className="text-xl font-bold tabular-nums" style={{ color: TEXT_PRIMARY }}>{formatNumber(stats.totalStudents ?? students.length)}</div>
+        </div>
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4">
+          <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: TEXT_MUTED_LUXE }}>À risque</div>
+          <div className="text-xl font-bold tabular-nums" style={{ color: DANGER }}>{formatNumber(stats.atRiskCount ?? 0)}</div>
+        </div>
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4">
+          <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: TEXT_MUTED_LUXE }}>Délibération</div>
+          <div className="text-xl font-bold tabular-nums" style={{ color: WARNING }}>{formatNumber(stats.deliberationTotal ?? 0)}</div>
+        </div>
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4">
+          <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: TEXT_MUTED_LUXE }}>Échec (&lt; 10/20)</div>
+          <div className="text-xl font-bold tabular-nums" style={{ color: GOLD }}>{formatNumber(stats.repechageCount ?? 0)}</div>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative flex-1 max-w-sm">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: TEXT_MUTED_LUXE }} />
+          <input
+            value={listSearch}
+            onChange={e => setListSearch(e.target.value)}
+            placeholder="Rechercher un élève (nom ou matricule)..."
+            className="w-full pl-9 pr-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+            style={{ color: TEXT_PRIMARY }}
+          />
+        </div>
+        <span className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>Classés des plus faibles aux meilleurs</span>
+      </div>
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[560px] overflow-y-auto custom-scrollbar">
           <table className="w-full">
-            <thead>
+            <thead className="sticky top-0 z-10">
               <tr style={{ background: IVORY }}>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Classe actuelle</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Classe</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Moyenne</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3 hidden md:table-cell" style={{ color: GOLD }}>Matières en échec</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3 hidden lg:table-cell" style={{ color: GOLD }}>Discipline</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Risque</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Décision</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Action</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={4} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
-              ) : filteredStudents.slice(0, 50).map(s => (
+                <tr><td colSpan={8} className="text-center py-10" style={{ color: TEXT_MUTED_LUXE }}>Chargement des évaluations...</td></tr>
+              ) : visibility && !visibility.visible && !isSuperAdmin ? (
+                <tr><td colSpan={8} className="text-center py-10" style={{ color: TEXT_MUTED_LUXE }}>Période non ouverte — les délibérations apparaissent à la date programmée par la plateforme.</td></tr>
+              ) : filteredList.length === 0 ? (
+                <tr><td colSpan={8} className="text-center py-10" style={{ color: TEXT_MUTED_LUXE }}>Aucun élève évalué</td></tr>
+              ) : filteredList.map(s => {
+                const rb = riskColor(s.riskLevel)
+                return (
                 <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
@@ -5779,31 +6071,188 @@ function ClassPassingView() {
                   </td>
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.class?.name || '—'}</td>
                   <td className="px-4 py-3">
+                    {s.annualAverage != null ? (
+                      <div>
+                        <div className={`text-[14px] font-bold tabular-nums ${s.annualAverage < 10 ? 'animate-pulse' : ''}`} style={{ color: s.annualAverage < 10 ? DANGER : s.annualAverage < 12 ? WARNING : SUCCESS }}>{s.annualAverage.toFixed(2)}/20</div>
+                        <div className="text-[10px] tabular-nums" style={{ color: TEXT_MUTED_LUXE }}>
+                          T1 {s.trimesterAverages?.T1 != null ? s.trimesterAverages.T1.toFixed(1) : '—'} · T2 {s.trimesterAverages?.T2 != null ? s.trimesterAverages.T2.toFixed(1) : '—'} · T3 {s.trimesterAverages?.T3 != null ? s.trimesterAverages.T3.toFixed(1) : '—'}
+                        </div>
+                      </div>
+                    ) : <span className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>Aucune note</span>}
+                  </td>
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    {s.failingSubjects.length > 0 ? (
+                      <div title={s.failingSubjects.map(f => `${f.name} (${f.score.toFixed(1)}/20)`).join(', ')}>
+                        <span className="text-[12px] font-semibold" style={{ color: DANGER }}>{s.failingSubjects.length} matière(s)</span>
+                        <div className="text-[10px] truncate max-w-[160px]" style={{ color: TEXT_MUTED_LUXE }}>{s.failingSubjects.slice(0, 3).map(f => f.name).join(', ')}{s.failingSubjects.length > 3 ? '…' : ''}</div>
+                      </div>
+                    ) : <span className="text-[12px]" style={{ color: SUCCESS }}>—</span>}
+                  </td>
+                  <td className="px-4 py-3 hidden lg:table-cell">
+                    <div className="text-[12px] font-semibold tabular-nums" style={{ color: s.disciplinePoints <= -10 ? DANGER : s.disciplinePoints < 0 ? WARNING : SUCCESS }}>{s.disciplinePoints} pts</div>
+                    <div className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>{s.sanctionCount} sanction(s){s.hasCriticalSanctions ? ' · critique' : ''}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold text-white" style={{ background: rb.color }}>{rb.label}</span>
+                  </td>
+                  <td className="px-4 py-3">
                     <select value={decisions[s.id] || 'PENDING'} onChange={e => setDecisions(prev => ({ ...prev, [s.id]: e.target.value }))} className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                      <option value="PENDING">En attente</option><option value="PASSED">Passage</option><option value="REPEAT">Redouble</option>
+                      <option value="PENDING">En attente</option>
+                      <option value="PASSED">Passage</option>
+                      <option value="REPEAT">Redouble</option>
+                      <option value="RATTRAPAGE">Rattrapage</option>
                     </select>
                   </td>
                   <td className="px-4 py-3">
-                    <button onClick={async () => {
-                      const decision = decisions[s.id]
-                      if (!decision || decision === 'PENDING') { toast.error('Sélectionnez une décision'); return }
-                      setSavingId(s.id)
-                      try {
-                        const res = await authFetch('/api/report-cards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentId: s.id, decision, trimester: selectedTrimester, schoolId: userData?.schoolId }) })
-                        if (res.ok) toast.success('Décision enregistrée!')
-                        else toast.error('Erreur lors de l\'enregistrement')
-                      } catch { toast.error('Erreur réseau') }
-                      finally { setSavingId(null) }
-                    }} disabled={savingId === s.id} className="text-sm font-medium hover:underline disabled:opacity-50" style={{ color: GOLD }}>
-                      {savingId === s.id ? '...' : 'Valider'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={async () => {
+                        const decision = decisions[s.id]
+                        if (!decision || decision === 'PENDING') { toast.error('Sélectionnez une décision'); return }
+                        setSavingId(s.id)
+                        try {
+                          const res = await authFetch('/api/report-cards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentId: s.id, decision, trimester: 'T3', schoolId: userData?.schoolId }) })
+                          if (res.ok) toast.success('Décision enregistrée — parents notifiés')
+                          else toast.error('Erreur lors de l\'enregistrement')
+                        } catch { toast.error('Erreur réseau') }
+                        finally { setSavingId(null) }
+                      }} disabled={savingId === s.id} className="text-sm font-medium hover:underline disabled:opacity-50" style={{ color: GOLD }}>
+                        {savingId === s.id ? '...' : 'Valider'}
+                      </button>
+                      {(s.riskLevel === 'CRITIQUE' || s.riskLevel === 'ELEVE' || s.failingSubjects.length > 0) && (
+                        <button onClick={() => startRepFromRow(s)} title="Envoyer aux examens de repêchage" className="inline-flex items-center gap-1 text-[12px] font-medium px-2 py-1 rounded-lg border border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)] transition" style={{ color: TEXT_PRIMARY }}>
+                          <RotateCcw size={11} /> Repêcher
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
       </div>
+      </>
+      )}
+
+      {tab === 'repechage' && (
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+        {/* Formulaire d'envoi */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-6 rounded-full" style={{ background: GOLD }} />
+              <h2 className="text-base font-bold" style={{ color: TEXT_PRIMARY }}>Examens de repêchage</h2>
+            </div>
+            <p className="text-[12px] mb-4 -ml-0" style={{ color: TEXT_MUTED_LUXE }}>
+              Tapez le nom de l&apos;élève : ses matières en échec (&lt; 10/20) s&apos;affichent. Cochez les matières à repêcher — les examens seront envoyés aux parents via l&apos;application et WhatsApp.
+            </p>
+            <SearchAutocomplete
+              placeholder="Tapez le nom de l'élève..."
+              items={repSuggestions}
+              selectedId={repStudent?.id || null}
+              onSelect={(item) => selectRepStudent(item.id)}
+              onClear={() => { setRepStudent(null); setRepSelected([]) }}
+              searchQuery={repSearch}
+              onSearchChange={setRepSearch}
+              loading={false}
+              itemTypeName="élève"
+              className="w-full"
+            />
+            {repStudent && (
+              <div className="mt-4 space-y-4">
+                <div className="flex items-center gap-2.5 p-3 rounded-xl" style={{ background: IVORY }}>
+                  <StudentAvatar firstName={repStudent.firstName} lastName={repStudent.lastName} photoUrl={repStudent.photoUrl} size={36} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-semibold" style={{ color: TEXT_PRIMARY }}>{repStudent.firstName} {repStudent.lastName}</div>
+                    <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{repStudent.class?.name || '—'} · Moy. {repStudent.annualAverage != null ? `${repStudent.annualAverage.toFixed(2)}/20` : '—'}</div>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[12px] font-semibold mb-2" style={{ color: TEXT_PRIMARY }}>Matières à repêcher ({repSelected.length}/{repStudent.failingSubjects.length})</div>
+                  {repStudent.failingSubjects.length === 0 ? (
+                    <div className="text-[12px] p-3 rounded-xl" style={{ color: SUCCESS, background: SUCCESS_SOFT }}>Aucune matière en échec pour cet élève</div>
+                  ) : (
+                    <div className="space-y-1.5 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
+                      {repStudent.failingSubjects.map(f => (
+                        <label key={f.subjectId} className="flex items-center gap-2.5 p-2.5 rounded-xl border border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)] cursor-pointer transition">
+                          <input type="checkbox" checked={repSelected.includes(f.subjectId)} onChange={e => setRepSelected(prev => e.target.checked ? [...prev, f.subjectId] : prev.filter(x => x !== f.subjectId))} className="accent-[oklch(72%_0.15_65)] w-4 h-4" />
+                          <span className="text-[13px] flex-1" style={{ color: TEXT_PRIMARY }}>{f.name}</span>
+                          <span className="text-[12px] font-bold tabular-nums" style={{ color: DANGER }}>{f.score.toFixed(1)}/20</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Date de l&apos;examen</label>
+                    <input type="date" value={repDate} onChange={e => setRepDate(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Note (optionnel)</label>
+                    <input value={repNote} onChange={e => setRepNote(e.target.value)} placeholder="Salle, consignes..." className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} />
+                  </div>
+                </div>
+                <button onClick={sendRepechage} disabled={repSending || repSelected.length === 0} className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 text-white transition disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                  {repSending ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send size={15} />}
+                  Créer & envoyer (App + WhatsApp)
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        {/* Historique */}
+        <div className="lg:col-span-3">
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-6 rounded-full" style={{ background: GOLD }} />
+                <h2 className="text-base font-bold" style={{ color: TEXT_PRIMARY }}>Examens envoyés</h2>
+              </div>
+              <button onClick={loadRepHistory} className="text-[12px] font-medium hover:underline flex items-center gap-1" style={{ color: GOLD }}>
+                <RefreshCw size={12} className={repHistoryLoading ? 'animate-spin' : ''} /> Actualiser
+              </button>
+            </div>
+            <div className="space-y-3 max-h-[560px] overflow-y-auto custom-scrollbar pr-1">
+              {repHistoryLoading && repHistory.length === 0 ? (
+                <div className="text-center py-10 text-sm" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div>
+              ) : repHistory.length === 0 ? (
+                <div className="text-center py-10">
+                  <RotateCcw size={28} className="mx-auto mb-2 opacity-30" style={{ color: TEXT_MUTED_LUXE }} />
+                  <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Aucun examen de repêchage envoyé</div>
+                </div>
+              ) : repHistory.map(r => (
+                <div key={r.id} className="p-4 rounded-xl border border-[oklch(90%_0.01_175)] hover:shadow-sm transition">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <StudentAvatar firstName={r.student.firstName} lastName={r.student.lastName} photoUrl={r.student.photoUrl} size={32} className="text-white font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
+                      <div className="min-w-0">
+                        <div className="text-[13px] font-semibold truncate" style={{ color: TEXT_PRIMARY }}>{r.student.firstName} {r.student.lastName}</div>
+                        <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{r.student.class?.name || '—'} · {r.student.matricule || ''}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {r.sentViaApp && <span title="Envoyé via l'application" className="w-6 h-6 grid place-items-center rounded-full" style={{ background: SUCCESS_SOFT, color: SUCCESS }}><CheckCircle size={13} /></span>}
+                      {r.sentViaWhatsapp && <span title="Envoyé via WhatsApp" className="w-6 h-6 grid place-items-center rounded-full" style={{ background: 'oklch(94%_0.06_145)', color: 'oklch(45%_0.13_145)' }}><MessageCircle size={13} /></span>}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {(r.subjects || []).map((sub, i) => (
+                      <span key={i} className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ background: IVORY, color: TEXT_PRIMARY }}>{sub.name}{sub.score != null ? ` · ${sub.score.toFixed(1)}/20` : ''}</span>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
+                    <span>{r.examDate ? `Examen : ${new Date(r.examDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}` : 'Date à confirmer'}</span>
+                    <span>Par {r.createdByName || '—'} · {new Date(r.createdAt).toLocaleDateString('fr-FR')}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      )}
       </>
       )}
     </div>
@@ -5822,13 +6271,26 @@ function BulletinView() {
   const [studentSearchLoading, setStudentSearchLoading] = useState(false)
   const [selectedTrimester, setSelectedTrimester] = useState('T1')
   const [selectedClassId, setSelectedClassId] = useState<string>('all')
+  const [pubVisibility, setPubVisibility] = useState<{ visible: boolean; openDate: string | null; officialDate: string | null; daysRemaining: number | null; source: string } | null>(null)
   const isParent = userRole === 'PARENT'
+  const isPlatformAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
+  // Publication des bulletins : interface visible 21 jours avant la date officielle (contrôle plateforme)
+  const staffBlocked = !isParent && !isPlatformAdmin && pubVisibility != null && !pubVisibility.visible
   const highlightedRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (highlightedId && highlightedRef.current) {
       highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
   }, [highlightedId])
+
+  // Visibilité de la publication des bulletins (événement plateforme)
+  useEffect(() => {
+    if (isParent || !userData?.schoolId) return
+    authFetch(`/api/platform-events/status?schoolId=${userData.schoolId}`)
+      .then(r => r.json())
+      .then(j => { if (j.data?.BULLETIN_PUBLICATION) setPubVisibility(j.data.BULLETIN_PUBLICATION) })
+      .catch(() => {})
+  }, [isParent, userData?.schoolId])
 
   useEffect(() => {
     const params = new URLSearchParams({ limit: '200', trimester: selectedTrimester })
@@ -5949,6 +6411,42 @@ function BulletinView() {
             n&apos;inclut pas l&apos;accès des parents aux notes et bulletins. La direction de l&apos;école peut
             passer au forfait <strong>Standard</strong> ou supérieur pour activer cette fonctionnalité.
           </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (staffBlocked) {
+    return (
+      <div>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Bulletins</h1>
+        </div>
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-8 text-center shadow-sm max-w-lg mx-auto">
+          <div className="w-14 h-14 mx-auto rounded-2xl grid place-items-center mb-4" style={{ background: GOLD_SOFT }}>
+            <Lock size={26} style={{ color: GOLD }} />
+          </div>
+          <h2 className="text-lg font-bold mb-2" style={{ color: TEXT_PRIMARY }}>Publication des bulletins non ouverte</h2>
+          <p className="text-sm mb-4" style={{ color: TEXT_MUTED_LUXE }}>
+            L&apos;interface de publication des bulletins apparaîtra automatiquement{' '}
+            <strong>21 jours avant la date officielle</strong> programmée par l&apos;administration de la plateforme,
+            et ce pour tous les systèmes scolaires.
+          </p>
+          {pubVisibility?.officialDate && (
+            <div className="inline-flex flex-col items-center gap-1 px-5 py-3 rounded-xl" style={{ background: IVORY }}>
+              <span className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: TEXT_MUTED_LUXE }}>Date officielle de publication</span>
+              <span className="text-base font-bold" style={{ color: TEXT_PRIMARY }}>
+                {new Date(pubVisibility.officialDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </span>
+              {pubVisibility.openDate && (
+                <span className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>
+                  Interface disponible dès le {new Date(pubVisibility.openDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  {pubVisibility.daysRemaining != null && pubVisibility.daysRemaining > 0 ? ` · dans ${pubVisibility.daysRemaining} jour(s)` : ''}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     )
@@ -6085,8 +6583,6 @@ function ConvocationView() {
   const [convocations, setConvocations] = useState<any[]>([])
   const [loadingConvocations, setLoadingConvocations] = useState(true)
   const [totalUsers, setTotalUsers] = useState(0)
-
-  if (!hasAccess) return null
   const [expandedConvocation, setExpandedConvocation] = useState<string | null>(null)
   const [responseModal, setResponseModal] = useState<{ convocationId: string; motif: string } | null>(null)
   const [responseType, setResponseType] = useState<'PRESENT' | 'ABSENT' | 'CUSTOM'>('PRESENT')
@@ -6136,6 +6632,8 @@ function ConvocationView() {
       queueMicrotask(() => setLoadingConvocations(false))
     }
   }, [userData?.schoolId, isParent, userData?.id])
+
+  if (!hasAccess) return null
 
   async function handleSendConvocation() {
     if (!selectedStudentId) { toast.error('Veuillez sélectionner un élève'); return }

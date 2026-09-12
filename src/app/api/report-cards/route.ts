@@ -103,8 +103,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });
     }
 
-    // Validate decision
-    const validDecisions = ['PENDING', 'PASSED', 'REPEAT'];
+    // Validate decision (RATTRAPAGE = passage sous condition d'examens de rattrapage)
+    const validDecisions = ['PENDING', 'PASSED', 'REPEAT', 'RATTRAPAGE'];
     if (!validDecisions.includes(decision)) {
       return NextResponse.json(
         { error: `Décision invalide: ${decision}. Valeurs acceptées: ${validDecisions.join(', ')}` },

@@ -212,8 +212,8 @@ export function getMaxStudentsForTier(tier: string): number {
 }
 
 // ─── Enforcement helpers (called from API routes) ──────────────────────────
-export const ADMIN_ROLES = ['DIRECTION','DIRECTION_MATERNELLE','DIRECTION_PRIMAIRE','DIRECTION_SECONDAIRE','SECRETARY','CASHIER','DISCIPLINE','DISCIPLINE_MATERNELLE','DISCIPLINE_PRIMAIRE','DISCIPLINE_SECONDAIRE','SCHOOL_ADMIN'];
-export const TEACHER_ROLES = ['TEACHER','HEAD_TEACHER'];
+export const ADMIN_ROLES = ['DIRECTION','DIRECTION_MATERNELLE','DIRECTION_PRIMAIRE','DIRECTION_SECONDAIRE','SECRETARY','CASHIER','DISCIPLINE','DISCIPLINE_MATERNELLE','DISCIPLINE_PRIMAIRE','DISCIPLINE_SECONDAIRE','SCHOOL_ADMIN','MEDICAL'];
+export const TEACHER_ROLES = ['TEACHER','HEAD_TEACHER','EPS'];
 
 export async function checkCanCreateStudent(schoolId: string | null | undefined): Promise<{ ok: true } | { ok: false; error: string; limit: number; current: number }> {
   if (!schoolId) return { ok: true };

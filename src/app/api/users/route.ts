@@ -177,7 +177,8 @@ export async function POST(request: NextRequest) {
     const rawPassword = password || generateRandomPassword();
     const hashedPassword = await bcrypt.hash(rawPassword, 12);
 
-    const isTeacherRole = role === 'TEACHER' || role === 'HEAD_TEACHER';
+    // EPS se comporte comme un TEACHER (matière, classes occupées, titulaire)
+    const isTeacherRole = role === 'TEACHER' || role === 'HEAD_TEACHER' || role === 'EPS';
 
     const newUser = await db.user.create({
       data: {
@@ -298,9 +299,9 @@ export async function PUT(request: NextRequest) {
     if (isActive !== undefined) data.isActive = isActive;
     if (password) data.password = await bcrypt.hash(password, 12);
 
-    // Handle teacher-specific fields
+    // Handle teacher-specific fields (EPS se comporte comme un TEACHER)
     const targetRole = role || existing.role;
-    const isTeacherRole = targetRole === 'TEACHER' || targetRole === 'HEAD_TEACHER';
+    const isTeacherRole = targetRole === 'TEACHER' || targetRole === 'HEAD_TEACHER' || targetRole === 'EPS';
     if (isTeacherRole) {
       if (subjectName !== undefined) data.subjectName = subjectName || null;
       if (classNames !== undefined) data.classNames = classNames || null;

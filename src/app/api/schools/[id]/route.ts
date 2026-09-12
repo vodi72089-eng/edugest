@@ -101,6 +101,7 @@ export async function PUT(
       'country', 'latitude', 'longitude', 'description', 'history', 'mission',
       'establishmentYear', 'schoolType', 'schoolCategory', 'logo', 'coverImage',
       'subscriptionTier', 'isActive', 'maxStudents',
+      'educationalSystem', 'schoolLevel',
     ];
 
     const updateData: Record<string, unknown> = {};
