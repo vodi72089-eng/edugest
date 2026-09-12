@@ -130,7 +130,11 @@ export async function POST(request: NextRequest) {
 
     const school = await db.school.findUnique({
       where: { id: user.schoolId },
-      select: { id: true, name: true, shortName: true, city: true, country: true, subscriptionTier: true },
+      select: {
+        id: true, name: true, shortName: true, city: true, country: true,
+        subscriptionTier: true, logo: true,
+        designPrimary: true, designAccent: true, designGold: true,
+      },
     });
 
     const response = NextResponse.json({

@@ -20,6 +20,8 @@ import ParentDashboard from '@/components/dashboards/ParentDashboard'
 import TeacherDashboard from '@/components/dashboards/TeacherDashboard'
 import HeadTeacherDashboard from '@/components/dashboards/HeadTeacherDashboard'
 import DisciplineDashboardView from '@/components/dashboards/DisciplineDashboard'
+import ParentsView from '@/components/views/ParentsView'
+import PersonalizationView from '@/components/views/PersonalizationView'
 import StudentsView from '@/components/views/StudentsView'
 import GradesView from '@/components/views/GradesView'
 import PaymentsView from '@/components/views/PaymentsView'
@@ -1361,6 +1363,9 @@ function CreateSchoolView() {
             initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
             profileImageUrl: null,
             subscriptionTier: json.data.school.subscriptionTier || 'FREEMIUM',
+            schoolDesign: json.data.school.designPrimary || json.data.school.designAccent || json.data.school.designGold
+              ? { primary: json.data.school.designPrimary || null, accent: json.data.school.designAccent || null, gold: json.data.school.designGold || null }
+              : null,
           }, loginJson.data.token)
           toast.success('École créée avec succès ! Bienvenue !')
         } else {
@@ -1462,6 +1467,7 @@ function CreateSchoolView() {
                       initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
                       profileImageUrl: null,
                       subscriptionTier: 'FREEMIUM',
+                      schoolDesign: null,
                     }, loginJson.data.token)
                     toast.success('Compte vérifié et connecté !')
                     setStep(4)
@@ -1928,6 +1934,9 @@ function LoginView() {
             classNames: apiUser.classNames || null,
             isTitulaire: apiUser.isTitulaire || false,
             subscriptionTier: apiUser.school?.subscriptionTier || 'FREEMIUM',
+            schoolDesign: apiUser.school
+              ? { primary: apiUser.school.designPrimary || null, accent: apiUser.school.designAccent || null, gold: apiUser.school.designGold || null }
+              : null,
           }, json.data.token)
           toast.success(`Bienvenue, ${apiUser.name}!`)
           return
@@ -2209,6 +2218,9 @@ function LoginView() {
                             initials: getInitials(apiUser.name),
                             profileImageUrl: apiUser.profileImageUrl || null,
                             subscriptionTier: apiUser.school?.subscriptionTier || 'FREEMIUM',
+                            schoolDesign: apiUser.school
+                              ? { primary: apiUser.school.designPrimary || null, accent: apiUser.school.designAccent || null, gold: apiUser.school.designGold || null }
+                              : null,
                           }, json.data.token)
                           toast.success(`Bienvenue, ${apiUser.name}!`)
                           setShowWhatsappModal(false)
@@ -2263,6 +2275,7 @@ function Sidebar() {
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
       { icon: <Globe size={16} />, label: 'Contrôle plateforme', view: 'platform-control' as ViewType },
+      { icon: <Palette size={16} />, label: 'Personnalisation', view: 'personalization' as ViewType },
       { icon: <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>, label: 'Connexion WhatsApp', view: 'whatsapp-config' as ViewType },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
@@ -2291,6 +2304,8 @@ function Sidebar() {
       { icon: <Megaphone size={16} />, label: 'Convocation', view: 'convocation' },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
+      { icon: <Users size={16} />, label: 'Gestion des Parents', view: 'parents' as ViewType },
+      { icon: <Palette size={16} />, label: 'Personnalisation', view: 'personalization' as ViewType },
       { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
@@ -2364,6 +2379,7 @@ HEAD_TEACHER: [
 
   // FREEMIUM restrictions: DIRECTION_*, SECRETARY, SCHOOL_ADMIN (admin freemium) and SUPER_ADMIN_GLOBAL see restricted menu
   // (pas de Passage de classe, Communications ni Paramètres en FREEMIUM — passage à un forfait supérieur requis)
+  // L'abonnement de l'école n'est visible que par l'admin créateur (SCHOOL_ADMIN)
   const isFreemium = userData?.subscriptionTier === 'FREEMIUM'
   if (isFreemium && (directionRoles.includes(userRole as UserRole) || userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SECRETARY' || userRole === 'SCHOOL_ADMIN')) {
     menuItems = [
@@ -2372,9 +2388,11 @@ HEAD_TEACHER: [
       { icon: <BookOpen size={16} />, label: 'Classes', view: 'classes' as ViewType },
       { icon: <CreditCard size={16} />, label: 'Enregistrer paiement', view: 'payments' },
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
-      { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ]
+    if (userRole === 'SCHOOL_ADMIN') {
+      menuItems.push({ icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType })
+    }
   } else if (directionRoles.includes(userRole as UserRole)) {
     menuItems = [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
@@ -2383,7 +2401,6 @@ HEAD_TEACHER: [
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
       { icon: <Megaphone size={16} />, label: 'Convocation', view: 'convocation' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
-      { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ]
@@ -2400,11 +2417,18 @@ HEAD_TEACHER: [
     ]
   }
 
+  // Gestion des Parents & Personnalisation : réservées aux comptes admin d'école
+  // (qui peuvent faire des paiements) sur les écoles STANDARD et plus, et à la plateforme.
+  const STANDARD_PLUS_TIERS = ['STANDARD', 'PREMIUM', 'ENTERPRISE', 'CORPORATE']
+  if (userRole === 'SCHOOL_ADMIN' && !STANDARD_PLUS_TIERS.includes(userData?.subscriptionTier || 'FREEMIUM')) {
+    menuItems = menuItems.filter(m => m.view !== 'parents' && m.view !== 'personalization')
+  }
+
   return (
     <>
       {/* Mobile overlay */}
       {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
-      <aside className={`fixed lg:sticky top-0 left-0 z-50 lg:z-auto h-screen w-[240px] flex flex-col transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} style={{ background: DARK, boxShadow: '4px 0 24px oklch(10% 0.02 250 / 0.3)' }}>
+      <aside className={`fixed lg:sticky top-0 left-0 z-50 lg:z-auto h-screen w-[240px] flex flex-col transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} style={{ background: 'var(--ed-dark, oklch(15% 0.02 250))', boxShadow: '4px 0 24px oklch(10% 0.02 250 / 0.3)' }}>
         <div className="p-[18px] flex items-center gap-2.5 border-b border-white/10">
           {userData?.schoolLogo ? (
             <img src={userData.schoolLogo} alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
@@ -2423,14 +2447,16 @@ HEAD_TEACHER: [
                 onClick={() => { if (item.tab) setDisciplineTab(item.tab); setCurrentView(item.view); setSidebarOpen(false) }}
                 className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13.5px] font-medium transition-all duration-200 ${
                   currentView === item.view
-                    ? 'text-[oklch(72%_0.15_65)] font-semibold'
+                    ? 'font-semibold'
                     : 'text-white/60 hover:text-white hover:bg-white/5'
                 }`}
-                style={currentView === item.view ? { background: 'oklch(72% 0.15 65 / 0.10)', borderLeft: '3px solid oklch(72% 0.15 65)', boxShadow: 'inset 0 0 20px oklch(72% 0.15 65 / 0.05)' } : { borderLeft: '3px solid transparent' }}
+                style={currentView === item.view
+                  ? { background: 'var(--ed-gold-soft, oklch(72% 0.15 65 / 0.10))', borderLeft: '3px solid var(--ed-gold, oklch(72% 0.15 65))', boxShadow: 'inset 0 0 20px oklch(72% 0.15 65 / 0.05)', color: 'var(--ed-gold, oklch(72% 0.15 65))' }
+                  : { borderLeft: '3px solid transparent' }}
               >
-                <span className={currentView === item.view ? 'text-[oklch(72%_0.15_65)]' : ''}>{item.icon}</span>
+                <span>{item.icon}</span>
                 {item.label}
-                {item.badge && <span className="ml-auto bg-[oklch(72%_0.15_65)] text-[oklch(15%_0.02_250)] text-[10px] px-1.5 py-px rounded-full font-semibold">{item.badge}</span>}
+                {item.badge && <span className="ml-auto text-[10px] px-1.5 py-px rounded-full font-semibold" style={{ background: 'var(--ed-gold, oklch(72% 0.15 65))', color: 'var(--ed-dark, oklch(15% 0.02 250))' }}>{item.badge}</span>}
               </button>
             ))}
           </nav>
@@ -2441,7 +2467,7 @@ HEAD_TEACHER: [
             {userData?.profileImageUrl ? (
               <img src={userData.profileImageUrl} alt="Avatar" className="w-9 h-9 rounded-full object-cover shrink-0 border border-white/20" />
             ) : (
-              <div className="w-9 h-9 rounded-full grid place-items-center text-white font-semibold text-[13px] shrink-0" style={{ background: `linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))` }}>
+              <div className="w-9 h-9 rounded-full grid place-items-center text-white font-semibold text-[13px] shrink-0" style={{ background: `linear-gradient(135deg, var(--ed-accent, oklch(55% 0.15 175)), var(--ed-gold, oklch(72% 0.15 65)))` }}>
                 {userData?.initials || '??'}
               </div>
             )}
@@ -2491,15 +2517,15 @@ const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'communications', 'profile'],
   HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'bulletin', 'communications', 'profile'],
   SECRETARY: ['dashboard', 'students', 'classes', 'communications', 'payment-verification', 'settings', 'profile'],
-  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'discipline', 'homework', 'communications', 'convocation', 'class-passing', 'bulletin', 'my-subscription', 'settings', 'profile'],
+  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'discipline', 'homework', 'communications', 'convocation', 'class-passing', 'bulletin', 'parents', 'personalization', 'my-subscription', 'settings', 'profile'],
   CASHIER: ['dashboard', 'payments', 'payment-verification', 'debts', 'communications', 'profile'],
-  DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'my-subscription', 'settings', 'profile'],
-  DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'my-subscription', 'settings', 'profile'],
-  DIRECTION_SECONDAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'my-subscription', 'settings', 'profile'],
+  DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],
+  DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],
+  DIRECTION_SECONDAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],
   DISCIPLINE_MATERNELLE: ['dashboard', 'discipline', 'communications', 'profile'],
   DISCIPLINE_PRIMAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
   DISCIPLINE_SECONDAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
-  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'payment-config', 'pricing', 'discipline', 'communications', 'homework', 'bulletin', 'convocation', 'whatsapp-config', 'settings', 'profile'],
+  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'payment-config', 'pricing', 'discipline', 'communications', 'homework', 'bulletin', 'convocation', 'whatsapp-config', 'parents', 'personalization', 'settings', 'profile'],
 }
 
 const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment-verification', 'payment-config', 'my-subscription', 'settings', 'profile']
@@ -2509,6 +2535,10 @@ function canAccessView(role: string | null, view: ViewType, subscriptionTier?: s
   // DIRECTION_*, SECRETARY et SCHOOL_ADMIN (admin freemium) sur FREEMIUM → vues restreintes
   if (subscriptionTier === 'FREEMIUM' && (role.startsWith('DIRECTION') || role === 'SECRETARY' || role === 'SCHOOL_ADMIN')) {
     return FREEMIUM_VIEWS.includes(view)
+  }
+  // Gestion des Parents & Personnalisation : écoles STANDARD et plus uniquement (admins d'école)
+  if ((view === 'parents' || view === 'personalization') && role === 'SCHOOL_ADMIN') {
+    return ['STANDARD', 'PREMIUM', 'ENTERPRISE', 'CORPORATE'].includes(subscriptionTier || 'FREEMIUM')
   }
   // Parents : notes/bulletins retirés si le forfait de l'école ne les inclut pas (Freemium/Essentiel)
   if (role === 'PARENT' && subscriptionTier && !tierAllowsParentGrades(subscriptionTier)) {
@@ -2825,11 +2855,33 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   )
 }
 
+// ===== THÈME DYNAMIQUE PAR ÉCOLE (Personnalisation) =====
+// Injecte les couleurs configurées par l'admin de l'école. Scoped à #edugest-app :
+// la landing page et la page de connexion gardent TOUJOURS le design officiel EduGest.
+function SchoolThemeStyle() {
+  const design = useEduGestStore((s) => s.userData?.schoolDesign)
+  const primary = design?.primary || '#13151d'
+  const accent = design?.accent || '#0b8c7f'
+  const gold = design?.gold || '#d9a441'
+  return (
+    <style dangerouslySetInnerHTML={{ __html: `
+#edugest-app{
+--ed-dark:${primary};--ed-accent:${accent};--ed-gold:${gold};
+--ed-gold-soft:${gold}1a;
+--primary:${accent};--color-primary:${accent};
+--primary-foreground:#ffffff;--color-primary-foreground:#ffffff;
+--ring:${accent};--color-ring:${accent};
+--sidebar-primary:${accent};--color-sidebar-primary:${accent};
+}` }} />
+  )
+}
+
 // ===== DASHBOARD LAYOUT =====
 function DashboardLayout() {
   const [sidebarVisible, setSidebarVisible] = useState(true)
   return (
-    <div className={`min-h-screen grid grid-cols-1 ${sidebarVisible ? 'lg:grid-cols-[240px_1fr]' : ''}`} style={{ background: IVORY }}>
+    <div id="edugest-app" className={`min-h-screen grid grid-cols-1 ${sidebarVisible ? 'lg:grid-cols-[240px_1fr]' : ''}`} style={{ background: IVORY }}>
+      <SchoolThemeStyle />
       {sidebarVisible && <Sidebar />}
       <div className="flex flex-col min-w-0">
         <Topbar sidebarVisible={sidebarVisible} onToggleSidebar={() => setSidebarVisible(v => !v)} />
@@ -3177,6 +3229,8 @@ function MainContent() {
     case 'settings': return <SettingsView />
     case 'school-reviews': return <SchoolReviewsView />
     case 'my-subscription': return <SubscriptionUpgradeView />
+    case 'parents': return <ParentsView />
+    case 'personalization': return <PersonalizationView />
     default: return <RoleDashboard />
   }
 }

@@ -29,6 +29,11 @@ model School {
   subscriptionStatus String  @default("ACTIVE")
   subscriptionStartDate DateTime?
   subscriptionEndDate   DateTime?
+  // Personnalisation du design de l'app (modifiable par l'admin de l'école, STANDARD+)
+  designPrimary   String?
+  designAccent    String?
+  designGold      String?
+  designUpdatedAt DateTime?
   maxStudents       Int      @default(100)
   isActive          Boolean  @default(true)
   averageRating     Float    @default(0)

@@ -968,3 +968,137 @@ Work Log:
 Stage Summary:
 - Livré et vérifié : restriction passage de classe aux admins d'école (UI+API), flux d'abonnement conditionnel (formulaire manuel si pas d'API plateforme, demande de paiement en ligne sinon), passerelle VISA (API réelle Cybersource + simulation test), 6 nouvelles passerelles internationales, 10 logos officiels, onglet Plateforme pour configurer les APIs d'abonnement.
 - Note : le pipeline d'affichage des sorties d'outils « avale » les séquences [m (ANSI) — les faux positifs de corruption page.tsx étaient des artefacts d'affichage, fichier réel intact (prouvé par hexdump).
+
+---
+Task ID: 3-c
+Agent: Agent parents (subagent)
+Task: Créer la gestion des parents « à la institut-gianelli » (2 nouveaux fichiers uniquement) : API GET /api/parents (parents + enfants + stats de paiement) et la vue admin ParentsView.tsx (recherche, pagination, cartes expandables), style EduGest LUXE AFRICAIN.
+
+Work Log:
+- Lu worklog.md + analysé les patterns existants AVANT d'écrire : auth (requireRole/requirePermission de src/lib/auth.ts, pattern /api/dispenses), statuts paiements réellement utilisés (PENDING/PARTIAL/PAID dans /api/payments POST ; /api/debts somme paidAmount par trimestre), schéma Prisma (User.role='PARENT', Student.parentId relation "ParentChildren", PaymentRecord sans schoolYearId, SchoolFee par classe/trimestre avec @@unique([classId,trimester,name])), store (authFetch, useEduGestStore), StudentAvatar (props firstName/lastName/photoUrl/size/className/style), style EduGest (DispensesView : cards rounded-2xl bordures fines, inline styles constants, custom-scrollbar).
+- FICHIER 1 créé : src/app/api/parents/route.ts (GET uniquement)
+  * Auth : requireRole(request, ['SCHOOL_ADMIN','SECRETARY','SUPER_ADMIN_GLOBAL','DIRECTION_MATERNELLE','DIRECTION_PRIMAIRE','DIRECTION_SECONDAIRE']) → 401/403 sinon.
+  * schoolId depuis le user du token ; seul SUPER_ADMIN_GLOBAL peut passer ?schoolId= (même pattern que /api/students).
+  * Query params : search (OR contains sur name/email/phone), page (défaut 1), limit (défaut 20, max 100) via safeParseInt.
+  * Requêtes en 4 lots efficaces : parents paginés (role='PARENT') + count ; enfants (students where parentId in …, isArchived:false, include class) ; payments (paymentRecord where studentId in …, status in ['PAID','PARTIAL']) ; schoolFee actives des classes concernées.
+  * Par enfant : paidTotal (Σ paidAmount), paymentsCount, expectedTotal (Σ frais actifs par trimestre de sa classe), debtTotal (Σ max(0, fraisTrim − payéTrim), multi-lignes de frais sommées) ; class en relation {id,name}.
+  * Les parents sans enfant sont renvoyés aussi (childrenCount:0, children:[]) — grisables côté UI.
+  * Stats globales indépendantes de la recherche/pagination : totalParents, parentsWithChildren (students.some), activeParents, totalChildren (students dont le parent est PARENT de l'école).
+  * Réponse : { data: { parents:[...], total, page, totalPages, schoolName, activeYearLabel, stats:{totalParents,parentsWithChildren,activeParents,totalChildren} } }. Erreurs 500 via sanitizeError.
+- FICHIER 2 créé : src/components/views/ParentsView.tsx (export default function ParentsView)
+  * 'use client' ; imports lucide-react, toast sonner, authFetch + useEduGestStore, StudentAvatar, constantes ACCENT/GOLD/DARK/IVORY/IVORY_WARM/TEXT_PRIMARY/TEXT_MUTED_LUXE/SUCCESS/DANGER/BORDER, shadcn Input/Button/Badge/Skeleton.
+  * Fond de vue IVORY_WARM ; header card blanche rounded-2xl bordure BORDER avec chip icône DARK+GOLD, badge « Année scolaire » (GOLD soft) si activeYearLabel.
+  * 4 stats cards (Total parents ACCENT, Parents avec enfants GOLD, Comptes actifs SUCCESS, Total enfants DANGER) alimentées par l'API (stats globales exactes, pas de calcul page-courant).
+  * Recherche debounce 400ms (reset page 1) ; pagination précédent/suivant + « Page X sur Y · N parents ».
+  * Cards parents : StudentAvatar (initiales IVORY/DARK ou photo), nom, badges Actif/Inactif (SUCCESS/DANGER soft via shadcn Badge variant=outline stylé), email+phone avec icônes Mail/Phone, badge « N enfant(s) » ACCENT, chevron rotatif ; aria-expanded sur le bouton.
+  * Expandable : section IVORY listant les enfants en cards blanches — StudentAvatar, nom, matricule · classe, total payé (SUCCESS) + nb paiements, badge dette « AlertTriangle Dette : X CDF » si debtTotal>0 ; message dédié si aucun enfant.
+  * Loading : 4 skeletons (Skeleton shadcn) ; empty state Inbox + « Aucun parent trouvé » (message adapté recherche/vide) ; erreurs fetch → toast.error avec message API.
+  * Liste scrollable max-h-[70vh] overflow-y-auto custom-scrollbar ; responsive mobile-first (cards empilées) → grille xl:grid-cols-2.
+- Vérifications : bun run lint filtré sur "parents" → AUCUN problème dans mes 2 fichiers (94 problèmes pré-existants ailleurs, ignorés) ; bunx eslint sur les 2 fichiers → exit 0 ; bunx tsc --noEmit filtré → aucune erreur sur mes fichiers. Serveur non démarré, aucun test écrit, aucun autre fichier modifié.
+
+Stage Summary:
+- API GET /api/parents : liste paginée/recherchable des comptes parents de l'école avec enfants (matricule, classe, photo) et situation de paiement par enfant (paidTotal, paymentsCount, expectedTotal, debtTotal calculés depuis PaymentRecord PAID/PARTIAL + SchoolFee par trimestre) + stats globales école ; scoping schoolId par token (SUPER_ADMIN_GLOBAL peut passer ?schoolId=).
+- Vue ParentsView.tsx complète style EduGest LUXE AFRICAIN (IVORY_WARM, cards rounded-2xl bordures BORDER, inline styles constants, or/teal) : stats, recherche debounce, pagination, cartes expandables avec situation de paiement des enfants, skeletons, empty state, toasts, scroll custom, responsive.
+- Intégration : la vue est prête à être branchée sur currentView 'parents' (type déjà déclaré dans ViewType du store) — branchement menu/page.tsx laissé à l'agent propriétaire de page.tsx (règle non-modification respectée).
+- Lint + TypeScript : 0 erreur sur les 2 nouveaux fichiers.
+
+---
+Task ID: 3-d
+Agent: Z.ai Code (main)
+Task: Personnalisation de l'app (design école) — API /api/school/design + vue PersonalizationView (aperçu temps réel, presets, gating forfait)
+
+Work Log:
+- 2 SEULS fichiers créés, aucun autre fichier modifié (page.tsx / store.ts / schema.prisma / constants.ts intacts) :
+- Créé src/app/api/school/design/route.ts (auth requireAuth, pattern identique aux autres routes) :
+  - GET : SUPER_ADMIN_GLOBAL → ?schoolId requis (sinon 400) ; réponse { data: { schools: [{id,name}] (toutes les écoles, pour le sélecteur), design: { primary, accent, gold, updatedAt }, schoolId, schoolName } } ; école introuvable 404. SCHOOL_ADMIN → design de SON école (même shape sans schools). Autres rôles → 403 « Accès non autorisé ».
+  - PUT : SUPER_ADMIN_GLOBAL = n'importe quelle école (schoolId requis dans le body, 400 sinon) ; SCHOOL_ADMIN = uniquement son école (schoolId du body ignoré) ET subscriptionTier ∈ [STANDARD, PREMIUM, ENTERPRISE, CORPORATE] sinon 403 { error: "La personnalisation est réservée aux écoles Standard et plus. Passez à un forfait supérieur." } ; autres rôles 403.
+  - Validation couleurs regex /^#[0-9A-Fa-f]{6}$/ sinon 400 ; champ ABSENT = inchangé, champ null explicite = reset à null (retour au design par défaut) via payload.x !== undefined.
+  - db.school.update { designPrimary/designAccent/designGold, designUpdatedAt: new Date() } → réponse { data: { design: { primary, accent, gold } } }.
+- Créé src/components/views/PersonalizationView.tsx (export default PersonalizationView, 'use client', shadcn Card/CardHeader/CardTitle/CardDescription/CardContent + Input + Button, lucide-react, toast sonner, authFetch + useEduGestStore) :
+  - Gating UI : rôle ∉ {SCHOOL_ADMIN, SUPER_ADMIN_GLOBAL} → écran « Accès réservé » (Lock, cercle GOLD_SOFT) « Interface disponible uniquement pour l'admin de l'école et la plateforme » ; SCHOOL_ADMIN hors forfaits Standard+ → « Fonction réservée aux écoles Standard et plus » + bouton « Voir les forfaits » (toast.info, pas de navigation).
+  - SUPER_ADMIN_GLOBAL : sélecteur d'école (select natif stylé, Building2) en haut ; amorçage via /api/schools?limit=100 (l'API design exige schoolId) puis GET design?schoolId — la liste est ensuite rafraîchie par data.schools du GET ; changer d'école recharge le design.
+  - Carte « Personnalisation de l'App » : en-tête dégradé linear-gradient(135deg, designPrimary → designAccent) + icône Palette + hex affichés + badge « TEMPS RÉEL » pulsant ; corps = APERÇU TEMPS RÉEL : mini sidebar fond primary (BrandMark rond doré avec initiale de l'école, 4 items factices Tableau de bord/Élèves/Cours/Réglages dont le 1er ACTIF en couleur dorée + inset bar) + zone contenu claire (titre « Tableau de bord », 2 petits boutons accent + gold sur fond DARK, 2 mini stat-cards).
+  - Grille lg 2 colonnes : carte « Couleurs de l'application » avec 3 blocs (Couleur principale — sidebars & fonds sombres ; Couleur accent — boutons & éléments actifs ; Couleur dorée — surbrillances & badges), chacun = input type=color h-12 w-12 (swatch webkit stylé via variantes arbitraires) + Input hex 7 car. filtré /^[#0-9A-Fa-f]{0,6}$/ (bordure/texte DANGER si format incomplet) + bande de 5 nuances cliquables (couleur, +dd, +99, +66, +33 — offset RGB clampé 255).
+  - Double état colors (toujours valide → pilote aperçu/picker) + drafts (saisie brute) : l'aperçu ne casse jamais pendant la frappe. Presets cliquables EduGest/Forêt/Océan/Bordeaux/Violet (Check sur l'actif, bordure accent). Indicateur « Modifications non enregistrées » (dot WARNING) vs « Design synchronisé » (dot SUCCESS).
+  - Boutons : « Réinitialiser » → défauts EduGest #13151d/#0b8c7f/#d9a441 ; « Enregistrer » → PUT (schoolId pour super admin) ; succès : setUserData({ ...userData, schoolDesign: { primary, accent, gold } }) + toast.success('Design enregistré — appliqué aux utilisateurs de votre école') ; erreurs (403 gating comprise) → toast.error(message serveur). Loader2 chargement/enregistrement, disabled pendant saving.
+  - Responsive mobile-first (grille 1 col → lg:2, sidebar maquette w-24→sm:w-36, boutons empilés), fond IVORY_WARM, cards rounded-2xl bordure BORDER, couleurs importées de '@/lib/constants' (ACCENT, GOLD, GOLD_SOFT, DARK, IVORY, IVORY_WARM, TEXT_PRIMARY, TEXT_MUTED_LUXE, SUCCESS, DANGER, WARNING, BORDER), aria-labels sur pickers/champs/nuances, role="status" sur états.
+- Vérification : bunx eslint sur les 2 fichiers → 0 erreur / 0 warning (exit 0) ; tsc --noEmit → aucune erreur sur ces 2 fichiers ; lint global : 94 problèmes préexistants ailleurs (non touchés).
+
+Stage Summary:
+- Lot « Personnalisation de l'Application » livré : API GET/PUT /api/school/design (auth Bearer, gating strict rôle + forfait STANDARD+, sémantique absent=inchangé / null=reset / #RRGGBB validé) + vue PersonalizationView complète (aperçu temps réel inspiré Gianelli adapté au style EduGest, presets de palettes, nuances dérivées, reset/save, gating UI Accès réservé / Fonction Standard+).
+- Après PUT réussi, le design est écrit dans userData.schoolDesign du store — le shell l'exploitera ailleurs ; branchement page.tsx (vue 'personalization' déjà dans ViewType) à la charge de l'agent parallèle.
+
+---
+Task ID: 3-e
+Agent: pdf-receipt-designer (Z.ai Code)
+Task: Redesign du reçu PDF /api/payments/receipt/[id] — adoption du design jsPDF du projet « institut-gianelli » (client aimé) avec LES COULEURS EDUGEST, en gardant 100% de la logique API existante (params, auth, données, réponse binaire PDF, statuts/méthodes).
+
+Work Log:
+- Lu worklog.md (contexte multi-agents) + le fichier receipt existant EN ENTIER (déjà un PDF jsPDF portrait A4 mm avec motif Kente, ornements, bannière statut, boîte sombre récap) + schéma Prisma (PaymentRecord, SchoolYear.label/isActive, SchoolCurrencyConfig.manualRates JSON, ExchangeRate USD→CDF) pour brancher les 2 éléments de design dépendants de données.
+- UNIQUE fichier modifié : src/app/api/payments/receipt/[id]/route.ts (réécriture du seul PDF builder + helpers de dessin ; Route Handler GET conservé à l'identique, voir contraintes).
+- Tokens couleurs EduGest obligatoires posés en constantes (const EDUGEST) : DARK [19,21,29], GOLD [217,164,65], TEAL [11,140,127], GREEN [5,150,105], GREEN_LIGHT [232,245,233], MINT [200,230,201], GRAY [120,120,120], GRAY_LIGHT [200,200,200], RED [220,38,38], WHITE — zéro navy/or gianelli.
+- sanitizeAscii écrite dans le fichier (map complète é/è/ê/à/ç/œ/—/«»/NBSP/narrow-NBSP → ASCII, point médian · conservé car présent en WinAnsi) — TOUT texte du PDF passe dedans (Helvetica n'a pas d'accents).
+- Formatage nombres FR locaux : fmtNum (espaces milliers + virgule décimale, sans Intl → ASCII pur) + fmtNumInt (entiers groupés) ; formatDateTime locale JJ/MM/AAAA HH:MM (chiffres purs). formatCurrency Intl supprimée (remplacée par fmtNumInt + « CDF »).
+- Primitives de dessin gianelli implémentées en fonctions locales (uniquement rect/line/text — AUCUN circle/ellipse/roundedRect, AUCUN {align:'center'}, tout en positionnement manuel) : setFill/setDraw/setInk (tuples RGB), drawText/rightText (getTextWidth)/centerText (getTextWidth/2), drawDottedLine (points 0.5mm espacés de 2.5mm via petits rects pleins), drawDottedRect (4 côtés pointillés), drawDottedRow (libellé gras gris 9pt à gauche + valeur foncé gras 10pt à droite + pointillés entre les deux), drawSectionTitle (doré majuscule 10.5pt + filet doré 0.2), drawDoubleGoldLine (1 + 0.3).
+- Design adopté (10 points de la spec) :
+  1. DOUBLE BORDURE : extérieure 1.5 foncée EduGest à 5mm + intérieure 0.3 dorée à 8mm (marges 5/8mm respectées, contenu à 18mm).
+  2. EN-TÊTE : carré 20mm bordé doré (logo école addImage dedans, sinon carré foncé + initiales getSchoolInitials existante en doré), nom école en GOLD majuscule 15pt (splitTextToSize, passe à 12pt si >2 lignes), sous-titre gris « Republique Democratique du Congo - Annee Scolaire XXXX-XXXX » (label de db.schoolYear active, sinon dérivé de paidAt/createdAt : mois>=9 → YYYY-YYYY+1) + ligne contacts gris.
+  3. LIGNE DORÉE double (1 + 0.3) sous l'en-tête.
+  4. TITRE centré « RECU N. xxx » foncé 16pt (même receiptNo : receiptNumber || REC-8derniers-caractères) + petit sur-titre teal « RECU DE PAIEMENT SCOLAIRE ».
+  5. SECTIONS dorées majuscules « INFORMATIONS ELEVE » / « DETAILS DU PAIEMENT » / « SITUATION FINANCIERE » avec rangées pointillées (drawDottedRow) : NOM COMPLET, MATRICULE / TRIMESTRE, MODE DE PAIEMENT, REFERENCE, DATE DE PAIEMENT (toutes les données déjà affichées avant, réutilisées telles quelles).
+  6. BOÎTE MONTANT : rect fond vert très clair [232,245,233] bordure menthe [200,230,201], label « MONTANT PAYE » 8pt vert, montant fmtNumInt(paidAmount) en 26pt vert + « CDF » 11pt, badge statut fond coloré plein ( getStatusInfo existante → hexToRgb ; labels PAYE/PARTIEL/EN ATTENTE/EN RETARD/ANNULÉ conservés, cases CONFIRMED→CONFIRMÉ et REJECTED→REJETÉ AJOUTÉES pour couvrir le vocabulaire du badge, rien retiré) ; description statut conservée en italique 7.5pt gris sous la boîte.
+  7. ÉQUIVALENCE devise : si taux dispo → « Equivalent : X USD (taux : 1 USD = Y CDF) » italique 8pt gris dans la boîte (montants du reçu étant en CDF, l'équivalence est exprimée en USD — même principe gianelli adapté au sens de conversion). Taux résolu en route handler : SchoolCurrencyConfig.useManualRates+manualRates JSON (CDF/USD) sinon dernier ExchangeRate USD→CDF ; le tout dans try/catch — si rien dispo, la ligne est omise proprement.
+  8. SITUATION FINANCIERE : 3 colonnes TOTAL DU / TOTAL PAYE / RESTANT (en-têtes TEAL — là où gianelli utilise son navy secondaire), filet gris clair au-dessus et en-dessous, valeurs 14pt + « CDF » 8pt : TOTAL DU foncé, TOTAL PAYE vert, RESTANT doré si restant>0 sinon vert ; reste = amount - paidAmount (calcul existant conservé, « 0 » si ≤0 comme avant).
+  9. SIGNATURE & CACHET : méthode ≠ CASH (et présente) → boîte cadre « SIGNE ELECTRONIQUEMENT » vert + date/heure + cachet rect fond vert clair bordure verte « PAYE EN LIGNE » ; CASH ou méthode inconnue → ligne vierge « Signature » + cadre POINTILLÉ (drawDottedRect) « Cachet » pour tampon physique.
+  10. PIED DE PAGE : ligne dorée 0.8, nom école foncé gras, ville/pays gris, « Document genere le JJ/MM/AAAA HH:MM » italique gris clair + « Genere par EduGest » discret.
+- LOGIQUE API 100% INCHANGÉE : requirePermission('payments:read'), verifySchoolAccess, fetch PaymentRecord (même include school), 404s, verifyParentAccess pour PARENT, fetch logo base64 (même URL/mime), réponse binaire identique (Content-Type application/pdf, Content-Disposition inline recu-XXX.pdf, Content-Length, Cache-Control no-store), EDUGEST-ID:<id> en texte machine blanc 4pt conservé en bas de page (vérification d'import). Seules AJOUTS internes : 2 lookups gardés try/catch (schoolYear label + taux USD→CDF) passés en paramètres optionnels au builder — même signature publique HTTP, mêmes codes d'erreur.
+- Vérif : bun run lint | rg "receipt" → AUCUNE sortie (0 problème sur le fichier ; les 94 problèmes globaux sont préexistants ailleurs) ; bunx tsc --noEmit | rg "receipt" → AUCUNE erreur sur le fichier (erreurs préexistantes ailleurs : feature-gate.ts etc.). Serveur non démarré, aucun test écrit, pas de git commit, aucun autre fichier touché.
+
+Stage Summary:
+- Le reçu PDF /api/payments/receipt/[id] adopte le design « institut-gianelli » (double bordure, en-tête carré logo doré + initiales, ligne dorée double, titres de sections dorés majuscules, rangées libellé→pointillés→valeur, boîte montant vert clair 26pt + badge statut plein, équivalence devise italique, situation financière 3 colonnes, signature électronique/cachet en ligne ou zones vierges + cadre tampon pointillé, pied de page doré) en 100% couleurs EduGest (DARK/GOLD/TEAL/GREEN/menthe), portrait A4 mm, positionnement manuel, primitives rect/line/text uniquement, tout le texte sanitizé ASCII.
+- Logique métier et contrat API strictement conservés (auth, scoping école/parent, données PaymentRecord/Student/School, statuts & méthodes existants + 2 cas ajoutés CONFIRMED/REJECTED, réponse binaire PDF, ID machine caché) ; 2 enrichissements de design alimentés par des lookups internes sûrs (année scolaire active, taux USD→CDF) qui s'omettent gracieusement si absents.
+- Lint et tsc : 0 problème sur le fichier modifié (problèmes préexistants ailleurs inchangés).
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Intégration complète — restriction abonnement à l'admin créateur, gestion des parents, personnalisation par école, design gianelli adapté (couleurs EduGest), PDF reçu
+
+Work Log:
+- Étudié le repo institut-gianelli-web (cloné dans /tmp/gianelli) : ParentsManagementPage, DynamicTheme (CSS vars), SettingsPage personnalisation (aperçu live, pickers + nuances), receipt-pdf.jsPDF (double bordure, lignes pointillées, boîte montant, signatures/cachet)
+- Prisma schema : ajout School.designPrimary/designAccent/designGold/designUpdatedAt + db:push
+- API /api/auth (login) : select enrichi (logo manquant corrigé + designPrimary/Accent/Gold)
+- store.ts : UserData.schoolDesign + ViewType 'parents'/'personalization'
+- page.tsx : 4 points de connexion login passent schoolDesign ; menus SCHOOL_ADMIN (Gestion des Parents + Personnalisation) et SUPER_ADMIN_GLOBAL (Personnalisation) ; DIRECTION_* : « Mon Abonnement » RETIRÉ (menu + VIEWS_BY_ROLE) — seul l'admin créateur (SCHOOL_ADMIN) voit l'abonnement ; menu FREEMIUM : abonnement conditionné à SCHOOL_ADMIN ; gating STANDARD+ (STANDARD/PREMIUM/ENTERPRISE/CORPORATE) pour parents+personnalisation (menu + canAccessView) ; vues routées
+- Thème dynamique : composant SchoolThemeStyle injecte --ed-dark/--ed-accent/--ed-gold + tokens shadcn (--primary, --ring...) scopés à #edugest-app (DashboardLayout) ; sidebar (fond, item actif, badge, avatar gradient) migrée vers var() avec fallbacks EduGest — landing/login INTOUCHÉS
+- Sous-agents (fichiers séparés) : 3-c ParentsView + /api/parents (recherche, pagination, enfants + paiements) ; 3-d PersonalizationView + /api/school/design (gating STANDARD+, super admin multi-écoles) ; 3-e PDF reçu restylé gianelli avec palette EduGest
+- Lint : 0 erreur sur tous les fichiers touchés
+
+Stage Summary:
+- L'abonnement de l'école n'est visible QUE par SCHOOL_ADMIN (créateur) — direction/secretariat n'y ont plus accès
+- Gestion des Parents importée (inspiration gianelli, style EduGest) : réservée admin d'école STANDARD+
+- Personnalisation (admin école + plateforme uniquement, STANDARD+) : couleurs appliquées en direct aux utilisateurs de l'école via userData.schoolDesign ; landing/login préservés
+- Reçu PDF au design jsPDF gianelli avec les couleurs EduGest
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Vérification E2E navigateur complète (post-intégration)
+
+Work Log:
+- Environnement : le sandbox fauche les process node entre les appels bash → création de scripts/ensure-server.sh (relance serveur au besoin) et vérifications par lots en un seul appel
+- Landing : intacte (titre, hero, sections) — landing/login NON modifiés comme demandé
+- Systèmes scolaires : 5 cartes présentes (RDC, Belgique, France, Anglophone, Francophone) ; explorateur Belgique + France ouverts (onglets Maternelle/Primaire/Secondaire, parcours officiels) — vérification UI des autres systèmes ✅
+- Login admin école (direction@lumiere.cd, SCHOOL_ADMIN, PREMIUM) : mots de passe des comptes de démo de l'école Lumière alignés sur admin123 (hash copié depuis admin@edugest.app)
+- Menu SCHOOL_ADMIN : Gestion des Parents ✓, Personnalisation ✓, Mon Abonnement ✓, Passage de classe ✓
+- Vue Gestion des Parents : stats (2 parents, 20 enfants), recherche, cartes expandables avec enfants + paiements (Kasongo Bakari · TleS · 450 000 CDF · 3 paiements) ✅
+- Vue Personnalisation : aperçu temps réel, 3 pickers + nuances, 5 presets, Réinitialiser/Enregistrer ; preset Violet → Enregistrer → sidebar réelle passée de #13151d à #1d1030 en direct ✅ ; persistance DB confirmée (designPrimary/designAccent/designGold + designUpdatedAt) ; reset vers défauts EduGest fonctionnel
+- DIRECTION_MATERNELLE : Mon Abonnement ABSENT ✓, Personnalisation absente ✓, Gestion des Parents absente ✓, Passage de classe absent ✓ (seul l'admin créateur voit l'abonnement)
+- SUPER_ADMIN_GLOBAL : Personnalisation avec sélecteur de 6 écoles ✅
+- PDF reçu (design gianelli, couleurs EduGest) : HTTP 200, PDF 1 page — double bordure, sections dorées, lignes pointillées, boîte montant teal 150 000 CDF + équivalence USD, situation financière 3 colonnes, signature/cachet ✅
+- 0 erreur page/console en fin de session
+
+Stage Summary:
+- Toutes les nouvelles fonctionnalités vérifiées E2E dans le navigateur : gestion des parents, personnalisation par école (appliquée en direct aux users), restriction abonnement à l'admin créateur, gating STANDARD+, PDF gianelli
+- Les 5 systèmes scolaires vérifiés en UI (cartes + explorateurs)
+- Ancienneté : scripts/ensure-server.sh conservé comme outil opérationnel

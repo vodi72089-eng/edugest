@@ -128,6 +128,8 @@ export type ViewType =
   | 'my-subscription'
   | 'platform-control'
   | 'dispenses'
+  | 'parents'
+  | 'personalization'
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'
@@ -158,6 +160,7 @@ export interface UserData {
   classNames?: string | null
   isTitulaire?: boolean
   subscriptionTier?: string
+  schoolDesign?: { primary?: string | null; accent?: string | null; gold?: string | null } | null
 }
 
 interface EduGestStore {

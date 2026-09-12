@@ -3,15 +3,74 @@ import { requirePermission, verifySchoolAccess, verifyParentAccess, sanitizeErro
 import { NextRequest, NextResponse } from 'next/server';
 import { jsPDF } from 'jspdf';
 
+// ─── Design tokens EduGest (style « institut-gianelli » adapté aux couleurs EduGest) ──
+
+type RGB = readonly [number, number, number];
+
+const EDUGEST = {
+  DARK: [19, 21, 29] as const,        // EduGest DARK — textes principaux, bordure extérieure
+  GOLD: [217, 164, 65] as const,      // EduGest GOLD — titres de sections, lignes décoratives
+  TEAL: [11, 140, 127] as const,      // EduGest ACCENT — titres de sections de données
+  GREEN: [5, 150, 105] as const,      // Vert succès
+  GREEN_LIGHT: [232, 245, 233] as const,
+  MINT: [200, 230, 201] as const,
+  GRAY: [120, 120, 120] as const,
+  GRAY_LIGHT: [200, 200, 200] as const,
+  RED: [220, 38, 38] as const,
+  WHITE: [255, 255, 255] as const,
+};
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'CDF',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amount);
+// Helvetica (police standard jsPDF) ne possède pas d'accents : tout le texte
+// affiché dans le PDF est nettoyé en ASCII pur (é→e, ç→c, —→-, etc.)
+const ASCII_MAP: Record<string, string> = {
+  à: 'a', á: 'a', â: 'a', ä: 'a', ã: 'a', å: 'a',
+  è: 'e', é: 'e', ê: 'e', ë: 'e',
+  ì: 'i', í: 'i', î: 'i', ï: 'i',
+  ò: 'o', ó: 'o', ô: 'o', ö: 'o', õ: 'o',
+  ù: 'u', ú: 'u', û: 'u', ü: 'u',
+  ý: 'y', ÿ: 'y', ç: 'c', ñ: 'n',
+  À: 'A', Á: 'A', Â: 'A', Ä: 'A', Ã: 'A', Å: 'A',
+  È: 'E', É: 'E', Ê: 'E', Ë: 'E',
+  Ì: 'I', Í: 'I', Î: 'I', Ï: 'I',
+  Ò: 'O', Ó: 'O', Ô: 'O', Ö: 'O', Õ: 'O',
+  Ù: 'U', Ú: 'U', Û: 'U', Ü: 'U',
+  Ý: 'Y', Ç: 'C', Ñ: 'N',
+  œ: 'oe', Œ: 'OE', æ: 'ae', Æ: 'AE',
+  '–': '-', '—': '-', '‘': "'", '’': "'", '“': '"', '”': '"', '«': '"', '»': '"',
+  '\u00A0': ' ', '\u202F': ' ', '\u2009': ' ',
+  '\u00B7': '\u00B7', // point médian : conservé (présent dans WinAnsi)
+  '€': 'EUR',
+};
+
+function sanitizeAscii(input: string): string {
+  if (!input) return '';
+  let out = '';
+  for (const ch of input) {
+    const mapped = ASCII_MAP[ch];
+    if (mapped !== undefined) {
+      out += mapped;
+    } else if (ch.charCodeAt(0) <= 127) {
+      out += ch;
+    }
+    // Caractère non-ASCII non mappé : supprimé silencieusement
+  }
+  return out;
+}
+
+// Formatage nombres FR : espaces milliers + virgule décimale (sans Intl, ASCII pur)
+function fmtNum(value: number): string {
+  if (!isFinite(value)) return '0';
+  const fixed = (Math.round(value * 100) / 100).toFixed(2);
+  const [intPart, decPart] = fixed.split('.');
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return decPart && decPart !== '00' ? `${grouped},${decPart}` : grouped;
+}
+
+function fmtNumInt(value: number): string {
+  if (!isFinite(value)) return '0';
+  return Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
 function formatDate(date: Date | null | undefined): string {
@@ -21,6 +80,13 @@ function formatDate(date: Date | null | undefined): string {
     month: 'long',
     year: 'numeric',
   }).format(new Date(date));
+}
+
+// « JJ/MM/AAAA HH:MM » (chiffres uniquement, ASCII pur)
+function formatDateTime(date: Date): string {
+  const d = new Date(date);
+  const p = (n: number) => n.toString().padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 function getSchoolInitials(shortName: string): string {
@@ -37,6 +103,10 @@ function getStatusInfo(status: string): { bg: string; text: string; label: strin
   switch (status.toUpperCase()) {
     case 'PAID':
       return { bg: '#dcfce7', text: '#166534', label: 'PAYÉ', desc: 'Le paiement a été intégralement réglé.' };
+    case 'CONFIRMED':
+      return { bg: '#dcfce7', text: '#166534', label: 'CONFIRMÉ', desc: 'Le paiement a été confirmé.' };
+    case 'REJECTED':
+      return { bg: '#fee2e2', text: '#991b1b', label: 'REJETÉ', desc: 'Le paiement a été rejeté.' };
     case 'PARTIAL':
       return { bg: '#fef9c3', text: '#854d0e', label: 'PARTIEL', desc: 'Le paiement est partiellement réglé. Un solde reste dû.' };
     case 'PENDING':
@@ -75,111 +145,104 @@ function getTrimesterLabel(trimester: string): string {
   return map[trimester] || trimester;
 }
 
-// ─── PDF Builder using jsPDF ────────────────────────────────────────────────
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result
+    ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) }
+    : { r: 0, g: 0, b: 0 };
+}
 
-// Landing page "Luxe Africain" design tokens
-const LUXE = {
-  darkBg: [10, 15, 13] as const,       // #0a0f0d
-  darkBgAlt: [11, 22, 19] as const,    // #0b1613
-  darkBgDeep: [13, 31, 26] as const,   // #0d1f1a
-  gold: [245, 166, 35] as const,       // #f5a623
-  goldDark: [184, 134, 11] as const,   // #b8860b
-  goldLight: [255, 215, 100] as const, // #ffd764
-  ivory: [250, 248, 242] as const,     // #faf8f2
-  ivoryWarm: [245, 243, 237] as const, // #f5f3ed
-  textWhite: [255, 255, 255] as const,
-  textMuted: [160, 155, 140] as const, // muted on dark
-  textDark: [30, 28, 25] as const,     // dark text on light
-  textGold: [245, 166, 35] as const,
-  success: [34, 197, 94] as const,     // #22c55e
-  danger: [220, 38, 38] as const,      // #dc2626
-  warning: [234, 179, 8] as const,     // #eab308
-  border: [200, 195, 185] as const,    // warm border
-};
+// ─── Primitives de dessin (style gianelli : positionnement 100% manuel) ─────
 
-function drawKentePattern(doc: jsPDF, x: number, y: number, width: number, height: number) {
-  // Subtle Kente-inspired geometric overlay
-  doc.setFillColor(LUXE.darkBg[0], LUXE.darkBg[1], LUXE.darkBg[2]);
-  doc.rect(x, y, width, height, 'F');
+function setFill(doc: jsPDF, c: RGB) {
+  doc.setFillColor(c[0], c[1], c[2]);
+}
 
-  // Thin gold accent lines simulating Kente weave
-  doc.setDrawColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
-  doc.setLineWidth(0.15);
-  const spacing = 4;
-  for (let i = 0; i < width; i += spacing) {
-    doc.line(x + i, y, x + i, y + height);
-  }
-  doc.setDrawColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
-  doc.setLineWidth(0.1);
-  for (let j = 0; j < height; j += spacing) {
-    doc.line(x, y + j, x + width, y + j);
+function setDraw(doc: jsPDF, c: RGB) {
+  doc.setDrawColor(c[0], c[1], c[2]);
+}
+
+function setInk(doc: jsPDF, c: RGB) {
+  doc.setTextColor(c[0], c[1], c[2]);
+}
+
+function drawText(doc: jsPDF, str: string, x: number, y: number) {
+  doc.text(sanitizeAscii(str), x, y);
+}
+
+function rightText(doc: jsPDF, str: string, xRight: number, y: number) {
+  const s = sanitizeAscii(str);
+  doc.text(s, xRight - doc.getTextWidth(s), y);
+}
+
+function centerText(doc: jsPDF, str: string, cx: number, y: number) {
+  const s = sanitizeAscii(str);
+  doc.text(s, cx - doc.getTextWidth(s) / 2, y);
+}
+
+// Ligne pointillée : points espacés de 2.5mm (petits rects pleins — pas de circle)
+function drawDottedLine(doc: jsPDF, x1: number, y1: number, x2: number, y2: number) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const length = Math.sqrt(dx * dx + dy * dy);
+  const steps = Math.max(1, Math.floor(length / 2.5));
+  setFill(doc, EDUGEST.GRAY_LIGHT);
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    doc.rect(x1 + dx * t, y1 + dy * t, 0.5, 0.5, 'F');
   }
 }
 
-function drawOrnamentDivider(doc: jsPDF, x: number, y: number, width: number) {
-  const centerX = x + width / 2;
-  const lineHalf = width / 2 - 10;
-
-  // Left line
-  doc.setDrawColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
-  doc.setLineWidth(0.3);
-  doc.line(x, y, centerX - lineHalf, y);
-
-  // Right line
-  doc.line(centerX + lineHalf, y, x + width, y);
-
-  // Center diamond
-  doc.setFillColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
-  const diamondSize = 2;
-  doc.setLineWidth(0.2);
-  doc.line(centerX, y - diamondSize, centerX + diamondSize, y);
-  doc.line(centerX + diamondSize, y, centerX, y + diamondSize);
-  doc.line(centerX, y + diamondSize, centerX - diamondSize, y);
-  doc.line(centerX - diamondSize, y, centerX, y - diamondSize);
+function drawDottedRect(doc: jsPDF, x: number, y: number, w: number, h: number) {
+  drawDottedLine(doc, x, y, x + w, y);
+  drawDottedLine(doc, x + w, y, x + w, y + h);
+  drawDottedLine(doc, x + w, y + h, x, y + h);
+  drawDottedLine(doc, x, y + h, x, y);
 }
 
-function drawSectionTitle(doc: jsPDF, x: number, y: number, title: string) {
-  // Gold left bar
-  doc.setFillColor(LUXE.gold[0], LUXE.gold[1], LUXE.gold[2]);
-  doc.rect(x, y, 2.5, 7, 'F');
-  // Title text
-  doc.setFontSize(11);
-  doc.setTextColor(LUXE.darkBg[0], LUXE.darkBg[1], LUXE.darkBg[2]);
+// Rangée de données : libellé gras gris à gauche, valeur foncée à droite,
+// ligne pointillée entre les deux
+function drawDottedRow(doc: jsPDF, x: number, y: number, width: number, label: string, value: string) {
   doc.setFont('helvetica', 'bold');
-  doc.text(title, x + 7, y + 5.5);
-}
-
-function drawFieldRowLuxe(
-  doc: jsPDF,
-  x: number,
-  y: number,
-  contentWidth: number,
-  label: string,
-  value: string
-) {
-  // Label
-  doc.setFontSize(8);
-  doc.setTextColor(120, 115, 105);
-  doc.setFont('helvetica', 'normal');
-  doc.text(label, x, y + 3.5);
-  // Value
   doc.setFontSize(9);
-  doc.setTextColor(LUXE.textDark[0], LUXE.textDark[1], LUXE.textDark[2]);
-  doc.setFont('helvetica', 'bold');
-  doc.text(value, x + contentWidth, y + 3.5, { align: 'right' });
-}
+  setInk(doc, EDUGEST.GRAY);
+  drawText(doc, label, x, y);
+  const labelWidth = doc.getTextWidth(sanitizeAscii(label));
 
-function drawDotTexture(doc: jsPDF, x: number, y: number, width: number, height: number) {
-  // Ivory dot micro-texture
-  doc.setFillColor(LUXE.ivory[0], LUXE.ivory[1], LUXE.ivory[2]);
-  doc.rect(x, y, width, height, 'F');
-  doc.setFillColor(230, 225, 215);
-  for (let dx = 0; dx < width; dx += 3) {
-    for (let dy = 0; dy < height; dy += 3) {
-      doc.circle(x + dx, y + dy, 0.15, 'F');
-    }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  setInk(doc, EDUGEST.DARK);
+  rightText(doc, value, x + width, y);
+  const valueWidth = doc.getTextWidth(sanitizeAscii(value));
+
+  const dotStart = x + labelWidth + 2.5;
+  const dotEnd = x + width - valueWidth - 2.5;
+  if (dotEnd > dotStart) {
+    drawDottedLine(doc, dotStart, y - 1.2, dotEnd, y - 1.2);
   }
 }
+
+// Titre de section doré majuscule + filet doré fin
+function drawSectionTitle(doc: jsPDF, x: number, y: number, width: number, title: string) {
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.5);
+  setInk(doc, EDUGEST.GOLD);
+  drawText(doc, title, x, y);
+  setDraw(doc, EDUGEST.GOLD);
+  doc.setLineWidth(0.2);
+  doc.line(x, y + 2.4, x + width, y + 2.4);
+}
+
+// Ligne dorée décorative double (1 + 0.3)
+function drawDoubleGoldLine(doc: jsPDF, x: number, y: number, width: number) {
+  setDraw(doc, EDUGEST.GOLD);
+  doc.setLineWidth(1);
+  doc.line(x, y, x + width, y);
+  doc.setLineWidth(0.3);
+  doc.line(x, y + 1.6, x + width, y + 1.6);
+}
+
+// ─── PDF Builder (style « institut-gianelli », couleurs EduGest) ────────────
 
 function buildReceiptPDF(
   payment: {
@@ -199,237 +262,333 @@ function buildReceiptPDF(
   },
   student: { firstName: string; lastName: string; matricule: string; photoUrl?: string | null },
   school: { name: string; shortName: string; email: string; phone: string; address: string; city: string; province: string; country: string; logo: string | null },
-  schoolLogoBase64: string | null
+  schoolLogoBase64: string | null,
+  schoolYearLabel: string | null,
+  usdToCdfRate: number | null
 ): Buffer {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
-  const marginX = 22;
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // ── Fond blanc ──────────────────────────────────────────────────────────
+  setFill(doc, EDUGEST.WHITE);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+  // ── Double bordure décorative : extérieure épaisse foncée, intérieure fine dorée ──
+  setDraw(doc, EDUGEST.DARK);
+  doc.setLineWidth(1.5);
+  doc.rect(5, 5, pageWidth - 10, pageHeight - 10, 'S');
+  setDraw(doc, EDUGEST.GOLD);
+  doc.setLineWidth(0.3);
+  doc.rect(8, 8, pageWidth - 16, pageHeight - 16, 'S');
+
+  const marginX = 18;
   const contentWidth = pageWidth - marginX * 2;
-  let y = 20;
+  const centerX = pageWidth / 2;
 
-  // ── White background ─────────────────────────────────────────────────────
-  doc.setFillColor(255, 255, 255);
-  doc.rect(0, 0, pageWidth, doc.internal.pageSize.getHeight(), 'F');
-
-  // ── Gold top accent line ────────────────────────────────────────────────
-  doc.setFillColor(245, 166, 35);
-  doc.rect(0, 0, pageWidth, 2, 'F');
-
-  // ── School logo (if available) ──────────────────────────────────────────
+  // ── EN-TÊTE : carré logo bordé doré (+ initiales en secours) ────────────
+  const logoX = marginX;
+  const logoY = 18;
+  const logoSize = 20;
+  let logoDrawn = false;
   if (schoolLogoBase64) {
     try {
-      doc.addImage(schoolLogoBase64, 'JPEG', marginX, y, 18, 18);
+      doc.addImage(schoolLogoBase64, 'JPEG', logoX + 1.2, logoY + 1.2, logoSize - 2.4, logoSize - 2.4);
+      logoDrawn = true;
     } catch {
-      // Fallback to initials
-      doc.setFillColor(245, 166, 35);
-      doc.circle(marginX + 9, y + 9, 9, 'F');
-      doc.setFontSize(14);
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.text(getSchoolInitials(school.shortName), marginX + 9, y + 12.5, { align: 'center' });
+      logoDrawn = false;
     }
-  } else {
-    doc.setFillColor(245, 166, 35);
-    doc.circle(marginX + 9, y + 9, 9, 'F');
-    doc.setFontSize(14);
-    doc.setTextColor(255, 255, 255);
+  }
+  if (!logoDrawn) {
+    setFill(doc, EDUGEST.DARK);
+    doc.rect(logoX, logoY, logoSize, logoSize, 'F');
+  }
+  setDraw(doc, EDUGEST.GOLD);
+  doc.setLineWidth(0.5);
+  doc.rect(logoX, logoY, logoSize, logoSize, 'S');
+  if (!logoDrawn) {
     doc.setFont('helvetica', 'bold');
-    doc.text(getSchoolInitials(school.shortName), marginX + 9, y + 12.5, { align: 'center' });
+    doc.setFontSize(11);
+    setInk(doc, EDUGEST.GOLD);
+    centerText(doc, getSchoolInitials(school.shortName), logoX + logoSize / 2, logoY + logoSize / 2 + 1.5);
   }
 
-  // ── School name (large, bold) ───────────────────────────────────────────
-  doc.setFontSize(18);
-  doc.setTextColor(15, 23, 42);
+  // ── Nom de l'école en doré majuscule ────────────────────────────────────
+  let nameSize = 15;
+  let nameLines = doc.splitTextToSize(sanitizeAscii(school.name.toUpperCase()), contentWidth - 26) as string[];
+  if (nameLines.length > 2) {
+    nameSize = 12;
+    nameLines = doc.splitTextToSize(sanitizeAscii(school.name.toUpperCase()), contentWidth - 26) as string[];
+  }
   doc.setFont('helvetica', 'bold');
-  doc.text(school.name, marginX + 24, y + 8);
+  doc.setFontSize(nameSize);
+  setInk(doc, EDUGEST.GOLD);
+  let nameBottomY = logoY + 8;
+  nameLines.forEach((line, i) => {
+    const ly = logoY + 8 + i * (nameSize === 15 ? 6.5 : 5.5);
+    drawText(doc, line, logoX + 26, ly);
+    nameBottomY = ly;
+  });
 
-  // ── School address & contact ────────────────────────────────────────────
-  doc.setFontSize(8);
-  doc.setTextColor(100, 116, 139);
-  doc.setFont('helvetica', 'normal');
-  const addressParts = [school.address, school.city, school.province, school.country].filter(Boolean);
-  if (addressParts.length > 0) {
-    doc.text(addressParts.join(', '), marginX + 24, y + 14);
+  // ── Sous-titre : République Démocratique du Congo — Année Scolaire ─────
+  let yearLabel = schoolYearLabel;
+  if (!yearLabel) {
+    const refDate = payment.paidAt || payment.createdAt;
+    const yy = refDate.getFullYear();
+    const mm = refDate.getMonth() + 1;
+    yearLabel = mm >= 9 ? `${yy}-${yy + 1}` : `${yy - 1}-${yy}`;
   }
+  const subtitleY = nameBottomY + 6;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  setInk(doc, EDUGEST.GRAY);
+  drawText(doc, `Republique Democratique du Congo - Annee Scolaire ${yearLabel}`, logoX + 26, subtitleY);
+
+  // ── Contacts école (petite ligne grise) ─────────────────────────────────
   const contactParts = [school.email, school.phone].filter(Boolean);
+  let headerBottom = Math.max(logoY + logoSize, nameBottomY);
   if (contactParts.length > 0) {
-    doc.text(contactParts.join('  ·  '), marginX + 24, y + 19);
-  }
-
-  // ── REÇU label + receipt number (top right) ─────────────────────────────
-  const receiptNo = payment.receiptNumber || `REC-${payment.id.slice(-8).toUpperCase()}`;
-  doc.setFontSize(8);
-  doc.setTextColor(148, 163, 184);
-  doc.setFont('helvetica', 'normal');
-  doc.text('REÇU', pageWidth - marginX, y + 5, { align: 'right' });
-  doc.setFontSize(12);
-  doc.setTextColor(15, 23, 42);
-  doc.setFont('helvetica', 'bold');
-  doc.text(receiptNo, pageWidth - marginX, y + 11, { align: 'right' });
-  doc.setFontSize(8);
-  doc.setTextColor(100, 116, 139);
-  doc.setFont('helvetica', 'normal');
-  doc.text(formatDate(payment.paidAt || payment.createdAt), pageWidth - marginX, y + 17, { align: 'right' });
-
-  y += 28;
-
-  // ── Thin divider line ───────────────────────────────────────────────────
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.3);
-  doc.line(marginX, y, pageWidth - marginX, y);
-  y += 8;
-
-  // ── Status banner ───────────────────────────────────────────────────────
-  const statusInfo = getStatusInfo(payment.status);
-  const bgRgb = hexToRgb(statusInfo.bg);
-  doc.setFillColor(bgRgb.r, bgRgb.g, bgRgb.b);
-  doc.roundedRect(marginX, y, contentWidth, 14, 2, 2, 'F');
-
-  // Status icon
-  doc.setFontSize(10);
-  doc.setTextColor(180, 83, 9);
-  doc.text('!', marginX + 5, y + 6.5);
-
-  // Status text
-  doc.setFontSize(9);
-  const textRgb = hexToRgb(statusInfo.text);
-  doc.setTextColor(textRgb.r, textRgb.g, textRgb.b);
-  doc.setFont('helvetica', 'bold');
-  doc.text(statusInfo.label, marginX + 12, y + 6);
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.text(statusInfo.desc, marginX + 12, y + 11);
-
-  y += 22;
-
-  // ── Student Info Section ────────────────────────────────────────────────
-  doc.setFontSize(9);
-  doc.setTextColor(100, 116, 139);
-  doc.setFont('helvetica', 'normal');
-  doc.text('NOM COMPLET', marginX, y);
-  doc.text('MATRICULE', marginX + contentWidth / 2, y);
-  y += 5;
-  doc.setFontSize(11);
-  doc.setTextColor(15, 23, 42);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`${student.lastName.toUpperCase()} ${student.firstName}`, marginX, y);
-  doc.text(student.matricule, marginX + contentWidth / 2, y);
-  y += 12;
-
-  // ── Payment Details Section ─────────────────────────────────────────────
-  doc.setFontSize(9);
-  doc.setTextColor(100, 116, 139);
-  doc.setFont('helvetica', 'normal');
-  doc.text('TRIMESTRE', marginX, y);
-  doc.text('MODE DE PAIEMENT', marginX + contentWidth / 2, y);
-  y += 5;
-  doc.setFontSize(11);
-  doc.setTextColor(15, 23, 42);
-  doc.setFont('helvetica', 'bold');
-  doc.text(getTrimesterLabel(payment.trimester), marginX, y);
-  doc.text(getPaymentMethodLabel(payment.paymentMethod), marginX + contentWidth / 2, y);
-  y += 12;
-
-  // ── Amounts Section ─────────────────────────────────────────────────────
-  doc.setFontSize(9);
-  doc.setTextColor(100, 116, 139);
-  doc.setFont('helvetica', 'normal');
-  doc.text('MONTANT DÛ', marginX, y);
-  doc.text('MONTANT PAYÉ', marginX + contentWidth / 2, y);
-  y += 5;
-  doc.setFontSize(11);
-  doc.setTextColor(15, 23, 42);
-  doc.setFont('helvetica', 'bold');
-  doc.text(formatCurrency(payment.amount), marginX, y);
-  doc.text(formatCurrency(payment.paidAmount), marginX + contentWidth / 2, y);
-  y += 12;
-
-  // ── Remaining ───────────────────────────────────────────────────────────
-  const remaining = payment.amount - payment.paidAmount;
-  doc.setFontSize(9);
-  doc.setTextColor(100, 116, 139);
-  doc.setFont('helvetica', 'normal');
-  doc.text('RESTE À PAYER', marginX, y);
-  y += 5;
-  doc.setFontSize(11);
-  if (remaining > 0) {
-    doc.setTextColor(220, 38, 38);
-  } else {
-    doc.setTextColor(22, 163, 74);
-  }
-  doc.setFont('helvetica', 'bold');
-  doc.text(remaining > 0 ? formatCurrency(remaining) : '0 CDF', marginX, y);
-
-  if (payment.referenceNumber) {
-    doc.setFontSize(9);
-    doc.setTextColor(100, 116, 139);
+    const contactY = subtitleY + 5;
     doc.setFont('helvetica', 'normal');
-    doc.text('RÉFÉRENCE', marginX + contentWidth / 2, y - 7);
-    doc.setFontSize(10);
-    doc.setTextColor(15, 23, 42);
-    doc.setFont('helvetica', 'bold');
-    doc.text(payment.referenceNumber, marginX + contentWidth / 2, y);
+    doc.setFontSize(8);
+    setInk(doc, EDUGEST.GRAY);
+    drawText(doc, contactParts.join('  ·  '), logoX + 26, contactY);
+    headerBottom = Math.max(headerBottom, contactY);
   }
 
-  y += 20;
+  // ── Ligne dorée décorative double sous l'en-tête ────────────────────────
+  const ruleY = headerBottom + 6;
+  drawDoubleGoldLine(doc, marginX, ruleY, contentWidth);
 
-  // ── Summary box (dark) ──────────────────────────────────────────────────
-  doc.setFillColor(15, 23, 42);
-  doc.roundedRect(marginX, y, contentWidth, 22, 3, 3, 'F');
-
-  doc.setFontSize(8);
-  doc.setTextColor(148, 163, 184);
-  doc.setFont('helvetica', 'normal');
-  doc.text('MONTANT TOTAL PAYÉ', marginX + 10, y + 9);
-
-  doc.setFontSize(20);
-  doc.setTextColor(255, 255, 255);
+  // ── TITRE : RECU N. xxx (foncé, centré) ─────────────────────────────────
+  const receiptNo = payment.receiptNumber || `REC-${payment.id.slice(-8).toUpperCase()}`;
+  let y = ruleY + 12;
   doc.setFont('helvetica', 'bold');
-  const paidFormatted = new Intl.NumberFormat('fr-FR').format(payment.paidAmount);
-  doc.text(paidFormatted, marginX + 10, y + 18);
-  doc.setFontSize(10);
-  doc.setTextColor(245, 166, 35);
-  doc.text('CDF', marginX + 10 + doc.getTextWidth(paidFormatted) + 3, y + 18);
+  doc.setFontSize(16);
+  setInk(doc, EDUGEST.DARK);
+  centerText(doc, `RECU N. ${receiptNo}`, centerX, y);
 
-  y += 34;
-
-  // ── Footer ──────────────────────────────────────────────────────────────
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.3);
-  doc.line(marginX, y, pageWidth - marginX, y);
   y += 6;
-
-  doc.setFontSize(8);
-  doc.setTextColor(148, 163, 184);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Généré par', pageWidth / 2, y, { align: 'center' });
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(245, 166, 35);
-  doc.text(' EduGest', pageWidth / 2 + 10, y, { align: 'left' });
+  doc.setFontSize(8);
+  setInk(doc, EDUGEST.TEAL);
+  centerText(doc, 'RECU DE PAIEMENT SCOLAIRE', centerX, y);
 
-  doc.setFontSize(6);
-  doc.setTextColor(203, 213, 225);
+  // ── SECTION : INFORMATIONS ELEVE ────────────────────────────────────────
+  y += 10;
+  drawSectionTitle(doc, marginX, y, contentWidth, 'INFORMATIONS ELEVE');
+  y += 8.5;
+  drawDottedRow(doc, marginX, y, contentWidth, 'NOM COMPLET', `${student.lastName.toUpperCase()} ${student.firstName}`);
+  y += 8.5;
+  drawDottedRow(doc, marginX, y, contentWidth, 'MATRICULE', student.matricule || '-');
+
+  // ── SECTION : DETAILS DU PAIEMENT ───────────────────────────────────────
+  y += 11.5;
+  drawSectionTitle(doc, marginX, y, contentWidth, 'DETAILS DU PAIEMENT');
+  y += 8.5;
+  drawDottedRow(doc, marginX, y, contentWidth, 'TRIMESTRE', getTrimesterLabel(payment.trimester));
+  y += 8.5;
+  drawDottedRow(doc, marginX, y, contentWidth, 'MODE DE PAIEMENT', getPaymentMethodLabel(payment.paymentMethod));
+  y += 8.5;
+  drawDottedRow(doc, marginX, y, contentWidth, 'REFERENCE', payment.referenceNumber || '-');
+  y += 8.5;
+  drawDottedRow(doc, marginX, y, contentWidth, 'DATE DE PAIEMENT', formatDate(payment.paidAt || payment.createdAt));
+
+  // ── BOÎTE MONTANT (fond vert clair, bordure menthe) ─────────────────────
+  y += 7.5;
+  const boxHeight = 34;
+  setFill(doc, EDUGEST.GREEN_LIGHT);
+  doc.rect(marginX, y, contentWidth, boxHeight, 'F');
+  setDraw(doc, EDUGEST.MINT);
+  doc.setLineWidth(0.3);
+  doc.rect(marginX, y, contentWidth, boxHeight, 'S');
+
+  // Label « MONTANT PAYE » petit vert
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  setInk(doc, EDUGEST.GREEN);
+  drawText(doc, 'MONTANT PAYE', marginX + 6, y + 7.5);
+
+  // Montant en GRAND (26pt) vert
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(26);
+  setInk(doc, EDUGEST.GREEN);
+  const amountStr = fmtNumInt(payment.paidAmount);
+  drawText(doc, amountStr, marginX + 6, y + 22);
+  const amountWidth = doc.getTextWidth(amountStr);
+  doc.setFontSize(11);
+  drawText(doc, 'CDF', marginX + 6 + amountWidth + 2, y + 22);
+
+  // Badge statut (fond coloré plein)
+  const statusInfo = getStatusInfo(payment.status);
+  const statusBg = hexToRgb(statusInfo.bg);
+  const statusInk = hexToRgb(statusInfo.text);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  const statusLabel = sanitizeAscii(statusInfo.label);
+  const badgeWidth = doc.getTextWidth(statusLabel) + 8;
+  const badgeHeight = 7;
+  const badgeX = marginX + contentWidth - 4 - badgeWidth;
+  const badgeY = y + 4;
+  doc.setFillColor(statusBg.r, statusBg.g, statusBg.b);
+  doc.rect(badgeX, badgeY, badgeWidth, badgeHeight, 'F');
+  doc.setTextColor(statusInk.r, statusInk.g, statusInk.b);
+  centerText(doc, statusLabel, badgeX + badgeWidth / 2, badgeY + 5);
+
+  // Équivalence devise (si taux disponible)
+  if (usdToCdfRate && usdToCdfRate > 0 && isFinite(usdToCdfRate)) {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    setInk(doc, EDUGEST.GRAY);
+    drawText(
+      doc,
+      `Equivalent : ${fmtNum(payment.paidAmount / usdToCdfRate)} USD (taux : 1 USD = ${fmtNum(usdToCdfRate)} CDF)`,
+      marginX + 6,
+      y + 30
+    );
+  }
+
+  y += boxHeight;
+
+  // Description du statut (petite ligne italique grise)
+  if (statusInfo.desc) {
+    y += 5.5;
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7.5);
+    setInk(doc, EDUGEST.GRAY);
+    centerText(doc, statusInfo.desc, centerX, y);
+  }
+
+  // ── SECTION : SITUATION FINANCIERE (3 colonnes) ─────────────────────────
+  y += 10;
+  drawSectionTitle(doc, marginX, y, contentWidth, 'SITUATION FINANCIERE');
+
+  const remaining = payment.amount - payment.paidAmount;
+  const colWidth = contentWidth / 3;
+  const headersY = y + 9;
+  const valuesTopLineY = headersY + 3.5;
+  const valuesY = valuesTopLineY + 11;
+  const valuesBottomLineY = valuesY + 4.5;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  setInk(doc, EDUGEST.TEAL);
+  centerText(doc, 'TOTAL DU', marginX + colWidth * 0.5, headersY);
+  centerText(doc, 'TOTAL PAYE', marginX + colWidth * 1.5, headersY);
+  centerText(doc, 'RESTANT', marginX + colWidth * 2.5, headersY);
+
+  setDraw(doc, EDUGEST.GRAY_LIGHT);
+  doc.setLineWidth(0.3);
+  doc.line(marginX + 4, valuesTopLineY, marginX + contentWidth - 4, valuesTopLineY);
+  doc.line(marginX + 4, valuesBottomLineY, marginX + contentWidth - 4, valuesBottomLineY);
+
+  const financialCols: Array<{ text: string; color: RGB }> = [
+    { text: fmtNumInt(payment.amount), color: EDUGEST.DARK },
+    { text: fmtNumInt(payment.paidAmount), color: EDUGEST.GREEN },
+    { text: remaining > 0 ? fmtNumInt(remaining) : '0', color: remaining > 0 ? EDUGEST.GOLD : EDUGEST.GREEN },
+  ];
+  financialCols.forEach((col, i) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    setInk(doc, col.color);
+    const valueStr = sanitizeAscii(col.text);
+    const valueWidth = doc.getTextWidth(valueStr);
+    doc.setFontSize(8);
+    const unitWidth = doc.getTextWidth('CDF');
+    const startX = marginX + colWidth * i + colWidth / 2 - (valueWidth + 2 + unitWidth) / 2;
+    doc.setFontSize(14);
+    drawText(doc, valueStr, startX, valuesY);
+    doc.setFontSize(8);
+    drawText(doc, 'CDF', startX + valueWidth + 2, valuesY);
+  });
+
+  y = valuesBottomLineY;
+
+  // ── SIGNATURE & CACHET ──────────────────────────────────────────────────
+  const isCash = !payment.paymentMethod || payment.paymentMethod.toUpperCase() === 'CASH';
+  const sigTop = y + 10;
+  const sigHeight = 24;
+
+  if (!isCash) {
+    // Paiement en ligne : signature électronique + cachet « PAYE EN LIGNE »
+    const eSigW = 78;
+    const eSigH = sigHeight - 4;
+    setDraw(doc, EDUGEST.GRAY_LIGHT);
+    doc.setLineWidth(0.3);
+    doc.rect(marginX + 4, sigTop, eSigW, eSigH, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    setInk(doc, EDUGEST.GREEN);
+    centerText(doc, 'SIGNE ELECTRONIQUEMENT', marginX + 4 + eSigW / 2, sigTop + 10);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    setInk(doc, EDUGEST.GRAY);
+    centerText(doc, `Le ${formatDateTime(payment.paidAt || payment.createdAt)}`, marginX + 4 + eSigW / 2, sigTop + 16);
+
+    const stampW = 62;
+    const stampX = marginX + contentWidth - stampW - 4;
+    setFill(doc, EDUGEST.GREEN_LIGHT);
+    doc.rect(stampX, sigTop, stampW, eSigH, 'F');
+    setDraw(doc, EDUGEST.GREEN);
+    doc.setLineWidth(0.3);
+    doc.rect(stampX, sigTop, stampW, eSigH, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    setInk(doc, EDUGEST.GREEN);
+    centerText(doc, 'PAYE EN LIGNE', stampX + stampW / 2, sigTop + eSigH / 2 + 1.5);
+  } else {
+    // Espèces : lignes vierges + cadre pointillé pour le tampon physique
+    const sigLineY = sigTop + 14;
+    setDraw(doc, EDUGEST.GRAY);
+    doc.setLineWidth(0.3);
+    doc.line(marginX + 8, sigLineY, marginX + 68, sigLineY);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    setInk(doc, EDUGEST.GRAY);
+    centerText(doc, 'Signature', marginX + 38, sigLineY + 5);
+
+    const stampW = 55;
+    const stampH = 20;
+    const stampX = marginX + contentWidth - stampW - 8;
+    drawDottedRect(doc, stampX, sigTop, stampW, stampH);
+    centerText(doc, 'Cachet', stampX + stampW / 2, sigTop + stampH + 5);
+  }
+
+  // ── PIED DE PAGE ────────────────────────────────────────────────────────
+  const footerLineY = pageHeight - 34;
+  setDraw(doc, EDUGEST.GOLD);
+  doc.setLineWidth(0.8);
+  doc.line(marginX, footerLineY, marginX + contentWidth, footerLineY);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  setInk(doc, EDUGEST.DARK);
+  centerText(doc, school.name, centerX, footerLineY + 7);
+
   doc.setFont('helvetica', 'normal');
-  doc.text(
-    `Document généré automatiquement le ${formatDate(new Date())} — Ce reçu fait foi de paiement.`,
-    pageWidth / 2,
-    y + 5,
-    { align: 'center' }
-  );
+  doc.setFontSize(8);
+  setInk(doc, EDUGEST.GRAY);
+  const placeParts = [school.city, school.country].filter(Boolean);
+  if (placeParts.length > 0) {
+    centerText(doc, placeParts.join(', '), centerX, footerLineY + 12.5);
+  }
 
-  // ── Embed payment ID as machine-readable text (for import verification) ──
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7);
+  setInk(doc, EDUGEST.GRAY_LIGHT);
+  centerText(doc, `Document genere le ${formatDateTime(new Date())}`, centerX, footerLineY + 18);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  setInk(doc, EDUGEST.GRAY_LIGHT);
+  centerText(doc, 'Genere par EduGest', centerX, footerLineY + 22.5);
+
+  // ── ID de paiement en texte machine blanc (vérification d'import) ───────
   doc.setFontSize(4);
-  doc.setTextColor(255, 255, 255);
-  doc.text(`EDUGEST-ID:${payment.id}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 4, { align: 'center' });
+  setInk(doc, EDUGEST.WHITE);
+  centerText(doc, `EDUGEST-ID:${payment.id}`, centerX, pageHeight - 2.5);
 
   return Buffer.from(doc.output('arraybuffer'));
-}
-
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result
-    ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) }
-    : { r: 0, g: 0, b: 0 };
 }
 
 // ─── Route Handler ──────────────────────────────────────────────────────────
@@ -508,8 +667,40 @@ export async function GET(
       } catch {}
     }
 
+    // Année scolaire active (affichée dans le sous-titre de l'en-tête)
+    let schoolYearLabel: string | null = null;
+    try {
+      const activeYear = await db.schoolYear.findFirst({
+        where: { schoolId: payment.schoolId, isActive: true },
+        orderBy: { createdAt: 'desc' },
+        select: { label: true },
+      });
+      schoolYearLabel = activeYear?.label ?? null;
+    } catch {}
+
+    // Taux USD -> CDF (pour la ligne d'équivalence devise ; omise si indisponible)
+    let usdToCdfRate: number | null = null;
+    try {
+      const currencyConfig = await db.schoolCurrencyConfig.findUnique({
+        where: { schoolId: payment.schoolId },
+      });
+      if (currencyConfig?.useManualRates && currencyConfig.manualRates) {
+        const rates = JSON.parse(currencyConfig.manualRates) as Record<string, unknown>;
+        const usd = typeof rates.USD === 'number' && rates.USD > 0 ? rates.USD : 1;
+        const cdf = typeof rates.CDF === 'number' ? rates.CDF : null;
+        if (cdf && cdf > 0) usdToCdfRate = cdf / usd;
+      }
+      if (!usdToCdfRate) {
+        const latestRate = await db.exchangeRate.findFirst({
+          where: { base: 'USD', target: 'CDF' },
+          orderBy: { fetchedAt: 'desc' },
+        });
+        if (latestRate?.rate && latestRate.rate > 0) usdToCdfRate = latestRate.rate;
+      }
+    } catch {}
+
     // Build PDF
-    const pdfBuffer = buildReceiptPDF(payment, student, payment.school, schoolLogoBase64);
+    const pdfBuffer = buildReceiptPDF(payment, student, payment.school, schoolLogoBase64, schoolYearLabel, usdToCdfRate);
 
     const receiptNo = payment.receiptNumber || `REC-${payment.id.slice(-8).toUpperCase()}`;
 
