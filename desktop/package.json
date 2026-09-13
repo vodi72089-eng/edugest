@@ -39,6 +39,7 @@
       "oneClick": true,
       "perMachine": false,
       "deleteAppDataOnUninstall": false,
+      "artifactName": "EduGest-Setup-${version}.exe",
       "shortcutName": "EduGest"
     },
     "portable": {
