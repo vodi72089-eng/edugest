@@ -26,18 +26,34 @@ les données (élèves, classes, notes, paiements) sont stockées localement.
 
 ## Construire le .exe (Windows)
 
-### Option A — via GitHub Actions (recommandé, automatique)
+### Option A — Release GitHub (recommandé, zéro effort) ✅
+
+À chaque push sur `main`, le workflow `.github/workflows/build-desktop.yml`
+construit automatiquement les deux exécutables et les publie **directement
+dans la Release GitHub** (`v1.1.0` = version de `desktop/package.json`) :
+
+1. Ouvrez la page **Releases** du dépôt : https://github.com/vodi72089-eng/edugest/releases
+2. Téléchargez :
+   - **`EduGest-Setup-1.1.0.exe`** — installateur (recommandé)
+   - **`EduGest-Portable-1.1.0.exe`** — version portable sans installation
+3. Lancez l'exe : EduGest démarre avec sa base locale intégrée.
+
+> Pour publier une nouvelle version : augmentez `version` dans
+> `desktop/package.json` et poussez sur `main` — la Release est mise à jour
+> automatiquement avec les nouveaux exe.
+
+### Option B — via GitHub Actions (artefact brut)
 
 Le workflow `.github/workflows/build-desktop.yml` construit automatiquement
 l'installateur et l'exécutable portable à chaque push sur `main` (ou
 manuellement via *Run workflow*) :
 
 1. Ouvrez l'onglet **Actions** du dépôt GitHub.
-2. Sélectionnez le workflow **Build Desktop (Windows exe)**.
+2. Sélectionnez le workflow **Build Desktop (Windows exe) → Release**.
 3. Téléchargez l'artefact **EduGest-Windows** (contient `EduGest Setup.exe`
    et `EduGest-Portable.exe`).
 
-### Option B — en local (machine Windows)
+### Option C — en local (machine Windows)
 
 ```bash
 # 1. Prérequis : Node.js 20+, Bun (ou npm), Git
@@ -50,10 +66,10 @@ bun run build               # build Next.js standalone (+ copie static & public)
 # 2. Packager l'app desktop
 cd desktop
 npm install                 # electron + electron-builder
-npm run dist                # → desktop/dist/EduGest Setup 1.0.0.exe + EduGest-Portable-1.0.0.exe
+npm run dist                # → desktop/dist/EduGest Setup 1.1.0.exe + EduGest-Portable-1.1.0.exe
 ```
 
-### Option C — tester en mode dev (sans build Next)
+### Option D — tester en mode dev (sans build Next)
 
 ```bash
 bun run build               # le mode desktop exige le build standalone
