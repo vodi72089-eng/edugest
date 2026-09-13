@@ -1148,3 +1148,21 @@ Stage Summary:
 - Le travail est intégré SUR l'historique officiel du dépôt (fast-forward possible)
 - Aucune fonctionnalité remote perdue (parents, personnalisation, passerelles RDC, afrotools)
 - Toutes les nouvelles fonctionnalités validées de bout en bout après fusion
+
+---
+Task ID: 8
+Agent: Z.ai Code (session principale)
+Task: Publier l'exe desktop DIRECTEMENT dans la Release GitHub + mise à jour du projet
+
+Work Log:
+- Diagnostic : le workflow build-desktop.yml ne produisait qu'un ARTEFACT Actions (aucune Release n'existait sur le dépôt) — c'est ce que l'utilisateur reprochait
+- Workflow réécrit : permissions contents:write, publication automatique via softprops/action-gh-release@v2 (tag = version de desktop/package.json, allowUpdates + replaces_artifacts, make_latest), notes de version complètes (fonctionnalités desktop incluses)
+- Version desktop bumpée 1.0.0 → 1.1.0 ; DESKTOP.md réécrit (Option A = Release GitHub, lien releases, procédure de nouvelle version)
+- 1er échec CI historique analysé (run 34756560249) : prisma résout les chemins SQLite relatifs PAR RAPPORT AU DOSSIER DU SCHEMA (prisma/) → le template.db atterrissait dans prisma/db/ et `ls db/` échouait ; correctif : mkdir -p db + DATABASE_URL="file:../db/desktop-template.db" (commit a6331d2)
+- artefactName NSIS aligné sur EduGest-Setup-${version}.exe (commit a516286)
+- Build Windows exécuté de bout en bout : bun install ✓, prisma generate (moteur Windows) ✓, template DB ✓, next build standalone ✓, electron-builder (NSIS + portable) ✓, publication Release ✓
+
+Stage Summary:
+- Release https://github.com/vodi72089-eng/edugest/releases/tag/v1.1.0 contient les 2 exe (Setup ~145 Mo + Portable ~145 Mo), marquée latest
+- Tout push sur main reconstruit l'exe et met à jour la Release automatiquement (les modifications sont donc TOUJOURS dans l'exe)
+- La cause racine du piège « chemin SQLite relatif au dossier prisma » est documentée dans le workflow (commentaire)
