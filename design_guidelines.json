@@ -1,0 +1,212 @@
+{
+  "theme": {
+    "name": "LUXE AFRICAIN (Royal Emerald, Imperial Gold & Kente Glassmorphism)",
+    "description": "An ultra-premium Afrofuturist design system combining deep emerald hues, metallic Sahara gold accents, subtle woven Kente geometric borders, and frosted glass surfaces for high-trust educational management.",
+    "archetype": "ARCHETYPE 5: LUXURY & ARCHETYPE 4: SWISS HIGH-CONTRAST",
+    "mode": "hybrid_toggle_supported_default_dark_emerald"
+  },
+  "typography": {
+    "font_family_headings": "Cormorant Garamond, Serif (or Outfit Display)",
+    "font_family_body": "Plus Jakarta Sans, sans-serif",
+    "font_family_mono": "JetBrains Mono, monospace",
+    "hierarchy": {
+      "h1_hero": "text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-amber-100 font-serif leading-none",
+      "h2_section": "text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-amber-200 font-serif",
+      "h3_subsection": "text-xl sm:text-2xl font-medium text-emerald-100",
+      "h4_card": "text-lg sm:text-xl font-semibold text-amber-300",
+      "body": "text-base sm:text-sm text-emerald-100/90 leading-relaxed font-sans",
+      "caption_overline": "text-xs uppercase tracking-[0.25em] text-amber-400/80 font-mono"
+    },
+    "pairing_notes": "Use serif/display font for grand headers and official report document titles; use crisp geometric sans for tabular data and forms. Never use Inter for main headings."
+  },
+  "colors": {
+    "primary": {
+      "emerald_dark": "#061F17",
+      "emerald_deep": "#0B2E23",
+      "emerald_medium": "#144938",
+      "emerald_accent": "#1E6B52"
+    },
+    "gold_accent": {
+      "imperial_gold": "#D4AF37",
+      "sahara_gold": "#E6A817",
+      "amber_warm": "#FFBF00",
+      "gold_subtle": "rgba(212, 175, 55, 0.15)"
+    },
+    "kente_heritage_accents": {
+      "terracotta_red": "#C85A32",
+      "royal_purple": "#5A2A82",
+      "sunburst_yellow": "#F4B400"
+    },
+    "neutrals": {
+      "obsidian_bg": "#070B0A",
+      "surface_glass": "rgba(11, 46, 35, 0.65)",
+      "card_bg": "#0D1815",
+      "text_main": "#F5F7F6",
+      "text_muted": "#A2B5AD",
+      "border_gold": "rgba(212, 175, 55, 0.25)"
+    },
+    "status_colors": {
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "error": "#EF4444",
+      "info": "#3B82F6",
+      "official_verified": "#D4AF37"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": "backdrop-blur-xl bg-emerald-950/70 border border-amber-500/20 shadow-[0_8px_32px_rgba(0,0,0,0.4)]",
+    "kente_geometric_border": "relative before:absolute before:top-0 before:left-0 before:right-0 before:h-[2px] before:bg-gradient-to-r before:from-amber-500 before:via-emerald-400 before:to-amber-600",
+    "kente_subtle_pattern_svg": "data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0l20 20L40 0v10L20 30 0 10V0zm0 20l20 20 20-20v10L20 50 0 30V20z' fill='%23d4af37' fill-opacity='0.04'/%3E%3C/svg%3E",
+    "gold_glow_card": "hover:shadow-[0_0_25px_rgba(212,175,55,0.25)] transition-all duration-300 hover:border-amber-400/50",
+    "qr_scan_line": "animate-pulse bg-gradient-to-b from-amber-400/80 to-transparent h-1 w-full shadow-[0_0_12px_#D4AF37]"
+  },
+  "grids_and_layouts": {
+    "landing_hero": "grid grid-cols-1 lg:grid-cols-12 gap-8 items-center min-h-[85vh] py-12 px-4 sm:px-8 max-w-7xl mx-auto",
+    "school_grid": "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 my-8",
+    "bento_dashboard": "grid grid-cols-1 md:grid-cols-8 lg:grid-cols-12 gap-6 p-6 max-w-7xl mx-auto",
+    "card_spans": {
+      "stats_widget": "col-span-12 md:col-span-4 lg:col-span-3",
+      "main_action_panel": "col-span-12 md:col-span-8 lg:col-span-9",
+      "tall_feed": "col-span-12 md:col-span-4 lg:col-span-4 row-span-2",
+      "wide_table": "col-span-12 lg:col-span-8"
+    }
+  },
+  "key_components_and_flows": {
+    "navigation_header": {
+      "style": "fixed top-0 left-0 right-0 z-50 backdrop-blur-2xl bg-emerald-950/80 border-b border-amber-500/20 px-6 py-4 flex items-center justify-between",
+      "elements": [
+        "Brand Logo: EduGest / Destock with Imperial Gold Crown/Geometric Motif icon",
+        "Tab Navigation: 'Trouver mon école', 'Espace Administration', 'Portail Parent', 'Vérification QR'",
+        "School Quick Switcher Dropdown (Select Active School)",
+        "Language & Theme Toggle (Luxe Dark Emerald / Warm Sand Gold)"
+      ]
+    },
+    "landing_find_school_tab": {
+      "style": "Hero section with responsive school search engine",
+      "elements": [
+        "Headline: 'Bienvenue sur EduGest / Destock — Plateforme Scolaire d'Excellence'",
+        "Search Bar: Input school name, region, or school code with live auto-complete",
+        "School Card Grid: Displays school logo, region, student capacity, active status badge, and 'Accéder à l'établissement' button",
+        "Quick Access Tabs: Admin Portal, Teacher Portal, Parent QR Code Gateway"
+      ]
+    },
+    "login_modal_page": {
+      "style": "Glassmorphism dark emerald container with glowing amber border",
+      "elements": [
+        "Role Switcher Tabs: [Administrateur École] | [Enseignant] | [Espace Parent]",
+        "School selector dropdown (Pre-filled if navigated from school search)",
+        "Credential fields with luxury floating labels and show/hide password toggle",
+        "Quick demo login presets buttons for testing (Admin, Teacher, Parent)"
+      ]
+    },
+    "school_admin_dashboard": {
+      "tabs": [
+        "Vue d'ensemble (Analytics & Quick Stats)",
+        "Import Base de Données (CSV/JSON DB Import Tool with preview table)",
+        "Gestion Élèves & Classes (Student roster with manual Parent Credential creator)",
+        "Générateur QR Accès Parent (QR generator with lifespan timer options: 24h, 7 jours, 30 jours, Illimité)",
+        "Impression Bulletins & Reçus (jsPDF output preview with official QR code)"
+      ],
+      "database_import_feature": {
+        "description": "Allows school admin to drop or select a DB file (CSV/JSON/Excel), view column mapping preview, and inject records into local Destock DB.",
+        "ui_elements": [
+          "Drag-and-drop zone with golden dash stroke and upload icon",
+          "Data preview grid showing columns: ID, Nom, Prénom, Classe, Parent Contact, Statut",
+          "One-click 'Synchroniser avec la Base de Données Destock' button"
+        ]
+      },
+      "parent_qr_generator_feature": {
+        "description": "Admin generates single or batch Parent Access QR codes with custom expiration duration.",
+        "ui_elements": [
+          "Student selection picker (Filter by Class & Name)",
+          "Duration selector radio buttons (e.g., 24 Hours, 7 Days, 30 Days, Custom Expiration Date)",
+          "QR Code Preview Card with download & print options",
+          "Manual Parent Credential setup form (Set custom username & password per child)"
+        ]
+      }
+    },
+    "parent_qr_access_flow": {
+      "step_1": "Parent scans generated QR code or opens '/parent-lookup'",
+      "step_2": "Page title: 'Retrouver mon enfant / mes enfants'",
+      "step_3": "Security verification & lookup form: Select Class (e.g., 6ème A, 3ème B) + Enter Student Name or Student ID",
+      "step_4": "Child profile dashboard: Grades/Bulletins list, Attendance summary, Medical receipts, Downloadable PDFs with authentic QR stamps"
+    },
+    "bulletin_and_notes_pdf_generator": {
+      "library": "jsPDF / html2canvas",
+      "design_specs": [
+        "Header: Official School Header with school emblem, gold double border line, and academic year",
+        "Student Info Block: Name, Class, Date of Birth, Matricule ID, Rank",
+        "Grades Table: Subject, Coefficient, Note /20, Class Average, Teacher Appreciations",
+        "Footer Stamp & QR Code: Unique verification QR code embedded at bottom right with text 'Document Officiel Vérifié - Scannez pour Authentifier'",
+        "Action: 'Télécharger Bulletin PDF' & 'Visualiser l'Aperçu'"
+      ]
+    },
+    "medical_service_receipt": {
+      "title": "Reçu du Service Médical / Carnet de Santé",
+      "design_specs": [
+        "Header: Medical cross with golden luxury leaves border",
+        "Fields: Date, Student Name, Nurse/Doctor Name, Consultation Reason, Administered Treatments/Prescription, Medical Clearance Status",
+        "Unique Medical Verification QR Code at the bottom",
+        "Download & Print buttons"
+      ]
+    },
+    "public_qr_verification_page": {
+      "route": "/verify-document/:docId or /verify-qr",
+      "style": "High-authority official verification card with pulsing green/gold badge",
+      "elements": [
+        "Verified Badge: '✓ DOCUMENT OFFICIEL HOMOLOGUÉ'",
+        "School Name, Document Type (Bulletin Trimestriel / Reçu Médical / Certificate)",
+        "Student Identity Details (Masked Sensitive Data for Privacy)",
+        "Issue Date, Unique Document Hash, Digital Signature Status",
+        "Official Stamp Graphic with golden wax seal aesthetic"
+      ]
+    }
+  },
+  "motion_and_animations": {
+    "engine": "framer-motion",
+    "effects": [
+      "Staggered entrance for school search grid items (delay: 0.05s)",
+      "Glass card hover elevation with gold border intensity glow",
+      "QR Code Scanner laser bar scanning line animation loop",
+      "Modal scale-in transition (easeOut, 0.25s)"
+    ]
+  },
+  "accessibility_and_testing": {
+    "wcag": "APCA compliant text contrast. White/Gold text on dark emerald elements. Full contrast on forms.",
+    "testing_attribute": "data-testid",
+    "required_test_ids": [
+      "find-school-input",
+      "find-school-button",
+      "school-card-{id}",
+      "login-role-tab-admin",
+      "login-role-tab-teacher",
+      "login-role-tab-parent",
+      "admin-db-import-dropzone",
+      "admin-db-import-submit-button",
+      "admin-qr-generator-duration-select",
+      "admin-qr-generate-button",
+      "admin-parent-credentials-username-input",
+      "admin-parent-credentials-password-input",
+      "admin-parent-credentials-save-button",
+      "parent-find-child-class-select",
+      "parent-find-child-name-input",
+      "parent-find-child-submit-button",
+      "generate-bulletin-pdf-button",
+      "generate-medical-receipt-button",
+      "doc-verify-status-badge"
+    ]
+  },
+  "media_assets": {
+    "classroom_students": "https://images.unsplash.com/photo-1567057420215-0afa9aa9253a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzh8MHwxfHNlYXJjaHwzfHxhZnJpY2FuJTIwZWR1Y2F0aW9uJTIwc3R1ZGVudHMlMjBjbGFzc3Jvb20lMjBzY2hvb2x8ZW58MHx8fHwxNzg5MjY1Mjg0fDA&ixlib=rb-4.1.0&q=85",
+    "gold_texture_bg": "https://images.unsplash.com/photo-1761437855740-c894da924d79?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODF8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBnb2xkJTIwZ3JlZW4lMjB0ZXh0dXJlJTIwcGF0dGVybiUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzg5MjY1Mjg0fDA&ixlib=rb-4.1.0&q=85",
+    "gold_strands_bg": "https://images.unsplash.com/photo-1761437856376-2ce1c483343b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODF8MHwxfHNlYXJjaHwzfHxsdXh1cnklMjBnb2xkJTIwZ3JlZW4lMjB0ZXh0dXJlJTIwcGF0dGVybiUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzg5MjY1Mjg0fDA&ixlib=rb-4.1.0&q=85",
+    "school_children_bench": "https://images.unsplash.com/photo-1627423896085-e3e694d88e40?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzh8MHwxfHNlYXJjaHwyfHxhZnJpY2FuJTIwZWR1Y2F0aW9uJTIwc3R1ZGVudHMlMjBjbGFzc3Jvb20lMjBzY2hvb2x8ZW58MHx8fHwxNzg5MjY1Mjg0fDA&ixlib=rb-4.1.0&q=85"
+  },
+  "instructions_to_main_agent": [
+    "Note: Frontend components use JavaScript (.js / .jsx) files.",
+    "Ensure all user prompt capabilities are accessible from the navigation or interactive UI: 'Trouver mon école', DB Import for school admins, QR Code generation with configurable lifespan, Parent 'Retrouver mon enfant' lookup, jsPDF bulletin with unique QR code, Medical service receipt generator, and Public official verification page.",
+    "Strictly follow the LUXE AFRICAIN aesthetic (Royal Emerald background #061F17, Imperial Gold #D4AF37 highlights, Kente geometric top borders, glassmorphism cards).",
+    "Include data-testid attributes on all key buttons, inputs, tabs, and status cards for end-to-end testing.",
+    "Do not use generic blue/purple default themes. Implement rich dark emerald glass surfaces with shimmering gold accents."
+  ]
+}
