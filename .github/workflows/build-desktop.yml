@@ -30,14 +30,17 @@ jobs:
       - name: Create embedded template database
         shell: bash
         run: |
-          export DATABASE_URL="file:./db/desktop-template.db"
+          # NB : Prisma résout les chemins SQLite relatifs PAR RAPPORT au
+          # dossier du schema (prisma/) — d'où "../db/".
+          mkdir -p db
+          export DATABASE_URL="file:../db/desktop-template.db"
           bunx prisma db push --accept-data-loss --skip-generate
           ls -la db/
 
       - name: Build Next.js (standalone)
         shell: bash
         env:
-          DATABASE_URL: file:./db/desktop-template.db
+          DATABASE_URL: file:../db/desktop-template.db
         run: |
           set -e
           bunx next build
