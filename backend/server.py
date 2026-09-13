@@ -369,7 +369,7 @@ async def list_students(user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADM
 
 
 @api.post("/admin/students")
-async def create_student(payload: StudentIn, user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN"))):
+async def create_student(payload: StudentIn, user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN", "SUPER_ADMIN"))):
     doc = payload.model_dump()
     doc["id"] = str(uuid.uuid4())
     doc["school_id"] = user["school_id"]
@@ -383,7 +383,7 @@ async def create_student(payload: StudentIn, user: Dict[str, Any] = Depends(requ
 
 
 @api.patch("/admin/students/{student_id}/parent-credentials")
-async def set_parent_creds(student_id: str, payload: ParentCredsIn, user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN"))):
+async def set_parent_creds(student_id: str, payload: ParentCredsIn, user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN", "SUPER_ADMIN"))):
     result = await db.students.update_one(
         {"id": student_id, "school_id": user["school_id"]},
         {"$set": {
@@ -397,7 +397,7 @@ async def set_parent_creds(student_id: str, payload: ParentCredsIn, user: Dict[s
 
 
 @api.delete("/admin/students/{student_id}")
-async def delete_student(student_id: str, user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN"))):
+async def delete_student(student_id: str, user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN", "SUPER_ADMIN"))):
     await db.students.delete_one({"id": student_id, "school_id": user["school_id"]})
     return {"ok": True}
 
@@ -409,7 +409,7 @@ async def list_classes(user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMI
 
 
 @api.post("/admin/classes")
-async def create_class(payload: ClassIn, user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN"))):
+async def create_class(payload: ClassIn, user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN", "SUPER_ADMIN"))):
     doc = payload.model_dump()
     doc["id"] = str(uuid.uuid4())
     doc["school_id"] = user["school_id"]
@@ -420,7 +420,7 @@ async def create_class(payload: ClassIn, user: Dict[str, Any] = Depends(require_
 
 # ------------- Admin: QR Tokens for parent access -------------
 @api.post("/admin/qr-tokens")
-async def create_qr_token(payload: QRTokenIn, user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN"))):
+async def create_qr_token(payload: QRTokenIn, user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN", "SUPER_ADMIN"))):
     token = str(uuid.uuid4())
     expires_at = (datetime.now(timezone.utc) + timedelta(hours=payload.duration_hours)).isoformat()
     doc = {
@@ -437,13 +437,13 @@ async def create_qr_token(payload: QRTokenIn, user: Dict[str, Any] = Depends(req
 
 
 @api.get("/admin/qr-tokens")
-async def list_qr_tokens(user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN"))):
+async def list_qr_tokens(user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN", "SUPER_ADMIN"))):
     items = await db.qr_tokens.find({"school_id": user["school_id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
     return {"tokens": items}
 
 
 @api.delete("/admin/qr-tokens/{token}")
-async def revoke_qr_token(token: str, user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN"))):
+async def revoke_qr_token(token: str, user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN", "SUPER_ADMIN"))):
     await db.qr_tokens.update_one({"token": token, "school_id": user["school_id"]}, {"$set": {"active": False}})
     return {"ok": True}
 
@@ -489,7 +489,7 @@ async def parent_lookup(payload: ParentLookupIn):
 
 # ------------- Documents (Bulletins, Medical Receipts) -------------
 @api.post("/documents/bulletin")
-async def create_bulletin(payload: BulletinIn, user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN", "TEACHER"))):
+async def create_bulletin(payload: BulletinIn, user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN", "SUPER_ADMIN", "TEACHER"))):
     doc_id = str(uuid.uuid4())
     school = await db.schools.find_one({"id": user["school_id"]}, {"_id": 0})
     doc = {
@@ -507,7 +507,7 @@ async def create_bulletin(payload: BulletinIn, user: Dict[str, Any] = Depends(re
 
 
 @api.post("/documents/medical")
-async def create_medical(payload: MedicalReceiptIn, user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN", "TEACHER"))):
+async def create_medical(payload: MedicalReceiptIn, user: Dict[str, Any] = Depends(require_roles("SCHOOL_ADMIN", "SUPER_ADMIN", "TEACHER"))):
     doc_id = str(uuid.uuid4())
     school = await db.schools.find_one({"id": user["school_id"]}, {"_id": 0})
     doc = {
