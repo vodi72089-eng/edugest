@@ -1,7 +1,8 @@
 /**
  * Service de passerelles de paiement
  * Mobile : M-Pesa, Orange Money, Airtel Money
- * Cartes / internationales : Visa, Mastercard, PayPal, Stripe, Flutterwave, DPO
+ * Cartes / internationales : Visa, Mastercard, Flutterwave, DPO
+ *   (Stripe et PayPal retirés — non disponibles pour les marchands en RDC)
  * Manuel : espèces, virement
  * Paiements d'abonnement EduGest : passerelles configurées au niveau
  * plateforme (schoolId sentinelle PLATFORM_SCHOOL_ID).
@@ -20,8 +21,6 @@ export type GatewayType =
   | 'AIRTEL_MONEY'
   | 'VISA'
   | 'MASTERCARD'
-  | 'PAYPAL'
-  | 'STRIPE'
   | 'FLUTTERWAVE'
   | 'DPO'
   | 'MANUAL';
@@ -87,26 +86,6 @@ export const GATEWAY_INFO: Record<GatewayType, {
     icon: '💳',
     logo: '/logos/payment/mastercard.svg',
     requiresWebhook: false,
-  },
-  PAYPAL: {
-    name: 'PAYPAL',
-    displayName: 'PayPal',
-    description: 'Paiement international via compte PayPal (checkout Orders v2)',
-    supportedCurrencies: ['USD', 'EUR', 'GBP', 'CAD'],
-    supportedMethods: ['wallet'],
-    icon: '🅿️',
-    logo: '/logos/payment/paypal.svg',
-    requiresWebhook: false,
-  },
-  STRIPE: {
-    name: 'STRIPE',
-    displayName: 'Stripe',
-    description: 'Encaissement carte universel via Stripe (Payment Intents)',
-    supportedCurrencies: ['USD', 'EUR', 'GBP', 'CAD', 'XOF'],
-    supportedMethods: ['card'],
-    icon: '🔷',
-    logo: '/logos/payment/stripe.svg',
-    requiresWebhook: true,
   },
   FLUTTERWAVE: {
     name: 'FLUTTERWAVE',
@@ -261,12 +240,6 @@ export async function initiatePayment(
         break;
       case 'MASTERCARD':
         response = await processMastercardPayment(credConfig, request, reference);
-        break;
-      case 'PAYPAL':
-        response = await processPaypalPayment(credConfig, request, reference);
-        break;
-      case 'STRIPE':
-        response = await processStripePayment(credConfig, request, reference);
         break;
       case 'FLUTTERWAVE':
         response = await processFlutterwavePayment(credConfig, request, reference);
@@ -844,165 +817,6 @@ async function processMastercardPayment(
     };
   } catch (error) {
     return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur Mastercard' };
-  }
-}
-
-// ─── PayPal (Checkout Orders v2) ────────────────────────────────────────────
-// Mapping des identifiants (mode live) :
-//   merchantId  = Client ID (application REST PayPal)
-//   secretKey   = Client Secret
-async function processPaypalPayment(
-  config: any,
-  request: PaymentRequest,
-  reference: string
-): Promise<PaymentResponse> {
-  if (config.isTestMode || !config.merchantId) {
-    return {
-      success: true,
-      reference,
-      gatewayTransactionId: `PP-TEST-${Date.now()}`,
-      checkoutUrl: undefined,
-      status: 'PENDING',
-      message: 'Checkout PayPal simulé (mode test) — demande en attente',
-    };
-  }
-
-  const missing: string[] = [];
-  if (!config.merchantId) missing.push('Client ID');
-  if (!config.secretKey) missing.push('Client Secret');
-  if (missing.length > 0) {
-    return {
-      success: false,
-      reference,
-      status: 'FAILED',
-      message: `Identifiants PayPal incomplets — renseignez : ${missing.join(', ')}`,
-    };
-  }
-
-  const baseUrl = config.isTestMode ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
-
-  try {
-    const authResponse = await fetch(`${baseUrl}/v1/oauth2/token`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${Buffer.from(`${config.merchantId}:${config.secretKey}`).toString('base64')}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: 'grant_type=client_credentials',
-    });
-    const authData = await authResponse.json();
-    if (!authData.access_token) {
-      return { success: false, reference, status: 'FAILED', message: 'Échec authentification PayPal (vérifiez Client ID et Secret)' };
-    }
-
-    const orderResponse = await fetch(`${baseUrl}/v2/checkout/orders`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${authData.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        intent: 'CAPTURE',
-        purchase_units: [{
-          reference_id: reference,
-          description: request.description.slice(0, 127),
-          amount: { currency_code: request.currency, value: String(request.amount) },
-        }],
-        application_context: {
-          return_url: appUrl ? `${appUrl}/?payment=success&ref=${reference}` : undefined,
-          cancel_url: appUrl ? `${appUrl}/?payment=cancel&ref=${reference}` : undefined,
-        },
-      }),
-    });
-    const orderData = await orderResponse.json();
-
-    if (orderData.id) {
-      const approve = (orderData.links || []).find((l: any) => l.rel === 'approve');
-      return {
-        success: true,
-        reference,
-        gatewayTransactionId: orderData.id,
-        checkoutUrl: approve?.href,
-        status: 'PENDING',
-        message: 'Commande PayPal créée — finalisez le paiement sur PayPal',
-      };
-    }
-
-    return { success: false, reference, status: 'FAILED', message: orderData.message || 'Erreur PayPal' };
-  } catch (error) {
-    return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur PayPal' };
-  }
-}
-
-// ─── Stripe (Payment Intents) ───────────────────────────────────────────────
-// Mapping des identifiants (mode live) :
-//   secretKey   = Clé secrète (sk_live_…)
-//   publicKey   = Clé publiable (pk_live_…) — optionnel, transmis au client
-async function processStripePayment(
-  config: any,
-  request: PaymentRequest,
-  reference: string
-): Promise<PaymentResponse> {
-  if (config.isTestMode || !config.secretKey) {
-    return {
-      success: true,
-      reference,
-      gatewayTransactionId: `STRIPE-TEST-${Date.now()}`,
-      status: 'PENDING',
-      message: 'Payment Intent Stripe simulé (mode test)',
-    };
-  }
-
-  if (!config.secretKey) {
-    return {
-      success: false,
-      reference,
-      status: 'FAILED',
-      message: 'Identifiants Stripe incomplets — renseignez la clé secrète (sk_live_…)',
-    };
-  }
-
-  try {
-    // Stripe exige un montant entier dans la plus petite unité (centimes)
-    const zeroDecimal = ['XOF', 'JPY', 'KRW', 'CLP'];
-    const amountMinor = zeroDecimal.includes(request.currency)
-      ? Math.round(request.amount)
-      : Math.round(request.amount * 100);
-
-    const body = new URLSearchParams({
-      amount: String(amountMinor),
-      currency: request.currency.toLowerCase(),
-      description: request.description.slice(0, 300),
-      'metadata[reference]': reference,
-      'metadata[schoolId]': request.schoolId,
-    });
-    if (request.customerEmail) body.set('receipt_email', request.customerEmail);
-
-    const response = await fetch('https://api.stripe.com/v1/payment_intents', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.secretKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: body.toString(),
-    });
-    const data = await response.json();
-
-    if (data.id && data.client_secret) {
-      return {
-        success: true,
-        reference,
-        gatewayTransactionId: data.id,
-        checkoutUrl: undefined,
-        status: 'PENDING',
-        message: 'Payment Intent Stripe créé — finalisez le paiement côté client',
-      };
-    }
-
-    return { success: false, reference, status: 'FAILED', message: data.error?.message || 'Erreur Stripe' };
-  } catch (error) {
-    return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur Stripe' };
   }
 }
 

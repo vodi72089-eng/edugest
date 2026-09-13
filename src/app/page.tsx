@@ -3631,11 +3631,10 @@ function ClassesView() {
 
 // ===== PAYMENT CONFIGURATION VIEW =====
 // Logos officiels des passerelles de paiement (fichiers servis depuis /public/logos/payment)
+// Stripe et PayPal retirés — non disponibles pour les marchands en RDC.
 const GATEWAY_SVG_LOGOS: Record<string, string> = {
   VISA: '/logos/payment/visa.svg',
   MASTERCARD: '/logos/payment/mastercard.svg',
-  PAYPAL: '/logos/payment/paypal.svg',
-  STRIPE: '/logos/payment/stripe.svg',
   FLUTTERWAVE: '/logos/payment/flutterwave.png',
   DPO: '/logos/payment/dpo.png',
   ORANGE_MONEY: '/logos/payment/orange_money.svg',
@@ -4318,7 +4317,7 @@ function PaymentConfigView() {
                         <input
                           value={platformForm.accountEmail}
                           onChange={(e) => setPlatformForm({ ...platformForm, accountEmail: e.target.value })}
-                          placeholder="E-mail marchand (PayPal/Stripe)"
+                          placeholder="E-mail marchand (DPO, Flutterwave)"
                           className="w-full text-[12px] px-3 py-2 border border-[oklch(88%_0.01_175)] rounded-xl focus:outline-none focus:border-[#f5a623]"
                         />
                       </div>

@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
           icon: info?.icon || '💳',
           currency: c.currency || 'USD',
           isTestMode: c.isTestMode,
-          // Instructions visibles du client (numéro marchand, e-mail PayPal…)
+          // Instructions visibles du client (numéro marchand, e-mail marchand…)
           paymentHint: c.phoneNumber || c.accountEmail || c.merchantId || null,
         };
       });
