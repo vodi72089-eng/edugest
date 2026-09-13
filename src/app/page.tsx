@@ -32,6 +32,7 @@ import SettingsView from '@/components/views/SettingsView'
 import OnlinePaymentView from '@/components/views/OnlinePaymentView'
 import DettesView from '@/components/views/DettesView'
 import SchoolsManagementView from '@/components/views/SchoolsManagementView'
+import ParentQrView from '@/components/views/ParentQrView'
 import {
   Search, Bell, Settings, Plus, ChevronRight, Users, GraduationCap,
   DollarSign, MessageSquare, BookOpen, Shield, LogOut, Menu, X,
@@ -43,7 +44,7 @@ import {
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
    ChevronUp, ExternalLink, Check, Copy, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown,
-  User, Landmark, Palette, BellRing
+  User, Landmark, Palette, BellRing, QrCode as QrCodeIcon, Database
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -1868,7 +1869,7 @@ function CreateSchoolView() {
 // ===== LOGIN VIEW =====
 function LoginView() {
   const { setCurrentView, login } = useEduGestStore()
-  const [tab, setTab] = useState<'parent' | 'admin'>('parent')
+  const [tab, setTab] = useState<'parent' | 'admin' | 'school'>('parent')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -1880,6 +1881,59 @@ function LoginView() {
   const [waLoading, setWaLoading] = useState(false)
   const [schools, setSchools] = useState<{ id: string; name: string; shortName: string; city: string }[]>([])
   const [selectedSchoolId, setSelectedSchoolId] = useState('')
+
+  // ── Onglet « Trouver mon école » ─────────────────────────────────────────────
+  const [publicSchools, setPublicSchools] = useState<{ id: string; name: string; city: string; province: string; logo: string | null; studentCount: number }[]>([])
+  const [schoolQuery, setSchoolQuery] = useState('')
+  const [schoolSearching, setSchoolSearching] = useState(false)
+  // Import de base de données (admins d'école)
+  const [importEmail, setImportEmail] = useState('')
+  const [importPassword, setImportPassword] = useState('')
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importLoading, setImportLoading] = useState(false)
+  const [importResult, setImportResult] = useState<{ students: number; classes: number; grades: number; teachers: number; subjects: number } | null>(null)
+  const [importError, setImportError] = useState('')
+
+  const loadPublicSchools = useCallback((q: string) => {
+    setSchoolSearching(true)
+    fetch(`/api/public/schools?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then(j => setPublicSchools(j.data || []))
+      .catch(() => {})
+      .finally(() => setSchoolSearching(false))
+  }, [])
+
+  useEffect(() => {
+    if (tab === 'school') loadPublicSchools('')
+  }, [tab, loadPublicSchools])
+
+  async function handleImportDb(e: React.FormEvent) {
+    e.preventDefault()
+    setImportError('')
+    setImportResult(null)
+    if (!importFile) { setImportError('Choisissez votre fichier de base de données (.db)'); return }
+    if (!importEmail || !importPassword) { setImportError('Entrez vos identifiants administrateur'); return }
+    setImportLoading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', importFile)
+      fd.append('email', importEmail)
+      fd.append('password', importPassword)
+      const res = await fetch('/api/school/import-db', { method: 'POST', body: fd })
+      const j = await res.json()
+      if (!res.ok) {
+        setImportError(j.error || 'Erreur lors de l import')
+        return
+      }
+      const sm = j.data?.summary || {}
+      setImportResult({ students: sm.students || 0, classes: sm.classes || 0, grades: sm.grades || 0, teachers: sm.teachers || 0, subjects: sm.subjects || 0 })
+      setImportFile(null)
+    } catch {
+      setImportError('Erreur réseau pendant l import')
+    } finally {
+      setImportLoading(false)
+    }
+  }
 
   useEffect(() => {
     fetch('/api/schools?limit=50').then(r => r.json()).then(j => setSchools(j.data || [])).catch(() => {})
@@ -2028,8 +2082,13 @@ function LoginView() {
             <button onClick={() => setTab('admin')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === 'admin' ? 'text-[#0a0f0d] shadow-lg' : 'text-white/60 hover:text-white/80'}`} style={tab === 'admin' ? { background: 'oklch(55% 0.15 175)', boxShadow: '0 4px 16px oklch(55% 0.15 175 / 0.35)' } : undefined}>
               Administration
             </button>
+            <button onClick={() => setTab('school')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === 'school' ? 'text-[#0a0f0d] shadow-lg' : 'text-white/60 hover:text-white/80'}`} style={tab === 'school' ? { background: 'oklch(72% 0.15 65)', boxShadow: '0 4px 16px oklch(72% 0.15 65 / 0.35)' } : undefined}>
+              Trouver mon école
+            </button>
           </div>
 
+          {tab !== 'school' ? (
+          <>
           <div className="mb-5">
             <h2 className="text-xl font-bold text-white tracking-tight mb-1">
               {tab === 'parent' ? 'Connexion Parent' : 'Connexion Administration'}
@@ -2095,6 +2154,97 @@ function LoginView() {
           <p className="text-center text-[13px] mt-5 text-white/50">
             Pas encore de compte ? <button onClick={() => setCurrentView('create-school')} className="font-medium hover:underline" style={{ color: 'oklch(72% 0.15 65 / 0.8)' }}>Créer mon école</button>
           </p>
+          </>
+          ) : (
+          /* ══════ ONGLET TROUVER MON ÉCOLE ══════ */
+          <div>
+            <div className="mb-5">
+              <h2 className="text-xl font-bold text-white tracking-tight mb-1">Trouver mon école</h2>
+              <p className="text-sm text-white/50">Recherchez l’école de votre enfant ou importez votre base de données (administrateurs).</p>
+            </div>
+
+            {/* Recherche d'école */}
+            <div className="flex gap-2 mb-3">
+              <input
+                type="text" value={schoolQuery} onChange={e => setSchoolQuery(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') loadPublicSchools(schoolQuery) }}
+                placeholder="Nom de l’école ou ville…"
+                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)] focus:border-[oklch(55%_0.15_175_/_0.5)]"
+                style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+              />
+              <button onClick={() => loadPublicSchools(schoolQuery)} className="px-4 rounded-xl text-sm font-semibold shrink-0" style={{ background: 'oklch(55% 0.15 175)', color: 'oklch(97% 0.005 175)' }}>
+                {schoolSearching ? '…' : 'Chercher'}
+              </button>
+            </div>
+            <div className="max-h-44 overflow-y-auto custom-scrollbar space-y-2 mb-4">
+              {publicSchools.length === 0 ? (
+                <p className="text-white/30 text-[13px] text-center py-3">{schoolSearching ? 'Recherche…' : 'Aucune école trouvée'}</p>
+              ) : publicSchools.map(s => (
+                <div key={s.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/10 bg-white/5">
+                  {s.logo ? (
+                    <img src={s.logo} alt={`Logo ${s.name}`} className="w-9 h-9 rounded-lg object-cover" />
+                  ) : (
+                    <div className="w-9 h-9 rounded-lg grid place-items-center text-[11px] font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))' }}>{s.name.slice(0, 2).toUpperCase()}</div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-white text-[13px] font-semibold truncate">{s.name}</div>
+                    <div className="text-white/40 text-[11px]">{s.city || '—'} · {s.studentCount} élèves</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-3 my-4 text-xs uppercase tracking-wider text-white/40">
+              <div className="flex-1 h-px bg-white/10" /> Admin : importez votre base <div className="flex-1 h-px bg-white/10" />
+            </div>
+
+            {importResult ? (
+              <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(60, 145, 100, 0.15)', border: '1px solid rgba(60, 145, 100, 0.4)' }}>
+                <CheckCircle size={28} className="mx-auto mb-2" style={{ color: 'oklch(72% 0.17 155)' }} />
+                <p className="text-white font-semibold text-sm mb-1">Base importée avec succès !</p>
+                <p className="text-white/60 text-[12px] leading-relaxed">
+                  {importResult.students} élèves · {importResult.classes} classes · {importResult.subjects} matières · {importResult.grades} notes · {importResult.teachers} professeurs
+                </p>
+                <p className="text-white/40 text-[12px] mt-2">Vos données sont maintenant celles de votre école. Connectez-vous dans l’onglet Administration.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleImportDb} className="space-y-3">
+                <p className="text-[12px] text-white/50 leading-relaxed">
+                  Vous êtes administrateur d’une école ? Importez votre fichier de base de données EduGest (.db) :
+                  élèves, classes, notes et professeurs deviennent directement la base de votre école.
+                </p>
+                <input
+                  type="text" value={importEmail} onChange={e => setImportEmail(e.target.value)}
+                  placeholder="Email administrateur"
+                  className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)]"
+                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                  required
+                />
+                <input
+                  type="password" value={importPassword} onChange={e => setImportPassword(e.target.value)}
+                  placeholder="Mot de passe administrateur"
+                  className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)]"
+                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                  required
+                />
+                <label className="block cursor-pointer rounded-xl px-4 py-3.5 text-sm text-white/70 transition hover:bg-white/5" style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px dashed rgba(255, 255, 255, 0.2)' }}>
+                  <input type="file" accept=".db,.sqlite,.sqlite3" className="hidden" onChange={e => setImportFile(e.target.files?.[0] || null)} />
+                  <span className="flex items-center gap-2">
+                    <Upload size={15} style={{ color: 'oklch(72% 0.15 65)' }} />
+                    {importFile ? importFile.name : 'Choisir le fichier .db de votre école'}
+                  </span>
+                </label>
+                {importError && (
+                  <div className="rounded-xl px-4 py-3 text-[13px]" style={{ background: 'rgba(186,26,26,0.15)', border: '1px solid rgba(186,26,26,0.4)', color: '#fca5a5' }}>{importError}</div>
+                )}
+                <button type="submit" disabled={importLoading} className="w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]" style={{ background: 'oklch(72% 0.15 65)', color: 'oklch(15% 0.02 250)' }}>
+                  {importLoading ? <div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> : <Database size={16} />}
+                  {importLoading ? 'Import en cours…' : 'Importer ma base de données'}
+                </button>
+              </form>
+            )}
+          </div>
+          )}
         </div>
 
         {/* Trust indicators below form */}
@@ -2274,6 +2424,7 @@ function Sidebar() {
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
+      { icon: <QrCodeIcon size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
       { icon: <Globe size={16} />, label: 'Contrôle plateforme', view: 'platform-control' as ViewType },
       { icon: <Palette size={16} />, label: 'Personnalisation', view: 'personalization' as ViewType },
       { icon: <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>, label: 'Connexion WhatsApp', view: 'whatsapp-config' as ViewType },
@@ -2286,6 +2437,7 @@ function Sidebar() {
       { icon: <BookOpen size={16} />, label: 'Classes', view: 'classes' as ViewType },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <QrCodeIcon size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
@@ -2304,6 +2456,7 @@ function Sidebar() {
       { icon: <Megaphone size={16} />, label: 'Convocation', view: 'convocation' },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
+      { icon: <QrCodeIcon size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
       { icon: <Users size={16} />, label: 'Gestion des Parents', view: 'parents' as ViewType },
       { icon: <Palette size={16} />, label: 'Personnalisation', view: 'personalization' as ViewType },
       { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
@@ -2388,6 +2541,7 @@ HEAD_TEACHER: [
       { icon: <BookOpen size={16} />, label: 'Classes', view: 'classes' as ViewType },
       { icon: <CreditCard size={16} />, label: 'Enregistrer paiement', view: 'payments' },
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <QrCodeIcon size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ]
     if (userRole === 'SCHOOL_ADMIN') {
@@ -2516,19 +2670,19 @@ const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   PARENT: ['dashboard', 'grades', 'bulletin', 'online-payment', 'payment-verification', 'discipline', 'homework', 'communications', 'school-reviews', 'profile', 'convocation'],
   TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'communications', 'profile'],
   HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'bulletin', 'communications', 'profile'],
-  SECRETARY: ['dashboard', 'students', 'classes', 'communications', 'payment-verification', 'settings', 'profile'],
-  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'discipline', 'homework', 'communications', 'convocation', 'class-passing', 'bulletin', 'parents', 'personalization', 'my-subscription', 'settings', 'profile'],
+  SECRETARY: ['dashboard', 'students', 'classes', 'communications', 'payment-verification', 'parent-qr', 'bulletin', 'settings', 'profile'],
+  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'discipline', 'homework', 'communications', 'convocation', 'class-passing', 'bulletin', 'parent-qr', 'parents', 'personalization', 'my-subscription', 'settings', 'profile'],
   CASHIER: ['dashboard', 'payments', 'payment-verification', 'debts', 'communications', 'profile'],
-  DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],
-  DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],
-  DIRECTION_SECONDAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],
+  DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'parent-qr', 'settings', 'profile'],
+  DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'parent-qr', 'settings', 'profile'],
+  DIRECTION_SECONDAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'parent-qr', 'settings', 'profile'],
   DISCIPLINE_MATERNELLE: ['dashboard', 'discipline', 'communications', 'profile'],
   DISCIPLINE_PRIMAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
   DISCIPLINE_SECONDAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
-  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'payment-config', 'pricing', 'discipline', 'communications', 'homework', 'bulletin', 'convocation', 'whatsapp-config', 'parents', 'personalization', 'settings', 'profile'],
+  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'payment-config', 'pricing', 'discipline', 'communications', 'homework', 'bulletin', 'convocation', 'whatsapp-config', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
 }
 
-const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment-verification', 'payment-config', 'my-subscription', 'settings', 'profile']
+const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment-verification', 'payment-config', 'my-subscription', 'parent-qr', 'settings', 'profile']
 
 function canAccessView(role: string | null, view: ViewType, subscriptionTier?: string): boolean {
   if (!role) return false
@@ -2734,6 +2888,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     'payment-verification': 'Vérification', 'payment-config': 'Config. Paiement',
     'online-payment': 'Payer en ligne',
     'debts': 'Dettes',
+    'parent-qr': 'QR Parents',
   }
 
   return (
@@ -3229,6 +3384,7 @@ function MainContent() {
     case 'settings': return <SettingsView />
     case 'school-reviews': return <SchoolReviewsView />
     case 'my-subscription': return <SubscriptionUpgradeView />
+    case 'parent-qr': return <ParentQrView />
     case 'parents': return <ParentsView />
     case 'personalization': return <PersonalizationView />
     default: return <RoleDashboard />

@@ -1,0 +1,55 @@
+name: Build Desktop (Windows exe)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Generate Prisma client (moteur Windows)
+        run: bunx prisma generate
+
+      - name: Create embedded template database
+        shell: bash
+        run: |
+          export DATABASE_URL="file:./db/desktop-template.db"
+          bunx prisma db push --accept-data-loss --skip-generate
+          ls -la db/
+
+      - name: Build Next.js (standalone)
+        shell: bash
+        run: |
+          set -e
+          bunx next build
+          cp -r .next/static .next/standalone/.next/
+          cp -r public .next/standalone/
+
+      - name: Build Windows executables (electron-builder)
+        shell: bash
+        run: |
+          cd desktop
+          npm install
+          npx electron-builder --win --publish never
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: EduGest-Windows
+          path: |
+            desktop/dist/*.exe
+          if-no-files-found: error

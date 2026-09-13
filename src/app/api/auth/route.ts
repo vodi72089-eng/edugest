@@ -50,9 +50,17 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Find User ────────────────────────────────────────────────────────
-    const user = email
-      ? await db.user.findUnique({ where: { email } })
-      : await db.user.findUnique({ where: { phone } });
+    // Le champ « email » peut contenir un email OU un numéro WhatsApp
+    // (connexion parent par téléphone) — fallback phone si l'email est inconnu.
+    let user = null;
+    if (email) {
+      user = await db.user.findUnique({ where: { email } });
+      if (!user) {
+        user = await db.user.findUnique({ where: { phone: email } });
+      }
+    } else if (phone) {
+      user = await db.user.findUnique({ where: { phone } });
+    }
 
     if (!user) {
       // Increment failed attempts

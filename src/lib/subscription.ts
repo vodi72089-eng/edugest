@@ -235,7 +235,9 @@ export async function checkCanCreateUser(schoolId: string | null | undefined, ro
 
   if (role === 'PARENT') return { ok: true }; // parents unlimited (or via student creation)
   if (ADMIN_ROLES.includes(role)) {
-    const current = await db.user.count({ where: { schoolId, role: { in: ADMIN_ROLES } } });
+    // NOTE : le secrétaire n'est PAS compté dans le forfait (freemium inclus) —
+    // il est un compte de support, pas un titulaire d'abonnement.
+    const current = await db.user.count({ where: { schoolId, role: { in: ADMIN_ROLES, not: 'SECRETARY' } } });
     if (limits.maxAdmins >= 0 && current >= limits.maxAdmins) {
       return { ok: false, error: `Limite d'admins atteinte (${limits.maxAdmins} max pour ${tier}).`, limit: limits.maxAdmins, current };
     }

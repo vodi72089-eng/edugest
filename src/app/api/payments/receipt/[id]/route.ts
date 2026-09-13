@@ -2,75 +2,54 @@ import { db } from '@/lib/db';
 import { requirePermission, verifySchoolAccess, verifyParentAccess, sanitizeError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { jsPDF } from 'jspdf';
-
-// ─── Design tokens EduGest (style « institut-gianelli » adapté aux couleurs EduGest) ──
-
-type RGB = readonly [number, number, number];
-
-const EDUGEST = {
-  DARK: [19, 21, 29] as const,        // EduGest DARK — textes principaux, bordure extérieure
-  GOLD: [217, 164, 65] as const,      // EduGest GOLD — titres de sections, lignes décoratives
-  TEAL: [11, 140, 127] as const,      // EduGest ACCENT — titres de sections de données
-  GREEN: [5, 150, 105] as const,      // Vert succès
-  GREEN_LIGHT: [232, 245, 233] as const,
-  MINT: [200, 230, 201] as const,
-  GRAY: [120, 120, 120] as const,
-  GRAY_LIGHT: [200, 200, 200] as const,
-  RED: [220, 38, 38] as const,
-  WHITE: [255, 255, 255] as const,
-};
+import { registerDocument, qrDataUrlForDocument, documentVerifyUrl } from '@/lib/document-verify';
+import fs from 'fs';
+import path from 'path';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-// Helvetica (police standard jsPDF) ne possède pas d'accents : tout le texte
-// affiché dans le PDF est nettoyé en ASCII pur (é→e, ç→c, —→-, etc.)
-const ASCII_MAP: Record<string, string> = {
-  à: 'a', á: 'a', â: 'a', ä: 'a', ã: 'a', å: 'a',
-  è: 'e', é: 'e', ê: 'e', ë: 'e',
-  ì: 'i', í: 'i', î: 'i', ï: 'i',
-  ò: 'o', ó: 'o', ô: 'o', ö: 'o', õ: 'o',
-  ù: 'u', ú: 'u', û: 'u', ü: 'u',
-  ý: 'y', ÿ: 'y', ç: 'c', ñ: 'n',
-  À: 'A', Á: 'A', Â: 'A', Ä: 'A', Ã: 'A', Å: 'A',
-  È: 'E', É: 'E', Ê: 'E', Ë: 'E',
-  Ì: 'I', Í: 'I', Î: 'I', Ï: 'I',
-  Ò: 'O', Ó: 'O', Ô: 'O', Ö: 'O', Õ: 'O',
-  Ù: 'U', Ú: 'U', Û: 'U', Ü: 'U',
-  Ý: 'Y', Ç: 'C', Ñ: 'N',
-  œ: 'oe', Œ: 'OE', æ: 'ae', Æ: 'AE',
-  '–': '-', '—': '-', '‘': "'", '’': "'", '“': '"', '”': '"', '«': '"', '»': '"',
-  '\u00A0': ' ', '\u202F': ' ', '\u2009': ' ',
-  '\u00B7': '\u00B7', // point médian : conservé (présent dans WinAnsi)
-  '€': 'EUR',
-};
-
-function sanitizeAscii(input: string): string {
-  if (!input) return '';
-  let out = '';
-  for (const ch of input) {
-    const mapped = ASCII_MAP[ch];
-    if (mapped !== undefined) {
-      out += mapped;
-    } else if (ch.charCodeAt(0) <= 127) {
-      out += ch;
-    }
-    // Caractère non-ASCII non mappé : supprimé silencieusement
-  }
-  return out;
+/**
+ * Sanitisation ASCII (design gianelli) : la police Helvetica de jsPDF ne
+ * rend pas correctement les accents dans certains environnements — on
+ * remplace É→E, è→e, —→-, etc. pour un rendu identique partout.
+ */
+function sanitizeAscii(text: string): string {
+  return String(text || '')
+    .replace(/[\u00C0-\u00C5]/g, 'A')
+    .replace(/[\u00C6]/g, 'AE')
+    .replace(/[\u00C7]/g, 'C')
+    .replace(/[\u00C8-\u00CB]/g, 'E')
+    .replace(/[\u00CC-\u00CF]/g, 'I')
+    .replace(/[\u00D0]/g, 'D')
+    .replace(/[\u00D1]/g, 'N')
+    .replace(/[\u00D2-\u00D6\u00D8]/g, 'O')
+    .replace(/[\u00D9-\u00DC]/g, 'U')
+    .replace(/[\u00DD]/g, 'Y')
+    .replace(/[\u00DF]/g, 'ss')
+    .replace(/[\u00E0-\u00E5]/g, 'a')
+    .replace(/[\u00E6]/g, 'ae')
+    .replace(/[\u00E7]/g, 'c')
+    .replace(/[\u00E8-\u00EB]/g, 'e')
+    .replace(/[\u00EC-\u00EF]/g, 'i')
+    .replace(/[\u00F0]/g, 'd')
+    .replace(/[\u00F1]/g, 'n')
+    .replace(/[\u00F2-\u00F6\u00F8]/g, 'o')
+    .replace(/[\u00F9-\u00FC]/g, 'u')
+    .replace(/[\u00FD\u00FF]/g, 'y')
+    .replace(/[\u00A0\u202F]/g, ' ')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[^\x20-\x7E]/g, '');
 }
 
-// Formatage nombres FR : espaces milliers + virgule décimale (sans Intl, ASCII pur)
-function fmtNum(value: number): string {
-  if (!isFinite(value)) return '0';
-  const fixed = (Math.round(value * 100) / 100).toFixed(2);
-  const [intPart, decPart] = fixed.split('.');
-  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  return decPart && decPart !== '00' ? `${grouped},${decPart}` : grouped;
-}
-
-function fmtNumInt(value: number): string {
-  if (!isFinite(value)) return '0';
-  return Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+/** Format « 34 649 » (groupes français, ASCII pur — compatible jsPDF). */
+function fmtNumInt(n: number): string {
+  if (n <= 0) return '0';
+  const intPart = Math.round(n).toString();
+  const reversed = intPart.split('').reverse().join('');
+  const grouped = reversed.replace(/(.{3})(?=.)/g, '$1 ');
+  return grouped.split('').reverse().join('');
 }
 
 function formatDate(date: Date | null | undefined): string {
@@ -80,13 +59,6 @@ function formatDate(date: Date | null | undefined): string {
     month: 'long',
     year: 'numeric',
   }).format(new Date(date));
-}
-
-// « JJ/MM/AAAA HH:MM » (chiffres uniquement, ASCII pur)
-function formatDateTime(date: Date): string {
-  const d = new Date(date);
-  const p = (n: number) => n.toString().padStart(2, '0');
-  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 function getSchoolInitials(shortName: string): string {
@@ -99,38 +71,34 @@ function getSchoolInitials(shortName: string): string {
     .slice(0, 4);
 }
 
-function getStatusInfo(status: string): { bg: string; text: string; label: string; desc: string } {
+function getStatusInfo(status: string): { label: string; bg: [number, number, number]; fg: [number, number, number] } {
   switch (status.toUpperCase()) {
     case 'PAID':
-      return { bg: '#dcfce7', text: '#166534', label: 'PAYÉ', desc: 'Le paiement a été intégralement réglé.' };
-    case 'CONFIRMED':
-      return { bg: '#dcfce7', text: '#166534', label: 'CONFIRMÉ', desc: 'Le paiement a été confirmé.' };
-    case 'REJECTED':
-      return { bg: '#fee2e2', text: '#991b1b', label: 'REJETÉ', desc: 'Le paiement a été rejeté.' };
+      return { label: 'PAYE', bg: [0, 135, 90], fg: [255, 255, 255] };
     case 'PARTIAL':
-      return { bg: '#fef9c3', text: '#854d0e', label: 'PARTIEL', desc: 'Le paiement est partiellement réglé. Un solde reste dû.' };
+      return { label: 'PARTIEL', bg: [200, 160, 40], fg: [255, 255, 255] };
     case 'PENDING':
-      return { bg: '#fee2e2', text: '#991b1b', label: 'EN ATTENTE', desc: 'Le paiement est en attente de règlement.' };
+      return { label: 'EN ATTENTE', bg: [186, 26, 26], fg: [255, 255, 255] };
     case 'OVERDUE':
-      return { bg: '#fecaca', text: '#7f1d1d', label: 'EN RETARD', desc: 'Le paiement est en retard. Veuillez régler dès que possible.' };
+      return { label: 'EN RETARD', bg: [127, 29, 29], fg: [255, 255, 255] };
     case 'CANCELLED':
-      return { bg: '#f3f4f6', text: '#374151', label: 'ANNULÉ', desc: 'Ce paiement a été annulé.' };
+      return { label: 'ANNULE', bg: [120, 120, 120], fg: [255, 255, 255] };
     default:
-      return { bg: '#e5e7eb', text: '#374151', label: status.toUpperCase(), desc: '' };
+      return { label: status.toUpperCase(), bg: [120, 120, 120], fg: [255, 255, 255] };
   }
 }
 
 function getPaymentMethodLabel(method: string | null): string {
   if (!method) return '—';
   const map: Record<string, string> = {
-    CASH: 'Espèces',
+    CASH: 'Especes',
     MOBILE_MONEY: 'Mobile Money',
     ORANGE_MONEY: 'Orange Money',
     MPESA: 'M-Pesa',
     AIRTEL_MONEY: 'Airtel Money',
     BANK_TRANSFER: 'Virement bancaire',
     CARD: 'Carte bancaire',
-    CHECK: 'Chèque',
+    CHECK: 'Cheque',
     OTHER: 'Autre',
   };
   return map[method.toUpperCase()] || method;
@@ -145,104 +113,59 @@ function getTrimesterLabel(trimester: string): string {
   return map[trimester] || trimester;
 }
 
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result
-    ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) }
-    : { r: 0, g: 0, b: 0 };
+/** Logo EduGest embarqué (version compacte pour PDF, lu depuis /public). */
+function getEduGestLogoBase64(): string | null {
+  try {
+    const candidates = [
+      path.join(process.cwd(), 'public', 'edugest-logo-pdf.jpg'),
+      path.join(process.cwd(), 'public', 'edugest-logo.png'),
+      path.join(process.cwd(), 'public', 'edugest-logo-new.png'),
+    ];
+    for (const p of candidates) {
+      if (fs.existsSync(p)) {
+        const buf = fs.readFileSync(p);
+        const isPng = p.endsWith('.png');
+        return `data:image/${isPng ? 'png' : 'jpeg'};base64,${buf.toString('base64')}`;
+      }
+    }
+  } catch { /* logo absent */ }
+  return null;
 }
 
-// ─── Primitives de dessin (style gianelli : positionnement 100% manuel) ─────
+// ─── PDF Builder — design « Institut Gianelli » (navy & or) ──────────────────
+// Double bordure décorative, logo école encadré d'or + logo EduGest en haut à
+// droite, lignes pointillées, encadré vert du montant, cachets, et QR code de
+// vérification en bas du reçu.
 
-function setFill(doc: jsPDF, c: RGB) {
-  doc.setFillColor(c[0], c[1], c[2]);
+const NAVY: [number, number, number] = [2, 36, 72];
+const GOLD: [number, number, number] = [212, 175, 55];
+const GREEN: [number, number, number] = [0, 135, 90];
+const LGREEN: [number, number, number] = [232, 245, 233];
+const MINT: [number, number, number] = [200, 230, 201];
+const GRAY: [number, number, number] = [120, 120, 120];
+const LGRAY: [number, number, number] = [200, 200, 200];
+const RED: [number, number, number] = [186, 26, 26];
+
+function centerText(doc: jsPDF, text: string, y: number, pageWidth: number) {
+  const tw = doc.getTextWidth(text);
+  doc.text(text, (pageWidth - tw) / 2, y);
 }
 
-function setDraw(doc: jsPDF, c: RGB) {
-  doc.setDrawColor(c[0], c[1], c[2]);
+function rightText(doc: jsPDF, text: string, y: number, rightX: number) {
+  const tw = doc.getTextWidth(text);
+  doc.text(text, rightX - tw, y);
 }
 
-function setInk(doc: jsPDF, c: RGB) {
-  doc.setTextColor(c[0], c[1], c[2]);
-}
-
-function drawText(doc: jsPDF, str: string, x: number, y: number) {
-  doc.text(sanitizeAscii(str), x, y);
-}
-
-function rightText(doc: jsPDF, str: string, xRight: number, y: number) {
-  const s = sanitizeAscii(str);
-  doc.text(s, xRight - doc.getTextWidth(s), y);
-}
-
-function centerText(doc: jsPDF, str: string, cx: number, y: number) {
-  const s = sanitizeAscii(str);
-  doc.text(s, cx - doc.getTextWidth(s) / 2, y);
-}
-
-// Ligne pointillée : points espacés de 2.5mm (petits rects pleins — pas de circle)
-function drawDottedLine(doc: jsPDF, x1: number, y1: number, x2: number, y2: number) {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const length = Math.sqrt(dx * dx + dy * dy);
-  const steps = Math.max(1, Math.floor(length / 2.5));
-  setFill(doc, EDUGEST.GRAY_LIGHT);
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    doc.rect(x1 + dx * t, y1 + dy * t, 0.5, 0.5, 'F');
+function drawDottedLine(doc: jsPDF, x1: number, y: number, x2: number) {
+  const step = 2.5;
+  const len = x2 - x1;
+  const count = Math.floor(len / step);
+  for (let i = 0; i < count; i += 2) {
+    const sx = x1 + i * step;
+    const ex = Math.min(sx + step * 0.6, x2);
+    doc.line(sx, y, ex, y);
   }
 }
-
-function drawDottedRect(doc: jsPDF, x: number, y: number, w: number, h: number) {
-  drawDottedLine(doc, x, y, x + w, y);
-  drawDottedLine(doc, x + w, y, x + w, y + h);
-  drawDottedLine(doc, x + w, y + h, x, y + h);
-  drawDottedLine(doc, x, y + h, x, y);
-}
-
-// Rangée de données : libellé gras gris à gauche, valeur foncée à droite,
-// ligne pointillée entre les deux
-function drawDottedRow(doc: jsPDF, x: number, y: number, width: number, label: string, value: string) {
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  setInk(doc, EDUGEST.GRAY);
-  drawText(doc, label, x, y);
-  const labelWidth = doc.getTextWidth(sanitizeAscii(label));
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  setInk(doc, EDUGEST.DARK);
-  rightText(doc, value, x + width, y);
-  const valueWidth = doc.getTextWidth(sanitizeAscii(value));
-
-  const dotStart = x + labelWidth + 2.5;
-  const dotEnd = x + width - valueWidth - 2.5;
-  if (dotEnd > dotStart) {
-    drawDottedLine(doc, dotStart, y - 1.2, dotEnd, y - 1.2);
-  }
-}
-
-// Titre de section doré majuscule + filet doré fin
-function drawSectionTitle(doc: jsPDF, x: number, y: number, width: number, title: string) {
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
-  setInk(doc, EDUGEST.GOLD);
-  drawText(doc, title, x, y);
-  setDraw(doc, EDUGEST.GOLD);
-  doc.setLineWidth(0.2);
-  doc.line(x, y + 2.4, x + width, y + 2.4);
-}
-
-// Ligne dorée décorative double (1 + 0.3)
-function drawDoubleGoldLine(doc: jsPDF, x: number, y: number, width: number) {
-  setDraw(doc, EDUGEST.GOLD);
-  doc.setLineWidth(1);
-  doc.line(x, y, x + width, y);
-  doc.setLineWidth(0.3);
-  doc.line(x, y + 1.6, x + width, y + 1.6);
-}
-
-// ─── PDF Builder (style « institut-gianelli », couleurs EduGest) ────────────
 
 function buildReceiptPDF(
   payment: {
@@ -263,330 +186,356 @@ function buildReceiptPDF(
   student: { firstName: string; lastName: string; matricule: string; photoUrl?: string | null },
   school: { name: string; shortName: string; email: string; phone: string; address: string; city: string; province: string; country: string; logo: string | null },
   schoolLogoBase64: string | null,
-  schoolYearLabel: string | null,
-  usdToCdfRate: number | null
+  qrCodeDataUrl: string | null
 ): Buffer {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
 
-  // ── Fond blanc ──────────────────────────────────────────────────────────
-  setFill(doc, EDUGEST.WHITE);
-  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  const W = 210;
+  const H = 297;
+  const mx = 15;
+  const cw = W - mx * 2;
 
-  // ── Double bordure décorative : extérieure épaisse foncée, intérieure fine dorée ──
-  setDraw(doc, EDUGEST.DARK);
+  const setD = (d: jsPDF, c: [number, number, number]) => d.setDrawColor(c[0], c[1], c[2]);
+  const setF = (d: jsPDF, c: [number, number, number]) => d.setFillColor(c[0], c[1], c[2]);
+  const setT = (d: jsPDF, c: [number, number, number]) => d.setTextColor(c[0], c[1], c[2]);
+
+  // ══════════════════════════════════════════════════════════════════
+  //  DOUBLE BORDURE DÉCORATIVE (gianelli)
+  // ══════════════════════════════════════════════════════════════════
+  setD(doc, NAVY);
   doc.setLineWidth(1.5);
-  doc.rect(5, 5, pageWidth - 10, pageHeight - 10, 'S');
-  setDraw(doc, EDUGEST.GOLD);
+  doc.rect(5, 5, W - 10, H - 10);
+
+  setD(doc, GOLD);
   doc.setLineWidth(0.3);
-  doc.rect(8, 8, pageWidth - 16, pageHeight - 16, 'S');
+  doc.rect(8, 8, W - 16, H - 16);
 
-  const marginX = 18;
-  const contentWidth = pageWidth - marginX * 2;
-  const centerX = pageWidth / 2;
+  // ══════════════════════════════════════════════════════════════════
+  //  EN-TÊTE : logo école encadré d'or + logo EduGest en haut à droite
+  // ══════════════════════════════════════════════════════════════════
+  let y = 20;
 
-  // ── EN-TÊTE : carré logo bordé doré (+ initiales en secours) ────────────
-  const logoX = marginX;
-  const logoY = 18;
-  const logoSize = 20;
+  const logoX = mx + 2;
+  const logoY = y;
+  const logoSize = 22;
+
+  setD(doc, GOLD);
+  setF(doc, [255, 255, 255]);
+  doc.setLineWidth(1.5);
+  doc.rect(logoX, logoY, logoSize, logoSize, 'FD');
+
   let logoDrawn = false;
   if (schoolLogoBase64) {
     try {
-      doc.addImage(schoolLogoBase64, 'JPEG', logoX + 1.2, logoY + 1.2, logoSize - 2.4, logoSize - 2.4);
+      doc.addImage(schoolLogoBase64, 'JPEG', logoX + 1.5, logoY + 1.5, logoSize - 3, logoSize - 3);
       logoDrawn = true;
-    } catch {
-      logoDrawn = false;
-    }
+    } catch { logoDrawn = false; }
   }
   if (!logoDrawn) {
-    setFill(doc, EDUGEST.DARK);
-    doc.rect(logoX, logoY, logoSize, logoSize, 'F');
-  }
-  setDraw(doc, EDUGEST.GOLD);
-  doc.setLineWidth(0.5);
-  doc.rect(logoX, logoY, logoSize, logoSize, 'S');
-  if (!logoDrawn) {
+    const initials = getSchoolInitials(school.shortName);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    setInk(doc, EDUGEST.GOLD);
-    centerText(doc, getSchoolInitials(school.shortName), logoX + logoSize / 2, logoY + logoSize / 2 + 1.5);
+    doc.setFontSize(12);
+    setT(doc, NAVY);
+    const tw = doc.getTextWidth(initials);
+    doc.text(initials, logoX + (logoSize - tw) / 2, logoY + logoSize / 2 + 2);
   }
 
-  // ── Nom de l'école en doré majuscule ────────────────────────────────────
-  let nameSize = 15;
-  let nameLines = doc.splitTextToSize(sanitizeAscii(school.name.toUpperCase()), contentWidth - 26) as string[];
-  if (nameLines.length > 2) {
-    nameSize = 12;
-    nameLines = doc.splitTextToSize(sanitizeAscii(school.name.toUpperCase()), contentWidth - 26) as string[];
-  }
+  // Nom de l'école en or
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(nameSize);
-  setInk(doc, EDUGEST.GOLD);
-  let nameBottomY = logoY + 8;
-  nameLines.forEach((line, i) => {
-    const ly = logoY + 8 + i * (nameSize === 15 ? 6.5 : 5.5);
-    drawText(doc, line, logoX + 26, ly);
-    nameBottomY = ly;
-  });
+  doc.setFontSize(18);
+  setT(doc, GOLD);
+  doc.text(sanitizeAscii(school.name).toUpperCase().slice(0, 30), mx + 30, y + 9);
 
-  // ── Sous-titre : République Démocratique du Congo — Année Scolaire ─────
-  let yearLabel = schoolYearLabel;
-  if (!yearLabel) {
-    const refDate = payment.paidAt || payment.createdAt;
-    const yy = refDate.getFullYear();
-    const mm = refDate.getMonth() + 1;
-    yearLabel = mm >= 9 ? `${yy}-${yy + 1}` : `${yy - 1}-${yy}`;
-  }
-  const subtitleY = nameBottomY + 6;
+  // Sous-titre
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  setInk(doc, EDUGEST.GRAY);
-  drawText(doc, `Republique Democratique du Congo - Annee Scolaire ${yearLabel}`, logoX + 26, subtitleY);
+  doc.setFontSize(8.5);
+  setT(doc, GRAY);
+  const addressParts = sanitizeAscii([school.address, school.city, school.province].filter(Boolean).join(', '));
+  if (addressParts) doc.text(addressParts.slice(0, 58), mx + 30, y + 15);
+  const contactParts = sanitizeAscii([school.phone, school.email].filter(Boolean).join('  |  '));
+  if (contactParts) doc.text(contactParts.slice(0, 58), mx + 30, y + 20);
 
-  // ── Contacts école (petite ligne grise) ─────────────────────────────────
-  const contactParts = [school.email, school.phone].filter(Boolean);
-  let headerBottom = Math.max(logoY + logoSize, nameBottomY);
-  if (contactParts.length > 0) {
-    const contactY = subtitleY + 5;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    setInk(doc, EDUGEST.GRAY);
-    drawText(doc, contactParts.join('  ·  '), logoX + 26, contactY);
-    headerBottom = Math.max(headerBottom, contactY);
-  }
+  // ── LOGO EDUGEST (haut droit) ──
+  const edugestLogo = getEduGestLogoBase64();
+  try {
+    if (edugestLogo) {
+      const edugestFormat = edugestLogo.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+      doc.addImage(edugestLogo, edugestFormat, W - mx - 26, y - 2, 24, 24);
+    } else {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      setT(doc, GOLD);
+      doc.text('EduGest', W - mx - 4, y + 8, { align: 'right' });
+    }
+  } catch { /* logo ignoré */ }
 
-  // ── Ligne dorée décorative double sous l'en-tête ────────────────────────
-  const ruleY = headerBottom + 6;
-  drawDoubleGoldLine(doc, marginX, ruleY, contentWidth);
+  // ══════════════════════════════════════════════════════════════════
+  //  LIGNE DÉCORATIVE OR
+  // ══════════════════════════════════════════════════════════════════
+  y = y + 30;
+  setD(doc, GOLD);
+  doc.setLineWidth(1);
+  doc.line(mx, y, W - mx, y);
+  doc.setLineWidth(0.3);
+  doc.line(mx, y + 2, W - mx, y + 2);
 
-  // ── TITRE : RECU N. xxx (foncé, centré) ─────────────────────────────────
-  const receiptNo = payment.receiptNumber || `REC-${payment.id.slice(-8).toUpperCase()}`;
-  let y = ruleY + 12;
+  // ══════════════════════════════════════════════════════════════════
+  //  TITRE
+  // ══════════════════════════════════════════════════════════════════
+  y += 10;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  setInk(doc, EDUGEST.DARK);
-  centerText(doc, `RECU N. ${receiptNo}`, centerX, y);
+  setT(doc, NAVY);
+  const receiptNo = payment.receiptNumber || `REC-${payment.id.slice(-8).toUpperCase()}`;
+  centerText(doc, `RECU N. ${receiptNo}`, y, W);
 
-  y += 6;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  setT(doc, GRAY);
+  centerText(doc, `Date : ${formatDate(payment.paidAt || payment.createdAt)}`, y + 6, W);
+
+  // ══════════════════════════════════════════════════════════════════
+  //  INFORMATIONS ÉLÈVE
+  // ══════════════════════════════════════════════════════════════════
+  y += 15;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  setInk(doc, EDUGEST.TEAL);
-  centerText(doc, 'RECU DE PAIEMENT SCOLAIRE', centerX, y);
+  doc.setFontSize(10);
+  setT(doc, GOLD);
+  doc.text('INFORMATIONS ELEVE', mx + 2, y);
+  y += 3;
 
-  // ── SECTION : INFORMATIONS ELEVE ────────────────────────────────────────
-  y += 10;
-  drawSectionTitle(doc, marginX, y, contentWidth, 'INFORMATIONS ELEVE');
-  y += 8.5;
-  drawDottedRow(doc, marginX, y, contentWidth, 'NOM COMPLET', `${student.lastName.toUpperCase()} ${student.firstName}`);
-  y += 8.5;
-  drawDottedRow(doc, marginX, y, contentWidth, 'MATRICULE', student.matricule || '-');
-
-  // ── SECTION : DETAILS DU PAIEMENT ───────────────────────────────────────
-  y += 11.5;
-  drawSectionTitle(doc, marginX, y, contentWidth, 'DETAILS DU PAIEMENT');
-  y += 8.5;
-  drawDottedRow(doc, marginX, y, contentWidth, 'TRIMESTRE', getTrimesterLabel(payment.trimester));
-  y += 8.5;
-  drawDottedRow(doc, marginX, y, contentWidth, 'MODE DE PAIEMENT', getPaymentMethodLabel(payment.paymentMethod));
-  y += 8.5;
-  drawDottedRow(doc, marginX, y, contentWidth, 'REFERENCE', payment.referenceNumber || '-');
-  y += 8.5;
-  drawDottedRow(doc, marginX, y, contentWidth, 'DATE DE PAIEMENT', formatDate(payment.paidAt || payment.createdAt));
-
-  // ── BOÎTE MONTANT (fond vert clair, bordure menthe) ─────────────────────
-  y += 7.5;
-  const boxHeight = 34;
-  setFill(doc, EDUGEST.GREEN_LIGHT);
-  doc.rect(marginX, y, contentWidth, boxHeight, 'F');
-  setDraw(doc, EDUGEST.MINT);
-  doc.setLineWidth(0.3);
-  doc.rect(marginX, y, contentWidth, boxHeight, 'S');
-
-  // Label « MONTANT PAYE » petit vert
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  setInk(doc, EDUGEST.GREEN);
-  drawText(doc, 'MONTANT PAYE', marginX + 6, y + 7.5);
-
-  // Montant en GRAND (26pt) vert
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(26);
-  setInk(doc, EDUGEST.GREEN);
-  const amountStr = fmtNumInt(payment.paidAmount);
-  drawText(doc, amountStr, marginX + 6, y + 22);
-  const amountWidth = doc.getTextWidth(amountStr);
-  doc.setFontSize(11);
-  drawText(doc, 'CDF', marginX + 6 + amountWidth + 2, y + 22);
-
-  // Badge statut (fond coloré plein)
-  const statusInfo = getStatusInfo(payment.status);
-  const statusBg = hexToRgb(statusInfo.bg);
-  const statusInk = hexToRgb(statusInfo.text);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  const statusLabel = sanitizeAscii(statusInfo.label);
-  const badgeWidth = doc.getTextWidth(statusLabel) + 8;
-  const badgeHeight = 7;
-  const badgeX = marginX + contentWidth - 4 - badgeWidth;
-  const badgeY = y + 4;
-  doc.setFillColor(statusBg.r, statusBg.g, statusBg.b);
-  doc.rect(badgeX, badgeY, badgeWidth, badgeHeight, 'F');
-  doc.setTextColor(statusInk.r, statusInk.g, statusInk.b);
-  centerText(doc, statusLabel, badgeX + badgeWidth / 2, badgeY + 5);
-
-  // Équivalence devise (si taux disponible)
-  if (usdToCdfRate && usdToCdfRate > 0 && isFinite(usdToCdfRate)) {
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(8);
-    setInk(doc, EDUGEST.GRAY);
-    drawText(
-      doc,
-      `Equivalent : ${fmtNum(payment.paidAmount / usdToCdfRate)} USD (taux : 1 USD = ${fmtNum(usdToCdfRate)} CDF)`,
-      marginX + 6,
-      y + 30
-    );
-  }
-
-  y += boxHeight;
-
-  // Description du statut (petite ligne italique grise)
-  if (statusInfo.desc) {
-    y += 5.5;
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(7.5);
-    setInk(doc, EDUGEST.GRAY);
-    centerText(doc, statusInfo.desc, centerX, y);
-  }
-
-  // ── SECTION : SITUATION FINANCIERE (3 colonnes) ─────────────────────────
-  y += 10;
-  drawSectionTitle(doc, marginX, y, contentWidth, 'SITUATION FINANCIERE');
-
-  const remaining = payment.amount - payment.paidAmount;
-  const colWidth = contentWidth / 3;
-  const headersY = y + 9;
-  const valuesTopLineY = headersY + 3.5;
-  const valuesY = valuesTopLineY + 11;
-  const valuesBottomLineY = valuesY + 4.5;
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  setInk(doc, EDUGEST.TEAL);
-  centerText(doc, 'TOTAL DU', marginX + colWidth * 0.5, headersY);
-  centerText(doc, 'TOTAL PAYE', marginX + colWidth * 1.5, headersY);
-  centerText(doc, 'RESTANT', marginX + colWidth * 2.5, headersY);
-
-  setDraw(doc, EDUGEST.GRAY_LIGHT);
-  doc.setLineWidth(0.3);
-  doc.line(marginX + 4, valuesTopLineY, marginX + contentWidth - 4, valuesTopLineY);
-  doc.line(marginX + 4, valuesBottomLineY, marginX + contentWidth - 4, valuesBottomLineY);
-
-  const financialCols: Array<{ text: string; color: RGB }> = [
-    { text: fmtNumInt(payment.amount), color: EDUGEST.DARK },
-    { text: fmtNumInt(payment.paidAmount), color: EDUGEST.GREEN },
-    { text: remaining > 0 ? fmtNumInt(remaining) : '0', color: remaining > 0 ? EDUGEST.GOLD : EDUGEST.GREEN },
+  const infoFields: [string, string][] = [
+    ['ELEVE', sanitizeAscii(`${student.lastName.toUpperCase()} ${student.firstName}`).slice(0, 46)],
+    ['MATRICULE', sanitizeAscii(student.matricule)],
+    ['TRIMESTRE', sanitizeAscii(getTrimesterLabel(payment.trimester))],
   ];
-  financialCols.forEach((col, i) => {
+
+  for (const [label, value] of infoFields) {
+    y += 7;
+    setD(doc, LGRAY);
+    doc.setLineWidth(0.2);
+    drawDottedLine(doc, mx + 2, y - 2, W - mx - 2);
+
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    setInk(doc, col.color);
-    const valueStr = sanitizeAscii(col.text);
-    const valueWidth = doc.getTextWidth(valueStr);
-    doc.setFontSize(8);
-    const unitWidth = doc.getTextWidth('CDF');
-    const startX = marginX + colWidth * i + colWidth / 2 - (valueWidth + 2 + unitWidth) / 2;
-    doc.setFontSize(14);
-    drawText(doc, valueStr, startX, valuesY);
-    doc.setFontSize(8);
-    drawText(doc, 'CDF', startX + valueWidth + 2, valuesY);
-  });
+    doc.setFontSize(9);
+    setT(doc, GRAY);
+    doc.text(label, mx + 4, y);
 
-  y = valuesBottomLineY;
-
-  // ── SIGNATURE & CACHET ──────────────────────────────────────────────────
-  const isCash = !payment.paymentMethod || payment.paymentMethod.toUpperCase() === 'CASH';
-  const sigTop = y + 10;
-  const sigHeight = 24;
-
-  if (!isCash) {
-    // Paiement en ligne : signature électronique + cachet « PAYE EN LIGNE »
-    const eSigW = 78;
-    const eSigH = sigHeight - 4;
-    setDraw(doc, EDUGEST.GRAY_LIGHT);
-    doc.setLineWidth(0.3);
-    doc.rect(marginX + 4, sigTop, eSigW, eSigH, 'S');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    setInk(doc, EDUGEST.GREEN);
-    centerText(doc, 'SIGNE ELECTRONIQUEMENT', marginX + 4 + eSigW / 2, sigTop + 10);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
-    setInk(doc, EDUGEST.GRAY);
-    centerText(doc, `Le ${formatDateTime(payment.paidAt || payment.createdAt)}`, marginX + 4 + eSigW / 2, sigTop + 16);
-
-    const stampW = 62;
-    const stampX = marginX + contentWidth - stampW - 4;
-    setFill(doc, EDUGEST.GREEN_LIGHT);
-    doc.rect(stampX, sigTop, stampW, eSigH, 'F');
-    setDraw(doc, EDUGEST.GREEN);
-    doc.setLineWidth(0.3);
-    doc.rect(stampX, sigTop, stampW, eSigH, 'S');
-    doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    setInk(doc, EDUGEST.GREEN);
-    centerText(doc, 'PAYE EN LIGNE', stampX + stampW / 2, sigTop + eSigH / 2 + 1.5);
-  } else {
-    // Espèces : lignes vierges + cadre pointillé pour le tampon physique
-    const sigLineY = sigTop + 14;
-    setDraw(doc, EDUGEST.GRAY);
-    doc.setLineWidth(0.3);
-    doc.line(marginX + 8, sigLineY, marginX + 68, sigLineY);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    setInk(doc, EDUGEST.GRAY);
-    centerText(doc, 'Signature', marginX + 38, sigLineY + 5);
-
-    const stampW = 55;
-    const stampH = 20;
-    const stampX = marginX + contentWidth - stampW - 8;
-    drawDottedRect(doc, stampX, sigTop, stampW, stampH);
-    centerText(doc, 'Cachet', stampX + stampW / 2, sigTop + stampH + 5);
+    setT(doc, NAVY);
+    rightText(doc, value, y, W - mx - 4);
   }
 
-  // ── PIED DE PAGE ────────────────────────────────────────────────────────
-  const footerLineY = pageHeight - 34;
-  setDraw(doc, EDUGEST.GOLD);
+  // ══════════════════════════════════════════════════════════════════
+  //  DÉTAILS DU PAIEMENT
+  // ══════════════════════════════════════════════════════════════════
+  y += 10;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  setT(doc, GOLD);
+  doc.text('DETAILS DU PAIEMENT', mx + 2, y);
+  y += 3;
+
+  const payFields: [string, string][] = [
+    ['MODE DE PAIEMENT', sanitizeAscii(getPaymentMethodLabel(payment.paymentMethod))],
+    ['REFERENCE', sanitizeAscii(payment.referenceNumber || '-')],
+    ['VERIFIE PAR', sanitizeAscii(payment.verifiedBy || 'Non verifie')],
+  ];
+
+  for (const [label, value] of payFields) {
+    y += 7;
+    setD(doc, LGRAY);
+    doc.setLineWidth(0.2);
+    drawDottedLine(doc, mx + 2, y - 2, W - mx - 2);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    setT(doc, GRAY);
+    doc.text(label, mx + 4, y);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    setT(doc, NAVY);
+    rightText(doc, value.slice(0, 40), y, W - mx - 4);
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  ENCADRÉ MONTANT PAYÉ (vert menthe, style gianelli)
+  // ══════════════════════════════════════════════════════════════════
+  y += 10;
+  const boxH = 28;
+  const boxX = mx + 2;
+  const boxW = cw - 4;
+
+  setF(doc, LGREEN);
+  setD(doc, MINT);
   doc.setLineWidth(0.8);
-  doc.line(marginX, footerLineY, marginX + contentWidth, footerLineY);
+  doc.rect(boxX, y, boxW, boxH, 'FD');
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  setInk(doc, EDUGEST.DARK);
-  centerText(doc, school.name, centerX, footerLineY + 7);
+  setT(doc, GREEN);
+  centerText(doc, 'MONTANT PAYE', y + 7, W);
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  setInk(doc, EDUGEST.GRAY);
-  const placeParts = [school.city, school.country].filter(Boolean);
-  if (placeParts.length > 0) {
-    centerText(doc, placeParts.join(', '), centerX, footerLineY + 12.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(26);
+  setT(doc, GREEN);
+  centerText(doc, `${fmtNumInt(payment.paidAmount)} CDF`, y + 17, W);
+
+  // Badge statut
+  const statusInfo = getStatusInfo(payment.status);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  const bW = doc.getTextWidth(statusInfo.label) + 10;
+  const bX = W / 2 - bW / 2;
+  const bY = y + 21;
+
+  setF(doc, statusInfo.bg);
+  setD(doc, statusInfo.bg);
+  doc.setLineWidth(0.5);
+  doc.rect(bX, bY, bW, 6, 'FD');
+  setT(doc, statusInfo.fg);
+  const sTw = doc.getTextWidth(statusInfo.label);
+  doc.text(statusInfo.label, W / 2 - sTw / 2, bY + 4.2);
+
+  y += boxH + 4;
+
+  // ══════════════════════════════════════════════════════════════════
+  //  SITUATION FINANCIÈRE (3 colonnes)
+  // ══════════════════════════════════════════════════════════════════
+  y += 6;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  setT(doc, GOLD);
+  doc.text('SITUATION FINANCIERE', mx + 2, y);
+
+  y += 6;
+  const colW = cw / 3;
+
+  setD(doc, NAVY);
+  doc.setLineWidth(0.5);
+  doc.line(mx, y, W - mx, y);
+
+  y += 6;
+
+  const remaining = payment.amount - payment.paidAmount;
+  const summaryData: { label: string; value: string; color: [number, number, number] }[] = [
+    { label: 'TOTAL DU', value: `${fmtNumInt(payment.amount)} CDF`, color: NAVY },
+    { label: 'TOTAL PAYE', value: `${fmtNumInt(payment.paidAmount)} CDF`, color: GREEN },
+    { label: 'RESTANT', value: `${fmtNumInt(Math.max(remaining, 0))} CDF`, color: remaining > 0 ? GOLD : GREEN },
+  ];
+
+  for (let i = 0; i < 3; i++) {
+    const colCenter = mx + colW * i + colW / 2;
+    const item = summaryData[i];
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    setT(doc, GRAY);
+    const lTw = doc.getTextWidth(item.label);
+    doc.text(item.label, colCenter - lTw / 2, y);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    setT(doc, item.color);
+    const vTw = doc.getTextWidth(item.value);
+    doc.text(item.value, colCenter - vTw / 2, y + 8);
   }
 
-  doc.setFont('helvetica', 'italic');
+  y += 10;
+  setD(doc, NAVY);
+  doc.setLineWidth(0.5);
+  doc.line(mx, y, W - mx, y);
+
+  // ══════════════════════════════════════════════════════════════════
+  //  SIGNATURE & CACHET
+  // ══════════════════════════════════════════════════════════════════
+  y = Math.min(Math.max(y + 10, 190), 206);
+
+  setD(doc, GOLD);
+  doc.setLineWidth(0.5);
+  doc.line(mx, y, W - mx, y);
+
+  y += 6;
+  const methodLabel = getPaymentMethodLabel(payment.paymentMethod);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  setT(doc, GRAY);
+  doc.text(`MODE : ${methodLabel}`, mx + 4, y);
+
+  y += 9;
+  const leftBoxX = mx + 4;
+  const rightBoxX = W / 2 + 5;
+  const sigBoxW = W / 2 - mx - 10;
+
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
-  setInk(doc, EDUGEST.GRAY_LIGHT);
-  centerText(doc, `Document genere le ${formatDateTime(new Date())}`, centerX, footerLineY + 18);
+  setT(doc, GRAY);
+  doc.text('Signature Caissier', leftBoxX, y);
+  setD(doc, LGRAY);
+  doc.setLineWidth(0.3);
+  doc.line(leftBoxX, y + 8, leftBoxX + sigBoxW - 5, y + 8);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  setT(doc, GRAY);
+  doc.text('Cachet de l\'ecole', rightBoxX, y);
+  setD(doc, LGRAY);
+  doc.setLineWidth(0.3);
+  doc.line(rightBoxX, y + 8, rightBoxX + sigBoxW - 5, y + 8);
+
+  // ══════════════════════════════════════════════════════════════════
+  //  QR CODE DE VÉRIFICATION (EN BAS DU REÇU) + notice
+  // ══════════════════════════════════════════════════════════════════
+  if (qrCodeDataUrl) {
+    const qrY = H - 60;
+    try {
+      doc.addImage(qrCodeDataUrl, 'PNG', W / 2 - 10, qrY, 20, 20);
+    } catch { /* QR ignoré */ }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    setT(doc, GRAY);
+    centerText(doc, 'VERIFICATION', qrY + 23, W);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    setT(doc, LGRAY);
+    centerText(doc, 'Pour verifier l\'authenticite de ce recu, scannez le QR code', qrY + 27, W);
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  PIED DE PAGE : école + EduGest
+  // ══════════════════════════════════════════════════════════════════
+  const footerY = H - 25;
+
+  setD(doc, GOLD);
+  doc.setLineWidth(0.8);
+  doc.line(mx, footerY, W - mx, footerY);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  setT(doc, NAVY);
+  centerText(doc, sanitizeAscii(school.name).slice(0, 48), footerY + 5, W);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  setInk(doc, EDUGEST.GRAY_LIGHT);
-  centerText(doc, 'Genere par EduGest', centerX, footerLineY + 22.5);
+  doc.setFontSize(7);
+  setT(doc, GRAY);
+  centerText(doc, 'Genere par EduGest - La plateforme de gestion scolaire', footerY + 9, W);
 
-  // ── ID de paiement en texte machine blanc (vérification d'import) ───────
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(6.5);
+  setT(doc, LGRAY);
+  const now = new Date();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const genDate = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  centerText(doc, `Document genere le ${genDate}`, footerY + 13, W);
+
+  // ID de vérification machine-lisible
   doc.setFontSize(4);
-  setInk(doc, EDUGEST.WHITE);
-  centerText(doc, `EDUGEST-ID:${payment.id}`, centerX, pageHeight - 2.5);
+  setT(doc, [255, 255, 255]);
+  centerText(doc, `EDUGEST-RECU:${payment.id}`, H - 4, W);
 
   return Buffer.from(doc.output('arraybuffer'));
 }
@@ -667,40 +616,28 @@ export async function GET(
       } catch {}
     }
 
-    // Année scolaire active (affichée dans le sous-titre de l'en-tête)
-    let schoolYearLabel: string | null = null;
-    try {
-      const activeYear = await db.schoolYear.findFirst({
-        where: { schoolId: payment.schoolId, isActive: true },
-        orderBy: { createdAt: 'desc' },
-        select: { label: true },
-      });
-      schoolYearLabel = activeYear?.label ?? null;
-    } catch {}
+    // ── Enregistrement du document officiel + QR code unique ─────────
+    const docRecord = await registerDocument({
+      type: 'RECEIPT',
+      schoolId: payment.schoolId,
+      studentId: payment.studentId,
+      paymentRecordId: payment.id,
+      trimester: payment.trimester,
+      metadata: {
+        receiptNumber: payment.receiptNumber || `REC-${payment.id.slice(-8).toUpperCase()}`,
+        amount: payment.amount,
+        paidAmount: payment.paidAmount,
+        remaining: Math.max(payment.amount - payment.paidAmount, 0),
+        status: payment.status,
+        method: payment.paymentMethod,
+        studentName: `${student.firstName} ${student.lastName}`,
+        matricule: student.matricule,
+      },
+    });
+    const qrCodeDataUrl = await qrDataUrlForDocument(docRecord.id);
 
-    // Taux USD -> CDF (pour la ligne d'équivalence devise ; omise si indisponible)
-    let usdToCdfRate: number | null = null;
-    try {
-      const currencyConfig = await db.schoolCurrencyConfig.findUnique({
-        where: { schoolId: payment.schoolId },
-      });
-      if (currencyConfig?.useManualRates && currencyConfig.manualRates) {
-        const rates = JSON.parse(currencyConfig.manualRates) as Record<string, unknown>;
-        const usd = typeof rates.USD === 'number' && rates.USD > 0 ? rates.USD : 1;
-        const cdf = typeof rates.CDF === 'number' ? rates.CDF : null;
-        if (cdf && cdf > 0) usdToCdfRate = cdf / usd;
-      }
-      if (!usdToCdfRate) {
-        const latestRate = await db.exchangeRate.findFirst({
-          where: { base: 'USD', target: 'CDF' },
-          orderBy: { fetchedAt: 'desc' },
-        });
-        if (latestRate?.rate && latestRate.rate > 0) usdToCdfRate = latestRate.rate;
-      }
-    } catch {}
-
-    // Build PDF
-    const pdfBuffer = buildReceiptPDF(payment, student, payment.school, schoolLogoBase64, schoolYearLabel, usdToCdfRate);
+    // Build PDF (design gianelli : logos école + EduGest, QR en bas)
+    const pdfBuffer = buildReceiptPDF(payment, student, payment.school, schoolLogoBase64, qrCodeDataUrl);
 
     const receiptNo = payment.receiptNumber || `REC-${payment.id.slice(-8).toUpperCase()}`;
 

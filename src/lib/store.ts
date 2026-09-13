@@ -130,6 +130,7 @@ export type ViewType =
   | 'dispenses'
   | 'parents'
   | 'personalization'
+  | 'parent-qr'
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'

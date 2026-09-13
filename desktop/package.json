@@ -1,0 +1,48 @@
+{
+  "name": "edugest-desktop",
+  "version": "1.0.0",
+  "description": "EduGest — La plateforme de gestion scolaire (application de bureau)",
+  "main": "main.js",
+  "author": "EduGest",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win",
+    "dist:all": "electron-builder --win --linux"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "cd.edugest.desktop",
+    "productName": "EduGest",
+    "copyright": "Copyright © 2026 EduGest",
+    "directories": {
+      "output": "dist",
+      "buildResources": "."
+    },
+    "files": [
+      "main.js"
+    ],
+    "extraResources": [
+      { "from": "../.next/standalone", "to": "app" },
+      { "from": "../db/desktop-template.db", "to": "template.db" }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false,
+      "shortcutName": "EduGest"
+    },
+    "portable": {
+      "artifactName": "EduGest-Portable-${version}.exe"
+    }
+  }
+}

@@ -37,6 +37,11 @@ export default function StudentsView() {
   const [editGender, setEditGender] = useState('M')
   const [editClassId, setEditClassId] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
+  // Compte parent (gestion manuelle élève par élève)
+  const [editParentName, setEditParentName] = useState('')
+  const [editParentPhone, setEditParentPhone] = useState('')
+  const [editParentPassword, setEditParentPassword] = useState('')
+  const [savingParentAccount, setSavingParentAccount] = useState(false)
   const { userData, highlightedId } = useEduGestStore()
   const [activeSchoolYear, setActiveSchoolYear] = useState('')
   const [archivedCount, setArchivedCount] = useState(0)
@@ -168,6 +173,39 @@ export default function StudentsView() {
     setEditLastName(student.lastName)
     setEditGender(student.gender || 'M')
     setEditClassId(student.classId || '')
+    // Pré-remplissage du compte parent existant (le mot de passe n'est jamais pré-rempli)
+    setEditParentName(student.parent?.name || '')
+    setEditParentPhone(student.parent?.phone || '')
+    setEditParentPassword('')
+  }
+
+  async function handleSaveParentAccount() {
+    if (!editingStudent) return
+    if (!editParentName.trim() || !editParentPhone.trim()) { toast.error('Nom et téléphone du parent requis'); return }
+    setSavingParentAccount(true)
+    try {
+      const body: Record<string, string> = {
+        name: editParentName.trim(),
+        phone: editParentPhone.trim(),
+      }
+      if (editParentPassword) body.password = editParentPassword
+      const res = await authFetch(`/api/students/${editingStudent.id}/parent-account`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (res.ok) {
+        toast.success(j.data?.message || 'Compte parent enregistré !')
+        setEditParentPassword('')
+        // Rafraîchit la liste pour afficher le parent lié
+        const json = await authFetch(`/api/students?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json())
+        setStudents(json.data || [])
+      } else {
+        toast.error(j.error || 'Erreur lors de l enregistrement du compte parent')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setSavingParentAccount(false) }
   }
 
   async function handleSaveEdit() {
@@ -415,8 +453,8 @@ export default function StudentsView() {
 
       {editingStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setEditingStudent(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto custom-scrollbar" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
               <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Modifier l'élève</h3>
               <button onClick={() => setEditingStudent(null)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-gray-100 transition"><X size={16} className="text-gray-500" /></button>
             </div>
@@ -427,6 +465,29 @@ export default function StudentsView() {
               </div>
               <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Sexe</label><select value={editGender} onChange={e => setEditGender(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"><option value="M">Masculin</option><option value="F">Féminin</option></select></div>
               <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe</label><select value={editClassId} onChange={e => setEditClassId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">{classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+
+              {/* ── Compte parent : identifiants écrits à la main par l'admin ── */}
+              <div className="border border-[oklch(90%_0.01_175)] rounded-xl overflow-hidden">
+                <div className="px-4 py-3 text-sm font-medium flex items-center gap-2" style={{ color: TEXT_PRIMARY, background: IVORY }}>
+                  <Users size={14} style={{ color: GOLD }} />
+                  Compte parent — identifiants de connexion
+                </div>
+                <div className="px-4 py-4 space-y-3">
+                  <p className="text-[12px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
+                    Écrivez ici le nom et le mot de passe du compte parent de cet élève. Le parent se connectera avec son numéro de téléphone et ce mot de passe.
+                  </p>
+                  <div><input placeholder="Nom du parent" value={editParentName} onChange={e => setEditParentName(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
+                  <div><input placeholder="Téléphone du parent (identifiant, ex: +243 81...)" type="tel" value={editParentPhone} onChange={e => setEditParentPhone(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
+                  <div className="relative">
+                    <input placeholder={editParentPhone ? "Nouveau mot de passe (laisser vide pour ne pas changer)" : "Mot de passe du parent"} type={showParentPwd ? 'text' : 'password'} value={editParentPassword} onChange={e => setEditParentPassword(e.target.value)} className="w-full px-3 py-2 pr-10 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+                    <button type="button" onClick={() => setShowParentPwd(!showParentPwd)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[oklch(52%_0.015_250)] hover:text-[oklch(40%_0.02_250)] transition p-1">{showParentPwd ? <EyeOff size={14} /> : <Eye size={14} />}</button>
+                  </div>
+                  <button type="button" onClick={handleSaveParentAccount} disabled={savingParentAccount} className="w-full py-2.5 rounded-xl text-sm font-semibold edu-gold-cta inline-flex items-center justify-center gap-2 disabled:opacity-50">
+                    {savingParentAccount ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
+                    Enregistrer le compte parent
+                  </button>
+                </div>
+              </div>
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
               <button onClick={() => setEditingStudent(null)} className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)]" style={{ color: TEXT_PRIMARY }}>Annuler</button>

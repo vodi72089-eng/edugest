@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // better-sqlite3 est un module natif : ne pas le bundler (import de BDD)
+  serverExternalPackages: ["better-sqlite3"],
   /* config options here */
   typescript: {
     ignoreBuildErrors: true,

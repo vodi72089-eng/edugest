@@ -1123,3 +1123,28 @@ Stage Summary:
 - public/logos/payment contient désormais 10 vrais logos officiels (8 SVG Wikimedia + 2 PNG officiels Flutterwave/DPO) + cash.svg icône banknote propre
 - Rendu UI : plaque blanche uniforme w-20 h-10, object-contain, aucun logo rogné
 - Vérifié visuellement en production locale, prêt pour commit/push
+
+---
+Task ID: 6 (suite — fusion remote)
+Agent: Z.ai Code
+Task: Intégration du travail sur l'historique officiel du dépôt (159 commits) sans perte
+
+Work Log:
+- Découverte que le dépôt GitHub avait divergé : l'historique officiel (fb45d1e) contient déjà gestion des parents, personnalisation design par école, reçu gianelli couleurs EduGest, abonnement réservé à SCHOOL_ADMIN
+- Reset du bac à sable sur FETCH_HEAD puis ré-application propre de TOUT le travail :
+  • Nouveaux fichiers copiés tels quels (QR parents, find-child, verify document, import DB, parent-account, ParentQrView, document-verify, bulletin gianelli+QR, desktop/, workflow GH, DESKTOP.md)
+  • Reçu PDF : version gianelli navy/or + logos école/EduGest + QR en bas conservée (conforme à la demande : design institut-gianelli-web)
+  • page.tsx : menus QR Parents intégrés à la NOUVELLE structure remote (SUPER_ADMIN, SECRETARY, SCHOOL_ADMIN, DIRECTION_*, menu freemium), VIEWS_BY_ROLE + FREEMIUM_VIEWS + renderView + breadcrumb + onglet login « Trouver mon école »
+  • store.ts : ViewType 'parent-qr' ajouté aux 4 nouveaux ViewTypes remote
+  • schema.prisma : SchoolQrCode + DocumentVerification ajoutés aux modèles remote (Dispense, RepechageExam, designPrimary…)
+  • subscription.ts : secrétaire exclue du comptage (le remote gère déjà Mon Abonnement = SCHOOL_ADMIN only)
+  • auth : fallback connexion par numéro de téléphone
+- Bases alignées : prisma/db/custom.db (remote, mots de passe admin123) + db:push (tables QR/Docs) → db/custom.db + db/desktop-template.db
+- Re-vérification complète post-fusion : login OK, QR OK, find-child OK (15 classes), bulletin 209 Ko + QR OK, page vérification « Document officiel » OK, reçu 201 Ko, 6 écoles publiques
+- Lint : 94 problèmes = identique au remote pur (aucune régression)
+- UI vérifiée via agent-browser : 3 onglets login, recherche écoles, formulaire import, menu + vue QR Parents sur la nouvelle structure
+
+Stage Summary:
+- Le travail est intégré SUR l'historique officiel du dépôt (fast-forward possible)
+- Aucune fonctionnalité remote perdue (parents, personnalisation, passerelles RDC, afrotools)
+- Toutes les nouvelles fonctionnalités validées de bout en bout après fusion
