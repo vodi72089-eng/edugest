@@ -221,8 +221,7 @@ function PublicHeader({ dark = false }: { dark?: boolean }) {
     <header className={`sticky top-0 z-50 ${dark ? 'bg-transparent' : 'bg-white/85 backdrop-blur-xl border-b border-edu-border'}`}>
       <div className="container-premium h-16 flex items-center justify-between">
         <button onClick={() => setCurrentView('home')} className="flex items-center gap-2 font-bold text-base">
-          <i className="ri-graduation-cap-fill text-xl" style={{ color: '#f5a623' }}></i>
-          EduGest
+          <BrandMark height={32} className={dark ? 'brightness-110' : ''} />
         </button>
         <nav className="hidden sm:flex items-center gap-1">
           <button onClick={() => setCurrentView('home')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Écoles</button>
@@ -687,7 +686,7 @@ function HomeView() {
             </button>
           ))}
           <div className="ml-auto hidden sm:block text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
-            Affichage {filteredSchools.length > 0 ? '1' : '0'}—{Math.min(12, filteredSchools.length)} sur {filteredSchools.length}
+            {formatNumber(filteredSchools.length)} école{filteredSchools.length > 1 ? 's' : ''}
           </div>
           <button
             onClick={() => setShowMap(!showMap)}
@@ -1869,7 +1868,6 @@ function CreateSchoolView() {
 // ===== LOGIN VIEW =====
 function LoginView() {
   const { setCurrentView, login } = useEduGestStore()
-  const [tab, setTab] = useState<'parent' | 'admin' | 'school'>('parent')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -1882,17 +1880,22 @@ function LoginView() {
   const [schools, setSchools] = useState<{ id: string; name: string; shortName: string; city: string }[]>([])
   const [selectedSchoolId, setSelectedSchoolId] = useState('')
 
-  // ── Onglet « Trouver mon école » ─────────────────────────────────────────────
+  // ── Popup « Trouver mon école » (recherche publique) ────────────────────
+  const [showFindSchoolPopup, setShowFindSchoolPopup] = useState(false)
   const [publicSchools, setPublicSchools] = useState<{ id: string; name: string; city: string; province: string; logo: string | null; studentCount: number }[]>([])
   const [schoolQuery, setSchoolQuery] = useState('')
   const [schoolSearching, setSchoolSearching] = useState(false)
-  // Import de base de données (admins d'école)
-  const [importEmail, setImportEmail] = useState('')
-  const [importPassword, setImportPassword] = useState('')
+
+  // ── Popup « Importer votre base » (post-login, identifiants validés) ────
+  // Ne s'affiche QUE lorsque les identifiants ont été validés par le
+  // serveur (connexion réussie). Le serveur détermine le rôle ; aucun
+  // message ne fuit sur le type de compte.
+  const [showImportBasePopup, setShowImportBasePopup] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importLoading, setImportLoading] = useState(false)
   const [importResult, setImportResult] = useState<{ students: number; classes: number; grades: number; teachers: number; subjects: number } | null>(null)
   const [importError, setImportError] = useState('')
+  const [pendingRedirect, setPendingRedirect] = useState<ViewType>('dashboard')
 
   const loadPublicSchools = useCallback((q: string) => {
     setSchoolSearching(true)
@@ -1904,56 +1907,53 @@ function LoginView() {
   }, [])
 
   useEffect(() => {
-    if (tab === 'school') loadPublicSchools('')
-  }, [tab, loadPublicSchools])
+    if (showFindSchoolPopup) loadPublicSchools('')
+  }, [showFindSchoolPopup, loadPublicSchools])
 
+  // Import de base de données — utilise le token Bearer de l'utilisateur
+  // déjà authentifié (pas besoin de redemander email/password).
   async function handleImportDb(e: React.FormEvent) {
     e.preventDefault()
     setImportError('')
     setImportResult(null)
     if (!importFile) { setImportError('Choisissez votre fichier de base de données (.db)'); return }
-    if (!importEmail || !importPassword) { setImportError('Entrez vos identifiants administrateur'); return }
     setImportLoading(true)
     try {
       const fd = new FormData()
       fd.append('file', importFile)
-      fd.append('email', importEmail)
-      fd.append('password', importPassword)
-      const res = await fetch('/api/school/import-db', { method: 'POST', body: fd })
+      const res = await authFetch('/api/school/import-db', { method: 'POST', body: fd })
       const j = await res.json()
       if (!res.ok) {
-        setImportError(j.error || 'Erreur lors de l import')
+        setImportError(j.error || 'Erreur lors de l\'import')
         return
       }
       const sm = j.data?.summary || {}
       setImportResult({ students: sm.students || 0, classes: sm.classes || 0, grades: sm.grades || 0, teachers: sm.teachers || 0, subjects: sm.subjects || 0 })
       setImportFile(null)
     } catch {
-      setImportError('Erreur réseau pendant l import')
+      setImportError('Erreur réseau pendant l\'import')
     } finally {
       setImportLoading(false)
     }
+  }
+
+  function skipImportAndContinue() {
+    setShowImportBasePopup(false)
+    setImportFile(null)
+    setImportResult(null)
+    setImportError('')
+    setCurrentView(pendingRedirect)
   }
 
   useEffect(() => {
     fetch('/api/schools?limit=50').then(r => r.json()).then(j => setSchools(j.data || [])).catch(() => {})
   }, [])
 
-  // Vérifie que le rôle correspond à l'onglet sélectionné
-  function validateRoleForTab(role: UserRole | null): { valid: boolean; message?: string } {
-    if (!role) return { valid: false, message: 'Rôle non reconnu. Contactez l\'administration.' }
-    if (role === 'SUPER_ADMIN_GLOBAL') return { valid: true }
-    if (tab === 'parent') {
-      if (role !== 'PARENT') {
-        return { valid: false, message: 'Ce compte n\'est pas un compte parent. Veuillez utiliser l\'onglet Administration.' }
-      }
-    } else {
-      if (role === 'PARENT') {
-        return { valid: false, message: 'Ce compte est un compte parent. Veuillez utiliser l\'onglet Parent.' }
-      }
-    }
-    return { valid: true }
-  }
+  // NOTE (sécurité) : plus de validation de rôle côté client. Le rôle est
+  // déterminé uniquement par le serveur à partir des identifiants. Aucun
+  // message ne révèle si un email est un compte parent ou admin — ça
+  // empêche qu'un attaquant qui devine un mot de passe sache à l'avance
+  // quel type de compte il a trouvé.
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -1969,11 +1969,9 @@ function LoginView() {
       if (json.data) {
         const apiUser = json.data
         const role = mapApiRole(apiUser.role)
-        const validation = validateRoleForTab(role)
-        if (!validation.valid) {
-          toast.error(validation.message || 'Accès non autorisé pour ce type de compte.')
-          return
-        }
+        // Le rôle est validé uniquement côté serveur. Aucun message
+        // spécifique sur le type de compte n'est affiché en cas d'erreur
+        // (mesure de sécurité anti-énumération de comptes).
         if (role) {
           login(role, {
             id: apiUser.id,
@@ -1993,9 +1991,19 @@ function LoginView() {
               : null,
           }, json.data.token)
           toast.success(`Bienvenue, ${apiUser.name}!`)
+          // ── Popup « Importer votre base » ────────────────────────────────
+          // S'affiche UNIQUEMENT lorsque les identifiants ont été validés
+          // (connexion réussie). Seuls les admins (rôles admin d'école)
+          // voient la popup — les parents n'en ont pas besoin.
+          const IMPORT_ADMIN_ROLES = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE']
+          if (IMPORT_ADMIN_ROLES.includes(role)) {
+            setPendingRedirect('dashboard')
+            setShowImportBasePopup(true)
+          }
           return
         }
       }
+      // Message d'erreur générique — ne révèle pas la nature du compte.
       if (json.error) {
         toast.error(json.error === 'Invalid credentials' ? 'Email ou mot de passe incorrect' : json.error)
       } else {
@@ -2040,19 +2048,16 @@ function LoginView() {
       <div className="absolute top-0 right-0 w-[500px] h-[500px] opacity-15 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, oklch(72% 0.15 65 / 0.3), transparent 70%)' }} />
       <div className="absolute bottom-0 left-0 w-[400px] h-[400px] opacity-10 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, oklch(60% 0.15 145 / 0.2), transparent 70%)' }} />
 
-      {/* Top nav bar */}
+      {/* Top nav bar — logo seul, pas de bouton Retour vers landing page */}
       <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-5 w-full">
-        <button onClick={() => setCurrentView('home')} className="flex items-center shrink-0 min-w-max">
-          <BrandMark height={48} className="brightness-110 hover:scale-105 transition-all duration-300" />
-        </button>
-        <button onClick={() => setCurrentView('home')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em] flex items-center gap-1.5">
-          <ArrowLeft size={14} /> Retour
-        </button>
+        <div className="flex items-center shrink-0 min-w-max">
+          <BrandMark height={48} className="brightness-110" />
+        </div>
       </nav>
 
       {/* Main content: animated book + login card */}
       <main className="relative z-20 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-4 sm:py-8 gap-8 sm:gap-10">
-        {/* Animated Book + Brand */}
+        {/* Animated Book + Brand — logo officiel uniquement, pas de texte EduGest */}
         <div className="text-center flex flex-col items-center gap-5">
           <div className="edu-book mx-auto" style={{ transform: 'scale(1.1)' }}>
             <div className="edu-book__pg-shadow"></div>
@@ -2062,48 +2067,22 @@ function LoginView() {
             <div className="edu-book__pg edu-book__pg--4"></div>
             <div className="edu-book__pg edu-book__pg--5"></div>
           </div>
-          <div>
-            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight mb-2">
-              Edu<span style={{ color: 'oklch(72% 0.15 65)', textShadow: '0 0 20px oklch(72% 0.15 65 / 0.4)' }}>Gest</span>
-            </h1>
-            <p className="text-white/50 text-sm sm:text-base font-medium">
-              La plateforme de gestion scolaire
-            </p>
-          </div>
+          <BrandMark height={56} className="brightness-110" />
         </div>
 
-        {/* Glass morphism login card */}
+        {/* Glass morphism login card — formulaire unique, pas de tabs Parent/Administration/Trouver mon école */}
         <div className="w-full max-w-[440px] rounded-2xl p-6 sm:p-8" style={{ background: 'rgba(26, 37, 32, 0.55)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5), 0 0 80px oklch(55% 0.15 175 / 0.05)' }}>
-          {/* Tab switcher */}
-          <div className="flex rounded-xl p-1 mb-6" style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-            <button onClick={() => setTab('parent')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === 'parent' ? 'text-[#0a0f0d] shadow-lg' : 'text-white/60 hover:text-white/80'}`} style={tab === 'parent' ? { background: 'oklch(55% 0.15 175)', boxShadow: '0 4px 16px oklch(55% 0.15 175 / 0.35)' } : undefined}>
-              Parent
-            </button>
-            <button onClick={() => setTab('admin')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === 'admin' ? 'text-[#0a0f0d] shadow-lg' : 'text-white/60 hover:text-white/80'}`} style={tab === 'admin' ? { background: 'oklch(55% 0.15 175)', boxShadow: '0 4px 16px oklch(55% 0.15 175 / 0.35)' } : undefined}>
-              Administration
-            </button>
-            <button onClick={() => setTab('school')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === 'school' ? 'text-[#0a0f0d] shadow-lg' : 'text-white/60 hover:text-white/80'}`} style={tab === 'school' ? { background: 'oklch(72% 0.15 65)', boxShadow: '0 4px 16px oklch(72% 0.15 65 / 0.35)' } : undefined}>
-              Trouver mon école
-            </button>
-          </div>
-
-          {tab !== 'school' ? (
-          <>
           <div className="mb-5">
-            <h2 className="text-xl font-bold text-white tracking-tight mb-1">
-              {tab === 'parent' ? 'Connexion Parent' : 'Connexion Administration'}
-            </h2>
-            <p className="text-sm text-white/50">
-              {tab === 'parent' ? 'Accédez au suivi scolaire de vos enfants' : 'Personnel de l\'école, direction, enseignants'}
-            </p>
+            <h2 className="text-xl font-bold text-white tracking-tight mb-1">Connexion</h2>
+            <p className="text-sm text-white/50">Accédez à votre espace EduGest</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-white/70">{tab === 'parent' ? 'Email ou numéro WhatsApp' : 'Email professionnel'}</label>
+              <label className="text-[13px] font-medium text-white/70">Email ou numéro WhatsApp</label>
               <input
                 type="text" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder={tab === 'parent' ? 'ex. parent@email.com ou +243 81...' : 'ex. direction@ecole.cd'}
+                placeholder="ex. direction@ecole.cd ou +243 81..."
                 className="w-full px-4 py-3.5 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)] focus:border-[oklch(55%_0.15_175_/_0.5)]"
                 style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
                 required
@@ -2154,29 +2133,52 @@ function LoginView() {
           <p className="text-center text-[13px] mt-5 text-white/50">
             Pas encore de compte ? <button onClick={() => setCurrentView('create-school')} className="font-medium hover:underline" style={{ color: 'oklch(72% 0.15 65 / 0.8)' }}>Créer mon école</button>
           </p>
-          </>
-          ) : (
-          /* ══════ ONGLET TROUVER MON ÉCOLE ══════ */
-          <div>
-            <div className="mb-5">
-              <h2 className="text-xl font-bold text-white tracking-tight mb-1">Trouver mon école</h2>
-              <p className="text-sm text-white/50">Recherchez l’école de votre enfant ou importez votre base de données (administrateurs).</p>
-            </div>
 
-            {/* Recherche d'école */}
+          {/* Lien « Trouver mon école » — ouvre une popup (la recherche publique n'est plus un onglet) */}
+          <p className="text-center text-[12px] mt-3 text-white/40">
+            <button onClick={() => setShowFindSchoolPopup(true)} className="font-medium hover:underline" style={{ color: 'oklch(55% 0.15 175)' }}>
+              Trouver mon école
+            </button>
+          </p>
+        </div>
+
+        {/* Trust indicators below form */}
+        <div className="flex items-center gap-6 sm:gap-8 text-white/30 text-xs font-medium">
+          <div className="flex items-center gap-1.5"><Shield size={14} /> Sécurisé</div>
+          <div className="flex items-center gap-1.5"><Globe size={14} /> Afrique</div>
+          <div className="flex items-center gap-1.5"><Award size={14} /> Certifié</div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <div className="relative z-20 text-center text-[13px] text-white/30 py-5">
+        © 2026 EduGest · Kinshasa · Dakar · Abidjan
+      </div>
+
+      {/* ===== POPUP « Trouver mon école » ===== */}
+      {showFindSchoolPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setShowFindSchoolPopup(false)}>
+          <div className="rounded-2xl shadow-2xl w-full max-w-md p-6" style={{ background: 'rgba(26, 37, 32, 0.95)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.1)' }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="text-base font-bold text-white">Trouver mon école</h3>
+                <p className="text-[11px] text-white/50">Recherchez l’école de votre enfant</p>
+              </div>
+              <button onClick={() => setShowFindSchoolPopup(false)} className="w-8 h-8 rounded-lg grid place-items-center text-white/60 hover:text-white hover:bg-white/10 transition"><X size={16} /></button>
+            </div>
             <div className="flex gap-2 mb-3">
               <input
                 type="text" value={schoolQuery} onChange={e => setSchoolQuery(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') loadPublicSchools(schoolQuery) }}
                 placeholder="Nom de l’école ou ville…"
-                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)] focus:border-[oklch(55%_0.15_175_/_0.5)]"
+                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)]"
                 style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
               />
               <button onClick={() => loadPublicSchools(schoolQuery)} className="px-4 rounded-xl text-sm font-semibold shrink-0" style={{ background: 'oklch(55% 0.15 175)', color: 'oklch(97% 0.005 175)' }}>
                 {schoolSearching ? '…' : 'Chercher'}
               </button>
             </div>
-            <div className="max-h-44 overflow-y-auto custom-scrollbar space-y-2 mb-4">
+            <div className="max-h-72 overflow-y-auto custom-scrollbar space-y-2">
               {publicSchools.length === 0 ? (
                 <p className="text-white/30 text-[13px] text-center py-3">{schoolSearching ? 'Recherche…' : 'Aucune école trouvée'}</p>
               ) : publicSchools.map(s => (
@@ -2193,9 +2195,29 @@ function LoginView() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
 
-            <div className="flex items-center gap-3 my-4 text-xs uppercase tracking-wider text-white/40">
-              <div className="flex-1 h-px bg-white/10" /> Admin : importez votre base <div className="flex-1 h-px bg-white/10" />
+      {/* ===== POPUP « Importer votre base » =====
+          Ne s'affiche QUE lorsque les identifiants admin ont été validés
+          par le serveur (connexion réussie). Utilise le token Bearer de
+          la session — l'utilisateur n'a pas besoin de retaper ses
+          identifiants. */}
+      {showImportBasePopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="rounded-2xl shadow-2xl w-full max-w-md p-6" style={{ background: 'rgba(26, 37, 32, 0.95)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl grid place-items-center" style={{ background: 'oklch(72% 0.15 65)' }}>
+                  <Database size={20} className="text-[#0a0f0d]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Importer votre base</h3>
+                  <p className="text-[11px] text-white/50">Identifiants vérifiés — optionnel</p>
+                </div>
+              </div>
+              <button onClick={skipImportAndContinue} className="w-8 h-8 rounded-lg grid place-items-center text-white/60 hover:text-white hover:bg-white/10 transition"><X size={16} /></button>
             </div>
 
             {importResult ? (
@@ -2205,28 +2227,18 @@ function LoginView() {
                 <p className="text-white/60 text-[12px] leading-relaxed">
                   {importResult.students} élèves · {importResult.classes} classes · {importResult.subjects} matières · {importResult.grades} notes · {importResult.teachers} professeurs
                 </p>
-                <p className="text-white/40 text-[12px] mt-2">Vos données sont maintenant celles de votre école. Connectez-vous dans l’onglet Administration.</p>
+                <p className="text-white/40 text-[12px] mt-2">Vos données sont maintenant celles de votre école.</p>
+                <button onClick={skipImportAndContinue} className="mt-4 w-full py-3 rounded-xl text-sm font-bold text-[#0a0f0d]" style={{ background: '#f5a623' }}>
+                  Continuer vers le dashboard
+                </button>
               </div>
             ) : (
               <form onSubmit={handleImportDb} className="space-y-3">
                 <p className="text-[12px] text-white/50 leading-relaxed">
-                  Vous êtes administrateur d’une école ? Importez votre fichier de base de données EduGest (.db) :
+                  Importez votre fichier de base de données EduGest (.db) :
                   élèves, classes, notes et professeurs deviennent directement la base de votre école.
+                  Vous pouvez aussi passer cette étape et importer plus tard.
                 </p>
-                <input
-                  type="text" value={importEmail} onChange={e => setImportEmail(e.target.value)}
-                  placeholder="Email administrateur"
-                  className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)]"
-                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
-                  required
-                />
-                <input
-                  type="password" value={importPassword} onChange={e => setImportPassword(e.target.value)}
-                  placeholder="Mot de passe administrateur"
-                  className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)]"
-                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
-                  required
-                />
                 <label className="block cursor-pointer rounded-xl px-4 py-3.5 text-sm text-white/70 transition hover:bg-white/5" style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px dashed rgba(255, 255, 255, 0.2)' }}>
                   <input type="file" accept=".db,.sqlite,.sqlite3" className="hidden" onChange={e => setImportFile(e.target.files?.[0] || null)} />
                   <span className="flex items-center gap-2">
@@ -2237,28 +2249,19 @@ function LoginView() {
                 {importError && (
                   <div className="rounded-xl px-4 py-3 text-[13px]" style={{ background: 'rgba(186,26,26,0.15)', border: '1px solid rgba(186,26,26,0.4)', color: '#fca5a5' }}>{importError}</div>
                 )}
-                <button type="submit" disabled={importLoading} className="w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]" style={{ background: 'oklch(72% 0.15 65)', color: 'oklch(15% 0.02 250)' }}>
-                  {importLoading ? <div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> : <Database size={16} />}
-                  {importLoading ? 'Import en cours…' : 'Importer ma base de données'}
-                </button>
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={skipImportAndContinue} disabled={importLoading} className="flex-1 py-3 rounded-xl text-sm font-semibold text-white border border-white/15 hover:bg-white/5 transition disabled:opacity-50">
+                    Passer
+                  </button>
+                  <button type="submit" disabled={importLoading || !importFile} className="flex-1 py-3 rounded-xl text-sm font-bold text-[#0a0f0d] transition disabled:opacity-50" style={{ background: 'oklch(72% 0.15 65)' }}>
+                    {importLoading ? <><div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin inline-block" /> Import…</> : <><Database size={15} className="inline" /> Importer</>}
+                  </button>
+                </div>
               </form>
             )}
           </div>
-          )}
         </div>
-
-        {/* Trust indicators below form */}
-        <div className="flex items-center gap-6 sm:gap-8 text-white/30 text-xs font-medium">
-          <div className="flex items-center gap-1.5"><Shield size={14} /> Sécurisé</div>
-          <div className="flex items-center gap-1.5"><Globe size={14} /> Afrique</div>
-          <div className="flex items-center gap-1.5"><Award size={14} /> Certifié</div>
-        </div>
-      </main>
-
-      {/* Footer */}
-      <div className="relative z-20 text-center text-[13px] text-white/30 py-5">
-        © 2026 EduGest · Kinshasa · Dakar · Abidjan
-      </div>
+      )}
 
       {/* WhatsApp Login Modal */}
       {showWhatsappModal && (
@@ -2352,11 +2355,8 @@ function LoginView() {
                       if (res.ok && json.data) {
                         const apiUser = json.data
                         const role = mapApiRole(apiUser.role)
-                        const validation = validateRoleForTab(role)
-                        if (!validation.valid) {
-                          toast.error(validation.message || 'Accès non autorisé pour ce type de compte.')
-                          return
-                        }
+                        // Pas de validation de rôle côté client (sécurité
+                        // anti-énumération — aucun message sur le type de compte)
                         if (role) {
                           login(role, {
                             id: apiUser.id,
@@ -2906,7 +2906,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
         </button>
         <div>
           <div className="text-lg font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>{viewTitles[currentView] || 'Dashboard'}</div>
-          <div className="text-xs hidden sm:block font-medium" style={{ color: TEXT_MUTED_LUXE }}>EduGest · {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          <div className="text-xs hidden sm:block font-medium" style={{ color: TEXT_MUTED_LUXE }}>{new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
         </div>
       </div>
       <div className="flex items-center gap-2 relative" ref={notifPanelRef}>

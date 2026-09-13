@@ -202,9 +202,10 @@ interface EduGestStore {
 // ─── Initial State from localStorage ─────────────────────────────────────────
 
 function getInitialState() {
-  // Always return 'home' on both server and client to avoid hydration mismatch.
-  // Session is restored in a useEffect after mount.
-  return { currentView: 'home' as ViewType, userRole: null as UserRole | null, userData: null as UserData | null, sidebarOpen: false };
+  // Always return 'login' on both server and client to avoid hydration mismatch.
+  // The landing page is disabled for security reasons — the app opens directly
+  // on the unified login form. Session is restored in a useEffect after mount.
+  return { currentView: 'login' as ViewType, userRole: null as UserRole | null, userData: null as UserData | null, sidebarOpen: false };
 }
 
 export function restoreSession() {
@@ -214,8 +215,13 @@ export function restoreSession() {
   if (token) _authToken = token;
   if (!session) return;
   const store = useEduGestStore.getState();
-  if (session.view && store.currentView === 'home') {
-    store.setCurrentView((session.view || 'home') as ViewType);
+  // After mount, if a valid session view exists, restore it (overriding the
+  // default 'login' view). Legacy 'home' sessions fall back to 'login' since
+  // the landing page has been removed.
+  if (session.view && session.view !== 'home') {
+    store.setCurrentView((session.view || 'login') as ViewType);
+  } else if (session.view === 'home') {
+    store.setCurrentView('login');
   }
   if (session.role) store.setUserRole(session.role as UserRole);
   if (session.userData) store.setUserData(session.userData as UserData);
@@ -299,7 +305,7 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
     set({
       userRole: null,
       userData: null,
-      currentView: 'home',
+      currentView: 'login',
       sidebarOpen: false,
       selectedSchoolId: null,
       selectedStudentId: null,
