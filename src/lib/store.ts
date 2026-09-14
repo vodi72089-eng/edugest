@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { viewToPath, pathToView, PUBLIC_VIEWS, PRE_AUTH_ONLY_VIEWS } from './view-paths'
 
 // ─── Persistence Keys ────────────────────────────────────────────────────────
 
@@ -95,6 +96,31 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   }
 
   return res;
+}
+
+// ─── Browser URL sync ────────────────────────────────────────────────────
+// The whole app is a single-page application driven by `currentView`.
+// These helpers keep the browser address bar synchronised with real paths
+// (/login, /dashboard, /students…) so every screen has a readable URL,
+// deep links work and back/forward behave like normal navigation.
+// The mapping itself lives in src/lib/view-paths.ts (shared with next.config).
+
+function syncUrl(view: ViewType, mode: 'push' | 'replace') {
+  if (typeof window === 'undefined') return;
+  const target = viewToPath(view);
+  if (window.location.pathname === target) return;
+  try {
+    if (mode === 'push') {
+      window.history.pushState({ edugestView: view }, '', target);
+    } else {
+      window.history.replaceState({ edugestView: view }, '', target);
+    }
+  } catch { /* ignore */ }
+}
+
+function applyView(view: ViewType) {
+  useEduGestStore.setState({ currentView: view });
+  saveSession({ view });
 }
 
 export type ViewType =
@@ -210,19 +236,60 @@ export function restoreSession() {
   const session = getStoredSession();
   const token = localStorage.getItem('edugest_token');
   if (token) _authToken = token;
-  if (!session) return;
   const store = useEduGestStore.getState();
-  // After mount, if a valid session view exists, restore it (overriding the
-  // default 'login' view). Legacy 'home' sessions fall back to 'login' since
-  // the landing page has been removed.
-  if (session.view && session.view !== 'home') {
-    store.setCurrentView((session.view || 'login') as ViewType);
-  } else if (session.view === 'home') {
-    store.setCurrentView('login');
+
+  // The URL is the first-class source of truth: a deep link like /students
+  // restores the Students view directly. Without a deep link we fall back to
+  // the last known view stored in localStorage (legacy 'home' → 'login' since
+  // the landing page has been removed).
+  const urlView = pathToView(window.location.pathname) as ViewType | null;
+  const authed = !!(session && (session.role || session.userData));
+
+  if (authed) {
+    let view: ViewType = 'dashboard';
+    if (
+      urlView &&
+      urlView !== 'home' &&
+      urlView !== 'login' &&
+      !(PRE_AUTH_ONLY_VIEWS as readonly string[]).includes(urlView)
+    ) {
+      view = urlView;
+    } else if (session.view && session.view !== 'home') {
+      view = session.view as ViewType;
+    }
+    if (session.role) store.setUserRole(session.role as UserRole);
+    if (session.userData) store.setUserData(session.userData as UserData);
+    if (session.sidebar) store.setSidebarOpen(true);
+    applyView(view);
+    syncUrl(view, 'replace');
+  } else {
+    // Not authenticated: only public screens can be shown, everything else
+    // (including unknown or auth-only deep links) lands on the login form.
+    const view: ViewType =
+      urlView && (PUBLIC_VIEWS as readonly string[]).includes(urlView)
+        ? (urlView as ViewType)
+        : 'login';
+    applyView(view);
+    syncUrl(view, 'replace');
   }
-  if (session.role) store.setUserRole(session.role as UserRole);
-  if (session.userData) store.setUserData(session.userData as UserData);
-  if (session.sidebar) store.setSidebarOpen(true);
+}
+
+// Back / forward buttons: translate the URL they land on back into a view.
+if (typeof window !== 'undefined') {
+  window.addEventListener('popstate', () => {
+    const store = useEduGestStore.getState();
+    const urlView = pathToView(window.location.pathname) as ViewType | null;
+    let target: ViewType = urlView || 'login';
+    if (!store.userRole && !(PUBLIC_VIEWS as readonly string[]).includes(target)) {
+      // Anonymous users can never land on an auth-only view.
+      target = 'login';
+    } else if (store.userRole && target === 'login') {
+      // Authenticated users never fall back to the pre-auth login screen.
+      target = store.currentView;
+    }
+    applyView(target);
+    syncUrl(target, 'replace');
+  });
 }
 
 const initial = getInitialState();
@@ -230,8 +297,8 @@ const initial = getInitialState();
 export const useEduGestStore = create<EduGestStore>((set, get) => ({
   currentView: initial.currentView,
   setCurrentView: (view) => {
-    set({ currentView: view });
-    saveSession({ view });
+    applyView(view);
+    syncUrl(view, 'push');
   },
 
   userRole: initial.userRole,
@@ -280,6 +347,7 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
       sidebarOpen: false,
     });
     saveSession(sessionData);
+    syncUrl('dashboard', 'replace');
   },
 
   logout: () => {
@@ -307,5 +375,6 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
       selectedSchoolId: null,
       selectedStudentId: null,
     });
+    syncUrl('login', 'replace');
   },
 }))

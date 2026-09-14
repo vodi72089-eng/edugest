@@ -1,4 +1,14 @@
 import type { NextConfig } from "next";
+import { VIEW_PATHS } from "./src/lib/view-paths";
+
+// L'application est une SPA rendue par une seule page. Ces rewrites font que
+// les URLs réelles (/login, /dashboard, /students…) servent l'application au
+// lieu d'un 404 lors d'un rafraîchissement ou d'un lien direct. Les routes
+// filesystem (API, /find-child, /verify/…) restent prioritaires : Next les
+// évalue AVANT ces rewrites (afterFiles).
+const SPA_REWRITES = Object.values(VIEW_PATHS)
+  .filter((p) => p !== "/")
+  .map((p) => ({ source: p, destination: "/" }));
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -9,6 +19,9 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  async rewrites() {
+    return SPA_REWRITES;
+  },
   // Security headers — non-breaking hardening (no CSP to avoid breaking
   // inline styles/scripts used by the app).
   //

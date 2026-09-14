@@ -1242,3 +1242,21 @@ Stage Summary:
 - Splash desktop affiche le vrai logo + l'étape en cours — démarrage perçu immédiat, sondage plus rapide
 - Reçus/bulletins + QR parents réparés (modèles Prisma restaurés) ; DB démo restaurée (admin@lae.cd OK)
 - Release v1.3.0 publiée automatiquement avec les 2 exe
+
+---
+Task ID: 11
+Agent: Z.ai Code (main)
+Task: Routes API codées mais invisibles dans le navigateur — "c'est juste écrit localhost partout". Rendre les URLs réelles (/login, /dashboard, /students…) visibles et accessibles.
+
+Work Log:
+- Diagnostic : l'app est une SPA mono-page pilotée par Zustand (currentView) → la barre d'adresse restait toujours sur "localhost" sans chemin, et les liens profonds (/login) renvoyaient 404.
+- Créé src/lib/view-paths.ts : source unique de vérité view↔URL (32 vues) partagée par le store et next.config.
+- store.ts : syncUrl/applyView internes ; setCurrentView → pushState ; login/logout → replaceState ; restoreSession priorise l'URL (deep link) puis localStorage ; listener popstate pour les boutons retour/avant avec garde d'authentification.
+- next.config.ts : rewrites afterFiles de toutes les vues vers "/" (routes filesystem API//find-child//verify restent prioritaires).
+- Découverte : base de données VIDE (0 users, 0 écoles) → POST /api/auth retournait 401. Reseedé via GET /api/seed (19 users, 6 écoles, mot de passe commun admin123).
+- Vérifié navigateur (agent-browser) : / → /login auto ; localhost/login anonyme affiche la connexion ; login admin → /dashboard ; clic Élèves → /students ; refresh /students → vue restaurée ; back/forward OK ; logout → /login ; /api/pricing 200 ; /xyz → 404.
+
+Stage Summary:
+- Chaque écran a désormais une vraie URL lisible et partageable ; deep links et refresh fonctionnent ; boutons retour/avant du navigateur opérationnels.
+- Mapping centralisé dans src/lib/view-paths.ts (store + next.config synchronisés par un seul fichier).
+- DB de démo reseedée — identifiants valides : admin@edugest.app / admin123, parent@email.com / admin123.
