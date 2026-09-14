@@ -100,7 +100,10 @@ export async function getSchoolWhatsAppNumber(schoolId: string | null | undefine
 
   const now = Date.now();
   const cached = schoolPhoneCache.get(schoolId);
-  if (cached && now - cached.timestamp < CACHE_TTL) {
+  // TTL court (30s) pour les résultats négatifs : après un pairing, l'auto-liaison
+  // doit prendre effet immédiatement au lieu de rester bloquée 5 min en cache.
+  const ttl = cached?.phone ? CACHE_TTL : 30_000;
+  if (cached && now - cached.timestamp < ttl) {
     return cached.phone;
   }
 

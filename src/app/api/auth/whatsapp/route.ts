@@ -71,7 +71,10 @@ export async function POST(request: NextRequest) {
       if (!user) {
         const allUsers = await db.user.findMany({ select: { id: true, phone: true } });
         const normalized = trimmedPhone.replace(/^\+/, '');
-        user = (allUsers.find(u => u.phone?.replace(/[\s\-().]/g, '').replace(/^\+/, '') === normalized) as any) || null;
+        const found = allUsers.find(u => u.phone?.replace(/[\s\-().]/g, '').replace(/^\+/, '') === normalized) || null;
+        // ⚠️ Re-fetch COMPLET : l'objet partiel {id, phone} laisse isActive undefined
+        // → « Compte désactivé » à tort → aucun OTP envoyé. (Bug chemin d'agent.)
+        if (found) user = await db.user.findUnique({ where: { id: found.id } });
       }
       if (!user) return NextResponse.json({ error: 'Ce numéro n\'est pas enregistré' }, { status: 404 });
       if (!user.isActive) return NextResponse.json({ error: 'Compte désactivé' }, { status: 403 });
