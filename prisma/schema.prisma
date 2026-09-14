@@ -140,6 +140,27 @@ model Student {
   medicalRecord  MedicalRecord?
   infirmaryVisits InfirmaryVisit[]
   medicalDispensations MedicalDispensation[]
+  repechageExams RepechageExam[]
+}
+
+model RepechageExam {
+  id               String    @id @default(cuid())
+  studentId        String
+  classId          String
+  schoolId         String
+  schoolYearId     String
+  subjects         String
+  status           String    @default("PLANNED")
+  examDate         DateTime?
+  note             String?
+  createdById      String?
+  createdByName    String?
+  sentViaApp       Boolean   @default(false)
+  sentViaWhatsapp  Boolean   @default(false)
+  whatsappDetail   String?
+  createdAt        DateTime  @default(now())
+
+  student Student @relation(fields: [studentId], references: [id])
 }
 
 model Class {

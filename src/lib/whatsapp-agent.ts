@@ -812,3 +812,66 @@ export async function notifyMedicalVisit(params: {
 
   return await sendWhatsAppMessage(params.parentPhone, msg);
 }
+
+/**
+ * Notifie le(s) parent(s) d'un examen de repêchage
+ * Retourne { sent, detail } — pattern utilisé par /api/class-passing/repechage
+ */
+export async function notifyRepechage(params: {
+  student: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    className: string | null;
+  };
+  schoolId: string;
+  subjects: { subjectId?: string | null; name: string; score?: number | null }[];
+  examDate: Date | null;
+  note: string | null;
+}): Promise<{ sent: number; detail: string }> {
+  const { student, schoolId, subjects, examDate, note } = params;
+
+  const gate = await checkSchoolAgentReady(schoolId);
+  if (!gate.ok) {
+    console.log(`[WhatsApp Agent] Repêchage non envoyé — ${gate.reason}`);
+    return { sent: 0, detail: `Agent WhatsApp indisponible (${gate.reason})` };
+  }
+
+  // Recherche du parent de l'élève
+  const dbStudent = await db.student.findUnique({
+    where: { id: student.id },
+    select: { parentId: true },
+  });
+  if (!dbStudent?.parentId) {
+    return { sent: 0, detail: 'Aucun parent rattaché à cet élève' };
+  }
+
+  const parent = await db.user.findUnique({
+    where: { id: dbStudent.parentId },
+    select: { phone: true, isActive: true },
+  });
+  if (!parent?.phone || !parent.isActive) {
+    return { sent: 0, detail: 'Parent sans téléphone actif' };
+  }
+
+  if (await isRecipientAdmin(parent.phone)) {
+    console.log('[WhatsApp Agent] Skipping notification to admin phone');
+    return { sent: 0, detail: 'Destinataire = admin, envoi ignoré' };
+  }
+
+  const subjectNames = subjects.map((s) => s.name).join(', ');
+  const message =
+    `📚 *EXAMEN DE REPÊCHAGE*\n\n` +
+    `Élève : *${student.firstName} ${student.lastName}*\n` +
+    `Classe : ${student.className ?? 'non définie'}\n` +
+    `Matières à repêcher : ${subjectNames}\n` +
+    (examDate ? `Date de l'examen : ${examDate.toLocaleDateString('fr-FR')}\n` : '') +
+    (note ? `Note : ${note}\n` : '') +
+    `\n_Merci de veiller à la préparation de votre enfant._\n` +
+    `_EduGest_`;
+
+  const ok = await sendWhatsAppMessage(parent.phone, message);
+  return ok
+    ? { sent: 1, detail: 'WhatsApp envoyé au parent' }
+    : { sent: 0, detail: 'Échec de l\'envoi WhatsApp' };
+}
