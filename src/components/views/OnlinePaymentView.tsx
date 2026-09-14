@@ -269,12 +269,11 @@ export default function OnlinePaymentView() {
   }
 
   // Logos officiels des passerelles (servis depuis /public/logos/payment)
-  // Stripe et PayPal retirés — non disponibles pour les marchands en RDC.
+  // Stripe, PayPal et DPO retirés — non disponibles pour les marchands en RDC.
   const methodLabels: Record<string, { label: string; color: string; icon: string; svg: string }> = {
     VISA: { label: 'Visa', color: '#1A1F71', icon: '💳', svg: '/logos/payment/visa.svg' },
     MASTERCARD: { label: 'Mastercard', color: '#EB001B', icon: '💳', svg: '/logos/payment/mastercard.svg' },
     FLUTTERWAVE: { label: 'Flutterwave', color: '#FF6D00', icon: '🌊', svg: '/logos/payment/flutterwave.png' },
-    DPO: { label: 'DPO Pay', color: '#0B3C7C', icon: '🔵', svg: '/logos/payment/dpo.png' },
     ORANGE_MONEY: { label: 'Orange Money', color: '#FF6600', icon: '🟠', svg: '/logos/payment/orange_money.svg' },
     MPESA: { label: 'M-Pesa', color: '#00A651', icon: '🟢', svg: '/logos/payment/mpesa.svg' },
     AIRTEL_MONEY: { label: 'Airtel Money', color: '#E40000', icon: '🔴', svg: '/logos/payment/airtel_money.svg' },

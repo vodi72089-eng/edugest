@@ -63,6 +63,12 @@ model School {
   whatsappMonthlyUsed   Int       @default(0)
   whatsappMonthlyReset  DateTime?
 
+  // Personnalisation visuelle (personnalisation de l'école)
+  designPrimary         String?
+  designAccent          String?
+  designGold            String?
+  designUpdatedAt       DateTime?
+
   infirmaryVisits       InfirmaryVisit[]
   medicalDispensations  MedicalDispensation[]
 }
@@ -544,7 +550,7 @@ model PricingPlan {
 model PaymentGatewayConfig {
   id              String   @id @default(cuid())
   schoolId        String
-  gatewayType    String    // DPO, STRIPE, PAYPAL, FLUTTERWAVE, MPESA, ORANGE_MONEY, AIRTEL_MONEY, MANUAL
+  gatewayType    String    // FLUTTERWAVE, MPESA, ORANGE_MONEY, AIRTEL_MONEY, VISA, MASTERCARD, MANUAL
   isActive       Boolean   @default(false)
   isTestMode     Boolean   @default(true)
 
@@ -557,7 +563,7 @@ model PaymentGatewayConfig {
 
   // Configuration spécifique
   phoneNumber    String?   // Pour Mobile Money
-  accountEmail   String?   // Pour PayPal/Stripe
+  accountEmail   String?   // Email du compte marchand
 
   // Monnaie supportée par cette passerelle
   currency       String   @default("USD")
@@ -609,7 +615,7 @@ model PaymentTransaction {
   paymentRecordId String?
   studentId       String?
 
-  gatewayType    String    // DPO, STRIPE, etc.
+  gatewayType    String    // MPESA, ORANGE_MONEY, etc.
   gatewayTransactionId String? // ID retourné par la passerelle
   reference      String    // Référence interne
 

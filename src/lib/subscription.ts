@@ -93,6 +93,14 @@ export function hasFeatureAccess(tier: string, feature: TierFeature): boolean {
   return features.includes(feature);
 }
 
+/**
+ * Les parents peuvent-ils consulter les notes selon le tier d'abonnement ?
+ * Le module parents (donc l'accès aux notes côté parent) commence à ESSENTIEL.
+ */
+export function tierAllowsParentGrades(tier: string): boolean {
+  return hasFeatureAccess(tier, 'parents');
+}
+
 // ─── Tier limits (validated with product owner) ─────────────────────────────
 export interface TierLimits {
   maxStudents: number;

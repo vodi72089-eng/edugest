@@ -113,5 +113,20 @@
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.5",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "@prisma/client",
+      "@prisma/engines",
+      "@swc/core",
+      "better-sqlite3",
+      "core-js",
+      "es5-ext",
+      "prisma",
+      "protobufjs",
+      "sharp",
+      "unrs-resolver"
+    ]
   }
 }

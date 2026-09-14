@@ -1,8 +1,8 @@
 /**
  * Service de passerelles de paiement
  * Mobile : M-Pesa, Orange Money, Airtel Money
- * Cartes / internationales : Visa, Mastercard, Flutterwave, DPO
- *   (Stripe et PayPal retirés — non disponibles pour les marchands en RDC)
+ * Cartes / internationales : Visa, Mastercard, Flutterwave
+ *   (Stripe, PayPal et DPO retirés — non disponibles pour les marchands en RDC)
  * Manuel : espèces, virement
  * Paiements d'abonnement EduGest : passerelles configurées au niveau
  * plateforme (schoolId sentinelle PLATFORM_SCHOOL_ID).
@@ -22,7 +22,6 @@ export type GatewayType =
   | 'VISA'
   | 'MASTERCARD'
   | 'FLUTTERWAVE'
-  | 'DPO'
   | 'MANUAL';
 
 export interface PaymentRequest {
@@ -95,16 +94,6 @@ export const GATEWAY_INFO: Record<GatewayType, {
     supportedMethods: ['card', 'mobile_money', 'bank_transfer'],
     icon: '🌊',
     logo: '/logos/payment/flutterwave.png',
-    requiresWebhook: true,
-  },
-  DPO: {
-    name: 'DPO',
-    displayName: 'DPO Pay',
-    description: 'Agrégateur DPO (3G Direct Pay) : cartes et mobile money Afrique',
-    supportedCurrencies: ['USD', 'EUR', 'CDF', 'XOF', 'KES', 'TZS', 'UGX', 'RWF'],
-    supportedMethods: ['card', 'mobile_money'],
-    icon: '🔵',
-    logo: '/logos/payment/dpo.png',
     requiresWebhook: true,
   },
   MPESA: {
@@ -243,9 +232,6 @@ export async function initiatePayment(
         break;
       case 'FLUTTERWAVE':
         response = await processFlutterwavePayment(credConfig, request, reference);
-        break;
-      case 'DPO':
-        response = await processDpoPayment(credConfig, request, reference);
         break;
       case 'MANUAL':
         response = await processManualPayment(credConfig, request, reference);
@@ -880,92 +866,6 @@ async function processFlutterwavePayment(
     return { success: false, reference, status: 'FAILED', message: data.message || 'Erreur Flutterwave' };
   } catch (error) {
     return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur Flutterwave' };
-  }
-}
-
-// ─── DPO Pay (3G Direct Pay, API v6) ────────────────────────────────────────
-// Mapping des identifiants (mode live) :
-//   merchantId  = Company Token (DPO)
-//   secretKey   = Service Type (optionnel)
-//   apiKey      = (optionnel) clé API complémentaire
-async function processDpoPayment(
-  config: any,
-  request: PaymentRequest,
-  reference: string
-): Promise<PaymentResponse> {
-  if (config.isTestMode || !config.merchantId) {
-    return {
-      success: true,
-      reference,
-      gatewayTransactionId: `DPO-TEST-${Date.now()}`,
-      status: 'PENDING',
-      message: 'Token DPO simulé (mode test)',
-    };
-  }
-
-  if (!config.merchantId) {
-    return {
-      success: false,
-      reference,
-      status: 'FAILED',
-      message: 'Identifiants DPO incomplets — renseignez le Company Token',
-    };
-  }
-
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
-  const companyToken = config.merchantId;
-  const service = config.secretKey || 'EDUGEST';
-
-  try {
-    // DPO : création d'un token de paiement via l'API XML/POST v6
-    const xml = `<?xml version="1.0" encoding="utf-8"?>
-<API3G>
-  <CompanyToken>${companyToken}</CompanyToken>
-  <Request>createToken</Request>
-  <Transaction>
-    <PaymentAmount>${request.amount}</PaymentAmount>
-    <PaymentCurrency>${request.currency}</PaymentCurrency>
-    <CompanyRef>${reference}</CompanyRef>
-    <CompanyRefUnique>0</CompanyRefUnique>
-    <PTLtype>1</PTLtype>
-    <PTL>5</PTL>
-    <CustomerEmail>${request.customerEmail || 'client@edugest.app'}</CustomerEmail>
-    <CustomerName>${(request.customerName || 'Client EduGest').replace(/[^A-Za-z0-9 ]/g, '')}</CustomerName>
-    <ServiceType>${service}</ServiceType>
-  </Transaction>
-  <ReturnURL>${appUrl ? `${appUrl}/?payment=dpo&ref=${reference}` : ''}</ReturnURL>
-  <CancelURL>${appUrl ? `${appUrl}/?payment=cancel&ref=${reference}` : ''}</CancelURL>
-</API3G>`;
-
-    const response = await fetch('https://secure.3gdirectpay.com/API/v6.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/xml' },
-      body: xml,
-    });
-    const text = await response.text();
-
-    const tokenMatch = text.match(/<TransToken>([^<]+)<\/TransToken>/);
-    const resultMatch = text.match(/<Result>([^<]+)<\/Result>/);
-
-    if (tokenMatch) {
-      return {
-        success: true,
-        reference,
-        gatewayTransactionId: tokenMatch[1],
-        checkoutUrl: `https://secure.3gdirectpay.com/payv3.php?ID=${tokenMatch[1]}`,
-        status: 'PENDING',
-        message: 'Token DPO créé — finalisez le paiement sur la page DPO',
-      };
-    }
-
-    return {
-      success: false,
-      reference,
-      status: 'FAILED',
-      message: resultMatch?.[1] || 'Erreur DPO (réponse invalide)',
-    };
-  } catch (error) {
-    return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur DPO' };
   }
 }
 
