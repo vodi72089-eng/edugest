@@ -1,4 +1,5 @@
 'use client'
+import { FancySelect } from '@/components/ui/fancy-select'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useEduGestStore, authFetch } from '@/lib/store'
@@ -475,15 +476,15 @@ export default function DisciplineView() {
                 </div>
                 <div>
                   <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Liste *</label>
-                  <select value={sanctionListType} onChange={e => setSanctionListType(e.target.value as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST')} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                  <FancySelect value={sanctionListType} onChange={e => setSanctionListType(e.target.value as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST')} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                     <option value="GREYLIST">Liste Grise (modéré)</option>
                     <option value="BLACKLIST">Liste Noire (grave)</option>
                     <option value="WHITELIST">Liste Blanche (positif)</option>
-                  </select>
+                  </FancySelect>
                 </div>
                 <div>
                   <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Type *</label>
-                  <select value={sanctionType} onChange={e => setSanctionType(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                  <FancySelect value={sanctionType} onChange={e => setSanctionType(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                     <option value="RETARD">Retard</option>
                     <option value="ABSENCE">Absence</option>
                     <option value="TRICHERIE">Tricherie</option>
@@ -491,15 +492,15 @@ export default function DisciplineView() {
                     <option value="INCIVILITE">Incivilité</option>
                     <option value="EXCELLENCE">Excellence</option>
                     <option value="MERITE">Mérite</option>
-                  </select>
+                  </FancySelect>
                 </div>
                 <div>
                   <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Gravité *</label>
-                  <select value={sanctionSeverity} onChange={e => setSanctionSeverity(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                  <FancySelect value={sanctionSeverity} onChange={e => setSanctionSeverity(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                     <option value="LOW">Faible</option>
                     <option value="MEDIUM">Moyen</option>
                     <option value="HIGH">Grave</option>
-                  </select>
+                  </FancySelect>
                 </div>
                 <div className="sm:col-span-2">
                   <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Motif *</label>
@@ -770,16 +771,16 @@ export default function DisciplineView() {
                     {editingRecordId === r.id ? (
                       <div className="flex items-center gap-2">
                         <input type="number" value={editPoints} onChange={e => setEditPoints(e.target.value)} className="w-16 px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-lg text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
-                        <select value={editListType} onChange={e => setEditListType(e.target.value as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST')} className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-lg text-xs bg-white outline-none">
+                        <FancySelect value={editListType} onChange={e => setEditListType(e.target.value as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST')} className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-lg text-xs bg-white outline-none">
                           <option value="GREYLIST">Grise</option>
                           <option value="BLACKLIST">Noire</option>
                           <option value="WHITELIST">Blanche</option>
-                        </select>
-                        <select value={editStatus} onChange={e => setEditStatus(e.target.value)} className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-lg text-xs bg-white outline-none">
+                        </FancySelect>
+                        <FancySelect value={editStatus} onChange={e => setEditStatus(e.target.value)} className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-lg text-xs bg-white outline-none">
                           <option value="PENDING">En attente</option>
                           <option value="CONFIRMED">Confirmé</option>
                           <option value="RESOLVED">Résolu</option>
-                        </select>
+                        </FancySelect>
                         <button onClick={handleSaveEdit} disabled={savingEdit} className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_145)] transition" style={{ color: SUCCESS }} title="Sauvegarder">
                           {savingEdit ? <div className="h-3 w-3 border-2 border-[oklch(40%_0.13_145)] border-t-transparent rounded-full animate-spin" /> : <Check size={13} />}
                         </button>

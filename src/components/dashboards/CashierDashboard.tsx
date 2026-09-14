@@ -1,4 +1,5 @@
 'use client'
+import { FancySelect } from '@/components/ui/fancy-select'
 
 import { useState, useEffect } from 'react'
 import { useEduGestStore, authFetch } from '@/lib/store'
@@ -38,7 +39,7 @@ export default function CashierDashboard() {
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Suivi financier — {userData?.schoolName || 'École'}</p>
         </div>
-        <select
+        <FancySelect
           value={displayCurrency}
           onChange={(e) => changeCurrency(e.target.value)}
           className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
@@ -47,7 +48,7 @@ export default function CashierDashboard() {
           {supportedCurrencies.map(c => (
             <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
           ))}
-        </select>
+        </FancySelect>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">

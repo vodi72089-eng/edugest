@@ -1,4 +1,5 @@
 'use client'
+import { FancySelect } from '@/components/ui/fancy-select'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
@@ -213,7 +214,7 @@ function FeatureCard({
           <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>
             École concernée
           </label>
-          <select
+          <FancySelect
             value={form.schoolId}
             onChange={(e) => setForm((f) => ({ ...f, schoolId: e.target.value }))}
             className={inputClass}
@@ -224,7 +225,7 @@ function FeatureCard({
                 {s.name}
               </option>
             ))}
-          </select>
+          </FancySelect>
         </div>
 
         <div>

@@ -1,4 +1,5 @@
 'use client'
+import { FancySelect } from '@/components/ui/fancy-select'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useEduGestStore, authFetch } from '@/lib/store'
@@ -361,7 +362,7 @@ export default function StudentsView() {
                 <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Nom</label><input name="lastName" required className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Sexe</label><select name="gender" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"><option value="M">Masculin</option><option value="F">Féminin</option></select></div>
+                <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Sexe</label><FancySelect name="gender" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"><option value="M">Masculin</option><option value="F">Féminin</option></FancySelect></div>
                 <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Date de naissance</label><input name="dob" type="date" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
               </div>
               <SearchAutocomplete
@@ -463,8 +464,8 @@ export default function StudentsView() {
                 <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Prénom *</label><input value={editFirstName} onChange={e => setEditFirstName(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} /></div>
                 <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom *</label><input value={editLastName} onChange={e => setEditLastName(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} /></div>
               </div>
-              <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Sexe</label><select value={editGender} onChange={e => setEditGender(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"><option value="M">Masculin</option><option value="F">Féminin</option></select></div>
-              <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe</label><select value={editClassId} onChange={e => setEditClassId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">{classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+              <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Sexe</label><FancySelect value={editGender} onChange={e => setEditGender(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"><option value="M">Masculin</option><option value="F">Féminin</option></FancySelect></div>
+              <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe</label><FancySelect value={editClassId} onChange={e => setEditClassId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">{classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</FancySelect></div>
 
               {/* ── Compte parent : identifiants écrits à la main par l'admin ── */}
               <div className="border border-[oklch(90%_0.01_175)] rounded-xl overflow-hidden">

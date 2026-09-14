@@ -1,4 +1,5 @@
 'use client'
+import { FancySelect } from '@/components/ui/fancy-select'
 
 import { useState, useEffect, useRef } from 'react'
 import { useEduGestStore, authFetch } from '@/lib/store'
@@ -366,9 +367,9 @@ export default function PaymentsView() {
                 disabled={allPaid}
                 className="flex-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)] disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              <select value={payCurrency} onChange={e => setPayCurrency(e.target.value)} disabled={allPaid} className="px-2 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] w-20 disabled:opacity-50 disabled:cursor-not-allowed">
+              <FancySelect value={payCurrency} onChange={e => setPayCurrency(e.target.value)} disabled={allPaid} className="px-2 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] w-20 disabled:opacity-50 disabled:cursor-not-allowed">
                 {SUPPORTED_CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
-              </select>
+              </FancySelect>
             </div>
             {payCurrency !== 'CDF' && exchangeRate && paidAmount && (
               <div className="mt-1 flex items-center gap-1.5 text-[11px] px-3 py-2 rounded-lg" style={{ background: `${ACCENT}10`, color: TEXT_MUTED_LUXE }}>
@@ -388,12 +389,12 @@ export default function PaymentsView() {
               style={{ color: tranche ? TEXT_PRIMARY : TEXT_MUTED_LUXE }}
             />
           </div>
-          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Méthode</label><select value={method} onChange={e => setMethod(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Méthode</label><FancySelect value={method} onChange={e => setMethod(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
             <option value="CASH">Espèces</option><option value="ORANGE_MONEY">Orange Money</option><option value="MPESA">M-Pesa</option><option value="AIRTEL_MONEY">Airtel Money</option>
-          </select></div>
-          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Statut</label><select value={status} onChange={e => setStatus(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+          </FancySelect></div>
+          <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Statut</label><FancySelect value={status} onChange={e => setStatus(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
             <option value="PAID">Payé</option><option value="PARTIAL">Partiel</option><option value="PENDING">En attente</option><option value="OVERDUE">En retard</option>
-          </select></div>
+          </FancySelect></div>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={handlePayment} disabled={submitting || allPaid} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">

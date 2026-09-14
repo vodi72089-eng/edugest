@@ -1,4 +1,5 @@
 'use client'
+import { FancySelect } from '@/components/ui/fancy-select'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useEduGestStore, authFetch } from '@/lib/store'
@@ -400,7 +401,7 @@ function PersonalizationViewInner({
                   École à personnaliser
                 </label>
               </div>
-              <select
+              <FancySelect
                 id="school-design-select"
                 value={selectedSchoolId ?? ''}
                 onChange={(e) => handleSchoolChange(e.target.value)}
@@ -414,7 +415,7 @@ function PersonalizationViewInner({
                     {s.name}
                   </option>
                 ))}
-              </select>
+              </FancySelect>
             </div>
           </div>
         )}

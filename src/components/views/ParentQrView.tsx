@@ -1,4 +1,5 @@
 'use client'
+import { FancySelect } from '@/components/ui/fancy-select'
 
 import { useState, useEffect, useCallback } from 'react'
 import { useEduGestStore, authFetch } from '@/lib/store'
@@ -207,9 +208,9 @@ export default function ParentQrView() {
               </div>
               <div>
                 <label className="text-sm font-medium block mb-1" style={{ color: TEXT_PRIMARY }}>Durée de vie du QR code *</label>
-                <select value={duration} onChange={e => setDuration(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                <FancySelect value={duration} onChange={e => setDuration(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                   {DURATIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-                </select>
+                </FancySelect>
                 <p className="text-[12px] mt-2 flex items-start gap-1.5" style={{ color: TEXT_MUTED_LUXE }}>
                   <Clock size={12} className="shrink-0 mt-0.5" />
                   Après expiration, le QR code ne fonctionne plus : mesure de sécurité pour empêcher les inscriptions non autorisées.

@@ -1,4 +1,5 @@
 'use client'
+import { FancySelect } from '@/components/ui/fancy-select'
 
 import { useState, useEffect } from 'react'
 import { useEduGestStore, authFetch, ViewType } from '@/lib/store'
@@ -157,14 +158,14 @@ export default function SuperAdminDashboard() {
         {/* City Filter */}
         <div className="flex items-center gap-2">
           <Filter size={14} style={{ color: TEXT_MUTED_LUXE }} />
-          <select
+          <FancySelect
             value={cityFilter}
             onChange={e => setCityFilter(e.target.value)}
             className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
           >
             <option value="">Toutes les villes</option>
             {cityOptions.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+          </FancySelect>
         </div>
       </div>
 

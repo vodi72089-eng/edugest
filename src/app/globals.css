@@ -685,6 +685,15 @@
 .font-outfit {
   font-family: var(--font-jakarta), 'Plus Jakarta Sans', sans-serif;
 }
+.font-merriweather {
+  font-family: var(--font-merriweather), 'Merriweather', serif;
+}
+.font-noto-serif {
+  font-family: var(--font-noto-serif), 'Noto Serif', serif;
+}
+.font-fjalla {
+  font-family: var(--font-fjalla), 'Fjalla One', sans-serif;
+}
 .font-mono-premium {
   font-family: var(--font-jetbrains), 'JetBrains Mono', monospace;
   font-variant-numeric: tabular-nums;

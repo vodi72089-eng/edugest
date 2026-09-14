@@ -1,4 +1,5 @@
 'use client'
+import { FancySelect } from '@/components/ui/fancy-select'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useEduGestStore, authFetch } from '@/lib/store'
@@ -242,25 +243,25 @@ export default function GradesView() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
-              <select value={gradeClassId} onChange={e => { setGradeClassId(e.target.value); setGradeStudentId(''); setGradeStudentSearchId(null) }} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+              <FancySelect value={gradeClassId} onChange={e => { setGradeClassId(e.target.value); setGradeStudentId(''); setGradeStudentSearchId(null) }} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                 <option value="">Sélectionner une classe</option>
                 {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              </FancySelect>
             </div>
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Matière *</label>
-              <select value={gradeSubjectId} onChange={e => setGradeSubjectId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" disabled={!gradeClassId}>
+              <FancySelect value={gradeSubjectId} onChange={e => setGradeSubjectId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" disabled={!gradeClassId}>
                 <option value="">{gradeClassId ? 'Sélectionner une matière' : 'D\'abord choisir une classe'}</option>
                 {subjects.map(s => <option key={s.id} value={s.id}>{s.name} (coef. {s.coefficient})</option>)}
-              </select>
+              </FancySelect>
             </div>
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Trimestre *</label>
-              <select value={gradeTrimester} onChange={e => setGradeTrimester(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+              <FancySelect value={gradeTrimester} onChange={e => setGradeTrimester(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                 <option value="T1">Trimestre 1</option>
                 <option value="T2">Trimestre 2</option>
                 <option value="T3">Trimestre 3</option>
-              </select>
+              </FancySelect>
             </div>
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Élève *</label>
@@ -328,11 +329,11 @@ export default function GradesView() {
         )}
         <div className={isParent ? 'mt-6' : 'mt-6'}>
           <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Trimestre</label>
-          <select value={selectedTrimester} onChange={e => setSelectedTrimester(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+          <FancySelect value={selectedTrimester} onChange={e => setSelectedTrimester(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
             <option value="T1">Trimestre 1</option>
             <option value="T2">Trimestre 2</option>
             <option value="T3">Trimestre 3</option>
-          </select>
+          </FancySelect>
         </div>
       </div>
 

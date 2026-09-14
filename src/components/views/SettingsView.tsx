@@ -1,4 +1,5 @@
 'use client'
+import { FancySelect } from '@/components/ui/fancy-select'
 
 import { useState, useEffect, useRef } from 'react'
 import { useEduGestStore, authFetch } from '@/lib/store'
@@ -447,19 +448,19 @@ function SettingsViewInner() {
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Type d&apos;école</label>
-                <select value={schoolType} onChange={e => setSchoolType(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                <FancySelect value={schoolType} onChange={e => setSchoolType(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                   <option value="MIXTE">Mixte</option>
                   <option value="GARCONS">Garçons</option>
                   <option value="FILLES">Filles</option>
-                </select>
+                </FancySelect>
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Catégorie</label>
-                <select value={schoolCategory} onChange={e => setSchoolCategory(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                <FancySelect value={schoolCategory} onChange={e => setSchoolCategory(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                   <option value="PRIVEE">Privée</option>
                   <option value="PUBLIQUE">Publique</option>
                   <option value="CONVENTIONNEE">Conventionnée</option>
-                </select>
+                </FancySelect>
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Année de fondation</label>
@@ -816,26 +817,26 @@ function SettingsViewInner() {
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Devise *</label>
-                <select value={feeForm.currency} onChange={e => setFeeForm(f => ({ ...f, currency: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                <FancySelect value={feeForm.currency} onChange={e => setFeeForm(f => ({ ...f, currency: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                   <option value="CDF">CDF (Franc congolais)</option>
                   <option value="USD">USD (Dollar américain)</option>
                   <option value="FCFA">FCFA (Franc CFA)</option>
-                </select>
+                </FancySelect>
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Frais *</label>
-                <select value={feeForm.trimester} onChange={e => setFeeForm(f => ({ ...f, trimester: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                <FancySelect value={feeForm.trimester} onChange={e => setFeeForm(f => ({ ...f, trimester: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                   <option value="T1">T1 - Trimestre 1</option>
                   <option value="T2">T2 - Trimestre 2</option>
                   <option value="T3">T3 - Trimestre 3</option>
-                </select>
+                </FancySelect>
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
-                <select value={feeForm.classId} onChange={e => setFeeForm(f => ({ ...f, classId: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                <FancySelect value={feeForm.classId} onChange={e => setFeeForm(f => ({ ...f, classId: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                   <option value="">Choisir une classe</option>
                   {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                </FancySelect>
               </div>
             </div>
             <div className="flex gap-3 mt-6">

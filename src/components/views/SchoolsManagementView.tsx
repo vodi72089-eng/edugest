@@ -1,4 +1,5 @@
 'use client'
+import { FancySelect } from '@/components/ui/fancy-select'
 
 import { useState, useEffect, useRef } from 'react'
 import { authFetch } from '@/lib/store'
@@ -340,19 +341,19 @@ export default function SchoolsManagementView() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Type d&apos;école</label>
-                  <select value={form.schoolType} onChange={e => setForm({ ...form, schoolType: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
+                  <FancySelect value={form.schoolType} onChange={e => setForm({ ...form, schoolType: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
                     <option value="MIXTE">Mixte</option>
                     <option value="FILLES">Filles</option>
                     <option value="GARCONS">Garçons</option>
-                  </select>
+                  </FancySelect>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Catégorie</label>
-                  <select value={form.schoolCategory} onChange={e => setForm({ ...form, schoolCategory: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
+                  <FancySelect value={form.schoolCategory} onChange={e => setForm({ ...form, schoolCategory: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
                     <option value="PRIVEE">Privée</option>
                     <option value="PUBLIQUE">Publique</option>
                     <option value="CONVENTIONNEE">Conventionnée</option>
-                  </select>
+                  </FancySelect>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Capacité max</label>
@@ -372,14 +373,14 @@ export default function SchoolsManagementView() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Formule d&apos;abonnement</label>
-                    <select value={form.subscriptionTier} onChange={e => setForm({ ...form, subscriptionTier: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
+                    <FancySelect value={form.subscriptionTier} onChange={e => setForm({ ...form, subscriptionTier: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
                       <option value="FREEMIUM">Freemium — 0$/mois</option>
                       <option value="ESSENTIEL">Essentiel — 100$/mois</option>
                       <option value="STANDARD">Standard — 250$/mois</option>
                       <option value="PREMIUM">Professionnel — 500$/mois</option>
                       <option value="ENTERPRISE">Enterprise — 1 000$/mois</option>
                       <option value="CORPORATE">Corporate — Sur mesure</option>
-                    </select>
+                    </FancySelect>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Mode de paiement</label>
@@ -492,19 +493,19 @@ export default function SchoolsManagementView() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Type d&apos;école</label>
-                  <select value={editForm.schoolType} onChange={e => setEditForm({ ...editForm, schoolType: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
+                  <FancySelect value={editForm.schoolType} onChange={e => setEditForm({ ...editForm, schoolType: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
                     <option value="MIXTE">Mixte</option>
                     <option value="FILLES">Filles</option>
                     <option value="GARCONS">Garçons</option>
-                  </select>
+                  </FancySelect>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Catégorie</label>
-                  <select value={editForm.schoolCategory} onChange={e => setEditForm({ ...editForm, schoolCategory: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
+                  <FancySelect value={editForm.schoolCategory} onChange={e => setEditForm({ ...editForm, schoolCategory: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
                     <option value="PRIVEE">Privée</option>
                     <option value="PUBLIQUE">Publique</option>
                     <option value="CONVENTIONNEE">Conventionnée</option>
-                  </select>
+                  </FancySelect>
                 </div>
               </div>
 
@@ -517,14 +518,14 @@ export default function SchoolsManagementView() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Formule</label>
-                    <select value={editForm.subscriptionTier} onChange={e => setEditForm({ ...editForm, subscriptionTier: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
+                    <FancySelect value={editForm.subscriptionTier} onChange={e => setEditForm({ ...editForm, subscriptionTier: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
                       <option value="FREEMIUM">Freemium — 0$/mois</option>
                       <option value="ESSENTIEL">Essentiel — 100$/mois</option>
                       <option value="STANDARD">Standard — 250$/mois</option>
                       <option value="PREMIUM">Professionnel — 500$/mois</option>
                       <option value="ENTERPRISE">Enterprise — 1 000$/mois</option>
                       <option value="CORPORATE">Corporate — Sur mesure</option>
-                    </select>
+                    </FancySelect>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Statut</label>

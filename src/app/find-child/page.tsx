@@ -1,4 +1,5 @@
 'use client';
+import { FancySelect } from '@/components/ui/fancy-select'
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
@@ -174,10 +175,10 @@ export default function FindChildPage() {
                 <p className="text-white/50 text-sm mb-5">Choisissez la classe puis tapez le nom de votre enfant.</p>
 
                 <label className="block text-[13px] font-medium text-white/70 mb-1.5">Classe de l&apos;enfant</label>
-                <select value={classId} onChange={(e) => { setClassId(e.target.value); setStudents([]); setSearched(false); }} className={`${inputCls} mb-4 [&>option]:text-black`} style={inputStyle}>
+                <FancySelect value={classId} onChange={(e) => { setClassId(e.target.value); setStudents([]); setSearched(false); }} className={`${inputCls} mb-4 [&>option]:text-black`} style={inputStyle}>
                   <option value="">— Sélectionnez la classe —</option>
                   {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                </FancySelect>
 
                 <label className="block text-[13px] font-medium text-white/70 mb-1.5">Nom de l&apos;enfant</label>
                 <div className="flex gap-2 mb-4">

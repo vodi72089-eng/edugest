@@ -1,4 +1,5 @@
 'use client'
+import { FancySelect } from '@/components/ui/fancy-select'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken, restoreSession } from '@/lib/store'
@@ -614,12 +615,12 @@ function HomeView() {
               <div className="hidden md:block h-10 w-px bg-white/10 mx-1" />
               <div className="flex items-center w-full md:w-auto gap-3 px-2 md:px-0">
                 <div className="relative flex-grow md:flex-grow-0">
-                  <select
+                  <FancySelect
                     value={province} onChange={e => setProvince(e.target.value)}
                     className="w-full md:w-48 bg-white/5 text-white border border-white/10 rounded-xl px-5 py-4 text-sm font-bold cursor-pointer hover:bg-white/10 transition-all appearance-none outline-none backdrop-blur-md"
                   >
                     {PROVINCES.map(p => <option key={p} value={p} className="bg-[#0a0f0d] text-white">{p}</option>)}
-                  </select>
+                  </FancySelect>
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                   </div>
@@ -3332,11 +3333,11 @@ function ClassesView() {
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Section</label>
-                <select value={newClassSection} onChange={e => setNewClassSection(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                <FancySelect value={newClassSection} onChange={e => setNewClassSection(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                   <option value="MATERNELLE">Maternelle</option>
                   <option value="PRIMAIRE">Primaire</option>
                   <option value="SECONDAIRE">Secondaire</option>
-                </select>
+                </FancySelect>
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Capacité</label>
@@ -3413,9 +3414,13 @@ function ClassesView() {
 
 // ===== PAYMENT CONFIGURATION VIEW =====
 const GATEWAY_SVG_LOGOS: Record<string, string> = {
-  ORANGE_MONEY: '/logos/orange-money.svg',
+  VISA: '/logos/visa.svg',
+  MASTERCARD: '/logos/mastercard.svg',
+  FLUTTERWAVE: '/logos/flutterwave.svg',
+  BICTORYS: '/logos/bictorys.svg',
+  ORANGE_MONEY: '/logos/orange.svg',
   MPESA: '/logos/m-pesa.svg',
-  AIRTEL_MONEY: '/logos/airtel-money.svg',
+  AIRTEL_MONEY: '/logos/airtel.svg',
   MANUAL: '/logos/manual.svg',
 }
 
@@ -3681,8 +3686,7 @@ function PaymentConfigView() {
         body: JSON.stringify({
           schoolId: userData?.schoolId,
           ...currencyForm,
-          enabledCurrencies: currencyForm.enabledCurrencies.join(','),
-          manualRates: JSON.stringify(currencyForm.manualRates),
+          manualRates: currencyForm.manualRates,
         }),
       })
       const json = await res.json()
@@ -3969,18 +3973,18 @@ function PaymentConfigView() {
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-500 mb-1 block">Classe *</label>
-                    <select value={feeForm.classId} onChange={e => setFeeForm({ ...feeForm, classId: e.target.value })} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#f5a623]">
+                    <FancySelect value={feeForm.classId} onChange={e => setFeeForm({ ...feeForm, classId: e.target.value })} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#f5a623]">
                       <option value="">Sélectionner une classe</option>
                       {classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+                    </FancySelect>
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-500 mb-1 block">Trimestre *</label>
-                    <select value={feeForm.trimester} onChange={e => setFeeForm({ ...feeForm, trimester: e.target.value })} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#f5a623]">
+                    <FancySelect value={feeForm.trimester} onChange={e => setFeeForm({ ...feeForm, trimester: e.target.value })} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#f5a623]">
                       <option value="T1">T1</option>
                       <option value="T2">T2</option>
                       <option value="T3">T3</option>
-                    </select>
+                    </FancySelect>
                   </div>
                 </div>
                 <div className="flex gap-3 mt-6">
@@ -4004,7 +4008,7 @@ function PaymentConfigView() {
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Monnaie de base</label>
-                <select
+                <FancySelect
                   value={currencyForm.baseCurrency}
                   onChange={(e) => setCurrencyForm({ ...currencyForm, baseCurrency: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg text-sm"
@@ -4012,11 +4016,11 @@ function PaymentConfigView() {
                   {supportedCurrencies.map((c: any) => (
                     <option key={c.code} value={c.code}>{c.code} - {c.name}</option>
                   ))}
-                </select>
+                </FancySelect>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Monnaie d&apos;affichage</label>
-                <select
+                <FancySelect
                   value={currencyForm.displayCurrency}
                   onChange={(e) => setCurrencyForm({ ...currencyForm, displayCurrency: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg text-sm"
@@ -4024,7 +4028,7 @@ function PaymentConfigView() {
                   {supportedCurrencies.map((c: any) => (
                     <option key={c.code} value={c.code}>{c.code} - {c.name}</option>
                   ))}
-                </select>
+                </FancySelect>
               </div>
             </div>
             <div className="mt-4">
@@ -4120,7 +4124,7 @@ function PaymentConfigView() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">De</label>
-                <select
+                <FancySelect
                   value={convertForm.from}
                   onChange={(e) => setConvertForm({ ...convertForm, from: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg text-sm"
@@ -4128,11 +4132,11 @@ function PaymentConfigView() {
                   {supportedCurrencies.map((c: any) => (
                     <option key={c.code} value={c.code}>{c.code}</option>
                   ))}
-                </select>
+                </FancySelect>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Vers</label>
-                <select
+                <FancySelect
                   value={convertForm.to}
                   onChange={(e) => setConvertForm({ ...convertForm, to: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg text-sm"
@@ -4140,7 +4144,7 @@ function PaymentConfigView() {
                   {supportedCurrencies.map((c: any) => (
                     <option key={c.code} value={c.code}>{c.code}</option>
                   ))}
-                </select>
+                </FancySelect>
               </div>
               <button
                 onClick={convertCurrency}
@@ -4337,14 +4341,14 @@ function PaymentConfigView() {
                       <label className="text-xs font-semibold text-slate-700 block mb-1">
                         Type de connecteur API
                       </label>
-                      <select
+                      <FancySelect
                         value={waForm.apiType}
                         onChange={(e) => setWaForm({ ...waForm, apiType: e.target.value })}
                         className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500"
                       >
                         <option value="META_CLOUD">Meta Cloud API (Officielle WhatsApp Business)</option>
                         <option value="BAILEYS_DEDICATED">Serveur Passerelle Dédié (Webhook)</option>
-                      </select>
+                      </FancySelect>
                     </div>
 
                     <div>
@@ -4515,11 +4519,11 @@ function PaymentConfigView() {
                   )}
                   <div>
                     <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Monnaie</label>
-                    <select value={gatewayForm.currency} onChange={(e) => setGatewayForm({ ...gatewayForm, currency: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }}>
+                    <FancySelect value={gatewayForm.currency} onChange={(e) => setGatewayForm({ ...gatewayForm, currency: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }}>
                       {(availableGateways.find((g: any) => g.gatewayType === showGatewayModal)?.supportedCurrencies || []).map((c: string) => (
                         <option key={c} value={c}>{c}</option>
                       ))}
-                    </select>
+                    </FancySelect>
                   </div>
                   <div>
                     <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Frais de transaction (%)</label>
@@ -5212,13 +5216,13 @@ function CommunicationsView() {
           <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Nouvelle communication</h3>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <select value={type} onChange={e => setType(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+              <FancySelect value={type} onChange={e => setType(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                 <option value="ANNOUNCEMENT">Annonce</option>
                 <option value="NOTIFICATION">Notification</option>
                 <option value="EVENT">Événement</option>
                 <option value="ALERT">Alerte</option>
-              </select>
-              <select value={targetType} onChange={e => setTargetType(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+              </FancySelect>
+              <FancySelect value={targetType} onChange={e => setTargetType(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                 {isDirection ? (
                   <>
                     <option value="PARENTS">Parents</option>
@@ -5232,15 +5236,15 @@ function CommunicationsView() {
                     <option value="CLASS">Classe</option>
                   </>
                 )}
-              </select>
+              </FancySelect>
             </div>
             {isDirection && (
-              <select value={scope} onChange={e => setScope(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+              <FancySelect value={scope} onChange={e => setScope(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                 <option value="">Toutes les classes</option>
                 <option value="MATERNELLE">Maternelle</option>
                 <option value="PRIMAIRE">Primaire</option>
                 <option value="SECONDAIRE">Secondaire</option>
-              </select>
+              </FancySelect>
             )}
             <input placeholder="Titre" value={title} onChange={e => setTitle(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" />
             <textarea placeholder="Contenu du message..." value={content} onChange={e => setContent(e.target.value)} rows={4} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)] resize-none" />
@@ -5532,7 +5536,7 @@ function HomeworkView() {
             </div>
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
-              <select value={hwClassId} onChange={e => setHwClassId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+              <FancySelect value={hwClassId} onChange={e => setHwClassId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                 <option value="">Sélectionner une classe</option>
                 {(() => {
                   // Filter classes by teacher's classNames assignment (if available)
@@ -5542,7 +5546,7 @@ function HomeworkView() {
                     : classes;
                   return filtered.map(c => <option key={c.id} value={c.id}>{c.name}</option>);
                 })()}
-              </select>
+              </FancySelect>
               {userData?.classNames && (
                 <p className="text-[11px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>
                   Classes assignées: {userData.classNames}
@@ -5816,9 +5820,9 @@ function ClassPassingView() {
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filteredStudents.length)} élèves</p>
         </div>
         <div className="flex items-center gap-3">
-          <select value={selectedTrimester} onChange={e => setSelectedTrimester(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+          <FancySelect value={selectedTrimester} onChange={e => setSelectedTrimester(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
             <option value="T1">Trimestre 1</option><option value="T2">Trimestre 2</option><option value="T3">Trimestre 3</option>
-          </select>
+          </FancySelect>
           <SearchAutocomplete
             placeholder="Tapez le nom de l'élève..."
             items={studentSuggestions}
@@ -5860,9 +5864,9 @@ function ClassPassingView() {
                   </td>
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.class?.name || '—'}</td>
                   <td className="px-4 py-3">
-                    <select value={decisions[s.id] || 'PENDING'} onChange={e => setDecisions(prev => ({ ...prev, [s.id]: e.target.value }))} className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+                    <FancySelect value={decisions[s.id] || 'PENDING'} onChange={e => setDecisions(prev => ({ ...prev, [s.id]: e.target.value }))} className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
                       <option value="PENDING">En attente</option><option value="PASSED">Passage</option><option value="REPEAT">Redouble</option>
-                    </select>
+                    </FancySelect>
                   </td>
                   <td className="px-4 py-3">
                     <button onClick={async () => {
@@ -6021,13 +6025,13 @@ function BulletinView() {
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(totalStudents)} bulletin{totalStudents > 1 ? 's' : ''} · {byClass.length} classe{byClass.length > 1 ? 's' : ''}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select value={selectedTrimester} onChange={e => { setSelectedTrimester(e.target.value); setLoading(true) }} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+          <FancySelect value={selectedTrimester} onChange={e => { setSelectedTrimester(e.target.value); setLoading(true) }} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
             <option value="T1">Trimestre 1</option><option value="T2">Trimestre 2</option><option value="T3">Trimestre 3</option>
-          </select>
-          <select value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+          </FancySelect>
+          <FancySelect value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
             <option value="all">Toutes les classes</option>
             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          </FancySelect>
           <SearchAutocomplete
             placeholder="Tapez le nom de l'élève..."
             items={studentSuggestions}
