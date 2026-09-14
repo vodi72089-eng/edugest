@@ -1260,3 +1260,25 @@ Stage Summary:
 - Chaque écran a désormais une vraie URL lisible et partageable ; deep links et refresh fonctionnent ; boutons retour/avant du navigateur opérationnels.
 - Mapping centralisé dans src/lib/view-paths.ts (store + next.config synchronisés par un seul fichier).
 - DB de démo reseedée — identifiants valides : admin@edugest.app / admin123, parent@email.com / admin123.
+Task ID: PREVIEW-1
+Agent: Z.ai Code (session principale)
+Task: Diagnostiquer et corriger « n'autorise pas la connexion » sur le preview Next.js (preview-chat-*.space-z.ai)
+
+Work Log:
+- Audit structure : App Router pur (src/app/, layout.tsx + page.tsx présents), aucun Pages Router, AUCUN middleware, next.config.ts unique config
+- Preuve 1 (headers) : curl -D sur l'URL de preview externe → X-Frame-Options: SAMEORIGIN présent sur la réponse ; Next.js ne le met pas par défaut
+- Preuve 2 (source) : rg sur tout le repo → seule source = next.config.ts headers() ; introduit au commit 258edbe (2026-08-17 « security fixes »)
+- Preuve 3 (mécanisme) : le panneau de preview embed l'app via iframe d'origine différente → XFO SAMEORIGIN bloque → Chrome affiche « n'autorise pas la connexion » (ERR_BLOCKED_BY_RESPONSE)
+- Reproduction end-to-end : page HTML servie sur 127.0.0.1:9999 (origine différente) iframe l'URL de preview → blocage identique à la capture utilisateur (screenshot /tmp/repro-block2.png)
+- Correction minimale : retrait de la ligne X-Frame-Options dans next.config.ts, commentaires explicatifs ajoutés ; nosniff + Referrer-Policy + DNS-Prefetch conservés
+- Next.js 16 a auto-redémarré sur le changement de config (« Ready in 2.1s »)
+- Vérification post-fix : XFO absent des réponses locale ET externe ; simulation iframe affiche désormais la page de connexion EduGest (screenshot /tmp/repro-fixed.png)
+- Non-régression : auth API OK, proxy /api/whatsapp-status OK (Next.js → 3001), mini-service Baileys OK (status connecting, pairing disponible), dev.log sans erreur
+- Commit 8f66366 poussé sur main (ed75ca3..8f66366)
+
+Stage Summary:
+- CAUSE RACINE : X-Frame-Options: SAMEORIGIN ajouté au commit 258edbe dans next.config.ts — bloque l'iframe du panneau de preview (domaine dynamique ≠ origine du panneau)
+- FICHIER RESPONSABLE : next.config.ts (section headers())
+- CORRECTION : retrait du header XFO uniquement ; autres headers conservés ; recommandation CSP frame-ancestors documentée pour un futur déploiement prod à domaine maîtrisé
+- Baileys/WhatsApp/pairing : INTACTS et vérifiés après correction
+- PASS (preuves : headers avant/après + reproduction iframe avant/après + tests API)
