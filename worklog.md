@@ -1284,6 +1284,28 @@ Stage Summary:
 - PASS (preuves : headers avant/après + reproduction iframe avant/après + tests API)
 
 ---
+Task ID: WA-PUSH-1
+Agent: Z.ai Code (session principale)
+Task: WhatsApp connecté mais OTP/push non reçu + « erreur du chemin d'agent » — diagnostic et correction
+
+Work Log:
+- Pairing réussi côté serveur : log « Connecté ! Numéro : 243835113424 », statut connected
+- Liaison école vérifiée en DB : WHATSAPP_SCHOOL_CONFIG_cmu1p7pbr0000kvk92sysxi4x = 243835113424, isConnected true
+- Test d'envoi direct via mini-service /send → {"ok":true} + log « Envoyé à 243835113424 » (message reçu sur le téléphone réel)
+- BUG TROUVÉ (cause du push non reçu / erreur compte) : /api/auth/whatsapp Phase 1 — le fallback de recherche par numéro ne sélectionnait que {id, phone} → isActive undefined → « Compte désactivé » à tort → OTP jamais envoyé. Affectait TOUS les comptes dont le téléphone en DB porte un « + »
+- Fix : re-fetch complet du user après le fallback (aligné sur la Phase 2)
+- Compte Admin Global lié au vrai numéro : phone = +243835113424 (avant : démo +243810000001)
+- Cache getSchoolWhatsAppNumber : TTL 30s pour les résultats négatifs (auto-liaison immédiate après pairing au lieu de 5 min)
+- Test end-to-end après fix : POST /api/auth/whatsapp {phone:243835113424} → « Code envoyé via WhatsApp » + log « Envoyé » → OTP reçu sur le téléphone
+- Rebase avec conflit worklog.md (Task 11 du remote vs PREVIEW-1 local) résolu en union ; push 7ec72a0..ab4dc0e
+
+Stage Summary:
+- CAUSE PUSH NON REÇU : bug isActive undefined dans le fallback de /api/auth/whatsapp Phase 1 (+ numéro admin en DB = démo)
+- CORRECTIONS : re-fetch user complet, numéro réel lié au compte admin, cache négatif 30s
+- CHAÎNE VALIDÉE DE BOUT EN BOUT : UI → API Next.js → mini-service 3001 → Baileys → téléphone réel (OTP reçu)
+- PASS (preuves : logs serveur + réponses API + messages reçus sur le téléphone de l'utilisateur)
+
+---
 Task ID: 12
 Agent: Z.ai Code (main)
 Task: Installation du logo officiel EduGest fourni par le client (lauriers d'or + tête de diplômé + livre bleu).
