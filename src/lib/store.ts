@@ -126,11 +126,7 @@ export type ViewType =
   | 'online-payment'
   | 'debts'
   | 'my-subscription'
-  | 'platform-control'
-  | 'dispenses'
-  | 'parents'
-  | 'personalization'
-  | 'parent-qr'
+  | 'medical'
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'
@@ -145,9 +141,8 @@ export type UserRole =
   | 'DISCIPLINE_SECONDAIRE'
   | 'TEACHER'
   | 'HEAD_TEACHER'
-  | 'EPS'
-  | 'MEDICAL'
   | 'PARENT'
+  | 'MEDICAL'
 
 export interface UserData {
   id: string
@@ -161,7 +156,6 @@ export interface UserData {
   classNames?: string | null
   isTitulaire?: boolean
   subscriptionTier?: string
-  schoolDesign?: { primary?: string | null; accent?: string | null; gold?: string | null } | null
 }
 
 interface EduGestStore {

@@ -29,11 +29,6 @@ model School {
   subscriptionStatus String  @default("ACTIVE")
   subscriptionStartDate DateTime?
   subscriptionEndDate   DateTime?
-  // Personnalisation du design de l'app (modifiable par l'admin de l'école, STANDARD+)
-  designPrimary   String?
-  designAccent    String?
-  designGold      String?
-  designUpdatedAt DateTime?
   maxStudents       Int      @default(100)
   isActive          Boolean  @default(true)
   averageRating     Float    @default(0)
@@ -59,51 +54,17 @@ model School {
   schoolFees        SchoolFee[]
   notifications     Notification[]
   subscriptionRequests SubscriptionRequest[]
-  dispenses         Dispense[]
-  platformEvents    PlatformEvent[]
-  repechageExams    RepechageExam[]
-  qrCodes           SchoolQrCode[]
-  documents         DocumentVerification[]
-}
+  whatsappCustomEnabled Boolean   @default(false)
+  whatsappApiType       String    @default("META_CLOUD")
+  whatsappMetaToken     String?
+  whatsappMetaPhoneId   String?
+  whatsappMetaWabaId    String?
+  whatsappCustomEndpoint String?
+  whatsappMonthlyUsed   Int       @default(0)
+  whatsappMonthlyReset  DateTime?
 
-// QR code d'inscription parent généré par l'admin de l'école.
-// Le parent scanne le QR → page « Retrouver mon enfant » → choisit la classe,
-// cherche le nom de son enfant puis crée son compte (identifiants).
-// L'admin choisit la durée de vie (expiresAt) pour la sécurité.
-model SchoolQrCode {
-  id        String   @id @default(cuid())
-  schoolId  String
-  token     String   @unique
-  label     String?
-  expiresAt DateTime
-  isActive  Boolean  @default(true)
-  createdBy String?
-  createdAt DateTime @default(now())
-
-  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-
-  @@index([schoolId])
-}
-
-// Registre des documents officiels (bulletins, reçus de paiement).
-// Chaque PDF généré embarque un QR code unique pointant vers
-// /verify/document/{id} — la page confirme que le document est officiel
-// et en décrit le contenu (élève, classe, moyenne, montant...).
-model DocumentVerification {
-  id              String   @id @default(cuid())
-  type            String   // BULLETIN | RECEIPT
-  schoolId        String
-  studentId       String?
-  paymentRecordId String?
-  trimester       String?
-  schoolYearId    String?
-  metadata        String   @default("{}") // JSON: average, decision, className, amount...
-  createdAt       DateTime @default(now())
-
-  school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-
-  @@index([schoolId, type])
-  @@index([studentId])
+  infirmaryVisits       InfirmaryVisit[]
+  medicalDispensations  MedicalDispensation[]
 }
 
 model User {
@@ -137,6 +98,7 @@ model User {
   convocationReads ConvocationRead[]
   teacherAssignments TeacherAssignment[]
   pushSubscriptions PushSubscription[]
+  infirmaryVisitsRecorded InfirmaryVisit[] @relation("RecordedVisits")
 }
 
 model Student {
@@ -169,8 +131,9 @@ model Student {
   greylistEntries  Greylist[]
   whitelistEntries Whitelist[]
   convocations   Convocation[]
-  dispenses      Dispense[]
-  repechageExams RepechageExam[]
+  medicalRecord  MedicalRecord?
+  infirmaryVisits InfirmaryVisit[]
+  medicalDispensations MedicalDispensation[]
 }
 
 model Class {
@@ -178,7 +141,6 @@ model Class {
   name          String
   section       String?
   level         String?
-  option        String?   // Option/filière d'origine (ex: "Commerciale & Gestion")
   capacity      Int       @default(40)
   schoolId      String
   schoolYearId  String
@@ -582,7 +544,7 @@ model PricingPlan {
 model PaymentGatewayConfig {
   id              String   @id @default(cuid())
   schoolId        String
-  gatewayType    String    // MPESA, ORANGE_MONEY, AIRTEL_MONEY, VISA, MASTERCARD, FLUTTERWAVE, DPO, MANUAL (RDC)
+  gatewayType    String    // DPO, STRIPE, PAYPAL, FLUTTERWAVE, MPESA, ORANGE_MONEY, AIRTEL_MONEY, MANUAL
   isActive       Boolean   @default(false)
   isTestMode     Boolean   @default(true)
 
@@ -595,7 +557,7 @@ model PaymentGatewayConfig {
 
   // Configuration spécifique
   phoneNumber    String?   // Pour Mobile Money
-  accountEmail   String?   // Pour les comptes marchands (ex. DPO, Flutterwave)
+  accountEmail   String?   // Pour PayPal/Stripe
 
   // Monnaie supportée par cette passerelle
   currency       String   @default("USD")
@@ -647,7 +609,7 @@ model PaymentTransaction {
   paymentRecordId String?
   studentId       String?
 
-  gatewayType    String    // MPESA, ORANGE_MONEY, AIRTEL_MONEY, VISA, MASTERCARD, FLUTTERWAVE, DPO, MANUAL (RDC)
+  gatewayType    String    // DPO, STRIPE, etc.
   gatewayTransactionId String? // ID retourné par la passerelle
   reference      String    // Référence interne
 
@@ -708,109 +670,6 @@ model SubscriptionRequest {
   @@index([status])
 }
 
-// Configuration WhatsApp API personnelle du client (Meta WhatsApp Cloud API).
-// Quand l'école configure sa propre API WhatsApp, les messages partent via SON
-// numéro/SON token Meta → plus de limite mensuelle EduGest (limité uniquement
-// par les tokens achetés auprès de Meta).
-model WhatsappApiConfig {
-  id                 String    @id @default(cuid())
-  schoolId           String    @unique
-  provider           String    @default("META_CLOUD_API") // META_CLOUD_API
-  phoneNumberId      String    // Phone Number ID (Meta)
-  accessToken        String    // Token permanent (chiffré au repos)
-  businessAccountId  String?   // WABA ID (optionnel)
-  webhookVerifyToken String?   // Token de vérification webhook (optionnel)
-  isActive           Boolean   @default(false)
-  lastTestAt         DateTime?
-  lastTestOk         Boolean?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-}
-
-// Journal des messages WhatsApp envoyés (compteur quota mensuel + audit).
-// channel = 'agent' (agent WhatsApp EduGest, compté dans le quota)
-//         | 'custom_api' (API WhatsApp du client, illimité)
-model WhatsappMessageLog {
-  id        String   @id @default(cuid())
-  schoolId  String
-  phone     String
-  type      String   @default("message") // message | document
-  channel   String   @default("agent")
-  status    String   @default("SENT") // SENT | FAILED
-  createdAt DateTime @default(now())
-
-  @@index([schoolId, createdAt])
-  @@index([schoolId, channel, createdAt])
-}
-
-// Élèves dispensés de cours (EPS par défaut) — créés par le compte médical
-model Dispense {
-  id            String    @id @default(cuid())
-  studentId     String
-  student       Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  type          String    @default("EPS")
-  reason        String
-  startDate     DateTime  @default(now())
-  endDate       DateTime?
-  status        String    @default("ACTIVE")
-  note          String?
-  createdById   String
-  createdByName String
-  schoolId      String
-  school        School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  @@index([schoolId, status])
-  @@index([studentId])
-}
-
-// Événements plateforme contrôlant la visibilité des fonctionnalités
-// (Passage de classe, Publication des bulletins) avant/après la date officielle.
-// schoolId null = s'applique à TOUTES les écoles.
-model PlatformEvent {
-  id                String   @id @default(cuid())
-  key               String
-  schoolId          String?
-  school            School?  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  schoolYearLabel   String?
-  officialDate      DateTime
-  visibleDaysBefore Int      @default(21)
-  enabled           Boolean  @default(true)
-  message           String?
-  createdById       String
-  createdByName     String
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  @@index([key, enabled])
-}
-
-// Examens de repêchage (matières avec moyenne annuelle < 10/20)
-model RepechageExam {
-  id              String    @id @default(cuid())
-  studentId       String
-  student         Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  classId         String?
-  schoolId        String
-  school          School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  schoolYearId    String?
-  subjects        String
-  status          String    @default("PLANNED")
-  examDate        DateTime?
-  note            String?
-  sentViaApp      Boolean   @default(false)
-  sentViaWhatsapp Boolean   @default(false)
-  whatsappDetail  String?
-  createdById     String
-  createdByName   String
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  @@index([schoolId])
-  @@index([studentId])
-}
-
 model VerificationToken {
   id         String   @id @default(cuid())
   userId     String
@@ -827,4 +686,67 @@ model VerificationToken {
 
   @@index([userId, channel, purpose])
   @@index([expiresAt])
+}
+
+model MedicalRecord {
+  id                    String   @id @default(cuid())
+  studentId             String   @unique
+  bloodGroup            String?
+  allergies             String?
+  chronicConditions     String?
+  regularMedication     String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  doctorName            String?
+  doctorPhone           String?
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  student               Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model InfirmaryVisit {
+  id              String   @id @default(cuid())
+  schoolId        String
+  studentId       String
+  recordedById    String?
+  visitDate       DateTime @default(now())
+  reason          String
+  symptoms        String?
+  treatment       String?
+  decision        String   @default("RETURN_TO_CLASS") // RETURN_TO_CLASS, RESTING, SENT_HOME, EMERGENCY_EVACUATION
+  temperature     Float?
+  parentNotified  Boolean  @default(false)
+  parentNotifiedAt DateTime?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  recordedBy      User?    @relation("RecordedVisits", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@index([schoolId])
+  @@index([studentId])
+}
+
+model MedicalDispensation {
+  id             String   @id @default(cuid())
+  schoolId       String
+  studentId      String
+  type           String   @default("EPS") // EPS, SPORT, AUTRE
+  startDate      DateTime
+  endDate        DateTime
+  reason         String
+  doctorName     String?
+  certificateUrl String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  school         School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@index([studentId])
 }

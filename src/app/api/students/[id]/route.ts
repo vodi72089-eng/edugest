@@ -90,6 +90,14 @@ export async function PUT(
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
 
+    // Le Service Médical est en lecture seule sur les élèves (pas de gestion école)
+    if (user.role === 'MEDICAL') {
+      return NextResponse.json(
+        { error: 'Le Service Médical ne peut pas modifier les dossiers élèves' },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
 
     const existing = await db.student.findUnique({ where: { id } });

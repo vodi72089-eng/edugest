@@ -1,7 +1,5 @@
 import { db } from './db';
-import { checkWhatsappQuota, recordWhatsappMessage } from './whatsapp-usage';
-import { getSchoolWhatsappApiConfig, sendViaWhatsappApi, sendDocumentViaWhatsappApi } from './whatsapp-api';
-import { tierAllowsParentGrades } from './subscription';
+import { getTierLimits } from './subscription';
 
 const WA_SERVER = process.env.WHATSAPP_SERVER_URL || 'http://localhost:3001';
 const WA_API_KEY = process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key';
@@ -181,29 +179,9 @@ export async function isWhatsAppConnected(): Promise<boolean> {
 }
 
 /**
- * Envoie un message WhatsApp.
- *
- * Routage automatique :
- *  - si l'école a configuré sa PROPRE API WhatsApp (Meta Cloud API) active,
- *    le message part via son numéro/son token → PAS de limite EduGest
- *    (le client n'est limité que par les tokens achetés chez Meta) ;
- *  - sinon, le message part via l'agent WhatsApp EduGest (Baileys) et est
- *    compté dans le quota mensuel du forfait de l'école.
- *
- * @param schoolId  Obligatoire pour le routage/comptage (null = agent sans suivi)
+ * Envoie un message WhatsApp via le serveur
  */
-async function sendWhatsAppMessage(phone: string, message: string, schoolId?: string | null, kind: 'message' | 'document' = 'message'): Promise<boolean> {
-  // 1) API WhatsApp personnelle de l'école → illimité côté EduGest
-  if (schoolId) {
-    const customApi = await getSchoolWhatsappApiConfig(schoolId);
-    if (customApi && customApi.isActive) {
-      const result = await sendViaWhatsappApi(customApi, phone, message);
-      await recordWhatsappMessage({ schoolId, phone, type: kind, channel: 'custom_api', ok: result.ok });
-      return result.ok;
-    }
-  }
-
-  // 2) Agent WhatsApp EduGest (Baileys)
+async function sendWhatsAppMessage(phone: string, message: string): Promise<boolean> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 28000);
@@ -217,19 +195,15 @@ async function sendWhatsAppMessage(phone: string, message: string, schoolId?: st
 
     clearTimeout(timeout);
     const data = await res.json();
-    const ok = data.ok === true;
-    if (schoolId) await recordWhatsappMessage({ schoolId, phone, type: kind, channel: 'agent', ok });
-    return ok;
+    return data.ok === true;
   } catch (error) {
     console.warn('[WhatsApp Agent] Send failed:', error);
-    if (schoolId) await recordWhatsappMessage({ schoolId, phone, type: kind, channel: 'agent', ok: false });
     return false;
   }
 }
 
 /**
- * Envoie un document (PDF, image…) via l'API WhatsApp de l'école si configurée,
- * sinon via le serveur WhatsApp EduGest (mini-service /send-document).
+ * Envoie un document (PDF, image…) via le serveur WhatsApp (mini-service /send-document)
  */
 export async function sendWhatsAppDocument(params: {
   phone: string;
@@ -237,23 +211,7 @@ export async function sendWhatsAppDocument(params: {
   filename: string;
   mimetype?: string;
   caption?: string;
-  schoolId?: string | null;
 }): Promise<boolean> {
-  const mimetype = params.mimetype || 'application/pdf';
-
-  // 1) API WhatsApp personnelle de l'école → illimité côté EduGest
-  if (params.schoolId) {
-    const customApi = await getSchoolWhatsappApiConfig(params.schoolId);
-    if (customApi && customApi.isActive) {
-      const result = await sendDocumentViaWhatsappApi(
-        customApi, params.phone, params.fileBase64, params.filename, mimetype, params.caption
-      );
-      await recordWhatsappMessage({ schoolId: params.schoolId, phone: params.phone, type: 'document', channel: 'custom_api', ok: result.ok });
-      return result.ok;
-    }
-  }
-
-  // 2) Agent WhatsApp EduGest
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 40000);
@@ -265,7 +223,7 @@ export async function sendWhatsAppDocument(params: {
         phone: params.phone,
         fileBase64: params.fileBase64,
         filename: params.filename,
-        mimetype,
+        mimetype: params.mimetype || 'application/pdf',
         caption: params.caption || '',
       }),
       signal: controller.signal,
@@ -273,12 +231,9 @@ export async function sendWhatsAppDocument(params: {
 
     clearTimeout(timeout);
     const data = await res.json();
-    const ok = data.ok === true;
-    if (params.schoolId) await recordWhatsappMessage({ schoolId: params.schoolId, phone: params.phone, type: 'document', channel: 'agent', ok });
-    return ok;
+    return data.ok === true;
   } catch (error) {
     console.warn('[WhatsApp Agent] Document send failed:', error);
-    if (params.schoolId) await recordWhatsappMessage({ schoolId: params.schoolId, phone: params.phone, type: 'document', channel: 'agent', ok: false });
     return false;
   }
 }
@@ -299,30 +254,47 @@ async function isRecipientAdmin(phone: string): Promise<boolean> {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Vérifie que l'école a un canal WhatsApp opérationnel et autorisé.
- *
- * Ordre de vérification :
- *  1. API WhatsApp personnelle de l'école active → OK (illimité côté EduGest)
- *  2. Agent WhatsApp EduGest connecté (numéro lié + session Baileys)
- *  3. Quota mensuel du forfait non dépassé
- *
- * Retourne null si OK, sinon la raison du blocage (pour logs/debug).
+ * Vérifie que l'école a un agent WhatsApp opérationnel (numéro lié + connecté)
+ * et vérifie les quotas de messages mensuels.
  */
 async function checkSchoolAgentReady(
   schoolId: string | null | undefined
 ): Promise<{ ok: boolean; reason?: string }> {
   if (!schoolId) return { ok: false, reason: 'schoolId manquant' };
 
-  // 1) API WhatsApp du client → pas de limite mensuelle EduGest
-  const customApi = await getSchoolWhatsappApiConfig(schoolId);
-  if (customApi && customApi.isActive) {
+  const school = await db.school.findUnique({
+    where: { id: schoolId },
+    select: {
+      subscriptionTier: true,
+      whatsappCustomEnabled: true,
+      whatsappApiType: true,
+      whatsappMetaToken: true,
+      whatsappMetaPhoneId: true,
+      whatsappMonthlyUsed: true,
+      whatsappMonthlyReset: true,
+    },
+  });
+
+  // Si l'école a configuré sa propre API WhatsApp (ex: Meta Cloud API)
+  if (school?.whatsappCustomEnabled && school.whatsappMetaToken && school.whatsappMetaPhoneId) {
     return { ok: true };
   }
 
-  // 2) Agent WhatsApp EduGest
+  // Vérification de quota mensuel pour la passerelle partagée EduGest
+  const tier = school?.subscriptionTier || 'FREEMIUM';
+  const limits = getTierLimits(tier);
+
+  if (limits.whatsappMonthly === 0) {
+    return { ok: false, reason: `Les messages WhatsApp ne sont pas inclus dans l'offre ${tier}. Passez à une offre supérieure.` };
+  }
+
+  if (school && school.whatsappMonthlyUsed >= limits.whatsappMonthly && limits.whatsappMonthly < 999999) {
+    return { ok: false, reason: `Quota mensuel WhatsApp atteint (${school.whatsappMonthlyUsed}/${limits.whatsappMonthly} msgs). Passez à l'offre supérieure ou configurez votre propre API.` };
+  }
+
   const schoolPhone = await getSchoolWhatsAppNumber(schoolId);
   if (!schoolPhone) {
-    return { ok: false, reason: `Aucun agent WhatsApp connecté pour l'école ${schoolId} (connectez-le dans Connexion WhatsApp)` };
+    return { ok: false, reason: `Aucun agent WhatsApp connecté pour l'école ${schoolId} (connectez-le dans Connexion WhatsApp ou activez votre propre API)` };
   }
 
   const live = await getWhatsAppLiveStatus();
@@ -330,10 +302,14 @@ async function checkSchoolAgentReady(
     return { ok: false, reason: 'Agent WhatsApp non connecté (statut: ' + live.status + ')' };
   }
 
-  // 3) Quota mensuel du forfait
-  const quota = await checkWhatsappQuota(schoolId);
-  if (!quota.ok) {
-    return { ok: false, reason: quota.reason };
+  // Incrémentation asynchrone du compteur de messages consommés ce mois
+  try {
+    await db.school.update({
+      where: { id: schoolId },
+      data: { whatsappMonthlyUsed: { increment: 1 } },
+    });
+  } catch (e) {
+    console.error('[WhatsApp Agent] Erreur incrémentation quota:', e);
   }
 
   return { ok: true };
@@ -382,7 +358,7 @@ export async function notifyConvocation(params: {
     `Date : ${formattedDate}\n\n` +
     `_EduGest - ${schoolName}_`;
 
-  return sendWhatsAppMessage(parentPhone, message, schoolId);
+  return sendWhatsAppMessage(parentPhone, message);
 }
 
 /**
@@ -424,7 +400,7 @@ export async function notifyHomework(params: {
     `École : ${schoolName}\n\n` +
     `_EduGest - ${schoolName}_`;
 
-  return sendWhatsAppMessage(parentPhone, message, schoolId);
+  return sendWhatsAppMessage(parentPhone, message);
 }
 
 /**
@@ -441,13 +417,6 @@ export async function notifyGrade(params: {
   schoolId: string;
 }): Promise<boolean> {
   const { parentPhone, studentName, subject, score, maxScore, trimester, schoolName, schoolId } = params;
-
-  // Forfait sans notes/bulletins aux parents (Freemium, Essentiel) → pas d'envoi
-  const schoolTier = await db.school.findUnique({ where: { id: schoolId }, select: { subscriptionTier: true } });
-  if (!tierAllowsParentGrades(schoolTier?.subscriptionTier || 'FREEMIUM')) {
-    console.log(`[WhatsApp Agent] Note non envoyée — forfait ${schoolTier?.subscriptionTier || 'FREEMIUM'} sans notes aux parents`);
-    return false;
-  }
 
   const gate = await checkSchoolAgentReady(schoolId);
   if (!gate.ok) {
@@ -475,7 +444,7 @@ export async function notifyGrade(params: {
     `École : ${schoolName}\n\n` +
     `_EduGest - ${schoolName}_`;
 
-  return sendWhatsAppMessage(parentPhone, message, schoolId);
+  return sendWhatsAppMessage(parentPhone, message);
 }
 
 /**
@@ -492,13 +461,6 @@ export async function notifyBulletin(params: {
   schoolId: string;
 }): Promise<boolean> {
   const { parentPhone, studentName, trimester, average, ranking, totalStudents, schoolName, schoolId } = params;
-
-  // Forfait sans notes/bulletins aux parents (Freemium, Essentiel) → pas d'envoi
-  const schoolTier = await db.school.findUnique({ where: { id: schoolId }, select: { subscriptionTier: true } });
-  if (!tierAllowsParentGrades(schoolTier?.subscriptionTier || 'FREEMIUM')) {
-    console.log(`[WhatsApp Agent] Bulletin non envoyé — forfait ${schoolTier?.subscriptionTier || 'FREEMIUM'} sans bulletins aux parents`);
-    return false;
-  }
 
   const gate = await checkSchoolAgentReady(schoolId);
   if (!gate.ok) {
@@ -519,116 +481,7 @@ export async function notifyBulletin(params: {
     `École : ${schoolName}\n\n` +
     `_EduGest - ${schoolName}_`;
 
-  return sendWhatsAppMessage(parentPhone, message, schoolId);
-}
-
-/**
- * Notifie les parents d'un élève des examens de repêchage à passer.
- *
- * Suit le pattern de notifyBulletin : gate forfait (parentGradesAccess) →
- * checkSchoolAgentReady → résolution des téléphones des parents → exclusion
- * admin/agent → envoi espacé (~1,2s anti-ban) avec suivi du quota.
- *
- * @returns { sent, failed, detail } — detail est un résumé textuel destiné à
- *          être stocké dans RepechageExam.whatsappDetail
- */
-export async function notifyRepechage(params: {
-  student: { id: string; firstName: string; lastName: string; className?: string | null };
-  schoolId: string;
-  subjects: Array<{ name: string; score?: number | null }>;
-  examDate?: Date | string | null;
-  note?: string | null;
-}): Promise<{ sent: number; failed: number; detail: string }> {
-  const { student, schoolId, subjects, examDate, note } = params;
-  const result = { sent: 0, failed: 0, detail: '' };
-
-  // Forfait sans notes/bulletins aux parents (Freemium, Essentiel) → pas d'envoi
-  const schoolTier = await db.school.findUnique({ where: { id: schoolId }, select: { subscriptionTier: true } });
-  if (!tierAllowsParentGrades(schoolTier?.subscriptionTier || 'FREEMIUM')) {
-    result.detail = `Non envoyé — forfait ${schoolTier?.subscriptionTier || 'FREEMIUM'} sans notes aux parents`;
-    console.log(`[WhatsApp Agent] Repêchage non envoyé — ${result.detail}`);
-    return result;
-  }
-
-  const gate = await checkSchoolAgentReady(schoolId);
-  if (!gate.ok) {
-    result.detail = `Non envoyé — ${gate.reason}`;
-    console.log(`[WhatsApp Agent] Repêchage non envoyé — ${gate.reason}`);
-    return result;
-  }
-
-  // ── Résolution des téléphones des parents de l'élève ─────────────────────
-  const studentRow = await db.student.findUnique({
-    where: { id: student.id },
-    select: { parentId: true },
-  });
-  if (!studentRow?.parentId) {
-    result.detail = 'Non envoyé — aucun parent lié à cet élève';
-    console.log('[WhatsApp Agent] Repêchage non envoyé — aucun parent lié');
-    return result;
-  }
-
-  const parent = await db.user.findUnique({
-    where: { id: studentRow.parentId },
-    select: { phone: true, isActive: true, name: true },
-  });
-  let recipients: string[] = parent?.phone && parent.isActive ? [parent.phone] : [];
-
-  // Déduplication par numéro
-  const seen = new Set<string>();
-  recipients = recipients.filter(p => {
-    const key = p.replace(/[^0-9]/g, '');
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  // Exclure le numéro admin (agent lui-même)
-  const filtered: string[] = [];
-  for (const p of recipients) {
-    if (await isRecipientAdmin(p)) continue;
-    filtered.push(p);
-  }
-
-  // Exclure le numéro de l'agent WhatsApp connecté
-  const live = await getWhatsAppLiveStatus();
-  const finalRecipients = live.connectedPhone
-    ? filtered.filter(p => p.replace(/[^0-9]/g, '') !== live.connectedPhone!.replace(/[^0-9]/g, ''))
-    : filtered;
-
-  if (finalRecipients.length === 0) {
-    result.detail = 'Non envoyé — aucun parent avec numéro WhatsApp valide';
-    console.log('[WhatsApp Agent] Repêchage non envoyé — aucun destinataire valide');
-    return result;
-  }
-
-  // ── Message FR ────────────────────────────────────────────────────────────
-  const subjectLines = subjects
-    .map(s => (s.score !== undefined && s.score !== null ? `• ${s.name} (moyenne: ${s.score}/20)` : `• ${s.name}`))
-    .join('\n');
-  const examDateStr = examDate
-    ? new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(examDate))
-    : 'à communiquer';
-
-  const message = `📚 *Examens de repêchage*\n\n` +
-    `Bonjour, votre enfant ${student.firstName} ${student.lastName} (${student.className || 'classe non définie'}) doit repêcher les matières suivantes :\n` +
-    `${subjectLines}\n\n` +
-    `📅 Date de l'examen : ${examDateStr}\n\n` +
-    (note ? `${note}\n\n` : '') +
-    `Rendez-vous à l'école. Bon courage !\n\n` +
-    `_EduGest_`;
-
-  // Envoi espacé (anti-ban WhatsApp ~1,2s entre les envois)
-  for (const phone of finalRecipients) {
-    const ok = await sendWhatsAppMessage(phone, message, schoolId);
-    if (ok) result.sent++;
-    else result.failed++;
-    await new Promise(res => setTimeout(res, 1200));
-  }
-
-  result.detail = `${result.sent} message(s) envoyé(s), ${result.failed} échec(s)`;
-  console.log(`[WhatsApp Agent] Repêchage "${student.firstName} ${student.lastName}" : ${result.detail}`);
-  return result;
+  return sendWhatsAppMessage(parentPhone, message);
 }
 
 /**
@@ -675,7 +528,7 @@ export async function notifyDiscipline(params: {
     `École : ${schoolName}\n\n` +
     `_EduGest - ${schoolName}_`;
 
-  return sendWhatsAppMessage(parentPhone, message, schoolId);
+  return sendWhatsAppMessage(parentPhone, message);
 }
 
 /**
@@ -835,7 +688,7 @@ export async function notifyCommunication(params: {
   }
 
   for (const r of capped) {
-    const ok = await sendWhatsAppMessage(r.phone, message, schoolId);
+    const ok = await sendWhatsAppMessage(r.phone, message);
     if (ok) result.sent++;
     else result.failed++;
     // Espacement anti-ban WhatsApp (~1,2s entre les envois)
@@ -872,7 +725,7 @@ export async function notifyPaymentCreated(
     `Statut: En attente de vérification`;
   for (const r of recipients) {
     if (await isRecipientAdmin(r.phone)) continue;
-    await sendWhatsAppMessage(r.phone, msg, schoolId);
+    await sendWhatsAppMessage(r.phone, msg);
   }
 }
 
@@ -893,7 +746,7 @@ export async function notifyPaymentApproved(
     `Élève: ${studentName}\nMontant: ${amount.toLocaleString('fr-FR')} CDF\n` +
     `Trimestre: ${trimester}\nÉcole: ${schoolName}\n\n` +
     `Votre paiement a été confirmé. Merci!`;
-  await sendWhatsAppMessage(recipientPhone, msg, schoolId);
+  await sendWhatsAppMessage(recipientPhone, msg);
 }
 
 export async function notifyPaymentRejected(
@@ -915,5 +768,47 @@ export async function notifyPaymentRejected(
     `Trimestre: ${trimester}\nÉcole: ${schoolName}\n` +
     (reason ? `Raison: ${reason}\n\n` : `\n`) +
     `Veuillez contacter l'administration.`;
-  await sendWhatsAppMessage(recipientPhone, msg, schoolId);
+  await sendWhatsAppMessage(recipientPhone, msg);
+}
+
+export async function notifyMedicalVisit(params: {
+  parentPhone: string;
+  studentName: string;
+  matricule: string;
+  schoolName: string;
+  schoolId: string;
+  reason: string;
+  decision: string;
+  treatment?: string;
+  temperature?: number | null;
+}): Promise<boolean> {
+  const gate = await checkSchoolAgentReady(params.schoolId);
+  if (!gate.ok) {
+    console.log(`[WhatsApp Agent] Visite médicale non notifiée — ${gate.reason}`);
+    return false;
+  }
+
+  const decisionLabels: Record<string, string> = {
+    RETURN_TO_CLASS: 'Retour en classe après soins',
+    RESTING: 'Repos en observation à l\'infirmerie',
+    SENT_HOME: 'Retour au domicile recommandé',
+    EMERGENCY_EVACUATION: 'Évacuation médicale d\'urgence',
+  };
+
+  const decisionText = decisionLabels[params.decision] || params.decision;
+
+  const msg =
+    `🏥 *Service Médical & Santé — ${params.schoolName}*\n\n` +
+    `Bonjour,\n` +
+    `Votre enfant *${params.studentName}* (Matricule: ${params.matricule}) a été admis(e) à l'infirmerie de l'établissement.\n\n` +
+    `📋 *Motif* : ${params.reason}\n` +
+    (params.temperature ? `🌡️ *Température relevée* : ${params.temperature}°C\n` : '') +
+    (params.treatment ? `💊 *Soins prodigués* : ${params.treatment}\n` : '') +
+    `📍 *Décision de l'infirmier(e)* : *${decisionText}*\n\n` +
+    (params.decision === 'SENT_HOME' || params.decision === 'EMERGENCY_EVACUATION'
+      ? `⚠️ *URGENT* : Merci de bien vouloir contacter sans attendre la direction ou le service médical de l'école.\n\n`
+      : '') +
+    `_Notification automatique sécurisée transmise par EduGest._`;
+
+  return await sendWhatsAppMessage(params.parentPhone, msg);
 }

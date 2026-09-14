@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
 import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, DisciplineData, CommunicationData, HomeworkData } from '@/lib/types'
 import { ACCENT, ACCENT2, ACCENT_SOFT, SUCCESS, WARNING, DANGER, INFO, MUTED, BORDER, GOLD, GOLD_SOFT, GOLD_GLOW, DARK, DARK_ALT, IVORY, IVORY_WARM, TEXT_PRIMARY, TEXT_MUTED_LUXE, SUCCESS_SOFT, SUBSCRIPTION_TIERS, PROVINCES, FILTER_CHIPS, COVER_GRADIENTS, LOGO_COLORS, ENROLLMENT_DATA, SUBSCRIPTION_DATA } from '@/lib/constants'
-import { getInitials, formatDate, formatNumber, formatCurrency, getSchoolTypeLabel, getSubscriptionLabel, getSubscriptionPrice, getRoleLabel, getStatusPill } from '@/lib/helpers'
+import { getInitials, formatDate, formatNumber, formatCurrency, getSchoolTypeLabel, getSubscriptionLabel, getSubscriptionPrice, getRoleLabel, getStatusPill, API_ROLE_MAP } from '@/lib/helpers'
 import { EDUCATIONAL_SYSTEMS_LIST } from '@/lib/educational-systems'
 import StudentAvatar from '@/components/ui/StudentAvatar'
 import { FlagIcon } from '@/components/FlagIcon'
@@ -14,14 +14,16 @@ import dynamic from 'next/dynamic'
 const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
 import { AnimatedCounter, ScrollReveal, StaggerContainer, StaggerItem, GlowCard, MagneticButton, AuroraBackground, BlurText, GradientText } from '@/components/animated'
 import SuperAdminDashboard from '@/components/dashboards/SuperAdminDashboard'
+import SchoolAdminDashboard from '@/components/dashboards/SchoolAdminDashboard'
 import SecretaryDashboard from '@/components/dashboards/SecretaryDashboard'
 import CashierDashboard from '@/components/dashboards/CashierDashboard'
 import ParentDashboard from '@/components/dashboards/ParentDashboard'
 import TeacherDashboard from '@/components/dashboards/TeacherDashboard'
 import HeadTeacherDashboard from '@/components/dashboards/HeadTeacherDashboard'
 import DisciplineDashboardView from '@/components/dashboards/DisciplineDashboard'
-import ParentsView from '@/components/views/ParentsView'
-import PersonalizationView from '@/components/views/PersonalizationView'
+import MedicalDashboard from '@/components/dashboards/MedicalDashboard'
+import MedicalView from '@/components/views/MedicalView'
+import { getTierLimits } from '@/lib/subscription'
 import StudentsView from '@/components/views/StudentsView'
 import GradesView from '@/components/views/GradesView'
 import PaymentsView from '@/components/views/PaymentsView'
@@ -32,7 +34,6 @@ import SettingsView from '@/components/views/SettingsView'
 import OnlinePaymentView from '@/components/views/OnlinePaymentView'
 import DettesView from '@/components/views/DettesView'
 import SchoolsManagementView from '@/components/views/SchoolsManagementView'
-import ParentQrView from '@/components/views/ParentQrView'
 import {
   Search, Bell, Settings, Plus, ChevronRight, Users, GraduationCap,
   DollarSign, MessageSquare, BookOpen, Shield, LogOut, Menu, X,
@@ -44,18 +45,13 @@ import {
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
    ChevronUp, ExternalLink, Check, Copy, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown,
-  User, Landmark, Palette, BellRing, QrCode as QrCodeIcon, Database
+  User, Landmark, Palette, BellRing, HeartPulse
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell
 } from 'recharts'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
-import { tierAllowsParentGrades } from '@/lib/subscription'
-import WhatsappUsageCard from '@/components/views/WhatsappUsageCard'
-import SystemParcoursExplorer from '@/components/views/SystemParcoursExplorer'
-import PlatformControlView from '@/components/views/PlatformControlView'
-import DispensesView from '@/components/views/DispensesView'
 import { useRouter } from 'next/navigation'
 
 // ===== Types (imported from @/lib/types) =====
@@ -221,7 +217,8 @@ function PublicHeader({ dark = false }: { dark?: boolean }) {
     <header className={`sticky top-0 z-50 ${dark ? 'bg-transparent' : 'bg-white/85 backdrop-blur-xl border-b border-edu-border'}`}>
       <div className="container-premium h-16 flex items-center justify-between">
         <button onClick={() => setCurrentView('home')} className="flex items-center gap-2 font-bold text-base">
-          <BrandMark height={32} className={dark ? 'brightness-110' : ''} />
+          <i className="ri-graduation-cap-fill text-xl" style={{ color: '#f5a623' }}></i>
+          EduGest
         </button>
         <nav className="hidden sm:flex items-center gap-1">
           <button onClick={() => setCurrentView('home')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Écoles</button>
@@ -350,7 +347,6 @@ function HomeView() {
   const [province, setProvince] = useState('Toutes provinces')
   const [activeFilter, setActiveFilter] = useState('all')
   const [showMap, setShowMap] = useState(false)
-  const [activeSystemId, setActiveSystemId] = useState<string | null>(null)
   const [typewriterLine1, setTypewriterLine1] = useState('')
   const [typewriterLine2, setTypewriterLine2] = useState('')
   const [typewriterActiveLine, setTypewriterActiveLine] = useState<1 | 2 | null>(1)
@@ -686,7 +682,7 @@ function HomeView() {
             </button>
           ))}
           <div className="ml-auto hidden sm:block text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
-            {formatNumber(filteredSchools.length)} école{filteredSchools.length > 1 ? 's' : ''}
+            Affichage {filteredSchools.length > 0 ? '1' : '0'}—{Math.min(12, filteredSchools.length)} sur {filteredSchools.length}
           </div>
           <button
             onClick={() => setShowMap(!showMap)}
@@ -774,52 +770,6 @@ function HomeView() {
                 </button>
                 </ScrollReveal>
               ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ===== SYSTÈMES SCOLAIRES ===== */}
-      <section id="systems-section" className="edu-ivory-texture py-16 sm:py-20 border-t border-[oklch(88%_0.01_175)]">
-        <div className="container-premium">
-          <div className="text-center mb-10">
-            <div className="edu-ornament mb-4"><span style={{ color: GOLD }}>►</span></div>
-            <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
-              Les <GradientText className="inline-block" colors={['#f5a623', '#e8962d', '#d4860f']}>systèmes scolaires</GradientText> intégrés
-            </h2>
-            <p className="text-base max-w-[560px] mx-auto" style={{ color: TEXT_MUTED_LUXE }}>
-              Cliquez sur un système pour découvrir ses parcours officiels : classes, options/filières populaires et horaires types.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
-            {EDUCATIONAL_SYSTEMS_LIST.map(sys => {
-              const isActive = activeSystemId === sys.id
-              return (
-                <button
-                  key={sys.id}
-                  onClick={() => setActiveSystemId(isActive ? null : sys.id)}
-                  className={`text-left bg-white border rounded-2xl p-5 transition-all edu-card-lift ${isActive ? 'border-[oklch(72%_0.15_65)] shadow-md ring-2 ring-[oklch(72%_0.15_65_/_0.2)]' : 'border-[oklch(88%_0.01_175)] hover:shadow-md'}`}
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-8 rounded-lg overflow-hidden shadow-sm shrink-0">
-                      <FlagIcon countryCode={sys.countryCode} className="w-full h-full" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-bold truncate" style={{ color: TEXT_PRIMARY }}>{sys.shortLabel}</div>
-                      <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{sys.country}</div>
-                    </div>
-                  </div>
-                  <div className="text-[12px] leading-relaxed line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{sys.sampleClasses}</div>
-                  <div className="mt-3 text-[12px] font-semibold flex items-center gap-1" style={{ color: GOLD }}>
-                    {isActive ? 'Masquer' : 'Voir les parcours'} <ChevronDown size={13} className={`transition-transform ${isActive ? 'rotate-180' : ''}`} />
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-          {activeSystemId && (
-            <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl shadow-sm overflow-hidden">
-              <SystemParcoursExplorer systemId={activeSystemId} />
             </div>
           )}
         </div>
@@ -1338,24 +1288,7 @@ function CreateSchoolView() {
         const loginJson = await loginRes.json()
         if (loginJson.data) {
           const apiUser = loginJson.data
-          const roleMap: Record<string, UserRole> = {
-            SUPER_ADMIN_GLOBAL: 'SUPER_ADMIN_GLOBAL',
-            SCHOOL_ADMIN: 'SCHOOL_ADMIN',
-            SECRETARY: 'SECRETARY',
-            CASHIER: 'CASHIER',
-            DIRECTION_MATERNELLE: 'DIRECTION_MATERNELLE',
-            DIRECTION_PRIMAIRE: 'DIRECTION_PRIMAIRE',
-            DIRECTION_SECONDAIRE: 'DIRECTION_SECONDAIRE',
-            DISCIPLINE_MATERNELLE: 'DISCIPLINE_MATERNELLE',
-            DISCIPLINE_PRIMAIRE: 'DISCIPLINE_PRIMAIRE',
-            DISCIPLINE_SECONDAIRE: 'DISCIPLINE_SECONDAIRE',
-            TEACHER: 'TEACHER',
-            HEAD_TEACHER: 'HEAD_TEACHER',
-            EPS: 'EPS',
-            MEDICAL: 'MEDICAL',
-            PARENT: 'PARENT',
-          }
-          const role = roleMap[apiUser.role] || 'SUPER_ADMIN_GLOBAL'
+          const role = API_ROLE_MAP[apiUser.role] || 'SUPER_ADMIN_GLOBAL'
           login(role, {
             id: apiUser.id, name: apiUser.name, role,
             schoolId: apiUser.schoolId, schoolName: json.data.school.name,
@@ -1363,9 +1296,6 @@ function CreateSchoolView() {
             initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
             profileImageUrl: null,
             subscriptionTier: json.data.school.subscriptionTier || 'FREEMIUM',
-            schoolDesign: json.data.school.designPrimary || json.data.school.designAccent || json.data.school.designGold
-              ? { primary: json.data.school.designPrimary || null, accent: json.data.school.designAccent || null, gold: json.data.school.designGold || null }
-              : null,
           }, loginJson.data.token)
           toast.success('École créée avec succès ! Bienvenue !')
         } else {
@@ -1451,15 +1381,7 @@ function CreateSchoolView() {
                   const loginJson = await loginRes.json()
                   if (loginJson.data) {
                     const apiUser = loginJson.data
-                    const roleMap: Record<string, UserRole> = {
-                      SUPER_ADMIN_GLOBAL: 'SUPER_ADMIN_GLOBAL', SCHOOL_ADMIN: 'SCHOOL_ADMIN',
-                      SECRETARY: 'SECRETARY', CASHIER: 'CASHIER',
-                      DIRECTION_MATERNELLE: 'DIRECTION_MATERNELLE', DIRECTION_PRIMAIRE: 'DIRECTION_PRIMAIRE',
-                      DIRECTION_SECONDAIRE: 'DIRECTION_SECONDAIRE', DISCIPLINE_MATERNELLE: 'DISCIPLINE_MATERNELLE',
-                      DISCIPLINE_PRIMAIRE: 'DISCIPLINE_PRIMAIRE', DISCIPLINE_SECONDAIRE: 'DISCIPLINE_SECONDAIRE',
-                      TEACHER: 'TEACHER', HEAD_TEACHER: 'HEAD_TEACHER', EPS: 'EPS', MEDICAL: 'MEDICAL', PARENT: 'PARENT',
-                    }
-                    const role = roleMap[apiUser.role] || 'SUPER_ADMIN_GLOBAL'
+                    const role = API_ROLE_MAP[apiUser.role] || 'SUPER_ADMIN_GLOBAL'
                     login(role, {
                       id: apiUser.id, name: apiUser.name, role,
                       schoolId: apiUser.schoolId, schoolName: form.name,
@@ -1467,7 +1389,6 @@ function CreateSchoolView() {
                       initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
                       profileImageUrl: null,
                       subscriptionTier: 'FREEMIUM',
-                      schoolDesign: null,
                     }, loginJson.data.token)
                     toast.success('Compte vérifié et connecté !')
                     setStep(4)
@@ -1771,16 +1692,6 @@ function CreateSchoolView() {
                       </div>
                     )}
                   </div>
-                  {form.educationalSystem && !eduSysOpen && (
-                    <div className="sm:col-span-2 -mt-1 mb-1">
-                      <div className="text-[11px] font-medium mb-2 flex items-center gap-1.5" style={{ color: '#f5a623' }}>
-                        <Check size={12} /> Parcours officiels de ce système — les classes ci-dessous seront créées automatiquement selon votre niveau scolaire ({form.schoolLevel ? form.schoolLevel.toLowerCase() : 'polyvalente'}), avec options et horaires :
-                      </div>
-                      <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                        <SystemParcoursExplorer systemId={form.educationalSystem} compact />
-                      </div>
-                    </div>
-                  )}
                   <div>
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Capacité max</label>
                     <input type="number" value={form.maxStudents} onChange={e => updateForm('maxStudents', e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
@@ -1868,6 +1779,7 @@ function CreateSchoolView() {
 // ===== LOGIN VIEW =====
 function LoginView() {
   const { setCurrentView, login } = useEduGestStore()
+  const [tab, setTab] = useState<'parent' | 'admin'>('parent')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -1880,80 +1792,25 @@ function LoginView() {
   const [schools, setSchools] = useState<{ id: string; name: string; shortName: string; city: string }[]>([])
   const [selectedSchoolId, setSelectedSchoolId] = useState('')
 
-  // ── Popup « Trouver mon école » (recherche publique) ────────────────────
-  const [showFindSchoolPopup, setShowFindSchoolPopup] = useState(false)
-  const [publicSchools, setPublicSchools] = useState<{ id: string; name: string; city: string; province: string; logo: string | null; studentCount: number }[]>([])
-  const [schoolQuery, setSchoolQuery] = useState('')
-  const [schoolSearching, setSchoolSearching] = useState(false)
-
-  // ── Popup « Importer votre base » (post-login, identifiants validés) ────
-  // Ne s'affiche QUE lorsque les identifiants ont été validés par le
-  // serveur (connexion réussie). Le serveur détermine le rôle ; aucun
-  // message ne fuit sur le type de compte.
-  const [showImportBasePopup, setShowImportBasePopup] = useState(false)
-  const [importFile, setImportFile] = useState<File | null>(null)
-  const [importLoading, setImportLoading] = useState(false)
-  const [importResult, setImportResult] = useState<{ students: number; classes: number; grades: number; teachers: number; subjects: number } | null>(null)
-  const [importError, setImportError] = useState('')
-  const [pendingRedirect, setPendingRedirect] = useState<ViewType>('dashboard')
-
-  const loadPublicSchools = useCallback((q: string) => {
-    setSchoolSearching(true)
-    fetch(`/api/public/schools?q=${encodeURIComponent(q)}`)
-      .then(r => r.json())
-      .then(j => setPublicSchools(j.data || []))
-      .catch(() => {})
-      .finally(() => setSchoolSearching(false))
-  }, [])
-
-  useEffect(() => {
-    if (showFindSchoolPopup) loadPublicSchools('')
-  }, [showFindSchoolPopup, loadPublicSchools])
-
-  // Import de base de données — utilise le token Bearer de l'utilisateur
-  // déjà authentifié (pas besoin de redemander email/password).
-  async function handleImportDb(e: React.FormEvent) {
-    e.preventDefault()
-    setImportError('')
-    setImportResult(null)
-    if (!importFile) { setImportError('Choisissez votre fichier de base de données (.db)'); return }
-    setImportLoading(true)
-    try {
-      const fd = new FormData()
-      fd.append('file', importFile)
-      const res = await authFetch('/api/school/import-db', { method: 'POST', body: fd })
-      const j = await res.json()
-      if (!res.ok) {
-        setImportError(j.error || 'Erreur lors de l\'import')
-        return
-      }
-      const sm = j.data?.summary || {}
-      setImportResult({ students: sm.students || 0, classes: sm.classes || 0, grades: sm.grades || 0, teachers: sm.teachers || 0, subjects: sm.subjects || 0 })
-      setImportFile(null)
-    } catch {
-      setImportError('Erreur réseau pendant l\'import')
-    } finally {
-      setImportLoading(false)
-    }
-  }
-
-  function skipImportAndContinue() {
-    setShowImportBasePopup(false)
-    setImportFile(null)
-    setImportResult(null)
-    setImportError('')
-    setCurrentView(pendingRedirect)
-  }
-
   useEffect(() => {
     fetch('/api/schools?limit=50').then(r => r.json()).then(j => setSchools(j.data || [])).catch(() => {})
   }, [])
 
-  // NOTE (sécurité) : plus de validation de rôle côté client. Le rôle est
-  // déterminé uniquement par le serveur à partir des identifiants. Aucun
-  // message ne révèle si un email est un compte parent ou admin — ça
-  // empêche qu'un attaquant qui devine un mot de passe sache à l'avance
-  // quel type de compte il a trouvé.
+  // Vérifie que le rôle correspond à l'onglet sélectionné
+  function validateRoleForTab(role: UserRole | null): { valid: boolean; message?: string } {
+    if (!role) return { valid: false, message: 'Rôle non reconnu. Contactez l\'administration.' }
+    if (role === 'SUPER_ADMIN_GLOBAL') return { valid: true }
+    if (tab === 'parent') {
+      if (role !== 'PARENT') {
+        return { valid: false, message: 'Ce compte n\'est pas un compte parent. Veuillez utiliser l\'onglet Administration.' }
+      }
+    } else {
+      if (role === 'PARENT') {
+        return { valid: false, message: 'Ce compte est un compte parent. Veuillez utiliser l\'onglet Parent.' }
+      }
+    }
+    return { valid: true }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -1969,9 +1826,11 @@ function LoginView() {
       if (json.data) {
         const apiUser = json.data
         const role = mapApiRole(apiUser.role)
-        // Le rôle est validé uniquement côté serveur. Aucun message
-        // spécifique sur le type de compte n'est affiché en cas d'erreur
-        // (mesure de sécurité anti-énumération de comptes).
+        const validation = validateRoleForTab(role)
+        if (!validation.valid) {
+          toast.error(validation.message || 'Accès non autorisé pour ce type de compte.')
+          return
+        }
         if (role) {
           login(role, {
             id: apiUser.id,
@@ -1986,24 +1845,11 @@ function LoginView() {
             classNames: apiUser.classNames || null,
             isTitulaire: apiUser.isTitulaire || false,
             subscriptionTier: apiUser.school?.subscriptionTier || 'FREEMIUM',
-            schoolDesign: apiUser.school
-              ? { primary: apiUser.school.designPrimary || null, accent: apiUser.school.designAccent || null, gold: apiUser.school.designGold || null }
-              : null,
           }, json.data.token)
           toast.success(`Bienvenue, ${apiUser.name}!`)
-          // ── Popup « Importer votre base » ────────────────────────────────
-          // S'affiche UNIQUEMENT lorsque les identifiants ont été validés
-          // (connexion réussie). Seuls les admins (rôles admin d'école)
-          // voient la popup — les parents n'en ont pas besoin.
-          const IMPORT_ADMIN_ROLES = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE']
-          if (IMPORT_ADMIN_ROLES.includes(role)) {
-            setPendingRedirect('dashboard')
-            setShowImportBasePopup(true)
-          }
           return
         }
       }
-      // Message d'erreur générique — ne révèle pas la nature du compte.
       if (json.error) {
         toast.error(json.error === 'Invalid credentials' ? 'Email ou mot de passe incorrect' : json.error)
       } else {
@@ -2017,24 +1863,11 @@ function LoginView() {
   }
 
   function mapApiRole(role: string): UserRole | null {
+    // Alias legacy conservés ici (comportement historique du login)
     const map: Record<string, UserRole> = {
-      SUPER_ADMIN_GLOBAL: 'SUPER_ADMIN_GLOBAL',
-      SCHOOL_ADMIN: 'SCHOOL_ADMIN',
-      SECRETARY: 'SECRETARY',
-      CASHIER: 'CASHIER',
-      DIRECTION_MATERNELLE: 'DIRECTION_MATERNELLE',
-      DIRECTION_PRIMAIRE: 'DIRECTION_PRIMAIRE',
-      DIRECTION_SECONDAIRE: 'DIRECTION_SECONDAIRE',
+      ...API_ROLE_MAP,
       DIRECTION: 'DIRECTION_PRIMAIRE',
-      DISCIPLINE_MATERNELLE: 'DISCIPLINE_MATERNELLE',
-      DISCIPLINE_PRIMAIRE: 'DISCIPLINE_PRIMAIRE',
-      DISCIPLINE_SECONDAIRE: 'DISCIPLINE_SECONDAIRE',
       DISCIPLINE: 'DISCIPLINE_PRIMAIRE',
-      TEACHER: 'TEACHER',
-      HEAD_TEACHER: 'HEAD_TEACHER',
-      EPS: 'EPS',
-      MEDICAL: 'MEDICAL',
-      PARENT: 'PARENT',
     }
     return map[role] || null
   }
@@ -2048,16 +1881,19 @@ function LoginView() {
       <div className="absolute top-0 right-0 w-[500px] h-[500px] opacity-15 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, oklch(72% 0.15 65 / 0.3), transparent 70%)' }} />
       <div className="absolute bottom-0 left-0 w-[400px] h-[400px] opacity-10 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, oklch(60% 0.15 145 / 0.2), transparent 70%)' }} />
 
-      {/* Top nav bar — logo seul, pas de bouton Retour vers landing page */}
+      {/* Top nav bar */}
       <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-5 w-full">
-        <div className="flex items-center shrink-0 min-w-max">
-          <BrandMark height={48} className="brightness-110" />
-        </div>
+        <button onClick={() => setCurrentView('home')} className="flex items-center shrink-0 min-w-max">
+          <BrandMark height={48} className="brightness-110 hover:scale-105 transition-all duration-300" />
+        </button>
+        <button onClick={() => setCurrentView('home')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em] flex items-center gap-1.5">
+          <ArrowLeft size={14} /> Retour
+        </button>
       </nav>
 
       {/* Main content: animated book + login card */}
       <main className="relative z-20 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-4 sm:py-8 gap-8 sm:gap-10">
-        {/* Animated Book + Brand — logo officiel uniquement, pas de texte EduGest */}
+        {/* Animated Book + Brand */}
         <div className="text-center flex flex-col items-center gap-5">
           <div className="edu-book mx-auto" style={{ transform: 'scale(1.1)' }}>
             <div className="edu-book__pg-shadow"></div>
@@ -2067,22 +1903,43 @@ function LoginView() {
             <div className="edu-book__pg edu-book__pg--4"></div>
             <div className="edu-book__pg edu-book__pg--5"></div>
           </div>
-          <BrandMark height={56} className="brightness-110" />
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight mb-2">
+              Edu<span style={{ color: 'oklch(72% 0.15 65)', textShadow: '0 0 20px oklch(72% 0.15 65 / 0.4)' }}>Gest</span>
+            </h1>
+            <p className="text-white/50 text-sm sm:text-base font-medium">
+              La plateforme de gestion scolaire
+            </p>
+          </div>
         </div>
 
-        {/* Glass morphism login card — formulaire unique, pas de tabs Parent/Administration/Trouver mon école */}
+        {/* Glass morphism login card */}
         <div className="w-full max-w-[440px] rounded-2xl p-6 sm:p-8" style={{ background: 'rgba(26, 37, 32, 0.55)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5), 0 0 80px oklch(55% 0.15 175 / 0.05)' }}>
+          {/* Tab switcher */}
+          <div className="flex rounded-xl p-1 mb-6" style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+            <button onClick={() => setTab('parent')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === 'parent' ? 'text-[#0a0f0d] shadow-lg' : 'text-white/60 hover:text-white/80'}`} style={tab === 'parent' ? { background: 'oklch(55% 0.15 175)', boxShadow: '0 4px 16px oklch(55% 0.15 175 / 0.35)' } : undefined}>
+              Parent
+            </button>
+            <button onClick={() => setTab('admin')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === 'admin' ? 'text-[#0a0f0d] shadow-lg' : 'text-white/60 hover:text-white/80'}`} style={tab === 'admin' ? { background: 'oklch(55% 0.15 175)', boxShadow: '0 4px 16px oklch(55% 0.15 175 / 0.35)' } : undefined}>
+              Administration
+            </button>
+          </div>
+
           <div className="mb-5">
-            <h2 className="text-xl font-bold text-white tracking-tight mb-1">Connexion</h2>
-            <p className="text-sm text-white/50">Accédez à votre espace EduGest</p>
+            <h2 className="text-xl font-bold text-white tracking-tight mb-1">
+              {tab === 'parent' ? 'Connexion Parent' : 'Connexion Administration'}
+            </h2>
+            <p className="text-sm text-white/50">
+              {tab === 'parent' ? 'Accédez au suivi scolaire de vos enfants' : 'Personnel de l\'école, direction, enseignants'}
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-white/70">Email ou numéro WhatsApp</label>
+              <label className="text-[13px] font-medium text-white/70">{tab === 'parent' ? 'Email ou numéro WhatsApp' : 'Email professionnel'}</label>
               <input
                 type="text" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="ex. direction@ecole.cd ou +243 81..."
+                placeholder={tab === 'parent' ? 'ex. parent@email.com ou +243 81...' : 'ex. direction@ecole.cd'}
                 className="w-full px-4 py-3.5 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)] focus:border-[oklch(55%_0.15_175_/_0.5)]"
                 style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
                 required
@@ -2133,13 +1990,6 @@ function LoginView() {
           <p className="text-center text-[13px] mt-5 text-white/50">
             Pas encore de compte ? <button onClick={() => setCurrentView('create-school')} className="font-medium hover:underline" style={{ color: 'oklch(72% 0.15 65 / 0.8)' }}>Créer mon école</button>
           </p>
-
-          {/* Lien « Trouver mon école » — ouvre une popup (la recherche publique n'est plus un onglet) */}
-          <p className="text-center text-[12px] mt-3 text-white/40">
-            <button onClick={() => setShowFindSchoolPopup(true)} className="font-medium hover:underline" style={{ color: 'oklch(55% 0.15 175)' }}>
-              Trouver mon école
-            </button>
-          </p>
         </div>
 
         {/* Trust indicators below form */}
@@ -2154,114 +2004,6 @@ function LoginView() {
       <div className="relative z-20 text-center text-[13px] text-white/30 py-5">
         © 2026 EduGest · Kinshasa · Dakar · Abidjan
       </div>
-
-      {/* ===== POPUP « Trouver mon école » ===== */}
-      {showFindSchoolPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setShowFindSchoolPopup(false)}>
-          <div className="rounded-2xl shadow-2xl w-full max-w-md p-6" style={{ background: 'rgba(26, 37, 32, 0.95)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.1)' }} onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h3 className="text-base font-bold text-white">Trouver mon école</h3>
-                <p className="text-[11px] text-white/50">Recherchez l’école de votre enfant</p>
-              </div>
-              <button onClick={() => setShowFindSchoolPopup(false)} className="w-8 h-8 rounded-lg grid place-items-center text-white/60 hover:text-white hover:bg-white/10 transition"><X size={16} /></button>
-            </div>
-            <div className="flex gap-2 mb-3">
-              <input
-                type="text" value={schoolQuery} onChange={e => setSchoolQuery(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') loadPublicSchools(schoolQuery) }}
-                placeholder="Nom de l’école ou ville…"
-                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)]"
-                style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
-              />
-              <button onClick={() => loadPublicSchools(schoolQuery)} className="px-4 rounded-xl text-sm font-semibold shrink-0" style={{ background: 'oklch(55% 0.15 175)', color: 'oklch(97% 0.005 175)' }}>
-                {schoolSearching ? '…' : 'Chercher'}
-              </button>
-            </div>
-            <div className="max-h-72 overflow-y-auto custom-scrollbar space-y-2">
-              {publicSchools.length === 0 ? (
-                <p className="text-white/30 text-[13px] text-center py-3">{schoolSearching ? 'Recherche…' : 'Aucune école trouvée'}</p>
-              ) : publicSchools.map(s => (
-                <div key={s.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/10 bg-white/5">
-                  {s.logo ? (
-                    <img src={s.logo} alt={`Logo ${s.name}`} className="w-9 h-9 rounded-lg object-cover" />
-                  ) : (
-                    <div className="w-9 h-9 rounded-lg grid place-items-center text-[11px] font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))' }}>{s.name.slice(0, 2).toUpperCase()}</div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="text-white text-[13px] font-semibold truncate">{s.name}</div>
-                    <div className="text-white/40 text-[11px]">{s.city || '—'} · {s.studentCount} élèves</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ===== POPUP « Importer votre base » =====
-          Ne s'affiche QUE lorsque les identifiants admin ont été validés
-          par le serveur (connexion réussie). Utilise le token Bearer de
-          la session — l'utilisateur n'a pas besoin de retaper ses
-          identifiants. */}
-      {showImportBasePopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="rounded-2xl shadow-2xl w-full max-w-md p-6" style={{ background: 'rgba(26, 37, 32, 0.95)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl grid place-items-center" style={{ background: 'oklch(72% 0.15 65)' }}>
-                  <Database size={20} className="text-[#0a0f0d]" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">Importer votre base</h3>
-                  <p className="text-[11px] text-white/50">Identifiants vérifiés — optionnel</p>
-                </div>
-              </div>
-              <button onClick={skipImportAndContinue} className="w-8 h-8 rounded-lg grid place-items-center text-white/60 hover:text-white hover:bg-white/10 transition"><X size={16} /></button>
-            </div>
-
-            {importResult ? (
-              <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(60, 145, 100, 0.15)', border: '1px solid rgba(60, 145, 100, 0.4)' }}>
-                <CheckCircle size={28} className="mx-auto mb-2" style={{ color: 'oklch(72% 0.17 155)' }} />
-                <p className="text-white font-semibold text-sm mb-1">Base importée avec succès !</p>
-                <p className="text-white/60 text-[12px] leading-relaxed">
-                  {importResult.students} élèves · {importResult.classes} classes · {importResult.subjects} matières · {importResult.grades} notes · {importResult.teachers} professeurs
-                </p>
-                <p className="text-white/40 text-[12px] mt-2">Vos données sont maintenant celles de votre école.</p>
-                <button onClick={skipImportAndContinue} className="mt-4 w-full py-3 rounded-xl text-sm font-bold text-[#0a0f0d]" style={{ background: '#f5a623' }}>
-                  Continuer vers le dashboard
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleImportDb} className="space-y-3">
-                <p className="text-[12px] text-white/50 leading-relaxed">
-                  Importez votre fichier de base de données EduGest (.db) :
-                  élèves, classes, notes et professeurs deviennent directement la base de votre école.
-                  Vous pouvez aussi passer cette étape et importer plus tard.
-                </p>
-                <label className="block cursor-pointer rounded-xl px-4 py-3.5 text-sm text-white/70 transition hover:bg-white/5" style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px dashed rgba(255, 255, 255, 0.2)' }}>
-                  <input type="file" accept=".db,.sqlite,.sqlite3" className="hidden" onChange={e => setImportFile(e.target.files?.[0] || null)} />
-                  <span className="flex items-center gap-2">
-                    <Upload size={15} style={{ color: 'oklch(72% 0.15 65)' }} />
-                    {importFile ? importFile.name : 'Choisir le fichier .db de votre école'}
-                  </span>
-                </label>
-                {importError && (
-                  <div className="rounded-xl px-4 py-3 text-[13px]" style={{ background: 'rgba(186,26,26,0.15)', border: '1px solid rgba(186,26,26,0.4)', color: '#fca5a5' }}>{importError}</div>
-                )}
-                <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={skipImportAndContinue} disabled={importLoading} className="flex-1 py-3 rounded-xl text-sm font-semibold text-white border border-white/15 hover:bg-white/5 transition disabled:opacity-50">
-                    Passer
-                  </button>
-                  <button type="submit" disabled={importLoading || !importFile} className="flex-1 py-3 rounded-xl text-sm font-bold text-[#0a0f0d] transition disabled:opacity-50" style={{ background: 'oklch(72% 0.15 65)' }}>
-                    {importLoading ? <><div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin inline-block" /> Import…</> : <><Database size={15} className="inline" /> Importer</>}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* WhatsApp Login Modal */}
       {showWhatsappModal && (
@@ -2355,8 +2097,11 @@ function LoginView() {
                       if (res.ok && json.data) {
                         const apiUser = json.data
                         const role = mapApiRole(apiUser.role)
-                        // Pas de validation de rôle côté client (sécurité
-                        // anti-énumération — aucun message sur le type de compte)
+                        const validation = validateRoleForTab(role)
+                        if (!validation.valid) {
+                          toast.error(validation.message || 'Accès non autorisé pour ce type de compte.')
+                          return
+                        }
                         if (role) {
                           login(role, {
                             id: apiUser.id,
@@ -2368,9 +2113,6 @@ function LoginView() {
                             initials: getInitials(apiUser.name),
                             profileImageUrl: apiUser.profileImageUrl || null,
                             subscriptionTier: apiUser.school?.subscriptionTier || 'FREEMIUM',
-                            schoolDesign: apiUser.school
-                              ? { primary: apiUser.school.designPrimary || null, accent: apiUser.school.designAccent || null, gold: apiUser.school.designGold || null }
-                              : null,
                           }, json.data.token)
                           toast.success(`Bienvenue, ${apiUser.name}!`)
                           setShowWhatsappModal(false)
@@ -2423,11 +2165,29 @@ function Sidebar() {
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
+      { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
-      { icon: <QrCodeIcon size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
-      { icon: <Globe size={16} />, label: 'Contrôle plateforme', view: 'platform-control' as ViewType },
-      { icon: <Palette size={16} />, label: 'Personnalisation', view: 'personalization' as ViewType },
+      { icon: <HeartPulse size={16} />, label: 'Service Médical', view: 'medical' as ViewType },
       { icon: <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>, label: 'Connexion WhatsApp', view: 'whatsapp-config' as ViewType },
+      { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
+      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+    ],
+    SCHOOL_ADMIN: [
+      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
+      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
+      { icon: <School size={16} />, label: 'Classes', view: 'classes' },
+      { icon: <UsersRound size={16} />, label: 'Personnel', view: 'personnel' as ViewType },
+      { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
+      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <CreditCard size={16} />, label: 'Config. Paiements & WhatsApp', view: 'payment-config' as ViewType },
+      { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
+      { icon: <Megaphone size={16} />, label: 'Convocations', view: 'convocation' },
+      { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
+      { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
+      { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
+      { icon: <HeartPulse size={16} />, label: 'Service Médical', view: 'medical' as ViewType },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
@@ -2437,29 +2197,7 @@ function Sidebar() {
       { icon: <BookOpen size={16} />, label: 'Classes', view: 'classes' as ViewType },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
-      { icon: <QrCodeIcon size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
-      { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
-      { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
-      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
-    ],
-    // Administrateur d'école (compte avec schoolId) — SEUL rôle avec le Passage de classe
-    SCHOOL_ADMIN: [
-      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
-      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
-      { icon: <School size={16} />, label: 'Classes', view: 'classes' },
-      { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
-      { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
-      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
-      { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
-      { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
-      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
-      { icon: <Megaphone size={16} />, label: 'Convocation', view: 'convocation' },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
-      { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
-      { icon: <QrCodeIcon size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
-      { icon: <Users size={16} />, label: 'Gestion des Parents', view: 'parents' as ViewType },
-      { icon: <Palette size={16} />, label: 'Personnalisation', view: 'personalization' as ViewType },
-      { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
@@ -2493,21 +2231,6 @@ function Sidebar() {
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
-    EPS: [
-      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
-      { icon: <Heart size={16} />, label: 'Élèves dispensés', view: 'dispenses' as ViewType },
-      { icon: <School size={16} />, label: 'Mes Classes', view: 'classes' },
-      { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
-      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
-      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
-    ],
-    MEDICAL: [
-      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
-      { icon: <Heart size={16} />, label: 'Élèves dispensés', view: 'dispenses' as ViewType },
-      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
-      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
-      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
-    ],
 HEAD_TEACHER: [
   { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
   { icon: <School size={16} />, label: 'Ma Classe', view: 'classes' },
@@ -2516,6 +2239,13 @@ HEAD_TEACHER: [
   { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
   { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
 ],
+    MEDICAL: [
+      { icon: <LayoutDashboard size={16} />, label: 'Dashboard Médical', view: 'dashboard' },
+      { icon: <HeartPulse size={16} />, label: 'Santé & Infirmerie', view: 'medical' as ViewType },
+      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+    ],
   }
 
   // Direction roles
@@ -2524,29 +2254,25 @@ HEAD_TEACHER: [
 
   let menuItems: MenuItem[] = menus[userRole || ''] || menus.SECRETARY
 
-  // Parents : Notes & Bulletins visibles uniquement si le forfait de l'école
-  // les inclut (Standard et plus — retirés en Freemium/Essentiel)
-  if (userRole === 'PARENT' && !tierAllowsParentGrades(userData?.subscriptionTier || 'FREEMIUM')) {
-    menuItems = menuItems.filter(m => m.view !== 'grades' && m.view !== 'bulletin')
+  // Restriction demandée pour les parents sur l'offre Essentiel & Freemium : masquage des notes et bulletins
+  const canParentsViewGrades = getTierLimits(userData?.subscriptionTier || 'FREEMIUM').reportCardsToParents
+  if (userRole === 'PARENT' && !canParentsViewGrades) {
+    menuItems = menuItems.filter(item => item.view !== 'grades' && item.view !== 'bulletin')
   }
 
-  // FREEMIUM restrictions: DIRECTION_*, SECRETARY, SCHOOL_ADMIN (admin freemium) and SUPER_ADMIN_GLOBAL see restricted menu
+  // FREEMIUM restrictions: DIRECTION_*, SECRETARY (admin freemium) and SUPER_ADMIN_GLOBAL see restricted menu
   // (pas de Passage de classe, Communications ni Paramètres en FREEMIUM — passage à un forfait supérieur requis)
-  // L'abonnement de l'école n'est visible que par l'admin créateur (SCHOOL_ADMIN)
   const isFreemium = userData?.subscriptionTier === 'FREEMIUM'
-  if (isFreemium && (directionRoles.includes(userRole as UserRole) || userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SECRETARY' || userRole === 'SCHOOL_ADMIN')) {
+  if (isFreemium && (directionRoles.includes(userRole as UserRole) || userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SECRETARY')) {
     menuItems = [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
       { icon: <BookOpen size={16} />, label: 'Classes', view: 'classes' as ViewType },
       { icon: <CreditCard size={16} />, label: 'Enregistrer paiement', view: 'payments' },
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
-      { icon: <QrCodeIcon size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
+      { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ]
-    if (userRole === 'SCHOOL_ADMIN') {
-      menuItems.push({ icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType })
-    }
   } else if (directionRoles.includes(userRole as UserRole)) {
     menuItems = [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
@@ -2555,6 +2281,7 @@ HEAD_TEACHER: [
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
       { icon: <Megaphone size={16} />, label: 'Convocation', view: 'convocation' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ]
@@ -2571,18 +2298,11 @@ HEAD_TEACHER: [
     ]
   }
 
-  // Gestion des Parents & Personnalisation : réservées aux comptes admin d'école
-  // (qui peuvent faire des paiements) sur les écoles STANDARD et plus, et à la plateforme.
-  const STANDARD_PLUS_TIERS = ['STANDARD', 'PREMIUM', 'ENTERPRISE', 'CORPORATE']
-  if (userRole === 'SCHOOL_ADMIN' && !STANDARD_PLUS_TIERS.includes(userData?.subscriptionTier || 'FREEMIUM')) {
-    menuItems = menuItems.filter(m => m.view !== 'parents' && m.view !== 'personalization')
-  }
-
   return (
     <>
       {/* Mobile overlay */}
       {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
-      <aside className={`fixed lg:sticky top-0 left-0 z-50 lg:z-auto h-screen w-[240px] flex flex-col transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} style={{ background: 'var(--ed-dark, oklch(15% 0.02 250))', boxShadow: '4px 0 24px oklch(10% 0.02 250 / 0.3)' }}>
+      <aside className={`fixed lg:sticky top-0 left-0 z-50 lg:z-auto h-screen w-[240px] flex flex-col transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} style={{ background: DARK, boxShadow: '4px 0 24px oklch(10% 0.02 250 / 0.3)' }}>
         <div className="p-[18px] flex items-center gap-2.5 border-b border-white/10">
           {userData?.schoolLogo ? (
             <img src={userData.schoolLogo} alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
@@ -2601,16 +2321,14 @@ HEAD_TEACHER: [
                 onClick={() => { if (item.tab) setDisciplineTab(item.tab); setCurrentView(item.view); setSidebarOpen(false) }}
                 className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13.5px] font-medium transition-all duration-200 ${
                   currentView === item.view
-                    ? 'font-semibold'
+                    ? 'text-[oklch(72%_0.15_65)] font-semibold'
                     : 'text-white/60 hover:text-white hover:bg-white/5'
                 }`}
-                style={currentView === item.view
-                  ? { background: 'var(--ed-gold-soft, oklch(72% 0.15 65 / 0.10))', borderLeft: '3px solid var(--ed-gold, oklch(72% 0.15 65))', boxShadow: 'inset 0 0 20px oklch(72% 0.15 65 / 0.05)', color: 'var(--ed-gold, oklch(72% 0.15 65))' }
-                  : { borderLeft: '3px solid transparent' }}
+                style={currentView === item.view ? { background: 'oklch(72% 0.15 65 / 0.10)', borderLeft: '3px solid oklch(72% 0.15 65)', boxShadow: 'inset 0 0 20px oklch(72% 0.15 65 / 0.05)' } : { borderLeft: '3px solid transparent' }}
               >
-                <span>{item.icon}</span>
+                <span className={currentView === item.view ? 'text-[oklch(72%_0.15_65)]' : ''}>{item.icon}</span>
                 {item.label}
-                {item.badge && <span className="ml-auto text-[10px] px-1.5 py-px rounded-full font-semibold" style={{ background: 'var(--ed-gold, oklch(72% 0.15 65))', color: 'var(--ed-dark, oklch(15% 0.02 250))' }}>{item.badge}</span>}
+                {item.badge && <span className="ml-auto bg-[oklch(72%_0.15_65)] text-[oklch(15%_0.02_250)] text-[10px] px-1.5 py-px rounded-full font-semibold">{item.badge}</span>}
               </button>
             ))}
           </nav>
@@ -2621,7 +2339,7 @@ HEAD_TEACHER: [
             {userData?.profileImageUrl ? (
               <img src={userData.profileImageUrl} alt="Avatar" className="w-9 h-9 rounded-full object-cover shrink-0 border border-white/20" />
             ) : (
-              <div className="w-9 h-9 rounded-full grid place-items-center text-white font-semibold text-[13px] shrink-0" style={{ background: `linear-gradient(135deg, var(--ed-accent, oklch(55% 0.15 175)), var(--ed-gold, oklch(72% 0.15 65)))` }}>
+              <div className="w-9 h-9 rounded-full grid place-items-center text-white font-semibold text-[13px] shrink-0" style={{ background: `linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))` }}>
                 {userData?.initials || '??'}
               </div>
             )}
@@ -2670,33 +2388,31 @@ const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   PARENT: ['dashboard', 'grades', 'bulletin', 'online-payment', 'payment-verification', 'discipline', 'homework', 'communications', 'school-reviews', 'profile', 'convocation'],
   TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'communications', 'profile'],
   HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'bulletin', 'communications', 'profile'],
-  SECRETARY: ['dashboard', 'students', 'classes', 'communications', 'payment-verification', 'parent-qr', 'bulletin', 'settings', 'profile'],
-  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'discipline', 'homework', 'communications', 'convocation', 'class-passing', 'bulletin', 'parent-qr', 'parents', 'personalization', 'my-subscription', 'settings', 'profile'],
+  SECRETARY: ['dashboard', 'students', 'classes', 'communications', 'payment-verification', 'class-passing', 'settings', 'profile'],
   CASHIER: ['dashboard', 'payments', 'payment-verification', 'debts', 'communications', 'profile'],
-  DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'parent-qr', 'settings', 'profile'],
-  DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'parent-qr', 'settings', 'profile'],
-  DIRECTION_SECONDAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'parent-qr', 'settings', 'profile'],
+  DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'my-subscription', 'settings', 'profile'],
+  DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'my-subscription', 'settings', 'profile'],
+  DIRECTION_SECONDAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'my-subscription', 'settings', 'profile'],
   DISCIPLINE_MATERNELLE: ['dashboard', 'discipline', 'communications', 'profile'],
   DISCIPLINE_PRIMAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
   DISCIPLINE_SECONDAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
-  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'payment-config', 'pricing', 'discipline', 'communications', 'homework', 'bulletin', 'convocation', 'whatsapp-config', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
+  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'payment-verification', 'payment-config', 'discipline', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'my-subscription', 'settings', 'profile'],
+  MEDICAL: ['dashboard', 'medical', 'students', 'communications', 'profile'],
+  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'payment-config', 'pricing', 'discipline', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'medical', 'settings', 'profile'],
 }
 
-const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment-verification', 'payment-config', 'my-subscription', 'parent-qr', 'settings', 'profile']
+const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment-verification', 'payment-config', 'my-subscription', 'settings', 'profile']
 
 function canAccessView(role: string | null, view: ViewType, subscriptionTier?: string): boolean {
   if (!role) return false
-  // DIRECTION_*, SECRETARY et SCHOOL_ADMIN (admin freemium) sur FREEMIUM → vues restreintes
-  if (subscriptionTier === 'FREEMIUM' && (role.startsWith('DIRECTION') || role === 'SECRETARY' || role === 'SCHOOL_ADMIN')) {
+  // DIRECTION_* et SECRETARY (admin freemium) sur FREEMIUM → vues restreintes
+  if (subscriptionTier === 'FREEMIUM' && (role.startsWith('DIRECTION') || role === 'SECRETARY')) {
     return FREEMIUM_VIEWS.includes(view)
   }
-  // Gestion des Parents & Personnalisation : écoles STANDARD et plus uniquement (admins d'école)
-  if ((view === 'parents' || view === 'personalization') && role === 'SCHOOL_ADMIN') {
-    return ['STANDARD', 'PREMIUM', 'ENTERPRISE', 'CORPORATE'].includes(subscriptionTier || 'FREEMIUM')
-  }
-  // Parents : notes/bulletins retirés si le forfait de l'école ne les inclut pas (Freemium/Essentiel)
-  if (role === 'PARENT' && subscriptionTier && !tierAllowsParentGrades(subscriptionTier)) {
-    if (view === 'grades' || view === 'bulletin') return false
+  // Parents on Essentiel / Freemium : pas d'accès aux notes et bulletins
+  if (role === 'PARENT' && (view === 'grades' || view === 'bulletin')) {
+    const limits = getTierLimits(subscriptionTier || 'FREEMIUM')
+    if (!limits.reportCardsToParents) return false
   }
   const allowed = VIEWS_BY_ROLE[role]
   if (!allowed) return false
@@ -2888,7 +2604,6 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     'payment-verification': 'Vérification', 'payment-config': 'Config. Paiement',
     'online-payment': 'Payer en ligne',
     'debts': 'Dettes',
-    'parent-qr': 'QR Parents',
   }
 
   return (
@@ -2906,7 +2621,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
         </button>
         <div>
           <div className="text-lg font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>{viewTitles[currentView] || 'Dashboard'}</div>
-          <div className="text-xs hidden sm:block font-medium" style={{ color: TEXT_MUTED_LUXE }}>{new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          <div className="text-xs hidden sm:block font-medium" style={{ color: TEXT_MUTED_LUXE }}>EduGest · {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
         </div>
       </div>
       <div className="flex items-center gap-2 relative" ref={notifPanelRef}>
@@ -3010,33 +2725,11 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   )
 }
 
-// ===== THÈME DYNAMIQUE PAR ÉCOLE (Personnalisation) =====
-// Injecte les couleurs configurées par l'admin de l'école. Scoped à #edugest-app :
-// la landing page et la page de connexion gardent TOUJOURS le design officiel EduGest.
-function SchoolThemeStyle() {
-  const design = useEduGestStore((s) => s.userData?.schoolDesign)
-  const primary = design?.primary || '#13151d'
-  const accent = design?.accent || '#0b8c7f'
-  const gold = design?.gold || '#d9a441'
-  return (
-    <style dangerouslySetInnerHTML={{ __html: `
-#edugest-app{
---ed-dark:${primary};--ed-accent:${accent};--ed-gold:${gold};
---ed-gold-soft:${gold}1a;
---primary:${accent};--color-primary:${accent};
---primary-foreground:#ffffff;--color-primary-foreground:#ffffff;
---ring:${accent};--color-ring:${accent};
---sidebar-primary:${accent};--color-sidebar-primary:${accent};
-}` }} />
-  )
-}
-
 // ===== DASHBOARD LAYOUT =====
 function DashboardLayout() {
   const [sidebarVisible, setSidebarVisible] = useState(true)
   return (
-    <div id="edugest-app" className={`min-h-screen grid grid-cols-1 ${sidebarVisible ? 'lg:grid-cols-[240px_1fr]' : ''}`} style={{ background: IVORY }}>
-      <SchoolThemeStyle />
+    <div className={`min-h-screen grid grid-cols-1 ${sidebarVisible ? 'lg:grid-cols-[240px_1fr]' : ''}`} style={{ background: IVORY }}>
       {sidebarVisible && <Sidebar />}
       <div className="flex flex-col min-w-0">
         <Topbar sidebarVisible={sidebarVisible} onToggleSidebar={() => setSidebarVisible(v => !v)} />
@@ -3348,9 +3041,6 @@ function WhatsAppConfigView() {
           )}
         </div>
       </div>
-
-      {/* Suivi en temps réel des messages WhatsApp de l'école */}
-      <WhatsappUsageCard />
     </div>
   )
 }
@@ -3374,8 +3064,6 @@ function MainContent() {
     case 'profile': return <ProfileView />
     case 'class-passing': return <ClassPassingView />
     case 'bulletin': return <BulletinView />
-    case 'platform-control': return <PlatformControlView />
-    case 'dispenses': return <DispensesView mode={userRole === 'MEDICAL' ? 'MEDICAL' : 'EPS'} />
     case 'convocation': return <ConvocationView />
     case 'schools': return <SchoolsManagementView />
     case 'personnel': return <PersonnelView />
@@ -3384,9 +3072,7 @@ function MainContent() {
     case 'settings': return <SettingsView />
     case 'school-reviews': return <SchoolReviewsView />
     case 'my-subscription': return <SubscriptionUpgradeView />
-    case 'parent-qr': return <ParentQrView />
-    case 'parents': return <ParentsView />
-    case 'personalization': return <PersonalizationView />
+    case 'medical': return <MedicalView />
     default: return <RoleDashboard />
   }
 }
@@ -3396,55 +3082,18 @@ function RoleDashboard() {
   const { userRole } = useEduGestStore()
   switch (userRole) {
     case 'SUPER_ADMIN_GLOBAL': return <SuperAdminDashboard />
-    case 'SCHOOL_ADMIN': return <SecretaryDashboard />
+    case 'SCHOOL_ADMIN': return <SchoolAdminDashboard />
+    case 'MEDICAL': return <MedicalDashboard />
     case 'SECRETARY': return <SecretaryDashboard />
     case 'CASHIER': return <CashierDashboard />
     case 'PARENT': return <ParentDashboard />
     case 'TEACHER': return <TeacherDashboard />
     case 'HEAD_TEACHER': return <HeadTeacherDashboard />
-    case 'EPS': return <TeacherDashboard />
-    case 'MEDICAL': return <MedicalDashboard />
     default:
       if (userRole?.startsWith('DIRECTION')) return <DirectionDashboard />
       if (userRole?.startsWith('DISCIPLINE')) return <DisciplineDashboardView />
       return <SecretaryDashboard />
   }
-}
-
-// ===== MEDICAL DASHBOARD (service médical ↔ EPS) =====
-function MedicalDashboard() {
-  const { setCurrentView } = useEduGestStore()
-  return (
-    <div className="space-y-6">
-      <div>
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Service médical</h1>
-        </div>
-        <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>
-          Suivi santé des élèves — vos dispensés sont communiqués automatiquement aux professeurs d&apos;EPS.
-        </p>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <button onClick={() => setCurrentView('dispenses')} className="text-left bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 hover:shadow-md transition edu-card-lift">
-          <div className="w-10 h-10 rounded-full grid place-items-center mb-3 text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}><Heart size={18} /></div>
-          <div className="text-[15px] font-bold" style={{ color: TEXT_PRIMARY }}>Élèves dispensés</div>
-          <div className="text-[12px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>Créer et gérer les dispenses EPS — les profs EPS sont notifiés instantanément</div>
-        </button>
-        <button onClick={() => setCurrentView('students')} className="text-left bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 hover:shadow-md transition edu-card-lift">
-          <div className="w-10 h-10 rounded-full grid place-items-center mb-3 text-white" style={{ background: `linear-gradient(135deg, ${ACCENT2}, ${ACCENT})` }}><Users size={18} /></div>
-          <div className="text-[15px] font-bold" style={{ color: TEXT_PRIMARY }}>Dossiers élèves</div>
-          <div className="text-[12px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>Consulter les informations des élèves de l&apos;école</div>
-        </button>
-        <button onClick={() => setCurrentView('communications')} className="text-left bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 hover:shadow-md transition edu-card-lift">
-          <div className="w-10 h-10 rounded-full grid place-items-center mb-3 text-white" style={{ background: `linear-gradient(135deg, ${GOLD}, ${WARNING})` }}><MessageSquare size={18} /></div>
-          <div className="text-[15px] font-bold" style={{ color: TEXT_PRIMARY }}>Communications</div>
-          <div className="text-[12px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>Informer les parents (convalescences, vaccinations...)</div>
-        </button>
-      </div>
-      <DispensesView mode="MEDICAL" />
-    </div>
-  )
 }
 
 // ===== STAT CARD =====
@@ -3786,36 +3435,16 @@ function ClassesView() {
 // PaymentsView imported from @/components/views/PaymentsView
 
 // ===== PAYMENT CONFIGURATION VIEW =====
-// Logos officiels des passerelles de paiement (fichiers servis depuis /public/logos/payment)
-// Stripe et PayPal retirés — non disponibles pour les marchands en RDC.
 const GATEWAY_SVG_LOGOS: Record<string, string> = {
-  VISA: '/logos/payment/visa.svg',
-  MASTERCARD: '/logos/payment/mastercard.svg',
-  FLUTTERWAVE: '/logos/payment/flutterwave.png',
-  DPO: '/logos/payment/dpo.png',
-  ORANGE_MONEY: '/logos/payment/orange_money.svg',
-  MPESA: '/logos/payment/mpesa.svg',
-  AIRTEL_MONEY: '/logos/payment/airtel_money.svg',
-  MANUAL: '/logos/payment/cash.svg',
-}
-
-// Carte de logo officielle réutilisable (plaque blanche + img object-contain = jamais rogné)
-function GatewayLogo({ gatewayType, name, icon, className }: { gatewayType: string; name?: string; icon?: string; className?: string }) {
-  const logo = GATEWAY_SVG_LOGOS[gatewayType]
-  if (logo) {
-    return (
-      <div className={`bg-white border border-[oklch(90%_0.01_175)] rounded-xl flex items-center justify-center overflow-hidden shrink-0 ${className || 'w-20 h-10 p-1.5'}`}>
-        <img src={logo} alt={name || gatewayType} className="max-w-full max-h-full w-auto h-auto object-contain" />
-      </div>
-    )
-  }
-  return <span className={className || 'text-2xl'}>{icon || '💳'}</span>
+  ORANGE_MONEY: '/logos/orange-money.svg',
+  MPESA: '/logos/m-pesa.svg',
+  AIRTEL_MONEY: '/logos/airtel-money.svg',
+  MANUAL: '/logos/manual.svg',
 }
 
 function PaymentConfigView() {
-  const { userData, userRole } = useEduGestStore()
-  const [activeTab, setActiveTab] = useState<'gateways' | 'currency' | 'transactions' | 'fees' | 'whatsapp-api' | 'platform'>('gateways')
-  const isPlatformAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
+  const { userData, setCurrentView } = useEduGestStore()
+  const [activeTab, setActiveTab] = useState<'gateways' | 'currency' | 'transactions' | 'fees' | 'whatsapp_api'>('gateways')
   const [gateways, setGateways] = useState<any[]>([])
   const [availableGateways, setAvailableGateways] = useState<any[]>([])
   const [currencyConfig, setCurrencyConfig] = useState<any>(null)
@@ -3840,20 +3469,20 @@ function PaymentConfigView() {
   const [convertForm, setConvertForm] = useState({ amount: 100, from: 'CDF', to: 'USD' })
   const [convertResult, setConvertResult] = useState<any>(null)
   const [supportedCurrencies, setSupportedCurrencies] = useState<any[]>([])
-  // API WhatsApp personnelle de l'école (Meta Cloud API)
+
+  // WhatsApp API Configuration state
   const [waConfig, setWaConfig] = useState<any>(null)
-  const [waTierAllows, setWaTierAllows] = useState(true)
-  const [waForm, setWaForm] = useState({ phoneNumberId: '', accessToken: '', businessAccountId: '', webhookVerifyToken: '', isActive: false })
-  const [waSaving, setWaSaving] = useState(false)
-  const [waTestPhone, setWaTestPhone] = useState('')
-  const [waTesting, setWaTesting] = useState(false)
-  // Passerelles de paiement de la PLATEFORME (abonnements EduGest) — SUPER_ADMIN_GLOBAL
-  const [platformCatalog, setPlatformCatalog] = useState<any[]>([])
-  const [platformConfigs, setPlatformConfigs] = useState<any[]>([])
-  const [platformLoading, setPlatformLoading] = useState(false)
-  const [platformEditor, setPlatformEditor] = useState<string | null>(null)
-  const [platformForm, setPlatformForm] = useState<any>({})
-  const [platformSaving, setPlatformSaving] = useState(false)
+  const [waForm, setWaForm] = useState<any>({
+    customEnabled: false,
+    apiType: 'META_CLOUD',
+    metaToken: '',
+    metaPhoneId: '',
+    metaWabaId: '',
+    customEndpoint: '',
+  })
+  const [testPhone, setTestPhone] = useState('')
+  const [testingWa, setTestingWa] = useState(false)
+  const [savingWa, setSavingWa] = useState(false)
 
   useEffect(() => {
     if (!userData?.schoolId) return
@@ -3862,109 +3491,83 @@ function PaymentConfigView() {
     loadTransactions()
     loadSchoolFees()
     loadClasses()
-    loadWhatsappApi()
-    if (userRole === 'SUPER_ADMIN_GLOBAL') loadPlatformGateways()
+    loadWaConfig()
   }, [userData?.schoolId])
 
-  async function loadPlatformGateways() {
+  async function loadWaConfig() {
     try {
-      setPlatformLoading(true)
-      const res = await authFetch('/api/platform-payment-gateways')
+      const res = await authFetch(`/api/whatsapp-config/custom?schoolId=${userData?.schoolId}`)
       const json = await res.json()
       if (json.data) {
-        setPlatformCatalog(json.data.catalog || [])
-        setPlatformConfigs(json.data.configured || [])
+        setWaConfig(json.data)
+        setWaForm({
+          customEnabled: !!json.data.customEnabled,
+          apiType: json.data.apiType || 'META_CLOUD',
+          metaToken: '',
+          metaPhoneId: json.data.metaPhoneId || '',
+          metaWabaId: json.data.metaWabaId || '',
+          customEndpoint: json.data.customEndpoint || '',
+        })
       }
-    } catch (e) { console.error('[PaymentConfig] loadPlatformGateways:', e) }
-    finally { setPlatformLoading(false) }
+    } catch (e) { console.error('[PaymentConfig] loadWaConfig:', e) }
   }
 
-  function openPlatformEditor(gatewayType: string) {
-    const cfg = platformConfigs.find((c: any) => c.gatewayType === gatewayType)
-    setPlatformForm({
-      gatewayType,
-      merchantId: cfg?.merchantId || '',
-      apiKey: '',       // masqué — vide = conserver
-      secretKey: '',    // masqué — vide = conserver
-      publicKey: cfg?.publicKey || '',
-      phoneNumber: cfg?.phoneNumber || '',
-      accountEmail: cfg?.accountEmail || '',
-      currency: cfg?.currency || 'USD',
-      feePercent: cfg?.feePercent ?? 0,
-      isTestMode: cfg?.isTestMode ?? true,
-      hasCredentials: cfg?.hasCredentials || false,
-    })
-    setPlatformEditor(gatewayType)
-  }
-
-  async function savePlatformGateway() {
-    if (!platformForm.gatewayType) return
-    setPlatformSaving(true)
+  async function saveWaConfig(e: React.FormEvent) {
+    e.preventDefault()
+    setSavingWa(true)
     try {
-      const res = await authFetch('/api/platform-payment-gateways', {
+      const res = await authFetch('/api/whatsapp-config/custom', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          gatewayType: platformForm.gatewayType,
-          isActive: true,
-          isTestMode: platformForm.isTestMode,
-          merchantId: platformForm.merchantId || undefined,
-          apiKey: platformForm.apiKey || undefined,
-          secretKey: platformForm.secretKey || undefined,
-          publicKey: platformForm.publicKey || undefined,
-          phoneNumber: platformForm.phoneNumber || undefined,
-          accountEmail: platformForm.accountEmail || undefined,
-          currency: platformForm.currency,
-          feePercent: platformForm.feePercent,
+          schoolId: userData?.schoolId,
+          ...waForm,
         }),
       })
-      const j = await res.json()
+      const json = await res.json()
       if (res.ok) {
-        toast.success(j.message || 'Passerelle plateforme enregistrée')
-        setPlatformEditor(null)
-        loadPlatformGateways()
+        toast.success(json.message || 'Configuration WhatsApp mise à jour !')
+        loadWaConfig()
       } else {
-        toast.error(j.error || 'Erreur lors de l\'enregistrement')
+        toast.error(json.error || 'Erreur de sauvegarde')
       }
-    } catch { toast.error('Erreur réseau') }
-    finally { setPlatformSaving(false) }
+    } catch (e) {
+      toast.error('Erreur réseau')
+    } finally {
+      setSavingWa(false)
+    }
   }
 
-  async function togglePlatformGateway(gatewayType: string, isActive: boolean) {
+  async function handleTestWa() {
+    if (!testPhone.trim()) {
+      toast.error('Veuillez renseigner un numéro pour le test.')
+      return
+    }
+    setTestingWa(true)
     try {
-      const res = await authFetch('/api/platform-payment-gateways', {
+      const res = await authFetch('/api/whatsapp-config/custom', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gatewayType, isActive }),
+        body: JSON.stringify({
+          schoolId: userData?.schoolId,
+          action: 'test',
+          testPhone,
+          customEnabled: waForm.customEnabled,
+          metaToken: waForm.metaToken,
+          metaPhoneId: waForm.metaPhoneId,
+        }),
       })
-      const j = await res.json()
-      if (res.ok) {
-        toast.success(j.message || 'Statut mis à jour')
-        loadPlatformGateways()
-      } else {
-        toast.error(j.error || 'Erreur')
-      }
-    } catch { toast.error('Erreur réseau') }
-  }
-
-  async function loadWhatsappApi() {
-    try {
-      const res = await authFetch(`/api/whatsapp-api?schoolId=${userData?.schoolId}`)
       const json = await res.json()
-      if (json.data) {
-        setWaConfig(json.data.config)
-        setWaTierAllows(json.data.tierAllowsCustomApi !== false)
-        if (json.data.config) {
-          setWaForm({
-            phoneNumberId: json.data.config.phoneNumberId || '',
-            accessToken: '', // masqué — laisser vide pour conserver
-            businessAccountId: json.data.config.businessAccountId || '',
-            webhookVerifyToken: '', // masqué — laisser vide pour conserver
-            isActive: json.data.config.isActive || false,
-          })
-        }
+      if (res.ok) {
+        toast.success(json.message || 'Message test transmis avec succès !')
+      } else {
+        toast.error(json.error || 'Échec du test')
       }
-    } catch (e) { console.error('[PaymentConfig] loadWhatsappApi:', e) }
+    } catch (e) {
+      toast.error('Erreur réseau lors du test')
+    } finally {
+      setTestingWa(false)
+    }
   }
 
   async function loadGateways() {
@@ -4116,50 +3719,6 @@ function PaymentConfigView() {
     finally { setSaving(false) }
   }
 
-  async function saveWhatsappApi() {
-    if (!waForm.phoneNumberId.trim() || (!waForm.accessToken.trim() && !waConfig)) {
-      toast.error('Phone Number ID et Access Token sont requis')
-      return
-    }
-    setWaSaving(true)
-    try {
-      const res = await authFetch('/api/whatsapp-api', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ schoolId: userData?.schoolId, ...waForm }),
-      })
-      const json = await res.json()
-      if (res.ok) {
-        toast.success('API WhatsApp configurée !')
-        loadWhatsappApi()
-      } else {
-        toast.error(json.error || 'Erreur lors de la configuration')
-      }
-    } catch (e) { toast.error('Erreur réseau') }
-    finally { setWaSaving(false) }
-  }
-
-  async function testWhatsappApi() {
-    if (!waTestPhone.trim()) { toast.error('Entrez un numéro à tester'); return }
-    setWaTesting(true)
-    try {
-      const res = await authFetch('/api/whatsapp-api/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ schoolId: userData?.schoolId, phone: waTestPhone }),
-      })
-      const json = await res.json()
-      if (res.ok) {
-        toast.success('Message de test envoyé ! Vérifiez le téléphone.')
-      } else {
-        toast.error(json.error || 'Échec du test')
-      }
-      // Rafraîchit le statut du dernier test (réussi/échoué)
-      loadWhatsappApi()
-    } catch (e) { toast.error('Erreur réseau') }
-    finally { setWaTesting(false) }
-  }
-
   async function saveGatewayConfig() {
     setSaving(true)
     try {
@@ -4284,27 +3843,14 @@ function PaymentConfigView() {
           Transactions
         </button>
         <button
-          onClick={() => setActiveTab('whatsapp-api')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition flex items-center gap-1.5 ${
-            activeTab === 'whatsapp-api' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
+          onClick={() => setActiveTab('whatsapp_api')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
+            activeTab === 'whatsapp_api' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          <MessageCircle size={14} />
-          API WhatsApp
-          {waConfig?.isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="API active" />}
+          <MessageSquare size={15} />
+          WhatsApp API & Quotas
         </button>
-        {isPlatformAdmin && (
-          <button
-            onClick={() => setActiveTab('platform')}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition flex items-center gap-1.5 ${
-              activeTab === 'platform' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <Globe size={14} />
-            Plateforme (abonnements)
-            {platformConfigs.some((c: any) => c.isActive) && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="APIs actives" />}
-          </button>
-        )}
       </div>
 
       {/* Gateways Tab */}
@@ -4318,11 +3864,16 @@ function PaymentConfigView() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {availableGateways.map((gw: any) => {
               const configured = gateways.find((g: any) => g.gatewayType === gw.gatewayType)
+              const svgLogo = GATEWAY_SVG_LOGOS[gw.gatewayType]
               return (
                 <div key={gw.gatewayType} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <GatewayLogo gatewayType={gw.gatewayType} name={gw.displayName} icon={gw.icon} />
+                      {svgLogo ? (
+                        <img src={svgLogo} alt={gw.displayName} className="w-10 h-10 rounded-xl object-cover shrink-0" />
+                      ) : (
+                        <span className="text-2xl">{gw.icon}</span>
+                      )}
                       <div>
                         <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>{gw.displayName}</h3>
                         {configured ? (
@@ -4365,317 +3916,6 @@ function PaymentConfigView() {
               )
             })}
           </div>
-        </div>
-      )}
-
-      {/* Plateforme Tab — passerelles d'encaissement des ABONNEMENTS EduGest (SUPER_ADMIN_GLOBAL) */}
-      {activeTab === 'platform' && isPlatformAdmin && (
-        <div className="space-y-4">
-          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl grid place-items-center shrink-0" style={{ background: GOLD_SOFT }}>
-                <Globe size={20} style={{ color: GOLD }} />
-              </div>
-              <div>
-                <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>APIs de paiement de la plateforme</h3>
-                <p className="text-[12px] mt-1 leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
-                  Ce sont <strong>vos</strong> passerelles : les écoles qui s&apos;abonnent paient <strong>ici</strong>.
-                  Si aucune API n&apos;est active, les clients voient un <strong>formulaire de paiement manuel</strong> et leur demande
-                  vous est notifiée pour validation. Configurez au moins une passerelle (ex : Visa) pour encaisser en ligne.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {platformLoading && (
-            <div className="text-center py-8">
-              <div className="inline-block w-6 h-6 border-2 border-[#f5a623] border-t-transparent rounded-full animate-spin" />
-            </div>
-          )}
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {platformCatalog.map((gw: any) => {
-              const cfg = platformConfigs.find((c: any) => c.gatewayType === gw.gatewayType)
-              return (
-                <div key={gw.gatewayType} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <GatewayLogo gatewayType={gw.gatewayType} name={gw.displayName} icon={gw.icon} />
-                      <div>
-                        <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>{gw.displayName}</h3>
-                        {cfg ? (
-                          <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${cfg.isActive ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>
-                            {cfg.isActive ? (cfg.isTestMode ? 'Actif (test)' : 'Actif') : 'Inactif'}
-                          </span>
-                        ) : (
-                          <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]">
-                            Non configurée
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-[12px] mb-3" style={{ color: TEXT_MUTED_LUXE }}>{gw.description}</p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => openPlatformEditor(gw.gatewayType)}
-                      className="flex-1 text-[12px] py-2 px-3 rounded-xl font-semibold transition edu-gold-cta"
-                    >
-                      {cfg ? 'Configurer' : 'Ajouter l\'API'}
-                    </button>
-                    {cfg && (
-                      <button
-                        onClick={() => togglePlatformGateway(gw.gatewayType, !cfg.isActive)}
-                        className={`text-[12px] py-2 px-3 rounded-xl font-semibold transition ${
-                          cfg.isActive ? 'bg-[oklch(95%_0.04_25)] text-[oklch(55%_0.18_25)] hover:bg-[oklch(93%_0.04_25)]' : 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)] hover:bg-[oklch(92%_0.05_145)]'
-                        }`}
-                      >
-                        {cfg.isActive ? 'Désactiver' : 'Activer'}
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Éditeur en ligne de la passerelle plateforme */}
-                  {platformEditor === gw.gatewayType && (
-                    <div className="mt-4 pt-4 border-t border-[oklch(92%_0.01_175)] space-y-2.5">
-                      <input
-                        value={platformForm.merchantId}
-                        onChange={(e) => setPlatformForm({ ...platformForm, merchantId: e.target.value })}
-                        placeholder="Merchant / Client ID"
-                        className="w-full text-[12px] px-3 py-2 border border-[oklch(88%_0.01_175)] rounded-xl focus:outline-none focus:border-[#f5a623]"
-                      />
-                      <input
-                        value={platformForm.apiKey}
-                        onChange={(e) => setPlatformForm({ ...platformForm, apiKey: e.target.value })}
-                        placeholder={platformForm.hasCredentials ? 'API Key — laisser vide pour conserver' : 'API Key'}
-                        className="w-full text-[12px] px-3 py-2 border border-[oklch(88%_0.01_175)] rounded-xl focus:outline-none focus:border-[#f5a623]"
-                      />
-                      <input
-                        value={platformForm.secretKey}
-                        onChange={(e) => setPlatformForm({ ...platformForm, secretKey: e.target.value })}
-                        placeholder={platformForm.hasCredentials ? 'Secret Key — laisser vide pour conserver' : 'Secret Key'}
-                        type="password"
-                        className="w-full text-[12px] px-3 py-2 border border-[oklch(88%_0.01_175)] rounded-xl focus:outline-none focus:border-[#f5a623]"
-                      />
-                      <input
-                        value={platformForm.publicKey}
-                        onChange={(e) => setPlatformForm({ ...platformForm, publicKey: e.target.value })}
-                        placeholder="Clé publique / Passkey (optionnel)"
-                        className="w-full text-[12px] px-3 py-2 border border-[oklch(88%_0.01_175)] rounded-xl focus:outline-none focus:border-[#f5a623]"
-                      />
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          value={platformForm.phoneNumber}
-                          onChange={(e) => setPlatformForm({ ...platformForm, phoneNumber: e.target.value })}
-                          placeholder="Tél. marchand (mobile money)"
-                          className="w-full text-[12px] px-3 py-2 border border-[oklch(88%_0.01_175)] rounded-xl focus:outline-none focus:border-[#f5a623]"
-                        />
-                        <input
-                          value={platformForm.accountEmail}
-                          onChange={(e) => setPlatformForm({ ...platformForm, accountEmail: e.target.value })}
-                          placeholder="E-mail marchand (DPO, Flutterwave)"
-                          className="w-full text-[12px] px-3 py-2 border border-[oklch(88%_0.01_175)] rounded-xl focus:outline-none focus:border-[#f5a623]"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <select
-                          value={platformForm.currency}
-                          onChange={(e) => setPlatformForm({ ...platformForm, currency: e.target.value })}
-                          className="w-full text-[12px] px-3 py-2 border border-[oklch(88%_0.01_175)] rounded-xl bg-white focus:outline-none focus:border-[#f5a623]"
-                        >
-                          {gw.supportedCurrencies.map((c: string) => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
-                        <label className="flex items-center gap-2 text-[12px] px-3 py-2 border border-[oklch(88%_0.01_175)] rounded-xl cursor-pointer" style={{ color: TEXT_MUTED_LUXE }}>
-                          <input
-                            type="checkbox"
-                            checked={platformForm.isTestMode}
-                            onChange={(e) => setPlatformForm({ ...platformForm, isTestMode: e.target.checked })}
-                            className="accent-[#f5a623]"
-                          />
-                          Mode test
-                        </label>
-                      </div>
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          onClick={savePlatformGateway}
-                          disabled={platformSaving}
-                          className="flex-1 text-[12px] py-2 rounded-xl font-semibold edu-gold-cta disabled:opacity-60"
-                        >
-                          {platformSaving ? 'Enregistrement…' : 'Enregistrer & activer'}
-                        </button>
-                        <button
-                          onClick={() => setPlatformEditor(null)}
-                          className="text-[12px] py-2 px-3 rounded-xl font-semibold bg-[oklch(95%_0.005_250)] text-[oklch(52%_0.015_250)] hover:bg-[oklch(93%_0.005_250)]"
-                        >
-                          Annuler
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* WhatsApp API Tab — API WhatsApp personnelle du client */}
-      {activeTab === 'whatsapp-api' && (
-        <div className="space-y-5 max-w-3xl">
-          {/* Suivi temps réel du quota */}
-          <WhatsappUsageCard />
-
-          {/* Explication */}
-          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
-            <div className="flex items-start gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl grid place-items-center shrink-0" style={{ background: GOLD_SOFT }}>
-                <MessageCircle size={20} style={{ color: GOLD }} />
-              </div>
-              <div>
-                <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>Connecter votre propre API WhatsApp</h3>
-                <p className="text-[12px] mt-1 leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
-                  Utilisez votre <strong>propre numéro WhatsApp Business via l&apos;API officielle de Meta</strong> (WhatsApp Cloud API).
-                  Vos notifications partent alors via <strong>votre numéro et votre token</strong> :
-                  <strong> plus aucune limite de messages EduGest</strong> — vous êtes uniquement limité par les tokens que vous achetez auprès de Meta.
-                </p>
-              </div>
-            </div>
-            <ol className="text-[12px] space-y-1 list-decimal list-inside pl-1" style={{ color: TEXT_MUTED_LUXE }}>
-              <li>Créez une application sur <span className="font-medium">developers.facebook.com</span> et ajoutez le produit WhatsApp</li>
-              <li>Copiez le <strong>Phone Number ID</strong> et générez un <strong>Access Token</strong> permanent</li>
-              <li>Collez-les ci-dessous, activez, puis envoyez un message de test</li>
-            </ol>
-          </div>
-
-          {!waTierAllows ? (
-            <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 text-center shadow-sm">
-              <Crown size={28} className="mx-auto mb-3" style={{ color: GOLD }} />
-              <h3 className="font-bold text-sm mb-1" style={{ color: TEXT_PRIMARY }}>Fonctionnalité Standard et supérieur</h3>
-              <p className="text-[12px] mb-4" style={{ color: TEXT_MUTED_LUXE }}>
-                Votre forfait actuel ne permet pas de connecter une API WhatsApp personnelle.
-                Passez au forfait <strong>Standard</strong> ou supérieur pour des messages illimités via votre propre API.
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Formulaire de configuration */}
-              <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>
-                    {waConfig ? 'Configuration actuelle' : 'Nouvelle configuration'}
-                  </h3>
-                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${waConfig?.isActive ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>
-                    {waConfig ? (waConfig.isActive ? 'API active' : 'API inactive') : 'Non configurée'}
-                  </span>
-                </div>
-
-                {waConfig && (waConfig.lastTestAt) && (
-                  <div className={`text-[11px] px-3 py-2 rounded-lg ${waConfig.lastTestOk ? 'bg-[oklch(97%_0.02_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(97%_0.02_25)] text-[oklch(50%_0.15_25)]'}`}>
-                    Dernier test : {new Date(waConfig.lastTestAt).toLocaleString('fr-FR')} — {waConfig.lastTestOk ? '✅ réussi' : '❌ échoué (vérifiez vos identifiants)'}
-                  </div>
-                )}
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Phone Number ID (Meta) *</label>
-                    <input
-                      type="text"
-                      value={waForm.phoneNumberId}
-                      onChange={e => setWaForm(f => ({ ...f, phoneNumberId: e.target.value }))}
-                      placeholder="ex : 123456789012345"
-                      className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]"
-                      style={{ color: TEXT_PRIMARY }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>
-                      Access Token {waConfig ? '(laisser vide pour conserver)' : '*'}
-                    </label>
-                    <input
-                      type="password"
-                      value={waForm.accessToken}
-                      onChange={e => setWaForm(f => ({ ...f, accessToken: e.target.value }))}
-                      placeholder={waConfig ? '•••••••• (conservé)' : 'EAAG...'}
-                      className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]"
-                      style={{ color: TEXT_PRIMARY }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>WhatsApp Business Account ID (optionnel)</label>
-                    <input
-                      type="text"
-                      value={waForm.businessAccountId}
-                      onChange={e => setWaForm(f => ({ ...f, businessAccountId: e.target.value }))}
-                      placeholder="ex : 987654321098765"
-                      className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]"
-                      style={{ color: TEXT_PRIMARY }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Webhook Verify Token (optionnel)</label>
-                    <input
-                      type="password"
-                      value={waForm.webhookVerifyToken}
-                      onChange={e => setWaForm(f => ({ ...f, webhookVerifyToken: e.target.value }))}
-                      placeholder={waConfig?.webhookVerifyToken ? '•••••••• (conservé)' : 'mon-token-webhook'}
-                      className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]"
-                      style={{ color: TEXT_PRIMARY }}
-                    />
-                  </div>
-                </div>
-
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={waForm.isActive}
-                    onChange={e => setWaForm(f => ({ ...f, isActive: e.target.checked }))}
-                    className="w-4 h-4 accent-[#f5a623]"
-                  />
-                  <span className="text-[13px]" style={{ color: TEXT_PRIMARY }}>
-                    Activer cette API — les notifications partiront via mon numéro (messages illimités, limité par mes tokens Meta)
-                  </span>
-                </label>
-
-                <button
-                  onClick={saveWhatsappApi}
-                  disabled={waSaving}
-                  className="w-full py-2.5 rounded-xl text-sm font-semibold transition edu-gold-cta disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {waSaving ? <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <Save size={15} />}
-                  {waSaving ? 'Enregistrement...' : (waConfig ? 'Mettre à jour la configuration' : 'Enregistrer la configuration')}
-                </button>
-              </div>
-
-              {/* Test d'envoi */}
-              {waConfig && (
-                <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
-                  <h3 className="font-semibold text-sm mb-1" style={{ color: TEXT_PRIMARY }}>Tester l&apos;envoi</h3>
-                  <p className="text-[12px] mb-3" style={{ color: TEXT_MUTED_LUXE }}>Envoie un message de test via votre API pour valider vos identifiants.</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="tel"
-                      value={waTestPhone}
-                      onChange={e => setWaTestPhone(e.target.value)}
-                      placeholder="+243 8XX XXX XXX"
-                      className="flex-1 px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]"
-                      style={{ color: TEXT_PRIMARY }}
-                    />
-                    <button
-                      onClick={testWhatsappApi}
-                      disabled={waTesting}
-                      className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:opacity-50 flex items-center gap-2"
-                      style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}
-                    >
-                      {waTesting ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send size={14} />}
-                      {waTesting ? 'Envoi...' : 'Envoyer le test'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
         </div>
       )}
 
@@ -5003,6 +4243,231 @@ function PaymentConfigView() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* WhatsApp API & Quotas Tab */}
+      {activeTab === 'whatsapp_api' && (
+        <div className="space-y-6">
+          {/* Suivi des Quotas en Temps Réel */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <MessageSquare className="text-emerald-600" size={18} />
+                  Suivi des Messages WhatsApp en Temps Réel
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Consommation mensuelle pour l'école <strong>{waConfig?.schoolName || userData?.schoolName}</strong> (Forfait : <span className="font-semibold text-amber-600">{waConfig?.tier}</span>)
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                  waConfig?.customEnabled
+                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                    : (waConfig?.percentUsed || 0) > 80
+                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                }`}>
+                  {waConfig?.customEnabled ? 'Propre API Active' : `${waConfig?.remaining} msg(s) restants`}
+                </span>
+                <button
+                  onClick={loadWaConfig}
+                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600"
+                  title="Rafraîchir"
+                >
+                  <RefreshCw size={14} />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-semibold text-slate-700">
+                <span>Consommation du mois</span>
+                <span>
+                  {waConfig?.customEnabled
+                    ? 'Illimité (Non bridé par EduGest)'
+                    : `${waConfig?.used || 0} / ${waConfig?.monthlyLimit >= 999999 ? 'Illimité' : waConfig?.monthlyLimit} messages`}
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    waConfig?.customEnabled
+                      ? 'bg-purple-500'
+                      : (waConfig?.percentUsed || 0) > 85
+                      ? 'bg-rose-500'
+                      : (waConfig?.percentUsed || 0) > 65
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-500'
+                  }`}
+                  style={{ width: waConfig?.customEnabled ? '100%' : `${waConfig?.percentUsed || 0}%` }}
+                />
+              </div>
+            </div>
+
+            {waConfig?.customEnabled ? (
+              <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900">
+                🎉 <strong>Mode Propre API activé</strong> : Vos envois transitent directement par vos identifiants Meta Cloud API ou passerelle dédiée. <strong>Aucune limitation de volume ou blocage n'est appliqué par EduGest.</strong>
+              </div>
+            ) : (waConfig?.percentUsed || 0) > 80 ? (
+              <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 flex items-center justify-between">
+                <div>
+                  ⚠️ <strong>Attention</strong> : Vous approchez de la limite mensuelle de votre forfait ({waConfig?.used} / {waConfig?.monthlyLimit}).
+                </div>
+                <button
+                  onClick={() => setCurrentView('my-subscription')}
+                  className="px-3 py-1 bg-rose-600 text-white rounded-lg font-bold text-xs hover:bg-rose-500"
+                >
+                  Surclasser le forfait
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 mt-3">
+                Le compteur est réinitialisé automatiquement au début de chaque cycle mensuel.
+              </p>
+            )}
+          </div>
+
+          {/* Configuration Propre API WhatsApp (BYO) */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <Zap className="text-amber-500" size={18} />
+              Connecter votre propre API WhatsApp (BYO)
+            </h3>
+            <p className="text-xs text-slate-500 mb-5">
+              Si vous disposez d'un compte WhatsApp Business API (Meta Cloud API) ou d'un serveur dédié, renseignez vos identifiants ci-dessous. EduGest lèvera toutes les restrictions de volume.
+            </p>
+
+            <form onSubmit={saveWaConfig} className="space-y-4">
+              <div className="flex items-center gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="customWaSwitch"
+                  checked={waForm.customEnabled}
+                  onChange={(e) => setWaForm({ ...waForm, customEnabled: e.target.checked })}
+                  className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
+                />
+                <label htmlFor="customWaSwitch" className="text-sm font-bold text-slate-800 cursor-pointer">
+                  Activer ma propre API WhatsApp (Supprimer la limite de messages EduGest)
+                </label>
+              </div>
+
+              {waForm.customEnabled && (
+                <div className="space-y-4 pt-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        Type de connecteur API
+                      </label>
+                      <select
+                        value={waForm.apiType}
+                        onChange={(e) => setWaForm({ ...waForm, apiType: e.target.value })}
+                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500"
+                      >
+                        <option value="META_CLOUD">Meta Cloud API (Officielle WhatsApp Business)</option>
+                        <option value="BAILEYS_DEDICATED">Serveur Passerelle Dédié (Webhook)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        Phone Number ID (Meta)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ex: 1098237498234"
+                        value={waForm.metaPhoneId}
+                        onChange={(e) => setWaForm({ ...waForm, metaPhoneId: e.target.value })}
+                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        WhatsApp Business Account ID (WABA ID)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ex: 8237498234723"
+                        value={waForm.metaWabaId}
+                        onChange={(e) => setWaForm({ ...waForm, metaWabaId: e.target.value })}
+                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        Token d'accès Permanent Meta (System User Token)
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="EAABw..."
+                        value={waForm.metaToken}
+                        onChange={(e) => setWaForm({ ...waForm, metaToken: e.target.value })}
+                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {waForm.apiType === 'BAILEYS_DEDICATED' && (
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        URL de la passerelle dédiée (Endpoint)
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="https://wa.monecole.com/send"
+                        value={waForm.customEndpoint}
+                        onChange={(e) => setWaForm({ ...waForm, customEndpoint: e.target.value })}
+                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500 font-mono"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                <button
+                  type="submit"
+                  disabled={savingWa}
+                  className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md transition disabled:opacity-50"
+                >
+                  {savingWa ? 'Enregistrement...' : 'Enregistrer la configuration WhatsApp'}
+                </button>
+              </div>
+            </form>
+
+            {/* Test de Transmission */}
+            <div className="mt-6 pt-5 border-t border-slate-200">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Send size={13} className="text-emerald-600" />
+                Tester la connexion WhatsApp
+              </h4>
+              <p className="text-xs text-slate-500 mb-3">
+                Envoyez un message d'essai pour vérifier que votre passerelle ou vos identifiants Meta fonctionnent en direct.
+              </p>
+              <div className="flex gap-2 max-w-md">
+                <input
+                  type="tel"
+                  placeholder="+243..."
+                  value={testPhone}
+                  onChange={(e) => setTestPhone(e.target.value)}
+                  className="flex-1 text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-emerald-500 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={handleTestWa}
+                  disabled={testingWa}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                >
+                  {testingWa ? 'Envoi...' : 'Tester'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -5695,6 +5160,8 @@ function CommunicationsView() {
     }
   }, [highlightedId])
 
+  if (!hasAccess) return null
+
   useEffect(() => {
     const superAdminRoles = ['SUPER_ADMIN_GLOBAL', 'ADMIN']
     const mineParam = superAdminRoles.includes(userRole as string) ? '&mine=true' : ''
@@ -5710,8 +5177,6 @@ function CommunicationsView() {
       }
     }).catch(() => setLoading(false))
   }, [userData?.schoolId, userData?.id, canCreate])
-
-  if (!hasAccess) return null
 
   async function handleSend() {
     if (!title || !content) return toast.error('Titre et contenu requis')
@@ -5898,6 +5363,7 @@ function CommunicationsView() {
 function HomeworkView() {
   const { userData, userRole, highlightedId } = useEduGestStore()
   const [homework, setHomework] = useState<HomeworkData[]>([])
+  const [parentChildren, setParentChildren] = useState<StudentData[]>([])
   const [loading, setLoading] = useState(true)
   const isTeacher = userRole === 'TEACHER' || userRole === 'HEAD_TEACHER'
   const isParent = userRole === 'PARENT'
@@ -5947,6 +5413,12 @@ function HomeworkView() {
       }).catch(() => {})
     }
   }, [isTeacher, userData?.id])
+
+  useEffect(() => {
+    if (isParent && userData?.id) {
+      authFetch(`/api/students?parentId=${userData.id}&limit=20`).then(r => r.json()).then(j => setParentChildren(j.data || [])).catch(() => {})
+    }
+  }, [isParent, userData?.id])
 
   useEffect(() => {
     if (isParent && userData?.id) {
@@ -6183,6 +5655,21 @@ function HomeworkView() {
                         </span>
                       )}
                     </div>
+                    {(() => {
+                      const concerned = parentChildren.filter(c => c.classId && c.classId === h.classId)
+                      if (concerned.length === 0) return null
+                      return (
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <span className="text-[11px] font-medium" style={{ color: TEXT_MUTED_LUXE }}>Pour :</span>
+                          {concerned.map(child => (
+                            <span key={child.id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold" style={{ background: GOLD_SOFT, color: TEXT_PRIMARY }}>
+                              <StudentAvatar firstName={child.firstName} lastName={child.lastName} photoUrl={child.photoUrl} size={18} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
+                              {child.firstName} {child.lastName}
+                            </span>
+                          ))}
+                        </div>
+                      )
+                    })()}
                   </div>
                 )}
                 {/* Read stats - only for admin/direction roles */}
@@ -6267,183 +5754,73 @@ function HomeworkView() {
 // ProfileView imported from @/components/views/ProfileView
 
 // ===== CLASS PASSING VIEW =====
-// ===== CLASS PASSING VIEW (v2 : délibération notes + discipline & repêchage) =====
-interface PassingStudent {
-  id: string
-  matricule: string
-  firstName: string
-  lastName: string
-  photoUrl?: string | null
-  class: { id: string; name: string; section?: string } | null
-  annualAverage: number | null
-  trimesterAverages: { T1?: number | null; T2?: number | null; T3?: number | null }
-  failingSubjects: { subjectId: string; name: string; score: number }[]
-  disciplinePoints: number
-  sanctionCount: number
-  hasCriticalSanctions: boolean
-  riskScore: number
-  riskLevel: 'CRITIQUE' | 'ELEVE' | 'MODERE' | 'FAIBLE'
-  decision: string
-  qualification: { category: string; badgeLabel: string; reason: string }
-}
-
-interface PassingVisibility {
-  visible: boolean
-  openDate: string | null
-  officialDate: string | null
-  daysRemaining: number | null
-  message: string
-  source: string
-}
-
-interface RepechageExamData {
-  id: string
-  studentId: string
-  student: { id: string; firstName: string; lastName: string; matricule?: string; photoUrl?: string; class?: { name?: string } | null }
-  subjects: { subjectId?: string; name: string; score?: number }[]
-  examDate?: string | null
-  status: string
-  sentViaApp?: boolean
-  sentViaWhatsapp?: boolean
-  createdByName?: string
-  createdAt: string
-}
-
-const RISK_BADGE: Record<string, { label: string; color: string }> = {
-  CRITIQUE: { label: 'Critique', color: DANGER },
-  ELEVE: { label: 'Élevé', color: WARNING },
-  MODERE: { label: 'Modéré', color: INFO },
-  FAIBLE: { label: 'Faible', color: SUCCESS },
-}
-
 function ClassPassingView() {
   const { userData, userRole } = useEduGestStore()
   const router = useRouter()
-  const allowedRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'HEAD_TEACHER']
-  // Passage de classe : réservé aux admins abonnés au forfait Professionnel (PREMIUM) et plus
-  const tier = userData?.subscriptionTier || 'FREEMIUM'
-  const isSuperAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
-  const tierOk = isSuperAdmin || ['PREMIUM', 'ENTERPRISE', 'CORPORATE'].includes(tier)
-  const canAccess = tierOk && allowedRoles.includes(userRole || '')
-  const [tab, setTab] = useState<'deliberation' | 'repechage'>('deliberation')
-  const [students, setStudents] = useState<PassingStudent[]>([])
+  const allowedRoles = ['SUPER_ADMIN_GLOBAL', 'ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'HEAD_TEACHER']
+  // Passage de classe non inclus dans le forfait FREEMIUM
+  const isFreemiumTier = (userData?.subscriptionTier || 'FREEMIUM') === 'FREEMIUM'
+  const canAccess = !isFreemiumTier && allowedRoles.includes(userRole || '')
+  const [students, setStudents] = useState<StudentData[]>([])
   const [loading, setLoading] = useState(true)
-  const [visibility, setVisibility] = useState<PassingVisibility | null>(null)
-  const [stats, setStats] = useState<Record<string, number>>({})
-  const [listSearch, setListSearch] = useState('')
+  const [studentSearch, setStudentSearch] = useState('')
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
+  const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false)
   const [decisions, setDecisions] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
-  // Repêchage
-  const [repStudent, setRepStudent] = useState<PassingStudent | null>(null)
-  const [repSearch, setRepSearch] = useState('')
-  const [repSelected, setRepSelected] = useState<string[]>([])
-  const [repDate, setRepDate] = useState('')
-  const [repNote, setRepNote] = useState('')
-  const [repSending, setRepSending] = useState(false)
-  const [repHistory, setRepHistory] = useState<RepechageExamData[]>([])
-  const [repHistoryLoading, setRepHistoryLoading] = useState(false)
+  const [selectedTrimester, setSelectedTrimester] = useState('T1')
 
   useEffect(() => {
-    if (!tierOk) {
-      router.push(`/subscription-required?feature=${encodeURIComponent('passage de classe')}&requiredTier=PREMIUM`)
+    if (isFreemiumTier) {
+      router.push(`/subscription-required?feature=${encodeURIComponent('passage de classe')}&requiredTier=ESSENTIEL`)
     }
-  }, [tierOk, router])
+  }, [isFreemiumTier, router])
 
-  const loadClassPassing = useCallback(async () => {
+  useEffect(() => {
+    const params = new URLSearchParams({ limit: '50' })
+    if (userData?.schoolId) params.set('schoolId', userData.schoolId)
+    authFetch(`/api/students?${params}`).then(r => r.json()).then(j => { setStudents(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+  }, [userData?.schoolId])
+
+  // Load existing decisions
+  useEffect(() => {
     if (!userData?.schoolId) return
-    setLoading(true)
-    try {
-      const res = await authFetch(`/api/class-passing?schoolId=${userData.schoolId}`)
-      const j = await res.json()
-      if (res.ok) {
-        setStudents(j.data || [])
-        setVisibility(j.visibility || null)
-        setStats(j.stats || {})
+    authFetch(`/api/report-cards?trimester=${selectedTrimester}&schoolId=${userData.schoolId}`)
+      .then(r => r.json())
+      .then(j => {
         const existing: Record<string, string> = {}
-        for (const s of (j.data || [])) {
-          if (s.decision && s.decision !== 'PENDING') existing[s.id] = s.decision
+        for (const rc of (j.data || [])) {
+          if (rc.decision) existing[rc.studentId] = rc.decision
         }
         setDecisions(prev => ({ ...existing, ...prev }))
-      } else {
-        toast.error(j.error || 'Erreur de chargement')
-      }
-    } catch { toast.error('Erreur réseau') }
-    finally { setLoading(false) }
-  }, [userData?.schoolId])
-
-  useEffect(() => { loadClassPassing() }, [loadClassPassing])
-
-  const loadRepHistory = useCallback(async () => {
-    if (!userData?.schoolId) return
-    setRepHistoryLoading(true)
-    try {
-      const res = await authFetch(`/api/class-passing/repechage?schoolId=${userData.schoolId}`)
-      const j = await res.json()
-      if (res.ok) setRepHistory(j.data || [])
-    } catch { /* silencieux */ }
-    finally { setRepHistoryLoading(false) }
-  }, [userData?.schoolId])
-
-  useEffect(() => { if (tab === 'repechage') loadRepHistory() }, [tab, loadRepHistory])
-
-  // Recherche repêchage : filtre local sur les élèves chargés (notes + discipline déjà calculées)
-  const repSuggestions: AutocompleteItem[] = repSearch.length >= 2
-    ? students
-        .filter(s => `${s.firstName} ${s.lastName}`.toLowerCase().includes(repSearch.toLowerCase()) || s.matricule.toLowerCase().includes(repSearch.toLowerCase()))
-        .slice(0, 8)
-        .map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: `${s.matricule} · ${s.class?.name || ''} · ${s.failingSubjects.length} matière(s) < 10`, photoUrl: s.photoUrl }))
-    : []
-
-  const selectRepStudent = (id: string) => {
-    const s = students.find(x => x.id === id) || null
-    setRepStudent(s)
-    setRepSelected(s ? s.failingSubjects.map(f => f.subjectId) : [])
-    setRepSearch('')
-  }
-
-  const sendRepechage = async () => {
-    if (!repStudent) { toast.error('Sélectionnez un élève'); return }
-    if (repSelected.length === 0) { toast.error('Cochez au moins une matière à repêcher'); return }
-    setRepSending(true)
-    try {
-      const subjects = repStudent.failingSubjects.filter(f => repSelected.includes(f.subjectId))
-      const res = await authFetch('/api/class-passing/repechage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: repStudent.id,
-          schoolId: userData?.schoolId,
-          subjects,
-          examDate: repDate || undefined,
-          note: repNote || undefined,
-          sendWhatsApp: true,
-        }),
       })
-      const j = await res.json()
-      if (res.ok) {
-        const n = j.notifications || {}
-        toast.success(`Examens de repêchage envoyés — App : ${n.appSent || 0} notif(s), WhatsApp : ${n.whatsappSent || 0} message(s)`)
-        setRepStudent(null); setRepSelected([]); setRepDate(''); setRepNote('')
-        loadRepHistory()
-      } else {
-        toast.error(j.error || 'Erreur lors de l\'envoi')
-      }
-    } catch { toast.error('Erreur réseau') }
-    finally { setRepSending(false) }
-  }
+      .catch(() => {})
+  }, [userData?.schoolId, selectedTrimester])
 
-  const startRepFromRow = (s: PassingStudent) => {
-    setTab('repechage')
-    setRepStudent(s)
-    setRepSelected(s.failingSubjects.map(f => f.subjectId))
-    setRepSearch('')
-  }
+  // Student search autocomplete
+  useEffect(() => {
+    if (studentSearch.length < 2) return
+    const timer = setTimeout(() => {
+      setStudentSearchLoading(true)
+      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
+        .then(r => r.json())
+        .then(j => {
+          setStudentSuggestions((j.data || []).map((s: StudentData) => ({
+            id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: `${s.matricule} · ${s.class?.name || ''}`, photoUrl: s.photoUrl
+          })))
+          setStudentSearchLoading(false)
+        })
+        .catch(() => setStudentSearchLoading(false))
+    }, 300)
+    return () => { clearTimeout(timer); setStudentSearchLoading(false) }
+  }, [studentSearch, userData?.schoolId])
 
-  const filteredList = listSearch.length >= 2
-    ? students.filter(s => `${s.firstName} ${s.lastName}`.toLowerCase().includes(listSearch.toLowerCase()) || s.matricule.toLowerCase().includes(listSearch.toLowerCase()))
-    : students
-
-  const riskColor = (level: string) => RISK_BADGE[level] || RISK_BADGE.FAIBLE
+  const filteredStudents = selectedStudentId
+    ? students.filter(s => s.id === selectedStudentId)
+    : studentSearch.length >= 2
+      ? students.filter(s => `${s.firstName} ${s.lastName}`.toLowerCase().includes(studentSearch.toLowerCase()) || s.matricule.toLowerCase().includes(studentSearch.toLowerCase()))
+      : students
 
   return (
     <div>
@@ -6459,102 +5836,41 @@ function ClassPassingView() {
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Passage de classe</h1>
           </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>
-            Fin d&apos;année — délibération basée sur les plus mauvaises notes et la discipline · {formatNumber(students.length)} élèves évalués
-          </p>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filteredStudents.length)} élèves</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setTab('deliberation')} className={`px-4 py-2 rounded-xl text-sm font-medium transition border ${tab === 'deliberation' ? 'text-white border-transparent shadow-sm' : 'bg-white border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)]'}`} style={tab === 'deliberation' ? { background: ACCENT } : { color: TEXT_PRIMARY }}>
-            <ListChecks size={14} className="inline mr-1.5 -mt-0.5" /> Délibération
-          </button>
-          <button onClick={() => setTab('repechage')} className={`px-4 py-2 rounded-xl text-sm font-medium transition border ${tab === 'repechage' ? 'text-white border-transparent shadow-sm' : 'bg-white border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)]'}`} style={tab === 'repechage' ? { background: ACCENT } : { color: TEXT_PRIMARY }}>
-            <RotateCcw size={14} className="inline mr-1.5 -mt-0.5" /> Repêchage {repHistory.length > 0 && <span className="ml-1 px-1.5 py-px rounded-full text-[10px] font-bold" style={{ background: GOLD, color: '#1a1a1a' }}>{repHistory.length}</span>}
-          </button>
-        </div>
-      </div>
-
-      {/* Bandeau de visibilité contrôlé par l'admin global de la plateforme */}
-      {visibility && !visibility.visible && (
-        <div className="mb-6 rounded-2xl border p-5 flex items-start gap-3" style={{ background: GOLD_SOFT, borderColor: 'oklch(85%_0.08_85)' }}>
-          <Lock size={18} style={{ color: GOLD }} className="mt-0.5 shrink-0" />
-          <div>
-            <div className="text-sm font-bold mb-0.5" style={{ color: TEXT_PRIMARY }}>Interface verrouillée — ouverture programmée</div>
-            <div className="text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
-              {visibility.openDate && visibility.officialDate
-                ? `Disponible à partir du ${new Date(visibility.openDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} · Date officielle : ${new Date(visibility.officialDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
-                : visibility.message}
-              {visibility.daysRemaining != null && visibility.daysRemaining > 0 ? ` · Dans ${visibility.daysRemaining} jour(s)` : ''}
-            </div>
-          </div>
-        </div>
-      )}
-      {visibility && visibility.visible && visibility.source === 'PLATFORM_EVENT' && (
-        <div className="mb-6 rounded-2xl border p-4 flex items-center gap-3" style={{ background: SUCCESS_SOFT, borderColor: 'oklch(88%_0.06_145)' }}>
-          <CheckCircle size={16} style={{ color: SUCCESS }} className="shrink-0" />
-          <div className="text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
-            Période de passage de classe ouverte{visibility.officialDate ? ` — date officielle : ${new Date(visibility.officialDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
-          </div>
-        </div>
-      )}
-
-      {tab === 'deliberation' && (
-      <>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4">
-          <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: TEXT_MUTED_LUXE }}>Évalués</div>
-          <div className="text-xl font-bold tabular-nums" style={{ color: TEXT_PRIMARY }}>{formatNumber(stats.totalStudents ?? students.length)}</div>
-        </div>
-        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4">
-          <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: TEXT_MUTED_LUXE }}>À risque</div>
-          <div className="text-xl font-bold tabular-nums" style={{ color: DANGER }}>{formatNumber(stats.atRiskCount ?? 0)}</div>
-        </div>
-        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4">
-          <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: TEXT_MUTED_LUXE }}>Délibération</div>
-          <div className="text-xl font-bold tabular-nums" style={{ color: WARNING }}>{formatNumber(stats.deliberationTotal ?? 0)}</div>
-        </div>
-        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4">
-          <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: TEXT_MUTED_LUXE }}>Échec (&lt; 10/20)</div>
-          <div className="text-xl font-bold tabular-nums" style={{ color: GOLD }}>{formatNumber(stats.repechageCount ?? 0)}</div>
-        </div>
-      </div>
-      <div className="flex items-center gap-3 mb-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: TEXT_MUTED_LUXE }} />
-          <input
-            value={listSearch}
-            onChange={e => setListSearch(e.target.value)}
-            placeholder="Rechercher un élève (nom ou matricule)..."
-            className="w-full pl-9 pr-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
-            style={{ color: TEXT_PRIMARY }}
+        <div className="flex items-center gap-3">
+          <select value={selectedTrimester} onChange={e => setSelectedTrimester(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
+            <option value="T1">Trimestre 1</option><option value="T2">Trimestre 2</option><option value="T3">Trimestre 3</option>
+          </select>
+          <SearchAutocomplete
+            placeholder="Tapez le nom de l'élève..."
+            items={studentSuggestions}
+            selectedId={selectedStudentId}
+            onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
+            onClear={() => { setSelectedStudentId(null); setStudentSearch('') }}
+            searchQuery={studentSearch}
+            onSearchChange={setStudentSearch}
+            loading={studentSearchLoading}
+            itemTypeName="élève"
+            className="w-full max-w-sm"
           />
         </div>
-        <span className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>Classés des plus faibles aux meilleurs</span>
       </div>
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto max-h-[560px] overflow-y-auto custom-scrollbar">
+        <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="sticky top-0 z-10">
+            <thead>
               <tr style={{ background: IVORY }}>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Classe</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Moyenne</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3 hidden md:table-cell" style={{ color: GOLD }}>Matières en échec</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3 hidden lg:table-cell" style={{ color: GOLD }}>Discipline</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Risque</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Classe actuelle</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Décision</th>
-                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Actions</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Action</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="text-center py-10" style={{ color: TEXT_MUTED_LUXE }}>Chargement des évaluations...</td></tr>
-              ) : visibility && !visibility.visible && !isSuperAdmin ? (
-                <tr><td colSpan={8} className="text-center py-10" style={{ color: TEXT_MUTED_LUXE }}>Période non ouverte — les délibérations apparaissent à la date programmée par la plateforme.</td></tr>
-              ) : filteredList.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-10" style={{ color: TEXT_MUTED_LUXE }}>Aucun élève évalué</td></tr>
-              ) : filteredList.map(s => {
-                const rb = riskColor(s.riskLevel)
-                return (
+                <tr><td colSpan={4} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
+              ) : filteredStudents.slice(0, 50).map(s => (
                 <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
@@ -6567,188 +5883,31 @@ function ClassPassingView() {
                   </td>
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.class?.name || '—'}</td>
                   <td className="px-4 py-3">
-                    {s.annualAverage != null ? (
-                      <div>
-                        <div className={`text-[14px] font-bold tabular-nums ${s.annualAverage < 10 ? 'animate-pulse' : ''}`} style={{ color: s.annualAverage < 10 ? DANGER : s.annualAverage < 12 ? WARNING : SUCCESS }}>{s.annualAverage.toFixed(2)}/20</div>
-                        <div className="text-[10px] tabular-nums" style={{ color: TEXT_MUTED_LUXE }}>
-                          T1 {s.trimesterAverages?.T1 != null ? s.trimesterAverages.T1.toFixed(1) : '—'} · T2 {s.trimesterAverages?.T2 != null ? s.trimesterAverages.T2.toFixed(1) : '—'} · T3 {s.trimesterAverages?.T3 != null ? s.trimesterAverages.T3.toFixed(1) : '—'}
-                        </div>
-                      </div>
-                    ) : <span className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>Aucune note</span>}
-                  </td>
-                  <td className="px-4 py-3 hidden md:table-cell">
-                    {s.failingSubjects.length > 0 ? (
-                      <div title={s.failingSubjects.map(f => `${f.name} (${f.score.toFixed(1)}/20)`).join(', ')}>
-                        <span className="text-[12px] font-semibold" style={{ color: DANGER }}>{s.failingSubjects.length} matière(s)</span>
-                        <div className="text-[10px] truncate max-w-[160px]" style={{ color: TEXT_MUTED_LUXE }}>{s.failingSubjects.slice(0, 3).map(f => f.name).join(', ')}{s.failingSubjects.length > 3 ? '…' : ''}</div>
-                      </div>
-                    ) : <span className="text-[12px]" style={{ color: SUCCESS }}>—</span>}
-                  </td>
-                  <td className="px-4 py-3 hidden lg:table-cell">
-                    <div className="text-[12px] font-semibold tabular-nums" style={{ color: s.disciplinePoints <= -10 ? DANGER : s.disciplinePoints < 0 ? WARNING : SUCCESS }}>{s.disciplinePoints} pts</div>
-                    <div className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>{s.sanctionCount} sanction(s){s.hasCriticalSanctions ? ' · critique' : ''}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold text-white" style={{ background: rb.color }}>{rb.label}</span>
-                  </td>
-                  <td className="px-4 py-3">
                     <select value={decisions[s.id] || 'PENDING'} onChange={e => setDecisions(prev => ({ ...prev, [s.id]: e.target.value }))} className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                      <option value="PENDING">En attente</option>
-                      <option value="PASSED">Passage</option>
-                      <option value="REPEAT">Redouble</option>
-                      <option value="RATTRAPAGE">Rattrapage</option>
+                      <option value="PENDING">En attente</option><option value="PASSED">Passage</option><option value="REPEAT">Redouble</option>
                     </select>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button onClick={async () => {
-                        const decision = decisions[s.id]
-                        if (!decision || decision === 'PENDING') { toast.error('Sélectionnez une décision'); return }
-                        setSavingId(s.id)
-                        try {
-                          const res = await authFetch('/api/report-cards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentId: s.id, decision, trimester: 'T3', schoolId: userData?.schoolId }) })
-                          if (res.ok) toast.success('Décision enregistrée — parents notifiés')
-                          else toast.error('Erreur lors de l\'enregistrement')
-                        } catch { toast.error('Erreur réseau') }
-                        finally { setSavingId(null) }
-                      }} disabled={savingId === s.id} className="text-sm font-medium hover:underline disabled:opacity-50" style={{ color: GOLD }}>
-                        {savingId === s.id ? '...' : 'Valider'}
-                      </button>
-                      {(s.riskLevel === 'CRITIQUE' || s.riskLevel === 'ELEVE' || s.failingSubjects.length > 0) && (
-                        <button onClick={() => startRepFromRow(s)} title="Envoyer aux examens de repêchage" className="inline-flex items-center gap-1 text-[12px] font-medium px-2 py-1 rounded-lg border border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)] transition" style={{ color: TEXT_PRIMARY }}>
-                          <RotateCcw size={11} /> Repêcher
-                        </button>
-                      )}
-                    </div>
+                    <button onClick={async () => {
+                      const decision = decisions[s.id]
+                      if (!decision || decision === 'PENDING') { toast.error('Sélectionnez une décision'); return }
+                      setSavingId(s.id)
+                      try {
+                        const res = await authFetch('/api/report-cards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentId: s.id, decision, trimester: selectedTrimester, schoolId: userData?.schoolId }) })
+                        if (res.ok) toast.success('Décision enregistrée!')
+                        else toast.error('Erreur lors de l\'enregistrement')
+                      } catch { toast.error('Erreur réseau') }
+                      finally { setSavingId(null) }
+                    }} disabled={savingId === s.id} className="text-sm font-medium hover:underline disabled:opacity-50" style={{ color: GOLD }}>
+                      {savingId === s.id ? '...' : 'Valider'}
+                    </button>
                   </td>
                 </tr>
-                )
-              })}
+              ))}
             </tbody>
           </table>
         </div>
       </div>
-      </>
-      )}
-
-      {tab === 'repechage' && (
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-        {/* Formulaire d'envoi */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-6 rounded-full" style={{ background: GOLD }} />
-              <h2 className="text-base font-bold" style={{ color: TEXT_PRIMARY }}>Examens de repêchage</h2>
-            </div>
-            <p className="text-[12px] mb-4 -ml-0" style={{ color: TEXT_MUTED_LUXE }}>
-              Tapez le nom de l&apos;élève : ses matières en échec (&lt; 10/20) s&apos;affichent. Cochez les matières à repêcher — les examens seront envoyés aux parents via l&apos;application et WhatsApp.
-            </p>
-            <SearchAutocomplete
-              placeholder="Tapez le nom de l'élève..."
-              items={repSuggestions}
-              selectedId={repStudent?.id || null}
-              onSelect={(item) => selectRepStudent(item.id)}
-              onClear={() => { setRepStudent(null); setRepSelected([]) }}
-              searchQuery={repSearch}
-              onSearchChange={setRepSearch}
-              loading={false}
-              itemTypeName="élève"
-              className="w-full"
-            />
-            {repStudent && (
-              <div className="mt-4 space-y-4">
-                <div className="flex items-center gap-2.5 p-3 rounded-xl" style={{ background: IVORY }}>
-                  <StudentAvatar firstName={repStudent.firstName} lastName={repStudent.lastName} photoUrl={repStudent.photoUrl} size={36} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
-                  <div className="min-w-0">
-                    <div className="text-[13px] font-semibold" style={{ color: TEXT_PRIMARY }}>{repStudent.firstName} {repStudent.lastName}</div>
-                    <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{repStudent.class?.name || '—'} · Moy. {repStudent.annualAverage != null ? `${repStudent.annualAverage.toFixed(2)}/20` : '—'}</div>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[12px] font-semibold mb-2" style={{ color: TEXT_PRIMARY }}>Matières à repêcher ({repSelected.length}/{repStudent.failingSubjects.length})</div>
-                  {repStudent.failingSubjects.length === 0 ? (
-                    <div className="text-[12px] p-3 rounded-xl" style={{ color: SUCCESS, background: SUCCESS_SOFT }}>Aucune matière en échec pour cet élève</div>
-                  ) : (
-                    <div className="space-y-1.5 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
-                      {repStudent.failingSubjects.map(f => (
-                        <label key={f.subjectId} className="flex items-center gap-2.5 p-2.5 rounded-xl border border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)] cursor-pointer transition">
-                          <input type="checkbox" checked={repSelected.includes(f.subjectId)} onChange={e => setRepSelected(prev => e.target.checked ? [...prev, f.subjectId] : prev.filter(x => x !== f.subjectId))} className="accent-[oklch(72%_0.15_65)] w-4 h-4" />
-                          <span className="text-[13px] flex-1" style={{ color: TEXT_PRIMARY }}>{f.name}</span>
-                          <span className="text-[12px] font-bold tabular-nums" style={{ color: DANGER }}>{f.score.toFixed(1)}/20</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Date de l&apos;examen</label>
-                    <input type="date" value={repDate} onChange={e => setRepDate(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Note (optionnel)</label>
-                    <input value={repNote} onChange={e => setRepNote(e.target.value)} placeholder="Salle, consignes..." className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} />
-                  </div>
-                </div>
-                <button onClick={sendRepechage} disabled={repSending || repSelected.length === 0} className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 text-white transition disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
-                  {repSending ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send size={15} />}
-                  Créer & envoyer (App + WhatsApp)
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-        {/* Historique */}
-        <div className="lg:col-span-3">
-          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-6 rounded-full" style={{ background: GOLD }} />
-                <h2 className="text-base font-bold" style={{ color: TEXT_PRIMARY }}>Examens envoyés</h2>
-              </div>
-              <button onClick={loadRepHistory} className="text-[12px] font-medium hover:underline flex items-center gap-1" style={{ color: GOLD }}>
-                <RefreshCw size={12} className={repHistoryLoading ? 'animate-spin' : ''} /> Actualiser
-              </button>
-            </div>
-            <div className="space-y-3 max-h-[560px] overflow-y-auto custom-scrollbar pr-1">
-              {repHistoryLoading && repHistory.length === 0 ? (
-                <div className="text-center py-10 text-sm" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div>
-              ) : repHistory.length === 0 ? (
-                <div className="text-center py-10">
-                  <RotateCcw size={28} className="mx-auto mb-2 opacity-30" style={{ color: TEXT_MUTED_LUXE }} />
-                  <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Aucun examen de repêchage envoyé</div>
-                </div>
-              ) : repHistory.map(r => (
-                <div key={r.id} className="p-4 rounded-xl border border-[oklch(90%_0.01_175)] hover:shadow-sm transition">
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <StudentAvatar firstName={r.student.firstName} lastName={r.student.lastName} photoUrl={r.student.photoUrl} size={32} className="text-white font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
-                      <div className="min-w-0">
-                        <div className="text-[13px] font-semibold truncate" style={{ color: TEXT_PRIMARY }}>{r.student.firstName} {r.student.lastName}</div>
-                        <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{r.student.class?.name || '—'} · {r.student.matricule || ''}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {r.sentViaApp && <span title="Envoyé via l'application" className="w-6 h-6 grid place-items-center rounded-full" style={{ background: SUCCESS_SOFT, color: SUCCESS }}><CheckCircle size={13} /></span>}
-                      {r.sentViaWhatsapp && <span title="Envoyé via WhatsApp" className="w-6 h-6 grid place-items-center rounded-full" style={{ background: 'oklch(94%_0.06_145)', color: 'oklch(45%_0.13_145)' }}><MessageCircle size={13} /></span>}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {(r.subjects || []).map((sub, i) => (
-                      <span key={i} className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ background: IVORY, color: TEXT_PRIMARY }}>{sub.name}{sub.score != null ? ` · ${sub.score.toFixed(1)}/20` : ''}</span>
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-between text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
-                    <span>{r.examDate ? `Examen : ${new Date(r.examDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}` : 'Date à confirmer'}</span>
-                    <span>Par {r.createdByName || '—'} · {new Date(r.createdAt).toLocaleDateString('fr-FR')}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-      )}
       </>
       )}
     </div>
@@ -6767,26 +5926,13 @@ function BulletinView() {
   const [studentSearchLoading, setStudentSearchLoading] = useState(false)
   const [selectedTrimester, setSelectedTrimester] = useState('T1')
   const [selectedClassId, setSelectedClassId] = useState<string>('all')
-  const [pubVisibility, setPubVisibility] = useState<{ visible: boolean; openDate: string | null; officialDate: string | null; daysRemaining: number | null; source: string } | null>(null)
   const isParent = userRole === 'PARENT'
-  const isPlatformAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
-  // Publication des bulletins : interface visible 21 jours avant la date officielle (contrôle plateforme)
-  const staffBlocked = !isParent && !isPlatformAdmin && pubVisibility != null && !pubVisibility.visible
   const highlightedRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (highlightedId && highlightedRef.current) {
       highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
   }, [highlightedId])
-
-  // Visibilité de la publication des bulletins (événement plateforme)
-  useEffect(() => {
-    if (isParent || !userData?.schoolId) return
-    authFetch(`/api/platform-events/status?schoolId=${userData.schoolId}`)
-      .then(r => r.json())
-      .then(j => { if (j.data?.BULLETIN_PUBLICATION) setPubVisibility(j.data.BULLETIN_PUBLICATION) })
-      .catch(() => {})
-  }, [isParent, userData?.schoolId])
 
   useEffect(() => {
     const params = new URLSearchParams({ limit: '200', trimester: selectedTrimester })
@@ -6855,9 +6001,6 @@ function BulletinView() {
 
   const totalStudents = byClass.reduce((s, c) => s + c.students.length, 0)
 
-  // Parents : interface Bulletins retirée si le forfait de l'école ne les inclut pas (Freemium/Essentiel)
-  const parentBlocked = isParent && !tierAllowsParentGrades(userData?.subscriptionTier || 'FREEMIUM')
-
   const handleDownload = async (id: string, lastName?: string) => {
     try {
       const res = await authFetch(`/api/bulletins/${id}?trimester=${selectedTrimester}${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
@@ -6888,64 +6031,6 @@ function BulletinView() {
       }
     } catch { toast.error('Erreur réseau') }
     finally { setWaSendingId(null) }
-  }
-
-  if (parentBlocked) {
-    return (
-      <div>
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Bulletins</h1>
-        </div>
-        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-8 text-center shadow-sm max-w-lg mx-auto">
-          <div className="w-14 h-14 mx-auto rounded-2xl grid place-items-center mb-4" style={{ background: GOLD_SOFT }}>
-            <Crown size={26} style={{ color: GOLD }} />
-          </div>
-          <h2 className="text-lg font-bold mb-2" style={{ color: TEXT_PRIMARY }}>Bulletins non inclus dans votre forfait</h2>
-          <p className="text-sm mb-5" style={{ color: TEXT_MUTED_LUXE }}>
-            Le forfait <strong>{getSubscriptionLabel(userData?.subscriptionTier || 'FREEMIUM')}</strong> de votre école
-            n&apos;inclut pas l&apos;accès des parents aux notes et bulletins. La direction de l&apos;école peut
-            passer au forfait <strong>Standard</strong> ou supérieur pour activer cette fonctionnalité.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  if (staffBlocked) {
-    return (
-      <div>
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Bulletins</h1>
-        </div>
-        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-8 text-center shadow-sm max-w-lg mx-auto">
-          <div className="w-14 h-14 mx-auto rounded-2xl grid place-items-center mb-4" style={{ background: GOLD_SOFT }}>
-            <Lock size={26} style={{ color: GOLD }} />
-          </div>
-          <h2 className="text-lg font-bold mb-2" style={{ color: TEXT_PRIMARY }}>Publication des bulletins non ouverte</h2>
-          <p className="text-sm mb-4" style={{ color: TEXT_MUTED_LUXE }}>
-            L&apos;interface de publication des bulletins apparaîtra automatiquement{' '}
-            <strong>21 jours avant la date officielle</strong> programmée par l&apos;administration de la plateforme,
-            et ce pour tous les systèmes scolaires.
-          </p>
-          {pubVisibility?.officialDate && (
-            <div className="inline-flex flex-col items-center gap-1 px-5 py-3 rounded-xl" style={{ background: IVORY }}>
-              <span className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: TEXT_MUTED_LUXE }}>Date officielle de publication</span>
-              <span className="text-base font-bold" style={{ color: TEXT_PRIMARY }}>
-                {new Date(pubVisibility.officialDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-              </span>
-              {pubVisibility.openDate && (
-                <span className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>
-                  Interface disponible dès le {new Date(pubVisibility.openDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  {pubVisibility.daysRemaining != null && pubVisibility.daysRemaining > 0 ? ` · dans ${pubVisibility.daysRemaining} jour(s)` : ''}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -7079,6 +6164,8 @@ function ConvocationView() {
   const [convocations, setConvocations] = useState<any[]>([])
   const [loadingConvocations, setLoadingConvocations] = useState(true)
   const [totalUsers, setTotalUsers] = useState(0)
+
+  if (!hasAccess) return null
   const [expandedConvocation, setExpandedConvocation] = useState<string | null>(null)
   const [responseModal, setResponseModal] = useState<{ convocationId: string; motif: string } | null>(null)
   const [responseType, setResponseType] = useState<'PRESENT' | 'ABSENT' | 'CUSTOM'>('PRESENT')
@@ -7128,8 +6215,6 @@ function ConvocationView() {
       queueMicrotask(() => setLoadingConvocations(false))
     }
   }, [userData?.schoolId, isParent, userData?.id])
-
-  if (!hasAccess) return null
 
   async function handleSendConvocation() {
     if (!selectedStudentId) { toast.error('Veuillez sélectionner un élève'); return }
@@ -7682,17 +6767,11 @@ function SubscriptionUpgradeView() {
   const [loading, setLoading] = useState(true)
   const [requesting, setRequesting] = useState<string | null>(null)
   const [selectedTier, setSelectedTier] = useState<string | null>(null)
-  const [modalMode, setModalMode] = useState<'request' | 'pay' | 'manual'>('request')
-  // API de paiement de la PLATEFORME (abonnements) — configurée par EduGest
-  const [platformConfigured, setPlatformConfigured] = useState<boolean | null>(null)
-  const [paymentMethods, setPaymentMethods] = useState<any[]>([])
+  const [modalMode, setModalMode] = useState<'request' | 'pay'>('request')
+  const [activeGateways, setActiveGateways] = useState<any[]>([])
   const [selectedGateway, setSelectedGateway] = useState<string>('')
   const [customerPhone, setCustomerPhone] = useState('')
-  const [customerEmail, setCustomerEmail] = useState('')
   const [paying, setPaying] = useState(false)
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null)
-  // Formulaire de paiement manuel (quand la plateforme n'a pas d'API configurée)
-  const [manualForm, setManualForm] = useState({ method: 'Virement bancaire', reference: '', payerName: '', payerPhone: '', note: '' })
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -7702,12 +6781,12 @@ function SubscriptionUpgradeView() {
   const currentTierIndex = TIER_ORDER.indexOf(currentTier)
 
   const tiers = [
-    { id: 'FREEMIUM', name: 'Freemium', price: 0, color: MUTED, features: ['1 admin', '100 élèves max', '0 msg WhatsApp', 'Élèves, classes, notes, paiements'] },
-    { id: 'ESSENTIEL', name: 'Essentiel', price: 100, color: INFO, features: ['1 admin', '5 professeurs', '250 élèves max', 'Comptes parents', '500 msg WhatsApp/mois', 'Notes/bulletins aux parents : non'] },
-    { id: 'STANDARD', name: 'Standard', price: 250, color: ACCENT, features: ['Tout Essentiel', '5 admins (secrétariat, admin école, caissier, direction, discipline)', 'Notes & bulletins envoyés aux parents', '1000 élèves max', '1500 msg WhatsApp/mois'] },
-    { id: 'PREMIUM', name: 'Professionnel', price: 500, color: WARNING, features: ['Tout Standard', 'Admins illimités', 'Profs illimités', 'App mobile dédiée', "Personnalisation de l'app", 'Support prioritaire', '2500 élèves max', '5000 msg WhatsApp/mois'] },
-    { id: 'ENTERPRISE', name: 'Enterprise', price: 1000, color: SUCCESS, features: ['Tout Professionnel', 'Multi-écoles (3 incluses)', '9999 admins', '99999 élèves (total écoles)', 'Messages WhatsApp illimités', 'Serveur dédié', 'Formation équipe', 'SLA garanti'] },
-    { id: 'CORPORATE', name: 'Corporate', price: 0, color: DANGER, features: ['Tout Enterprise', 'Groupes scolaires', 'Admins & élèves illimités', 'Écoles illimitées', 'Sur mesure', 'On-premise', 'Marque blanche', 'Intégration sur mesure'] },
+    { id: 'FREEMIUM', name: 'Freemium', price: 0, color: MUTED, features: ['Élèves', 'Classes', 'Notes', 'Paiements'] },
+    { id: 'ESSENTIEL', name: 'Essentiel', price: 100, color: INFO, features: ['Élèves', 'Classes', 'Notes', 'Parents', 'Paiements', 'Devoirs', 'Discipline'] },
+    { id: 'STANDARD', name: 'Standard', price: 250, color: ACCENT, features: ['Tout Essentiel', 'Bulletins', 'Communications', 'Convocations'] },
+    { id: 'PREMIUM', name: 'Professionnel', price: 500, color: WARNING, features: ['Tout Standard', 'Analytics', 'Multi-années'] },
+    { id: 'ENTERPRISE', name: 'Enterprise', price: 1000, color: SUCCESS, features: ['Tout Premium', 'API', 'Support prioritaire', 'Branding custom'] },
+    { id: 'CORPORATE', name: 'Corporate', price: 0, color: DANGER, features: ['Tout Enterprise', 'Prix sur mesure'] },
   ]
 
   useEffect(() => {
@@ -7715,14 +6794,13 @@ function SubscriptionUpgradeView() {
       setRequests(j.data || [])
       setLoading(false)
     }).catch(() => setLoading(false))
-    // L'API de paiement est-elle configurée par la PLATEFORME (abonnements) ?
-    // platformConfigured=true  → le client paie en ligne (Visa, M-Pesa…) → demande de paiement
-    // platformConfigured=false → le client remplit le formulaire de paiement manuel
-    authFetch('/api/subscription/payment-methods').then(r => r.json()).then(j => {
-      setPlatformConfigured(!!j.data?.platformConfigured)
-      setPaymentMethods(j.data?.methods || [])
-      if (j.data?.methods?.length > 0) setSelectedGateway(j.data.methods[0].gatewayType)
-    }).catch(() => setPlatformConfigured(false))
+    // Vérifier si un agrégateur de paiement est VRAIMENT connecté (actif + clés renseignées)
+    authFetch('/api/payment-gateways').then(r => r.json()).then(j => {
+      const configured = j.data?.configured || []
+      const connected = configured.filter((g: any) => g.isActive && g.hasCredentials)
+      setActiveGateways(connected)
+      if (connected.length > 0) setSelectedGateway(connected[0].gatewayType)
+    }).catch(() => {})
   }, [])
 
   async function handleRequest(tier: string) {
@@ -7747,76 +6825,41 @@ function SubscriptionUpgradeView() {
     finally { setSubmitting(false) }
   }
 
-  // Demande de paiement en ligne via une passerelle PLATEFORME (Visa, M-Pesa…)
   async function handlePay() {
     const tier = tiers.find(t => t.id === selectedTier)
     if (!tier || !selectedGateway) { toast.error('Choisissez un moyen de paiement'); return }
     setPaying(true)
     try {
-      const res = await authFetch('/api/payment-gateways/initiate-subscription', {
+      const res = await authFetch('/api/payment-gateways/initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          requestedTier: selectedTier,
+          schoolId: userData?.schoolId,
           gatewayType: selectedGateway,
+          amount: tier.price,
+          description: `Abonnement ${tier.name} - ${userData?.schoolName || 'EduGest'}`,
           customerPhone: customerPhone || undefined,
-          customerEmail: customerEmail || undefined,
-          customerName: userData?.name || undefined,
         }),
       })
       const j = await res.json()
-      if (res.ok || res.status === 201) {
-        toast.success(j.message || 'Demande de paiement envoyée !')
-        setCheckoutUrl(j.data?.payment?.checkoutUrl || null)
-        if (!j.data?.payment?.checkoutUrl) {
-          setSelectedTier(null)
-        }
+      if (res.ok || res.status === 202) {
+        toast.success(j.message || 'Paiement initié avec succès !')
+        // Tracer la demande pour l'admin (le paiement en ligne est vérifié via webhook)
+        const ref = j.data?.reference || j.data?.transactionId || j.data?.transaction?.id || ''
+        authFetch('/api/subscription/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requestedTier: selectedTier, notes: `Paiement en ligne via ${selectedGateway}${ref ? ` — réf: ${ref}` : ''}` }),
+        }).catch(() => {})
+        setSelectedTier(null)
         setCustomerPhone('')
-        setCustomerEmail('')
         const r2 = await authFetch('/api/subscription/request').then(r => r.json()).catch(() => null)
         if (r2) setRequests(r2.data || [])
-      } else if (res.status === 409 && j.platformConfigured === false) {
-        // API plateforme non configurée → basculer sur le formulaire manuel
-        toast.info('Paiement en ligne indisponible — utilisez le formulaire de paiement')
-        setModalMode('manual')
       } else {
         toast.error(j.error || 'Erreur lors du paiement')
       }
     } catch { toast.error('Erreur réseau') }
     finally { setPaying(false) }
-  }
-
-  // Formulaire de paiement manuel — API plateforme NON configurée
-  async function handleManualSubmit() {
-    const tier = tiers.find(t => t.id === selectedTier)
-    if (!tier) return
-    if (!manualForm.reference.trim()) { toast.error('La référence du paiement est requise'); return }
-    setSubmitting(true)
-    try {
-      const details = [
-        'Paiement manuel',
-        `Moyen: ${manualForm.method}`,
-        `Référence: ${manualForm.reference.trim()}`,
-        manualForm.payerName.trim() ? `Payeur: ${manualForm.payerName.trim()}` : '',
-        manualForm.payerPhone.trim() ? `Téléphone: ${manualForm.payerPhone.trim()}` : '',
-        manualForm.note.trim() ? `Note: ${manualForm.note.trim()}` : '',
-      ].filter(Boolean).join(' — ')
-      const res = await authFetch('/api/subscription/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestedTier: selectedTier, notes: details }),
-      })
-      const j = await res.json()
-      if (res.ok) {
-        toast.success('Formulaire de paiement envoyé ! L\'administrateur va vérifier votre paiement.')
-        setRequests(prev => [j.data, ...prev])
-        setSelectedTier(null)
-        setManualForm({ method: 'Virement bancaire', reference: '', payerName: '', payerPhone: '', note: '' })
-      } else {
-        toast.error(j.error || 'Erreur lors de l\'envoi')
-      }
-    } catch { toast.error('Erreur réseau') }
-    finally { setSubmitting(false) }
   }
 
   const pendingRequest = requests.find(r => r.status === 'PENDING')
@@ -7834,7 +6877,7 @@ function SubscriptionUpgradeView() {
       </div>
 
       {/* Current plan highlight */}
-      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 mb-6 shadow-sm">
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 mb-8 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Votre formule</div>
@@ -7847,19 +6890,12 @@ function SubscriptionUpgradeView() {
         </div>
       </div>
 
-      {/* Suivi en temps réel des messages WhatsApp */}
-      <div className="mb-8 max-w-2xl">
-        <WhatsappUsageCard />
-      </div>
-
       {/* Upgrade prompt */}
       {currentTier !== 'CORPORATE' && (
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Changer de formule</h2>
           <p className="text-sm mb-4" style={{ color: TEXT_MUTED_LUXE }}>
-            Sélectionnez la formule souhaitée : {platformConfigured
-              ? 'payez en ligne via les moyens officiels acceptés par la plateforme (Visa, M-Pesa, Orange Money…)'
-              : "la plateforme n'a pas d'API de paiement configurée — un formulaire de paiement manuel vous sera proposé, votre demande sera validée après vérification"}.
+            Sélectionnez la formule souhaitée et envoyez une demande à l&apos;administrateur de la plateforme.
           </p>
         </div>
       )}
@@ -7910,7 +6946,7 @@ function SubscriptionUpgradeView() {
                   Formule actuelle
                 </div>
               ) : isUpgradable ? (
-                tier.price > 0 && platformConfigured ? (
+                activeGateways.length > 0 && tier.price > 0 ? (
                   <div className="flex gap-2">
                     <button
                       onClick={() => { setSelectedTier(tier.id); setModalMode('pay') }}
@@ -7931,17 +6967,6 @@ function SubscriptionUpgradeView() {
                       Demander
                     </button>
                   </div>
-                ) : tier.price > 0 ? (
-                  // API de paiement plateforme NON configurée → formulaire de paiement manuel
-                  <button
-                    onClick={() => { setSelectedTier(tier.id); setModalMode('manual') }}
-                    disabled={!!pendingRequest || submitting}
-                    className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:opacity-50"
-                    style={{ background: tier.color }}
-                    title="Remplir le formulaire de paiement manuel"
-                  >
-                    {pendingRequest ? 'Demande en cours...' : 'Formulaire de paiement'}
-                  </button>
                 ) : (
                   <button
                     onClick={() => { setSelectedTier(tier.id); setModalMode('request') }}
@@ -7980,46 +7005,12 @@ function SubscriptionUpgradeView() {
                 </div>
               </div>
 
-              {checkoutUrl && (
-                <div className="p-4 rounded-xl border border-[oklch(88%_0.06_145)] bg-[oklch(96%_0.03_145)] text-center">
-                  <p className="text-sm font-semibold mb-2" style={{ color: 'oklch(40%_0.13_145)' }}>
-                    Demande de paiement créée avec succès !
-                  </p>
-                  <p className="text-[12px] mb-3" style={{ color: TEXT_MUTED_LUXE }}>
-                    Cliquez ci-dessous pour finaliser votre paiement sur la page sécurisée de la passerelle.
-                    Votre abonnement sera activé après confirmation.
-                  </p>
-                  <a
-                    href={checkoutUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
-                    style={{ background: GOLD }}
-                  >
-                    <CreditCard size={14} />
-                    Finaliser le paiement
-                  </a>
-                  <button
-                    onClick={() => { setCheckoutUrl(null); setSelectedTier(null) }}
-                    className="block mx-auto mt-3 text-[12px] font-medium hover:underline"
-                    style={{ color: TEXT_MUTED_LUXE }}
-                  >
-                    Fermer
-                  </button>
-                </div>
-              )}
-
               {modalMode === 'pay' ? (
                 <>
-                  <div className="p-3 rounded-xl border border-[oklch(90%_0.01_175)] bg-[oklch(97%_0.005_175)]">
-                    <p className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>
-                      <strong>Paiement sécurisé</strong> — votre demande est transmise à l&apos;administrateur EduGest qui encaisse via sa passerelle officielle.
-                    </p>
-                  </div>
                   <div>
-                    <label className="text-xs font-medium mb-2 block" style={{ color: TEXT_MUTED_LUXE }}>Moyen de paiement accepté par la plateforme</label>
+                    <label className="text-xs font-medium mb-2 block" style={{ color: TEXT_MUTED_LUXE }}>Moyen de paiement</label>
                     <div className="space-y-2">
-                      {paymentMethods.map((g: any) => (
+                      {activeGateways.map((g: any) => (
                         <button
                           key={g.gatewayType}
                           type="button"
@@ -8029,13 +7020,7 @@ function SubscriptionUpgradeView() {
                           }`}
                           style={{ color: TEXT_PRIMARY }}
                         >
-                          <span className="flex items-center gap-3">
-                            <GatewayLogo gatewayType={g.gatewayType} name={g.displayName} icon={g.icon} className="w-14 h-8 rounded-lg p-1" />
-                            <span>
-                              {g.displayName || g.gatewayType}
-                              {g.isTestMode && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]">TEST</span>}
-                            </span>
-                          </span>
+                          <span>{g.displayName || g.name || g.gatewayType}</span>
                           {selectedGateway === g.gatewayType && <Check size={14} style={{ color: GOLD }} />}
                         </button>
                       ))}
@@ -8051,84 +7036,6 @@ function SubscriptionUpgradeView() {
                       className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
                       style={{ color: TEXT_PRIMARY }}
                     />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>E-mail (reçu de paiement)</label>
-                    <input
-                      type="email"
-                      value={customerEmail}
-                      onChange={e => setCustomerEmail(e.target.value)}
-                      placeholder="tresorier@ecole.cd"
-                      className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
-                      style={{ color: TEXT_PRIMARY }}
-                    />
-                  </div>
-                </>
-              ) : modalMode === 'manual' ? (
-                <>
-                  <div className="p-3 rounded-xl border border-[oklch(88%_0.04_250)] bg-[oklch(96%_0.01_250)]">
-                    <p className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>
-                      La plateforme n&apos;a pas encore d&apos;API de paiement configurée. <strong>Remplissez ce formulaire</strong> après avoir payé
-                      par virement, mobile money ou espèces — l&apos;administrateur vérifiera votre paiement puis activera votre abonnement.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2">
-                      <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Moyen de paiement utilisé *</label>
-                      <select
-                        value={manualForm.method}
-                        onChange={e => setManualForm({ ...manualForm, method: e.target.value })}
-                        className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
-                        style={{ color: TEXT_PRIMARY }}
-                      >
-                        <option>Virement bancaire</option>
-                        <option>Mobile Money (M-Pesa / Orange / Airtel)</option>
-                        <option>Espèces (dépôt en bureau)</option>
-                        <option>Chèque</option>
-                        <option>Autre</option>
-                      </select>
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Référence de la transaction *</label>
-                      <input
-                        value={manualForm.reference}
-                        onChange={e => setManualForm({ ...manualForm, reference: e.target.value })}
-                        placeholder="ex: MP-240912.1432.ABC ou n° de bordereau"
-                        className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
-                        style={{ color: TEXT_PRIMARY }}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom du payeur</label>
-                      <input
-                        value={manualForm.payerName}
-                        onChange={e => setManualForm({ ...manualForm, payerName: e.target.value })}
-                        placeholder={userData?.name || 'Votre nom'}
-                        className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
-                        style={{ color: TEXT_PRIMARY }}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Téléphone du payeur</label>
-                      <input
-                        value={manualForm.payerPhone}
-                        onChange={e => setManualForm({ ...manualForm, payerPhone: e.target.value })}
-                        placeholder="+243 81 234 5678"
-                        className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
-                        style={{ color: TEXT_PRIMARY }}
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Note (optionnel)</label>
-                      <textarea
-                        value={manualForm.note}
-                        onChange={e => setManualForm({ ...manualForm, note: e.target.value })}
-                        placeholder="Précisions sur votre paiement…"
-                        rows={2}
-                        className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none"
-                        style={{ color: TEXT_PRIMARY }}
-                      />
-                    </div>
                   </div>
                 </>
               ) : (
@@ -8155,17 +7062,7 @@ function SubscriptionUpgradeView() {
                   style={{ background: GOLD }}
                 >
                   {paying ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CreditCard size={14} />}
-                  Demander le paiement {(() => { const t = tiers.find(x => x.id === selectedTier); return t && t.price > 0 ? `${t.price}$` : '' })()}
-                </button>
-              ) : modalMode === 'manual' ? (
-                <button
-                  onClick={handleManualSubmit}
-                  disabled={submitting || !manualForm.reference.trim()}
-                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-2 disabled:opacity-50"
-                  style={{ background: GOLD }}
-                >
-                  {submitting ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send size={14} />}
-                  Envoyer le formulaire de paiement
+                  Payer {(() => { const t = tiers.find(x => x.id === selectedTier); return t && t.price > 0 ? `${t.price}$` : '' })()}
                 </button>
               ) : (
                 <button
