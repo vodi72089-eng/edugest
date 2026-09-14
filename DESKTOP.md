@@ -30,12 +30,12 @@ les données (élèves, classes, notes, paiements) sont stockées localement.
 
 À chaque push sur `main`, le workflow `.github/workflows/build-desktop.yml`
 construit automatiquement les deux exécutables et les publie **directement
-dans la Release GitHub** (`v1.1.0` = version de `desktop/package.json`) :
+dans la Release GitHub** (`v1.2.0` = version de `desktop/package.json`) :
 
 1. Ouvrez la page **Releases** du dépôt : https://github.com/vodi72089-eng/edugest/releases
 2. Téléchargez :
-   - **`EduGest-Setup-1.1.0.exe`** — installateur (recommandé)
-   - **`EduGest-Portable-1.1.0.exe`** — version portable sans installation
+   - **`EduGest-Setup-1.2.0.exe`** — installateur (recommandé)
+   - **`EduGest-Portable-1.2.0.exe`** — version portable sans installation
 3. Lancez l'exe : EduGest démarre avec sa base locale intégrée.
 
 > Pour publier une nouvelle version : augmentez `version` dans
@@ -66,7 +66,7 @@ bun run build               # build Next.js standalone (+ copie static & public)
 # 2. Packager l'app desktop
 cd desktop
 npm install                 # electron + electron-builder
-npm run dist                # → desktop/dist/EduGest Setup 1.1.0.exe + EduGest-Portable-1.1.0.exe
+npm run dist                # → desktop/dist/EduGest-Setup-1.2.0.exe + EduGest-Portable-1.2.0.exe
 ```
 
 ### Option D — tester en mode dev (sans build Next)

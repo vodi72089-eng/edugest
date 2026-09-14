@@ -202,9 +202,10 @@ interface EduGestStore {
 // ─── Initial State from localStorage ─────────────────────────────────────────
 
 function getInitialState() {
-  // Always return 'home' on both server and client to avoid hydration mismatch.
-  // Session is restored in a useEffect after mount.
-  return { currentView: 'home' as ViewType, userRole: null as UserRole | null, userData: null as UserData | null, sidebarOpen: false };
+  // Landing page retirée : l'app démarre directement sur la page de connexion.
+  // Toujours la même valeur côté serveur et client (pas d'erreur d'hydratation).
+  // La session est restaurée dans un useEffect après le montage.
+  return { currentView: 'login' as ViewType, userRole: null as UserRole | null, userData: null as UserData | null, sidebarOpen: false };
 }
 
 export function restoreSession() {
@@ -214,8 +215,8 @@ export function restoreSession() {
   if (token) _authToken = token;
   if (!session) return;
   const store = useEduGestStore.getState();
-  if (session.view && store.currentView === 'home') {
-    store.setCurrentView((session.view || 'home') as ViewType);
+  if (session.view && store.currentView === 'login') {
+    store.setCurrentView((session.view || 'login') as ViewType);
   }
   if (session.role) store.setUserRole(session.role as UserRole);
   if (session.userData) store.setUserData(session.userData as UserData);
@@ -299,7 +300,7 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
     set({
       userRole: null,
       userData: null,
-      currentView: 'home',
+      currentView: 'login',
       sidebarOpen: false,
       selectedSchoolId: null,
       selectedStudentId: null,

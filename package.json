@@ -101,6 +101,7 @@
     "zustand": "^5.0.6"
   },
   "devDependencies": {
+    "@playwright/mcp": "^0.0.80",
     "@tailwindcss/postcss": "^4",
     "@types/nodemailer": "^8.0.1",
     "@types/pdfkit": "^0.17.6",

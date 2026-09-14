@@ -1,6 +1,6 @@
 {
   "name": "edugest-desktop",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "EduGest — La plateforme de gestion scolaire (application de bureau)",
   "main": "main.js",
   "author": "EduGest",
@@ -23,13 +23,15 @@
       "buildResources": "."
     },
     "files": [
-      "main.js"
+      "main.js",
+      "icon.png"
     ],
     "extraResources": [
       { "from": "../.next/standalone", "to": "app" },
       { "from": "../db/desktop-template.db", "to": "template.db" }
     ],
     "win": {
+      "icon": "icon.png",
       "target": [
         { "target": "nsis", "arch": ["x64"] },
         { "target": "portable", "arch": ["x64"] }
@@ -39,6 +41,9 @@
       "oneClick": true,
       "perMachine": false,
       "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
       "artifactName": "EduGest-Setup-${version}.exe",
       "shortcutName": "EduGest"
     },

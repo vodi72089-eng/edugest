@@ -220,13 +220,13 @@ function PublicHeader({ dark = false }: { dark?: boolean }) {
   return (
     <header className={`sticky top-0 z-50 ${dark ? 'bg-transparent' : 'bg-white/85 backdrop-blur-xl border-b border-edu-border'}`}>
       <div className="container-premium h-16 flex items-center justify-between">
-        <button onClick={() => setCurrentView('home')} className="flex items-center gap-2 font-bold text-base">
+        <button onClick={() => setCurrentView('login')} className="flex items-center gap-2 font-bold text-base">
           <i className="ri-graduation-cap-fill text-xl" style={{ color: '#f5a623' }}></i>
           EduGest
         </button>
         <nav className="hidden sm:flex items-center gap-1">
-          <button onClick={() => setCurrentView('home')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Écoles</button>
-          <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Fonctionnalités</button>
+          <button onClick={() => setCurrentView('login')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Écoles</button>
+          <button onClick={() => { setCurrentView('login'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Fonctionnalités</button>
           <button onClick={() => setCurrentView('pricing')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Tarifs</button>
           <button onClick={() => setCurrentView('login')} className="ml-3 edu-gold-cta px-5 py-2 rounded-xl text-sm font-semibold">Se connecter</button>
         </nav>
@@ -236,8 +236,8 @@ function PublicHeader({ dark = false }: { dark?: boolean }) {
       </div>
       {mobileMenu && (
         <div className={`sm:hidden border-t ${borderColor} ${mobileBg} backdrop-blur-xl p-4 flex flex-col gap-2`}>
-          <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Écoles</button>
-          <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Fonctionnalités</button>
+          <button onClick={() => { setCurrentView('login'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Écoles</button>
+          <button onClick={() => { setCurrentView('login'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Fonctionnalités</button>
           <button onClick={() => { setCurrentView('pricing'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Tarifs</button>
           <button onClick={() => { setCurrentView('login'); setMobileMenu(false) }} className="edu-gold-cta px-4 py-2 rounded-xl text-sm font-semibold text-center">Se connecter</button>
         </div>
@@ -262,7 +262,7 @@ function Footer() {
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Produit</h4>
           <ul className="space-y-3">
-            <li><button onClick={() => setCurrentView('home')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Trouver une école<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
+            <li><button onClick={() => setCurrentView('login')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Trouver une école<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
             <li><button onClick={() => setCurrentView('pricing')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Tarifs<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
             <li><button onClick={() => setCurrentView('login')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Connexion<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
           </ul>
@@ -342,526 +342,6 @@ function SchoolsOverviewMap({ schools }: { schools: SchoolData[] }) {
   )
 }
 
-// ===== HOME VIEW =====
-function HomeView() {
-  const { setCurrentView, setSelectedSchoolId } = useEduGestStore()
-  const [schools, setSchools] = useState<SchoolData[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [province, setProvince] = useState('Toutes provinces')
-  const [activeFilter, setActiveFilter] = useState('all')
-  const [showMap, setShowMap] = useState(false)
-  const [activeSystemId, setActiveSystemId] = useState<string | null>(null)
-  const [typewriterLine1, setTypewriterLine1] = useState('')
-  const [typewriterLine2, setTypewriterLine2] = useState('')
-  const [typewriterActiveLine, setTypewriterActiveLine] = useState<1 | 2 | null>(1)
-
-  useEffect(() => {
-    async function loadData() {
-      try {
-        await fetch('/api/seed')
-        const res = await fetch('/api/schools?limit=20')
-        const json = await res.json()
-        setSchools(json.data || [])
-      } catch (e) {
-        console.error(e)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadData()
-  }, [])
-
-  // Typewriter animation
-  useEffect(() => {
-    const title1 = "Rejoignez"
-    const title2 = "l'excellence éducative"
-    let charIndex = 0
-    let currentLine = 1
-    let timeoutId: ReturnType<typeof setTimeout>
-
-    function type() {
-      if (currentLine === 1) {
-        if (charIndex < title1.length) {
-          setTypewriterLine1(title1.substring(0, charIndex + 1))
-          setTypewriterActiveLine(1)
-          charIndex++
-          timeoutId = setTimeout(type, 80 + Math.random() * 60)
-        } else {
-          currentLine = 2
-          charIndex = 0
-          setTypewriterActiveLine(2)
-          timeoutId = setTimeout(type, 400)
-        }
-      } else {
-        if (charIndex < title2.length) {
-          setTypewriterLine2(title2.substring(0, charIndex + 1))
-          setTypewriterActiveLine(2)
-          charIndex++
-          timeoutId = setTimeout(type, 80 + Math.random() * 60)
-        } else {
-          // Typing complete — keep cursor briefly then hide
-          setTypewriterActiveLine(2)
-          setTimeout(() => setTypewriterActiveLine(null), 1500)
-        }
-      }
-    }
-
-    timeoutId = setTimeout(type, 800)
-    return () => clearTimeout(timeoutId)
-  }, [])
-
-  // Floating parallax icons
-  useEffect(() => {
-    const container = document.getElementById('stitch-parallax-container')
-    if (!container) return
-
-    const educationIcons = [
-      '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>',
-      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
-      '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>',
-      '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>',
-      '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
-      '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>',
-      '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>',
-      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"></path><path d="M3 22h18"></path><path d="M14 22a7 7 0 1 0 0-14h-1"></path><path d="M9 14h2"></path><path d="M9 12a2 2 0 1 1-4 0V7a2 2 0 1 1 4 0v5Z"></path><path d="M12 7V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4"></path></svg>',
-    ]
-
-    const elements: { el: HTMLDivElement; x: number; y: number; originX: number; originY: number; vx: number; vy: number; depth: number; scale: number; rotation: number; rotationSpeed: number; phase: number }[] = []
-    const numIcons = 20
-    let mouseX = window.innerWidth / 2
-    let mouseY = window.innerHeight / 2
-    let targetMouseX = mouseX
-    let targetMouseY = mouseY
-    let animFrameId: number
-
-    for (let i = 0; i < numIcons; i++) {
-      const el = document.createElement('div')
-      el.style.position = 'absolute'
-      el.style.pointerEvents = 'none'
-      el.style.userSelect = 'none'
-      el.style.zIndex = '1'
-      el.style.willChange = 'transform'
-      el.innerHTML = educationIcons[i % educationIcons.length]
-
-      const startX = Math.random() * window.innerWidth
-      const startY = Math.random() * (window.innerHeight * 0.9)
-      const depth = 0.02 + Math.random() * 0.1
-      const sizeScale = 0.7 + Math.random() * 1.3
-
-      const colorRoll = Math.random()
-      if (colorRoll > 0.85) el.style.color = '#f5a623'
-      else if (colorRoll > 0.70) el.style.color = '#10b981'
-      else el.style.color = 'rgba(255,255,255,0.25)'
-
-      el.style.opacity = (0.05 + Math.random() * 0.15).toString()
-
-      container.appendChild(el)
-      elements.push({
-        el, x: startX, y: startY, originX: startX, originY: startY,
-        vx: 0, vy: 0, depth, scale: sizeScale,
-        rotation: Math.random() * 360,
-        rotationSpeed: (Math.random() - 0.5) * 0.3,
-        phase: Math.random() * Math.PI * 2,
-      })
-    }
-
-    // Fade icons in
-    setTimeout(() => {
-      elements.forEach(item => {
-        const baseOp = parseFloat(item.el.style.opacity)
-        item.el.style.opacity = (baseOp * 1.5).toString()
-      })
-    }, 500)
-
-    const handleMouseMove = (e: MouseEvent) => {
-      targetMouseX = e.clientX
-      targetMouseY = e.clientY
-    }
-    window.addEventListener('mousemove', handleMouseMove)
-
-    function lerp(start: number, end: number, amt: number) {
-      return (1 - amt) * start + amt * end
-    }
-
-    function update() {
-      mouseX = lerp(mouseX, targetMouseX, 0.08)
-      mouseY = lerp(mouseY, targetMouseY, 0.08)
-      const time = Date.now() * 0.001
-
-      elements.forEach(item => {
-        const dx = targetMouseX - (item.x + (targetMouseX - window.innerWidth / 2) * item.depth)
-        const dy = targetMouseY - (item.y + (targetMouseY - window.innerHeight / 2) * item.depth)
-        const dist = Math.sqrt(dx * dx + dy * dy)
-        const mouseRange = 400
-        const attractionStrength = 0.08
-
-        if (dist < mouseRange) {
-          const force = (1 - dist / mouseRange) * attractionStrength
-          item.vx += dx * force * 0.2
-          item.vy += dy * force * 0.2
-        }
-
-        item.vx += (item.originX - item.x) * 0.01
-        item.vy += (item.originY - item.y) * 0.01
-        item.vx *= 0.92
-        item.vy *= 0.92
-        item.x += item.vx
-        item.y += item.vy
-
-        const driftX = Math.sin(time + item.phase) * 0.6
-        const driftY = Math.cos(time + item.phase * 0.7) * 0.6
-        const px = (mouseX - window.innerWidth / 2) * item.depth
-        const py = (mouseY - window.innerHeight / 2) * item.depth
-        item.rotation += item.rotationSpeed
-
-        item.el.style.transform = `translate3d(${item.x + px + driftX}px, ${item.y + py + driftY}px, 0) rotate(${item.rotation}deg) scale(${item.scale})`
-      })
-
-      animFrameId = requestAnimationFrame(update)
-    }
-    update()
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove)
-      cancelAnimationFrame(animFrameId)
-      // Clean up icons
-      while (container.firstChild) container.removeChild(container.firstChild)
-    }
-  }, [])
-
-  const filteredSchools = schools.filter(s => {
-    if (search && !s.name.toLowerCase().includes(search.toLowerCase()) && !s.city.toLowerCase().includes(search.toLowerCase())) return false
-    if (province !== 'Toutes provinces' && s.province !== province) return false
-    if (activeFilter !== 'all') {
-      if (['MATERNELLE', 'PRIMAIRE', 'SECONDAIRE'].includes(activeFilter) && s.schoolType !== activeFilter && s.schoolType !== 'MIXTE') return false
-      if (activeFilter === 'MIXTE' && s.schoolType !== 'MIXTE') return false
-      if (activeFilter === 'PRIVEE' && s.schoolCategory !== 'PRIVEE') return false
-      if (activeFilter === 'PUBLIQUE' && s.schoolCategory !== 'PUBLIQUE') return false
-    }
-    return true
-  })
-
-  const chipCounts: Record<string, number> = {
-    all: schools.length,
-    MATERNELLE: schools.filter(s => s.schoolType === 'MATERNELLE' || s.schoolType === 'MIXTE').length,
-    PRIMAIRE: schools.filter(s => s.schoolType === 'PRIMAIRE' || s.schoolType === 'MIXTE').length,
-    SECONDAIRE: schools.filter(s => s.schoolType === 'SECONDAIRE' || s.schoolType === 'MIXTE').length,
-    MIXTE: schools.filter(s => s.schoolType === 'MIXTE').length,
-    PRIVEE: schools.filter(s => s.schoolCategory === 'PRIVEE').length,
-    PUBLIQUE: schools.filter(s => s.schoolCategory === 'PUBLIQUE').length,
-  }
-
-  const FEATURES = [
-    { icon: <GraduationCap size={24} />, title: 'Gestion Scolaire Intégrale', desc: 'Notes, bulletins, emploi du temps — tout en un seul endroit' },
-    { icon: <MessageSquare size={24} />, title: 'Communication Instantanée', desc: 'WhatsApp, SMS, notifications push pour rester connecté' },
-    { icon: <CreditCard size={24} />, title: 'Paiements Simplifiés', desc: 'Mobile Money, virement, espèces — encaissez facilement' },
-    { icon: <Building2 size={24} />, title: 'Multi-Écoles', desc: 'Gérez plusieurs établissements depuis un tableau de bord unique' },
-    { icon: <Shield size={24} />, title: 'Sécurité & Conformité', desc: 'Données protégées, conformes aux normes africaines' },
-    { icon: <BarChart3 size={24} />, title: 'Analytique Avancée', desc: 'Tableaux de bord et rapports en temps réel' },
-  ]
-
-  return (
-    <div className="min-h-screen flex flex-col">
-      {/* ===== HERO SECTION — Institutional Excellence ===== */}
-      <section className="relative w-full min-h-[700px] sm:min-h-[900px] flex flex-col overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
-        <AuroraBackground>
-        {/* Parallax floating icons container */}
-        <div id="stitch-parallax-container" className="absolute inset-0 pointer-events-none overflow-hidden z-0" />
-
-        {/* Gradient overlay at bottom */}
-        <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-[#0a0f0d] via-[#0b1613]/50 to-transparent pointer-events-none z-10" />
-
-        {/* Floating nav */}
-        <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-5 sm:py-6 w-full">
-          <button onClick={() => setCurrentView('home')} className="flex items-center shrink-0 min-w-max">
-            <BrandMark height={56} className="brightness-110 hover:scale-105 transition-all duration-300" />
-          </button>
-          <div className="hidden md:flex items-center gap-12">
-            <button onClick={() => setCurrentView('home')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Écoles</button>
-            <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Fonctionnalités</button>
-            <button onClick={() => setCurrentView('pricing')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Tarifs</button>
-          </div>
-          <button onClick={() => setCurrentView('login')} className="bg-[#f5a623] hover:bg-[#ffb643] hover:shadow-[0_0_30px_rgba(245,166,35,0.4)] text-[#0a0f0d] px-8 sm:px-10 py-3 sm:py-3.5 rounded-full font-extrabold text-sm transition-all shadow-[0_10px_30px_rgba(245,166,35,0.2)] active:scale-95 cursor-pointer">
-            Se connecter
-          </button>
-        </nav>
-
-        {/* Main hero content */}
-        <main className="relative z-10 flex flex-col items-center justify-center flex-grow px-4 text-center mt-[-40px]">
-          {/* Typewriter title */}
-          <div className="mb-10 sm:mb-14 flex flex-col items-center relative">
-            <h1 className="text-5xl sm:text-6xl md:text-[6.5rem] font-black text-white leading-[1.05] tracking-tighter mb-6 sm:mb-8 relative inline-block mx-auto select-none" style={{ minHeight: '140px' }}>
-              <span id="typewriter-line-1" className="inline-block relative">{typewriterLine1}{typewriterActiveLine === 1 && <span className="animate-pulse">|</span>}</span>
-              <br />
-              <span className="italic font-playfair inline-block relative" style={{ color: '#f5a623', textShadow: '0 0 25px rgba(245, 166, 35, 0.5), 0 0 50px rgba(245, 166, 35, 0.2)' }}>{typewriterLine2}{typewriterActiveLine === 2 && <span className="animate-pulse">|</span>}</span>
-            </h1>
-            <p className="text-gray-300 text-base sm:text-lg md:text-xl max-w-2xl mx-auto font-medium leading-relaxed opacity-80">
-              <BlurText text="La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants pour un avenir meilleur." delay={60} stepDuration={0.4} />
-            </p>
-          </div>
-
-          {/* Glass morphism search bar */}
-          <div className="w-full max-w-4xl mb-16 sm:mb-24 relative z-20">
-            <div className="p-2 rounded-2xl flex flex-col md:flex-row items-center gap-3 shadow-2xl border-white/10" style={{ background: 'rgba(26, 37, 32, 0.4)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)' }}>
-              <div className="flex items-center flex-grow w-full px-4 sm:px-6 gap-4">
-                <Search size={20} className="text-gray-400 shrink-0" />
-                <input
-                  type="text" placeholder="Rechercher une école par nom..."
-                  value={search} onChange={e => setSearch(e.target.value)}
-                  className="w-full bg-transparent border-none text-white py-4 text-base sm:text-lg font-medium placeholder-gray-500 tracking-tight outline-none"
-                />
-              </div>
-              <div className="hidden md:block h-10 w-px bg-white/10 mx-1" />
-              <div className="flex items-center w-full md:w-auto gap-3 px-2 md:px-0">
-                <div className="relative flex-grow md:flex-grow-0">
-                  <select
-                    value={province} onChange={e => setProvince(e.target.value)}
-                    className="w-full md:w-48 bg-white/5 text-white border border-white/10 rounded-xl px-5 py-4 text-sm font-bold cursor-pointer hover:bg-white/10 transition-all appearance-none outline-none backdrop-blur-md"
-                  >
-                    {PROVINCES.map(p => <option key={p} value={p} className="bg-[#0a0f0d] text-white">{p}</option>)}
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-                  </div>
-                </div>
-                <button className="w-full md:w-auto bg-[#f5a623] text-[#0a0f0d] px-10 py-4 rounded-xl font-extrabold text-sm uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)] whitespace-nowrap cursor-pointer">
-                  Rechercher
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Stats cards with tilt */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-3xl px-4 relative z-20">
-            {[
-              { value: 240, suffix: '+', label: 'Établissements', glow: 'oklch(72% 0.15 65 / 0.3)', icon: '🏫' },
-              { value: 50000, suffix: '+', label: 'Familles', glow: 'oklch(72% 0.22 165 / 0.3)', icon: '👨‍👩‍👧‍👦' },
-              { value: 98, suffix: '%', label: 'Satisfaction', glow: 'oklch(72% 0.15 210 / 0.3)', icon: '⭐' },
-            ].map((stat) => (
-              <GlowCard key={stat.label} glowColor={stat.glow}>
-                <div className="p-6 flex flex-col items-center justify-center group cursor-default">
-                  <span className="text-2xl mb-2">{stat.icon}</span>
-                  <span className="text-3xl font-black text-white tracking-tighter mb-1.5 group-hover:text-[#f5a623] transition-colors duration-500">
-                    <AnimatedCounter target={stat.value} suffix={stat.suffix} duration={2.5} />
-                  </span>
-                  <span className="text-[9px] text-gray-400 uppercase tracking-[0.3em] font-extrabold group-hover:text-white transition-colors duration-500">{stat.label}</span>
-                </div>
-              </GlowCard>
-            ))}
-          </div>
-        </main>
-        </AuroraBackground>
-      </section>
-
-      {/* ===== TRUST SIGNALS BAR ===== */}
-      <section style={{ background: IVORY }} className="border-y border-[oklch(88%_0.01_175)]">
-        <div className="container-premium py-4 text-center">
-          <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
-            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{schools.length}+</strong> Établissement{schools.length > 1 ? 's' : ''} &nbsp;•&nbsp;{' '}
-            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>50,000+</strong> Familles &nbsp;•&nbsp;{' '}
-            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>98%</strong> Satisfaction
-          </p>
-        </div>
-      </section>
-
-      {/* ===== SEARCH / FILTER SECTION ===== */}
-      <section className="edu-ivory-texture flex-1">
-        {/* Filter chips */}
-        <div className="container-premium pt-8 pb-3 flex items-center gap-2 flex-wrap">
-          {FILTER_CHIPS.map(chip => (
-            <button
-              key={chip.key}
-              onClick={() => setActiveFilter(chip.key)}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition cursor-pointer border ${
-                activeFilter === chip.key
-                  ? 'text-white border-transparent shadow-md'
-                  : 'bg-white border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm'
-              }`}
-              style={activeFilter === chip.key ? { background: ACCENT } : undefined}
-            >
-              {chip.label}
-              <span className={`text-[11px] font-medium px-1.5 py-px rounded-full ${
-                activeFilter === chip.key ? 'bg-white/20 text-white' : 'bg-[oklch(90%_0.005_250)] text-edu-muted'
-              }`}>{chipCounts[chip.key] ?? 0}</span>
-            </button>
-          ))}
-          <div className="ml-auto hidden sm:block text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
-            Affichage {filteredSchools.length > 0 ? '1' : '0'}—{Math.min(12, filteredSchools.length)} sur {filteredSchools.length}
-          </div>
-          <button
-            onClick={() => setShowMap(!showMap)}
-            className="edu-glass-light ml-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition hover:shadow-md"
-          >
-            <MapPin size={14} /> {showMap ? 'Masquer carte' : 'Voir carte'}
-          </button>
-        </div>
-
-        {/* Map */}
-        {showMap && (
-          <div className="container-premium mb-6">
-            <div className="rounded-2xl overflow-hidden shadow-lg">
-              <SchoolsOverviewMap schools={filteredSchools} />
-            </div>
-          </div>
-        )}
-
-        {/* School Cards */}
-        <div className="container-premium pb-16">
-          <div className="flex items-baseline justify-between mb-5">
-            <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
-              <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{filteredSchools.length} écoles</strong> correspondent à votre recherche
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-              {[1, 2, 3, 4, 5, 6].map(i => (
-                <div key={i} className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden animate-pulse">
-                  <div className="h-[120px] bg-[oklch(94%_0.005_175)]" />
-                  <div className="p-6 sm:p-10 pt-10 space-y-3"><div className="h-4 bg-[oklch(94%_0.005_175)] rounded w-3/4" /><div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-1/2" /></div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-              {filteredSchools.map((school, idx) => (
-                <ScrollReveal key={school.id} direction="up" delay={idx * 0.08}>
-                <button
-                  onClick={() => { setSelectedSchoolId(school.id); setCurrentView('school-detail') }}
-                  className="block w-full text-left bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden edu-card-lift group"
-                >
-                  <div className={`h-[120px] relative bg-gradient-to-br ${COVER_GRADIENTS[idx % COVER_GRADIENTS.length]} flex items-end p-4`}>
-                    {/* Mesh gradient overlay */}
-                    <div className="absolute inset-0 opacity-20" style={{ background: 'radial-gradient(ellipse at top right, oklch(72% 0.15 65 / 0.3), transparent 60%)' }} />
-                    <span className="absolute top-3 right-3 edu-glass px-3 py-1 rounded-full text-[11px] font-medium text-white">
-                      {getSchoolTypeLabel(school.schoolType, school.schoolCategory, school.schoolLevel)}
-                    </span>
-                    {school.logo ? (
-                      <img src={school.logo} alt={school.shortName} className={`w-12 h-12 rounded-xl object-cover shadow-md relative top-6 bg-white`} />
-                    ) : (
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${COVER_GRADIENTS[idx % COVER_GRADIENTS.length]} grid place-items-center font-extrabold text-base text-white shadow-md relative top-6 ring-2 ring-white/20`}>
-                        {school.shortName.substring(0, 2).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-6 sm:p-10 pt-10">
-                    <div className="text-base font-semibold tracking-tight mb-1" style={{ color: TEXT_PRIMARY }}>{school.name}</div>
-                    <div className="text-[13px] flex items-center gap-1 mb-4" style={{ color: TEXT_MUTED_LUXE }}>
-                      <MapPin size={12} /> {school.city} · {school.province}
-                    </div>
-                    <div className="flex gap-4 py-3 border-t border-b border-[oklch(88%_0.01_175)] mb-4">
-                      <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</strong>élèves
-                      </div>
-                      <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</strong>classes
-                      </div>
-                      <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</strong>fondée
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 text-[13px] font-medium">
-                        <Star size={14} style={{ color: GOLD }} className="fill-current" />
-                        <span style={{ color: TEXT_PRIMARY }}>{school.averageRating?.toFixed(1) || '—'}</span>
-                        <span className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>· {school.totalReviews} avis</span>
-                      </div>
-                      <span className="edu-gold-cta text-[13px] font-semibold px-4 py-2 rounded-xl">
-                        Voir l&apos;école →
-                      </span>
-                    </div>
-                  </div>
-                </button>
-                </ScrollReveal>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ===== SYSTÈMES SCOLAIRES ===== */}
-      <section id="systems-section" className="edu-ivory-texture py-16 sm:py-20 border-t border-[oklch(88%_0.01_175)]">
-        <div className="container-premium">
-          <div className="text-center mb-10">
-            <div className="edu-ornament mb-4"><span style={{ color: GOLD }}>►</span></div>
-            <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
-              Les <GradientText className="inline-block" colors={['#f5a623', '#e8962d', '#d4860f']}>systèmes scolaires</GradientText> intégrés
-            </h2>
-            <p className="text-base max-w-[560px] mx-auto" style={{ color: TEXT_MUTED_LUXE }}>
-              Cliquez sur un système pour découvrir ses parcours officiels : classes, options/filières populaires et horaires types.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
-            {EDUCATIONAL_SYSTEMS_LIST.map(sys => {
-              const isActive = activeSystemId === sys.id
-              return (
-                <button
-                  key={sys.id}
-                  onClick={() => setActiveSystemId(isActive ? null : sys.id)}
-                  className={`text-left bg-white border rounded-2xl p-5 transition-all edu-card-lift ${isActive ? 'border-[oklch(72%_0.15_65)] shadow-md ring-2 ring-[oklch(72%_0.15_65_/_0.2)]' : 'border-[oklch(88%_0.01_175)] hover:shadow-md'}`}
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-8 rounded-lg overflow-hidden shadow-sm shrink-0">
-                      <FlagIcon countryCode={sys.countryCode} className="w-full h-full" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-bold truncate" style={{ color: TEXT_PRIMARY }}>{sys.shortLabel}</div>
-                      <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{sys.country}</div>
-                    </div>
-                  </div>
-                  <div className="text-[12px] leading-relaxed line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{sys.sampleClasses}</div>
-                  <div className="mt-3 text-[12px] font-semibold flex items-center gap-1" style={{ color: GOLD }}>
-                    {isActive ? 'Masquer' : 'Voir les parcours'} <ChevronDown size={13} className={`transition-transform ${isActive ? 'rotate-180' : ''}`} />
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-          {activeSystemId && (
-            <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl shadow-sm overflow-hidden">
-              <SystemParcoursExplorer systemId={activeSystemId} />
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ===== FEATURES SHOWCASE ===== */}
-      <section id="features-section" style={{ background: IVORY }} className="py-16 sm:py-[120px]">
-        <div className="container-premium text-center">
-          {/* Ornament divider */}
-          <div className="edu-ornament mb-4">
-            <span style={{ color: GOLD }}>►</span>
-          </div>
-          <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
-            Pourquoi choisir <GradientText className="inline-block" colors={['#f5a623', '#e8962d', '#d4860f']}>EduGest</GradientText>
-          </h2>
-          <p className="text-base max-w-[500px] mx-auto mb-12" style={{ color: TEXT_MUTED_LUXE }}>
-            Une plateforme conçue pour les réalités africaines, avec les outils qu&apos;il vous faut.
-          </p>
-
-            <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8" staggerDelay={0.1}>
-            {FEATURES.map((feature, idx) => (
-              <StaggerItem key={idx}>
-              <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl p-8 text-left edu-card-lift group">
-                <div className="edu-icon-gradient w-12 h-12 rounded-xl mb-5 group-hover:scale-110 transition-transform duration-300">
-                  {feature.icon}
-                </div>
-                <h3 className="text-[17px] sm:text-[21px] font-bold mb-2" style={{ color: TEXT_PRIMARY }}>{feature.title}</h3>
-                <p className="text-sm leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>{feature.desc}</p>
-              </div>
-              </StaggerItem>
-            ))}
-            </StaggerContainer>
-        </div>
-      </section>
-
-      <Footer />
-    </div>
-  )
-}
-
-// ===== SCHOOL DETAIL VIEW =====
 function SchoolDetailView() {
   const { setCurrentView, selectedSchoolId } = useEduGestStore()
   const [school, setSchool] = useState<SchoolData | null>(null)
@@ -872,7 +352,7 @@ function SchoolDetailView() {
       // No school selected (e.g. stale restored view) — self-heal to home
       // instead of spinning forever.
       setLoading(false)
-      setCurrentView('home')
+      setCurrentView('login')
       return
     }
     async function load() {
@@ -894,7 +374,7 @@ function SchoolDetailView() {
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
           <p style={{ color: TEXT_MUTED_LUXE }} className="mb-4">École non trouvée</p>
-          <button onClick={() => setCurrentView('home')} className="font-medium" style={{ color: GOLD }}>← Retour à l&apos;accueil</button>
+          <button onClick={() => setCurrentView('login')} className="font-medium" style={{ color: GOLD }}>← Retour à l&apos;accueil</button>
         </div>
       </div>
       <Footer />
@@ -905,7 +385,7 @@ function SchoolDetailView() {
     <div className="min-h-screen flex flex-col" style={{ background: IVORY }}>
       <PublicHeader />
       <div className="container-premium py-8 flex-1">
-        <button onClick={() => setCurrentView('home')} className="inline-flex items-center gap-1.5 text-sm mb-6 transition hover:opacity-80" style={{ color: TEXT_MUTED_LUXE }}>
+        <button onClick={() => setCurrentView('login')} className="inline-flex items-center gap-1.5 text-sm mb-6 transition hover:opacity-80" style={{ color: TEXT_MUTED_LUXE }}>
           <ArrowLeft size={14} /> Retour aux écoles
         </button>
 
@@ -1547,7 +1027,7 @@ function CreateSchoolView() {
     <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
       {/* Nav */}
       <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 py-5">
-        <button onClick={() => setCurrentView('home')} className="flex items-center"><BrandMark height={48} className="brightness-110" /></button>
+        <button onClick={() => setCurrentView('login')} className="flex items-center"><BrandMark height={48} className="brightness-110" /></button>
         <button onClick={() => setCurrentView('login')} className="text-white/50 hover:text-white text-sm font-medium transition flex items-center gap-2">
           <ArrowLeft size={16} /> Retour
         </button>
@@ -1869,7 +1349,9 @@ function CreateSchoolView() {
 // ===== LOGIN VIEW =====
 function LoginView() {
   const { setCurrentView, login } = useEduGestStore()
-  const [tab, setTab] = useState<'parent' | 'admin' | 'school'>('parent')
+  // Connexion unifiée : plus de distinction Parent / Administration (sécurité —
+  // aucun indice ne doit révéler le type de compte avant authentification).
+  const [tab, setTab] = useState<'login' | 'school'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -1886,13 +1368,8 @@ function LoginView() {
   const [publicSchools, setPublicSchools] = useState<{ id: string; name: string; city: string; province: string; logo: string | null; studentCount: number }[]>([])
   const [schoolQuery, setSchoolQuery] = useState('')
   const [schoolSearching, setSchoolSearching] = useState(false)
-  // Import de base de données (admins d'école)
-  const [importEmail, setImportEmail] = useState('')
-  const [importPassword, setImportPassword] = useState('')
-  const [importFile, setImportFile] = useState<File | null>(null)
-  const [importLoading, setImportLoading] = useState(false)
-  const [importResult, setImportResult] = useState<{ students: number; classes: number; grades: number; teachers: number; subjects: number } | null>(null)
-  const [importError, setImportError] = useState('')
+  // L'import de base de données se fait DANS l'app (popup après connexion),
+  // jamais depuis la page de connexion.
 
   const loadPublicSchools = useCallback((q: string) => {
     setSchoolSearching(true)
@@ -1907,53 +1384,9 @@ function LoginView() {
     if (tab === 'school') loadPublicSchools('')
   }, [tab, loadPublicSchools])
 
-  async function handleImportDb(e: React.FormEvent) {
-    e.preventDefault()
-    setImportError('')
-    setImportResult(null)
-    if (!importFile) { setImportError('Choisissez votre fichier de base de données (.db)'); return }
-    if (!importEmail || !importPassword) { setImportError('Entrez vos identifiants administrateur'); return }
-    setImportLoading(true)
-    try {
-      const fd = new FormData()
-      fd.append('file', importFile)
-      fd.append('email', importEmail)
-      fd.append('password', importPassword)
-      const res = await fetch('/api/school/import-db', { method: 'POST', body: fd })
-      const j = await res.json()
-      if (!res.ok) {
-        setImportError(j.error || 'Erreur lors de l import')
-        return
-      }
-      const sm = j.data?.summary || {}
-      setImportResult({ students: sm.students || 0, classes: sm.classes || 0, grades: sm.grades || 0, teachers: sm.teachers || 0, subjects: sm.subjects || 0 })
-      setImportFile(null)
-    } catch {
-      setImportError('Erreur réseau pendant l import')
-    } finally {
-      setImportLoading(false)
-    }
-  }
-
   useEffect(() => {
     fetch('/api/schools?limit=50').then(r => r.json()).then(j => setSchools(j.data || [])).catch(() => {})
   }, [])
-
-  // Vérifie que le rôle correspond à l'onglet sélectionné
-  function validateRoleForTab(role: UserRole | null): { valid: boolean; message?: string } {
-    if (!role) return { valid: false, message: 'Rôle non reconnu. Contactez l\'administration.' }
-    if (role === 'SUPER_ADMIN_GLOBAL') return { valid: true }
-    if (tab === 'parent') {
-      if (role !== 'PARENT') {
-        return { valid: false, message: 'Ce compte n\'est pas un compte parent. Veuillez utiliser l\'onglet Administration.' }
-      }
-    } else {
-      if (role === 'PARENT') {
-        return { valid: false, message: 'Ce compte est un compte parent. Veuillez utiliser l\'onglet Parent.' }
-      }
-    }
-    return { valid: true }
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -1969,11 +1402,6 @@ function LoginView() {
       if (json.data) {
         const apiUser = json.data
         const role = mapApiRole(apiUser.role)
-        const validation = validateRoleForTab(role)
-        if (!validation.valid) {
-          toast.error(validation.message || 'Accès non autorisé pour ce type de compte.')
-          return
-        }
         if (role) {
           login(role, {
             id: apiUser.id,
@@ -1992,6 +1420,11 @@ function LoginView() {
               ? { primary: apiUser.school.designPrimary || null, accent: apiUser.school.designAccent || null, gold: apiUser.school.designGold || null }
               : null,
           }, json.data.token)
+          // Les admins d'école se voient proposer l'import de leur base
+          // DANS l'app (popup) — identifiants déjà validés à ce stade.
+          if (role === 'SCHOOL_ADMIN') {
+            try { sessionStorage.setItem('edugest_show_import_db', '1') } catch {}
+          }
           toast.success(`Bienvenue, ${apiUser.name}!`)
           return
         }
@@ -2042,12 +1475,9 @@ function LoginView() {
 
       {/* Top nav bar */}
       <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-5 w-full">
-        <button onClick={() => setCurrentView('home')} className="flex items-center shrink-0 min-w-max">
-          <BrandMark height={48} className="brightness-110 hover:scale-105 transition-all duration-300" />
-        </button>
-        <button onClick={() => setCurrentView('home')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em] flex items-center gap-1.5">
-          <ArrowLeft size={14} /> Retour
-        </button>
+        <div className="flex items-center shrink-0 min-w-max">
+          <BrandMark height={48} className="brightness-110" />
+        </div>
       </nav>
 
       {/* Main content: animated book + login card */}
@@ -2074,13 +1504,10 @@ function LoginView() {
 
         {/* Glass morphism login card */}
         <div className="w-full max-w-[440px] rounded-2xl p-6 sm:p-8" style={{ background: 'rgba(26, 37, 32, 0.55)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5), 0 0 80px oklch(55% 0.15 175 / 0.05)' }}>
-          {/* Tab switcher */}
+          {/* Onglets : Connexion unifiée + Trouver mon école */}
           <div className="flex rounded-xl p-1 mb-6" style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-            <button onClick={() => setTab('parent')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === 'parent' ? 'text-[#0a0f0d] shadow-lg' : 'text-white/60 hover:text-white/80'}`} style={tab === 'parent' ? { background: 'oklch(55% 0.15 175)', boxShadow: '0 4px 16px oklch(55% 0.15 175 / 0.35)' } : undefined}>
-              Parent
-            </button>
-            <button onClick={() => setTab('admin')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === 'admin' ? 'text-[#0a0f0d] shadow-lg' : 'text-white/60 hover:text-white/80'}`} style={tab === 'admin' ? { background: 'oklch(55% 0.15 175)', boxShadow: '0 4px 16px oklch(55% 0.15 175 / 0.35)' } : undefined}>
-              Administration
+            <button onClick={() => setTab('login')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === 'login' ? 'text-[#0a0f0d] shadow-lg' : 'text-white/60 hover:text-white/80'}`} style={tab === 'login' ? { background: 'oklch(55% 0.15 175)', boxShadow: '0 4px 16px oklch(55% 0.15 175 / 0.35)' } : undefined}>
+              Connexion
             </button>
             <button onClick={() => setTab('school')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === 'school' ? 'text-[#0a0f0d] shadow-lg' : 'text-white/60 hover:text-white/80'}`} style={tab === 'school' ? { background: 'oklch(72% 0.15 65)', boxShadow: '0 4px 16px oklch(72% 0.15 65 / 0.35)' } : undefined}>
               Trouver mon école
@@ -2090,20 +1517,18 @@ function LoginView() {
           {tab !== 'school' ? (
           <>
           <div className="mb-5">
-            <h2 className="text-xl font-bold text-white tracking-tight mb-1">
-              {tab === 'parent' ? 'Connexion Parent' : 'Connexion Administration'}
-            </h2>
+            <h2 className="text-xl font-bold text-white tracking-tight mb-1">Connexion</h2>
             <p className="text-sm text-white/50">
-              {tab === 'parent' ? 'Accédez au suivi scolaire de vos enfants' : 'Personnel de l\'école, direction, enseignants'}
+              Parents, enseignants, direction et administration — un seul accès sécurisé.
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-white/70">{tab === 'parent' ? 'Email ou numéro WhatsApp' : 'Email professionnel'}</label>
+              <label className="text-[13px] font-medium text-white/70">Email ou numéro de téléphone</label>
               <input
                 type="text" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder={tab === 'parent' ? 'ex. parent@email.com ou +243 81...' : 'ex. direction@ecole.cd'}
+                placeholder="ex. parent@email.com, direction@ecole.cd ou +243 81..."
                 className="w-full px-4 py-3.5 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)] focus:border-[oklch(55%_0.15_175_/_0.5)]"
                 style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
                 required
@@ -2160,7 +1585,7 @@ function LoginView() {
           <div>
             <div className="mb-5">
               <h2 className="text-xl font-bold text-white tracking-tight mb-1">Trouver mon école</h2>
-              <p className="text-sm text-white/50">Recherchez l’école de votre enfant ou importez votre base de données (administrateurs).</p>
+              <p className="text-sm text-white/50">Recherchez l’école de vos enfants parmi les établissements inscrits.</p>
             </div>
 
             {/* Recherche d'école */}
@@ -2193,56 +1618,6 @@ function LoginView() {
                 </div>
               ))}
             </div>
-
-            <div className="flex items-center gap-3 my-4 text-xs uppercase tracking-wider text-white/40">
-              <div className="flex-1 h-px bg-white/10" /> Admin : importez votre base <div className="flex-1 h-px bg-white/10" />
-            </div>
-
-            {importResult ? (
-              <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(60, 145, 100, 0.15)', border: '1px solid rgba(60, 145, 100, 0.4)' }}>
-                <CheckCircle size={28} className="mx-auto mb-2" style={{ color: 'oklch(72% 0.17 155)' }} />
-                <p className="text-white font-semibold text-sm mb-1">Base importée avec succès !</p>
-                <p className="text-white/60 text-[12px] leading-relaxed">
-                  {importResult.students} élèves · {importResult.classes} classes · {importResult.subjects} matières · {importResult.grades} notes · {importResult.teachers} professeurs
-                </p>
-                <p className="text-white/40 text-[12px] mt-2">Vos données sont maintenant celles de votre école. Connectez-vous dans l’onglet Administration.</p>
-              </div>
-            ) : (
-              <form onSubmit={handleImportDb} className="space-y-3">
-                <p className="text-[12px] text-white/50 leading-relaxed">
-                  Vous êtes administrateur d’une école ? Importez votre fichier de base de données EduGest (.db) :
-                  élèves, classes, notes et professeurs deviennent directement la base de votre école.
-                </p>
-                <input
-                  type="text" value={importEmail} onChange={e => setImportEmail(e.target.value)}
-                  placeholder="Email administrateur"
-                  className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)]"
-                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
-                  required
-                />
-                <input
-                  type="password" value={importPassword} onChange={e => setImportPassword(e.target.value)}
-                  placeholder="Mot de passe administrateur"
-                  className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)]"
-                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
-                  required
-                />
-                <label className="block cursor-pointer rounded-xl px-4 py-3.5 text-sm text-white/70 transition hover:bg-white/5" style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px dashed rgba(255, 255, 255, 0.2)' }}>
-                  <input type="file" accept=".db,.sqlite,.sqlite3" className="hidden" onChange={e => setImportFile(e.target.files?.[0] || null)} />
-                  <span className="flex items-center gap-2">
-                    <Upload size={15} style={{ color: 'oklch(72% 0.15 65)' }} />
-                    {importFile ? importFile.name : 'Choisir le fichier .db de votre école'}
-                  </span>
-                </label>
-                {importError && (
-                  <div className="rounded-xl px-4 py-3 text-[13px]" style={{ background: 'rgba(186,26,26,0.15)', border: '1px solid rgba(186,26,26,0.4)', color: '#fca5a5' }}>{importError}</div>
-                )}
-                <button type="submit" disabled={importLoading} className="w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]" style={{ background: 'oklch(72% 0.15 65)', color: 'oklch(15% 0.02 250)' }}>
-                  {importLoading ? <div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> : <Database size={16} />}
-                  {importLoading ? 'Import en cours…' : 'Importer ma base de données'}
-                </button>
-              </form>
-            )}
           </div>
           )}
         </div>
@@ -2352,11 +1727,6 @@ function LoginView() {
                       if (res.ok && json.data) {
                         const apiUser = json.data
                         const role = mapApiRole(apiUser.role)
-                        const validation = validateRoleForTab(role)
-                        if (!validation.valid) {
-                          toast.error(validation.message || 'Accès non autorisé pour ce type de compte.')
-                          return
-                        }
                         if (role) {
                           login(role, {
                             id: apiUser.id,
@@ -2372,6 +1742,9 @@ function LoginView() {
                               ? { primary: apiUser.school.designPrimary || null, accent: apiUser.school.designAccent || null, gold: apiUser.school.designGold || null }
                               : null,
                           }, json.data.token)
+                          if (role === 'SCHOOL_ADMIN') {
+                            try { sessionStorage.setItem('edugest_show_import_db', '1') } catch {}
+                          }
                           toast.success(`Bienvenue, ${apiUser.name}!`)
                           setShowWhatsappModal(false)
                           return
@@ -2686,6 +2059,9 @@ const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment
 
 function canAccessView(role: string | null, view: ViewType, subscriptionTier?: string): boolean {
   if (!role) return false
+  // SÉCURITÉ ABONNEMENT : le secrétaire ne doit JAMAIS voir « Mon Abonnement »,
+  // quelle que soit l'école ou le forfait (exclu du comptage freemium par ailleurs).
+  if (role === 'SECRETARY' && view === 'my-subscription') return false
   // DIRECTION_*, SECRETARY et SCHOOL_ADMIN (admin freemium) sur FREEMIUM → vues restreintes
   if (subscriptionTier === 'FREEMIUM' && (role.startsWith('DIRECTION') || role === 'SECRETARY' || role === 'SCHOOL_ADMIN')) {
     return FREEMIUM_VIEWS.includes(view)
@@ -3032,8 +2408,115 @@ function SchoolThemeStyle() {
 }
 
 // ===== DASHBOARD LAYOUT =====
+// ===== POPUP IMPORT BASE DE DONNÉES (DANS L'APP, après connexion admin) =====
+// N'apparaît QUE pour les admins d'école (SCHOOL_ADMIN) dont les identifiants
+// ont déjà été validés — jamais sur la page de connexion.
+function ImportDbModal({ onClose }: { onClose: () => void }) {
+  const [file, setFile] = useState<File | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [result, setResult] = useState<{ students: number; classes: number; grades: number; teachers: number; subjects: number } | null>(null)
+
+  async function handleImport() {
+    setError('')
+    if (!file) { setError('Choisissez votre fichier de base de données (.db)'); return }
+    setLoading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await authFetch('/api/school/import-db', { method: 'POST', body: fd })
+      const j = await res.json()
+      if (!res.ok) {
+        setError(j.error || 'Erreur lors de l import')
+        return
+      }
+      const sm = j.data?.summary || {}
+      setResult({ students: sm.students || 0, classes: sm.classes || 0, grades: sm.grades || 0, teachers: sm.teachers || 0, subjects: sm.subjects || 0 })
+      setFile(null)
+    } catch {
+      setError('Erreur réseau pendant l import')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: GOLD_SOFT }}>
+              <Database size={17} style={{ color: GOLD }} />
+            </div>
+            <div>
+              <h3 className="font-bold text-[15px]" style={{ color: TEXT_PRIMARY }}>Importer votre base de données</h3>
+              <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Identifiants vérifiés — espace administrateur</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-gray-100 transition" aria-label="Fermer"><X size={16} className="text-gray-500" /></button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          {result ? (
+            <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(60, 145, 100, 0.12)', border: '1px solid rgba(60, 145, 100, 0.35)' }}>
+              <CheckCircle size={30} className="mx-auto mb-2" style={{ color: SUCCESS }} />
+              <p className="font-semibold text-sm mb-1" style={{ color: TEXT_PRIMARY }}>Base importée avec succès !</p>
+              <p className="text-[12px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
+                {result.students} élèves · {result.classes} classes · {result.subjects} matières · {result.grades} notes · {result.teachers} professeurs
+              </p>
+              <p className="text-[11px] mt-2" style={{ color: TEXT_MUTED_LUXE }}>Vos données sont maintenant celles de votre école.</p>
+              <button onClick={onClose} className="mt-3 px-5 py-2 rounded-xl text-[13px] font-semibold text-white transition" style={{ background: SUCCESS }}>
+                Terminer
+              </button>
+            </div>
+          ) : (
+            <>
+              <p className="text-[13px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
+                Vous êtes connecté en tant qu&apos;administrateur d&apos;école. Importez votre fichier de base de
+                données EduGest (<strong>.db</strong>) : élèves, classes, matières, notes et professeurs
+                deviennent directement la base de votre école.
+              </p>
+              <label className="block cursor-pointer rounded-xl px-4 py-4 text-sm transition hover:bg-[oklch(72%_0.15_65_/_0.04)]" style={{ border: '1.5px dashed oklch(72% 0.15 65 / 0.5)' }}>
+                <input type="file" accept=".db,.sqlite,.sqlite3" className="hidden" onChange={e => setFile(e.target.files?.[0] || null)} />
+                <span className="flex items-center gap-2.5 font-medium" style={{ color: TEXT_PRIMARY }}>
+                  <Upload size={16} style={{ color: GOLD }} />
+                  {file ? file.name : 'Choisir le fichier .db de votre école'}
+                </span>
+              </label>
+              {error && (
+                <div className="rounded-xl px-4 py-3 text-[13px]" style={{ background: 'rgba(186,26,26,0.08)', border: '1px solid rgba(186,26,26,0.35)', color: '#b91c1c' }}>{error}</div>
+              )}
+              <div className="flex gap-2.5 pt-1">
+                <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold border transition hover:bg-gray-50" style={{ borderColor: 'oklch(90% 0.01 175)', color: TEXT_MUTED_LUXE }}>
+                  Plus tard
+                </button>
+                <button onClick={handleImport} disabled={loading} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-white transition disabled:opacity-50" style={{ background: GOLD }}>
+                  {loading ? 'Import en cours…' : 'Importer maintenant'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function DashboardLayout() {
   const [sidebarVisible, setSidebarVisible] = useState(true)
+  // Popup d'import : affichée une fois, juste après la connexion d'un admin
+  // d'école (les identifiants ont été validés par l'API d'authentification).
+  // Lazy init : consomme le flag posé à la connexion (client uniquement —
+  // ce composant n'est rendu qu'après login, donc pas de risque d'hydratation).
+  const [showImportDb, setShowImportDb] = useState(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      if (sessionStorage.getItem('edugest_show_import_db') === '1') {
+        sessionStorage.removeItem('edugest_show_import_db')
+        return true
+      }
+    } catch {}
+    return false
+  })
   return (
     <div id="edugest-app" className={`min-h-screen grid grid-cols-1 ${sidebarVisible ? 'lg:grid-cols-[240px_1fr]' : ''}`} style={{ background: IVORY }}>
       <SchoolThemeStyle />
@@ -3044,6 +2527,7 @@ function DashboardLayout() {
           <MainContent />
         </main>
       </div>
+      {showImportDb && <ImportDbModal onClose={() => setShowImportDb(false)} />}
     </div>
   )
 }
@@ -8321,7 +7805,8 @@ export default function Home() {
       case 'create-school': return <CreateSchoolView />
       case 'pricing': return <PricingView />
       case 'school-detail': return <SchoolDetailView />
-      default: return <HomeView />
+      // La landing page a été retirée : toute vue publique non identifiée → connexion
+    default: return <LoginView />
     }
   }
 

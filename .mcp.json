@@ -1,8 +1,9 @@
 {
   "mcpServers": {
-    "afrotools": {
-      "type": "http",
-      "url": "https://mcp.afro.tools"
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"],
+      "env": {}
     }
   }
 }
