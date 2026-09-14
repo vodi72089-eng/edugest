@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { MapPin, Locate, Loader2 } from 'lucide-react'
@@ -72,6 +72,70 @@ async function reverseGeocode(lat: number, lng: number): Promise<Partial<Address
   }
 }
 
+// ─── Localisation par IP (fallback fiable, y compris dans l'app desktop ─────
+// Electron sous Windows où navigator.geolocation échoue faute de clé Google).
+type IpLocation = { lat: number; lng: number; city?: string; province?: string; country?: string }
+
+async function locateByIp(): Promise<IpLocation | null> {
+  const endpoints: { url: string; pick: (j: Record<string, unknown>) => IpLocation | null }[] = [
+    {
+      // ipwho.is — HTTPS, gratuit, sans clé, CORS ouvert
+      url: 'https://ipwho.is/',
+      pick: (j) => {
+        if (!j || j.success === false) return null
+        if (typeof j.latitude !== 'number' || typeof j.longitude !== 'number') return null
+        return {
+          lat: j.latitude as number,
+          lng: j.longitude as number,
+          city: typeof j.city === 'string' ? j.city : undefined,
+          province: typeof j.region === 'string' ? j.region : undefined,
+          country: typeof j.country === 'string' ? j.country : undefined,
+        }
+      },
+    },
+    {
+      // ipapi.co — HTTPS, gratuit, sans clé (plan de secours)
+      url: 'https://ipapi.co/json/',
+      pick: (j) => {
+        if (!j || typeof j.latitude !== 'number' || typeof j.longitude !== 'number') return null
+        return {
+          lat: j.latitude as number,
+          lng: j.longitude as number,
+          city: typeof j.city === 'string' ? j.city : undefined,
+          province: typeof j.region === 'string' ? j.region : undefined,
+          country: typeof j.country_name === 'string' ? j.country_name : undefined,
+        }
+      },
+    },
+  ]
+  for (const ep of endpoints) {
+    try {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 6000)
+      const res = await fetch(ep.url, { signal: ctrl.signal })
+      clearTimeout(timer)
+      if (!res.ok) continue
+      const loc = ep.pick(await res.json())
+      if (loc) return loc
+    } catch {
+      // endpoint suivant
+    }
+  }
+  return null
+}
+
+/** Tente le GPS du navigateur (délai max ~10 s). Résout null en cas d'échec/refus. */
+function tryGps(): Promise<{ lat: number; lng: number } | null> {
+  return new Promise((resolve) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return resolve(null)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    )
+  })
+}
+
 export default function SchoolMap({ latitude, longitude, onLocationChange }: SchoolMapProps) {
   const [locating, setLocating] = useState(false)
   const [mapCenter, setMapCenter] = useState<[number, number]>(
@@ -81,64 +145,65 @@ export default function SchoolMap({ latitude, longitude, onLocationChange }: Sch
     latitude && longitude ? [latitude, longitude] : null
   )
   const [geocoding, setGeocoding] = useState(false)
+  const [source, setSource] = useState<'gps' | 'ip' | null>(null)
+  // Garde-fou : une seule localisation automatique par montage
+  const autoLocatedRef = useRef(false)
 
-  async function handleGeolocate() {
-    if (!navigator.geolocation) {
-      // If geolocation not available, use default (Kinshasa)
-      setMapCenter(DEFAULT_CENTER)
-      return
-    }
+  const applyPosition = useCallback(async (
+    lat: number,
+    lng: number,
+    src: 'gps' | 'ip',
+    ipInfo?: IpLocation
+  ) => {
+    setMapCenter([lat, lng])
+    setMarkerPos([lat, lng])
+    setSource(src)
+    setGeocoding(true)
+    const address = await reverseGeocode(lat, lng)
+    setGeocoding(false)
+    const finalAddress: Partial<AddressData> = address && (address.city || address.country)
+      ? address
+      : {
+          address: address?.address || '',
+          city: ipInfo?.city || address?.city || '',
+          province: ipInfo?.province || address?.province || '',
+          country: ipInfo?.country || address?.country || '',
+        }
+    onLocationChange(lat, lng, finalAddress)
+  }, [onLocationChange])
+
+  /**
+   * Localisation complète : GPS d'abord, puis position par IP (l'app desktop
+   * Windows n'a pas accès au GPS navigateur), puis Kinshasa par défaut.
+   */
+  const locate = useCallback(async () => {
     setLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude
-        const lng = pos.coords.longitude
-        setMapCenter([lat, lng])
-        setMarkerPos([lat, lng])
-        // Reverse geocode to fill address fields
-        setGeocoding(true)
-        const address = await reverseGeocode(lat, lng)
-        setGeocoding(false)
-        onLocationChange(lat, lng, address || undefined)
-      },
-      () => {
-        // Permission denied or error - use default
-        setMapCenter(DEFAULT_CENTER)
-        setLocating(false)
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    )
-    setLocating(false)
-  }
-
-  // Auto-geolocate on mount if no coordinates provided
-  useEffect(() => {
-    if (!latitude || !longitude) {
-      if (!navigator.geolocation) {
-        setMapCenter(DEFAULT_CENTER)
+    try {
+      const gps = await tryGps()
+      if (gps) {
+        await applyPosition(gps.lat, gps.lng, 'gps')
         return
       }
-      setLocating(true)
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const lat = pos.coords.latitude
-          const lng = pos.coords.longitude
-          setMapCenter([lat, lng])
-          setMarkerPos([lat, lng])
-          setGeocoding(true)
-          const address = await reverseGeocode(lat, lng)
-          setGeocoding(false)
-          onLocationChange(lat, lng, address || undefined)
-          setLocating(false)
-        },
-        () => {
-          setMapCenter(DEFAULT_CENTER)
-          setLocating(false)
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      )
+      const ip = await locateByIp()
+      if (ip) {
+        await applyPosition(ip.lat, ip.lng, 'ip', ip)
+        return
+      }
+      // Hors ligne / refusé : centre par défaut (Kinshasa)
+      setMapCenter(DEFAULT_CENTER)
+      setSource(null)
+    } finally {
+      setLocating(false)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applyPosition])
+
+  // Localisation AUTOMATIQUE au montage si aucune coordonnée renseignée
+  useEffect(() => {
+    if (autoLocatedRef.current) return
+    if (!latitude || !longitude) {
+      autoLocatedRef.current = true
+      locate()
+    }
   }, [])
 
   const handleMapClick = useCallback(async (lat: number, lng: number) => {
@@ -146,19 +211,20 @@ export default function SchoolMap({ latitude, longitude, onLocationChange }: Sch
     setGeocoding(true)
     const address = await reverseGeocode(lat, lng)
     setGeocoding(false)
+    setSource(null)
     onLocationChange(lat, lng, address || undefined)
   }, [onLocationChange])
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <label className="text-[13px] font-medium flex items-center gap-1.5" style={{ color: '#1e293b' }}>
           <MapPin size={14} /> Localisation sur la carte
           {geocoding && <span className="text-[11px] text-amber-600 flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> Recherche d&apos;adresse...</span>}
         </label>
         <button
           type="button"
-          onClick={handleGeolocate}
+          onClick={locate}
           disabled={locating}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium border border-[oklch(88%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition disabled:opacity-50"
           style={{ color: '#64748b' }}
@@ -183,9 +249,20 @@ export default function SchoolMap({ latitude, longitude, onLocationChange }: Sch
           <FlyToCenter center={mapCenter} />
         </MapContainer>
       </div>
-      <p className="text-[11px]" style={{ color: '#94a3b8' }}>
-        Cliquez sur la carte pour positionner l&apos;école. L&apos;adresse sera remplie automatiquement.
-        {latitude && longitude && (
+      <p className="text-[11px] flex items-center flex-wrap gap-x-1" style={{ color: '#94a3b8' }}>
+        <span>Cliquez sur la carte pour positionner l&apos;école. L&apos;adresse sera remplie automatiquement.</span>
+        {locating && <span className="font-medium text-[oklch(72%_0.15_65)] flex items-center gap-1"><Loader2 size={10} className="animate-spin" /> Localisation automatique en cours…</span>}
+        {!locating && source === 'gps' && latitude != null && longitude != null && (
+          <span className="ml-1 font-medium" style={{ color: '#64748b' }}>
+            Position GPS détectée : {latitude.toFixed(4)}, {longitude.toFixed(4)}
+          </span>
+        )}
+        {!locating && source === 'ip' && latitude != null && longitude != null && (
+          <span className="ml-1 font-medium" style={{ color: '#64748b' }}>
+            Position approximative détectée automatiquement : {latitude.toFixed(4)}, {longitude.toFixed(4)}
+          </span>
+        )}
+        {!locating && !source && latitude != null && longitude != null && (
           <span className="ml-1 font-medium" style={{ color: '#64748b' }}>
             Coordonnées: {latitude.toFixed(4)}, {longitude.toFixed(4)}
           </span>

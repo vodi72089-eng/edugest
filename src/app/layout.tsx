@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   title: "EduGest — Gestion Scolaire Premium",
   description: "La plateforme de gestion scolaire multi-écoles qui simplifie la vie des directions, enseignants et parents.",
   icons: {
-    icon: "/edugest-logo.png",
+    icon: "/edugest-logo-mark.png",
   },
 };
 

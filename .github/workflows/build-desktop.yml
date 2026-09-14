@@ -69,24 +69,27 @@ jobs:
             ## 🖥️ EduGest Desktop — application de bureau Windows
 
             **Téléchargez et installez :**
-            - **`EduGest-Setup-${{ steps.version.outputs.version }}.exe`** — installateur Windows (recommandé)
-            - **`EduGest-Portable-${{ steps.version.outputs.version }}.exe`** — version portable, aucunement installée
+            - **`EduGest-Setup-${{ steps.version.outputs.version }}.exe`** — installateur Windows (recommandé, démarrage rapide)
+            - **`EduGest-Portable-${{ steps.version.outputs.version }}.exe`** — version portable (décompression à chaque lancement, plus lente)
 
             ## Inclus dans cette version
 
+            - ✅ **Logo officiel EduGest partout** : écran de démarrage, page de connexion, icône de l'app, favicon, reçus et bulletins PDF
+            - ✅ **Démarrage éclair** : splash instantané avec le vrai logo + étapes de chargement en temps réel (base → serveur → interface)
+            - ✅ **Localisation automatique de l'école** : détection GPS puis par IP (fonctionne dans l'app desktop) + bouton « Me localiser » réparé
             - ✅ Application **100 % hors ligne** — base de données SQLite locale connectée (`%APPDATA%\EduGest\edugest.db`)
-            - ✅ Onglet **« Trouver mon école »** à la connexion + import de la base de données de l'école (`.db`)
-            - ✅ **QR codes parents** avec durée de vie paramétrable (1 h → 1 an) — le parent scanne, retrouve son enfant (classe + nom) et crée son compte
-            - ✅ Comptes parents modifiables **élève par élève** (nom d'utilisateur + mot de passe)
-            - ✅ **Bulletins & notes** au design premium (gianelli) avec **QR code unique** par document — le scan confirme que le document est **officiel**
-            - ✅ **Reçus** avec logo de l'école + logo EduGest et QR code en bas
+            - ✅ **« Trouver mon école »** à la connexion + import de la base de données de l'école (`.db`) en popup après connexion
+            - ✅ **QR codes parents** avec durée de vie paramétrable (1 h → 1 an) — le parent scanne, retrouve son enfant et crée son compte
+            - ✅ **Bulletins & reçus** au design premium (gianelli) avec **QR code unique** — le scan confirme que le document est **officiel**
             - ✅ Secrétaire : accès « Mon Abonnement » masqué, non comptée dans le forfait
-            - ✅ Gestion des parents, personnalisation par école, passerelles de paiement RDC (Airtel, M-Pesa, Orange Money…)
+            - ✅ Admin freemium : changement de formule fonctionnel
+            - ✅ Connexion unifiée (parents, personnel, direction) — sans indice de rôle
 
             ## Notes
 
             - La désinstallation ne supprime **pas** les données (`%APPDATA%\EduGest\`).
             - L'administrateur peut importer/mettre à jour sa base à tout moment depuis l'app.
+            - Au tout premier lancement, l'ouverture peut prendre quelques instants (analyse antivirus Windows) — le splash affiche la progression.
           files: desktop/dist/*.exe
           draft: false
           prerelease: false

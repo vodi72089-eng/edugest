@@ -71,6 +71,8 @@ model School {
 
   infirmaryVisits       InfirmaryVisit[]
   medicalDispensations  MedicalDispensation[]
+  qrCodes               SchoolQrCode[]
+  documents             DocumentVerification[]
 }
 
 model User {
@@ -754,5 +756,43 @@ model MedicalDispensation {
   student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([schoolId])
+  @@index([studentId])
+}
+
+// QR codes parents éphémères : le parent scanne le QR (token unique), retrouve
+// son enfant (classe + nom) et crée son compte parent — durée de vie 1 h → 1 an.
+model SchoolQrCode {
+  id        String   @id @default(cuid())
+  schoolId  String
+  token     String   @unique
+  label     String?
+  expiresAt DateTime
+  isActive  Boolean  @default(true)
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+}
+
+// Registre des documents officiels (bulletins, reçus de paiement).
+// Chaque PDF généré embarque un QR code unique pointant vers
+// /verify/document/{id} — la page confirme que le document est officiel
+// et en décrit le contenu (élève, classe, moyenne, montant...).
+model DocumentVerification {
+  id              String   @id @default(cuid())
+  type            String   // BULLETIN | RECEIPT
+  schoolId        String
+  studentId       String?
+  paymentRecordId String?
+  trimester       String?
+  schoolYearId    String?
+  metadata        String   @default("{}") // JSON: average, decision, className, amount...
+  createdAt       DateTime @default(now())
+
+  school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, type])
   @@index([studentId])
 }

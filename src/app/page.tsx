@@ -9,6 +9,7 @@ import { ACCENT, ACCENT2, ACCENT_SOFT, SUCCESS, WARNING, DANGER, INFO, MUTED, BO
 import { getInitials, formatDate, formatNumber, formatCurrency, getSchoolTypeLabel, getSubscriptionLabel, getSubscriptionPrice, getRoleLabel, getStatusPill, API_ROLE_MAP } from '@/lib/helpers'
 import { EDUCATIONAL_SYSTEMS_LIST } from '@/lib/educational-systems'
 import StudentAvatar from '@/components/ui/StudentAvatar'
+import BrandLogo, { BrandLogoPlate } from '@/components/BrandLogo'
 import { FlagIcon } from '@/components/FlagIcon'
 import dynamic from 'next/dynamic'
 const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
@@ -194,16 +195,10 @@ function SearchAutocomplete({
   )
 }
 
-// ===== BRAND Mark =====
+// ===== BRAND Mark ===== (délègue au logo officiel centralisé — symbole seul,
+// lisible sur fond sombre ; le logo complet est affiché via BrandLogoPlate)
 function BrandMark({ height = 36, className = '' }: { height?: number; className?: string }) {
-  return (
-    <img
-      src="/edugest-logo.png"
-      alt="EduGest"
-      className={`object-contain ${className}`}
-      style={{ height, width: 'auto' }}
-    />
-  )
+  return <BrandLogo height={height} variant="mark" className={className} />
 }
 
 // ===== PUBLIC HEADER =====
@@ -1408,24 +1403,12 @@ function LoginView() {
 
       {/* Main content: animated book + login card */}
       <main className="relative z-20 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-4 sm:py-8 gap-8 sm:gap-10">
-        {/* Animated Book + Brand */}
-        <div className="text-center flex flex-col items-center gap-5">
-          <div className="edu-book mx-auto" style={{ transform: 'scale(1.1)' }}>
-            <div className="edu-book__pg-shadow"></div>
-            <div className="edu-book__pg"></div>
-            <div className="edu-book__pg edu-book__pg--2"></div>
-            <div className="edu-book__pg edu-book__pg--3"></div>
-            <div className="edu-book__pg edu-book__pg--4"></div>
-            <div className="edu-book__pg edu-book__pg--5"></div>
-          </div>
-          <div>
-            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight mb-2">
-              Edu<span style={{ color: 'oklch(72% 0.15 65)', textShadow: '0 0 20px oklch(72% 0.15 65 / 0.4)' }}>Gest</span>
-            </h1>
-            <p className="text-white/50 text-sm sm:text-base font-medium">
-              La plateforme de gestion scolaire
-            </p>
-          </div>
+        {/* Logo officiel EduGest sur plaque claire */}
+        <div className="text-center flex flex-col items-center gap-4">
+          <BrandLogoPlate height={86} />
+          <p className="text-white/55 text-sm sm:text-base font-medium">
+            La plateforme de gestion scolaire
+          </p>
         </div>
 
         {/* Glass morphism login card */}

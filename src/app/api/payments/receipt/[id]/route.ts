@@ -119,7 +119,6 @@ function getEduGestLogoBase64(): string | null {
     const candidates = [
       path.join(process.cwd(), 'public', 'edugest-logo-pdf.jpg'),
       path.join(process.cwd(), 'public', 'edugest-logo.png'),
-      path.join(process.cwd(), 'public', 'edugest-logo-new.png'),
     ];
     for (const p of candidates) {
       if (fs.existsSync(p)) {

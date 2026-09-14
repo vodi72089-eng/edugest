@@ -121,7 +121,7 @@ export default function FindChildPage() {
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-5">
         <div className="flex items-center gap-2.5">
-          <img src="/edugest-logo.png" alt="Logo EduGest" className="w-10 h-10 rounded-xl object-cover" />
+          <img src="/edugest-logo-mark.png" alt="Logo EduGest" className="w-10 h-10 object-contain" />
           <div>
             <div className="text-white font-bold tracking-tight text-lg">Edu<span style={{ color: 'oklch(72% 0.15 65)' }}>Gest</span></div>
             <div className="text-white/40 text-[11px]">Retrouver mon enfant</div>

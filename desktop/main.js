@@ -6,10 +6,14 @@
  *     le dossier de données de l'utilisateur (%APPDATA%/EduGest/edugest.db).
  *  2. Le serveur Next.js standalone (généré par `npm run build`) est démarré
  *     en processus fils sur un port local libre.
- *  3. Un SPLASH (logo officiel) s'affiche INSTANTANÉMENT pendant que le
- *     serveur démarre — l'utilisateur voit l'app se lancer tout de suite,
- *     puis la fenêtre principale remplace le splash (démarrage perçu rapide).
+ *  3. Un SPLASH (vrai logo officiel EduGest) s'affiche INSTANTANÉMENT et
+ *     affiche l'étape en cours (base de données → serveur → interface) —
+ *     l'utilisateur voit l'app se lancer tout de suite, puis la fenêtre
+ *     principale remplace le splash (démarrage perçu rapide).
  *  4. AUCUNE barre de menu système (EduGest / Affichage / Édition supprimés).
+ *
+ * Performances : sondage serveur à 250 ms, throttling d'arrière-plan désactivé,
+ * splash sans frame pour un affichage immédiat même sur machine modeste.
  *
  * Build : voir DESKTOP.md (electron-builder → installateur .exe + portable).
  */
@@ -20,6 +24,10 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const net = require('net');
+
+// Réactivité maximale de l'UI (utile sur petites machines / HDD)
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
 
 // ─── Chemins ─────────────────────────────────────────────────────────────────
 
@@ -32,7 +40,9 @@ const APP_DIR = isPackaged
 
 const SERVER_JS = path.join(APP_DIR, 'server.js');
 
-/** Logo officiel EduGest (icône fenêtre + splash) */
+/** Vrai logo officiel EduGest (complet « EDUC GEST », fond transparent) */
+const SPLASH_LOGO = path.join(__dirname, 'splash-logo.png');
+/** Symbole seul (icône fenêtre/exe) */
 const ICON_PATH = path.join(__dirname, 'icon.png');
 
 /** Base de données locale (créée au premier lancement) */
@@ -46,6 +56,10 @@ const DB_PATH = isPackaged
 const TEMPLATE_DB = isPackaged
   ? path.join(process.resourcesPath, 'template.db')
   : path.join(__dirname, '..', 'db', 'desktop-template.db');
+
+const APP_VERSION = (() => {
+  try { return require('./package.json').version; } catch { return ''; }
+})();
 
 // ─── Utilitaires ─────────────────────────────────────────────────────────────
 
@@ -68,7 +82,7 @@ function findFreePort(start) {
   });
 }
 
-/** Attend que le serveur Next réponde */
+/** Attend que le serveur Next réponde (sondage rapide : 250 ms) */
 function waitForServer(url, timeoutMs = 120000) {
   const started = Date.now();
   return new Promise((resolve, reject) => {
@@ -79,11 +93,11 @@ function waitForServer(url, timeoutMs = 120000) {
         retry();
       });
       req.on('error', retry);
-      req.setTimeout(2000, () => { req.destroy(); retry(); });
+      req.setTimeout(1500, () => { req.destroy(); retry(); });
     };
     const retry = () => {
       if (Date.now() - started > timeoutMs) return reject(new Error('Le serveur local n\'a pas démarré à temps'));
-      setTimeout(ping, 400);
+      setTimeout(ping, 250);
     };
     ping();
   });
@@ -96,11 +110,18 @@ let mainWindow = null;
 let splashWindow = null;
 let currentPort = 0;
 
-/** Splash : logo officiel EduGest affiché instantanément au démarrage */
+/** Met à jour le texte d'étape affiché sur le splash */
+function setSplashStage(text) {
+  if (!splashWindow || splashWindow.isDestroyed()) return;
+  const js = `window.__setStage && window.__setStage(${JSON.stringify(text)});`;
+  splashWindow.webContents.executeJavaScript(js).catch(() => {});
+}
+
+/** Splash : vrai logo officiel EduGest, affiché instantanément au démarrage */
 function createSplash() {
   splashWindow = new BrowserWindow({
-    width: 420,
-    height: 320,
+    width: 440,
+    height: 360,
     frame: false,
     resizable: false,
     movable: true,
@@ -114,26 +135,42 @@ function createSplash() {
       contextIsolation: true,
       nodeIntegration: false,
       spellcheck: false,
+      backgroundThrottling: false,
     },
   });
   const logoUri = (() => {
-    try { return 'file://' + ICON_PATH.replace(/\\/g, '/'); } catch { return ''; }
+    try { return 'file://' + SPLASH_LOGO.replace(/\\/g, '/'); } catch { return ''; }
   })();
   splashWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
   html,body{margin:0;padding:0;height:100%;background:#0a0f0d;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;user-select:none}
-  img{width:200px;height:auto;border-radius:20px;animation:pulse 1.6s ease-in-out infinite}
-  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.82;transform:scale(.985)}}
-  h1{color:#f5f2e8;font-size:24px;margin:18px 0 4px;font-weight:800;letter-spacing:-.5px}
-  p{color:rgba(255,255,255,.45);font-size:12.5px;margin:0}
-  .bar{width:180px;height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:20px;overflow:hidden}
+  .halo{position:absolute;top:-120px;right:-120px;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle,rgba(245,166,35,.14),transparent 65%);pointer-events:none}
+  .halo2{position:absolute;bottom:-140px;left:-110px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(20,154,128,.12),transparent 65%);pointer-events:none}
+  .plate{position:relative;background:#fdfbf7;border-radius:30px;padding:20px 34px;border:1px solid rgba(255,255,255,.65);box-shadow:0 18px 60px rgba(0,0,0,.55);animation:float 2.6s ease-in-out infinite}
+  .plate img{width:220px;height:auto;display:block}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+  .ring{position:relative;width:16px;height:16px;margin:22px auto 0;border-radius:50%;border:2.5px solid rgba(255,255,255,.14);border-top-color:#f5a623;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #stage{color:rgba(255,255,255,.72);font-size:13px;font-weight:600;margin:12px 0 0;text-align:center;min-height:18px;transition:opacity .2s}
+  .bar{width:190px;height:4px;background:rgba(255,255,255,.09);border-radius:2px;margin:10px auto 0;overflow:hidden}
   .bar span{display:block;height:100%;width:40%;background:linear-gradient(90deg,#149a80,#f5a623);border-radius:2px;animation:slide 1.1s ease-in-out infinite}
   @keyframes slide{0%{transform:translateX(-110%)}100%{transform:translateX(320%)}}
+  .ver{position:absolute;bottom:12px;left:0;right:0;text-align:center;color:rgba(255,255,255,.28);font-size:10.5px;letter-spacing:.4px}
 </style></head><body>
-  <img src="${logoUri}" alt="EduGest" />
-  <h1>Edu<span style="color:#f5a623">Gest</span></h1>
-  <p>Démarrage de votre espace sécurisé…</p>
+  <div class="halo"></div><div class="halo2"></div>
+  <div class="plate"><img src="${logoUri}" alt="EduGest" draggable="false"></div>
+  <div class="ring"></div>
+  <p id="stage">Préparation de votre espace…</p>
   <div class="bar"><span></span></div>
+  <div class="ver">EduGest Desktop ${APP_VERSION ? 'v' + APP_VERSION : ''} — édition bureau</div>
+  <script>
+    window.__setStage = function(t){
+      var el = document.getElementById('stage');
+      if(!el) return;
+      el.style.opacity = 0;
+      setTimeout(function(){ el.textContent = t; el.style.opacity = 1; }, 120);
+    };
+  </script>
 </body></html>`));
   splashWindow.on('closed', () => { splashWindow = null; });
 }
@@ -146,6 +183,7 @@ function closeSplash() {
 }
 
 function createWindow(port) {
+  setSplashStage('Ouverture de l\u2019interface…');
   mainWindow = new BrowserWindow({
     width: 1360,
     height: 860,
@@ -160,6 +198,7 @@ function createWindow(port) {
       contextIsolation: true,
       nodeIntegration: false,
       spellcheck: false,
+      backgroundThrottling: false,
     },
   });
 
@@ -188,6 +227,7 @@ function createWindow(port) {
 
 async function startBackend() {
   // 1) Base de données locale : copie du template au premier lancement
+  setSplashStage('Préparation de la base de données…');
   try {
     if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
     if (!fs.existsSync(DB_PATH)) {
@@ -208,6 +248,7 @@ async function startBackend() {
   log('Démarrage du serveur EduGest sur le port', port);
 
   // 3) Serveur Next.js standalone en processus fils (Node embarqué d'Electron)
+  setSplashStage('Démarrage du serveur local…');
   serverProcess = spawn(process.execPath, [SERVER_JS], {
     cwd: APP_DIR,
     env: {
@@ -233,7 +274,7 @@ async function startBackend() {
 }
 
 app.whenReady().then(async () => {
-  // Splash instantané (logo officiel) — AVANT tout le reste
+  // Splash instantané (vrai logo officiel) — AVANT tout le reste
   createSplash();
 
   try {
