@@ -6,7 +6,7 @@
       "name": "whatsapp-server",
       "dependencies": {
         "@hapi/boom": "^10.0.1",
-        "@trashcore/baileys": "latest",
+        "@trashcore/baileys": "4.2.2",
         "qrcode": "^1.5.4",
       },
     },

@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...sauf les exemples de configuration, versionnés
+!.env.example
 
 # vercel
 .vercel
@@ -71,6 +73,7 @@ server.log
 # Mini services — source is versioned, runtime artifacts are not
 /mini-services/*/node_modules/
 /mini-services/*/.env*
+!/mini-services/whatsapp-server/.env.example
 /mini-services/*/db/
 /mini-services/*/.sessions/
 
