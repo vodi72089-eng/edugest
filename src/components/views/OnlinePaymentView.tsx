@@ -274,6 +274,7 @@ export default function OnlinePaymentView() {
     VISA: { label: 'Visa', color: '#1A1F71', icon: '💳', svg: '/logos/payment/visa.svg' },
     MASTERCARD: { label: 'Mastercard', color: '#EB001B', icon: '💳', svg: '/logos/payment/mastercard.svg' },
     FLUTTERWAVE: { label: 'Flutterwave', color: '#FF6D00', icon: '🌊', svg: '/logos/payment/flutterwave.png' },
+    BICTORYS: { label: 'Bictorys', color: '#1DC9A0', icon: '⚡', svg: '/logos/payment/bictorys.svg' },
     ORANGE_MONEY: { label: 'Orange Money', color: '#FF6600', icon: '🟠', svg: '/logos/payment/orange_money.svg' },
     MPESA: { label: 'M-Pesa', color: '#00A651', icon: '🟢', svg: '/logos/payment/mpesa.svg' },
     AIRTEL_MONEY: { label: 'Airtel Money', color: '#E40000', icon: '🔴', svg: '/logos/payment/airtel_money.svg' },

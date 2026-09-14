@@ -1,6 +1,7 @@
 /**
  * Service de passerelles de paiement
  * Mobile : M-Pesa, Orange Money, Airtel Money
+ * Agrégateur : Bictorys (Wave, Orange Money, cartes — une seule API)
  * Cartes / internationales : Visa, Mastercard, Flutterwave
  *   (Stripe, PayPal et DPO retirés — non disponibles pour les marchands en RDC)
  * Manuel : espèces, virement
@@ -22,6 +23,7 @@ export type GatewayType =
   | 'VISA'
   | 'MASTERCARD'
   | 'FLUTTERWAVE'
+  | 'BICTORYS'
   | 'MANUAL';
 
 export interface PaymentRequest {
@@ -94,6 +96,16 @@ export const GATEWAY_INFO: Record<GatewayType, {
     supportedMethods: ['card', 'mobile_money', 'bank_transfer'],
     icon: '🌊',
     logo: '/logos/payment/flutterwave.png',
+    requiresWebhook: true,
+  },
+  BICTORYS: {
+    name: 'BICTORYS',
+    displayName: 'Bictorys',
+    description: 'Agrégateur sénégalais : Wave, Orange Money, cartes — une seule API',
+    supportedCurrencies: ['XOF', 'XAF', 'GNF', 'NGN'],
+    supportedMethods: ['mobile_money', 'card'],
+    icon: '⚡',
+    logo: '/logos/payment/bictorys.svg',
     requiresWebhook: true,
   },
   MPESA: {
@@ -232,6 +244,9 @@ export async function initiatePayment(
         break;
       case 'FLUTTERWAVE':
         response = await processFlutterwavePayment(credConfig, request, reference);
+        break;
+      case 'BICTORYS':
+        response = await processBictorysPayment(credConfig, request, reference);
         break;
       case 'MANUAL':
         response = await processManualPayment(credConfig, request, reference);
@@ -866,6 +881,92 @@ async function processFlutterwavePayment(
     return { success: false, reference, status: 'FAILED', message: data.message || 'Erreur Flutterwave' };
   } catch (error) {
     return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur Flutterwave' };
+  }
+}
+
+// ─── Bictorys (agrégateur : Wave, Orange Money, cartes) ────────────────────
+// Mapping des identifiants (PaymentGatewayConfig) :
+//   apiKey     = clé API PUBLIQUE Bictorys (header X-Api-Key) — obligatoire
+//   merchantId = code pays marchand (SN, CI, CM, NG, GN…) — optionnel, défaut SN
+//   secretKey  = clé PRIVÉE Bictorys (vérification de transaction) — optionnel
+// Sandbox : https://api.test.bictorys.com — Production : https://api.bictorys.com
+// Gotchas (spec Afrotools) : errorRedirectUrl en minuscule, redirects https://
+//   obligatoires, HTTP 201 = flux direct (redirectUrl), 202 = checkout hébergé
+//   (link). Le webhook signé reste la source de vérité.
+async function processBictorysPayment(
+  config: any,
+  request: PaymentRequest,
+  reference: string
+): Promise<PaymentResponse> {
+  if (config.isTestMode || !config.apiKey) {
+    return {
+      success: true,
+      reference,
+      gatewayTransactionId: `BCT-TEST-${Date.now()}`,
+      status: 'PENDING',
+      message: 'Lien de paiement Bictorys simulé (mode test)',
+    };
+  }
+
+  const country = (config.merchantId || 'SN').toUpperCase().slice(0, 2);
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+  const baseUrl = config.isTestMode
+    ? 'https://api.test.bictorys.com'
+    : 'https://api.bictorys.com';
+
+  const phoneDigits = request.customerPhone
+    ? Number(request.customerPhone.replace(/\D/g, ''))
+    : undefined;
+
+  try {
+    const response = await fetch(`${baseUrl}/pay/v1/charges`, {
+      method: 'POST',
+      headers: {
+        'X-Api-Key': config.apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amount: request.amount,
+        currency: request.currency,
+        country,
+        paymentReference: reference,
+        successRedirectUrl: appUrl ? `${appUrl}/?payment=bictorys&ref=${reference}` : undefined,
+        errorRedirectUrl: appUrl ? `${appUrl}/?payment=cancel&ref=${reference}` : undefined,
+        customerObject: {
+          name: request.customerName || 'Client EduGest',
+          phone: phoneDigits,
+          email: request.customerEmail || undefined,
+          country,
+        },
+      }),
+    });
+
+    // 201 = flux direct (mobile money / 3DS), 202 = checkout hébergé Bictorys
+    if (response.status === 201 || response.status === 202) {
+      const data = await response.json();
+      const checkoutUrl = data.redirectUrl || data.link;
+      return {
+        success: true,
+        reference,
+        gatewayTransactionId: data.transactionId || data.chargeId || reference,
+        checkoutUrl,
+        status: 'PENDING',
+        message:
+          response.status === 201
+            ? 'Paiement Bictorys initié — finalisez sur la page opérateur'
+            : 'Checkout hébergé Bictorys généré — choisissez votre moyen de paiement',
+      };
+    }
+
+    const data = await response.json().catch(() => ({}));
+    return {
+      success: false,
+      reference,
+      status: 'FAILED',
+      message: data.details || data.title || `Erreur Bictorys (HTTP ${response.status})`,
+    };
+  } catch (error) {
+    return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur Bictorys' };
   }
 }
 
