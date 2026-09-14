@@ -812,3 +812,35 @@ export async function notifyMedicalVisit(params: {
 
   return await sendWhatsAppMessage(params.parentPhone, msg);
 }
+
+/**
+ * Notifie le parent d'un repêchage d'élève
+ */
+export async function notifyRepechage(params: {
+  student: { id: string; firstName: string; lastName: string; className: string | null };
+  schoolId: string;
+  subjects: Array<{ subjectId?: string | null; name: string; score?: number | null }>;
+  examDate: Date | null;
+  note: string | null;
+}): Promise<{ sent: boolean; detail: string }> {
+  const gate = await checkSchoolAgentReady(params.schoolId);
+  if (!gate.ok) return { sent: false, detail: gate.reason };
+
+  const school = await db.school.findUnique({ where: { id: params.schoolId }, select: { name: true } });
+  const parent = await db.user.findFirst({ where: { role: 'PARENT', schoolId: params.schoolId }, select: { phone: true } });
+  if (!parent?.phone) return { sent: false, detail: 'Aucun parent trouvé' };
+
+  const subjectList = params.subjects.map(s => `  • ${s.name}${s.score != null ? ` : ${s.score}/20` : ''}`).join('\n');
+  const msg =
+    `📚 *REPÊCHAGE*\n\n` +
+    `Élève : *${params.student.firstName} ${params.student.lastName}*\n` +
+    (params.student.className ? `Classe : ${params.student.className}\n` : '') +
+    (params.examDate ? `Date : ${params.examDate.toLocaleDateString('fr-FR')}\n` : '') +
+    `\nMatières concernées :\n${subjectList}\n` +
+    (params.note ? `\n📝 Note : ${params.note}\n` : '') +
+    `\n🏫 ${school?.name || 'École'}\n\n` +
+    `_EduGest — Notification automatique_`;
+
+  const sent = await sendWhatsAppMessage(parent.phone, msg);
+  return { sent, detail: sent ? 'Message envoyé' : 'Échec envoi' };
+}

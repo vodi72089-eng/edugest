@@ -14,15 +14,15 @@ export type TierFeature =
   | 'payments' | 'homework' | 'discipline' | 'report_cards'
   | 'communications' | 'convocations' | 'analytics' | 'multi_years'
   | 'api_access' | 'priority_support' | 'custom_branding'
-  | 'medical';
+  | 'medical' | 'PARENT_GRADES';
 
 export const SUBSCRIPTION_FEATURES: Record<string, TierFeature[]> = {
   FREEMIUM: ['students', 'classes', 'grades', 'payments'],
-  ESSENTIEL: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline'],
-  STANDARD: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations'],
-  PREMIUM: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations', 'analytics', 'multi_years', 'medical', 'priority_support', 'custom_branding'],
-  ENTERPRISE: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations', 'analytics', 'multi_years', 'medical', 'api_access', 'priority_support', 'custom_branding'],
-  CORPORATE: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations', 'analytics', 'multi_years', 'medical', 'api_access', 'priority_support', 'custom_branding'],
+  ESSENTIEL: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'PARENT_GRADES'],
+  STANDARD: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations', 'PARENT_GRADES'],
+  PREMIUM: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations', 'analytics', 'multi_years', 'medical', 'priority_support', 'custom_branding', 'PARENT_GRADES'],
+  ENTERPRISE: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations', 'analytics', 'multi_years', 'medical', 'api_access', 'priority_support', 'custom_branding', 'PARENT_GRADES'],
+  CORPORATE: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations', 'analytics', 'multi_years', 'medical', 'api_access', 'priority_support', 'custom_branding', 'PARENT_GRADES'],
 };
 
 export interface SubscriptionCheck {
@@ -249,4 +249,8 @@ export function getMinTierForFeature(feature: string): string {
     }
   }
   return 'FREEMIUM';
+}
+
+export function tierAllowsParentGrades(tier: string): boolean {
+  return hasFeatureAccess(tier, 'PARENT_GRADES');
 }
