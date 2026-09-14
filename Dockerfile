@@ -1,12 +1,12 @@
 FROM node:20-alpine AS base
 
-# Install dependencies only
-FROM base AS deps
+# Install dependencies with Bun (canonical lockfile: bun.lock)
+FROM oven/bun:1 AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 
-# Build the app
+# Build the app with Node 20 (standalone output)
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
@@ -31,7 +31,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Create dirs for runtime data
-RUN mkdir -p prisma/db .sessions whatsapp-auth upload
+RUN mkdir -p prisma/db .sessions upload
 RUN chown -R nextjs:nodejs /app
 
 USER nextjs

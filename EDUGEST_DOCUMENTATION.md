@@ -90,8 +90,11 @@ edugest/
 │       ├── types.ts           # Types TypeScript
 │       ├── constants.ts       # Constantes
 │       └── helpers.ts         # Fonctions utilitaires
-├── whatsapp-server.js         # Serveur WhatsApp (port 3001)
-├── start-all.js               # Lanceur les deux serveurs
+├── mini-services/
+│   └── whatsapp-server/       # Serveur WhatsApp Baileys (port 3001, Bun)
+│       ├── index.ts           # Pairing code, anti-logout, envoi messages/documents
+│       └── patch.mjs          # Patch idempotent de @trashcore/baileys
+├── start-all.js               # Lance les deux serveurs
 ├── Dockerfile                 # Conteneur Docker
 └── docker-compose.yml         # Orchestration Docker
 ```

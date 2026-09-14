@@ -1166,3 +1166,28 @@ Stage Summary:
 - Release https://github.com/vodi72089-eng/edugest/releases/tag/v1.1.0 contient les 2 exe (Setup ~145 Mo + Portable ~145 Mo), marquée latest
 - Tout push sur main reconstruit l'exe et met à jour la Release automatiquement (les modifications sont donc TOUJOURS dans l'exe)
 - La cause racine du piège « chemin SQLite relatif au dossier prisma » est documentée dans le workflow (commentaire)
+
+---
+Task ID: WA-1
+Agent: Z.ai Code (session principale)
+Task: Audit et correction complète de l'intégration WhatsApp/Baileys d'EduGest — dépendances, pairing, auth state, reconnexion, scripts, Docker, docs + push GitHub
+
+Work Log:
+- Audit complet : mini-services/whatsapp-server (index.ts, patch.mjs, package.json), package.json racine, start-all.js/.bat, Dockerfile, docker-compose.yml, README, .mcp.json, src/lib/whatsapp/*
+- Découverte clé : @trashcore/baileys 4.2.2 (build minifié) réellement utilisée par le serveur ; @whiskeysockets/baileys présent dans les deps racine mais uniquement importé par un client legacy JAMAIS importé (src/lib/whatsapp/client.ts) partageant le même AUTH_DIR → supprimé
+- Corruptions corrigées dans index.ts : double appel fetchLatestBaileysVersion par socket → cache process-level ; race condition 2 sockets possibles → singleton startingPromise ; boucle infinie loggedOut → stop après 5 (session conservée) ; connectedPhone jamais réinitialisé ; code de pairing loggé en clair → masquage XXXX-•••• ; pas de rate-limit proactif → 30s min + refus demande concurrente (409) ; validation numéro faible → E.164 (7-15 chiffres, rejet 0 initial) ; flag destroyed mort → supprimé ; arrêt propre SIGINT/SIGTERM ajouté ; WHATSAPP_AUTH_DIR env override (Docker)
+- @trashcore/baileys épinglé "4.2.2" (au lieu de "latest") ; lockfiles mini-service régénérés
+- Racine : @whiskeysockets/baileys + pino retirés des deps ; script whatsapp → cd mini-services + patch ; engines node>=20 ; package-lock.json + pnpm-lock.yaml supprimés (bun.lock canonique) ; bun.lock régénéré
+- start-all.js/.bat : références whatsapp-server.js inexistantes remplacées par mini-services/whatsapp-server (bun), check présence Bun, URL /qr-page inexistante corrigée
+- Dockerfile racine : build via oven/bun:1 (bun install --frozen-lockfile), runtime Node 20 conservé ; mini-services/whatsapp-server/Dockerfile créé ; docker-compose : service whatsapp dédié + WHATSAPP_SERVER_URL=http://whatsapp:3001 + volume session persistant
+- .env.example créés (racine + mini-service) ; .gitignore : exception !.env.example ; README (section Intégration WhatsApp complète) + EDUGEST_DOCUMENTATION.md mis à jour
+- Tests live A→J : démarrage PASS, imports PASS, /pair PASS (codes réels obtenus des serveurs WhatsApp), numéros invalides 5/5 rejetés PASS, credentials persistés PASS (creds.json), socket unique sous concurrence PASS, /reset PASS, restauration session au redémarrage PASS (preuve : réponse 401 des serveurs WA aux creds stockés non validés) 
+- MCP Baileys (whatsapp_doctor/pair_start/pair_status/execute) : NON DISPONIBLES dans cet environnement — diagnostics équivalents effectués en direct (HTTP /status, logs, fs, tests concurrence)
+- Diagnostic 404 utilisateur : la connexion est à la racine / (landing retirée), /login n'existe pas → pas un bug
+- Push GitHub effectué sur main avec le PAT fourni par l'utilisateur
+
+Stage Summary:
+- Serveur WhatsApp stable : 1 seule implémentation Baileys (@trashcore/baileys 4.2.2 épinglée, runtime Bun), pairing code fonctionnel jusqu'à l'obtention d'un vrai code, garde-fous anti-boucle/anti-course testés
+- PAIRING CODE : TESTABLE | CONNEXION WHATSAPP RÉELLE : NON TESTÉE (nécessite que l'utilisateur saisisse le code sur un vrai téléphone)
+- 16 fichiers modifiés/créés/supprimés ; aucune modification frontend hors scope WhatsApp
+- Identifiants démo seedés (19 users) — DB git-unchanged, rien de sensible committé

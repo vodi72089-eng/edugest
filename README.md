@@ -4,8 +4,8 @@ Application de gestion éducative complète pour écoles africaines — multi-r�
 
 ## Prérequis
 
-- [Node.js](https://nodejs.org/) (v18+)
-- npm (recommandé sur Windows)
+- [Node.js](https://nodejs.org/) (v20+) — build Next.js et exécution du serveur de production
+- [Bun](https://bun.sh/) (v1.1+) — **requis** : gestionnaire de dépendances (lockfile `bun.lock`) et runtime du serveur WhatsApp
 - [Git](https://git-scm.com/)
 
 ## Installation
@@ -20,8 +20,10 @@ cd edugest
 ### 2. Installer les dépendances
 
 ```bash
-npm install
+bun install
 ```
+
+> Le lockfile canonique est `bun.lock`. Le serveur WhatsApp (mini-service) a son propre lockfile dans `mini-services/whatsapp-server/`.
 
 ### 3. Configurer l'environnement
 
@@ -44,27 +46,76 @@ Variables clés :
 ### 4. Générer le client Prisma et créer la base
 
 ```bash
-npx prisma generate
-npx prisma db push
-npx tsx prisma/seed.ts
+bunx prisma generate
+bunx prisma db push
 ```
+
+> **Données de démonstration** (écoles, utilisateurs, notes…) : lancez l'app puis appelez `GET http://localhost:3000/api/seed` (dev uniquement — bloqué en production). Compte super admin : `admin@edugest.app` / `admin123`.
 
 ### 5. Lancer l'application
 
 ```bash
-node start-all.js
+node start-all.js        # Windows : ouvre 2 fenêtres (Next.js + WhatsApp)
 ```
 
 Ou manuellement :
 
 ```bash
-npm run dev          # Frontend (port 3000)
-npm run whatsapp     # Serveur WhatsApp (port 3001)
+bun run dev              # Frontend (port 3000)
+bun run whatsapp         # Serveur WhatsApp (port 3001)
 ```
 
-Ouvrez **http://localhost:3000** dans votre navigateur.
+Ouvrez **http://localhost:3000** dans votre navigateur — la connexion unifiée se trouve à la racine (`/`, pas de page `/login`).
 
-> **Note Windows** : `next dev` doit être lancé avec `--webpack` (Turbopack incompatible sur win32/x64).
+> **Note Windows** : `next dev` doit être lancé avec `--webpack` (Turbopack incompatible sur win32/x64). `start-all.bat` et `start-all.js` le font déjà pour vous.
+
+## Intégration WhatsApp (Baileys)
+
+### Architecture
+
+```
+App Next.js (src/lib/whatsapp-agent.ts)
+   │  HTTP + en-tête x-api-key (WHATSAPP_API_KEY)
+   ▼
+mini-services/whatsapp-server/index.ts  ← runtime Bun, port 3001
+   │  @trashcore/baileys (4.2.2, épinglée)
+   ▼
+WhatsApp (session liée via pairing code ou QR)
+```
+
+- **Une seule implémentation Baileys** : `@trashcore/baileys` dans le mini-service. L'ancien client in-process (`@whiskeysockets/baileys`) a été supprimé.
+- **Session persistante** : credentials stockés dans `whatsapp-auth/` (racine du projet, gitigné). Un redémarrage du serveur réutilise la session — pas de nouveau pairing nécessaire.
+- **Anti-logout natsu** : reconnexion automatique sur 401/405/408/411/428/440/500/502/503/515/516 ; seul 403 (bannissement) est fatal.
+- **Anti-boucles** : après 5 déconnexions `loggedOut` consécutives ou 3 cycles sans connexion, la reconnexion automatique s'arrête ou la session est réinitialisée. Backoff exponentiel plafonné à 60 s.
+- **Version WA** : `fetchLatestBaileysVersion()` est appelé **une seule fois** par process puis mis en cache.
+- **Socket unique** : un garde-fou empêche toute création de socket concurrent (démarrage simultané `/pair` ↔ reconnexion).
+
+### Endpoints (en-tête `x-api-key` requis)
+
+| Endpoint | Méthode | Description |
+|----------|---------|-------------|
+| `/status` | GET | Statut, QR (data URL), téléphone connecté, code de pairing |
+| `/start` | POST | Démarre le client WhatsApp |
+| `/pair` | POST | `{ "phone": "243812345678" }` → génère un code de pairing `XXXX-XXXX` |
+| `/send` | POST | `{ "phone", "message" }` → envoi texte (session connectée requise) |
+| `/send-document` | POST | `{ "phone", "fileBase64", "filename", "mimetype", "caption?" }` → envoi document (≤16 Mo) |
+| `/logout` | POST | Déconnecte et **efface** la session |
+| `/reset` | POST | Efface la session et redémarre un client neuf |
+
+### Flux de liaison (pairing code)
+
+1. Dans l'app : **Connexion WhatsApp** → saisir le numéro au **format international sans `+`** (ex : `243812345678`).
+2. L'app appelle `POST /pair` → validation du numéro → démarrage du socket → `requestPairingCode()`.
+3. Un code `XXXX-XXXX` est renvoyé ; **saisissez-le dans WhatsApp mobile** (Appareils connectés → Connecter un appareil → Connecter avec le numéro de téléphone) sous ~2 minutes.
+4. La connexion s'établit (`connection.update: open`), les credentials sont sauvegardés automatiquement.
+
+> ⚠️ **Rate-limit** : une seule demande de code toutes les 30 s (réponse 429 sinon). Si WhatsApp répond 428 (limite serveur), patientez quelques minutes.
+
+### Runtime
+
+Le serveur WhatsApp tourne **sous Bun** (`bun --hot` en dev). `patch.mjs` applique un correctif idempotent à `@trashcore/baileys` 4.2.2 (const → let dans `luxu.js`, refusé par le transpileur Bun) — il s'exécute automatiquement à chaque démarrage.
+
+En Docker, le service `whatsapp` (docker-compose) embarque Baileys avec sa session persistée dans le volume `./whatsapp-auth`.
 
 ## Rôles et permissions
 
@@ -129,22 +180,28 @@ edugest/
 ├── prisma/
 │   ├── schema.prisma          # Modèles de données
 │   ├── db/custom.db           # Base SQLite
-│   └── seed.ts                # Données de test
+│   └── migrations/            # Migrations Prisma
 ├── src/
 │   ├── app/
-│   │   ├── page.tsx           # Application principale (5700+ lignes)
+│   │   ├── page.tsx           # Application principale (connexion unifiée à la racine)
 │   │   └── api/               # 50+ routes API
 │   ├── components/
 │   │   ├── dashboards/        # Dashboards par rôle
 │   │   └── views/             # Vues métier (30+ composants)
 │   └── lib/
-│       ├── store.ts           # Zustand store
-│       ├── auth.ts            # Authentification & permissions
-│       ├── db.ts              # Client Prisma
-│       ├── helpers.ts         # Utilitaires
-│       └── types.ts           # Types TypeScript
-├── whatsapp-server.ts         # Serveur WhatsApp (Baileys)
-├── start-all.js               # Lance les deux serveurs
+│   │   ├── store.ts           # Zustand store
+│   │   ├── auth.ts            # Authentification & permissions
+│   │   ├── db.ts              # Client Prisma
+│   │   ├── whatsapp-agent.ts  # Client HTTP vers le serveur WhatsApp
+│   │   └── types.ts           # Types TypeScript
+├── mini-services/
+│   └── whatsapp-server/       # Serveur WhatsApp Baileys (port 3001, Bun)
+│       ├── index.ts           # Implémentation (pairing, anti-logout, envoi)
+│       ├── patch.mjs          # Patch idempotent de la lib Baileys
+│       └── Dockerfile         # Image du service WhatsApp (docker compose)
+├── whatsapp-auth/             # Session Baileys (gitigné, persistante)
+├── start-all.js / .bat        # Lance les deux serveurs
+├── Dockerfile                 # Image Next.js (build Bun, runtime Node 20)
 └── package.json
 ```
 
@@ -152,14 +209,15 @@ edugest/
 
 | Commande | Description |
 |----------|-------------|
-| `node start-all.js` | Lance frontend + WhatsApp |
-| `npm run dev` | Frontend seul (port 3000) |
-| `npm run whatsapp` | Serveur WhatsApp (port 3001) |
-| `npm run build` | Build de production |
-| `npx prisma generate` | Générer le client Prisma |
-| `npx prisma db push` | Synchroniser la base |
-| `npx prisma db push --force-reset` | Réinitialiser la base |
-| `npx tsx prisma/seed.ts` | Peupler la base de test |
+| `node start-all.js` | Lance frontend + WhatsApp (Windows : fenêtres séparées) |
+| `bun run dev` | Frontend seul (port 3000) |
+| `bun run whatsapp` | Serveur WhatsApp (port 3001, patch + hot reload) |
+| `bun run whatsapp:start` | Serveur WhatsApp sans hot reload |
+| `bun run build` | Build de production (standalone) |
+| `bunx prisma generate` | Générer le client Prisma |
+| `bunx prisma db push` | Synchroniser la base |
+| `bunx prisma db push --force-reset` | Réinitialiser la base |
+| `GET /api/seed` (dev) | Peupler la base de démonstration |
 
 ## Stack technique
 
@@ -168,7 +226,7 @@ edugest/
 - **State** : Zustand
 - **Styling** : Tailwind CSS — thème LUXE AFRICAIN (oklch, or/vert, motifs Kente, glassmorphism)
 - **Authentification** : tokens JWT signés + sessions fichier, RBAC complet
-- **WhatsApp** : Baileys (serveur autonome, port 3001)
+- **WhatsApp** : Baileys (`@trashcore/baileys` 4.2.2, serveur autonome Bun, port 3001)
 - **Paiements** : DPO, Stripe, PayPal, Flutterwave, M-Pesa, Orange Money, Airtel Money
 - **Devise** : sélection multi-devises avec conversion
 - **Languages** : TypeScript
