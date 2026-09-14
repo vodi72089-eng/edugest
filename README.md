@@ -70,9 +70,11 @@ Ouvrez **http://localhost:3000** dans votre navigateur.
 
 | Rôle | Description |
 |------|-------------|
-| `SUPER_ADMIN_GLOBAL` | Administrateur global — accès total |
+| `SUPER_ADMIN_GLOBAL` | Administrateur global plateforme — gestion SaaS et multi-écoles |
+| `SCHOOL_ADMIN` | Administrateur principal d'école — gestion 360° de l'établissement |
+| `MEDICAL` | Service Médical / Infirmier(ère) — santé scolaire, infirmerie, allergies, dispenses (dès Professionnel) |
 | `SECRETARY` | Secrétaire — inscriptions, paiements (lecture seule), communications |
-| `CASHIER` | Caisse — gestion des paiements |
+| `CASHIER` | Caisse — gestion des paiements et des dettes |
 | `DIRECTION_MATERNELLE` | Direction maternelle — convocations, discipline, notes, communications |
 | `DIRECTION_PRIMAIRE` | Direction primaire — idem |
 | `DIRECTION_SECONDAIRE` | Direction secondaire — idem |
@@ -80,8 +82,8 @@ Ouvrez **http://localhost:3000** dans votre navigateur.
 | `DISCIPLINE_PRIMAIRE` | Discipline primaire — idem |
 | `DISCIPLINE_SECONDAIRE` | Discipline secondaire — idem |
 | `TEACHER` | Enseignant — notes, devoirs, classes |
-| `HEAD_TEACHER` | Chef de classe — idem + bulletins |
-| `PARENT` | Parent — notes, bulletins, discipline, devoirs, convocations, paiements |
+| `HEAD_TEACHER` | Chef de classe / Titulaire — idem + bulletins |
+| `PARENT` | Parent — bulletins, discipline, devoirs, convocations, paiements (notes selon abonnement) |
 
 ## Fonctionnalités
 

@@ -14,19 +14,15 @@ export type TierFeature =
   | 'payments' | 'homework' | 'discipline' | 'report_cards'
   | 'communications' | 'convocations' | 'analytics' | 'multi_years'
   | 'api_access' | 'priority_support' | 'custom_branding'
-  | 'parent_grades'   // Les parents recoivent/consultent notes & bulletins (STANDARD+)
-  | 'mobile_app'      // App mobile dediee (Professionnel+)
-  | 'multi_school';   // Multi-ecoles (Enterprise+)
+  | 'medical' | 'PARENT_GRADES';
 
 export const SUBSCRIPTION_FEATURES: Record<string, TierFeature[]> = {
   FREEMIUM: ['students', 'classes', 'grades', 'payments'],
-  // Essentiel : tout Freemium avec des limites plus longues, MAIS les parents
-  // ne recoivent pas les notes/bulletins (reserve au Standard et plus).
-  ESSENTIEL: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline'],
-  STANDARD: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations', 'parent_grades'],
-  PREMIUM: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations', 'analytics', 'multi_years', 'parent_grades', 'mobile_app', 'priority_support', 'custom_branding'],
-  ENTERPRISE: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations', 'analytics', 'multi_years', 'parent_grades', 'mobile_app', 'priority_support', 'custom_branding', 'api_access', 'multi_school'],
-  CORPORATE: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations', 'analytics', 'multi_years', 'parent_grades', 'mobile_app', 'priority_support', 'custom_branding', 'api_access', 'multi_school'],
+  ESSENTIEL: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'PARENT_GRADES'],
+  STANDARD: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations', 'PARENT_GRADES'],
+  PREMIUM: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations', 'analytics', 'multi_years', 'medical', 'priority_support', 'custom_branding', 'PARENT_GRADES'],
+  ENTERPRISE: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations', 'analytics', 'multi_years', 'medical', 'api_access', 'priority_support', 'custom_branding', 'PARENT_GRADES'],
+  CORPORATE: ['students', 'classes', 'grades', 'parents', 'payments', 'homework', 'discipline', 'report_cards', 'communications', 'convocations', 'analytics', 'multi_years', 'medical', 'api_access', 'priority_support', 'custom_branding', 'PARENT_GRADES'],
 };
 
 export interface SubscriptionCheck {
@@ -97,18 +93,24 @@ export function hasFeatureAccess(tier: string, feature: TierFeature): boolean {
   return features.includes(feature);
 }
 
-// ─── Tier limits (specification produit) ────────────────────────────────────
-// Convention : -1 = illimite
+/**
+ * Les parents peuvent-ils consulter/recevoir notes & bulletins ?
+ * À partir du STANDARD uniquement (pas en Freemium/Essentiel).
+ */
+export function tierAllowsParentGrades(tier: string): boolean {
+  return getTierLimits(tier).reportCardsToParents;
+}
+
+// ─── Tier limits (validated with product owner) ─────────────────────────────
 export interface TierLimits {
   maxStudents: number;
   maxAdmins: number;      // Direction, Secretary, Cashier, Discipline... (staff accounts)
   maxTeachers: number;
-  whatsappMonthly: number; // -1 = illimite (Enterprise/Corporate ou API perso)
+  whatsappMonthly: number;
   canConfigPayments: boolean;   // payment gateways (Orange Money, M-Pesa...)
   canManageParentAccounts: boolean;
-  parentGradesAccess: boolean;  // les parents voient/recoivent notes & bulletins
-  canUseCustomWhatsappApi: boolean; // peut brancher sa propre API WhatsApp (Meta)
-  maxSchools: number;           // multi-ecoles (-1 = illimite)
+  reportCardsToParents: boolean; // notes & bulletins visibles côté parents
+  medicalAccess: boolean;       // réservé à partir de Professionnel
 }
 
 export function getTierLimits(tier: string): TierLimits {
@@ -120,12 +122,9 @@ export function getTierLimits(tier: string): TierLimits {
       whatsappMonthly: 0,
       canConfigPayments: false,
       canManageParentAccounts: false,
-      parentGradesAccess: false,
-      canUseCustomWhatsappApi: false,
-      maxSchools: 1,
+      reportCardsToParents: false,
+      medicalAccess: false,
     },
-    // Essentiel : 1 admin, 5 professeurs, 250 eleves, comptes parents,
-    // 500 msgs WhatsApp/mois - SANS notes/bulletins aux parents.
     ESSENTIEL: {
       maxStudents: 250,
       maxAdmins: 1,
@@ -133,75 +132,51 @@ export function getTierLimits(tier: string): TierLimits {
       whatsappMonthly: 500,
       canConfigPayments: false,
       canManageParentAccounts: true,
-      parentGradesAccess: false,
-      canUseCustomWhatsappApi: false,
-      maxSchools: 1,
+      reportCardsToParents: false,
+      medicalAccess: false,
     },
-    // Standard : 5 admins (secretaire, admin ecole, caissier, direction,
-    // direction de discipline), notes & bulletins aux parents,
-    // 1000 eleves et 1500 msgs WhatsApp/mois.
     STANDARD: {
       maxStudents: 1000,
       maxAdmins: 5,
-      maxTeachers: 25,
+      maxTeachers: 50,
       whatsappMonthly: 1500,
       canConfigPayments: true,
       canManageParentAccounts: true,
-      parentGradesAccess: true,
-      canUseCustomWhatsappApi: true,
-      maxSchools: 1,
+      reportCardsToParents: true,
+      medicalAccess: false,
     },
-    // Professionnel : admins illimites, profs illimites, app mobile dediee,
-    // support prioritaire, personnalisation de l'app, 2500 eleves,
-    // 5000 msgs WhatsApp/mois.
     PREMIUM: {
       maxStudents: 2500,
-      maxAdmins: -1,
-      maxTeachers: -1,
+      maxAdmins: 9999,
+      maxTeachers: 9999,
       whatsappMonthly: 5000,
       canConfigPayments: true,
       canManageParentAccounts: true,
-      parentGradesAccess: true,
-      canUseCustomWhatsappApi: true,
-      maxSchools: 1,
+      reportCardsToParents: true,
+      medicalAccess: true,
     },
-    // Enterprise : multi-ecoles (3 incluses), serveur dedie, formation equipe,
-    // SLA garanti, 9999 admins, 99999 eleves (total ecoles confondues),
-    // WhatsApp illimite.
     ENTERPRISE: {
       maxStudents: 99999,
       maxAdmins: 9999,
       maxTeachers: 9999,
-      whatsappMonthly: -1,
+      whatsappMonthly: 9999999,
       canConfigPayments: true,
       canManageParentAccounts: true,
-      parentGradesAccess: true,
-      canUseCustomWhatsappApi: true,
-      maxSchools: 3,
+      reportCardsToParents: true,
+      medicalAccess: true,
     },
-    // Corporate : groupes scolaires, sur mesure, tout illimite
-    // (admins, eleves, ecoles), on-premise, marque blanche, integration sur mesure.
     CORPORATE: {
-      maxStudents: -1,
-      maxAdmins: -1,
-      maxTeachers: -1,
-      whatsappMonthly: -1,
+      maxStudents: 999999,
+      maxAdmins: 9999,
+      maxTeachers: 9999,
+      whatsappMonthly: 9999999,
       canConfigPayments: true,
       canManageParentAccounts: true,
-      parentGradesAccess: true,
-      canUseCustomWhatsappApi: true,
-      maxSchools: -1,
+      reportCardsToParents: true,
+      medicalAccess: true,
     },
   };
   return limits[tier] || limits.FREEMIUM;
-}
-
-/**
- * Les parents de cette ecole peuvent-ils consulter/recevoir notes & bulletins ?
- * (a partir du Standard uniquement - pas en Freemium/Essentiel)
- */
-export function tierAllowsParentGrades(tier: string): boolean {
-  return getTierLimits(tier).parentGradesAccess;
 }
 
 /**
@@ -212,8 +187,8 @@ export function getMaxStudentsForTier(tier: string): number {
 }
 
 // ─── Enforcement helpers (called from API routes) ──────────────────────────
-export const ADMIN_ROLES = ['DIRECTION','DIRECTION_MATERNELLE','DIRECTION_PRIMAIRE','DIRECTION_SECONDAIRE','SECRETARY','CASHIER','DISCIPLINE','DISCIPLINE_MATERNELLE','DISCIPLINE_PRIMAIRE','DISCIPLINE_SECONDAIRE','SCHOOL_ADMIN','MEDICAL'];
-export const TEACHER_ROLES = ['TEACHER','HEAD_TEACHER','EPS'];
+export const ADMIN_ROLES = ['DIRECTION','DIRECTION_MATERNELLE','DIRECTION_PRIMAIRE','DIRECTION_SECONDAIRE','SECRETARY','CASHIER','DISCIPLINE','DISCIPLINE_MATERNELLE','DISCIPLINE_PRIMAIRE','DISCIPLINE_SECONDAIRE','SCHOOL_ADMIN'];
+export const TEACHER_ROLES = ['TEACHER','HEAD_TEACHER'];
 
 export async function checkCanCreateStudent(schoolId: string | null | undefined): Promise<{ ok: true } | { ok: false; error: string; limit: number; current: number }> {
   if (!schoolId) return { ok: true };
@@ -221,7 +196,7 @@ export async function checkCanCreateStudent(schoolId: string | null | undefined)
   const tier = school?.subscriptionTier || 'FREEMIUM';
   const limits = getTierLimits(tier);
   const current = await db.student.count({ where: { schoolId, isArchived: false } });
-  if (limits.maxStudents >= 0 && current >= limits.maxStudents) {
+  if (current >= limits.maxStudents) {
     return { ok: false, error: `Limite d'élèves atteinte (${limits.maxStudents} max pour ${tier}). Passez au forfait supérieur.`, limit: limits.maxStudents, current };
   }
   return { ok: true };
@@ -235,8 +210,8 @@ export async function checkCanCreateUser(schoolId: string | null | undefined, ro
 
   if (role === 'PARENT') return { ok: true }; // parents unlimited (or via student creation)
   if (ADMIN_ROLES.includes(role)) {
-    // NOTE : le secrétaire n'est PAS compté dans le forfait (freemium inclus) —
-    // il est un compte de support, pas un titulaire d'abonnement.
+    // NOTE : le secrétaire n'est PAS compté dans le forfait (aucun niveau,
+    // freemium inclus) — c'est un compte de support, pas un titulaire.
     const current = await db.user.count({ where: { schoolId, role: { in: ADMIN_ROLES, not: 'SECRETARY' } } });
     if (limits.maxAdmins >= 0 && current >= limits.maxAdmins) {
       return { ok: false, error: `Limite d'admins atteinte (${limits.maxAdmins} max pour ${tier}).`, limit: limits.maxAdmins, current };
@@ -244,7 +219,7 @@ export async function checkCanCreateUser(schoolId: string | null | undefined, ro
   }
   if (TEACHER_ROLES.includes(role)) {
     const current = await db.user.count({ where: { schoolId, role: { in: TEACHER_ROLES } } });
-    if (limits.maxTeachers >= 0 && current >= limits.maxTeachers) {
+    if (current >= limits.maxTeachers) {
       return { ok: false, error: `Limite de professeurs atteinte (${limits.maxTeachers} max pour ${tier}).`, limit: limits.maxTeachers, current };
     }
   }

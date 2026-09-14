@@ -1,8 +1,9 @@
 /**
  * Service de passerelles de paiement
  * Mobile : M-Pesa, Orange Money, Airtel Money
- * Cartes / internationales : Visa, Mastercard, Flutterwave, DPO
- *   (Stripe et PayPal retirés — non disponibles pour les marchands en RDC)
+ * Agrégateur : Bictorys (Wave, Orange Money, cartes — une seule API)
+ * Cartes / internationales : Visa, Mastercard, Flutterwave
+ *   (Stripe, PayPal et DPO retirés — non disponibles pour les marchands en RDC)
  * Manuel : espèces, virement
  * Paiements d'abonnement EduGest : passerelles configurées au niveau
  * plateforme (schoolId sentinelle PLATFORM_SCHOOL_ID).
@@ -22,7 +23,7 @@ export type GatewayType =
   | 'VISA'
   | 'MASTERCARD'
   | 'FLUTTERWAVE'
-  | 'DPO'
+  | 'BICTORYS'
   | 'MANUAL';
 
 export interface PaymentRequest {
@@ -97,14 +98,14 @@ export const GATEWAY_INFO: Record<GatewayType, {
     logo: '/logos/payment/flutterwave.png',
     requiresWebhook: true,
   },
-  DPO: {
-    name: 'DPO',
-    displayName: 'DPO Pay',
-    description: 'Agrégateur DPO (3G Direct Pay) : cartes et mobile money Afrique',
-    supportedCurrencies: ['USD', 'EUR', 'CDF', 'XOF', 'KES', 'TZS', 'UGX', 'RWF'],
-    supportedMethods: ['card', 'mobile_money'],
-    icon: '🔵',
-    logo: '/logos/payment/dpo.png',
+  BICTORYS: {
+    name: 'BICTORYS',
+    displayName: 'Bictorys',
+    description: 'Agrégateur sénégalais : Wave, Orange Money, cartes — une seule API',
+    supportedCurrencies: ['XOF', 'XAF', 'GNF', 'NGN'],
+    supportedMethods: ['mobile_money', 'card'],
+    icon: '⚡',
+    logo: '/logos/payment/bictorys.svg',
     requiresWebhook: true,
   },
   MPESA: {
@@ -244,8 +245,8 @@ export async function initiatePayment(
       case 'FLUTTERWAVE':
         response = await processFlutterwavePayment(credConfig, request, reference);
         break;
-      case 'DPO':
-        response = await processDpoPayment(credConfig, request, reference);
+      case 'BICTORYS':
+        response = await processBictorysPayment(credConfig, request, reference);
         break;
       case 'MANUAL':
         response = await processManualPayment(credConfig, request, reference);
@@ -883,89 +884,89 @@ async function processFlutterwavePayment(
   }
 }
 
-// ─── DPO Pay (3G Direct Pay, API v6) ────────────────────────────────────────
-// Mapping des identifiants (mode live) :
-//   merchantId  = Company Token (DPO)
-//   secretKey   = Service Type (optionnel)
-//   apiKey      = (optionnel) clé API complémentaire
-async function processDpoPayment(
+// ─── Bictorys (agrégateur : Wave, Orange Money, cartes) ────────────────────
+// Mapping des identifiants (PaymentGatewayConfig) :
+//   apiKey     = clé API PUBLIQUE Bictorys (header X-Api-Key) — obligatoire
+//   merchantId = code pays marchand (SN, CI, CM, NG, GN…) — optionnel, défaut SN
+//   secretKey  = clé PRIVÉE Bictorys (vérification de transaction) — optionnel
+// Sandbox : https://api.test.bictorys.com — Production : https://api.bictorys.com
+// Gotchas (spec Afrotools) : errorRedirectUrl en minuscule, redirects https://
+//   obligatoires, HTTP 201 = flux direct (redirectUrl), 202 = checkout hébergé
+//   (link). Le webhook signé reste la source de vérité.
+async function processBictorysPayment(
   config: any,
   request: PaymentRequest,
   reference: string
 ): Promise<PaymentResponse> {
-  if (config.isTestMode || !config.merchantId) {
+  if (config.isTestMode || !config.apiKey) {
     return {
       success: true,
       reference,
-      gatewayTransactionId: `DPO-TEST-${Date.now()}`,
+      gatewayTransactionId: `BCT-TEST-${Date.now()}`,
       status: 'PENDING',
-      message: 'Token DPO simulé (mode test)',
+      message: 'Lien de paiement Bictorys simulé (mode test)',
     };
   }
 
-  if (!config.merchantId) {
-    return {
-      success: false,
-      reference,
-      status: 'FAILED',
-      message: 'Identifiants DPO incomplets — renseignez le Company Token',
-    };
-  }
-
+  const country = (config.merchantId || 'SN').toUpperCase().slice(0, 2);
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
-  const companyToken = config.merchantId;
-  const service = config.secretKey || 'EDUGEST';
+  const baseUrl = config.isTestMode
+    ? 'https://api.test.bictorys.com'
+    : 'https://api.bictorys.com';
+
+  const phoneDigits = request.customerPhone
+    ? Number(request.customerPhone.replace(/\D/g, ''))
+    : undefined;
 
   try {
-    // DPO : création d'un token de paiement via l'API XML/POST v6
-    const xml = `<?xml version="1.0" encoding="utf-8"?>
-<API3G>
-  <CompanyToken>${companyToken}</CompanyToken>
-  <Request>createToken</Request>
-  <Transaction>
-    <PaymentAmount>${request.amount}</PaymentAmount>
-    <PaymentCurrency>${request.currency}</PaymentCurrency>
-    <CompanyRef>${reference}</CompanyRef>
-    <CompanyRefUnique>0</CompanyRefUnique>
-    <PTLtype>1</PTLtype>
-    <PTL>5</PTL>
-    <CustomerEmail>${request.customerEmail || 'client@edugest.app'}</CustomerEmail>
-    <CustomerName>${(request.customerName || 'Client EduGest').replace(/[^A-Za-z0-9 ]/g, '')}</CustomerName>
-    <ServiceType>${service}</ServiceType>
-  </Transaction>
-  <ReturnURL>${appUrl ? `${appUrl}/?payment=dpo&ref=${reference}` : ''}</ReturnURL>
-  <CancelURL>${appUrl ? `${appUrl}/?payment=cancel&ref=${reference}` : ''}</CancelURL>
-</API3G>`;
-
-    const response = await fetch('https://secure.3gdirectpay.com/API/v6.php', {
+    const response = await fetch(`${baseUrl}/pay/v1/charges`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/xml' },
-      body: xml,
+      headers: {
+        'X-Api-Key': config.apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amount: request.amount,
+        currency: request.currency,
+        country,
+        paymentReference: reference,
+        successRedirectUrl: appUrl ? `${appUrl}/?payment=bictorys&ref=${reference}` : undefined,
+        errorRedirectUrl: appUrl ? `${appUrl}/?payment=cancel&ref=${reference}` : undefined,
+        customerObject: {
+          name: request.customerName || 'Client EduGest',
+          phone: phoneDigits,
+          email: request.customerEmail || undefined,
+          country,
+        },
+      }),
     });
-    const text = await response.text();
 
-    const tokenMatch = text.match(/<TransToken>([^<]+)<\/TransToken>/);
-    const resultMatch = text.match(/<Result>([^<]+)<\/Result>/);
-
-    if (tokenMatch) {
+    // 201 = flux direct (mobile money / 3DS), 202 = checkout hébergé Bictorys
+    if (response.status === 201 || response.status === 202) {
+      const data = await response.json();
+      const checkoutUrl = data.redirectUrl || data.link;
       return {
         success: true,
         reference,
-        gatewayTransactionId: tokenMatch[1],
-        checkoutUrl: `https://secure.3gdirectpay.com/payv3.php?ID=${tokenMatch[1]}`,
+        gatewayTransactionId: data.transactionId || data.chargeId || reference,
+        checkoutUrl,
         status: 'PENDING',
-        message: 'Token DPO créé — finalisez le paiement sur la page DPO',
+        message:
+          response.status === 201
+            ? 'Paiement Bictorys initié — finalisez sur la page opérateur'
+            : 'Checkout hébergé Bictorys généré — choisissez votre moyen de paiement',
       };
     }
 
+    const data = await response.json().catch(() => ({}));
     return {
       success: false,
       reference,
       status: 'FAILED',
-      message: resultMatch?.[1] || 'Erreur DPO (réponse invalide)',
+      message: data.details || data.title || `Erreur Bictorys (HTTP ${response.status})`,
     };
   } catch (error) {
-    return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur DPO' };
+    return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur Bictorys' };
   }
 }
 

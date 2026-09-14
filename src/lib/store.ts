@@ -126,11 +126,10 @@ export type ViewType =
   | 'online-payment'
   | 'debts'
   | 'my-subscription'
-  | 'platform-control'
-  | 'dispenses'
+  | 'medical'
+  | 'parent-qr'
   | 'parents'
   | 'personalization'
-  | 'parent-qr'
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'
@@ -145,9 +144,8 @@ export type UserRole =
   | 'DISCIPLINE_SECONDAIRE'
   | 'TEACHER'
   | 'HEAD_TEACHER'
-  | 'EPS'
-  | 'MEDICAL'
   | 'PARENT'
+  | 'MEDICAL'
 
 export interface UserData {
   id: string
@@ -161,7 +159,6 @@ export interface UserData {
   classNames?: string | null
   isTitulaire?: boolean
   subscriptionTier?: string
-  schoolDesign?: { primary?: string | null; accent?: string | null; gold?: string | null } | null
 }
 
 interface EduGestStore {
@@ -202,9 +199,9 @@ interface EduGestStore {
 // ─── Initial State from localStorage ─────────────────────────────────────────
 
 function getInitialState() {
-  // Landing page retirée : l'app démarre directement sur la page de connexion.
-  // Toujours la même valeur côté serveur et client (pas d'erreur d'hydratation).
-  // La session est restaurée dans un useEffect après le montage.
+  // Always return 'login' on both server and client to avoid hydration mismatch.
+  // The landing page is disabled for security reasons — the app opens directly
+  // on the unified login form. Session is restored in a useEffect after mount.
   return { currentView: 'login' as ViewType, userRole: null as UserRole | null, userData: null as UserData | null, sidebarOpen: false };
 }
 
@@ -215,8 +212,13 @@ export function restoreSession() {
   if (token) _authToken = token;
   if (!session) return;
   const store = useEduGestStore.getState();
-  if (session.view && store.currentView === 'login') {
+  // After mount, if a valid session view exists, restore it (overriding the
+  // default 'login' view). Legacy 'home' sessions fall back to 'login' since
+  // the landing page has been removed.
+  if (session.view && session.view !== 'home') {
     store.setCurrentView((session.view || 'login') as ViewType);
+  } else if (session.view === 'home') {
+    store.setCurrentView('login');
   }
   if (session.role) store.setUserRole(session.role as UserRole);
   if (session.userData) store.setUserData(session.userData as UserData);

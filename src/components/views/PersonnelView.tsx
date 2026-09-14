@@ -28,10 +28,18 @@ export default function PersonnelView() {
   const [personnelSuggestions, setPersonnelSuggestions] = useState<AutocompleteItem[]>([])
   const [personnelSearchLoading, setPersonnelSearchLoading] = useState(false)
   const [roleFilter, setRoleFilter] = useState('')
+  // Rôle par défaut : PARENT pour les écoles FREEMIUM (seul role autorisé),
+  // SECRETARY sinon (comportement historique).
   const [form, setForm] = useState({
     name: '', email: '', phone: '', password: '', role: 'SECRETARY',
     subjectName: '', classNames: '', isTitulaire: false,
   })
+  // Ajuste le rôle par défaut si l'école est Freemium
+  useEffect(() => {
+    if (userData?.subscriptionTier === 'FREEMIUM' && form.role === 'SECRETARY') {
+      setForm(f => ({ ...f, role: 'PARENT' }))
+    }
+  }, [userData?.subscriptionTier])
   const [availableClasses, setAvailableClasses] = useState<{ id: string; name: string; _count?: { students: number } }[]>([])
   const [showAssignmentModal, setShowAssignmentModal] = useState(false)
   const [assignmentTeacher, setAssignmentTeacher] = useState<{ id: string; name: string } | null>(null)
@@ -106,7 +114,20 @@ export default function PersonnelView() {
     { value: 'DISCIPLINE_PRIMAIRE', label: 'Disc. Primaire', color: 'oklch(58% 0.18 30)' },
     { value: 'DISCIPLINE_SECONDAIRE', label: 'Disc. Secondaire', color: 'oklch(50% 0.16 0)' },
     { value: 'PARENT', label: 'Parent', color: 'oklch(52% 0.015 250)' },
+    { value: 'MEDICAL', label: 'Service Médical', color: 'oklch(60% 0.15 145)' },
   ]
+
+  // FREEMIUM : 1 admin (le SCHOOL_ADMIN créateur) et 0 professeur — seuls les
+  // comptes PARENT peuvent être créés. On retire donc tous les rôles admin
+  // (Secrétaire, Caissier, Direction, Discipline) et enseignants de la liste
+  // proposée à l'admin Freemium. Les écoles STANDARD et plus retrouvent la
+  // liste complète — y compris Secrétaire qui n'est plus interdit en Freemium
+  // par la plateforme (exclu du comptage du forfait) MAIS que l'utilisateur
+  // (admin d'école) a décidé de retirer du menu de création en Freemium.
+  const isFreemium = userData?.subscriptionTier === 'FREEMIUM'
+  const availableRoles = isFreemium
+    ? ROLES.filter(r => r.value === 'PARENT')
+    : ROLES
 
   function loadUsers() {
     setLoading(true)
@@ -252,7 +273,7 @@ export default function PersonnelView() {
 
   const activeUsers = users.filter(u => u.isActive)
   const inactiveUsers = users.filter(u => !u.isActive)
-  const roleCounts = ROLES.map(r => ({
+  const roleCounts = availableRoles.map(r => ({
     ...r,
     count: users.filter(u => u.role === r.value && u.isActive).length,
   }))
@@ -332,7 +353,7 @@ export default function PersonnelView() {
               </thead>
               <tbody>
                 {users.map(user => {
-                  const roleInfo = ROLES.find(r => r.value === user.role)
+                  const roleInfo = availableRoles.find(r => r.value === user.role)
                   return (
                     <tr key={user.id} className="border-b border-[oklch(94%_0.005_250)] hover:bg-[oklch(99%_0.003_175)] transition">
                       <td className="px-4 py-3">
@@ -430,7 +451,7 @@ export default function PersonnelView() {
               <div className="space-y-1.5">
                 <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Rôle / Poste *</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {ROLES.map(r => (
+                  {availableRoles.map(r => (
                     <button
                       key={r.value}
                       type="button"

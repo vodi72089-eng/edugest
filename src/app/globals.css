@@ -7,7 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-outfit);
+  --font-sans: var(--font-jakarta);
   --font-mono: var(--font-jetbrains);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -683,7 +683,7 @@
   font-family: var(--font-playfair), 'Playfair Display', serif;
 }
 .font-outfit {
-  font-family: var(--font-outfit), 'Outfit', sans-serif;
+  font-family: var(--font-jakarta), 'Plus Jakarta Sans', sans-serif;
 }
 .font-mono-premium {
   font-family: var(--font-jetbrains), 'JetBrains Mono', monospace;
@@ -728,7 +728,7 @@
 
 /* Tighter tracking for display headings */
 .edu-heading-display {
-  font-family: var(--font-outfit), 'Outfit', sans-serif;
+  font-family: var(--font-jakarta), 'Plus Jakarta Sans', sans-serif;
   font-weight: 800;
   letter-spacing: -0.035em;
   line-height: 1.05;
@@ -736,7 +736,7 @@
 }
 
 .edu-heading-section {
-  font-family: var(--font-outfit), 'Outfit', sans-serif;
+  font-family: var(--font-jakarta), 'Plus Jakarta Sans', sans-serif;
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.15;

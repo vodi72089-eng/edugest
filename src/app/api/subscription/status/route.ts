@@ -22,12 +22,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'École introuvable' }, { status: 404 });
     }
 
-    let daysRemaining = null;
+    let daysRemaining: number | null = null;
     if (school.subscriptionEndDate) {
       const endDate = new Date(school.subscriptionEndDate);
       const now = new Date();
-      daysRemaining = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      if (daysRemaining < 0) daysRemaining = 0;
+      const remaining = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      daysRemaining = remaining < 0 ? 0 : remaining;
     }
 
     const pendingRequest = await db.subscriptionRequest.findFirst({

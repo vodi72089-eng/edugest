@@ -146,6 +146,15 @@ export default function DisciplineView() {
     return counts
   }, [allDisciplineRecords])
 
+  const visibleChildren = useMemo(() => {
+    return myChildren.filter(c => {
+      const counts = childDisciplineCounts[c.id] || { blacklist: 0, greylist: 0, whitelist: 0, totalPoints: 0 }
+      if (tab === 'BLACKLIST') return counts.blacklist > 0
+      if (tab === 'GREYLIST') return counts.greylist > 0
+      return counts.whitelist > 0
+    })
+  }, [myChildren, childDisciplineCounts, tab])
+
   const studentSuggestions = useMemo(() => {
     if (!isDisciplineRole) return []
     if (studentSearch.length < 1) return sectionStudents.map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule }))
@@ -584,24 +593,10 @@ export default function DisciplineView() {
             <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Mes enfants</h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-            <button
-              onClick={() => { setSelectedChildId(''); setSelectedChildSearchId(null); setChildSearch('') }}
-              className={`text-left p-4 rounded-2xl border-2 transition-all duration-200 edu-card-lift ${
-                !selectedChildId ? 'border-[oklch(72%_0.15_65)] shadow-md' : 'border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.4)]'
-              }`}
-              style={{ background: !selectedChildId ? GOLD_SOFT : 'white' }}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full grid place-items-center shrink-0" style={{ background: `linear-gradient(135deg, ${GOLD}, ${ACCENT})` }}>
-                  <Users size={18} className="text-white" />
-                </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-sm truncate" style={{ color: TEXT_PRIMARY }}>Tous mes enfants</div>
-                  <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{myChildren.length} enfant{myChildren.length > 1 ? 's' : ''}</div>
-                </div>
-              </div>
-            </button>
-            {myChildren.map(child => {
+            {visibleChildren.length === 0 && (
+              <div className="col-span-full text-center py-6 text-sm" style={{ color: TEXT_MUTED_LUXE }}>Aucun enfant dans cette liste</div>
+            )}
+            {visibleChildren.map(child => {
               const fullName = `${child.firstName} ${child.lastName}`
               const initials = getInitials(fullName)
               const counts = childDisciplineCounts[child.id] || { blacklist: 0, greylist: 0, whitelist: 0, totalPoints: 0 }
@@ -723,7 +718,7 @@ export default function DisciplineView() {
         ].map(t => (
           <button
             key={t.key}
-            onClick={() => { setTab(t.key); setLoading(true) }}
+            onClick={() => { setTab(t.key); setLoading(true); if (isParent) { setSelectedChildId(''); setSelectedChildSearchId(null); setChildSearch('') } }}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-[13.5px] font-medium border-b-2 -mb-px transition ${
               tab === t.key ? 'border-current' : 'border-transparent hover:text-edu-fg'
             }`}
@@ -739,7 +734,7 @@ export default function DisciplineView() {
           <table className="w-full">
             <thead>
               <tr style={{ background: IVORY }}>
-                {!isParent && <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>}
+                {(!isParent || !selectedChildId) && <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>}
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Motif</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Type</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Date</th>
@@ -753,7 +748,7 @@ export default function DisciplineView() {
                 <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun enregistrement</td></tr>
               ) : displayRecords.map(r => (
                 <tr ref={highlightedId === r.id ? highlightedRef : undefined} key={r.id} className={`hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0 ${highlightedId === r.id ? 'edu-highlight' : ''}`}>
-                  {!isParent && (
+                  {(!isParent || !selectedChildId) && (
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
                         {r.student ? (

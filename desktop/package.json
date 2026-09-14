@@ -28,14 +28,17 @@
     ],
     "extraResources": [
       { "from": "../.next/standalone", "to": "app" },
-      { "from": "../db/desktop-template.db", "to": "template.db" }
+      { "from": "../db/desktop-template.db", "to": "template.db" },
+      { "from": "../public", "to": "app/public" }
     ],
     "win": {
       "icon": "icon.png",
       "target": [
         { "target": "nsis", "arch": ["x64"] },
         { "target": "portable", "arch": ["x64"] }
-      ]
+      ],
+      "icon": "../public/edugest-logo.png",
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": true,

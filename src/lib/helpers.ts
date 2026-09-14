@@ -64,6 +64,25 @@ export function getRoleLabel(role: UserRole): string {
   return map[role] || role
 }
 
+// Source unique de vérité pour convertir un rôle API en UserRole front.
+// Tout nouveau rôle DOIT être ajouté ici — les 3 maps de page.tsx l'utilisent.
+export const API_ROLE_MAP: Record<string, UserRole> = {
+  SUPER_ADMIN_GLOBAL: 'SUPER_ADMIN_GLOBAL',
+  SCHOOL_ADMIN: 'SCHOOL_ADMIN',
+  SECRETARY: 'SECRETARY',
+  CASHIER: 'CASHIER',
+  DIRECTION_MATERNELLE: 'DIRECTION_MATERNELLE',
+  DIRECTION_PRIMAIRE: 'DIRECTION_PRIMAIRE',
+  DIRECTION_SECONDAIRE: 'DIRECTION_SECONDAIRE',
+  DISCIPLINE_MATERNELLE: 'DISCIPLINE_MATERNELLE',
+  DISCIPLINE_PRIMAIRE: 'DISCIPLINE_PRIMAIRE',
+  DISCIPLINE_SECONDAIRE: 'DISCIPLINE_SECONDAIRE',
+  TEACHER: 'TEACHER',
+  HEAD_TEACHER: 'HEAD_TEACHER',
+  PARENT: 'PARENT',
+  MEDICAL: 'MEDICAL',
+}
+
 export function getEffectiveStatus(amount: number, paidAmount: number, storedStatus: string): string {
   if (paidAmount >= amount && amount > 0) return 'PAID'
   if (paidAmount > 0 && paidAmount < amount) return 'PARTIAL'
