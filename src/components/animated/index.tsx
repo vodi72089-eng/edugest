@@ -33,11 +33,10 @@ export function AnimatedCounter({
   const ref = useRef<HTMLSpanElement>(null)
   const inView = useInView(ref, { once: true, margin: '-40px' })
   const [display, setDisplay] = useState(0)
-  const started = useRef(false)
 
+  // Ré-anime quand la cible change (ex : stats chargées après le premier rendu)
   useEffect(() => {
-    if (!inView || started.current) return
-    started.current = true
+    if (!inView) return
     const controls = animate(0, finalTarget, {
       duration: Math.max(0.3, duration),
       ease: 'easeOut',
@@ -225,7 +224,7 @@ export function GlowCard({ children, className, glowColor, style, onClick }: Glo
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MagneticButton — bouton attiré par le curseur (effet magnétique).
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────���───────────────────────────────────────────────────────────────
 interface MagneticButtonProps {
   children: ReactNode
   className?: string

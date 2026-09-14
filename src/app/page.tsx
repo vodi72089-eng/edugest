@@ -350,6 +350,7 @@ function HomeView() {
   const [typewriterLine1, setTypewriterLine1] = useState('')
   const [typewriterLine2, setTypewriterLine2] = useState('')
   const [typewriterActiveLine, setTypewriterActiveLine] = useState<1 | 2 | null>(1)
+  const [platformStats, setPlatformStats] = useState({ schools: 0, students: 0, families: 0 })
 
   useEffect(() => {
     async function loadData() {
@@ -358,6 +359,9 @@ function HomeView() {
         const res = await fetch('/api/schools?limit=20')
         const json = await res.json()
         setSchools(json.data || [])
+        const statsRes = await fetch('/api/public/stats')
+        const statsJson = await statsRes.json()
+        if (statsJson.data) setPlatformStats(statsJson.data)
       } catch (e) {
         console.error(e)
       } finally {
@@ -630,9 +634,9 @@ function HomeView() {
           {/* Stats cards with tilt */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-3xl px-4 relative z-20">
             {[
-              { value: 240, suffix: '+', label: 'Établissements', glow: 'oklch(72% 0.15 65 / 0.3)', icon: '🏫' },
-              { value: 50000, suffix: '+', label: 'Familles', glow: 'oklch(72% 0.22 165 / 0.3)', icon: '👨‍👩‍👧‍👦' },
-              { value: 98, suffix: '%', label: 'Satisfaction', glow: 'oklch(72% 0.15 210 / 0.3)', icon: '⭐' },
+              { value: platformStats.schools, suffix: '', label: 'Établissements', glow: 'oklch(72% 0.15 65 / 0.3)', icon: '🏫' },
+              { value: platformStats.students, suffix: '', label: 'Élèves', glow: 'oklch(72% 0.22 165 / 0.3)', icon: '🎓' },
+              { value: platformStats.families, suffix: '', label: 'Familles', glow: 'oklch(72% 0.15 210 / 0.3)', icon: '👨‍👩‍👧‍👦' },
             ].map((stat) => (
               <GlowCard key={stat.label} glowColor={stat.glow}>
                 <div className="p-6 flex flex-col items-center justify-center group cursor-default">
@@ -653,9 +657,9 @@ function HomeView() {
       <section style={{ background: IVORY }} className="border-y border-[oklch(88%_0.01_175)]">
         <div className="container-premium py-4 text-center">
           <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
-            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{schools.length}+</strong> Établissement{schools.length > 1 ? 's' : ''} &nbsp;•&nbsp;{' '}
-            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>50,000+</strong> Familles &nbsp;•&nbsp;{' '}
-            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>98%</strong> Satisfaction
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{platformStats.schools}</strong> Établissement{platformStats.schools > 1 ? 's' : ''} &nbsp;•&nbsp;{' '}
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{platformStats.students}</strong> Élèves &nbsp;•&nbsp;{' '}
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{platformStats.families}</strong> Familles
           </p>
         </div>
       </section>
@@ -1779,7 +1783,6 @@ function CreateSchoolView() {
 // ===== LOGIN VIEW =====
 function LoginView() {
   const { setCurrentView, login } = useEduGestStore()
-  const [tab, setTab] = useState<'parent' | 'admin'>('parent')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -1796,22 +1799,8 @@ function LoginView() {
     fetch('/api/schools?limit=50').then(r => r.json()).then(j => setSchools(j.data || [])).catch(() => {})
   }, [])
 
-  // Vérifie que le rôle correspond à l'onglet sélectionné
-  function validateRoleForTab(role: UserRole | null): { valid: boolean; message?: string } {
-    if (!role) return { valid: false, message: 'Rôle non reconnu. Contactez l\'administration.' }
-    if (role === 'SUPER_ADMIN_GLOBAL') return { valid: true }
-    if (tab === 'parent') {
-      if (role !== 'PARENT') {
-        return { valid: false, message: 'Ce compte n\'est pas un compte parent. Veuillez utiliser l\'onglet Administration.' }
-      }
-    } else {
-      if (role === 'PARENT') {
-        return { valid: false, message: 'Ce compte est un compte parent. Veuillez utiliser l\'onglet Parent.' }
-      }
-    }
-    return { valid: true }
-  }
-
+  // Connexion unifiée : aucun indice sur le type de compte en cas d'erreur
+  // (évite de révéler qu'un email appartient à un compte admin/parent)
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!email || !password) return
@@ -1826,13 +1815,12 @@ function LoginView() {
       if (json.data) {
         const apiUser = json.data
         const role = mapApiRole(apiUser.role)
-        const validation = validateRoleForTab(role)
-        if (!validation.valid) {
-          toast.error(validation.message || 'Accès non autorisé pour ce type de compte.')
+        if (!role) {
+          // Message générique identique à un échec d'identifiants : pas de fuite d'information
+          toast.error('Email ou mot de passe incorrect')
           return
         }
-        if (role) {
-          login(role, {
+        login(role, {
             id: apiUser.id,
             name: apiUser.name,
             role,
@@ -1846,9 +1834,8 @@ function LoginView() {
             isTitulaire: apiUser.isTitulaire || false,
             subscriptionTier: apiUser.school?.subscriptionTier || 'FREEMIUM',
           }, json.data.token)
-          toast.success(`Bienvenue, ${apiUser.name}!`)
-          return
-        }
+        toast.success(`Bienvenue, ${apiUser.name}!`)
+        return
       }
       if (json.error) {
         toast.error(json.error === 'Invalid credentials' ? 'Email ou mot de passe incorrect' : json.error)
@@ -1915,31 +1902,21 @@ function LoginView() {
 
         {/* Glass morphism login card */}
         <div className="w-full max-w-[440px] rounded-2xl p-6 sm:p-8" style={{ background: 'rgba(26, 37, 32, 0.55)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5), 0 0 80px oklch(55% 0.15 175 / 0.05)' }}>
-          {/* Tab switcher */}
-          <div className="flex rounded-xl p-1 mb-6" style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-            <button onClick={() => setTab('parent')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === 'parent' ? 'text-[#0a0f0d] shadow-lg' : 'text-white/60 hover:text-white/80'}`} style={tab === 'parent' ? { background: 'oklch(55% 0.15 175)', boxShadow: '0 4px 16px oklch(55% 0.15 175 / 0.35)' } : undefined}>
-              Parent
-            </button>
-            <button onClick={() => setTab('admin')} className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === 'admin' ? 'text-[#0a0f0d] shadow-lg' : 'text-white/60 hover:text-white/80'}`} style={tab === 'admin' ? { background: 'oklch(55% 0.15 175)', boxShadow: '0 4px 16px oklch(55% 0.15 175 / 0.35)' } : undefined}>
-              Administration
-            </button>
-          </div>
-
           <div className="mb-5">
             <h2 className="text-xl font-bold text-white tracking-tight mb-1">
-              {tab === 'parent' ? 'Connexion Parent' : 'Connexion Administration'}
+              Connexion
             </h2>
             <p className="text-sm text-white/50">
-              {tab === 'parent' ? 'Accédez au suivi scolaire de vos enfants' : 'Personnel de l\'école, direction, enseignants'}
+              Parents, personnel de l&apos;école, direction et enseignants
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-white/70">{tab === 'parent' ? 'Email ou numéro WhatsApp' : 'Email professionnel'}</label>
+              <label className="text-[13px] font-medium text-white/70">Email ou numéro WhatsApp</label>
               <input
                 type="text" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder={tab === 'parent' ? 'ex. parent@email.com ou +243 81...' : 'ex. direction@ecole.cd'}
+                placeholder="ex. parent@email.com ou +243 81..."
                 className="w-full px-4 py-3.5 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)] focus:border-[oklch(55%_0.15_175_/_0.5)]"
                 style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
                 required
