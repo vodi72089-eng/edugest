@@ -1,0 +1,103 @@
+name: Build Desktop (Windows exe) → Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Generate Prisma client (moteur Windows)
+        run: bunx prisma generate
+
+      - name: Create embedded template database
+        shell: bash
+        run: |
+          # NB : Prisma résout les chemins SQLite relatifs PAR RAPPORT au
+          # dossier du schema (prisma/) — d'où "../db/".
+          mkdir -p db
+          export DATABASE_URL="file:../db/desktop-template.db"
+          bunx prisma db push --accept-data-loss --skip-generate
+          ls -la db/
+
+      - name: Build Next.js (standalone)
+        shell: bash
+        env:
+          DATABASE_URL: file:../db/desktop-template.db
+        run: |
+          set -e
+          bunx next build
+          cp -r .next/static .next/standalone/.next/
+          cp -r public .next/standalone/
+
+      - name: Build Windows executables (electron-builder)
+        shell: bash
+        run: |
+          cd desktop
+          npm install
+          npx electron-builder --win --publish never
+
+      - name: Read desktop version
+        id: version
+        shell: bash
+        run: echo "version=$(node -p "require('./desktop/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # ─── L'exe est publié DIRECTEMENT dans une Release GitHub ───
+      - name: Publish exe to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: EduGest Desktop v${{ steps.version.outputs.version }}
+          body: |
+            ## 🖥️ EduGest Desktop — application de bureau Windows
+
+            **Téléchargez et installez :**
+            - **`EduGest-Setup-${{ steps.version.outputs.version }}.exe`** — installateur Windows (recommandé)
+            - **`EduGest-Portable-${{ steps.version.outputs.version }}.exe`** — version portable, aucunement installée
+
+            ## Inclus dans cette version
+
+            - ✅ Application **100 % hors ligne** — base de données SQLite locale connectée (`%APPDATA%\EduGest\edugest.db`)
+            - ✅ Onglet **« Trouver mon école »** à la connexion + import de la base de données de l'école (`.db`)
+            - ✅ **QR codes parents** avec durée de vie paramétrable (1 h → 1 an) — le parent scanne, retrouve son enfant (classe + nom) et crée son compte
+            - ✅ Comptes parents modifiables **élève par élève** (nom d'utilisateur + mot de passe)
+            - ✅ **Bulletins & notes** au design premium (gianelli) avec **QR code unique** par document — le scan confirme que le document est **officiel**
+            - ✅ **Reçus** avec logo de l'école + logo EduGest et QR code en bas
+            - ✅ Secrétaire : accès « Mon Abonnement » masqué, non comptée dans le forfait
+            - ✅ Gestion des parents, personnalisation par école, passerelles de paiement RDC (Airtel, M-Pesa, Orange Money…)
+
+            ## Notes
+
+            - La désinstallation ne supprime **pas** les données (`%APPDATA%\EduGest\`).
+            - L'administrateur peut importer/mettre à jour sa base à tout moment depuis l'app.
+          files: desktop/dist/*.exe
+          draft: false
+          prerelease: false
+          make_latest: true
+          allowUpdates: true
+          replaces_artifacts: true
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: EduGest-Windows
+          path: |
+            desktop/dist/*.exe
+          if-no-files-found: error

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "mimosa-finding-ledger-batch/v1",
+  "batchId": "stop-20260822T194043757Z-4864-a80f92da04ec",
+  "runId": "20260822T194043757Z-4864-a80f92da04ec",
+  "runStatus": "completed",
+  "coverage": {
+    "status": "complete",
+    "reasons": []
+  },
+  "source": {
+    "component": "zcode-hook",
+    "operationId": "Stop"
+  },
+  "revision": "a51264967d81d6719be76c184de2405d2ecc6bc0",
+  "diffHash": "04d7e97eac829971d2d83998bad04d1af675424dafe6d5c7589f0f83521c2ddc",
+  "rulesVersion": "unavailable",
+  "sessionHash": "f0c440ef5526ff769509ebceba64f1aff4d002c9a7010de219e7d56bbc7b962e",
+  "reportRef": ".mimosa/reports/task-review-sess_437bf243-ddc3-4111-9556-0ff3de7c2e7b-20260822T194043757Z-4864-a80f92da04ec.json",
+  "events": [],
+  "observedFindingIds": [],
+  "verifiedFiles": [
+    {
+      "file": "whatsapp-server.js",
+      "direct": "complete",
+      "projectContext": "partial"
+    }
+  ],
+  "recordedAt": "2026-08-22T19:40:44.711Z"
+}

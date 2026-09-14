@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EduGest — Reçu de Paiement</title>
+
+  <!-- ─── Fonts : Noto Sans pour les accents français ─────────────────────────── -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+Condensed:wght@700&display=swap" rel="stylesheet">
+
+  <!-- ─── html2canvas-pro (fork sans CORS) + jsPDF ────────────────────────────── -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas-pro@2.0.4/dist/html2canvas-pro.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js"></script>
+
+  <style>
+    :root {
+      --navy: #0f172a;
+      --slate-700: #334155;
+      --slate-500: #64748b;
+      --slate-300: #cbd5e1;
+      --slate-100: #f1f5f9;
+      --gold: #b8860b;
+      --gold-light: #d4a843;
+      --green-bg: #dcfce7;
+      --green-text: #166534;
+      --yellow-bg: #fef9c3;
+      --yellow-text: #854d0e;
+      --red-bg: #fee2e2;
+      --red-text: #991b1b;
+      --gray-bg: #f3f4f6;
+      --gray-text: #374151;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Noto Sans', 'Segoe UI', Arial, sans-serif;
+      background: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px;
+    }
+
+    /* ─── Page Title ─────────────────────────────────────────── */
+    .page-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    /* ─── Receipt Card ───────────────────────────────────────── */
+    #receipt {
+      width: 794px;          /* A4 @ 96 dpi */
+      min-height: 1123px;
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.08);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Watermark */
+    #receipt::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-30deg);
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      border: 3px dashed rgba(184,134,11,.06);
+      pointer-events: none;
+    }
+
+    /* ─── Header ─────────────────────────────────────────────── */
+    .receipt-header {
+      background: linear-gradient(135deg, var(--navy) 0%, #1e293b 100%);
+      padding: 36px 48px 28px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .school-badge {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--gold), var(--gold-light));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--navy);
+      flex-shrink: 0;
+      letter-spacing: 1px;
+    }
+
+    .school-info h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.2;
+    }
+
+    .school-info p {
+      font-size: 11px;
+      color: rgba(255,255,255,.55);
+      margin-top: 4px;
+      line-height: 1.5;
+    }
+
+    .school-info .contact-line {
+      margin-top: 2px;
+    }
+
+    /* ─── Body ───────────────────────────────────────────────── */
+    .receipt-body {
+      padding: 32px 48px 20px;
+    }
+
+    .receipt-title {
+      text-align: center;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--navy);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .receipt-meta {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--slate-500);
+    }
+
+    /* ─── Status Bar ─────────────────────────────────────────── */
+    .status-bar {
+      margin: 20px 0;
+      padding: 14px 18px;
+      background: var(--slate-100);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .status-badge {
+      padding: 5px 18px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      white-space: nowrap;
+    }
+
+    .status-badge.paid     { background: var(--green-bg);  color: var(--green-text); }
+    .status-badge.partial  { background: var(--yellow-bg); color: var(--yellow-text); }
+    .status-badge.pending  { background: var(--red-bg);    color: var(--red-text); }
+    .status-badge.overdue  { background: #fecaca;          color: #7f1d1d; }
+    .status-badge.cancelled{ background: var(--gray-bg);   color: var(--gray-text); }
+
+    .status-desc {
+      font-size: 12px;
+      color: var(--slate-500);
+    }
+
+    /* ─── Section ────────────────────────────────────────────── */
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--navy);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      margin-bottom: 12px;
+      padding-left: 10px;
+      border-left: 3px solid var(--gold);
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 32px;
+      margin-bottom: 24px;
+    }
+
+    .field-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .field-label {
+      font-size: 10px;
+      color: var(--slate-500);
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+
+    .field-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--navy);
+    }
+
+    .field-value.red { color: #dc2626; }
+
+    /* ─── Divider ────────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--slate-300);
+      margin: 20px 0;
+    }
+
+    /* ─── Summary Box ────────────────────────────────────────── */
+    .summary-box {
+      background: var(--navy);
+      border-radius: 10px;
+      padding: 22px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 24px 0;
+    }
+
+    .summary-label {
+      font-size: 11px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+    }
+
+    .summary-amount {
+      font-size: 32px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: .5px;
+    }
+
+    .summary-currency {
+      font-size: 14px;
+      color: var(--gold-light);
+      font-weight: 500;
+      margin-left: 6px;
+    }
+
+    /* ─── Footer ─────────────────────────────────────────────── */
+    .receipt-footer {
+      padding: 16px 48px 28px;
+      text-align: center;
+    }
+
+    .receipt-footer hr {
+      border: none;
+      border-top: 1px solid var(--slate-300);
+      margin-bottom: 14px;
+    }
+
+    .footer-brand {
+      font-size: 11px;
+      color: var(--slate-500);
+    }
+
+    .footer-brand strong {
+      color: var(--gold);
+    }
+
+    .footer-legal {
+      font-size: 9px;
+      color: var(--slate-300);
+      margin-top: 6px;
+    }
+
+    /* ─── Download Button ────────────────────────────────────── */
+    .download-area {
+      margin-top: 28px;
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 14px 32px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all .2s;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--navy), #1e293b);
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(15,23,42,.25);
+    }
+    .btn-primary:hover { opacity: .9; transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    .btn-secondary {
+      background: #ffffff;
+      color: var(--navy);
+      border: 2px solid var(--slate-300);
+    }
+    .btn-secondary:hover { border-color: var(--gold); }
+
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── Print-friendly ─────────────────────────────────────── */
+    @media print {
+      body { background: #fff; padding: 0; }
+      .download-area, .page-title { display: none !important; }
+      #receipt { box-shadow: none; border-radius: 0; width: 100%; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <p class="page-title">Aperçu du Reçu — EduGest</p>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       RECEIPT CARD — This is the element that will be converted to PDF
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="receipt">
+    <!-- Header -->
+    <div class="receipt-header">
+      <div class="school-badge">CSL</div>
+      <div class="school-info">
+        <h2>Complexe Scolaire Lumière</h2>
+        <p>123 Av. de la Paix, Kinshasa, Kinshasa, RD Congo</p>
+        <p class="contact-line">info@lumiere.cd  |  +243 81 000 0010</p>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="receipt-body">
+      <div class="receipt-title">Reçu de Paiement</div>
+
+      <div class="receipt-meta">
+        <span>N° du reçu : <strong>REC-2026-00142</strong></span>
+        <span>Date d'émission : <strong>3 juin 2026</strong></span>
+      </div>
+
+      <!-- Status -->
+      <div class="status-bar">
+        <span class="status-badge paid">Payé</span>
+        <span class="status-desc">Le paiement a été intégralement réglé.</span>
+      </div>
+
+      <!-- Student Info -->
+      <div class="section-title">Informations de l'élève</div>
+      <div class="field-grid">
+        <div class="field-item">
+          <span class="field-label">Nom complet</span>
+          <span class="field-value">KAZADI Mutombo</span>
+        </div>
+        <div class="field-item">
+          <span class="field-label">Matricule</span>
+          <span class="field-value">MAT-2024-00001</span>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- Payment Details -->
+      <div class="section-title">Détails du paiement</div>
+      <div class="field-grid">
+        <div class="field-item">
+          <span class="field-label">Trimestre</span>
+          <span class="field-value">1er Trimestre</span>
+        </div>
+        <div class="field-item">
+          <span class="field-label">Montant dû</span>
+          <span class="field-value">150 000 CDF</span>
+        </div>
+        <div class="field-item">
+          <span class="field-label">Montant payé</span>
+          <span class="field-value">150 000 CDF</span>
+        </div>
+        <div class="field-item">
+          <span class="field-label">Reste à payer</span>
+          <span class="field-value" style="color:#16a34a;">0 CDF</span>
+        </div>
+        <div class="field-item">
+          <span class="field-label">Mode de paiement</span>
+          <span class="field-value">Mobile Money</span>
+        </div>
+        <div class="field-item">
+          <span class="field-label">Référence</span>
+          <span class="field-value">MM-20260603-8472</span>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- Summary Box -->
+      <div class="summary-box">
+        <div>
+          <div class="summary-label">Montant total payé</div>
+        </div>
+        <div>
+          <span class="summary-amount">150 000</span>
+          <span class="summary-currency">CDF</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="receipt-footer">
+      <hr>
+      <div class="footer-brand">Généré par <strong>EduGest</strong> — La plateforme de gestion scolaire</div>
+      <div class="footer-legal">Document généré automatiquement le 3 juin 2026 — Ce reçu fait foi de paiement.</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       DOWNLOAD BUTTONS
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="download-area">
+    <button id="btn-pdf" class="btn btn-primary" onclick="downloadPDF()">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Télécharger le reçu en PDF
+    </button>
+    <button class="btn btn-secondary" onclick="window.print()">
+      🖨️ Imprimer
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       JAVASCRIPT — PDF Generation with html2canvas-pro + jsPDF
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <script>
+    /**
+     * Télécharge le reçu en PDF avec html2canvas-pro + jsPDF
+     *
+     * Points clés résolus :
+     *  1. Accents français → Noto Sans via Google Fonts + useCORS
+     *  2. Résolution → scale: 3 (300 dpi équivalent)
+     *  3. Coupure → dimensions A4 exactes, une seule page
+     *  4. CORS → html2canvas-pro gère les images cross-origin
+     *  5. Marges → loggingBox ajusté pour A4 paysage/portrait
+     */
+    async function downloadPDF() {
+      const btn = document.getElementById('btn-pdf');
+      const originalHTML = btn.innerHTML;
+
+      // ── État de chargement ──────────────────────────────────
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner"></div> Génération en cours…';
+
+      try {
+        const receipt = document.getElementById('receipt');
+
+        // ── 1. Capturer le HTML en canvas haute résolution ────
+        const canvas = await html2canvas(receipt, {
+          scale: 3,                          // Résolution élevée (~300 dpi)
+          useCORS: true,                     // Autorise les images cross-origin
+          allowTaint: false,                 // Sécurité : ne pas tainted le canvas
+          logging: false,                    // Désactive les logs en console
+          backgroundColor: '#ffffff',        // Fond blanc garanti
+          width: receipt.offsetWidth,
+          height: receipt.offsetHeight,
+          windowWidth: receipt.scrollWidth,
+          windowHeight: receipt.scrollHeight,
+          // Ignorer les pseudo-éléments problématiques
+          ignoreElements: (el) => el.tagName === 'IFRAME',
+        });
+
+        // ── 2. Créer le PDF avec jsPDF ────────────────────────
+        const { jsPDF } = window.jspdf;
+
+        // Dimensions A4 en mm
+        const A4_W = 210;
+        const A4_H = 297;
+        const MARGIN = 0;  // Pas de marge — le reçu a déjà ses propres marges
+
+        // Calculer le ratio image/PDF
+        const imgWidth = A4_W - MARGIN * 2;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        // Créer le document PDF
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4',
+        });
+
+        // Convertir le canvas en image PNG
+        const imgData = canvas.toDataURL('image/png', 1.0);
+
+        // Si le contenu dépasse une page, on le compresse sur une seule page
+        const finalHeight = Math.min(imgHeight, A4_H - MARGIN * 2);
+
+        pdf.addImage(imgData, 'PNG', MARGIN, MARGIN, imgWidth, finalHeight);
+
+        // ── 3. Télécharger ────────────────────────────────────
+        const receiptNo = 'REC-2026-00142';
+        pdf.save(`recu-${receiptNo}.pdf`);
+
+        console.log('✅ PDF généré avec succès !');
+
+      } catch (error) {
+        console.error('❌ Erreur lors de la génération du PDF :', error);
+        alert('Erreur lors de la génération du PDF. Vérifiez la console pour plus de détails.');
+      } finally {
+        // ── Restaurer le bouton ────────────────────────────────
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+      }
+    }
+  </script>
+
+</body>
+</html>

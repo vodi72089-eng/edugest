@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="am-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ED1C24"/>
+      <stop offset="100%" style="stop-color:#C41019"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="44" fill="url(#am-grad)"/>
+  <!-- Airtel "a" symbol -->
+  <g transform="translate(100,72)">
+    <circle cx="0" cy="0" r="28" fill="none" stroke="white" stroke-width="4"/>
+    <text x="0" y="10" text-anchor="middle" fill="white" font-size="32" font-weight="700" font-family="Georgia,serif" font-style="italic">a</text>
+  </g>
+  <!-- "airtel" wordmark -->
+  <text x="100" y="120" text-anchor="middle" fill="white" font-size="22" font-weight="700" font-family="'Helvetica Neue',Arial,sans-serif" letter-spacing="3">airtel</text>
+  <!-- "Money" text -->
+  <text x="100" y="155" text-anchor="middle" fill="white" font-size="22" font-weight="400" font-family="'Helvetica Neue',Arial,sans-serif" letter-spacing="1">Money</text>
+</svg>
