@@ -1166,3 +1166,31 @@ Stage Summary:
 - Release https://github.com/vodi72089-eng/edugest/releases/tag/v1.1.0 contient les 2 exe (Setup ~145 Mo + Portable ~145 Mo), marquée latest
 - Tout push sur main reconstruit l'exe et met à jour la Release automatiquement (les modifications sont donc TOUJOURS dans l'exe)
 - La cause racine du piège « chemin SQLite relatif au dossier prisma » est documentée dans le workflow (commentaire)
+
+---
+Task ID: 9
+Agent: Z.ai Code (session principale)
+Task: Sécurité login + secretaire/abonnement + upgrade freemium + landing retirée + import popup + desktop v1.2.0 (sans barre menu, splash, logo) + fusion remote corrompue
+
+Work Log:
+- Découverte : le remote avait divergé (10+ commits d'une autre session : Bictorys, médical, WhatsApp custom API, login unifié, splash desktop) et ses 4 derniers builds CI avaient ÉCHEUVÉ — page.tsx corrompu (`const otif, setMotif]`, 5× `}, ighlightedId])`), double export tierAllowsParentGrades, MEDICAL dupliqué dans helpers.ts, TS18047 status route → aucun exe nouveau publié (d'où les plaintes utilisateur : barre menu toujours là, exe jamais à jour)
+- Fusion origin/main résolue : leur code (Bictorys, médical, WhatsApp) conservé + mes changements ré-appliqués
+- Corrections de leur code cassé : 6 lignes de syntaxe réparées, doublon tierAllowsParentGrades supprimé (1 seule fn = reportCardsToParents, STANDARD+), MEDICAL dupliqué retiré, narrowing daysRemaining
+- Landing page SUPPRIMÉE (HomeView effacé, toutes navigations 'home' → 'login', store initial/logout = 'login') — l'app démarre directement sur la connexion
+- Connexion unifiée conservée (leur version, sans onglets Parent/Admin ni messages révélant le rôle) + bouton « Retour » retiré
+- Import base de données : retiré du login → popup ImportDbModal DANS l'app (DashboardLayout), SCHOOL_ADMIN uniquement, flag sessionStorage posé après login réussi (email + WhatsApp), upload via Bearer token (jamais depuis la page de connexion)
+- Secrétaire : canAccessView bloque my-subscription TOUS forfaits ; freemium : Mon Abonnement retiré du menu partagé DIRECTION/SECRETARY/SUPER_ADMIN, réservé à SCHOOL_ADMIN (push conditionnel) ; DIRECTION_* : my-subscription retiré de VIEWS_BY_ROLE ; checkCanCreateUser : secrétaire exclu du comptage (not: 'SECRETARY')
+- Upgrade freemium : les comptes admin@ des 5 écoles de démo promus SECRETARY → SCHOOL_ADMIN (lae, cba, gsk = FREEMIUM ; imw, eds = STANDARD) — vérifié en UI : Mon Abonnement → Changer de formule → demande créée en base (PENDING) puis nettoyée
+- Ré-intégration des vues perdues dans leur rebuild : QR Parents (parent-qr), Gestion des Parents (parents), Personnalisation (personalization) — imports + renderView + menus (SUPER_ADMIN, SCHOOL_ADMIN, SECRETARY) + VIEWS_BY_ROLE + gating STANDARD+ (parents/personnalisation)
+- Desktop v1.2.0 : Menu.setApplicationMenu(null) + setMenuBarVisibility(false) + removeMenu() (barre EduGest/Affichage/Édition SUPPRIMÉE), splash logo officiel instantané (fenêtre frameless, animation, barre de progression), icône app square 1024×1024 (desktop/icon.png générée du logo officiel via sharp), NSIS runAfterFinish + raccourcis bureau/menu démarrer, timeout serveur 120s, garde did-fail-load
+- MCP : .mcp.json fusionné (afrotools + memory-bank + firecrawl + task-master + playwright) + @playwright/mcp installé ; memory-bank/ (projectbrief, progress, techContext) mis à jour
+- Vérifié en navigateur : login direct sans landing, popup import admin, upgrade freemium complet, secrétaire sans abonnement avec QR Parents, direction sans abonnement, super admin complet, vues Parents/QR rendues avec vraies données, 0 erreur console
+- CI : push 506a717 → build exe relancé (syntaxe réparée) → Release v1.2.0 attendue
+
+Stage Summary:
+- L'app démarre sur la connexion unifiée (plus de landing, plus d'indice de rôle)
+- Import de base = popup post-connexion admin créateur uniquement
+- Secrétaire : jamais « Mon Abonnement » (tous forfaits) + exclu du comptage freemium
+- Admin freemium : upgrade fonctionnel de bout en bout
+- Desktop v1.2.0 : sans barre menu, splash logo officiel, icône officielle, installateur complet
+- Les 4 builds CI cassés du remote sont réparés — l'exe se reconstruit à chaque push
