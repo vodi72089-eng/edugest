@@ -1217,3 +1217,28 @@ Stage Summary:
 - PAIRING CODE : TESTABLE | CONNEXION WHATSAPP RÉELLE : NON TESTÉE (nécessite que l'utilisateur saisisse le code sur un vrai téléphone)
 - 16 fichiers modifiés/créés/supprimés ; aucune modification frontend hors scope WhatsApp
 - Identifiants démo seedés (19 users) — DB git-unchanged, rien de sensible committé
+
+---
+Task ID: 10
+Agent: Z.ai Code (session principale)
+Task: Vrai logo officiel centralisé + connexion redesignée + localisation auto fiable (bouton « Me localiser » réparé) + splash desktop rapide + v1.3.0
+
+Work Log:
+- Logos centralisés depuis le VRAI logo « EDUC GEST » (ex edugest-logo-new.png) via sharp : public/edugest-logo.png (canonique 900px, 105 Ko), public/edugest-logo-mark.png (symbole seul), edugest-logo-pdf.jpg (fond blanc 800px), desktop/icon.png (symbole 1024×1024 transparent), desktop/splash-logo.png (760px)
+- src/components/BrandLogo.tsx créé (variantes full/mark + BrandLogoPlate pour fonds sombres) — toutes les références mises à jour : BrandMark (page.tsx) délègue au mark, find-child + verify/document en object-contain, favicon = mark, reçu PDF = nouvelle chaîne de candidats
+- Page de connexion redesignée : livre animé « edu-book » + titre EduGest SUPPRIMÉS, remplacés par le vrai logo sur plaque blanche (BrandLogoPlate) + slogan ; nav = symbole officiel
+- Code landing mort SUPPRIMÉ du dépôt (src/components/landing/, 23 fichiers, ~5 500 lignes) — bundle plus léger, démarrage plus rapide
+- SchoolMap réécrit : chaîne robuste GPS (navigator.geolocation, 10 s) → IP (ipwho.is puis ipapi.co, HTTPS sans clé) → Kinshasa par défaut ; bug setLocating corrigé (le spinner ne se réinitialisait plus instantanément) ; auto-localisation au montage conservée ; source affichée (« Position GPS détectée » / « Position approximative détectée automatiquement ») ; fonctionne dans l'exe Windows où navigator.geolocation échoue (pas de clé Google dans Electron)
+- Vérifié en navigateur : carte auto-centrée avec marqueur + adresse/ville/province remplis automatiquement (fallback IP actif en headless), bouton « Me localiser » fonctionnel au clic, 0 erreur console
+- Desktop v1.3.0 : splash redessiné (vrai logo sur plaque claire, halo, anneau de chargement, étapes en temps réel via executeJavaScript : base → serveur → interface, version affichée), sondage serveur 400→250 ms, disable-renderer-backgrounding + backgroundThrottling:false, duplicate win.icon corrigé (icône exe = symbole officiel), splash-logo.png ajouté aux files electron-builder
+- Régressions découvertes et réparées : (1) db/custom.db ACTIVE était VIDE (0 user) → restaurée depuis prisma/db/custom.db (19 users, 6 écoles) — admin@lae.cd reconnecté ; (2) modèles SchoolQrCode + DocumentVerification ABSENTS du schéma (perdus à la fusion) → réimportés depuis l'historique (6ecde60), db:push + generate → reçus/bulletins QR à nouveau fonctionnels (PDF reçu 233 Ko vérifié visuellement : vrai logo en haut à droite, QR de vérification en bas)
+- Fusion origin/main (2 commits : fix WhatsApp/Baileys WA-1 + sync) : conflits worklog.md (union), pnpm-lock.yaml (supprimé, bun.lock canonique), bun.lock (régénéré) — push 231861a
+- CI : push → Build Desktop → Release v1.3.0 (Setup + Portable, notes de version enrichies : logo, démarrage, localisation)
+
+Stage Summary:
+- UN seul logo officiel partout (connexion, splash, icône exe, favicon, PDF) — plus aucune version obsolète
+- La connexion s'ouvre directement sur le vrai logo EduGest (plaque blanche) — livre animé retiré
+- Localisation 100 % automatique + bouton « Me localiser » opérationnel même dans l'app desktop (fallback IP)
+- Splash desktop affiche le vrai logo + l'étape en cours — démarrage perçu immédiat, sondage plus rapide
+- Reçus/bulletins + QR parents réparés (modèles Prisma restaurés) ; DB démo restaurée (admin@lae.cd OK)
+- Release v1.3.0 publiée automatiquement avec les 2 exe
