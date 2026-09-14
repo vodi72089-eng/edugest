@@ -12,7 +12,7 @@ import StudentAvatar from '@/components/ui/StudentAvatar'
 import { FlagIcon } from '@/components/FlagIcon'
 import dynamic from 'next/dynamic'
 const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
-import { AnimatedCounter, ScrollReveal, StaggerContainer, StaggerItem, GlowCard, MagneticButton, BlurText, GradientText } from '@/components/animated'
+import { AnimatedCounter, ScrollReveal, StaggerContainer, StaggerItem, GlowCard, MagneticButton, AuroraBackground, BlurText, GradientText } from '@/components/animated'
 import SuperAdminDashboard from '@/components/dashboards/SuperAdminDashboard'
 import SchoolAdminDashboard from '@/components/dashboards/SchoolAdminDashboard'
 import SecretaryDashboard from '@/components/dashboards/SecretaryDashboard'
@@ -449,9 +449,9 @@ function HomeView() {
       const sizeScale = 0.7 + Math.random() * 1.3
 
       const colorRoll = Math.random()
-      if (colorRoll > 0.85) el.style.color = 'rgba(245, 166, 35, 0.55)'
-      else if (colorRoll > 0.70) el.style.color = 'rgba(13, 166, 120, 0.5)'
-      else el.style.color = 'rgba(23, 29, 72, 0.18)'
+      if (colorRoll > 0.85) el.style.color = '#f5a623'
+      else if (colorRoll > 0.70) el.style.color = '#10b981'
+      else el.style.color = 'rgba(255,255,255,0.25)'
 
       el.style.opacity = (0.05 + Math.random() * 0.15).toString()
 
@@ -562,88 +562,95 @@ function HomeView() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* ===== HERO SECTION — Style FINNOVA (clair, cartes nettes) ===== */}
-      <section className="relative w-full min-h-[700px] sm:min-h-[900px] flex flex-col overflow-hidden" style={{ background: 'linear-gradient(180deg, #F6F6FB 0%, #EEF0F8 100%)' }}>
+      {/* ===== HERO SECTION — Institutional Excellence ===== */}
+      <section className="relative w-full min-h-[700px] sm:min-h-[900px] flex flex-col overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+        <AuroraBackground>
         {/* Parallax floating icons container */}
         <div id="stitch-parallax-container" className="absolute inset-0 pointer-events-none overflow-hidden z-0" />
 
-        {/* Floating nav — pilule blanche */}
-        <nav className="relative z-50 flex items-center justify-between gap-4 mx-auto mt-5 px-4 sm:px-6 py-3 w-[calc(100%-2rem)] max-w-6xl rounded-full bg-white shadow-[0_8px_30px_rgba(23,29,72,0.08)] border border-[#E4E6F2]">
+        {/* Gradient overlay at bottom */}
+        <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-[#0a0f0d] via-[#0b1613]/50 to-transparent pointer-events-none z-10" />
+
+        {/* Floating nav */}
+        <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-5 sm:py-6 w-full">
           <button onClick={() => setCurrentView('home')} className="flex items-center shrink-0 min-w-max">
-            <BrandMark height={44} className="hover:scale-105 transition-all duration-300" />
+            <BrandMark height={56} className="brightness-110 hover:scale-105 transition-all duration-300" />
           </button>
-          <div className="hidden md:flex items-center gap-2 bg-[#F3F4FA] rounded-full p-1">
-            <button onClick={() => setCurrentView('home')} className="px-4 py-2 rounded-full text-[13px] font-semibold text-[#171D48] bg-white shadow-sm">Écoles</button>
-            <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className="px-4 py-2 rounded-full text-[13px] font-semibold text-[#6B7094] hover:text-[#171D48] transition-colors">Fonctionnalités</button>
-            <button onClick={() => setCurrentView('pricing')} className="px-4 py-2 rounded-full text-[13px] font-semibold text-[#6B7094] hover:text-[#171D48] transition-colors">Tarifs</button>
+          <div className="hidden md:flex items-center gap-12">
+            <button onClick={() => setCurrentView('home')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Écoles</button>
+            <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Fonctionnalités</button>
+            <button onClick={() => setCurrentView('pricing')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Tarifs</button>
           </div>
-          <button onClick={() => setCurrentView('login')} className="bg-[#0DA678] hover:bg-[#0B9168] text-white px-6 sm:px-8 py-2.5 rounded-full font-bold text-sm transition-all shadow-[0_6px_18px_rgba(13,166,120,0.35)] active:scale-95 cursor-pointer">
+          <button onClick={() => setCurrentView('login')} className="bg-[#f5a623] hover:bg-[#ffb643] hover:shadow-[0_0_30px_rgba(245,166,35,0.4)] text-[#0a0f0d] px-8 sm:px-10 py-3 sm:py-3.5 rounded-full font-extrabold text-sm transition-all shadow-[0_10px_30px_rgba(245,166,35,0.2)] active:scale-95 cursor-pointer">
             Se connecter
           </button>
         </nav>
 
         {/* Main hero content */}
-        <main className="relative z-10 flex flex-col items-center justify-center flex-grow px-4 text-center mt-[-20px]">
+        <main className="relative z-10 flex flex-col items-center justify-center flex-grow px-4 text-center mt-[-40px]">
           {/* Typewriter title */}
           <div className="mb-10 sm:mb-14 flex flex-col items-center relative">
-            <h1 className="text-5xl sm:text-6xl md:text-[6rem] font-black text-[#171D48] leading-[1.05] tracking-tighter mb-6 sm:mb-8 relative inline-block mx-auto select-none" style={{ minHeight: '140px' }}>
+            <h1 className="text-5xl sm:text-6xl md:text-[6.5rem] font-black text-white leading-[1.05] tracking-tighter mb-6 sm:mb-8 relative inline-block mx-auto select-none" style={{ minHeight: '140px' }}>
               <span id="typewriter-line-1" className="inline-block relative">{typewriterLine1}{typewriterActiveLine === 1 && <span className="animate-pulse">|</span>}</span>
               <br />
-              <span className="italic font-playfair inline-block relative" style={{ color: '#0DA678' }}>{typewriterLine2}{typewriterActiveLine === 2 && <span className="animate-pulse">|</span>}</span>
+              <span className="italic font-playfair inline-block relative" style={{ color: '#f5a623', textShadow: '0 0 25px rgba(245, 166, 35, 0.5), 0 0 50px rgba(245, 166, 35, 0.2)' }}>{typewriterLine2}{typewriterActiveLine === 2 && <span className="animate-pulse">|</span>}</span>
             </h1>
-            <p className="text-[#6B7094] text-base sm:text-lg md:text-xl max-w-2xl mx-auto font-medium leading-relaxed">
+            <p className="text-gray-300 text-base sm:text-lg md:text-xl max-w-2xl mx-auto font-medium leading-relaxed opacity-80">
               <BlurText text="La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants pour un avenir meilleur." delay={60} stepDuration={0.4} />
             </p>
           </div>
 
-          {/* Search bar — carte blanche */}
+          {/* Glass morphism search bar */}
           <div className="w-full max-w-4xl mb-16 sm:mb-24 relative z-20">
-            <div className="p-2 rounded-3xl flex flex-col md:flex-row items-center gap-3 bg-white border border-[#E4E6F2] shadow-[0_16px_50px_rgba(23,29,72,0.10)]">
+            <div className="p-2 rounded-2xl flex flex-col md:flex-row items-center gap-3 shadow-2xl border-white/10" style={{ background: 'rgba(26, 37, 32, 0.4)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)' }}>
               <div className="flex items-center flex-grow w-full px-4 sm:px-6 gap-4">
-                <Search size={20} className="text-[#9CA1C0] shrink-0" />
+                <Search size={20} className="text-gray-400 shrink-0" />
                 <input
                   type="text" placeholder="Rechercher une école par nom..."
                   value={search} onChange={e => setSearch(e.target.value)}
-                  className="w-full bg-transparent border-none text-[#171D48] py-4 text-base sm:text-lg font-medium placeholder-[#9CA1C0] tracking-tight outline-none"
+                  className="w-full bg-transparent border-none text-white py-4 text-base sm:text-lg font-medium placeholder-gray-500 tracking-tight outline-none"
                 />
               </div>
-              <div className="hidden md:block h-10 w-px bg-[#E4E6F2] mx-1" />
+              <div className="hidden md:block h-10 w-px bg-white/10 mx-1" />
               <div className="flex items-center w-full md:w-auto gap-3 px-2 md:px-0">
                 <div className="relative flex-grow md:flex-grow-0">
                   <select
                     value={province} onChange={e => setProvince(e.target.value)}
-                    className="w-full md:w-48 bg-[#F3F4FA] text-[#171D48] border border-[#E4E6F2] rounded-2xl px-5 py-4 text-sm font-bold cursor-pointer hover:bg-[#ECEEF7] transition-all appearance-none outline-none"
+                    className="w-full md:w-48 bg-white/5 text-white border border-white/10 rounded-xl px-5 py-4 text-sm font-bold cursor-pointer hover:bg-white/10 transition-all appearance-none outline-none backdrop-blur-md"
                   >
-                    {PROVINCES.map(p => <option key={p} value={p} className="bg-white text-[#171D48]">{p}</option>)}
+                    {PROVINCES.map(p => <option key={p} value={p} className="bg-[#0a0f0d] text-white">{p}</option>)}
                   </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#9CA1C0]">
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                   </div>
                 </div>
-                <button className="w-full md:w-auto bg-[#0DA678] text-white px-10 py-4 rounded-2xl font-extrabold text-sm uppercase tracking-widest hover:bg-[#0B9168] active:scale-95 transition-all shadow-[0_8px_20px_rgba(13,166,120,0.3)] whitespace-nowrap cursor-pointer">
+                <button className="w-full md:w-auto bg-[#f5a623] text-[#0a0f0d] px-10 py-4 rounded-xl font-extrabold text-sm uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)] whitespace-nowrap cursor-pointer">
                   Rechercher
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Stats cards — cartes blanches nettes */}
+          {/* Stats cards with tilt */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-3xl px-4 relative z-20">
             {[
-              { value: platformStats.schools, suffix: '', label: 'Établissements', icon: '🏫' },
-              { value: platformStats.students, suffix: '', label: 'Élèves', icon: '🎓' },
-              { value: platformStats.families, suffix: '', label: 'Familles', icon: '👨‍👩‍👧‍👦' },
+              { value: platformStats.schools, suffix: '', label: 'Établissements', glow: 'oklch(72% 0.15 65 / 0.3)', icon: '🏫' },
+              { value: platformStats.students, suffix: '', label: 'Élèves', glow: 'oklch(72% 0.22 165 / 0.3)', icon: '🎓' },
+              { value: platformStats.families, suffix: '', label: 'Familles', glow: 'oklch(72% 0.15 210 / 0.3)', icon: '👨‍👩‍👧‍👦' },
             ].map((stat) => (
-              <div key={stat.label} className="p-6 flex flex-col items-center justify-center group cursor-default rounded-3xl bg-white border border-[#E4E6F2] shadow-[0_10px_35px_rgba(23,29,72,0.07)] hover:shadow-[0_16px_45px_rgba(13,166,120,0.15)] hover:-translate-y-1 transition-all duration-300">
-                <span className="text-2xl mb-2">{stat.icon}</span>
-                <span className="text-3xl font-black text-[#171D48] tracking-tighter mb-1.5 group-hover:text-[#0DA678] transition-colors duration-300">
-                  <AnimatedCounter target={stat.value} suffix={stat.suffix} duration={2.5} />
-                </span>
-                <span className="text-[9px] text-[#9CA1C0] uppercase tracking-[0.3em] font-extrabold group-hover:text-[#171D48] transition-colors duration-300">{stat.label}</span>
-              </div>
+              <GlowCard key={stat.label} glowColor={stat.glow}>
+                <div className="p-6 flex flex-col items-center justify-center group cursor-default">
+                  <span className="text-2xl mb-2">{stat.icon}</span>
+                  <span className="text-3xl font-black text-white tracking-tighter mb-1.5 group-hover:text-[#f5a623] transition-colors duration-500">
+                    <AnimatedCounter target={stat.value} suffix={stat.suffix} duration={2.5} />
+                  </span>
+                  <span className="text-[9px] text-gray-400 uppercase tracking-[0.3em] font-extrabold group-hover:text-white transition-colors duration-500">{stat.label}</span>
+                </div>
+              </GlowCard>
             ))}
           </div>
         </main>
+        </AuroraBackground>
       </section>
 
       {/* ===== TRUST SIGNALS BAR ===== */}
@@ -1855,13 +1862,18 @@ function LoginView() {
 
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ background: 'linear-gradient(180deg, #F6F6FB 0%, #EEF0F8 100%)' }}>
+    <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+      {/* Gradient overlays */}
+      <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-[#0a0f0d] via-[#0b1613]/50 to-transparent pointer-events-none z-10" />
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] opacity-15 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, oklch(72% 0.15 65 / 0.3), transparent 70%)' }} />
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] opacity-10 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, oklch(60% 0.15 145 / 0.2), transparent 70%)' }} />
+
       {/* Top nav bar */}
       <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-5 w-full">
         <button onClick={() => setCurrentView('home')} className="flex items-center shrink-0 min-w-max">
-          <BrandMark height={48} className="hover:scale-105 transition-all duration-300" />
+          <BrandMark height={48} className="brightness-110 hover:scale-105 transition-all duration-300" />
         </button>
-        <button onClick={() => setCurrentView('home')} className="text-[#6B7094] hover:text-[#171D48] transition-colors text-xs font-bold uppercase tracking-[0.2em] flex items-center gap-1.5">
+        <button onClick={() => setCurrentView('home')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em] flex items-center gap-1.5">
           <ArrowLeft size={14} /> Retour
         </button>
       </nav>
@@ -1879,84 +1891,86 @@ function LoginView() {
             <div className="edu-book__pg edu-book__pg--5"></div>
           </div>
           <div>
-            <h1 className="text-3xl sm:text-4xl font-black text-[#171D48] tracking-tight mb-2">
-              Edu<span style={{ color: '#0DA678' }}>Gest</span>
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight mb-2">
+              Edu<span style={{ color: 'oklch(72% 0.15 65)', textShadow: '0 0 20px oklch(72% 0.15 65 / 0.4)' }}>Gest</span>
             </h1>
-            <p className="text-[#6B7094] text-sm sm:text-base font-medium">
+            <p className="text-white/50 text-sm sm:text-base font-medium">
               La plateforme de gestion scolaire
             </p>
           </div>
         </div>
 
-        {/* Login card — blanche, style FINNOVA */}
-        <div className="w-full max-w-[440px] rounded-3xl p-6 sm:p-8 bg-white border border-[#E4E6F2] shadow-[0_20px_60px_rgba(23,29,72,0.10)]">
+        {/* Glass morphism login card */}
+        <div className="w-full max-w-[440px] rounded-2xl p-6 sm:p-8" style={{ background: 'rgba(26, 37, 32, 0.55)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5), 0 0 80px oklch(55% 0.15 175 / 0.05)' }}>
           <div className="mb-5">
-            <h2 className="text-xl font-bold text-[#171D48] tracking-tight mb-1">
+            <h2 className="text-xl font-bold text-white tracking-tight mb-1">
               Connexion
             </h2>
-            <p className="text-sm text-[#6B7094]">
+            <p className="text-sm text-white/50">
               Parents, personnel de l&apos;école, direction et enseignants
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-[#3E4468]">Email ou numéro WhatsApp</label>
+              <label className="text-[13px] font-medium text-white/70">Email ou numéro WhatsApp</label>
               <input
                 type="text" value={email} onChange={e => setEmail(e.target.value)}
                 placeholder="ex. parent@email.com ou +243 81..."
-                className="w-full px-4 py-3.5 rounded-2xl text-sm text-[#171D48] bg-[#F3F4FA] border border-[#E4E6F2] outline-none transition focus:ring-[3px] focus:ring-[rgba(13,166,120,0.15)] focus:border-[#0DA678] placeholder:text-[#9CA1C0]"
+                className="w-full px-4 py-3.5 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)] focus:border-[oklch(55%_0.15_175_/_0.5)]"
+                style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
                 required
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[13px] font-medium text-[#3E4468]">Mot de passe</label>
+              <label className="text-[13px] font-medium text-white/70">Mot de passe</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3.5 pr-11 rounded-2xl text-sm text-[#171D48] bg-[#F3F4FA] border border-[#E4E6F2] outline-none transition focus:ring-[3px] focus:ring-[rgba(13,166,120,0.15)] focus:border-[#0DA678]"
+                  className="w-full px-4 py-3.5 pr-11 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)] focus:border-[oklch(55%_0.15_175_/_0.5)]"
+                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA1C0] hover:text-[#171D48] transition p-1"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition p-1"
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
             <div className="flex items-center justify-between text-[13px]">
-              <label className="flex items-center gap-2 cursor-pointer text-[#6B7094]">
-                <input type="checkbox" className="accent-[#0DA678] rounded" /> Se souvenir de moi
+              <label className="flex items-center gap-2 cursor-pointer text-white/50">
+                <input type="checkbox" className="accent-[oklch(55%_0.15_175)] rounded" /> Se souvenir de moi
               </label>
-              <button type="button" className="font-medium hover:underline" style={{ color: '#0DA678' }}>Mot de passe oublié ?</button>
+              <button type="button" className="font-medium hover:underline" style={{ color: 'oklch(72% 0.15 65 / 0.8)' }}>Mot de passe oublié ?</button>
             </div>
-            <button type="submit" disabled={loading} className="w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98] text-white" style={{ background: '#0DA678', boxShadow: '0 8px 20px rgba(13,166,120,0.3)' }}>
+            <button type="submit" disabled={loading} className="w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]" style={{ background: 'oklch(55% 0.15 175)', color: 'oklch(97% 0.005 175)', boxShadow: '0 4px 16px oklch(55% 0.15 175 / 0.25)' }}>
               {loading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Se connecter'}
             </button>
           </form>
 
-          <div className="flex items-center gap-3 my-5 text-xs uppercase tracking-wider text-[#9CA1C0]">
-            <div className="flex-1 h-px bg-[#E4E6F2]" /> ou <div className="flex-1 h-px bg-[#E4E6F2]" />
+          <div className="flex items-center gap-3 my-5 text-xs uppercase tracking-wider text-white/40">
+            <div className="flex-1 h-px bg-white/10" /> ou <div className="flex-1 h-px bg-white/10" />
           </div>
 
           <button
             onClick={() => { setShowWhatsappModal(true); setWaStep('phone'); setWaPhone(''); setWaCode('') }}
-            className="w-full py-3.5 rounded-2xl text-white font-semibold text-sm flex items-center justify-center gap-2 transition hover:opacity-90 hover:shadow-lg"
-            style={{ background: '#25D366', boxShadow: '0 6px 16px rgba(37,211,102,0.25)' }}
+            className="w-full py-3.5 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 transition hover:opacity-90 hover:shadow-lg"
+            style={{ background: 'oklch(60% 0.15 145)', boxShadow: '0 4px 12px oklch(60% 0.15 145 / 0.2)' }}
           >
             <svg viewBox="0 0 24 24" width="18" height="18" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> Se connecter avec WhatsApp
           </button>
 
-          <p className="text-center text-[13px] mt-5 text-[#6B7094]">
-            Pas encore de compte ? <button onClick={() => setCurrentView('create-school')} className="font-semibold hover:underline" style={{ color: '#0DA678' }}>Créer mon école</button>
+          <p className="text-center text-[13px] mt-5 text-white/50">
+            Pas encore de compte ? <button onClick={() => setCurrentView('create-school')} className="font-medium hover:underline" style={{ color: 'oklch(72% 0.15 65 / 0.8)' }}>Créer mon école</button>
           </p>
         </div>
 
         {/* Trust indicators below form */}
-        <div className="flex items-center gap-6 sm:gap-8 text-[#9CA1C0] text-xs font-medium">
+        <div className="flex items-center gap-6 sm:gap-8 text-white/30 text-xs font-medium">
           <div className="flex items-center gap-1.5"><Shield size={14} /> Sécurisé</div>
           <div className="flex items-center gap-1.5"><Globe size={14} /> Afrique</div>
           <div className="flex items-center gap-1.5"><Award size={14} /> Certifié</div>
@@ -1964,7 +1978,7 @@ function LoginView() {
       </main>
 
       {/* Footer */}
-      <div className="relative z-20 text-center text-[13px] text-[#9CA1C0] py-5">
+      <div className="relative z-20 text-center text-[13px] text-white/30 py-5">
         © 2026 EduGest · Kinshasa · Dakar · Abidjan
       </div>
 
