@@ -134,5 +134,14 @@
       "sharp",
       "unrs-resolver"
     ]
-  }
+  },
+  "trustedDependencies": [
+    "@parcel/watcher",
+    "@swc/core",
+    "core-js",
+    "es5-ext",
+    "protobufjs",
+    "tree-sitter-bash",
+    "unrs-resolver"
+  ]
 }
