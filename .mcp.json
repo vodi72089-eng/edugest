@@ -3,6 +3,10 @@
     "afrotools": {
       "type": "http",
       "url": "https://mcp.afro.tools"
+    },
+    "memory-bank": {
+      "command": "npx",
+      "args": ["memory-bank-mcp", "serve", "--path", "."]
     }
   }
 }
