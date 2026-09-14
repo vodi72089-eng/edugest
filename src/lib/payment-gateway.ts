@@ -95,7 +95,7 @@ export const GATEWAY_INFO: Record<GatewayType, {
     supportedCurrencies: ['USD', 'NGN', 'GHS', 'KES', 'XOF', 'CDF', 'ZAR'],
     supportedMethods: ['card', 'mobile_money', 'bank_transfer'],
     icon: '🌊',
-    logo: '/logos/payment/flutterwave.png',
+    logo: '/logos/payment/flutterwave.svg',
     requiresWebhook: true,
   },
   BICTORYS: {

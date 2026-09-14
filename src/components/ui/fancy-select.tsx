@@ -2,11 +2,15 @@
 
 import * as React from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { Check, ChevronDown } from 'lucide-react'
+import { Check, ChevronDown, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // Drop-in replacement for native <select>: keeps the value/onChange(e.target.value)
 // contract and accepts <option> children, but renders a shadcn-style dropdown.
+// Long lists (>= SEARCH_THRESHOLD options) get a search input, like the
+// student picker used in the payment flow.
+
+const SEARCH_THRESHOLD = 8
 
 type OptionLike = { value: string; label: React.ReactNode; disabled?: boolean }
 
@@ -23,6 +27,16 @@ function collectOptions(children: React.ReactNode): OptionLike[] {
     out.push({ value: props.value ?? '', label: props.children, disabled: props.disabled })
   })
   return out
+}
+
+function optionText(label: React.ReactNode): string {
+  if (label === null || label === undefined || typeof label === 'boolean') return ''
+  if (typeof label === 'string' || typeof label === 'number') return String(label)
+  if (Array.isArray(label)) return label.map(optionText).join(' ')
+  if (React.isValidElement(label)) {
+    return optionText((label.props as { children?: React.ReactNode }).children)
+  }
+  return ''
 }
 
 export interface FancySelectProps {
@@ -43,9 +57,21 @@ export const FancySelect = React.forwardRef<HTMLButtonElement, FancySelectProps>
     const options = React.useMemo(() => collectOptions(children), [children])
     const current = value !== undefined ? String(value) : undefined
     const selected = options.find((o) => o.value === current)
+    const searchable = options.length >= SEARCH_THRESHOLD
+    const [search, setSearch] = React.useState('')
+    const searchRef = React.useRef<HTMLInputElement>(null)
+
+    const filtered = React.useMemo(() => {
+      if (!searchable || !search.trim()) return options
+      const q = search.toLowerCase()
+      return options.filter((o) => {
+        const text = optionText(o.label)
+        return o.value.toLowerCase().includes(q) || text.toLowerCase().includes(q)
+      })
+    }, [options, search, searchable])
 
     return (
-      <DropdownMenu.Root>
+      <DropdownMenu.Root onOpenChange={(open) => { if (!open) setSearch('') }}>
         <DropdownMenu.Trigger asChild>
           <button
             ref={ref}
@@ -70,31 +96,62 @@ export const FancySelect = React.forwardRef<HTMLButtonElement, FancySelectProps>
           <DropdownMenu.Content
             position="popper"
             sideOffset={5}
+            onOpenAutoFocus={(e) => {
+              if (searchable) {
+                e.preventDefault()
+                requestAnimationFrame(() => searchRef.current?.focus())
+              }
+            }}
+            onCloseAutoFocus={(e) => { if (searchable) e.preventDefault() }}
             className="z-[100] min-w-[var(--radix-dropdown-menu-trigger-width)] max-h-72 overflow-y-auto rounded-xl border border-[oklch(90%_0.01_175)] bg-white p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.14)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
           >
-            {options.map((opt) => {
-              const isSelected = opt.value === current
-              return (
-                <DropdownMenu.Item
-                  key={opt.value || `opt-${opt.label}`}
-                  disabled={opt.disabled}
-                  onSelect={() => {
-                    onChange?.({ target: { value: opt.value } })
-                  }}
-                  className={cn(
-                    'flex cursor-pointer select-none items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm outline-none transition-colors',
-                    'focus:bg-[oklch(95%_0.02_175)] data-[highlighted]:bg-[oklch(95%_0.02_175)]',
-                    isSelected
-                      ? 'bg-[oklch(96%_0.03_90)] font-semibold text-[oklch(45%_0.1_80)]'
-                      : 'text-foreground',
-                    opt.disabled && 'opacity-40 cursor-not-allowed'
-                  )}
-                >
-                  <span className="truncate">{opt.label}</span>
-                  {isSelected && <Check className="h-4 w-4 shrink-0 text-[oklch(60%_0.14_80)]" />}
-                </DropdownMenu.Item>
-              )
-            })}
+            {searchable && (
+              <div
+                // Keep keystrokes away from the menu's typeahead/close handlers
+                onKeyDown={(e) => e.stopPropagation()}
+                onSelect={(e) => e.preventDefault()}
+                className="sticky top-0 z-10 bg-white px-1 pb-1.5 pt-0.5"
+              >
+                <div className="flex items-center gap-2 rounded-lg border border-[oklch(90%_0.01_175)] bg-[oklch(98%_0.005_175)] px-2.5 py-1.5 focus-within:border-[oklch(72%_0.15_65_/_0.5)] focus-within:ring-2 focus-within:ring-[oklch(72%_0.15_65_/_0.3)]">
+                  <Search className="h-3.5 w-3.5 shrink-0 text-[oklch(55%_0.02_175)]" />
+                  <input
+                    ref={searchRef}
+                    autoFocus
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Rechercher..."
+                    className="w-full border-0 bg-transparent text-sm outline-none placeholder:text-[oklch(55%_0.02_175)]"
+                  />
+                </div>
+              </div>
+            )}
+            {filtered.length === 0 ? (
+              <div className="px-3 py-4 text-center text-[13px] text-muted-foreground">Aucun résultat</div>
+            ) : (
+              filtered.map((opt) => {
+                const isSelected = opt.value === current
+                return (
+                  <DropdownMenu.Item
+                    key={opt.value || `opt-${opt.label}`}
+                    disabled={opt.disabled}
+                    onSelect={() => {
+                      onChange?.({ target: { value: opt.value } })
+                    }}
+                    className={cn(
+                      'flex cursor-pointer select-none items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm outline-none transition-colors',
+                      'focus:bg-[oklch(95%_0.02_175)] data-[highlighted]:bg-[oklch(95%_0.02_175)]',
+                      isSelected
+                        ? 'bg-[oklch(96%_0.03_90)] font-semibold text-[oklch(45%_0.1_80)]'
+                        : 'text-foreground',
+                      opt.disabled && 'opacity-40 cursor-not-allowed'
+                    )}
+                  >
+                    <span className="truncate">{opt.label}</span>
+                    {isSelected && <Check className="h-4 w-4 shrink-0 text-[oklch(60%_0.14_80)]" />}
+                  </DropdownMenu.Item>
+                )
+              })
+            )}
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
