@@ -28,14 +28,33 @@
       "splash-logo.png"
     ],
     "extraResources": [
-      { "from": "../.next/standalone", "to": "app" },
-      { "from": "../db/desktop-template.db", "to": "template.db" },
-      { "from": "../public", "to": "app/public" }
+      {
+        "from": "../.next/standalone",
+        "to": "app"
+      },
+      {
+        "from": "../db/desktop-template.db",
+        "to": "template.db"
+      },
+      {
+        "from": "../public",
+        "to": "app/public"
+      }
     ],
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "icon.png",
       "signAndEditExecutable": false
@@ -52,6 +71,16 @@
     },
     "portable": {
       "artifactName": "EduGest-Portable-${version}.exe"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "vodi72089-eng",
+        "repo": "edugest"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }

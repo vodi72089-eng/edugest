@@ -23,7 +23,23 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const https = require('https');
 const net = require('net');
+
+/** Mise à jour auto (NSIS installé). Chargé uniquement en mode packagé. */
+let autoUpdater = null;
+try {
+  if (app.isPackaged) {
+    ({ autoUpdater } = require('electron-updater'));
+  }
+} catch (e) {
+  console.warn('[edugest-desktop] electron-updater indisponible :', e.message);
+}
+
+/** Version portable ? (l'auto-update silencieuse ne marche que sur la version installée NSIS) */
+function isPortable() {
+  return Boolean(process.env.PORTABLE_EXECUTABLE_DIR);
+}
 
 // Réactivité maximale de l'UI (utile sur petites machines / HDD)
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
@@ -211,6 +227,7 @@ function createWindow(port) {
     closeSplash();
     mainWindow.show();
     mainWindow.focus();
+    setupAutoUpdate();
   });
   // Sécurité : si l'UI plante au chargement, ne pas laisser un écran noir
   mainWindow.webContents.on('did-fail-load', () => {
@@ -221,6 +238,138 @@ function createWindow(port) {
     return { action: 'deny' };
   });
   mainWindow.on('closed', () => { mainWindow = null; });
+}
+
+// ─── Mises à jour automatiques (style opencode) ──────────────────────────────
+//
+// Version INSTALLÉE (NSIS) : electron-updater télécharge la MAJ en arrière-plan
+// et propose de redémarrer. Les données (%APPDATA%/EduGest/edugest.db) ne sont
+// JAMAIS touchées : l'installeur ne remplace que le code dans Program Files.
+//
+// Version PORTABLE : pas de MAJ silencieuse possible → on prévient l'utilisateur
+// et on ouvre la page de la release GitHub pour télécharger le nouvel exe.
+
+const UPDATE_CHECK_DELAY_MS = 8000;
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+function compareVersions(a, b) {
+  const pa = String(a).replace(/^v/, '').split('.').map(Number);
+  const pb = String(b).replace(/^v/, '').split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i] || 0, y = pb[i] || 0;
+    if (x > y) return 1;
+    if (x < y) return -1;
+  }
+  return 0;
+}
+
+function checkPortableUpdate(manual = false) {
+  const req = https.get({
+    hostname: 'api.github.com',
+    path: '/repos/vodi72089-eng/edugest/releases/latest',
+    headers: { 'User-Agent': 'EduGest-Desktop', Accept: 'application/vnd.github+json' },
+  }, (res) => {
+    let body = '';
+    res.on('data', (c) => { body += c; });
+    res.on('end', () => {
+      try {
+        const rel = JSON.parse(body);
+        const latest = String(rel.tag_name || '').replace(/^v/, '');
+        if (!latest) return;
+        if (compareVersions(latest, app.getVersion()) <= 0) {
+          if (manual) dialog.showMessageBox(mainWindow, { type: 'info', title: 'EduGest', message: `Vous êtes à jour (v${app.getVersion()}).` });
+          return;
+        }
+        dialog.showMessageBox(mainWindow, {
+          type: 'info',
+          title: 'Mise à jour EduGest',
+          message: `Une nouvelle version est disponible (v${latest}).`,
+          detail: 'Vos données sont conservées. Télécharger la nouvelle version portable ?',
+          buttons: ['Télécharger', 'Plus tard'],
+          defaultId: 0,
+          cancelId: 1,
+        }).then(({ response }) => {
+          if (response === 0 && rel.html_url) shell.openExternal(rel.html_url);
+        });
+      } catch {}
+    });
+  });
+  req.on('error', () => {});
+  req.setTimeout(10000, () => req.destroy());
+}
+
+function setupAutoUpdate() {
+  if (!app.isPackaged || !mainWindow || mainWindow.isDestroyed()) return;
+
+  // — Version portable : simple notification + lien GitHub —
+  if (isPortable() || !autoUpdater) {
+    if (isPortable()) setTimeout(() => checkPortableUpdate(false), UPDATE_CHECK_DELAY_MS);
+    return;
+  }
+
+  // — Version installée : MAJ auto façon opencode —
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+
+  autoUpdater.on('update-available', (info) => {
+    log('Mise à jour disponible :', info.version);
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Mise à jour EduGest',
+      message: `Une nouvelle version est disponible (v${info.version}).`,
+      detail: 'Vos données (élèves, notes, paiements) sont conservées. Voulez-vous la télécharger maintenant ?',
+      buttons: ['Télécharger', 'Plus tard'],
+      defaultId: 0,
+      cancelId: 1,
+    }).then(({ response }) => {
+      if (response === 0) {
+        log('Téléchargement de la mise à jour…');
+        autoUpdater.downloadUpdate().catch((e) => log('Échec téléchargement MAJ :', e.message));
+      }
+    });
+  });
+
+  autoUpdater.on('download-progress', (p) => {
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setProgressBar(p.percent / 100);
+        mainWindow.setTitle(`EduGest — mise à jour ${Math.round(p.percent)} %`);
+      }
+    } catch {}
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    log('Mise à jour téléchargée :', info.version);
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setProgressBar(-1);
+        mainWindow.setTitle('EduGest');
+      }
+    } catch {}
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Mise à jour prête',
+      message: 'La mise à jour est téléchargée.',
+      detail: 'Redémarrer EduGest maintenant pour l\u2019installer ? Vos données sont conservées.',
+      buttons: ['Redémarrer et installer', 'Plus tard'],
+      defaultId: 0,
+      cancelId: 1,
+    }).then(({ response }) => {
+      if (response === 0) {
+        try { if (serverProcess) serverProcess.kill(); } catch {}
+        autoUpdater.quitAndInstall(false, true);
+      }
+    });
+  });
+
+  autoUpdater.on('update-not-available', () => log('EduGest est à jour.'));
+  autoUpdater.on('error', (e) => log('Erreur vérification MAJ (ignorée) :', e.message));
+
+  const doCheck = () => {
+    autoUpdater.checkForUpdates().catch((e) => log('Check MAJ impossible :', e.message));
+  };
+  setTimeout(doCheck, UPDATE_CHECK_DELAY_MS);
+  setInterval(doCheck, UPDATE_CHECK_INTERVAL_MS);
 }
 
 // ─── Démarrage ───────────────────────────────────────────────────────────────
