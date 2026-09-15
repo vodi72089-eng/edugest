@@ -8,6 +8,7 @@ import type { UserRole } from '@/lib/types'
 import { UserPlus, Edit, Ban, CheckCircle, Eye, EyeOff, X, UsersRound, Award, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete, { AutocompleteItem } from './SearchAutocomplete'
+import AppSelect from '@/components/ui/AppSelect'
 
 export default function PersonnelView() {
   const { userData } = useEduGestStore()
@@ -625,17 +626,11 @@ export default function PersonnelView() {
                 <div className="space-y-3">
                   <div>
                     <label className="text-[12px] font-medium mb-1 block" style={{ color: TEXT_PRIMARY }}>Classe *</label>
-                    <select value={assignClassId} onChange={e => setAssignClassId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                      <option value="">Sélectionner une classe</option>
-                      {availableClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+                    <AppSelect value={assignClassId} onChange={setAssignClassId} placeholder="Sélectionner une classe" options={[{ value: '', label: 'Sélectionner une classe' }, ...availableClasses.map(c => ({ value: c.id, label: c.name }))]} />
                   </div>
                   <div>
                     <label className="text-[12px] font-medium mb-1 block" style={{ color: TEXT_PRIMARY }}>Matière *</label>
-                    <select value={assignSubjectId} onChange={e => setAssignSubjectId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" disabled={!assignClassId}>
-                      <option value="">{assignClassId ? 'Sélectionner une matière' : 'D\'abord choisir une classe'}</option>
-                      {assignSubjects.map(s => <option key={s.id} value={s.id}>{s.name} (coef. {s.coefficient})</option>)}
-                    </select>
+                    <AppSelect value={assignSubjectId} onChange={setAssignSubjectId} disabled={!assignClassId} placeholder="Sélectionner une matière" options={[{ value: '', label: assignClassId ? 'Sélectionner une matière' : 'D\'abord choisir une classe' }, ...assignSubjects.map(s => ({ value: s.id, label: `${s.name} (coef. ${s.coefficient})` }))]} />
                   </div>
                   <button onClick={handleAddAssignment} disabled={assignLoading || !assignClassId || !assignSubjectId} className="edu-gold-cta px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
                     {assignLoading ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check size={14} />}

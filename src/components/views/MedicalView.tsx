@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import MedicalDropdown from '@/components/ui/MedicalDropdown';
+import AppSelect from '@/components/ui/AppSelect';
 
 // Valeur sentinelle "Autre (préciser)" commune aux dropdowns médicaux
 const AUTRE = '__AUTRE__';
@@ -580,19 +581,18 @@ export default function MedicalView() {
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1">Sélectionner l'Élève *</label>
-                <select
+                <AppSelect
                   value={visitForm.studentId}
-                  onChange={(e) => setVisitForm({ ...visitForm, studentId: e.target.value })}
-                  className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-rose-500"
-                  required
-                >
-                  <option value="">-- Choisir un élève --</option>
-                  {filteredStudents.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.firstName} {s.lastName} ({s.matricule}) - {s.class?.name || ''}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setVisitForm({ ...visitForm, studentId: v })}
+                  placeholder="-- Choisir un élève --"
+                  options={[
+                    { value: '', label: '-- Choisir un élève --' },
+                    ...filteredStudents.map((s) => ({
+                      value: s.id,
+                      label: `${s.firstName} ${s.lastName} (${s.matricule}) - ${s.class?.name || ''}`,
+                    })),
+                  ]}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -717,19 +717,18 @@ export default function MedicalView() {
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1">Élève *</label>
-                <select
+                <AppSelect
                   value={recordForm.studentId}
-                  onChange={(e) => setRecordForm({ ...recordForm, studentId: e.target.value })}
-                  className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-rose-500"
-                  required
-                >
-                  <option value="">-- Choisir un élève --</option>
-                  {filteredStudents.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.firstName} {s.lastName} ({s.matricule})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setRecordForm({ ...recordForm, studentId: v })}
+                  placeholder="-- Choisir un élève --"
+                  options={[
+                    { value: '', label: '-- Choisir un élève --' },
+                    ...filteredStudents.map((s) => ({
+                      value: s.id,
+                      label: `${s.firstName} ${s.lastName} (${s.matricule})`,
+                    })),
+                  ]}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -847,19 +846,18 @@ export default function MedicalView() {
               </div>
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1">Élève *</label>
-                <select
+                <AppSelect
                   value={dispensationForm.studentId}
-                  onChange={(e) => setDispensationForm({ ...dispensationForm, studentId: e.target.value })}
-                  className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-rose-500"
-                  required
-                >
-                  <option value="">-- Choisir un élève --</option>
-                  {filteredStudents.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.firstName} {s.lastName} ({s.matricule})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setDispensationForm({ ...dispensationForm, studentId: v })}
+                  placeholder="-- Choisir un élève --"
+                  options={[
+                    { value: '', label: '-- Choisir un élève --' },
+                    ...filteredStudents.map((s) => ({
+                      value: s.id,
+                      label: `${s.firstName} ${s.lastName} (${s.matricule})`,
+                    })),
+                  ]}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">

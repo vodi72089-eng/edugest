@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Search, Users, School as SchoolIcon, CheckCircle2, ArrowRight, QrCode, Clock, Loader2 } from 'lucide-react';
+import AppSelect from '@/components/ui/AppSelect';
 
 interface SchoolInfo { name: string; shortName: string; logo: string | null; city: string; address: string }
 interface ClassInfo { id: string; name: string }
@@ -174,10 +175,16 @@ export default function FindChildPage() {
                 <p className="text-white/50 text-sm mb-5">Choisissez la classe puis tapez le nom de votre enfant.</p>
 
                 <label className="block text-[13px] font-medium text-white/70 mb-1.5">Classe de l&apos;enfant</label>
-                <select value={classId} onChange={(e) => { setClassId(e.target.value); setStudents([]); setSearched(false); }} className={`${inputCls} mb-4 [&>option]:text-black`} style={inputStyle}>
-                  <option value="">— Sélectionnez la classe —</option>
-                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                <AppSelect
+                  value={classId}
+                  onChange={(val) => { setClassId(val); setStudents([]); setSearched(false); }}
+                  placeholder="— Sélectionnez la classe —"
+                  options={[{ value: '', label: '— Sélectionnez la classe —' }, ...classes.map(c => ({ value: c.id, label: c.name }))]}
+                  dark
+                  className={`${inputCls} mb-4`}
+                  triggerClassName="-mx-4 -my-3"
+                  style={inputStyle}
+                />
 
                 <label className="block text-[13px] font-medium text-white/70 mb-1.5">Nom de l&apos;enfant</label>
                 <div className="flex gap-2 mb-4">

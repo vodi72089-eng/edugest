@@ -9,6 +9,7 @@ import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera,
 import PersonalizationView from './PersonalizationView'
 import { toast } from 'sonner'
 import { detectDevice, formatDeviceTitle, formatDeviceSummary } from '@/lib/detect-device'
+import AppSelect from '@/components/ui/AppSelect'
 
 export default function SettingsView() {
   const { userRole, userData, setCurrentView } = useEduGestStore()
@@ -466,19 +467,11 @@ function SettingsViewInner() {
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Type d&apos;école</label>
-                <select value={schoolType} onChange={e => setSchoolType(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                  <option value="MIXTE">Mixte</option>
-                  <option value="GARCONS">Garçons</option>
-                  <option value="FILLES">Filles</option>
-                </select>
+                <AppSelect value={schoolType} onChange={setSchoolType} options={[{ value: 'MIXTE', label: 'Mixte' }, { value: 'GARCONS', label: 'Garçons' }, { value: 'FILLES', label: 'Filles' }]} />
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Catégorie</label>
-                <select value={schoolCategory} onChange={e => setSchoolCategory(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                  <option value="PRIVEE">Privée</option>
-                  <option value="PUBLIQUE">Publique</option>
-                  <option value="CONVENTIONNEE">Conventionnée</option>
-                </select>
+                <AppSelect value={schoolCategory} onChange={setSchoolCategory} options={[{ value: 'PRIVEE', label: 'Privée' }, { value: 'PUBLIQUE', label: 'Publique' }, { value: 'CONVENTIONNEE', label: 'Conventionnée' }]} />
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Année de fondation</label>
@@ -837,26 +830,15 @@ function SettingsViewInner() {
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Devise *</label>
-                <select value={feeForm.currency} onChange={e => setFeeForm(f => ({ ...f, currency: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                  <option value="CDF">CDF (Franc congolais)</option>
-                  <option value="USD">USD (Dollar américain)</option>
-                  <option value="FCFA">FCFA (Franc CFA)</option>
-                </select>
+                <AppSelect value={feeForm.currency} onChange={(val) => setFeeForm(f => ({ ...f, currency: val }))} options={[{ value: 'CDF', label: 'CDF (Franc congolais)' }, { value: 'USD', label: 'USD (Dollar américain)' }, { value: 'FCFA', label: 'FCFA (Franc CFA)' }]} />
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Frais *</label>
-                <select value={feeForm.trimester} onChange={e => setFeeForm(f => ({ ...f, trimester: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                  <option value="T1">T1 - Trimestre 1</option>
-                  <option value="T2">T2 - Trimestre 2</option>
-                  <option value="T3">T3 - Trimestre 3</option>
-                </select>
+                <AppSelect value={feeForm.trimester} onChange={(val) => setFeeForm(f => ({ ...f, trimester: val }))} options={[{ value: 'T1', label: 'T1 - Trimestre 1' }, { value: 'T2', label: 'T2 - Trimestre 2' }, { value: 'T3', label: 'T3 - Trimestre 3' }]} />
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
-                <select value={feeForm.classId} onChange={e => setFeeForm(f => ({ ...f, classId: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                  <option value="">Choisir une classe</option>
-                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                <AppSelect value={feeForm.classId} onChange={(val) => setFeeForm(f => ({ ...f, classId: val }))} placeholder="Choisir une classe" options={[{ value: '', label: 'Choisir une classe' }, ...classes.map(c => ({ value: c.id, label: c.name }))]} />
               </div>
             </div>
             <div className="flex gap-3 mt-6">

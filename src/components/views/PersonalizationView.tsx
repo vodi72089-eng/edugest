@@ -37,6 +37,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import AppSelect from '@/components/ui/AppSelect'
 
 // ─── Constantes locales ─────────────────────────────────────────────────────
 
@@ -400,21 +401,17 @@ function PersonalizationViewInner({
                   École à personnaliser
                 </label>
               </div>
-              <select
-                id="school-design-select"
+              <AppSelect
                 value={selectedSchoolId ?? ''}
-                onChange={(e) => handleSchoolChange(e.target.value)}
+                onChange={(val) => handleSchoolChange(val)}
                 disabled={loading || schools.length === 0}
-                className="h-10 w-full rounded-xl px-3 text-sm outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
+                placeholder="Aucune école disponible"
                 style={{ border: `1px solid ${BORDER}`, backgroundColor: IVORY, color: TEXT_PRIMARY }}
-              >
-                {schools.length === 0 && <option value="">Aucune école disponible</option>}
-                {schools.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  ...(schools.length === 0 ? [{ value: '', label: 'Aucune école disponible' }] : []),
+                  ...schools.map((s) => ({ value: s.id, label: s.name })),
+                ]}
+              />
             </div>
           </div>
         )}

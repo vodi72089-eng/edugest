@@ -1,5 +1,6 @@
 'use client'
 
+import AppSelect from '@/components/ui/AppSelect'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ListChecks,
@@ -213,18 +214,15 @@ function FeatureCard({
           <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>
             École concernée
           </label>
-          <select
+          <AppSelect
             value={form.schoolId}
-            onChange={(e) => setForm((f) => ({ ...f, schoolId: e.target.value }))}
-            className={inputClass}
-          >
-            <option value="">Toutes les écoles</option>
-            {schools.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setForm((f) => ({ ...f, schoolId: val }))}
+            placeholder="Toutes les écoles"
+            options={[
+              { value: '', label: 'Toutes les écoles' },
+              ...schools.map((s) => ({ value: s.id, label: s.name })),
+            ]}
+          />
         </div>
 
         <div>

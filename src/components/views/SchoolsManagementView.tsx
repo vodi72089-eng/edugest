@@ -9,6 +9,7 @@ import { Plus, Check, X, Eye, Edit, Building2, DollarSign, AlertCircle, CreditCa
 import { toast } from 'sonner'
 import dynamic from 'next/dynamic'
 const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
+import AppSelect from '@/components/ui/AppSelect'
 
 export default function SchoolsManagementView() {
   const [schools, setSchools] = useState<SchoolData[]>([])
@@ -340,19 +341,11 @@ export default function SchoolsManagementView() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Type d&apos;école</label>
-                  <select value={form.schoolType} onChange={e => setForm({ ...form, schoolType: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
-                    <option value="MIXTE">Mixte</option>
-                    <option value="FILLES">Filles</option>
-                    <option value="GARCONS">Garçons</option>
-                  </select>
+                  <AppSelect value={form.schoolType} onChange={(val) => setForm({ ...form, schoolType: val })} options={[{ value: 'MIXTE', label: 'Mixte' }, { value: 'FILLES', label: 'Filles' }, { value: 'GARCONS', label: 'Garçons' }]} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Catégorie</label>
-                  <select value={form.schoolCategory} onChange={e => setForm({ ...form, schoolCategory: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
-                    <option value="PRIVEE">Privée</option>
-                    <option value="PUBLIQUE">Publique</option>
-                    <option value="CONVENTIONNEE">Conventionnée</option>
-                  </select>
+                  <AppSelect value={form.schoolCategory} onChange={(val) => setForm({ ...form, schoolCategory: val })} options={[{ value: 'PRIVEE', label: 'Privée' }, { value: 'PUBLIQUE', label: 'Publique' }, { value: 'CONVENTIONNEE', label: 'Conventionnée' }]} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Capacité max</label>
@@ -372,14 +365,7 @@ export default function SchoolsManagementView() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Formule d&apos;abonnement</label>
-                    <select value={form.subscriptionTier} onChange={e => setForm({ ...form, subscriptionTier: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
-                      <option value="FREEMIUM">Freemium — 0$/mois</option>
-                      <option value="ESSENTIEL">Essentiel — 100$/mois</option>
-                      <option value="STANDARD">Standard — 250$/mois</option>
-                      <option value="PREMIUM">Professionnel — 500$/mois</option>
-                      <option value="ENTERPRISE">Enterprise — 1 000$/mois</option>
-                      <option value="CORPORATE">Corporate — Sur mesure</option>
-                    </select>
+                    <AppSelect value={form.subscriptionTier} onChange={(val) => setForm({ ...form, subscriptionTier: val })} options={[{ value: 'FREEMIUM', label: 'Freemium — 0$/mois' }, { value: 'ESSENTIEL', label: 'Essentiel — 100$/mois' }, { value: 'STANDARD', label: 'Standard — 250$/mois' }, { value: 'PREMIUM', label: 'Professionnel — 500$/mois' }, { value: 'ENTERPRISE', label: 'Enterprise — 1 000$/mois' }, { value: 'CORPORATE', label: 'Corporate — Sur mesure' }]} />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Mode de paiement</label>
@@ -492,19 +478,11 @@ export default function SchoolsManagementView() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Type d&apos;école</label>
-                  <select value={editForm.schoolType} onChange={e => setEditForm({ ...editForm, schoolType: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
-                    <option value="MIXTE">Mixte</option>
-                    <option value="FILLES">Filles</option>
-                    <option value="GARCONS">Garçons</option>
-                  </select>
+                  <AppSelect value={editForm.schoolType} onChange={(val) => setEditForm({ ...editForm, schoolType: val })} options={[{ value: 'MIXTE', label: 'Mixte' }, { value: 'FILLES', label: 'Filles' }, { value: 'GARCONS', label: 'Garçons' }]} />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Catégorie</label>
-                  <select value={editForm.schoolCategory} onChange={e => setEditForm({ ...editForm, schoolCategory: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
-                    <option value="PRIVEE">Privée</option>
-                    <option value="PUBLIQUE">Publique</option>
-                    <option value="CONVENTIONNEE">Conventionnée</option>
-                  </select>
+                  <AppSelect value={editForm.schoolCategory} onChange={(val) => setEditForm({ ...editForm, schoolCategory: val })} options={[{ value: 'PRIVEE', label: 'Privée' }, { value: 'PUBLIQUE', label: 'Publique' }, { value: 'CONVENTIONNEE', label: 'Conventionnée' }]} />
                 </div>
               </div>
 
@@ -517,14 +495,7 @@ export default function SchoolsManagementView() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Formule</label>
-                    <select value={editForm.subscriptionTier} onChange={e => setEditForm({ ...editForm, subscriptionTier: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]">
-                      <option value="FREEMIUM">Freemium — 0$/mois</option>
-                      <option value="ESSENTIEL">Essentiel — 100$/mois</option>
-                      <option value="STANDARD">Standard — 250$/mois</option>
-                      <option value="PREMIUM">Professionnel — 500$/mois</option>
-                      <option value="ENTERPRISE">Enterprise — 1 000$/mois</option>
-                      <option value="CORPORATE">Corporate — Sur mesure</option>
-                    </select>
+                    <AppSelect value={editForm.subscriptionTier} onChange={(val) => setEditForm({ ...editForm, subscriptionTier: val })} options={[{ value: 'FREEMIUM', label: 'Freemium — 0$/mois' }, { value: 'ESSENTIEL', label: 'Essentiel — 100$/mois' }, { value: 'STANDARD', label: 'Standard — 250$/mois' }, { value: 'PREMIUM', label: 'Professionnel — 500$/mois' }, { value: 'ENTERPRISE', label: 'Enterprise — 1 000$/mois' }, { value: 'CORPORATE', label: 'Corporate — Sur mesure' }]} />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Statut</label>

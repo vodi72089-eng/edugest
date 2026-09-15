@@ -9,6 +9,7 @@ import { ACCENT, ACCENT2, ACCENT_SOFT, SUCCESS, WARNING, DANGER, INFO, MUTED, BO
 import { getInitials, formatDate, formatNumber, formatCurrency, getSchoolTypeLabel, getSubscriptionLabel, getSubscriptionPrice, getRoleLabel, getStatusPill, API_ROLE_MAP } from '@/lib/helpers'
 import { EDUCATIONAL_SYSTEMS_LIST } from '@/lib/educational-systems'
 import StudentAvatar from '@/components/ui/StudentAvatar'
+import AppSelect from '@/components/ui/AppSelect';
 import BrandLogo from '@/components/BrandLogo'
 import { FlagIcon } from '@/components/FlagIcon'
 import dynamic from 'next/dynamic'
@@ -611,15 +612,7 @@ function HomeView() {
               <div className="hidden md:block h-10 w-px bg-white/10 mx-1" />
               <div className="flex items-center w-full md:w-auto gap-3 px-2 md:px-0">
                 <div className="relative flex-grow md:flex-grow-0">
-                  <select
-                    value={province} onChange={e => setProvince(e.target.value)}
-                    className="w-full md:w-48 bg-white/5 text-white border border-white/10 rounded-xl px-5 py-4 text-sm font-bold cursor-pointer hover:bg-white/10 transition-all appearance-none outline-none backdrop-blur-md"
-                  >
-                    {PROVINCES.map(p => <option key={p} value={p} className="bg-[#0a0f0d] text-white">{p}</option>)}
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-                  </div>
+                  <AppSelect dark value={province} onChange={setProvince} options={PROVINCES} className="w-full md:w-48" />
                 </div>
                 <button className="w-full md:w-auto bg-[#f5a623] text-[#0a0f0d] px-10 py-4 rounded-xl font-extrabold text-sm uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)] whitespace-nowrap cursor-pointer">
                   Rechercher
@@ -3586,11 +3579,7 @@ function ClassesView() {
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Section</label>
-                <select value={newClassSection} onChange={e => setNewClassSection(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                  <option value="MATERNELLE">Maternelle</option>
-                  <option value="PRIMAIRE">Primaire</option>
-                  <option value="SECONDAIRE">Secondaire</option>
-                </select>
+                <AppSelect value={newClassSection} onChange={setNewClassSection} options={[{ value: 'MATERNELLE', label: 'Maternelle' }, { value: 'PRIMAIRE', label: 'Primaire' }, { value: 'SECONDAIRE', label: 'Secondaire' }]} className="w-full" />
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Capacité</label>
@@ -3885,14 +3874,15 @@ function WhatsAppApiQuotasSection() {
                       <label className="text-xs font-semibold text-slate-700 block mb-1">
                         Type de connecteur API
                       </label>
-                      <select
+                      <AppSelect
                         value={waForm.apiType}
-                        onChange={(e) => setWaForm({ ...waForm, apiType: e.target.value })}
-                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500"
-                      >
-                        <option value="META_CLOUD">Meta Cloud API (Officielle WhatsApp Business)</option>
-                        <option value="BAILEYS_DEDICATED">Serveur Passerelle Dédié (Webhook)</option>
-                      </select>
+                        onChange={(val) => setWaForm({ ...waForm, apiType: val })}
+                        options={[
+                          { value: 'META_CLOUD', label: 'Meta Cloud API (Officielle WhatsApp Business)' },
+                          { value: 'BAILEYS_DEDICATED', label: 'Serveur Passerelle Dédié (Webhook)' },
+                        ]}
+                        className="w-full"
+                      />
                     </div>
 
                     <div>
@@ -4447,18 +4437,11 @@ function PaymentConfigView() {
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-500 mb-1 block">Classe *</label>
-                    <select value={feeForm.classId} onChange={e => setFeeForm({ ...feeForm, classId: e.target.value })} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#f5a623]">
-                      <option value="">Sélectionner une classe</option>
-                      {classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+                    <AppSelect value={feeForm.classId} onChange={(val) => setFeeForm({ ...feeForm, classId: val })} options={[{ value: '', label: 'Sélectionner une classe' }, ...classes.map((c: any) => ({ value: c.id, label: c.name }))]} placeholder="Sélectionner une classe" className="w-full" />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-500 mb-1 block">Trimestre *</label>
-                    <select value={feeForm.trimester} onChange={e => setFeeForm({ ...feeForm, trimester: e.target.value })} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#f5a623]">
-                      <option value="T1">T1</option>
-                      <option value="T2">T2</option>
-                      <option value="T3">T3</option>
-                    </select>
+                    <AppSelect value={feeForm.trimester} onChange={(val) => setFeeForm({ ...feeForm, trimester: val })} options={['T1', 'T2', 'T3']} className="w-full" />
                   </div>
                 </div>
                 <div className="flex gap-3 mt-6">
@@ -4482,27 +4465,21 @@ function PaymentConfigView() {
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Monnaie de base</label>
-                <select
+                <AppSelect
                   value={currencyForm.baseCurrency}
-                  onChange={(e) => setCurrencyForm({ ...currencyForm, baseCurrency: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm"
-                >
-                  {supportedCurrencies.map((c: any) => (
-                    <option key={c.code} value={c.code}>{c.code} - {c.name}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setCurrencyForm({ ...currencyForm, baseCurrency: val })}
+                  options={supportedCurrencies.map((c: any) => ({ value: c.code, label: `${c.code} - ${c.name}` }))}
+                  className="w-full"
+                />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Monnaie d&apos;affichage</label>
-                <select
+                <AppSelect
                   value={currencyForm.displayCurrency}
-                  onChange={(e) => setCurrencyForm({ ...currencyForm, displayCurrency: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm"
-                >
-                  {supportedCurrencies.map((c: any) => (
-                    <option key={c.code} value={c.code}>{c.code} - {c.name}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setCurrencyForm({ ...currencyForm, displayCurrency: val })}
+                  options={supportedCurrencies.map((c: any) => ({ value: c.code, label: `${c.code} - ${c.name}` }))}
+                  className="w-full"
+                />
               </div>
             </div>
             <div className="mt-4">
@@ -4598,27 +4575,21 @@ function PaymentConfigView() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">De</label>
-                <select
+                <AppSelect
                   value={convertForm.from}
-                  onChange={(e) => setConvertForm({ ...convertForm, from: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm"
-                >
-                  {supportedCurrencies.map((c: any) => (
-                    <option key={c.code} value={c.code}>{c.code}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setConvertForm({ ...convertForm, from: val })}
+                  options={supportedCurrencies.map((c: any) => c.code)}
+                  className="w-full"
+                />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Vers</label>
-                <select
+                <AppSelect
                   value={convertForm.to}
-                  onChange={(e) => setConvertForm({ ...convertForm, to: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm"
-                >
-                  {supportedCurrencies.map((c: any) => (
-                    <option key={c.code} value={c.code}>{c.code}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setConvertForm({ ...convertForm, to: val })}
+                  options={supportedCurrencies.map((c: any) => c.code)}
+                  className="w-full"
+                />
               </div>
               <button
                 onClick={convertCurrency}
@@ -4768,11 +4739,7 @@ function PaymentConfigView() {
                   )}
                   <div>
                     <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Monnaie</label>
-                    <select value={gatewayForm.currency} onChange={(e) => setGatewayForm({ ...gatewayForm, currency: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }}>
-                      {(availableGateways.find((g: any) => g.gatewayType === showGatewayModal)?.supportedCurrencies || []).map((c: string) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
+                    <AppSelect value={gatewayForm.currency} onChange={(val) => setGatewayForm({ ...gatewayForm, currency: val })} options={(availableGateways.find((g: any) => g.gatewayType === showGatewayModal)?.supportedCurrencies || []).map((c: string) => c)} style={{ color: TEXT_PRIMARY }} className="w-full" />
                   </div>
                   <div>
                     <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Frais de transaction (%)</label>
@@ -5779,35 +5746,11 @@ function CommunicationsView() {
           <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Nouvelle communication</h3>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <select value={type} onChange={e => setType(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                <option value="ANNOUNCEMENT">Annonce</option>
-                <option value="NOTIFICATION">Notification</option>
-                <option value="EVENT">Événement</option>
-                <option value="ALERT">Alerte</option>
-              </select>
-              <select value={targetType} onChange={e => setTargetType(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                {isDirection ? (
-                  <>
-                    <option value="PARENTS">Parents</option>
-                    <option value="CLASS">Classe</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="ALL">Tout le monde</option>
-                    <option value="PARENTS">Parents</option>
-                    <option value="STAFF">Personnel</option>
-                    <option value="CLASS">Classe</option>
-                  </>
-                )}
-              </select>
+              <AppSelect value={type} onChange={setType} options={[{ value: 'ANNOUNCEMENT', label: 'Annonce' }, { value: 'NOTIFICATION', label: 'Notification' }, { value: 'EVENT', label: 'Événement' }, { value: 'ALERT', label: 'Alerte' }]} />
+              <AppSelect value={targetType} onChange={setTargetType} options={isDirection ? [{ value: 'PARENTS', label: 'Parents' }, { value: 'CLASS', label: 'Classe' }] : [{ value: 'ALL', label: 'Tout le monde' }, { value: 'PARENTS', label: 'Parents' }, { value: 'STAFF', label: 'Personnel' }, { value: 'CLASS', label: 'Classe' }]} />
             </div>
             {isDirection && (
-              <select value={scope} onChange={e => setScope(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                <option value="">Toutes les classes</option>
-                <option value="MATERNELLE">Maternelle</option>
-                <option value="PRIMAIRE">Primaire</option>
-                <option value="SECONDAIRE">Secondaire</option>
-              </select>
+              <AppSelect value={scope} onChange={setScope} options={[{ value: '', label: 'Toutes les classes' }, { value: 'MATERNELLE', label: 'Maternelle' }, { value: 'PRIMAIRE', label: 'Primaire' }, { value: 'SECONDAIRE', label: 'Secondaire' }]} placeholder="Toutes les classes" />
             )}
             <input placeholder="Titre" value={title} onChange={e => setTitle(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" />
             <textarea placeholder="Contenu du message..." value={content} onChange={e => setContent(e.target.value)} rows={4} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)] resize-none" />
@@ -6099,17 +6042,14 @@ function HomeworkView() {
             </div>
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
-              <select value={hwClassId} onChange={e => setHwClassId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                <option value="">Sélectionner une classe</option>
-                {(() => {
-                  // Filter classes by teacher's classNames assignment (if available)
-                  const myClassNames = (userData?.classNames || '').split(',').map((s: string) => s.trim()).filter(Boolean);
-                  const filtered = myClassNames.length > 0
-                    ? classes.filter(c => myClassNames.includes(c.name))
-                    : classes;
-                  return filtered.map(c => <option key={c.id} value={c.id}>{c.name}</option>);
-                })()}
-              </select>
+              <AppSelect value={hwClassId} onChange={setHwClassId} options={[{ value: '', label: 'Sélectionner une classe' }, ...(() => {
+                // Filter classes by teacher's classNames assignment (if available)
+                const myClassNames = (userData?.classNames || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+                const filtered = myClassNames.length > 0
+                  ? classes.filter(c => myClassNames.includes(c.name))
+                  : classes;
+                return filtered.map(c => ({ value: c.id, label: c.name }));
+              })()]} placeholder="Sélectionner une classe" className="w-full" />
               {userData?.classNames && (
                 <p className="text-[11px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>
                   Classes assignées: {userData.classNames}
@@ -6383,9 +6323,7 @@ function ClassPassingView() {
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filteredStudents.length)} élèves</p>
         </div>
         <div className="flex items-center gap-3">
-          <select value={selectedTrimester} onChange={e => setSelectedTrimester(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-            <option value="T1">Trimestre 1</option><option value="T2">Trimestre 2</option><option value="T3">Trimestre 3</option>
-          </select>
+          <AppSelect value={selectedTrimester} onChange={setSelectedTrimester} options={[{ value: 'T1', label: 'Trimestre 1' }, { value: 'T2', label: 'Trimestre 2' }, { value: 'T3', label: 'Trimestre 3' }]} />
           <SearchAutocomplete
             placeholder="Tapez le nom de l'élève..."
             items={studentSuggestions}
@@ -6427,9 +6365,7 @@ function ClassPassingView() {
                   </td>
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.class?.name || '—'}</td>
                   <td className="px-4 py-3">
-                    <select value={decisions[s.id] || 'PENDING'} onChange={e => setDecisions(prev => ({ ...prev, [s.id]: e.target.value }))} className="px-2 py-1 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                      <option value="PENDING">En attente</option><option value="PASSED">Passage</option><option value="REPEAT">Redouble</option>
-                    </select>
+                    <AppSelect value={decisions[s.id] || 'PENDING'} onChange={(val) => setDecisions(prev => ({ ...prev, [s.id]: val }))} options={[{ value: 'PENDING', label: 'En attente' }, { value: 'PASSED', label: 'Passage' }, { value: 'REPEAT', label: 'Redouble' }]} />
                   </td>
                   <td className="px-4 py-3">
                     <button onClick={async () => {
@@ -6588,13 +6524,8 @@ function BulletinView() {
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(totalStudents)} bulletin{totalStudents > 1 ? 's' : ''} · {byClass.length} classe{byClass.length > 1 ? 's' : ''}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select value={selectedTrimester} onChange={e => { setSelectedTrimester(e.target.value); setLoading(true) }} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-            <option value="T1">Trimestre 1</option><option value="T2">Trimestre 2</option><option value="T3">Trimestre 3</option>
-          </select>
-          <select value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-            <option value="all">Toutes les classes</option>
-            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <AppSelect value={selectedTrimester} onChange={(val) => { setSelectedTrimester(val); setLoading(true) }} options={[{ value: 'T1', label: 'Trimestre 1' }, { value: 'T2', label: 'Trimestre 2' }, { value: 'T3', label: 'Trimestre 3' }]} />
+          <AppSelect value={selectedClassId} onChange={setSelectedClassId} options={[{ value: 'all', label: 'Toutes les classes' }, ...classes.map(c => ({ value: c.id, label: c.name }))]} />
           <SearchAutocomplete
             placeholder="Tapez le nom de l'élève..."
             items={studentSuggestions}

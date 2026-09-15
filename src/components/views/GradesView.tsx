@@ -6,6 +6,7 @@ import type { GradeData, ClassData, StudentData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, DANGER } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
 import StudentAvatar from '@/components/ui/StudentAvatar'
+import AppSelect from '@/components/ui/AppSelect'
 import { Plus, Check, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete from './SearchAutocomplete'
@@ -242,25 +243,15 @@ export default function GradesView() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
-              <select value={gradeClassId} onChange={e => { setGradeClassId(e.target.value); setGradeStudentId(''); setGradeStudentSearchId(null) }} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                <option value="">Sélectionner une classe</option>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <AppSelect value={gradeClassId} onChange={(val) => { setGradeClassId(val); setGradeStudentId(''); setGradeStudentSearchId(null) }} placeholder="Sélectionner une classe" options={[{ value: '', label: 'Sélectionner une classe' }, ...classes.map(c => ({ value: c.id, label: c.name }))]} />
             </div>
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Matière *</label>
-              <select value={gradeSubjectId} onChange={e => setGradeSubjectId(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" disabled={!gradeClassId}>
-                <option value="">{gradeClassId ? 'Sélectionner une matière' : 'D\'abord choisir une classe'}</option>
-                {subjects.map(s => <option key={s.id} value={s.id}>{s.name} (coef. {s.coefficient})</option>)}
-              </select>
+              <AppSelect value={gradeSubjectId} onChange={setGradeSubjectId} disabled={!gradeClassId} placeholder="Sélectionner une matière" options={[{ value: '', label: gradeClassId ? 'Sélectionner une matière' : 'D\'abord choisir une classe' }, ...subjects.map(s => ({ value: s.id, label: `${s.name} (coef. ${s.coefficient})` }))]} />
             </div>
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Trimestre *</label>
-              <select value={gradeTrimester} onChange={e => setGradeTrimester(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-                <option value="T1">Trimestre 1</option>
-                <option value="T2">Trimestre 2</option>
-                <option value="T3">Trimestre 3</option>
-              </select>
+              <AppSelect value={gradeTrimester} onChange={setGradeTrimester} options={['Trimestre 1', 'Trimestre 2', 'Trimestre 3'].map((label, i) => ({ value: `T${i + 1}`, label }))} />
             </div>
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Élève *</label>
@@ -328,11 +319,7 @@ export default function GradesView() {
         )}
         <div className={isParent ? 'mt-6' : 'mt-6'}>
           <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Trimestre</label>
-          <select value={selectedTrimester} onChange={e => setSelectedTrimester(e.target.value)} className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]">
-            <option value="T1">Trimestre 1</option>
-            <option value="T2">Trimestre 2</option>
-            <option value="T3">Trimestre 3</option>
-          </select>
+          <AppSelect value={selectedTrimester} onChange={setSelectedTrimester} options={['Trimestre 1', 'Trimestre 2', 'Trimestre 3'].map((label, i) => ({ value: `T${i + 1}`, label }))} />
         </div>
       </div>
 
