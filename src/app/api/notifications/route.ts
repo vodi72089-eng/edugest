@@ -4,7 +4,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requirePermission(request, 'stats:read');
+    // « notifications:read » (et non stats:read) : sinon MEDICAL / TEACHER / EPS
+    // reçoivent 403 sur le poll de notifications de la topbar.
+    const authResult = await requirePermission(request, 'notifications:read');
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
 
@@ -29,7 +31,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const authResult = await requirePermission(request, 'stats:read');
+    const authResult = await requirePermission(request, 'notifications:read');
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
 

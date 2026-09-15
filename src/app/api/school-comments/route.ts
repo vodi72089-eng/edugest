@@ -20,6 +20,10 @@ export async function GET(request: NextRequest) {
       if ('error' in authResult) {
         return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
       }
+      // Un admin d'école ne modère que les avis de SA propre école.
+      if ('user' in authResult && authResult.user.role !== 'SUPER_ADMIN_GLOBAL' && authResult.user.schoolId) {
+        where.schoolId = authResult.user.schoolId;
+      }
       where.isApproved = false;
     }
 
@@ -87,6 +91,15 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Comment ID required' }, { status: 400 });
     }
 
+    const existing = await db.schoolComment.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Commentaire introuvable' }, { status: 404 });
+    }
+    // Scoping : un admin d'école n'agit que sur les avis de son école.
+    if ('user' in authResult && authResult.user.role !== 'SUPER_ADMIN_GLOBAL' && existing.schoolId !== authResult.user.schoolId) {
+      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
+    }
+
     const updated = await db.schoolComment.update({
       where: { id },
       data: { isApproved: isApproved !== undefined ? isApproved : true },
@@ -125,6 +138,15 @@ export async function DELETE(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ error: 'Comment ID required' }, { status: 400 });
+    }
+
+    const existing = await db.schoolComment.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Commentaire introuvable' }, { status: 404 });
+    }
+    // Scoping : un admin d'école ne supprime que les avis de son école.
+    if ('user' in authResult && authResult.user.role !== 'SUPER_ADMIN_GLOBAL' && existing.schoolId !== authResult.user.schoolId) {
+      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
     }
 
     const deleted = await db.schoolComment.delete({ where: { id } });

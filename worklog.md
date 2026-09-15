@@ -1421,117 +1421,22 @@ Stage Summary:
 - Nouvel onglet « Fiches Médicales » (admin + service médical) stockant tous les documents, réservé aux offres Professionnel et plus
 - Reçus, bulletins, notes et fiches ont un ID unique ; le menu « Vérification » (renommé) retrouve n'importe quel document par son code ou par import PDF
 - Compte démo service médical : medical@csl.cd / admin123 (école PREMIUM CSL)
----
-Task ID: 15-a
-Agent: full-stack-developer
-Task: Remplacer les <select> natifs de src/app/page.tsx par AppSelect
-
-Work Log:
-- Ajout de l'import `import AppSelect from '@/components/ui/AppSelect';` (ligne 12, section imports UI)
-- 18/18 <select> natifs convertis en <AppSelect /> (vérifié : `rg -c "<select"` = 0, plus aucun </select> résiduel) :
-  - L614 hero sombre (province) : variante `dark`, options={PROVINCES}, className="w-full md:w-48", chevron SVG custom supprimé (AppSelect a son propre chevron), parent `relative flex-grow md:flex-grow-0` conservé tel quel
-  - L3563 Section (créer classe) : options objets {value,label}, onChange setter direct
-  - L3858 Type de connecteur API (waForm.apiType) : multi-props multiligne, onChange val → setWaForm spread
-  - L4421 feeForm.classId : option vide « Sélectionner une classe » → {value:'',label} en 1er + placeholder identique + spread classes.map → objets
-  - L4425 feeForm.trimester : options simples ['T1','T2','T3'] (value===label)
-  - L4449/L4458 currencyForm base/display : options mappées supportedCurrencies → {value:c.code,label:`${c.code} - ${c.name}`}
-  - L4559/L4568 convertForm from/to : options = supportedCurrencies.map(c => c.code) (strings, value===label)
-  - L4723 gatewayForm.currency : style={{ color: TEXT_PRIMARY }} reporté via la prop style de AppSelect, options = supportedCurrencies||[] (strings)
-  - L5599/L5600 type/targetType (Communications) : targetType avec ternaire isDirection → tableaux d'objets conditionnels (fragments <> remplacés par ternaire d'arrays)
-  - L5603 scope : option vide « Toutes les classes » → {value:'',label} + placeholder
-  - L5895 hwClassId : IIFE de filtrage par classNames enseignant conservée à l'identique en spread dans options (return filtered.map → objets) + option vide + placeholder
-  - L6176 trimester (Passage de classe) : setter direct
-  - L6218 decisions[s.id] par élève (tableau) : onChange val → setDecisions(prev => ({...prev, [s.id]: val}))
-  - L6377 trimester (Bulletins) : onChange multi-instructions (val) => { setSelectedTrimester(val); setLoading(true) } préservé
-  - L6378 selectedClassId : option value="all" → objet (pas de placeholder, value non vide) + spread classes.map
-- Seules les contraintes de largeur reportées via className (w-full, w-full md:w-48) ; classes cosmétiques natives (border, rounded, focus:ring, bg-white...) non reportées ; aucune classe [&>option] présente à nettoyer
-- Aucun autre code modifié (pas de state, layout, libellés, couleurs) ; pas de composant radix shadcn select utilisé
-- Lint : 110 problems total — page.tsx n'a QUE 1 erreur préexistante (rules-of-hooks useEffect conditionnel ~L5403, zone non touchée) = 0 nouvelle erreur de page.tsx ; le +1 vs baseline ~109 est un warning « Unused eslint-disable directive » dans src/components/ui/AppSelect.tsx:76 (créé par l'agent précédent, hors périmètre de ce fichier unique — à corriger par l'agent propriétaire si souhaité)
-- Incidents : le dev server géré par le système est mort en OOM (heap 1.2 Go, uptime long multi-agents) pendant la tâche ; relancé en arrière-plan avec heap 3 Go → GET / = 200, landing rendue avec le dropdown listbox (aria-haspopup="listbox") visible, dev.log propre (l'erreur PDF receipt db.documentVerification est préexistante et sans rapport)
-
-Stage Summary:
-- 18 <select> natifs de src/app/page.tsx remplacés par AppSelect (0 restant), logique onChange/disabled/style préservée, cas spéciaux gérés : hero sombre (dark + chevron supprimé), style inline TEXT_PRIMARY, options dynamiques via spread, IIFE conservée, onChange multi-instructions
-- Lint : aucune nouvelle erreur issue de page.tsx ; warning résiduel uniquement dans AppSelect.tsx (fichier d'un autre agent)
----
-Task ID: 15-b
-Agent: full-stack-developer
-Task: Remplacer les <select> natifs des views par AppSelect
-
-Work Log:
-- Lecture du contexte (worklog.md) + API de src/components/ui/AppSelect.tsx (value, onChange(v), options: string | {value,label}, placeholder, disabled, dark, className, triggerClassName, panelClassName, style)
-- Inventaire rg : 34 <select> natifs dans 11 fichiers de src/components/views/ — conversion fichier par fichier :
-  - GradesView.tsx (4) : import ajouté ; Classe (onChange multi-instructions → (val) => { setGradeClassId(val); setGradeStudentId(''); setGradeStudentSearchId(null) }) ; Matière (disabled={!gradeClassId}, option vide à label DYNAMIQUE gradeClassId ? '...' : '...' reporté dans l'option, matières en template string `${s.name} (coef. ${s.coefficient})`) ; 2× Trimestre (T1/T2/T3)
-  - SettingsView.tsx (5) : Type d'école, Catégorie, Devise (setFeeForm f => ({...f, ...})), Trimestre frais (labels T1 - Trimestre 1), Classe frais (option vide + placeholder « Choisir une classe »)
-  - DisciplineView.tsx (5) : Liste/Type/Gravité de sanction (cast `as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST'` préservé) ; édition inline de table : editListType (className="w-24") et editStatus (className="w-28") — largeurs fixes pour préserver la rangée flex
-  - StudentsView.tsx (3) : Sexe du formulaire d'ajout était un select NON CONTRÔLÉ (name="gender" lu via new FormData) → état contrôlé addGender ('M' par défaut) ajouté, gender: addGender dans le body, reset à 'M' après succès (comportement natif préservé) ; Sexe édition + Classe édition (options dynamiques classes)
-  - PaymentsView.tsx (3) : Devise (disabled={allPaid}, className="w-20", options SUPPORTED_CURRENCIES), Méthode + Statut (espacement mt-1 conservé via wrapper div)
-  - MedicalView.tsx (3) : les 3 <select> natifs restants (choix d'élève Visites/Dossier/Dispensations) convertis — option vide '-- Choisir un élève --' + labels template `${s.firstName} ${s.lastName} (${s.matricule})` (+ classe pour les visites) ; les 10 usages MedicalDropdown NE SONT PAS touchés (attribut required devenu sans objet : validation déjà assurée par les handlers avec toast)
-  - SchoolsManagementView.tsx (6) : Type/Catégorie/Formule ×2 (création + édition), formules d'abonnement avec libellés complets « Freemium — 0$/mois » etc.
-  - PersonnelView.tsx (2) : Classe (placeholder « Sélectionner une classe ») + Matière (disabled={!assignClassId}, label dynamique, template coef.)
-  - PlatformControlView.tsx (1) : École concernée (option « Toutes les écoles » + écoles dynamiques)
-  - PersonalizationView.tsx (1) : École à personnaliser (style inline border/backgroundColor IVORY/color reporté via prop style, disabled={loading || schools.length === 0}, option conditionnelle « Aucune école disponible ») ; htmlFor du label sans cible (AppSelect n'expose pas d'id — noté)
-  - ParentQrView.tsx (1) : Durée de vie QR (options DURATIONS.map)
-- Classes cosmétiques natives non reportées ; largeurs spécifiques reportées via className (w-20/w-24/w-28) ; aucune classe [&>option] présente
-- Vérifications : rg "<select" src/components/views/ = 0 résultat ; rg "</select>|<option" = 0 ; tsc --noEmit = 0 erreur dans les 11 fichiers (seules 2 erreurs préexistantes dans src/app/find-child/page.tsx, fichier d'un autre agent, non touché) ; lint comparé avant/après via stash = 111 problems dans les DEUX cas → 0 nouveau problème introduit ; dev.log propre (GET / et /login 200)
-
-Stage Summary:
-- 34/34 selects natifs convertis en AppSelect : GradesView 4, SettingsView 5, DisciplineView 5, StudentsView 3, PaymentsView 3, MedicalView 3, SchoolsManagementView 6, PersonnelView 2, PlatformControlView 1, PersonalizationView 1, ParentQrView 1 — MedicalDropdown de MedicalView intact (10 usages)
-- Cas particuliers : onChange multi-instructions (GradesView), casts union types (DisciplineView), labels dynamiques conditionnels (GradesView/PersonnelView), style inline (PersonalizationView), select non contrôlé FormData → état contrôlé addGender (StudentsView), largeurs fixes w-20/w-24/w-28 pour les selects compacts inline (PaymentsView/DisciplineView)
-- Lint : 111 problems = baseline environnement inchangé (0 nouvelle erreur) ; 0 résidu select/option ; pas de commit ni push
 
 ---
-Task ID: 15-c
-Agent: full-stack-developer (travail vérifié/complété par l'orchestrateur)
-Task: Remplacer les <select> natifs des dashboards + find-child par AppSelect
-
-Work Log:
-- SuperAdminDashboard.tsx : filtre villes converti (option vide « Toutes les villes » + placeholder identique + spread cityOptions)
-- CashierDashboard.tsx : sélecteur de devise converti (style={{ color: TEXT_PRIMARY }} préservé via prop style)
-- find-child/page.tsx : sélecteur de classe converti en variante sombre (dark + inputCls/inputStyle préservés, [&>option]:text-black supprimé)
-- NOTE: l'agent a dépassé son délai avant d'écrire sa section — conversions vérifiées ligne à ligne par l'orchestrateur (toutes conformes)
-
-Stage Summary:
-- 3/3 conversions conformes aux règles, vérifiées par relecture + tests navigateur
-
----
-Task ID: 15
-Agent: Z.ai Code (main, orchestrateur)
-Task: « change toute ces dropdown similaires dans l'app par les nouvelles qui sont deja presente » — remplacer les 55 <select> natifs par le composant custom déjà présent
-
-Work Log:
-- Analyse : 55 <select> natifs dans 15 fichiers ; le « nouveau dropdown déjà présent » = MedicalDropdown (style custom app : arrondis xl, coche, hover rose, clavier + Échap)
-- Créé src/components/ui/AppSelect.tsx : version générique du dropdown custom (API value/onChange/options/placeholder/disabled + variants dark, triggerClassName, panelClassName, className, style)
-- MedicalDropdown.tsx délègue désormais à AppSelect (rendu strictement identique, 10 usages MedicalView intacts)
-- 15-a (sous-agent) : page.tsx — 18/18 convertis (hero sombre → variante dark + chevron custom natif supprimé ; style inline TEXT_PRIMARY préservé ; IIFE filtre devoirs conservée)
-- 15-b (sous-agent) : 11 views — 34/34 convertis (onChange multi-instructions, labels dynamiques coef., disabled conditionnels, StudentsView select non contrôlé → état contrôlé addGender)
-- 15-c (sous-agent, délai dépassé, travail vérifié) : dashboards + find-child — 3/3 convertis
-- Fix lint : eslint-disable inutile supprimé ; effect setState→initialisation event-driven (openList) — AppSelect 0 problème, total lint = 109 = baseline exacte (0 nouveau)
-- Incident infra : OOM killer avait tué le next-server initial (RSS 1,7 Go / 4 Go RAM) ; les processus lancés depuis le shell meurent à la fin de chaque commande outil → vérification faite en commandes uniques (serveur + agent-browser ensemble)
-- Vérification navigateur (agent-browser, session Super Admin) : landing hero dark (sélection Kinshasa ✓), dashboard filtre villes (Toutes les villes→Kinshasa ✓), Communications « Nouvelle communication » (Annonce→Notification ✓, Tout le monde→Parents ✓ puis Classe ✓ après refactor) — listbox custom avec coche/hover rose, 0 erreur console, APIs 200 dans dev.log
-- rg "<select" src/ = 0 résultat (aucun select natif restant)
-
-Stage Summary:
-- Les 55 dropdowns natifs (15 fichiers) utilisent désormais le composant custom unifié AppSelect — style cohérent avec le design de l'app, aucun changement de branding/logique
-- Variante sombre dédiée pour les fonds foncés (landing, find-child) : design d'origine préservé
-- Lint à la baseline exacte (109, tous préexistants) ; vérifié en navigateur de bout en bout
-
----
-Task ID: 16
+Task ID: UX-AUDIT-1
 Agent: Z.ai Code (main)
-Task: « une page qui me permettait d'envoyer aux admis des ecoles — onglet Passage de classe — remet-la, ajoute les notifications email + in-app aux admins des écoles, vraies stats »
+Task: Test Playwright de tous les onglets utilisateur (10 rôles × ~95 vues) — détection d'erreurs logiques/visuelles + amélioration UX
 
 Work Log:
-- Enquête : « Contrôle plateforme » (PlatformControlView) et la ClassPassingView riche (délibération + repêchage + stats) étaient DÉBRANCHÉS depuis v1.3.0 (5d113e6) — le fichier existait mais n'était plus importé/monté ; la vue riche avait été remplacée par une table simple
-- Découverte majeure : les modèles Prisma PlatformEvent + RepechageExam avaient été RETIRÉS du schema.prisma (commit 4f1ec04, accidentel) alors que les routes /api/platform-events et /api/class-passing/repechage les utilisaient → 500 en runtime ; ré-ajoutés à l'identique (b926da1) + relations School/Student ; prisma generate + db push (tables déjà présentes en SQLite)
-- page.tsx : import PlatformControlView, onglet « Contrôle plateforme » (menu Super Admin), case 'platform-control', titre, VIEWS_BY_ROLE ; canAccessView : bypass abonnement pour platform-control/class-passing (super admin)
-- page.tsx : ClassPassingView simple remplacée par la version riche (cb451c0) adaptée AppSelect — onglets Délibération/Repêchage, vraies stats serveur (évalués/à risque/délibération/échec), moyennes T1-T3, matières en échec, discipline, score de risque, repêchage (examens App + WhatsApp, historique)
-- APIs : CLASS_PASSING_ROLES + REPECHAGE_ROLES += SUPER_ADMIN_GLOBAL (bypass gate PREMIUM pour le super admin plateforme)
-- Nouveau src/lib/passing-notify.ts : notifyPassingUpdateToAdmins() — in-app (+Web Push) + EMAIL Resend au personnel école (SCHOOL_ADMIN inclus, ancien code l'omettait) + super admins plateforme, dédoublonné, plafonné 500, non bloquant
-- Câblage : POST /api/report-cards (décision T3 → « Passage de classe — décision enregistrée »), POST /api/class-passing/repechage (repêchage envoyé), POST /api/platform-events (programmation → in-app + email, remplace l'ancienne boucle in-app seule)
-- Vérif navigateur (agent-browser, Super Admin) : /platform-control charge les événements (500 → OK après fix Prisma) ; événement CLASS_PASSING programmé via l'UI (POST 201, ligne en base) ; /class-passing : période ouverte, VRAIES stats (20 évalués, 2 à risque, 2 délibération, 20 échec), élèves réels (moyennes, matières, discipline, badge Critique) ; décision « Passage » validée → POST /api/report-cards 200 + notifications CLASS_PASSING créées en base pour directions/caissier/super admins (emails en attente de la clé Resend — Config API)
-- Lint 109 = baseline ; tsc 96 → 86 (10 erreurs Prisma corrigées) ; 0 select natif
+- AUDIT AUTOMATISÉ : script Playwright (chromium headless) parcourant chaque (rôle, vue) — 10 comptes (super-admin, admin école, secrétaire, caissier, parent, professeur, médical, head teacher, direction, discipline), collecte erreurs console + pageerror + réponses 4xx/5xx + toasts + overflow horizontal (desktop 1440px & mobile 390px) + screenshots
+- CONSTAT INFRA : le dev server du sandbox redémarre seul (« Server is approaching the used memory threshold ») → pages blanches/CONN_RESET/INCOMPLETE_CHUNKED_ENCODING de l'audit = artefacts de charge, PAS des bugs app ; re-vérification ciblée des pages suspectes dans des conditions calmes (toutes OK : students, convocation, parent-qr, homework, medical-records)
+- BUG 1 (critique, reproduit) : si l'hydratation React échoue (chunk tronqué pendant un restart serveur / réseau instable), restoreSession() ne s'exécute jamais → utilisateur connecté voit la landing déconnectée alors que localStorage reste intact → FIX : startSessionRestoreWatchdog() dans store.ts (re-restaure la session chaque seconde pendant 10 s si userRole toujours null et session stockée présente) + branché dans le useEffect racine de page.tsx ; validé : 6 rechargements durs consécutifs /payments — session conservée
+- BUG 2 (module fiches médicales) : MedicalRecordsView appelait /api/classes?limit=200 SANS schoolId → 403 systématique pour SUPER_ADMIN_GLOBAL (l'API exige un schoolId) → FIX : schoolId passé quand disponible, appel sauté pour le super admin (sans école) ; validé : plus aucun 4xx + la liste se charge (fini le spinner « Chargement des documents... »)
+- BUG 3 (incohérence UI/permissions) : SettingsView affichait la carte « Commentaires en attente » (modération d'avis) au secrétaire et à la direction qui n'ont PAS la permission comments:approve → 403 systématique + message trompeur « Aucun commentaire en attente » → FIX : fetch + carte masqués sauf SUPER_ADMIN_GLOBAL / SCHOOL_ADMIN ; validé : secrétaire = carte masquée + zéro 403, super admin = carte toujours présente
+- REPÈRES UX SANS BUG : navigation profonde (URL directe) OK pour tous les rôles testés ; menus sidebar conformes à VIEWS_BY_ROLE ; /login protège les pages pré-auth (utilisateur connecté rechargeant /login est renvoyé au dashboard — comportement correct constaté) ; aucun overflow horizontal détecté (desktop + mobile) ; aucune image cassée
+- CLEANUP : scripts de test + screenshots supprimés (non commités)
 
 Stage Summary:
-- L'onglet « Contrôle plateforme » (envoi/programmation aux admins d'écoles) et la vue complète « Passage de classe » (délibération, repêchage, vraies stats) sont restaurés et fonctionnels
-- Toute mise à jour de passage (décision, repêchage, programmation) notifie les admins des écoles dans l'app (push) ET par email dès configuration Resend (Communications → Config API)
-- Infra réparée : modèles Prisma restaurés, accès plateforme aux APIs de passage
+- 3 bugs réels corrigés (watchdog de session, 403 classes super admin, carte modération avis) — tous re-vérifiés dans le navigateur
+- Le reste des ~95 combinaisons rôle×vue est fonctionnellement et visuellement sain (les anomalies de l'audit venaient des restarts mémoire du dev server sandbox)
+- Desktop version déjà bumpée à 1.4.0 par la session parallèle (module médical) — release commune

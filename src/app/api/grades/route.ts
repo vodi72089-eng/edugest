@@ -19,7 +19,9 @@ export async function GET(request: NextRequest) {
     const trimester = searchParams.get('trimester') || '';
     const schoolYearId = searchParams.get('schoolYearId') || '';
     let schoolId = searchParams.get('schoolId') || '';
-    if (!schoolId && user.role !== 'SUPER_ADMIN_GLOBAL') {
+    if (!schoolId) {
+      // Fallback école de l'utilisateur — y compris SUPER_ADMIN_GLOBAL,
+      // sinon sa vue « Notes » répond 403 « School ID required ».
       schoolId = user.schoolId || '';
     }
     if (!schoolId) {

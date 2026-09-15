@@ -50,6 +50,10 @@ function SettingsViewInner() {
   // vue « Personnalisation » — demande utilisateur)
   const personalizationOnly = userRole === 'SCHOOL_ADMIN'
   const canPersonalize = userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SCHOOL_ADMIN'
+  // Modération des avis : réservée aux rôles disposant de « comments:approve »
+  // (SCHOOL_ADMIN + super admin). Évite un 403 systématique + une carte
+  // trompeuse « Aucun commentaire en attente » pour secrétaire / direction.
+  const canModerateComments = userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SCHOOL_ADMIN'
   const [school, setSchool] = useState<SchoolData | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -161,11 +165,13 @@ function SettingsViewInner() {
           setLoading(false)
         })
         .catch(() => setLoading(false))
-      // Fetch pending comments
-      authFetch(`/api/school-comments?schoolId=${userData.schoolId}&approved=false`)
-        .then(r => r.json())
-        .then(j => setComments(j.data || []))
-        .catch(() => {})
+      // Fetch pending comments (modérateurs uniquement — sinon 403)
+      if (canModerateComments) {
+        authFetch(`/api/school-comments?schoolId=${userData.schoolId}&approved=false`)
+          .then(r => r.json())
+          .then(j => setComments(j.data || []))
+          .catch(() => {})
+      }
       // Fetch pending settings approvals (admin only)
       if (userRole === 'SUPER_ADMIN_GLOBAL') {
         authFetch(`/api/settings-approval?status=PENDING`)
@@ -582,7 +588,8 @@ function SettingsViewInner() {
             </div>
           </div>
 
-          {/* Pending Comments */}
+          {/* Pending Comments — modérateurs uniquement (sinon 403 API) */}
+          {canModerateComments && (
           <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
             <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
               <MessageCircle size={16} style={{ color: GOLD }} /> Commentaires en attente
@@ -614,6 +621,7 @@ function SettingsViewInner() {
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
       )}

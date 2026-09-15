@@ -523,21 +523,21 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'discipline:read', 'discipline:create', 'discipline:update',
     'convocations:read', 'convocations:create', 'convocations:update',
     'communications:read',
-    'profile:read', 'profile:update',
+    'profile:read', 'profile:update', 'notifications:read',
   ],
   DISCIPLINE_PRIMAIRE: [
     'school:read', 'students:read',
     'discipline:read', 'discipline:create', 'discipline:update',
     'convocations:read', 'convocations:create', 'convocations:update',
     'communications:read',
-    'profile:read', 'profile:update',
+    'profile:read', 'profile:update', 'notifications:read',
   ],
   DISCIPLINE_SECONDAIRE: [
     'school:read', 'students:read',
     'discipline:read', 'discipline:create', 'discipline:update',
     'convocations:read', 'convocations:create', 'convocations:update',
     'communications:read',
-    'profile:read', 'profile:update',
+    'profile:read', 'profile:update', 'notifications:read',
   ],
   HEAD_TEACHER: [
     'students:read', 'students:create', 'students:update',
@@ -571,8 +571,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'discipline:read', 'discipline:create', 'discipline:update',
     'convocations:read', 'convocations:create',
     'communications:read',
-    'stats:read',
-    'notifications:read',
+    'stats:read', 'notifications:read',
   ],
   EPS: [
     'school:read', 'students:read', 'classes:read', 'grades:read', 'subjects:read',
@@ -586,6 +585,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'profile:read', 'profile:update', 'notifications:read',
   ],
   SCHOOL_ADMIN: [
+    'school:read',
+    'comments:approve', 'comments:delete', // modération des avis de sa propre école
     'users:read', 'users:create', 'users:update', 'users:delete',
     'students:read', 'students:create', 'students:update', 'students:delete',
     'payments:read', 'payments:create', 'payments:update', 'payments:verify',

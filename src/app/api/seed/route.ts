@@ -544,6 +544,10 @@ export async function GET(request: NextRequest) {
       const cls = lumiereClasses.find(c => c.name === h.className);
       if (!cls) continue;
 
+      // Lier le devoir au compte enseignant — sinon la vue « Devoirs » du
+      // professeur (filtrée par teacherId) reste vide en démo.
+      const teacherUser = lumiereUsers.find(u => u.name === h.teacherName);
+
       await db.homework.create({
         data: {
           title: h.title,
@@ -551,11 +555,36 @@ export async function GET(request: NextRequest) {
           subjectName: h.subjectName,
           classId: cls.id,
           teacherName: h.teacherName,
+          teacherId: teacherUser?.id || null,
           dueDate: new Date(h.dueDate),
           schoolId: lumiere.id,
         } as any,
       }) as any;
       counts.homeworks++;
+    }
+
+    // ----- Teacher Assignments -----
+    // Sans assignations, les vues Notes / Devoirs des enseignants (filtrées
+    // par teacherAssignment côté API) paraissent vides en démo.
+    const assignmentsData = [
+      { teacherEmail: 'mwepu@lumiere.cd', className: '6eA', subjectName: 'Mathématiques' },
+      { teacherEmail: 'mwepu@lumiere.cd', className: '5eA', subjectName: 'Mathématiques' },
+      { teacherEmail: 'mwepu@lumiere.cd', className: '5eA', subjectName: 'Anglais' },
+      { teacherEmail: 'tshibola@lumiere.cd', className: '6eA', subjectName: 'Français' },
+      { teacherEmail: 'tshibola@lumiere.cd', className: 'CM2', subjectName: 'Sciences' },
+      { teacherEmail: 'tshibola@lumiere.cd', className: '3eA', subjectName: 'Histoire-Géo' },
+      { teacherEmail: 'headteacher@lumiere.cd', className: '3eA', subjectName: 'Mathématiques' },
+      { teacherEmail: 'headteacher@lumiere.cd', className: '6eA', subjectName: 'Anglais' },
+    ];
+    for (const a of assignmentsData) {
+      const teacher = lumiereUsers.find(u => u.email === a.teacherEmail);
+      const cls = lumiereClasses.find(c => c.name === a.className);
+      const subjectId = cls ? subjectMap[`${cls.id}-${a.subjectName}`] : null;
+      if (!teacher || !cls || !subjectId) continue;
+      await db.teacherAssignment.create({
+        data: { teacherId: teacher.id, classId: cls.id, subjectId } as any,
+      }).catch(() => { /* déjà présent (upsert naturel via @@unique) */ });
+      counts.teacherAssignments = (counts.teacherAssignments || 0) + 1;
     }
 
     // ===== OTHER SCHOOLS: Minimal Data =====

@@ -78,11 +78,15 @@ export default function MedicalRecordsView() {
       const [docsRes, studentsRes, classesRes] = await Promise.all([
         authFetch('/api/medical/documents?limit=300'),
         authFetch('/api/students?limit=1000'),
-        authFetch('/api/classes?limit=200'),
+        // L'API classes exige un schoolId : pour le super admin (sans école) on
+        // saute l'appel plutôt que de déclencher un 403 systématique.
+        userData?.schoolId
+          ? authFetch(`/api/classes?limit=200&schoolId=${userData.schoolId}`)
+          : Promise.resolve(null),
       ]);
       if (docsRes.ok) setDocs((await docsRes.json()).data || []);
       if (studentsRes.ok) setStudents((await studentsRes.json()).data || []);
-      if (classesRes.ok) setClasses((await classesRes.json()).data || []);
+      if (classesRes && classesRes.ok) setClasses((await classesRes.json()).data || []);
     } catch {
       toast.error('Erreur de chargement des documents');
     } finally {

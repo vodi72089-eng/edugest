@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react'
-import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken, restoreSession } from '@/lib/store'
+import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken, restoreSession, startSessionRestoreWatchdog } from '@/lib/store'
 import { toast } from 'sonner'
 import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
 import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, DisciplineData, CommunicationData, HomeworkData } from '@/lib/types'
@@ -359,7 +359,11 @@ function HomeView() {
   useEffect(() => {
     async function loadData() {
       try {
-        await fetch('/api/seed')
+        // Le seed ne concerne que les visiteurs anonymes (DB vide) ;
+        // inutile — et bruyant (401) — pour une session déjà authentifiée.
+        if (typeof window === 'undefined' || !localStorage.getItem('edugest_token')) {
+          await fetch('/api/seed')
+        }
         const res = await fetch('/api/schools?limit=20')
         const json = await res.json()
         setSchools(json.data || [])
@@ -7958,6 +7962,14 @@ export default function Home() {
     // App desktop (Electron) : prévient main.js que l'interface est peinte
     // pour afficher la fenêtre (jamais de fenêtre vide). Sans effet sur le web.
     try { (window as any).__edugest?.ready?.() } catch {}
+  }, [])
+
+  // Watchdog : si l'hydratation échoue (chunk perdu sous charge / réseau
+  // instable), restoreSession() ne s'exécute jamais et l'utilisateur connecté
+  // voit la landing déconnectée — on retente ~10 s tant que la session
+  // stockée n'est pas appliquée (opération idempotente).
+  useEffect(() => {
+    return startSessionRestoreWatchdog()
   }, [])
 
   // Fetch subscription tier if missing from existing sessions

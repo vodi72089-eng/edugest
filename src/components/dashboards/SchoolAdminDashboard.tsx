@@ -32,11 +32,14 @@ export default function SchoolAdminDashboard() {
     async function loadDashboardData() {
       try {
         setLoading(true);
-        // Stats école
+        // Stats école — la carte « visites du jour » n'a de sens que si le
+        // forfait inclut le module médical (sinon 403 inutile dans la console).
         const [statsRes, waRes, medicalRes] = await Promise.all([
           authFetch(`/api/stats?schoolId=${userData?.schoolId}`).catch(() => null),
           authFetch(`/api/whatsapp-config/custom?schoolId=${userData?.schoolId}`).catch(() => null),
-          authFetch(`/api/medical/visits?schoolId=${userData?.schoolId}`).catch(() => null),
+          limits.medicalAccess
+            ? authFetch(`/api/medical/visits?schoolId=${userData?.schoolId}`).catch(() => null)
+            : Promise.resolve(null),
         ]);
 
         if (statsRes?.ok) {

@@ -293,6 +293,28 @@ export function restoreSession() {
   }
 }
 
+// ─── Session-restore watchdog ────────────────────────────────────────────────
+// If the initial React hydration fails (slow network, stale/truncated JS chunk
+// under heavy load), `restoreSession()` may never run and an authenticated
+// user silently lands on the public landing even though localStorage still
+// holds a valid session. The watchdog re-runs the (idempotent) restore a few
+// times during the first seconds until the session is actually applied.
+export function startSessionRestoreWatchdog() {
+  if (typeof window === 'undefined') return () => {};
+  let tries = 0;
+  const iv = setInterval(() => {
+    tries++;
+    if (useEduGestStore.getState().userRole) {
+      clearInterval(iv);
+      return;
+    }
+    // Only act when a stored session exists — anonymous visitors are untouched.
+    if (getStoredSession()) restoreSession();
+    if (tries >= 10) clearInterval(iv);
+  }, 1000);
+  return () => clearInterval(iv);
+}
+
 // Back / forward buttons: translate the URL they land on back into a view.
 if (typeof window !== 'undefined') {
   window.addEventListener('popstate', () => {

@@ -115,7 +115,6 @@ export default function PersonnelView() {
     { value: 'DISCIPLINE_PRIMAIRE', label: 'Disc. Primaire', color: 'oklch(58% 0.18 30)' },
     { value: 'DISCIPLINE_SECONDAIRE', label: 'Disc. Secondaire', color: 'oklch(50% 0.16 0)' },
     { value: 'PARENT', label: 'Parent', color: 'oklch(52% 0.015 250)' },
-    { value: 'MEDICAL', label: 'Service Médical', color: 'oklch(60% 0.15 145)' },
   ]
 
   // FREEMIUM : 1 admin (le SCHOOL_ADMIN créateur) et 0 professeur — seuls les
