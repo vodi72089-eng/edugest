@@ -1440,3 +1440,47 @@ Stage Summary:
 - 3 bugs réels corrigés (watchdog de session, 403 classes super admin, carte modération avis) — tous re-vérifiés dans le navigateur
 - Le reste des ~95 combinaisons rôle×vue est fonctionnellement et visuellement sain (les anomalies de l'audit venaient des restarts mémoire du dev server sandbox)
 - Desktop version déjà bumpée à 1.4.0 par la session parallèle (module médical) — release commune
+- 3/3 conversions conformes aux règles, vérifiées par relecture + tests navigateur
+
+---
+Task ID: 15
+Agent: Z.ai Code (main, orchestrateur)
+Task: « change toute ces dropdown similaires dans l'app par les nouvelles qui sont deja presente » — remplacer les 55 <select> natifs par le composant custom déjà présent
+
+Work Log:
+- Analyse : 55 <select> natifs dans 15 fichiers ; le « nouveau dropdown déjà présent » = MedicalDropdown (style custom app : arrondis xl, coche, hover rose, clavier + Échap)
+- Créé src/components/ui/AppSelect.tsx : version générique du dropdown custom (API value/onChange/options/placeholder/disabled + variants dark, triggerClassName, panelClassName, className, style)
+- MedicalDropdown.tsx délègue désormais à AppSelect (rendu strictement identique, 10 usages MedicalView intacts)
+- 15-a (sous-agent) : page.tsx — 18/18 convertis (hero sombre → variante dark + chevron custom natif supprimé ; style inline TEXT_PRIMARY préservé ; IIFE filtre devoirs conservée)
+- 15-b (sous-agent) : 11 views — 34/34 convertis (onChange multi-instructions, labels dynamiques coef., disabled conditionnels, StudentsView select non contrôlé → état contrôlé addGender)
+- 15-c (sous-agent, délai dépassé, travail vérifié) : dashboards + find-child — 3/3 convertis
+- Fix lint : eslint-disable inutile supprimé ; effect setState→initialisation event-driven (openList) — AppSelect 0 problème, total lint = 109 = baseline exacte (0 nouveau)
+- Incident infra : OOM killer avait tué le next-server initial (RSS 1,7 Go / 4 Go RAM) ; les processus lancés depuis le shell meurent à la fin de chaque commande outil → vérification faite en commandes uniques (serveur + agent-browser ensemble)
+- Vérification navigateur (agent-browser, session Super Admin) : landing hero dark (sélection Kinshasa ✓), dashboard filtre villes (Toutes les villes→Kinshasa ✓), Communications « Nouvelle communication » (Annonce→Notification ✓, Tout le monde→Parents ✓ puis Classe ✓ après refactor) — listbox custom avec coche/hover rose, 0 erreur console, APIs 200 dans dev.log
+- rg "<select" src/ = 0 résultat (aucun select natif restant)
+
+Stage Summary:
+- Les 55 dropdowns natifs (15 fichiers) utilisent désormais le composant custom unifié AppSelect — style cohérent avec le design de l'app, aucun changement de branding/logique
+- Variante sombre dédiée pour les fonds foncés (landing, find-child) : design d'origine préservé
+- Lint à la baseline exacte (109, tous préexistants) ; vérifié en navigateur de bout en bout
+
+---
+Task ID: 16
+Agent: Z.ai Code (main)
+Task: « une page qui me permettait d'envoyer aux admis des ecoles — onglet Passage de classe — remet-la, ajoute les notifications email + in-app aux admins des écoles, vraies stats »
+
+Work Log:
+- Enquête : « Contrôle plateforme » (PlatformControlView) et la ClassPassingView riche (délibération + repêchage + stats) étaient DÉBRANCHÉS depuis v1.3.0 (5d113e6) — le fichier existait mais n'était plus importé/monté ; la vue riche avait été remplacée par une table simple
+- Découverte majeure : les modèles Prisma PlatformEvent + RepechageExam avaient été RETIRÉS du schema.prisma (commit 4f1ec04, accidentel) alors que les routes /api/platform-events et /api/class-passing/repechage les utilisaient → 500 en runtime ; ré-ajoutés à l'identique (b926da1) + relations School/Student ; prisma generate + db push (tables déjà présentes en SQLite)
+- page.tsx : import PlatformControlView, onglet « Contrôle plateforme » (menu Super Admin), case 'platform-control', titre, VIEWS_BY_ROLE ; canAccessView : bypass abonnement pour platform-control/class-passing (super admin)
+- page.tsx : ClassPassingView simple remplacée par la version riche (cb451c0) adaptée AppSelect — onglets Délibération/Repêchage, vraies stats serveur (évalués/à risque/délibération/échec), moyennes T1-T3, matières en échec, discipline, score de risque, repêchage (examens App + WhatsApp, historique)
+- APIs : CLASS_PASSING_ROLES + REPECHAGE_ROLES += SUPER_ADMIN_GLOBAL (bypass gate PREMIUM pour le super admin plateforme)
+- Nouveau src/lib/passing-notify.ts : notifyPassingUpdateToAdmins() — in-app (+Web Push) + EMAIL Resend au personnel école (SCHOOL_ADMIN inclus, ancien code l'omettait) + super admins plateforme, dédoublonné, plafonné 500, non bloquant
+- Câblage : POST /api/report-cards (décision T3 → « Passage de classe — décision enregistrée »), POST /api/class-passing/repechage (repêchage envoyé), POST /api/platform-events (programmation → in-app + email, remplace l'ancienne boucle in-app seule)
+- Vérif navigateur (agent-browser, Super Admin) : /platform-control charge les événements (500 → OK après fix Prisma) ; événement CLASS_PASSING programmé via l'UI (POST 201, ligne en base) ; /class-passing : période ouverte, VRAIES stats (20 évalués, 2 à risque, 2 délibération, 20 échec), élèves réels (moyennes, matières, discipline, badge Critique) ; décision « Passage » validée → POST /api/report-cards 200 + notifications CLASS_PASSING créées en base pour directions/caissier/super admins (emails en attente de la clé Resend — Config API)
+- Lint 109 = baseline ; tsc 96 → 86 (10 erreurs Prisma corrigées) ; 0 select natif
+
+Stage Summary:
+- L'onglet « Contrôle plateforme » (envoi/programmation aux admins d'écoles) et la vue complète « Passage de classe » (délibération, repêchage, vraies stats) sont restaurés et fonctionnels
+- Toute mise à jour de passage (décision, repêchage, programmation) notifie les admins des écoles dans l'app (push) ET par email dès configuration Resend (Communications → Config API)
+- Infra réparée : modèles Prisma restaurés, accès plateforme aux APIs de passage
