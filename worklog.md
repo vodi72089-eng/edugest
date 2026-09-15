@@ -1360,3 +1360,19 @@ Stage Summary:
 - Menus réorganisés conformément à la demande : Personnalisation dans Paramètres, WhatsApp API & Quotas dans Connexion WhatsApp, Config API (Resend) uniquement dans Communications du compte admin
 - Backend : /api/email-config sécurisé + Resend branché en priorité pour l'OTP email (fallback SMTP conservé)
 - ATTENTION : session WhatsApp réinitialisée automatiquement (timeout 408) — l'utilisateur doit re-connecter son numéro via QR (affiché) ou code de parrainage
+Task ID: 13
+Agent: Z.ai Code (main)
+Task: "remet le truc originelle" — restaurer le logo original (annuler la version régénérée de la Task 12)
+
+Work Log:
+- Identifié le commit de remplacement du logo : 3494e04 ("brand: logo officiel EDUC GEST partout")
+- Restauré les 5 assets originaux depuis le commit parent ab4dc0e : public/edugest-logo.png, public/edugest-logo-mark.png, public/edugest-logo-pdf.jpg, desktop/splash-logo.png, desktop/icon.png
+- Aucun changement de code nécessaire : BrandLogo.tsx référence les mêmes chemins de fichiers
+- Bump version desktop → 1.3.3 (nouvelle release — la v1.3.2 existante contient encore l'ancien logo)
+- Vérifié dans le navigateur : page /login affiche le logo original (badge lauriers net en haut à gauche + carte blanche centrale avec le logo EDUC GEST d'origine)
+- Le script scripts/make-official-logo.cjs est conservé mais n'est plus utilisé
+
+Stage Summary:
+- Logo original restauré partout (web + splash + icône exe)
+- Version desktop 1.3.3 prête pour release
+- Le commit + push déclenche la reconstruction automatique de l'exe v1.3.3 avec le logo original
