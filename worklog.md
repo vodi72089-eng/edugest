@@ -1282,3 +1282,19 @@ Stage Summary:
 - CORRECTION : retrait du header XFO uniquement ; autres headers conservés ; recommandation CSP frame-ancestors documentée pour un futur déploiement prod à domaine maîtrisé
 - Baileys/WhatsApp/pairing : INTACTS et vérifiés après correction
 - PASS (preuves : headers avant/après + reproduction iframe avant/après + tests API)
+
+---
+Task ID: 12
+Agent: Z.ai Code (main)
+Task: Installation du logo officiel EduGest fourni par le client (lauriers d'or + tête de diplômé + livre bleu).
+
+Work Log:
+- Créé scripts/make-official-logo.cjs (sharp) : supprime le fond noir (rampe d'alpha douce), nettoie les taches sombres des lauriers vers l'or plat (250,198,19), rogne l'emblème.
+- Généré : public/edugest-logo.png (emblème + lettrage « EDUC GEST » bleu du livre, fond transparent), public/edugest-logo-mark.png (emblème seul 640²), public/edugest-logo-pdf.jpg (fond blanc, reçus), desktop/splash-logo.png (splash bureau), desktop/icon.png (icône exe 1024²).
+- Aucun changement de code nécessaire : BrandLogo.tsx et tous les usages pointent déjà vers ces fichiers (centralisation v1.3.0).
+- Vérifié navigateur : page de connexion (plaque blanche + logo complet net), marque dans la barre de navigation transparente sur fond sombre.
+- Version desktop bumpée 1.3.0 → 1.3.1 (le push reconstruit l'exe avec nouveau splash + icône).
+
+Stage Summary:
+- Le logo officiel du client est désormais l'unique identité visuelle : web (favicon, connexion, en-têtes, reçus PDF) et bureau (splash, icône exe).
+- Script de régénération conservé : node scripts/make-official-logo.cjs.
