@@ -222,7 +222,9 @@ function createWindow(port) {
   mainWindow.setMenuBarVisibility(false);
   mainWindow.removeMenu();
 
-  mainWindow.loadURL(`http://127.0.0.1:${port}/`);
+  // L'app desktop démarre directement sur la connexion (pas de landing page :
+  // le store rabat de toute façon 'home' vers 'login' en mode Electron).
+  mainWindow.loadURL(`http://127.0.0.1:${port}/login`);
   mainWindow.once('ready-to-show', () => {
     closeSplash();
     mainWindow.show();

@@ -11,15 +11,16 @@
  *
  * Usage : `node scripts/copy-standalone-assets.mjs` (après `next build`).
  */
-import { cpSync, existsSync } from 'node:fs';
+import { cpSync, existsSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const standalone = join(root, '.next', 'standalone');
 
 const jobs = [
-  [join(root, '.next', 'static'), join(root, '.next', 'standalone', '.next', 'static')],
-  [join(root, 'public'), join(root, '.next', 'standalone', 'public')],
+  [join(root, '.next', 'static'), join(standalone, '.next', 'static')],
+  [join(root, 'public'), join(standalone, 'public')],
 ];
 
 let failed = false;
@@ -31,6 +32,18 @@ for (const [from, to] of jobs) {
   }
   cpSync(from, to, { recursive: true });
   console.log(`[copy-standalone-assets] ${from} -> ${to}`);
+}
+
+// Élagage : le tracing Next embarque parfois `desktop/` (l'app Electron
+// elle-même, dont `dist/` avec les exes + win-unpacked ≈ 1 Go) dans le
+// standalone. L'embarquer serait récursif et fait exploser l'installeur.
+// Le serveur Next n'en a jamais besoin au runtime.
+for (const junk of ['desktop']) {
+  const p = join(standalone, junk);
+  if (existsSync(p)) {
+    rmSync(p, { recursive: true, force: true });
+    console.log(`[copy-standalone-assets] élagué : ${p}`);
+  }
 }
 
 if (failed) process.exit(1);

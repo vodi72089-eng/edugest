@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react'
 import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken, restoreSession } from '@/lib/store'
 import { toast } from 'sonner'
 import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
@@ -353,6 +353,8 @@ function HomeView() {
   const [typewriterLine1, setTypewriterLine1] = useState('')
   const [typewriterLine2, setTypewriterLine2] = useState('')
   const [typewriterActiveLine, setTypewriterActiveLine] = useState<1 | 2 | null>(1)
+  // Compteurs réels de la plateforme (jamais de chiffres marketing en dur)
+  const [platformStats, setPlatformStats] = useState({ schools: 0, students: 0, families: 0 })
 
   useEffect(() => {
     async function loadData() {
@@ -365,6 +367,17 @@ function HomeView() {
         console.error(e)
       } finally {
         setLoading(false)
+      }
+      try {
+        const statsRes = await fetch('/api/public/stats')
+        const statsJson = await statsRes.json()
+        if (statsJson.data) setPlatformStats({
+          schools: statsJson.data.schools ?? 0,
+          students: statsJson.data.students ?? 0,
+          families: statsJson.data.families ?? 0,
+        })
+      } catch (e) {
+        console.error(e)
       }
     }
     loadData()
@@ -625,9 +638,9 @@ function HomeView() {
           {/* Stats cards with tilt */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-3xl px-4 relative z-20">
             {[
-              { value: 240, suffix: '+', label: 'Établissements', glow: 'oklch(72% 0.15 65 / 0.3)', icon: '🏫' },
-              { value: 50000, suffix: '+', label: 'Familles', glow: 'oklch(72% 0.22 165 / 0.3)', icon: '👨‍👩‍👧‍👦' },
-              { value: 98, suffix: '%', label: 'Satisfaction', glow: 'oklch(72% 0.15 210 / 0.3)', icon: '⭐' },
+              { value: platformStats.schools, suffix: '', label: 'Établissements', glow: 'oklch(72% 0.15 65 / 0.3)', icon: '🏫' },
+              { value: platformStats.families, suffix: '', label: 'Familles', glow: 'oklch(72% 0.22 165 / 0.3)', icon: '👨‍👩‍👧‍👦' },
+              { value: platformStats.students, suffix: '', label: 'Élèves', glow: 'oklch(72% 0.15 210 / 0.3)', icon: '🎓' },
             ].map((stat) => (
               <GlowCard key={stat.label} glowColor={stat.glow}>
                 <div className="p-6 flex flex-col items-center justify-center group cursor-default">
@@ -648,9 +661,9 @@ function HomeView() {
       <section style={{ background: IVORY }} className="border-y border-[oklch(88%_0.01_175)]">
         <div className="container-premium py-4 text-center">
           <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
-            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{schools.length}+</strong> Établissement{schools.length > 1 ? 's' : ''} &nbsp;•&nbsp;{' '}
-            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>50,000+</strong> Familles &nbsp;•&nbsp;{' '}
-            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>98%</strong> Satisfaction
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{platformStats.schools.toLocaleString('fr-FR')}</strong> Établissement{platformStats.schools > 1 ? 's' : ''} &nbsp;•&nbsp;{' '}
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{platformStats.families.toLocaleString('fr-FR')}</strong> Familles &nbsp;•&nbsp;{' '}
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{platformStats.students.toLocaleString('fr-FR')}</strong> Élèves
           </p>
         </div>
       </section>
@@ -7929,8 +7942,11 @@ export default function Home() {
   const { currentView, userRole, logout, setCurrentView, userData, setUserData } = useEduGestStore()
   const [subscriptionRequired, setSubscriptionRequired] = useState<{ tier: string; expired: boolean } | null>(null)
 
-  // Restore session from localStorage after first render (avoids hydration mismatch)
-  useEffect(() => {
+  // Restore session from localStorage before first paint (avoids hydration
+  // mismatch + évite tout flash de la landing dans l'app desktop qui démarre
+  // directement sur le login).
+  const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+  useIsomorphicLayoutEffect(() => {
     restoreSession()
   }, [])
 

@@ -98,6 +98,21 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   return res;
 }
 
+// ─── Desktop app (Electron) : pas de landing page ──────────────────────────
+// L'application de bureau démarre directement sur l'écran de connexion.
+// Détection au runtime via le user-agent Electron (les variables
+// NEXT_PUBLIC_* sont figées au build et ne peuvent pas servir ici).
+// Toute navigation vers 'home' (landing) est rabattue sur 'login'.
+export function isDesktopApp(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /electron/i.test(navigator.userAgent || '');
+}
+
+function resolveView(view: ViewType): ViewType {
+  if (view === 'home' && isDesktopApp()) return 'login';
+  return view;
+}
+
 // ─── Browser URL sync ────────────────────────────────────────────────────
 // The whole app is a single-page application driven by `currentView`.
 // These helpers keep the browser address bar synchronised with real paths
@@ -119,8 +134,9 @@ function syncUrl(view: ViewType, mode: 'push' | 'replace') {
 }
 
 function applyView(view: ViewType) {
-  useEduGestStore.setState({ currentView: view });
-  saveSession({ view });
+  const resolved = resolveView(view);
+  useEduGestStore.setState({ currentView: resolved });
+  saveSession({ view: resolved });
 }
 
 export type ViewType =
@@ -271,7 +287,7 @@ export function restoreSession() {
         ? (urlView as ViewType)
         : urlView
           ? 'login'
-          : 'home';
+          : resolveView('home');
     applyView(view);
     syncUrl(view, 'replace');
   }
@@ -282,7 +298,7 @@ if (typeof window !== 'undefined') {
   window.addEventListener('popstate', () => {
     const store = useEduGestStore.getState();
     const urlView = pathToView(window.location.pathname) as ViewType | null;
-    let target: ViewType = urlView || 'home';
+    let target: ViewType = resolveView(urlView || 'home');
     if (!store.userRole && !(PUBLIC_VIEWS as readonly string[]).includes(target)) {
       // Anonymous users can never land on an auth-only view.
       target = 'login';
@@ -300,8 +316,9 @@ const initial = getInitialState();
 export const useEduGestStore = create<EduGestStore>((set, get) => ({
   currentView: initial.currentView,
   setCurrentView: (view) => {
-    applyView(view);
-    syncUrl(view, 'push');
+    const resolved = resolveView(view);
+    applyView(resolved);
+    syncUrl(resolved, 'push');
   },
 
   userRole: initial.userRole,
@@ -370,14 +387,15 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
     }
     setAuthToken(null);
     clearSession();
+    const homeView = resolveView('home');
     set({
       userRole: null,
       userData: null,
-      currentView: 'home',
+      currentView: homeView,
       sidebarOpen: false,
       selectedSchoolId: null,
       selectedStudentId: null,
     });
-    syncUrl('home', 'replace');
+    syncUrl(homeView, 'replace');
   },
 }))
