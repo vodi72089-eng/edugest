@@ -16,8 +16,15 @@ import path from 'path';
 //   }
 // Legacy files (v1: { userId, expiresAt }) are read transparently — missing
 // fields default to '' / 0 / undefined.
-const SESSIONS_DIR = path.join(process.cwd(), '.sessions');
-const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
+// Par défaut : dossier de travail du serveur. L'app desktop (Electron)
+// surcharge via EDUGEST_SESSIONS_DIR vers %APPDATA%/EduGest/.sessions :
+// sinon chaque mise à jour (et chaque redémarrage du portable, extrait en
+// temp) effacerait les sessions et forcerait une reconnexion.
+const SESSIONS_DIR = process.env.EDUGEST_SESSIONS_DIR || path.join(process.cwd(), '.sessions');
+// Durée de session : 24 h sur le web. L'app desktop surcharge via
+// EDUGEST_SESSION_DAYS (ex: 30) pour rester connectée, MAJ incluses.
+const SESSION_DURATION_MS =
+  (Number.parseInt(process.env.EDUGEST_SESSION_DAYS || '', 10) || 1) * 24 * 60 * 60 * 1000;
 // Throttle: only persist lastUsedAt if it's older than this, to avoid a disk
 // write on every single API request.
 const LAST_USED_REFRESH_MS = 5 * 60 * 1000; // 5 minutes

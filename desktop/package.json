@@ -33,7 +33,7 @@
         "to": "app"
       },
       {
-        "from": "../db/desktop-template.db",
+        "from": "../prisma/db/custom.db",
         "to": "template.db"
       },
       {

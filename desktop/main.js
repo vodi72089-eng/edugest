@@ -225,10 +225,21 @@ function createWindow(port) {
   // L'app desktop démarre directement sur la connexion (pas de landing page :
   // le store rabat de toute façon 'home' vers 'login' en mode Electron).
   mainWindow.loadURL(`http://127.0.0.1:${port}/login`);
-  mainWindow.once('ready-to-show', () => {
+  // Le splash reste visible jusqu'au chargement COMPLET de la page (pas de
+  // fenêtre blanche / à moitié peinte). Sécurité : affichage forcé à 25 s.
+  let shown = false;
+  const showNow = () => {
+    if (shown) return;
+    shown = true;
     closeSplash();
-    mainWindow.show();
-    mainWindow.focus();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  };
+  mainWindow.webContents.on('did-finish-load', showNow);
+  setTimeout(showNow, 25000);
+  mainWindow.once('ready-to-show', () => {
     setupAutoUpdate();
   });
   // Sécurité : si l'UI plante au chargement, ne pas laisser un écran noir
@@ -377,7 +388,9 @@ function setupAutoUpdate() {
 // ─── Démarrage ───────────────────────────────────────────────────────────────
 
 async function startBackend() {
-  // 1) Base de données locale : copie du template au premier lancement
+  // 1) Base de données locale : copie du template au premier lancement.
+  //    La base existante n'est JAMAIS écrasée (ni par les MAJ, ni au
+  //    redémarrage) — les données, comptes et sessions sont conservés.
   setSplashStage('Préparation de la base de données…');
   try {
     if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
@@ -400,6 +413,12 @@ async function startBackend() {
 
   // 3) Serveur Next.js standalone en processus fils (Node embarqué d'Electron)
   setSplashStage('Démarrage du serveur local…');
+  // Sessions serveur persistantes : dans userData (%APPDATA%/EduGest), JAMAIS
+  // dans le dossier de l'app (écrasé à chaque mise à jour, et ré-extrait en
+  // temp à chaque lancement du portable). Durée 30 jours : pas de reconnexion
+  // forcée après une MAJ ou un redémarrage.
+  const SESSIONS_DIR = path.join(USER_DATA, '.sessions');
+  try { if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR, { recursive: true }); } catch {}
   serverProcess = spawn(process.execPath, [SERVER_JS], {
     cwd: APP_DIR,
     env: {
@@ -410,6 +429,9 @@ async function startBackend() {
       HOSTNAME: '127.0.0.1',
       // Base de données SQLite connectée à l'app desktop
       DATABASE_URL: `file:${DB_PATH}`,
+      // Sessions persistantes (survivent aux MAJ et aux redémarrages)
+      EDUGEST_SESSIONS_DIR: SESSIONS_DIR,
+      EDUGEST_SESSION_DAYS: '30',
       NEXT_PUBLIC_APP_URL: `http://127.0.0.1:${port}`,
       NEXT_TELEMETRY_DISABLED: '1',
     },
