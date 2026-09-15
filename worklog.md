@@ -1298,3 +1298,21 @@ Work Log:
 Stage Summary:
 - Le logo officiel du client est désormais l'unique identité visuelle : web (favicon, connexion, en-têtes, reçus PDF) et bureau (splash, icône exe).
 - Script de régénération conservé : node scripts/make-official-logo.cjs.
+
+---
+Task ID: 13
+Agent: Z.ai Code (main)
+Task: Mise à jour générale du projet — combler le manque de comptes admin d'école (upgrade FREEMIUM impossible à démontrer) et republier l'exe.
+
+Work Log:
+- État des lieux : repo synchronisé (local = origin/main), serveur sain (app 200, api 200), logo officiel déjà en place, « Me localiser » fonctionnel (GPS → IP → Kinshasa, reverse geocoding Nominatim).
+- Constat clé : AUCUN compte SCHOOL_ADMIN dans la base — la demande d'upgrade FREEMIUM (Mon Abonnement → Changer de formule) ne pouvait être ni testée ni démontrée.
+- Seed enrichi : 6 admins d'école créés (admin@lumiere.cd, @mwanzo, @dakar, @abidjan, @brazza, @kivu — rôle SCHOOL_ADMIN, mot de passe admin123), un par école démonstration.
+- Base live : les 6 comptes insérés directement (bcrypt admin123).
+- Vérification navigateur : login admin@brazza.cd (école FREEMIUM) → dashboard avec « Mon Abonnement » + badge « Forfait : FREEMIUM » + popup « Importer votre base » dans l'app.
+- « Changer de formule » : 5 formules affichées (Essentiel → Corporate), boutons Demander fonctionnels.
+- API testée de bout en bout : POST /api/subscription/request (admin@brazza.cd, PREMIUM) → demande créée status PENDING, notifiée au super admin.
+
+Stage Summary:
+- L'upgrade FREEMIUM fonctionne de bout en bout ; comptes de démonstration disponibles pour chaque école.
+- desktop/package.json : 1.3.1 → 1.3.2 (le push reconstruit l'exe sur la Release).

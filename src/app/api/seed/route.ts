@@ -275,6 +275,31 @@ export async function GET(request: NextRequest) {
       counts.users++;
     }
 
+    // ----- Admins d'école (un par école) -----
+    // Permettent de tester les abonnements, notamment la demande de passage
+    // FREEMIUM → formule supérieure (« Mon Abonnement » côté école).
+    const schoolAdminsData = [
+      { name: 'Directeur Lumière', email: 'admin@lumiere.cd', phone: '+243810000031', role: 'SCHOOL_ADMIN', schoolIdx: 0 },
+      { name: 'Directeur Mwanzo', email: 'admin@mwanzo.cd', phone: '+243810000032', role: 'SCHOOL_ADMIN', schoolIdx: 1 },
+      { name: 'Directeur Dakar', email: 'admin@dakar.cd', phone: '+243810000033', role: 'SCHOOL_ADMIN', schoolIdx: 2 },
+      { name: 'Directeur Abidjan', email: 'admin@abidjan.cd', phone: '+243810000034', role: 'SCHOOL_ADMIN', schoolIdx: 3 },
+      { name: 'Directeur Brazza', email: 'admin@brazza.cd', phone: '+243810000035', role: 'SCHOOL_ADMIN', schoolIdx: 4 },
+      { name: 'Directeur Kivu', email: 'admin@kivu.cd', phone: '+243810000036', role: 'SCHOOL_ADMIN', schoolIdx: 5 },
+    ];
+    for (const a of schoolAdminsData) {
+      await db.user.create({
+        data: {
+          name: a.name,
+          email: a.email,
+          phone: a.phone,
+          password: passwordHash,
+          role: a.role,
+          schoolId: schools[a.schoolIdx].id,
+        } as any,
+      }) as any;
+      counts.users++;
+    }
+
     const parentKazadi = lumiereUsers.find(u => u.email === 'parent@email.com');
     const parentNsimba = lumiereUsers.find(u => u.email === 'nsimba@email.com');
     const headTeacher = lumiereUsers.find(u => u.role === 'HEAD_TEACHER');
