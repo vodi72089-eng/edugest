@@ -4346,7 +4346,7 @@ function PaymentConfigView() {
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
                       {svgLogo ? (
-                        <img src={svgLogo} alt={gw.displayName} className="w-10 h-10 rounded-xl object-cover shrink-0" />
+                        <img src={svgLogo} alt={gw.displayName} className="w-10 h-10 rounded-xl object-contain bg-white border border-[oklch(92%_0.005_250)] shrink-0" />
                       ) : (
                         <span className="text-2xl">{gw.icon}</span>
                       )}
@@ -4710,7 +4710,7 @@ function PaymentConfigView() {
             <div className="px-6 py-4 border-b border-[oklch(90%_0.01_175)] flex items-center justify-between sticky top-0 bg-white rounded-t-2xl">
               <div className="flex items-center gap-3">
                 {GATEWAY_SVG_LOGOS[showGatewayModal] ? (
-                  <img src={GATEWAY_SVG_LOGOS[showGatewayModal]} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                  <img src={GATEWAY_SVG_LOGOS[showGatewayModal]} alt="" className="w-8 h-8 rounded-lg object-contain bg-white border border-[oklch(92%_0.005_250)] shrink-0" />
                 ) : null}
                 <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>
                   Configuration - {availableGateways.find((g: any) => g.gatewayType === showGatewayModal)?.displayName}
