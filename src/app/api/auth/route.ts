@@ -3,6 +3,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { createToken, getClientIp, getUserAgentFromRequest, checkRateLimit } from '@/lib/auth';
 
+const MOBILE_ELIGIBLE_TIERS = new Set(['PREMIUM', 'ENTERPRISE', 'CORPORATE']);
+
+function hasActiveMobileSubscription(school: {
+  subscriptionTier: string | null;
+  subscriptionStatus: string | null;
+  subscriptionEndDate: Date | null;
+} | null): boolean {
+  if (!school || !MOBILE_ELIGIBLE_TIERS.has(school.subscriptionTier || 'FREEMIUM')) return false;
+  if ((school.subscriptionStatus || 'ACTIVE') !== 'ACTIVE') return false;
+  return !school.subscriptionEndDate || school.subscriptionEndDate >= new Date();
+}
+
 // Simple in-memory rate limiter for login attempts
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -11,7 +23,7 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, phone, password } = body;
+    const { email, phone, password, client } = body;
 
     if (!password) {
       return NextResponse.json({ error: 'Password is required' }, { status: 400 });
@@ -95,6 +107,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // L'application mobile est une offre Premium : cette règle est appliquée
+    // côté serveur afin qu'elle ne puisse pas être contournée par l'interface.
+    if (client === 'mobile') {
+      const mobileSchool = user.schoolId
+        ? await db.school.findUnique({
+            where: { id: user.schoolId },
+            select: { subscriptionTier: true, subscriptionStatus: true, subscriptionEndDate: true },
+          })
+        : null;
+
+      if (!hasActiveMobileSubscription(mobileSchool)) {
+        return NextResponse.json(
+          {
+            error: "L'application mobile est réservée aux écoles disposant d'un abonnement Professionnel actif ou supérieur.",
+            mobileAccessDenied: true,
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     // ── Clear rate limit on success ──────────────────────────────────────
     loginAttempts.delete(identifier);
 
@@ -136,14 +169,21 @@ export async function POST(request: NextRequest) {
     // Return user data without password + token
     const { password: _, ...userData } = user;
 
-    const school = await db.school.findUnique({
-      where: { id: user.schoolId },
-      select: {
-        id: true, name: true, shortName: true, city: true, country: true,
-        subscriptionTier: true, logo: true,
-        designPrimary: true, designAccent: true, designGold: true,
-      },
-    });
+    // École : enrichissement non-bloquant — un schéma local en retard ne doit
+    // jamais empêcher la connexion (le login est un chemin critique).
+    let school = null;
+    try {
+      school = user.schoolId ? await db.school.findUnique({
+        where: { id: user.schoolId },
+        select: {
+          id: true, name: true, shortName: true, city: true, country: true,
+          subscriptionTier: true, logo: true,
+          designPrimary: true, designAccent: true, designGold: true,
+        },
+      }) : null;
+    } catch (e) {
+      console.error('[auth] école introuvable (non-bloquant) :', (e as Error)?.message);
+    }
 
     const response = NextResponse.json({
       data: {

@@ -1917,24 +1917,25 @@ function LoginView() {
 
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+    <div className="h-screen flex flex-col relative overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
       {/* Gradient overlays */}
       <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-[#0a0f0d] via-[#0b1613]/50 to-transparent pointer-events-none z-10" />
       <div className="absolute top-0 right-0 w-[500px] h-[500px] opacity-15 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, oklch(72% 0.15 65 / 0.3), transparent 70%)' }} />
       <div className="absolute bottom-0 left-0 w-[400px] h-[400px] opacity-10 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, oklch(60% 0.15 145 / 0.2), transparent 70%)' }} />
 
       {/* Top nav bar */}
-      <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-5 w-full">
+      <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-4 w-full shrink-0">
         <div className="flex items-center shrink-0 min-w-max">
-          <BrandMark height={48} className="brightness-110" />
+          <BrandMark height={40} className="brightness-110" />
         </div>
       </nav>
 
-      {/* Main content: animated book + login card */}
-      <main className="relative z-20 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-4 sm:py-8 gap-8 sm:gap-10">
+      {/* Main content: animated book + login card — jamais de scrollbar de page
+          (h-screen + overflow-hidden) ; défilement interne invisible si petit écran */}
+      <main className="relative z-20 flex-1 min-h-0 w-full flex flex-col items-center justify-center px-4 sm:px-6 py-2 gap-5 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {/* Animated Book + Brand */}
-        <div className="text-center flex flex-col items-center gap-5">
-          <div className="edu-book mx-auto" style={{ transform: 'scale(1.1)' }}>
+        <div className="text-center flex flex-col items-center gap-3 shrink-0">
+          <div className="edu-book mx-auto" style={{ transform: 'scale(0.9)' }}>
             <div className="edu-book__pg-shadow"></div>
             <div className="edu-book__pg"></div>
             <div className="edu-book__pg edu-book__pg--2"></div>
@@ -1943,17 +1944,17 @@ function LoginView() {
             <div className="edu-book__pg edu-book__pg--5"></div>
           </div>
           <div>
-            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight mb-2">
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-1">
               Edu<span style={{ color: 'oklch(72% 0.15 65)', textShadow: '0 0 20px oklch(72% 0.15 65 / 0.4)' }}>Gest</span>
             </h1>
-            <p className="text-white/50 text-sm sm:text-base font-medium">
+            <p className="text-white/50 text-sm font-medium">
               La plateforme de gestion scolaire
             </p>
           </div>
         </div>
 
         {/* Glass morphism login card */}
-        <div className="w-full max-w-[440px] rounded-2xl p-6 sm:p-8" style={{ background: 'rgba(26, 37, 32, 0.55)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5), 0 0 80px oklch(55% 0.15 175 / 0.05)' }}>
+        <div className="w-full max-w-[440px] rounded-2xl p-5 sm:p-6 shrink-0" style={{ background: 'rgba(26, 37, 32, 0.55)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5), 0 0 80px oklch(55% 0.15 175 / 0.05)' }}>
           <div className="mb-5">
             <h2 className="text-xl font-bold text-white tracking-tight mb-1">
               Connexion
