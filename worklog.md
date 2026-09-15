@@ -1514,3 +1514,24 @@ Stage Summary:
 - Les 55 dropdowns natifs (15 fichiers) utilisent désormais le composant custom unifié AppSelect — style cohérent avec le design de l'app, aucun changement de branding/logique
 - Variante sombre dédiée pour les fonds foncés (landing, find-child) : design d'origine préservé
 - Lint à la baseline exacte (109, tous préexistants) ; vérifié en navigateur de bout en bout
+
+---
+Task ID: 16
+Agent: Z.ai Code (main)
+Task: « une page qui me permettait d'envoyer aux admis des ecoles — onglet Passage de classe — remet-la, ajoute les notifications email + in-app aux admins des écoles, vraies stats »
+
+Work Log:
+- Enquête : « Contrôle plateforme » (PlatformControlView) et la ClassPassingView riche (délibération + repêchage + stats) étaient DÉBRANCHÉS depuis v1.3.0 (5d113e6) — le fichier existait mais n'était plus importé/monté ; la vue riche avait été remplacée par une table simple
+- Découverte majeure : les modèles Prisma PlatformEvent + RepechageExam avaient été RETIRÉS du schema.prisma (commit 4f1ec04, accidentel) alors que les routes /api/platform-events et /api/class-passing/repechage les utilisaient → 500 en runtime ; ré-ajoutés à l'identique (b926da1) + relations School/Student ; prisma generate + db push (tables déjà présentes en SQLite)
+- page.tsx : import PlatformControlView, onglet « Contrôle plateforme » (menu Super Admin), case 'platform-control', titre, VIEWS_BY_ROLE ; canAccessView : bypass abonnement pour platform-control/class-passing (super admin)
+- page.tsx : ClassPassingView simple remplacée par la version riche (cb451c0) adaptée AppSelect — onglets Délibération/Repêchage, vraies stats serveur (évalués/à risque/délibération/échec), moyennes T1-T3, matières en échec, discipline, score de risque, repêchage (examens App + WhatsApp, historique)
+- APIs : CLASS_PASSING_ROLES + REPECHAGE_ROLES += SUPER_ADMIN_GLOBAL (bypass gate PREMIUM pour le super admin plateforme)
+- Nouveau src/lib/passing-notify.ts : notifyPassingUpdateToAdmins() — in-app (+Web Push) + EMAIL Resend au personnel école (SCHOOL_ADMIN inclus, ancien code l'omettait) + super admins plateforme, dédoublonné, plafonné 500, non bloquant
+- Câblage : POST /api/report-cards (décision T3 → « Passage de classe — décision enregistrée »), POST /api/class-passing/repechage (repêchage envoyé), POST /api/platform-events (programmation → in-app + email, remplace l'ancienne boucle in-app seule)
+- Vérif navigateur (agent-browser, Super Admin) : /platform-control charge les événements (500 → OK après fix Prisma) ; événement CLASS_PASSING programmé via l'UI (POST 201, ligne en base) ; /class-passing : période ouverte, VRAIES stats (20 évalués, 2 à risque, 2 délibération, 20 échec), élèves réels (moyennes, matières, discipline, badge Critique) ; décision « Passage » validée → POST /api/report-cards 200 + notifications CLASS_PASSING créées en base pour directions/caissier/super admins (emails en attente de la clé Resend — Config API)
+- Lint 109 = baseline ; tsc 96 → 86 (10 erreurs Prisma corrigées) ; 0 select natif
+
+Stage Summary:
+- L'onglet « Contrôle plateforme » (envoi/programmation aux admins d'écoles) et la vue complète « Passage de classe » (délibération, repêchage, vraies stats) sont restaurés et fonctionnels
+- Toute mise à jour de passage (décision, repêchage, programmation) notifie les admins des écoles dans l'app (push) ET par email dès configuration Resend (Communications → Config API)
+- Infra réparée : modèles Prisma restaurés, accès plateforme aux APIs de passage
