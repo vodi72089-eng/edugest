@@ -1398,3 +1398,26 @@ Stage Summary:
 - La connexion reste unifiée et sécurisée sur /login ; l'app authifiée démarre sur le dashboard
 - Fix : l'onglet « Connexion WhatsApp » fonctionne maintenant pour les admins d'école (quotas + API perso), il était mort depuis la réorganisation
 - admin@lumiere.cd / admin123 disponible pour les tests du parcours admin d'école
+
+---
+Task ID: 14
+Agent: Z.ai Code (main)
+Task: Module médical — PDFs officiels + « Gestion des fiches médicales » + IDs uniques + « Vérification » universelle
+
+Work Log:
+- SCHEMA : nouveau modèle MedicalDocument (docCode unique, type DISPENSE_MEDICALE|FICHE_SANTE|REGISTRE_SANTE, content JSON snapshot, sourceId, createdBy) ; docCode @unique ajouté sur Grade et ReportCard ; db:push OK
+- CODES UNIQUES : src/lib/doc-codes.ts — générateur séquentiel lisible {PREFIX}-{AA}-{NNNN} (BUL/NOT/DIS/FSA/REG) avec anti-collision ; réçu conserve son receiptNumber existant
+- PDF MÉDICAL (design gianelli identique aux reçus/bulletins) : src/lib/pdf-medical.ts — double bordure navy/or, logo école encadré or + logo EduGest, sections or, lignes pointillées, QR de vérification, footer EduGest, marqueur caché EDUGEST-ID:{code} ; 3 mises en page : dispense (période/motif/médecin/encadré vert), fiche de santé (données médicales/contacts/dernières visites), registre (tableau des passages navy/lignes vertes)
+- API : /api/medical/documents (GET liste filtrable + POST création avec docCode auto ; accès SUPER_ADMIN_GLOBAL+SCHOOL_ADMIN+MEDICAL, gating hasFeatureAccess(tier,'medical') → 403 tierRequired PREMIUM) ; /api/medical/documents/[id]/pdf (PDF à la volée + registerDocument type MEDICAL + QR) ; POST /api/medical/dispensations génère AUTOMATIQUEMENT la fiche DIS- (non bloquant)
+- IDs BULLETINS : generateBulletinPDF assure ReportCard.docCode (BUL-AA-NNNN, créé à la 1re impression), affiché « N. BUL-26-0001 » sous le titre, marker caché EDUGEST-ID:BUL-… ajouté (import direct)
+- IDs NOTES : POST /api/grades génère NOT-AA-NNNN à la création ; backfill des 360 notes existantes (NOT-26-0001…0360)
+- VÉRIFICATION UNIVERSELLE : GET /api/verify/document?code= cherche dans MedicalDocument.docCode, PaymentRecord (receiptNumber/reference/id), ReportCard.docCode, Grade.docCode — scoping école via verifySchoolAccess ; le menu « Vérification paiements » est renommé « Vérification » (6 occurrences sidebar) et la vue gère tout code (REC/BUL/NOT/DIS/FSA/REG) + import PDF (extraction EDUGEST-ID → endpoint universel) ; carte résultat universelle avec détails par type + téléchargement PDF médical
+- FRONTEND : nouvelle vue medical-records (path /medical-records, ViewType, MainContent, viewTitles) — MedicalRecordsView.tsx : stats, onglets par type, recherche, dialog création 3-en-1 (dispense avec motif préfixé AUTRE, fiche santé pré-remplie depuis MedicalRecord + dernières visites, registre figé depuis visites filtrées classe/période), téléchargement PDF ; sidebar : item « Fiches Médicales » (Stethoscope) pour SUPER_ADMIN_GLOBAL, SCHOOL_ADMIN, MEDICAL ; canAccessView + filtre runtime (masqué FREEMIUM/ESSENTIEL/STANDARD) ; FREEMIUM : carte upsell « Module médical Premium »
+- SEED : utilisateur medical@csl.cd (MEDICAL, admin123) + données démo CSL (4 fiches santé, 4 visites, 2 dispenses) ; données insérées aussi en live
+- TESTS RÉELS : PDFs dispense/fiche/registre générés et vérifiés visuellement (design gianelli parfait) ; vérification universelle OK pour REC-0001-T1, BUL-26-0001, NOT-26-0001, DIS-26-0001 (+ ID technique) ; 404 propre si inconnu ; marqueurs EDUGEST-ID extraits des bytes PDF ; menus vérifiés par rôle (PREMIUM admin ✓, MEDICAL ✓, STANDARD ✗, FREEMIUM ✗) ; URL directe STANDARD → upsell ; lint 112 = baseline 0 nouveau ; dev.log propre
+
+Stage Summary:
+- Dispenses, fiches de santé et registres génèrent un PDF officiel au design gianelli avec code unique (DIS-/FSA-/REG-) et QR
+- Nouvel onglet « Fiches Médicales » (admin + service médical) stockant tous les documents, réservé aux offres Professionnel et plus
+- Reçus, bulletins, notes et fiches ont un ID unique ; le menu « Vérification » (renommé) retrouve n'importe quel document par son code ou par import PDF
+- Compte démo service médical : medical@csl.cd / admin123 (école PREMIUM CSL)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 import { hasFeatureAccess } from '@/lib/subscription';
+import { generateDocCode } from '@/lib/doc-codes';
 
 // GET /api/medical/dispensations?studentId=...&schoolId=...
 export async function GET(req: NextRequest) {
@@ -119,7 +120,37 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ data: dispensation, message: 'Dispense médicale enregistrée' });
+    // ── Génération automatique du document officiel (PDF gianelli) ──
+    // Chaque dispense créée produit une fiche stockée dans « Gestion des
+    // fiches médicales » avec un code unique DIS-{AA}-{NNNN}.
+    let medicalDocument = null;
+    try {
+      const docCode = await generateDocCode('DIS');
+      medicalDocument = await db.medicalDocument.create({
+        data: {
+          docCode,
+          type: 'DISPENSE_MEDICALE',
+          title: `Dispense ${type} - ${dispensation.student.lastName} ${dispensation.student.firstName}`,
+          schoolId: student.schoolId,
+          studentId,
+          sourceId: dispensation.id,
+          content: JSON.stringify({
+            dispensationType: type,
+            startDate,
+            endDate,
+            reason,
+            doctorName: doctorName || null,
+            certificateUrl: certificateUrl || null,
+          }),
+          createdById: user.id,
+        },
+      });
+    } catch (docError) {
+      console.error('[Medical Dispensations API] auto-document error:', docError);
+      // non bloquant : la dispense reste créée même si la fiche échoue
+    }
+
+    return NextResponse.json({ data: dispensation, document: medicalDocument, message: 'Dispense médicale enregistrée' + (medicalDocument ? ` (fiche ${medicalDocument.docCode})` : '') });
   } catch (error: any) {
     console.error('[Medical Dispensations API] POST error:', error);
     return NextResponse.json({ error: error.message || 'Erreur serveur' }, { status: 500 });

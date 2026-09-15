@@ -596,6 +596,93 @@ export async function GET(request: NextRequest) {
       counts.users++;
     }
 
+    // ── Utilisateur service médical + données médicales de démonstration ──
+    // (école PREMIUM uniquement : Complexe Scolaire Lumière / CSL)
+    const csl = schools.find((s: any) => s.shortName === 'CSL');
+    if (csl) {
+      const medicalUser = await db.user.create({
+        data: {
+          name: 'Infirmerie CSL',
+          email: 'medical@csl.cd',
+          phone: '+243810000099',
+          password: passwordHash,
+          role: 'MEDICAL',
+          schoolId: csl.id,
+        } as any,
+      }) as any;
+      counts.users++;
+
+      const cslStudents = await db.student.findMany({
+        where: { schoolId: csl.id },
+        include: { class: { select: { name: true } } },
+        take: 6,
+      });
+
+      // Fiches de santé (MedicalRecord) pour 4 élèves
+      const healthProfiles = [
+        { bloodGroup: 'O+', allergies: 'Arachides', chronicConditions: 'Asthme', regularMedication: 'Ventoline', doctorName: 'Dr Mbala', doctorPhone: '+243811223344' },
+        { bloodGroup: 'A+', allergies: 'Aucune connue', chronicConditions: 'Aucune', regularMedication: 'Aucun', doctorName: 'Dr Ilunga', doctorPhone: '+243812233455' },
+        { bloodGroup: 'B+', allergies: 'Pénicilline', chronicConditions: 'Aucune', regularMedication: 'Aucun', doctorName: 'Dr Mbala', doctorPhone: '+243811223344' },
+        { bloodGroup: 'O-', allergies: 'Aucune connue', chronicConditions: 'Drépanocytose', regularMedication: 'Acide folique', doctorName: 'Dr Nsimba', doctorPhone: '+243813344566' },
+      ];
+      for (let hi = 0; hi < Math.min(4, cslStudents.length); hi++) {
+        await db.medicalRecord.create({
+          data: {
+            studentId: cslStudents[hi].id,
+            ...healthProfiles[hi],
+            emergencyContactName: `Parent de ${cslStudents[hi].firstName}`,
+            emergencyContactPhone: '+243815566778',
+          } as any,
+        }) as any;
+      }
+
+      // Passages à l'infirmerie (registre de santé)
+      const visitData = [
+        { reason: 'Fièvre', symptoms: '38.9°C, céphalées', treatment: 'Paracétamol', decision: 'SENT_HOME', temperature: 38.9, parentNotified: true, daysAgo: 2 },
+        { reason: 'Plaie / coupure', symptoms: 'Genou gauche', treatment: 'Pansement / désinfection', decision: 'RETURN_TO_CLASS', temperature: 36.8, parentNotified: false, daysAgo: 4 },
+        { reason: 'Douleurs abdominales', symptoms: 'Douleur épigastrique', treatment: 'Repos en infirmerie', decision: 'RESTING', temperature: 37.2, parentNotified: true, daysAgo: 6 },
+        { reason: 'Malaise / vertiges', symptoms: 'Fatigue, pâleur', treatment: 'Observation', decision: 'RETURN_TO_CLASS', temperature: 36.6, parentNotified: false, daysAgo: 9 },
+      ];
+      for (let vi = 0; vi < Math.min(visitData.length, cslStudents.length); vi++) {
+        const v = visitData[vi];
+        await db.infirmaryVisit.create({
+          data: {
+            schoolId: csl.id,
+            studentId: cslStudents[vi].id,
+            recordedById: medicalUser.id,
+            visitDate: new Date(Date.now() - v.daysAgo * 24 * 3600 * 1000),
+            reason: v.reason,
+            symptoms: v.symptoms,
+            treatment: v.treatment,
+            decision: v.decision,
+            temperature: v.temperature,
+            parentNotified: v.parentNotified,
+            parentNotifiedAt: v.parentNotified ? new Date(Date.now() - v.daysAgo * 24 * 3600 * 1000) : null,
+          } as any,
+        }) as any;
+      }
+
+      // Dispenses médicales
+      const dispData = [
+        { type: 'EPS', startDaysAgo: 3, durationDays: 7, reason: 'Entorse cheville droite', doctorName: 'Dr Mbala' },
+        { type: 'EPS', startDaysAgo: 1, durationDays: 14, reason: 'Convalescence post-paludisme', doctorName: 'Dr Ilunga' },
+      ];
+      for (let di = 0; di < Math.min(dispData.length, cslStudents.length); di++) {
+        const d = dispData[di];
+        await db.medicalDispensation.create({
+          data: {
+            schoolId: csl.id,
+            studentId: cslStudents[di + 2].id,
+            type: d.type,
+            startDate: new Date(Date.now() - d.startDaysAgo * 24 * 3600 * 1000),
+            endDate: new Date(Date.now() + (d.durationDays - d.startDaysAgo) * 24 * 3600 * 1000),
+            reason: d.reason,
+            doctorName: d.doctorName,
+          } as any,
+        }) as any;
+      }
+    }
+
     // Update school counters
     for (const school of schools) {
       const studentCount = await db.student.count({ where: { schoolId: school.id } });

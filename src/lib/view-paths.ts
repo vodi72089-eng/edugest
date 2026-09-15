@@ -37,6 +37,7 @@ export const VIEW_PATHS: Record<string, string> = {
   debts: '/debts',
   'my-subscription': '/my-subscription',
   medical: '/medical',
+  'medical-records': '/medical-records',
   'parent-qr': '/parent-qr',
   parents: '/parents',
   personalization: '/personalization',

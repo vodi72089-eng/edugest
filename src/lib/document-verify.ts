@@ -9,7 +9,7 @@ import QRCode from 'qrcode';
  * informations du document et confirme qu'il est officiel.
  */
 
-export type DocumentType = 'BULLETIN' | 'RECEIPT';
+export type DocumentType = 'BULLETIN' | 'RECEIPT' | 'MEDICAL';
 
 /** URL de base de l'application (fonctionne en web et en desktop). */
 export function appBaseUrl(): string {

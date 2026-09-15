@@ -1,6 +1,7 @@
 import { db } from './db';
 import { jsPDF } from 'jspdf';
 import { registerDocument, qrDataUrlForDocument, documentVerifyUrl } from './document-verify';
+import { generateDocCode } from './doc-codes';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -179,7 +180,8 @@ export function buildBulletinPDF(
   schoolLogoBase64: string | null,
   studentPhotoBase64: string | null,
   qrCodeDataUrl: string | null,
-  verifyUrl: string
+  verifyUrl: string,
+  docCode: string | null
 ): Buffer {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
@@ -279,6 +281,12 @@ export function buildBulletinPDF(
   doc.setFontSize(9);
   setT(doc, GRAY);
   centerText(doc, sanitizeAscii(`${getTrimesterLabel(trimester)} - ${schoolYearLabel}`), y + 6, W);
+  if (docCode) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    setT(doc, GOLD);
+    centerText(doc, `N. ${docCode}`, y + 11, W);
+  }
 
   // ══════════════════════════════════════════════════════════════════
   //  INFORMATIONS ÉLÈVE
@@ -481,6 +489,12 @@ export function buildBulletinPDF(
   doc.setFontSize(4);
   setT(doc, [255, 255, 255]);
   centerText(doc, `EDUGEST-DOC:${verifyUrl}`, H - 4, W);
+  // Code unique du bulletin (import direct dans « Vérification »)
+  if (docCode) {
+    doc.setFontSize(4);
+    setT(doc, [255, 255, 255]);
+    doc.text(`EDUGEST-ID:${docCode}`, mx, H - 3);
+  }
 
   return Buffer.from(doc.output('arraybuffer'));
 }
@@ -601,6 +615,31 @@ export async function generateBulletinPDF(
     // ReportCard model may not have data yet
   }
 
+  // ── Code unique du bulletin (BUL-{AA}-{NNNN}) ──────────────────
+  // Généré à la première impression du bulletin, réutilisé ensuite.
+  let bulletinDocCode: string | null = null;
+  try {
+    const existingCard = await db.reportCard.findFirst({
+      where: { studentId, trimester, schoolYearId: schoolYear.id },
+      select: { id: true, docCode: true },
+    });
+    if (existingCard?.docCode) {
+      bulletinDocCode = existingCard.docCode;
+    } else {
+      const newCode = await generateDocCode('BUL');
+      if (existingCard) {
+        await db.reportCard.update({ where: { id: existingCard.id }, data: { docCode: newCode } });
+      } else {
+        await db.reportCard.create({
+          data: { docCode: newCode, studentId, trimester, schoolYearId: schoolYear.id },
+        });
+      }
+      bulletinDocCode = newCode;
+    }
+  } catch {
+    // non bloquant : le bulletin reste générable sans code
+  }
+
   // Fetch school logo as base64
   let schoolLogoBase64: string | null = null;
   if (school.logo) {
@@ -645,6 +684,7 @@ export async function generateBulletinPDF(
       studentName: `${student.firstName} ${student.lastName}`,
       subjectsCount: gradeData.length,
       schoolYear: schoolYear.label,
+      bulletinCode: bulletinDocCode,
     },
   });
   const qrCodeDataUrl = await qrDataUrlForDocument(docRecord.id);
@@ -661,7 +701,8 @@ export async function generateBulletinPDF(
     schoolLogoBase64,
     studentPhotoBase64,
     qrCodeDataUrl,
-    docRecord.url
+    docRecord.url,
+    bulletinDocCode
   );
 
   const filename = `bulletin-${student.lastName}-${student.firstName}-${trimester}.pdf`;

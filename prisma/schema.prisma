@@ -71,6 +71,7 @@ model School {
 
   infirmaryVisits       InfirmaryVisit[]
   medicalDispensations  MedicalDispensation[]
+  medicalDocuments      MedicalDocument[]
   qrCodes               SchoolQrCode[]
   documents             DocumentVerification[]
 }
@@ -107,6 +108,7 @@ model User {
   teacherAssignments TeacherAssignment[]
   pushSubscriptions PushSubscription[]
   infirmaryVisitsRecorded InfirmaryVisit[] @relation("RecordedVisits")
+  medicalDocumentsCreated MedicalDocument[] @relation("MedicalDocumentsCreated")
 }
 
 model Student {
@@ -142,6 +144,7 @@ model Student {
   medicalRecord  MedicalRecord?
   infirmaryVisits InfirmaryVisit[]
   medicalDispensations MedicalDispensation[]
+  medicalDocuments MedicalDocument[]
 }
 
 model Class {
@@ -269,6 +272,7 @@ model Subject {
 
 model Grade {
   id           String   @id @default(cuid())
+  docCode      String?  @unique
   studentId    String
   subjectId    String
   classId      String
@@ -497,6 +501,7 @@ model HomeworkRead {
 
 model ReportCard {
   id           String   @id @default(cuid())
+  docCode      String?  @unique
   studentId    String
   trimester    String
   schoolYearId String
@@ -756,6 +761,29 @@ model MedicalDispensation {
   student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([schoolId])
+  @@index([studentId])
+}
+
+// Documents médicaux officiels (dispenses, fiches de santé, registres).
+// Chaque document généré possède un code unique (DIS-/FSA-/REG-) et un PDF
+// au design gianelli, stocké et consultable dans « Gestion des fiches médicales ».
+model MedicalDocument {
+  id          String   @id @default(cuid())
+  docCode     String   @unique
+  type        String // DISPENSE_MEDICALE | FICHE_SANTE | REGISTRE_SANTE
+  title       String
+  schoolId    String
+  studentId   String?
+  sourceId    String? // id de la dispensation / visite / fiche source
+  content     String   @default("{}") // JSON snapshot des champs affichés
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student   Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  createdBy User?    @relation("MedicalDocumentsCreated", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([schoolId, type])
   @@index([studentId])
 }
 

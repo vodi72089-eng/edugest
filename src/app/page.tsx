@@ -24,6 +24,7 @@ import HeadTeacherDashboard from '@/components/dashboards/HeadTeacherDashboard'
 import DisciplineDashboardView from '@/components/dashboards/DisciplineDashboard'
 import MedicalDashboard from '@/components/dashboards/MedicalDashboard'
 import MedicalView from '@/components/views/MedicalView'
+import MedicalRecordsView from '@/components/views/MedicalRecordsView'
 import ParentQrView from '@/components/views/ParentQrView'
 import ParentsView from '@/components/views/ParentsView'
 import PersonalizationView from '@/components/views/PersonalizationView'
@@ -50,7 +51,7 @@ import {
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
    ChevronUp, ExternalLink, Check, Copy, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown,
-  User, Landmark, Palette, BellRing, HeartPulse, Database
+  User, Landmark, Palette, BellRing, HeartPulse, Database, Stethoscope
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -2179,7 +2180,7 @@ function Sidebar() {
       { icon: <School size={16} />, label: 'Classes', view: 'classes' },
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
-      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
       { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
       { icon: <DollarSign size={16} />, label: 'Tarifs', view: 'pricing' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
@@ -2188,6 +2189,7 @@ function Sidebar() {
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
       { icon: <HeartPulse size={16} />, label: 'Service Médical', view: 'medical' as ViewType },
+      { icon: <Stethoscope size={16} />, label: 'Fiches Médicales', view: 'medical-records' as ViewType },
       { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
       { icon: <Users size={16} />, label: 'Gestion des Parents', view: 'parents' as ViewType },
       { icon: <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>, label: 'Connexion WhatsApp', view: 'whatsapp-config' as ViewType },
@@ -2200,7 +2202,7 @@ function Sidebar() {
       { icon: <School size={16} />, label: 'Classes', view: 'classes' },
       { icon: <UsersRound size={16} />, label: 'Personnel', view: 'personnel' as ViewType },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
-      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
       { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <Megaphone size={16} />, label: 'Convocations', view: 'convocation' },
@@ -2208,6 +2210,7 @@ function Sidebar() {
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <HeartPulse size={16} />, label: 'Service Médical', view: 'medical' as ViewType },
+      { icon: <Stethoscope size={16} />, label: 'Fiches Médicales', view: 'medical-records' as ViewType },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
       { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
@@ -2221,7 +2224,7 @@ function Sidebar() {
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
       { icon: <BookOpen size={16} />, label: 'Classes', view: 'classes' as ViewType },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
-      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
@@ -2230,7 +2233,7 @@ function Sidebar() {
     CASHIER: [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <CreditCard size={16} />, label: 'Enregistrer paiement', view: 'payments' },
-      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
       { icon: <AlertTriangle size={16} />, label: 'Dettes', view: 'debts' as ViewType },
       { icon: <BarChart3 size={16} />, label: 'Situation financière', view: 'payments' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
@@ -2268,6 +2271,7 @@ HEAD_TEACHER: [
     MEDICAL: [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard Médical', view: 'dashboard' },
       { icon: <HeartPulse size={16} />, label: 'Santé & Infirmerie', view: 'medical' as ViewType },
+      { icon: <Stethoscope size={16} />, label: 'Fiches Médicales', view: 'medical-records' as ViewType },
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
@@ -2286,6 +2290,13 @@ HEAD_TEACHER: [
     menuItems = menuItems.filter(item => item.view !== 'grades' && item.view !== 'bulletin')
   }
 
+  // Fiches médicales : onglet réservé aux écoles dont l'abonnement supporte
+  // le module médical (PREMIUM et plus) — admin, service médical et super admin.
+  const canMedicalRecords = getTierLimits(userData?.subscriptionTier || 'FREEMIUM').medicalAccess
+  if (!canMedicalRecords && userRole !== 'SUPER_ADMIN_GLOBAL') {
+    menuItems = menuItems.filter(item => item.view !== 'medical-records')
+  }
+
   // FREEMIUM restrictions: DIRECTION_*, SECRETARY (admin freemium) and SUPER_ADMIN_GLOBAL see restricted menu
   // (pas de Passage de classe, Communications ni Paramètres en FREEMIUM — passage à un forfait supérieur requis)
   const isFreemium = userData?.subscriptionTier === 'FREEMIUM'
@@ -2297,7 +2308,7 @@ HEAD_TEACHER: [
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
       { icon: <BookOpen size={16} />, label: 'Classes', view: 'classes' as ViewType },
       { icon: <CreditCard size={16} />, label: 'Enregistrer paiement', view: 'payments' },
-      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ]
     if (userRole === 'SCHOOL_ADMIN') {
@@ -2308,7 +2319,7 @@ HEAD_TEACHER: [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
       { icon: <School size={16} />, label: 'Classes', view: 'classes' },
-      { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
+      { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
       { icon: <Megaphone size={16} />, label: 'Convocation', view: 'convocation' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
@@ -2425,9 +2436,9 @@ const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   DISCIPLINE_MATERNELLE: ['dashboard', 'discipline', 'communications', 'profile'],
   DISCIPLINE_PRIMAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
   DISCIPLINE_SECONDAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
-  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'payment-verification', 'payment-config', 'discipline', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'my-subscription', 'parent-qr', 'parents', 'personalization', 'whatsapp-config', 'settings', 'profile'],
-  MEDICAL: ['dashboard', 'medical', 'students', 'communications', 'profile'],
-  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'payment-config', 'pricing', 'discipline', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'medical', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
+  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'payment-verification', 'payment-config', 'discipline', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'medical-records', 'my-subscription', 'parent-qr', 'parents', 'personalization', 'whatsapp-config', 'settings', 'profile'],
+  MEDICAL: ['dashboard', 'medical', 'medical-records', 'students', 'communications', 'profile'],
+  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'payment-config', 'pricing', 'discipline', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'medical', 'medical-records', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
 }
 
 const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment-verification', 'payment-config', 'my-subscription', 'settings', 'profile']
@@ -2445,6 +2456,12 @@ function canAccessView(role: string | null, view: ViewType, subscriptionTier?: s
   // Gestion des Parents & Personnalisation : écoles STANDARD et plus (admin créateur)
   if ((view === 'parents' || view === 'personalization') && role === 'SCHOOL_ADMIN') {
     return ['STANDARD', 'PREMIUM', 'ENTERPRISE', 'CORPORATE'].includes(subscriptionTier || 'FREEMIUM')
+  }
+  // Fiches médicales : module médical — offres PREMIUM et plus uniquement
+  // (admin école + service médical ; le super admin passe toujours)
+  if (view === 'medical-records' && role !== 'SUPER_ADMIN_GLOBAL') {
+    if (role !== 'SCHOOL_ADMIN' && role !== 'MEDICAL') return false
+    return getTierLimits(subscriptionTier || 'FREEMIUM').medicalAccess
   }
   // Parents on Essentiel / Freemium : pas d'accès aux notes et bulletins
   if (role === 'PARENT' && (view === 'grades' || view === 'bulletin')) {
@@ -2640,6 +2657,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     personnel: 'Personnel', settings: 'Paramètres', 'school-reviews': 'Avis',
     'payment-verification': 'Vérification', 'payment-config': 'Config. Paiement',
     'online-payment': 'Payer en ligne',
+    'medical-records': 'Fiches médicales',
     'debts': 'Dettes',
   }
 
@@ -3282,6 +3300,7 @@ function MainContent() {
     case 'school-reviews': return <SchoolReviewsView />
     case 'my-subscription': return <SubscriptionUpgradeView />
     case 'medical': return <MedicalView />
+    case 'medical-records': return <MedicalRecordsView />
     case 'parent-qr': return <ParentQrView />
     case 'parents': return <ParentsView />
     case 'personalization': return <PersonalizationView />
@@ -4779,6 +4798,15 @@ function PaymentConfigView() {
 }
 
 // ===== PAYMENT VERIFICATION VIEW =====
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: TEXT_MUTED_LUXE }}>{label}</span>
+      <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{value || '—'}</span>
+    </div>
+  )
+}
+
 function PaymentVerificationView() {
   const { userData, userRole } = useEduGestStore()
   const isParent = userRole === 'PARENT'
@@ -4796,6 +4824,8 @@ function PaymentVerificationView() {
   const [staffSearchResult, setStaffSearchResult] = useState<PaymentData | null>(null)
   const [staffSearching, setStaffSearching] = useState(false)
   const [scanning, setScanning] = useState(false)
+  // Universal document search (reçu, bulletin, note, fiche médicale)
+  const [universalResult, setUniversalResult] = useState<any | null>(null)
 
   async function handleViewReceipt(paymentId: string) {
     setReceiptLoading(true)
@@ -5035,12 +5065,28 @@ function PaymentVerificationView() {
   }
 
   async function handleStaffReceiptSearch() {
-    if (!staffReceiptSearch.trim()) { toast.error('Entrez un numéro de reçu'); return }
+    if (!staffReceiptSearch.trim()) { toast.error('Entrez un code de document (REC-, BUL-, NOT-, DIS-, FSA-, REG-)'); return }
     setStaffSearching(true)
     setStaffSearchResult(null)
+    setUniversalResult(null)
     try {
       const q = staffReceiptSearch.trim().toLowerCase()
-      // Try direct API search first for ID-like queries
+      // 1) Vérification universelle : code lisible (REC/BUL/NOT/DIS/FSA/REG) ou id
+      try {
+        const uniRes = await authFetch(`/api/verify/document?code=${encodeURIComponent(staffReceiptSearch.trim())}`)
+        if (uniRes.ok) {
+          const uniJson = await uniRes.json()
+          if (uniJson.found) {
+            if (uniJson.type === 'RECEIPT') {
+              setStaffSearchResult(uniJson.data as PaymentData)
+            } else {
+              setUniversalResult(uniJson)
+            }
+            return
+          }
+        }
+      } catch { /* continue with legacy search */ }
+      // 2) Recherche historique côté API paiements
       const isIdQuery = /^[a-z0-9]{20,}$/i.test(q.replace(/-/g, ''))
       if (isIdQuery) {
         try {
@@ -5095,7 +5141,22 @@ function PaymentVerificationView() {
             const paymentId = idMatch[1]
             setStaffReceiptSearch(paymentId)
             toast.success('ID extrait du fichier. Recherche...')
-            // Search directly by ID
+            // Search directly by ID (vérification universelle d'abord)
+            try {
+              const uniRes = await authFetch(`/api/verify/document?code=${encodeURIComponent(paymentId)}`)
+              if (uniRes.ok) {
+                const uniJson = await uniRes.json()
+                if (uniJson.found) {
+                  if (uniJson.type === 'RECEIPT') {
+                    setStaffSearchResult(uniJson.data as PaymentData)
+                  } else {
+                    setUniversalResult(uniJson)
+                  }
+                  setScanning(false)
+                  return
+                }
+              }
+            } catch { /* fall through */ }
             try {
               const verifyRes = await authFetch(`/api/payments/verify-receipt?id=${encodeURIComponent(paymentId)}&schoolId=${userData?.schoolId || ''}`)
               if (verifyRes.ok) {
@@ -5152,7 +5213,7 @@ function PaymentVerificationView() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Vérification des paiements</h1>
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Vérification</h1>
       </div>
 
       {/* Search Card */}
@@ -5162,14 +5223,14 @@ function PaymentVerificationView() {
             <CheckCircle size={20} className="text-white" />
           </div>
           <div>
-            <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Vérifier un reçu</h3>
-            <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Entrez le numéro du reçu ou importez un fichier</p>
+            <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Vérifier un document</h3>
+            <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Code unique : reçu (REC-), bulletin (BUL-), note (NOT-), fiche médicale (DIS-, FSA-, REG-) — ou importez un PDF</p>
           </div>
         </div>
 
         <div className="flex gap-3">
           <input
-            placeholder="Ex: REC-M1A2B3C4 ou les 8 derniers caractères de l'ID"
+            placeholder="Ex: REC-M1A2B3C4, BUL-26-0001, DIS-26-0002..."
             value={staffReceiptSearch}
             onChange={e => setStaffReceiptSearch(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleStaffReceiptSearch()}
@@ -5195,6 +5256,95 @@ function PaymentVerificationView() {
           </button>
         </div>
       </div>
+
+      {/* Universal Document Result (bulletin, note, fiche médicale) */}
+      {universalResult && universalResult.found && (
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm mb-6">
+          <div className="px-5 py-4 flex items-center gap-3" style={{ background: 'oklch(96% 0.03 145)' }}>
+            <div className="w-10 h-10 rounded-full grid place-items-center" style={{ background: SUCCESS }}>
+              <CheckCircle size={20} className="text-white" />
+            </div>
+            <div>
+              <div className="font-semibold" style={{ color: SUCCESS }}>Document vérifié ✓</div>
+              <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                {universalResult.type === 'MEDICAL_DOCUMENT'
+                  ? 'Document médical officiel'
+                  : universalResult.type === 'BULLETIN'
+                    ? 'Bulletin scolaire officiel'
+                    : 'Note officielle'}
+                {' · '}{universalResult.data?.school?.name || '—'}
+              </div>
+            </div>
+            <button
+              onClick={() => { setUniversalResult(null); setStaffReceiptSearch('') }}
+              className="ml-auto p-2 rounded-lg hover:bg-[oklch(95%_0.01_175)]"
+              title="Fermer"
+            >
+              <X size={16} style={{ color: TEXT_MUTED_LUXE }} />
+            </button>
+          </div>
+          <div className="p-5 space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg font-mono text-sm font-bold" style={{ background: 'oklch(95% 0.03 75)', color: 'oklch(45% 0.1 70)' }}>
+              <Hash size={13} /> {universalResult.data.docCode || universalResult.data.id}
+            </div>
+            <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+              {universalResult.type === 'MEDICAL_DOCUMENT' && (
+                <>
+                  <Detail label="Type" value={universalResult.data.docType === 'DISPENSE_MEDICALE' ? 'Dispense médicale' : universalResult.data.docType === 'FICHE_SANTE' ? 'Fiche de santé' : 'Registre de santé'} />
+                  <Detail label="Titre" value={universalResult.data.title} />
+                  {universalResult.data.student && (
+                    <Detail label="Élève" value={`${universalResult.data.student.lastName} ${universalResult.data.student.firstName} · ${universalResult.data.student.matricule || ''} ${universalResult.data.student.class?.name ? '· ' + universalResult.data.student.class.name : ''}`} />
+                  )}
+                  <Detail label="Créé par" value={universalResult.data.createdBy || '—'} />
+                  <Detail label="Date" value={new Date(universalResult.data.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} />
+                  <div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await authFetch(`/api/medical/documents/${universalResult.data.id}/pdf`)
+                          if (!res.ok) throw new Error()
+                          const blob = await res.blob()
+                          const url = URL.createObjectURL(blob)
+                          const a = document.createElement('a')
+                          a.href = url
+                          a.download = `${(universalResult.data.docCode || 'document').toLowerCase()}.pdf`
+                          document.body.appendChild(a)
+                          a.click()
+                          document.body.removeChild(a)
+                          URL.revokeObjectURL(url)
+                        } catch { toast.error('Erreur lors du téléchargement du PDF') }
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white"
+                      style={{ background: 'oklch(45% 0.12 145)' }}
+                    >
+                      <Download size={13} /> Télécharger le PDF
+                    </button>
+                  </div>
+                </>
+              )}
+              {universalResult.type === 'BULLETIN' && (
+                <>
+                  <Detail label="Élève" value={`${universalResult.data.student.lastName} ${universalResult.data.student.firstName} · ${universalResult.data.student.matricule || ''}`} />
+                  <Detail label="Classe" value={universalResult.data.student.class?.name || '—'} />
+                  <Detail label="Trimestre" value={universalResult.data.trimester} />
+                  <Detail label="Moyenne" value={universalResult.data.average != null ? `${Number(universalResult.data.average).toFixed(2)}/20` : '—'} />
+                  <Detail label="Décision" value={universalResult.data.decision || '—'} />
+                  <Detail label="Généré le" value={universalResult.data.generatedAt ? new Date(universalResult.data.generatedAt).toLocaleDateString('fr-FR') : '—'} />
+                </>
+              )}
+              {universalResult.type === 'GRADE' && (
+                <>
+                  <Detail label="Élève" value={`${universalResult.data.student.lastName} ${universalResult.data.student.firstName} · ${universalResult.data.student.matricule || ''}`} />
+                  <Detail label="Matière" value={universalResult.data.subject?.name || '—'} />
+                  <Detail label="Note" value={`${universalResult.data.score}/20`} />
+                  <Detail label="Trimestre" value={universalResult.data.trimester} />
+                  {universalResult.data.comment && <Detail label="Commentaire" value={universalResult.data.comment} />}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search Result */}
       {staffSearchResult && (

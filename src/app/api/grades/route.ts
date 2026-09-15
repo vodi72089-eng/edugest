@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, verifyParentAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
 import { notifyGrade } from '@/lib/whatsapp-agent';
 import { tierAllowsParentGrades } from '@/lib/subscription';
+import { generateDocCode } from '@/lib/doc-codes';
 
 export async function GET(request: NextRequest) {
   try {
@@ -261,6 +262,7 @@ export async function POST(request: NextRequest) {
         classId,
       },
       create: {
+        docCode: await generateDocCode('NOT'),
         studentId,
         subjectId,
         classId,

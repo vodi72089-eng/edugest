@@ -149,6 +149,7 @@ export type ViewType =
   | 'school-reviews'
   | 'payment-verification'
   | 'payment-config'
+  | 'medical-records'
   | 'online-payment'
   | 'debts'
   | 'my-subscription'
