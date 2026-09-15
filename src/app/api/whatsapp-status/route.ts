@@ -8,7 +8,10 @@ async function waFetch(path: string, method: string = 'GET', body?: any) {
   const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json', 'x-api-key': WA_API_KEY } };
   if (body) opts.body = JSON.stringify(body);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 95000);
+  // /pair peut attendre l'initialisation du client puis réessayer la demande
+  // de code. Le délai doit couvrir ce scénario, sinon le code est créé côté
+  // service mais la route Next abandonne avant de pouvoir le renvoyer.
+  const timeout = setTimeout(() => controller.abort(), 180000);
   try {
     const res = await fetch(`${WA_SERVER}${path}`, { ...opts, signal: controller.signal });
     clearTimeout(timeout);

@@ -2412,6 +2412,15 @@ function WhatsAppConfigView() {
           const incoming = json.data?.qr || null
           setQrCode(prev => (prev !== incoming ? incoming : prev))
         }
+        // La génération d'un code peut prendre plus longtemps que la requête
+        // initiale. Le mini-service le conserve dans /status : le relire ici
+        // évite qu'un code valide soit perdu si le navigateur a expiré avant la
+        // réponse de /pair.
+        if (json.data?.pairingCode) {
+          setConnectionMode('phone')
+          setPairCode(json.data.pairingCode)
+          setPairProgress(['Code généré !'])
+        }
         if (json.data?.status === 'connected') {
           setPairCode(null); setPairProgress([])
           // Liaison automatique de l'agent WhatsApp au numéro de l'école
@@ -2456,7 +2465,9 @@ function WhatsAppConfigView() {
     steps.forEach((s, i) => setTimeout(() => setPairProgress(p => [...p, s]), i * 3000))
 
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 90000)
+    // Le serveur peut effectuer jusqu'à cinq essais avec backoff. On lui laisse
+    // le temps de terminer, puis le polling de statut récupère aussi le code.
+    const timeoutId = setTimeout(() => controller.abort(), 190000)
     try {
       const res = await authFetch('/api/whatsapp-status', {
         method: 'POST',
@@ -2473,7 +2484,7 @@ function WhatsAppConfigView() {
         setPairProgress([])
       }
     } catch (e: any) {
-      if (e.name === 'AbortError') toast.error('Délai dépassé (90s). Vérifiez que le serveur WhatsApp fonctionne.')
+      if (e.name === 'AbortError') toast.error('La génération prend plus de temps que prévu. Le code s’affichera dès qu’il sera prêt.')
       else toast.error('Erreur de connexion au serveur WhatsApp')
       setPairProgress([])
     } finally { clearTimeout(timeoutId); setRequestingPair(false) }
