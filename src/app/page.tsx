@@ -38,6 +38,7 @@ import SettingsView from '@/components/views/SettingsView'
 import OnlinePaymentView from '@/components/views/OnlinePaymentView'
 import DettesView from '@/components/views/DettesView'
 import SchoolsManagementView from '@/components/views/SchoolsManagementView'
+import SystemParcoursExplorer from '@/components/views/SystemParcoursExplorer'
 import {
   Search, Bell, Settings, Plus, ChevronRight, Users, GraduationCap,
   DollarSign, MessageSquare, BookOpen, Shield, LogOut, Menu, X,
@@ -214,13 +215,13 @@ function PublicHeader({ dark = false }: { dark?: boolean }) {
   return (
     <header className={`sticky top-0 z-50 ${dark ? 'bg-transparent' : 'bg-white/85 backdrop-blur-xl border-b border-edu-border'}`}>
       <div className="container-premium h-16 flex items-center justify-between">
-        <button onClick={() => setCurrentView('login')} className="flex items-center gap-2 font-bold text-base">
+        <button onClick={() => setCurrentView('home')} className="flex items-center gap-2 font-bold text-base">
           <i className="ri-graduation-cap-fill text-xl" style={{ color: '#f5a623' }}></i>
           EduGest
         </button>
         <nav className="hidden sm:flex items-center gap-1">
-          <button onClick={() => setCurrentView('login')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Écoles</button>
-          <button onClick={() => { setCurrentView('login'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Fonctionnalités</button>
+          <button onClick={() => setCurrentView('home')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Écoles</button>
+          <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Fonctionnalités</button>
           <button onClick={() => setCurrentView('pricing')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Tarifs</button>
           <button onClick={() => setCurrentView('login')} className="ml-3 edu-gold-cta px-5 py-2 rounded-xl text-sm font-semibold">Se connecter</button>
         </nav>
@@ -230,8 +231,8 @@ function PublicHeader({ dark = false }: { dark?: boolean }) {
       </div>
       {mobileMenu && (
         <div className={`sm:hidden border-t ${borderColor} ${mobileBg} backdrop-blur-xl p-4 flex flex-col gap-2`}>
-          <button onClick={() => { setCurrentView('login'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Écoles</button>
-          <button onClick={() => { setCurrentView('login'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Fonctionnalités</button>
+          <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Écoles</button>
+          <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Fonctionnalités</button>
           <button onClick={() => { setCurrentView('pricing'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Tarifs</button>
           <button onClick={() => { setCurrentView('login'); setMobileMenu(false) }} className="edu-gold-cta px-4 py-2 rounded-xl text-sm font-semibold text-center">Se connecter</button>
         </div>
@@ -256,7 +257,7 @@ function Footer() {
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Produit</h4>
           <ul className="space-y-3">
-            <li><button onClick={() => setCurrentView('login')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Trouver une école<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
+            <li><button onClick={() => setCurrentView('home')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Trouver une école<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
             <li><button onClick={() => setCurrentView('pricing')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Tarifs<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
             <li><button onClick={() => setCurrentView('login')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Connexion<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
           </ul>
@@ -335,6 +336,526 @@ function SchoolsOverviewMap({ schools }: { schools: SchoolData[] }) {
     </MapContainer>
   )
 }
+
+// ===== HOME VIEW =====
+function HomeView() {
+  const { setCurrentView, setSelectedSchoolId } = useEduGestStore()
+  const [schools, setSchools] = useState<SchoolData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [province, setProvince] = useState('Toutes provinces')
+  const [activeFilter, setActiveFilter] = useState('all')
+  const [showMap, setShowMap] = useState(false)
+  const [activeSystemId, setActiveSystemId] = useState<string | null>(null)
+  const [typewriterLine1, setTypewriterLine1] = useState('')
+  const [typewriterLine2, setTypewriterLine2] = useState('')
+  const [typewriterActiveLine, setTypewriterActiveLine] = useState<1 | 2 | null>(1)
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        await fetch('/api/seed')
+        const res = await fetch('/api/schools?limit=20')
+        const json = await res.json()
+        setSchools(json.data || [])
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadData()
+  }, [])
+
+  // Typewriter animation
+  useEffect(() => {
+    const title1 = "Rejoignez"
+    const title2 = "l'excellence éducative"
+    let charIndex = 0
+    let currentLine = 1
+    let timeoutId: ReturnType<typeof setTimeout>
+
+    function type() {
+      if (currentLine === 1) {
+        if (charIndex < title1.length) {
+          setTypewriterLine1(title1.substring(0, charIndex + 1))
+          setTypewriterActiveLine(1)
+          charIndex++
+          timeoutId = setTimeout(type, 80 + Math.random() * 60)
+        } else {
+          currentLine = 2
+          charIndex = 0
+          setTypewriterActiveLine(2)
+          timeoutId = setTimeout(type, 400)
+        }
+      } else {
+        if (charIndex < title2.length) {
+          setTypewriterLine2(title2.substring(0, charIndex + 1))
+          setTypewriterActiveLine(2)
+          charIndex++
+          timeoutId = setTimeout(type, 80 + Math.random() * 60)
+        } else {
+          // Typing complete — keep cursor briefly then hide
+          setTypewriterActiveLine(2)
+          setTimeout(() => setTypewriterActiveLine(null), 1500)
+        }
+      }
+    }
+
+    timeoutId = setTimeout(type, 800)
+    return () => clearTimeout(timeoutId)
+  }, [])
+
+  // Floating parallax icons
+  useEffect(() => {
+    const container = document.getElementById('stitch-parallax-container')
+    if (!container) return
+
+    const educationIcons = [
+      '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>',
+      '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>',
+      '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>',
+      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"></path><path d="M3 22h18"></path><path d="M14 22a7 7 0 1 0 0-14h-1"></path><path d="M9 14h2"></path><path d="M9 12a2 2 0 1 1-4 0V7a2 2 0 1 1 4 0v5Z"></path><path d="M12 7V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4"></path></svg>',
+    ]
+
+    const elements: { el: HTMLDivElement; x: number; y: number; originX: number; originY: number; vx: number; vy: number; depth: number; scale: number; rotation: number; rotationSpeed: number; phase: number }[] = []
+    const numIcons = 20
+    let mouseX = window.innerWidth / 2
+    let mouseY = window.innerHeight / 2
+    let targetMouseX = mouseX
+    let targetMouseY = mouseY
+    let animFrameId: number
+
+    for (let i = 0; i < numIcons; i++) {
+      const el = document.createElement('div')
+      el.style.position = 'absolute'
+      el.style.pointerEvents = 'none'
+      el.style.userSelect = 'none'
+      el.style.zIndex = '1'
+      el.style.willChange = 'transform'
+      el.innerHTML = educationIcons[i % educationIcons.length]
+
+      const startX = Math.random() * window.innerWidth
+      const startY = Math.random() * (window.innerHeight * 0.9)
+      const depth = 0.02 + Math.random() * 0.1
+      const sizeScale = 0.7 + Math.random() * 1.3
+
+      const colorRoll = Math.random()
+      if (colorRoll > 0.85) el.style.color = '#f5a623'
+      else if (colorRoll > 0.70) el.style.color = '#10b981'
+      else el.style.color = 'rgba(255,255,255,0.25)'
+
+      el.style.opacity = (0.05 + Math.random() * 0.15).toString()
+
+      container.appendChild(el)
+      elements.push({
+        el, x: startX, y: startY, originX: startX, originY: startY,
+        vx: 0, vy: 0, depth, scale: sizeScale,
+        rotation: Math.random() * 360,
+        rotationSpeed: (Math.random() - 0.5) * 0.3,
+        phase: Math.random() * Math.PI * 2,
+      })
+    }
+
+    // Fade icons in
+    setTimeout(() => {
+      elements.forEach(item => {
+        const baseOp = parseFloat(item.el.style.opacity)
+        item.el.style.opacity = (baseOp * 1.5).toString()
+      })
+    }, 500)
+
+    const handleMouseMove = (e: MouseEvent) => {
+      targetMouseX = e.clientX
+      targetMouseY = e.clientY
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+
+    function lerp(start: number, end: number, amt: number) {
+      return (1 - amt) * start + amt * end
+    }
+
+    function update() {
+      mouseX = lerp(mouseX, targetMouseX, 0.08)
+      mouseY = lerp(mouseY, targetMouseY, 0.08)
+      const time = Date.now() * 0.001
+
+      elements.forEach(item => {
+        const dx = targetMouseX - (item.x + (targetMouseX - window.innerWidth / 2) * item.depth)
+        const dy = targetMouseY - (item.y + (targetMouseY - window.innerHeight / 2) * item.depth)
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        const mouseRange = 400
+        const attractionStrength = 0.08
+
+        if (dist < mouseRange) {
+          const force = (1 - dist / mouseRange) * attractionStrength
+          item.vx += dx * force * 0.2
+          item.vy += dy * force * 0.2
+        }
+
+        item.vx += (item.originX - item.x) * 0.01
+        item.vy += (item.originY - item.y) * 0.01
+        item.vx *= 0.92
+        item.vy *= 0.92
+        item.x += item.vx
+        item.y += item.vy
+
+        const driftX = Math.sin(time + item.phase) * 0.6
+        const driftY = Math.cos(time + item.phase * 0.7) * 0.6
+        const px = (mouseX - window.innerWidth / 2) * item.depth
+        const py = (mouseY - window.innerHeight / 2) * item.depth
+        item.rotation += item.rotationSpeed
+
+        item.el.style.transform = `translate3d(${item.x + px + driftX}px, ${item.y + py + driftY}px, 0) rotate(${item.rotation}deg) scale(${item.scale})`
+      })
+
+      animFrameId = requestAnimationFrame(update)
+    }
+    update()
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      cancelAnimationFrame(animFrameId)
+      // Clean up icons
+      while (container.firstChild) container.removeChild(container.firstChild)
+    }
+  }, [])
+
+  const filteredSchools = schools.filter(s => {
+    if (search && !s.name.toLowerCase().includes(search.toLowerCase()) && !s.city.toLowerCase().includes(search.toLowerCase())) return false
+    if (province !== 'Toutes provinces' && s.province !== province) return false
+    if (activeFilter !== 'all') {
+      if (['MATERNELLE', 'PRIMAIRE', 'SECONDAIRE'].includes(activeFilter) && s.schoolType !== activeFilter && s.schoolType !== 'MIXTE') return false
+      if (activeFilter === 'MIXTE' && s.schoolType !== 'MIXTE') return false
+      if (activeFilter === 'PRIVEE' && s.schoolCategory !== 'PRIVEE') return false
+      if (activeFilter === 'PUBLIQUE' && s.schoolCategory !== 'PUBLIQUE') return false
+    }
+    return true
+  })
+
+  const chipCounts: Record<string, number> = {
+    all: schools.length,
+    MATERNELLE: schools.filter(s => s.schoolType === 'MATERNELLE' || s.schoolType === 'MIXTE').length,
+    PRIMAIRE: schools.filter(s => s.schoolType === 'PRIMAIRE' || s.schoolType === 'MIXTE').length,
+    SECONDAIRE: schools.filter(s => s.schoolType === 'SECONDAIRE' || s.schoolType === 'MIXTE').length,
+    MIXTE: schools.filter(s => s.schoolType === 'MIXTE').length,
+    PRIVEE: schools.filter(s => s.schoolCategory === 'PRIVEE').length,
+    PUBLIQUE: schools.filter(s => s.schoolCategory === 'PUBLIQUE').length,
+  }
+
+  const FEATURES = [
+    { icon: <GraduationCap size={24} />, title: 'Gestion Scolaire Intégrale', desc: 'Notes, bulletins, emploi du temps — tout en un seul endroit' },
+    { icon: <MessageSquare size={24} />, title: 'Communication Instantanée', desc: 'WhatsApp, SMS, notifications push pour rester connecté' },
+    { icon: <CreditCard size={24} />, title: 'Paiements Simplifiés', desc: 'Mobile Money, virement, espèces — encaissez facilement' },
+    { icon: <Building2 size={24} />, title: 'Multi-Écoles', desc: 'Gérez plusieurs établissements depuis un tableau de bord unique' },
+    { icon: <Shield size={24} />, title: 'Sécurité & Conformité', desc: 'Données protégées, conformes aux normes africaines' },
+    { icon: <BarChart3 size={24} />, title: 'Analytique Avancée', desc: 'Tableaux de bord et rapports en temps réel' },
+  ]
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      {/* ===== HERO SECTION — Institutional Excellence ===== */}
+      <section className="relative w-full min-h-[700px] sm:min-h-[900px] flex flex-col overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+        <AuroraBackground>
+        {/* Parallax floating icons container */}
+        <div id="stitch-parallax-container" className="absolute inset-0 pointer-events-none overflow-hidden z-0" />
+
+        {/* Gradient overlay at bottom */}
+        <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-[#0a0f0d] via-[#0b1613]/50 to-transparent pointer-events-none z-10" />
+
+        {/* Floating nav */}
+        <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-5 sm:py-6 w-full">
+          <button onClick={() => setCurrentView('home')} className="flex items-center shrink-0 min-w-max">
+            <BrandMark height={56} className="brightness-110 hover:scale-105 transition-all duration-300" />
+          </button>
+          <div className="hidden md:flex items-center gap-12">
+            <button onClick={() => setCurrentView('home')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Écoles</button>
+            <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Fonctionnalités</button>
+            <button onClick={() => setCurrentView('pricing')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Tarifs</button>
+          </div>
+          <button onClick={() => setCurrentView('login')} className="bg-[#f5a623] hover:bg-[#ffb643] hover:shadow-[0_0_30px_rgba(245,166,35,0.4)] text-[#0a0f0d] px-8 sm:px-10 py-3 sm:py-3.5 rounded-full font-extrabold text-sm transition-all shadow-[0_10px_30px_rgba(245,166,35,0.2)] active:scale-95 cursor-pointer">
+            Se connecter
+          </button>
+        </nav>
+
+        {/* Main hero content */}
+        <main className="relative z-10 flex flex-col items-center justify-center flex-grow px-4 text-center mt-[-40px]">
+          {/* Typewriter title */}
+          <div className="mb-10 sm:mb-14 flex flex-col items-center relative">
+            <h1 className="text-5xl sm:text-6xl md:text-[6.5rem] font-black text-white leading-[1.05] tracking-tighter mb-6 sm:mb-8 relative inline-block mx-auto select-none" style={{ minHeight: '140px' }}>
+              <span id="typewriter-line-1" className="inline-block relative">{typewriterLine1}{typewriterActiveLine === 1 && <span className="animate-pulse">|</span>}</span>
+              <br />
+              <span className="italic font-playfair inline-block relative" style={{ color: '#f5a623', textShadow: '0 0 25px rgba(245, 166, 35, 0.5), 0 0 50px rgba(245, 166, 35, 0.2)' }}>{typewriterLine2}{typewriterActiveLine === 2 && <span className="animate-pulse">|</span>}</span>
+            </h1>
+            <p className="text-gray-300 text-base sm:text-lg md:text-xl max-w-2xl mx-auto font-medium leading-relaxed opacity-80">
+              <BlurText text="La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants pour un avenir meilleur." delay={60} stepDuration={0.4} />
+            </p>
+          </div>
+
+          {/* Glass morphism search bar */}
+          <div className="w-full max-w-4xl mb-16 sm:mb-24 relative z-20">
+            <div className="p-2 rounded-2xl flex flex-col md:flex-row items-center gap-3 shadow-2xl border-white/10" style={{ background: 'rgba(26, 37, 32, 0.4)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)' }}>
+              <div className="flex items-center flex-grow w-full px-4 sm:px-6 gap-4">
+                <Search size={20} className="text-gray-400 shrink-0" />
+                <input
+                  type="text" placeholder="Rechercher une école par nom..."
+                  value={search} onChange={e => setSearch(e.target.value)}
+                  className="w-full bg-transparent border-none text-white py-4 text-base sm:text-lg font-medium placeholder-gray-500 tracking-tight outline-none"
+                />
+              </div>
+              <div className="hidden md:block h-10 w-px bg-white/10 mx-1" />
+              <div className="flex items-center w-full md:w-auto gap-3 px-2 md:px-0">
+                <div className="relative flex-grow md:flex-grow-0">
+                  <select
+                    value={province} onChange={e => setProvince(e.target.value)}
+                    className="w-full md:w-48 bg-white/5 text-white border border-white/10 rounded-xl px-5 py-4 text-sm font-bold cursor-pointer hover:bg-white/10 transition-all appearance-none outline-none backdrop-blur-md"
+                  >
+                    {PROVINCES.map(p => <option key={p} value={p} className="bg-[#0a0f0d] text-white">{p}</option>)}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                  </div>
+                </div>
+                <button className="w-full md:w-auto bg-[#f5a623] text-[#0a0f0d] px-10 py-4 rounded-xl font-extrabold text-sm uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)] whitespace-nowrap cursor-pointer">
+                  Rechercher
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats cards with tilt */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-3xl px-4 relative z-20">
+            {[
+              { value: 240, suffix: '+', label: 'Établissements', glow: 'oklch(72% 0.15 65 / 0.3)', icon: '🏫' },
+              { value: 50000, suffix: '+', label: 'Familles', glow: 'oklch(72% 0.22 165 / 0.3)', icon: '👨‍👩‍👧‍👦' },
+              { value: 98, suffix: '%', label: 'Satisfaction', glow: 'oklch(72% 0.15 210 / 0.3)', icon: '⭐' },
+            ].map((stat) => (
+              <GlowCard key={stat.label} glowColor={stat.glow}>
+                <div className="p-6 flex flex-col items-center justify-center group cursor-default">
+                  <span className="text-2xl mb-2">{stat.icon}</span>
+                  <span className="text-3xl font-black text-white tracking-tighter mb-1.5 group-hover:text-[#f5a623] transition-colors duration-500">
+                    <AnimatedCounter target={stat.value} suffix={stat.suffix} duration={2.5} />
+                  </span>
+                  <span className="text-[9px] text-gray-400 uppercase tracking-[0.3em] font-extrabold group-hover:text-white transition-colors duration-500">{stat.label}</span>
+                </div>
+              </GlowCard>
+            ))}
+          </div>
+        </main>
+        </AuroraBackground>
+      </section>
+
+      {/* ===== TRUST SIGNALS BAR ===== */}
+      <section style={{ background: IVORY }} className="border-y border-[oklch(88%_0.01_175)]">
+        <div className="container-premium py-4 text-center">
+          <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{schools.length}+</strong> Établissement{schools.length > 1 ? 's' : ''} &nbsp;•&nbsp;{' '}
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>50,000+</strong> Familles &nbsp;•&nbsp;{' '}
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>98%</strong> Satisfaction
+          </p>
+        </div>
+      </section>
+
+      {/* ===== SEARCH / FILTER SECTION ===== */}
+      <section className="edu-ivory-texture flex-1">
+        {/* Filter chips */}
+        <div className="container-premium pt-8 pb-3 flex items-center gap-2 flex-wrap">
+          {FILTER_CHIPS.map(chip => (
+            <button
+              key={chip.key}
+              onClick={() => setActiveFilter(chip.key)}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition cursor-pointer border ${
+                activeFilter === chip.key
+                  ? 'text-white border-transparent shadow-md'
+                  : 'bg-white border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm'
+              }`}
+              style={activeFilter === chip.key ? { background: ACCENT } : undefined}
+            >
+              {chip.label}
+              <span className={`text-[11px] font-medium px-1.5 py-px rounded-full ${
+                activeFilter === chip.key ? 'bg-white/20 text-white' : 'bg-[oklch(90%_0.005_250)] text-edu-muted'
+              }`}>{chipCounts[chip.key] ?? 0}</span>
+            </button>
+          ))}
+          <div className="ml-auto hidden sm:block text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
+            Affichage {filteredSchools.length > 0 ? '1' : '0'}—{Math.min(12, filteredSchools.length)} sur {filteredSchools.length}
+          </div>
+          <button
+            onClick={() => setShowMap(!showMap)}
+            className="edu-glass-light ml-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition hover:shadow-md"
+          >
+            <MapPin size={14} /> {showMap ? 'Masquer carte' : 'Voir carte'}
+          </button>
+        </div>
+
+        {/* Map */}
+        {showMap && (
+          <div className="container-premium mb-6">
+            <div className="rounded-2xl overflow-hidden shadow-lg">
+              <SchoolsOverviewMap schools={filteredSchools} />
+            </div>
+          </div>
+        )}
+
+        {/* School Cards */}
+        <div className="container-premium pb-16">
+          <div className="flex items-baseline justify-between mb-5">
+            <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
+              <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{filteredSchools.length} écoles</strong> correspondent à votre recherche
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden animate-pulse">
+                  <div className="h-[120px] bg-[oklch(94%_0.005_175)]" />
+                  <div className="p-6 sm:p-10 pt-10 space-y-3"><div className="h-4 bg-[oklch(94%_0.005_175)] rounded w-3/4" /><div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-1/2" /></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+              {filteredSchools.map((school, idx) => (
+                <ScrollReveal key={school.id} direction="up" delay={idx * 0.08}>
+                <button
+                  onClick={() => { setSelectedSchoolId(school.id); setCurrentView('school-detail') }}
+                  className="block w-full text-left bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden edu-card-lift group"
+                >
+                  <div className={`h-[120px] relative bg-gradient-to-br ${COVER_GRADIENTS[idx % COVER_GRADIENTS.length]} flex items-end p-4`}>
+                    {/* Mesh gradient overlay */}
+                    <div className="absolute inset-0 opacity-20" style={{ background: 'radial-gradient(ellipse at top right, oklch(72% 0.15 65 / 0.3), transparent 60%)' }} />
+                    <span className="absolute top-3 right-3 edu-glass px-3 py-1 rounded-full text-[11px] font-medium text-white">
+                      {getSchoolTypeLabel(school.schoolType, school.schoolCategory, school.schoolLevel)}
+                    </span>
+                    {school.logo ? (
+                      <img src={school.logo} alt={school.shortName} className={`w-12 h-12 rounded-xl object-cover shadow-md relative top-6 bg-white`} />
+                    ) : (
+                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${COVER_GRADIENTS[idx % COVER_GRADIENTS.length]} grid place-items-center font-extrabold text-base text-white shadow-md relative top-6 ring-2 ring-white/20`}>
+                        {school.shortName.substring(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-6 sm:p-10 pt-10">
+                    <div className="text-base font-semibold tracking-tight mb-1" style={{ color: TEXT_PRIMARY }}>{school.name}</div>
+                    <div className="text-[13px] flex items-center gap-1 mb-4" style={{ color: TEXT_MUTED_LUXE }}>
+                      <MapPin size={12} /> {school.city} · {school.province}
+                    </div>
+                    <div className="flex gap-4 py-3 border-t border-b border-[oklch(88%_0.01_175)] mb-4">
+                      <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</strong>élèves
+                      </div>
+                      <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</strong>classes
+                      </div>
+                      <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</strong>fondée
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 text-[13px] font-medium">
+                        <Star size={14} style={{ color: GOLD }} className="fill-current" />
+                        <span style={{ color: TEXT_PRIMARY }}>{school.averageRating?.toFixed(1) || '—'}</span>
+                        <span className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>· {school.totalReviews} avis</span>
+                      </div>
+                      <span className="edu-gold-cta text-[13px] font-semibold px-4 py-2 rounded-xl">
+                        Voir l&apos;école →
+                      </span>
+                    </div>
+                  </div>
+                </button>
+                </ScrollReveal>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ===== SYSTÈMES SCOLAIRES ===== */}
+      <section id="systems-section" className="edu-ivory-texture py-16 sm:py-20 border-t border-[oklch(88%_0.01_175)]">
+        <div className="container-premium">
+          <div className="text-center mb-10">
+            <div className="edu-ornament mb-4"><span style={{ color: GOLD }}>►</span></div>
+            <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
+              Les <GradientText className="inline-block" colors={['#f5a623', '#e8962d', '#d4860f']}>systèmes scolaires</GradientText> intégrés
+            </h2>
+            <p className="text-base max-w-[560px] mx-auto" style={{ color: TEXT_MUTED_LUXE }}>
+              Cliquez sur un système pour découvrir ses parcours officiels : classes, options/filières populaires et horaires types.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
+            {EDUCATIONAL_SYSTEMS_LIST.map(sys => {
+              const isActive = activeSystemId === sys.id
+              return (
+                <button
+                  key={sys.id}
+                  onClick={() => setActiveSystemId(isActive ? null : sys.id)}
+                  className={`text-left bg-white border rounded-2xl p-5 transition-all edu-card-lift ${isActive ? 'border-[oklch(72%_0.15_65)] shadow-md ring-2 ring-[oklch(72%_0.15_65_/_0.2)]' : 'border-[oklch(88%_0.01_175)] hover:shadow-md'}`}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-8 rounded-lg overflow-hidden shadow-sm shrink-0">
+                      <FlagIcon countryCode={sys.countryCode} className="w-full h-full" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold truncate" style={{ color: TEXT_PRIMARY }}>{sys.shortLabel}</div>
+                      <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{sys.country}</div>
+                    </div>
+                  </div>
+                  <div className="text-[12px] leading-relaxed line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{sys.sampleClasses}</div>
+                  <div className="mt-3 text-[12px] font-semibold flex items-center gap-1" style={{ color: GOLD }}>
+                    {isActive ? 'Masquer' : 'Voir les parcours'} <ChevronDown size={13} className={`transition-transform ${isActive ? 'rotate-180' : ''}`} />
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+          {activeSystemId && (
+            <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl shadow-sm overflow-hidden">
+              <SystemParcoursExplorer systemId={activeSystemId} />
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ===== FEATURES SHOWCASE ===== */}
+      <section id="features-section" style={{ background: IVORY }} className="py-16 sm:py-[120px]">
+        <div className="container-premium text-center">
+          {/* Ornament divider */}
+          <div className="edu-ornament mb-4">
+            <span style={{ color: GOLD }}>►</span>
+          </div>
+          <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
+            Pourquoi choisir <GradientText className="inline-block" colors={['#f5a623', '#e8962d', '#d4860f']}>EduGest</GradientText>
+          </h2>
+          <p className="text-base max-w-[500px] mx-auto mb-12" style={{ color: TEXT_MUTED_LUXE }}>
+            Une plateforme conçue pour les réalités africaines, avec les outils qu&apos;il vous faut.
+          </p>
+
+            <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8" staggerDelay={0.1}>
+            {FEATURES.map((feature, idx) => (
+              <StaggerItem key={idx}>
+              <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl p-8 text-left edu-card-lift group">
+                <div className="edu-icon-gradient w-12 h-12 rounded-xl mb-5 group-hover:scale-110 transition-transform duration-300">
+                  {feature.icon}
+                </div>
+                <h3 className="text-[17px] sm:text-[21px] font-bold mb-2" style={{ color: TEXT_PRIMARY }}>{feature.title}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>{feature.desc}</p>
+              </div>
+              </StaggerItem>
+            ))}
+            </StaggerContainer>
+        </div>
+      </section>
+
+      <Footer />
+    </div>
+  )
+}
+
 
 function SchoolDetailView() {
   const { setCurrentView, selectedSchoolId } = useEduGestStore()
@@ -1904,7 +2425,7 @@ const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   DISCIPLINE_MATERNELLE: ['dashboard', 'discipline', 'communications', 'profile'],
   DISCIPLINE_PRIMAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
   DISCIPLINE_SECONDAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
-  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'payment-verification', 'payment-config', 'discipline', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'my-subscription', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
+  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'payment-verification', 'payment-config', 'discipline', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'my-subscription', 'parent-qr', 'parents', 'personalization', 'whatsapp-config', 'settings', 'profile'],
   MEDICAL: ['dashboard', 'medical', 'students', 'communications', 'profile'],
   SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'payment-config', 'pricing', 'discipline', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'medical', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
 }
@@ -7087,11 +7608,13 @@ export default function Home() {
 
   if (!userRole) {
     switch (currentView) {
+      case 'home': return <HomeView />
       case 'login': return <LoginView />
       case 'create-school': return <CreateSchoolView />
       case 'pricing': return <PricingView />
       case 'school-detail': return <SchoolDetailView />
-      // Landing page retirée : toute vue publique non identifiée → connexion
+      // Landing restaurée à la demande : « Gestion Scolaire Intégrale » est de
+      // retour sur la page d'accueil publique (connexion toujours unifiée sur /login)
       default: return <LoginView />
     }
   }

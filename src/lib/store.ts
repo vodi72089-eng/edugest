@@ -225,10 +225,9 @@ interface EduGestStore {
 // ─── Initial State from localStorage ─────────────────────────────────────────
 
 function getInitialState() {
-  // Always return 'login' on both server and client to avoid hydration mismatch.
-  // The landing page is disabled for security reasons — the app opens directly
-  // on the unified login form. Session is restored in a useEffect after mount.
-  return { currentView: 'login' as ViewType, userRole: null as UserRole | null, userData: null as UserData | null, sidebarOpen: false };
+  // Always return 'home' (landing publique restaurée) on both server and client
+  // to avoid hydration mismatch. Session is restored in a useEffect after mount.
+  return { currentView: 'home' as ViewType, userRole: null as UserRole | null, userData: null as UserData | null, sidebarOpen: false };
 }
 
 export function restoreSession() {
@@ -239,9 +238,8 @@ export function restoreSession() {
   const store = useEduGestStore.getState();
 
   // The URL is the first-class source of truth: a deep link like /students
-  // restores the Students view directly. Without a deep link we fall back to
-  // the last known view stored in localStorage (legacy 'home' → 'login' since
-  // the landing page has been removed).
+  // restores the Students view directly. Without a deep link, authenticated
+  // users land on the dashboard; anonymous users see the public landing.
   const urlView = pathToView(window.location.pathname) as ViewType | null;
   const authed = !!(session && (session.role || session.userData));
 
@@ -263,12 +261,15 @@ export function restoreSession() {
     applyView(view);
     syncUrl(view, 'replace');
   } else {
-    // Not authenticated: only public screens can be shown, everything else
-    // (including unknown or auth-only deep links) lands on the login form.
+    // Not authenticated: public screens can be shown. With no deep link we
+    // land on the public landing (restored at user request); auth-only or
+    // unknown deep links still fall back to the login form.
     const view: ViewType =
       urlView && (PUBLIC_VIEWS as readonly string[]).includes(urlView)
         ? (urlView as ViewType)
-        : 'login';
+        : urlView
+          ? 'login'
+          : 'home';
     applyView(view);
     syncUrl(view, 'replace');
   }
@@ -279,7 +280,7 @@ if (typeof window !== 'undefined') {
   window.addEventListener('popstate', () => {
     const store = useEduGestStore.getState();
     const urlView = pathToView(window.location.pathname) as ViewType | null;
-    let target: ViewType = urlView || 'login';
+    let target: ViewType = urlView || 'home';
     if (!store.userRole && !(PUBLIC_VIEWS as readonly string[]).includes(target)) {
       // Anonymous users can never land on an auth-only view.
       target = 'login';
@@ -370,11 +371,11 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
     set({
       userRole: null,
       userData: null,
-      currentView: 'login',
+      currentView: 'home',
       sidebarOpen: false,
       selectedSchoolId: null,
       selectedStudentId: null,
     });
-    syncUrl('login', 'replace');
+    syncUrl('home', 'replace');
   },
 }))

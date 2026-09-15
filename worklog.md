@@ -1376,3 +1376,25 @@ Stage Summary:
 - Logo original restauré partout (web + splash + icône exe)
 - Version desktop 1.3.3 prête pour release
 - Le commit + push déclenche la reconstruction automatique de l'exe v1.3.3 avec le logo original
+---
+Task ID: 14
+Agent: Z.ai Code (main)
+Task: "il y a une onglet qui a disparue gestion integrale de l'ecole elle est passer ou ?" — retrouver et restaurer l'élément disparu
+
+Work Log:
+- Enquête exhaustive : pickaxe git (-S/-G) sur tout l'historique + diff des libellés de menu entre toutes les versions de page.tsx
+- CONSTAT : « Gestion Scolaire Intégrale » n'a jamais été un onglet de la sidebar — c'était la grande carte de la section « Pourquoi choisir EduGest » de l'ANCIENNE PAGE D'ACCUEIL (HomeView/landing), supprimée en v1.2.0 (commit cb451c0 « landing retirée », code effacé en 5d113e6 v1.3.0)
+- Vérifié que la réorganisation db5ffff n'avait supprimé AUCUN autre onglet (seuls Config. Paiements & WhatsApp → renommé, et Personnalisation → déplacé dans Paramètres, conformément à la demande)
+- Restauration : réintégré le HomeView original 1:1 depuis cb451c0^ (hero typewriter, annuaire écoles + carte + filtres, systèmes scolaires, section « Gestion Scolaire Intégrale », footer) — PublicHeader, Footer, SchoolsOverviewMap, BrandMark existaient toujours dans page.tsx
+- Recâblage navigation publique : logo/Écoles/Fonctionnalités/Trouver une école → 'home' (comme avant) ; Se connecter/Connexion → /login (connexion unifiée sécurisée PRÉSERVÉE)
+- store.ts : vue initiale 'home', PUBLIC_VIEWS + 'home', restoreSession (anonyme sans deep link → landing ; deep link auth-only → login), popstate fallback 'home', logout → 'home' ; view-paths.ts : PUBLIC_VIEWS + 'home'
+- BUG BONUS corrigé : depuis la réorg, SCHOOL_ADMIN voyait « Connexion WhatsApp » dans son menu mais canAccessView refusait 'whatsapp-config' (absent de VIEWS_BY_ROLE.SCHOOL_ADMIN) → clic sans effet (retour dashboard). Ajouté 'whatsapp-config' aux permissions SCHOOL_ADMIN (vue quotas/BYO sans partie connexion, comme conçu)
+- Créé admin@lumiere.cd (SCHOOL_ADMIN, Lumière PREMIUM, mdp admin123) — un des 6 comptes prévus par le seed 7d18cdf qui ne s'exécute plus (« already seeded ») — pour tester le fix
+- Vérifié navigateur (agent-browser) : landing restaurée à '/' avec la carte « Gestion Scolaire Intégrale » visible (capture) ; mobile OK ; footer naturellement poussé ; Se connecter → /login → super admin → dashboard complet ; login admin école → clic « Connexion WhatsApp » → /whatsapp-config OUVERT (fix prouvé) avec quotas PREMIUM 5000 msgs + BYO + test, sans section connexion Baileys ; console propre ; dev.log sans erreur runtime
+- Lint : 109 problems = baseline (112 avant restauration — 0 nouvelle erreur)
+
+Stage Summary:
+- La section « Gestion Scolaire Intégrale » (et toute la landing originale) est de retour sur / — design original 1:1, aucune modification branding
+- La connexion reste unifiée et sécurisée sur /login ; l'app authifiée démarre sur le dashboard
+- Fix : l'onglet « Connexion WhatsApp » fonctionne maintenant pour les admins d'école (quotas + API perso), il était mort depuis la réorganisation
+- admin@lumiere.cd / admin123 disponible pour les tests du parcours admin d'école

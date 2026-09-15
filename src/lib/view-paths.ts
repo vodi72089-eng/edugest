@@ -42,8 +42,8 @@ export const VIEW_PATHS: Record<string, string> = {
   personalization: '/personalization',
 };
 
-/** Views accessible WITHOUT authentication (pre-auth screens). */
-export const PUBLIC_VIEWS: readonly string[] = ['login', 'create-school', 'pricing', 'school-detail'];
+/** Views accessible WITHOUT authentication (pre-auth screens + public landing). */
+export const PUBLIC_VIEWS: readonly string[] = ['home', 'login', 'create-school', 'pricing', 'school-detail'];
 
 /** Pre-auth-only views that must never be restored while a session is active. */
 export const PRE_AUTH_ONLY_VIEWS: readonly string[] = ['login', 'create-school', 'school-detail'];
