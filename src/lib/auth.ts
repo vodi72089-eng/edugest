@@ -447,7 +447,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'school:read',
     'users:read', 'users:create', 'users:update',
     'students:read', 'students:create', 'students:update', 'students:delete',
-    'classes:read', 'classes:create',
+    'classes:read', 'classes:create', 'classes:update',
     'subjects:read', 'subjects:create',
     'grades:read',
     'payments:read', 'payments:verify', 'payments:create', 'payments:update',

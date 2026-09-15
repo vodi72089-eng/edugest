@@ -2423,7 +2423,7 @@ const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   PARENT: ['dashboard', 'grades', 'bulletin', 'online-payment', 'payment-verification', 'discipline', 'homework', 'communications', 'school-reviews', 'profile', 'convocation'],
   TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'communications', 'profile'],
   HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'bulletin', 'communications', 'profile'],
-  SECRETARY: ['dashboard', 'students', 'classes', 'communications', 'payment-verification', 'class-passing', 'parent-qr', 'settings', 'profile'],
+  SECRETARY: ['dashboard', 'students', 'classes', 'communications', 'payment-verification', 'class-passing', 'parent-qr', 'my-subscription', 'settings', 'profile'],
   CASHIER: ['dashboard', 'payments', 'payment-verification', 'debts', 'communications', 'profile'],
   DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],
   DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],

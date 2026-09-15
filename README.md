@@ -139,12 +139,17 @@ En Docker, le service `whatsapp` (docker-compose) embarque Baileys avec sa sessi
 ## Fonctionnalités
 
 ### Gestion scolaire
-- **Élèves** — inscriptions, profils avec photos, recherche, filtres par classe/section
-- **Classes** — création, affectation d'enseignants, effectifs
-- **Matières** — gestion par section (Maternelle/Primaire/Secondaire)
-- **Enseignants** — affectation matières/classes via le système d'affectation
+- **Élèves** — inscriptions, profils avec photos, recherche, filtres par classe/section, matricule unique
+- **Classes** — création, affectation d'enseignants, capacité, options/filières
+- **Matières** — gestion par section avec coefficient
+- **Affectation enseignants** — many-to-many (enseignant × classe × matière)
+- **Années scolaires** — multi-années, archivage
+- **Systèmes scolaires** — classes+options+horaires, passage de classe
+- **Repêchage** — examens pour élèves avec moyenne < 10/20
+- **Dispenses** — élèves dispensés de cours (EPS/médical)
 - **Notes** — saisie par matière/classe, moyennes, classement, filtres trimestre
-- **Bulletins** — génération PDF, commentaires, classement par moyenne
+- **Bulletins** — génération PDF premium (double bordure navy/or, logos, QR code officiel)
+- **Fiches médicales** — PDF avec IDs uniques et vérification universelle
 - **Devoirs** — création, soumission, correction, suivi de lecture
 
 ### Communication
@@ -155,8 +160,10 @@ En Docker, le service `whatsapp` (docker-compose) embarque Baileys avec sa sessi
 
 ### Paiements
 - **Frais scolaires** — tranches T1/T2/T3, suivi des paiements
-- **Paiements en ligne** — DPO, Stripe, PayPal, Flutterwave, M-Pesa, Orange Money
-- **Vérification de reçus** — scan code QR du reçu
+- **Paiements en ligne** — DPO, Visa, Mastercard, Flutterwave, M-Pesa, Orange Money, Airtel Money, Bictorys
+- **Multi-devises** — conversion automatique, 10 devises supportées
+- **Vérification de reçus** — scan code QR du reçu (document officiel)
+- **Reçus PDF** — design premium avec QR code de vérification
 - **Dettes** — suivi des arriérés par élève
 - **Notifications paiement** — alertes pour la caisse et l'administration
 
@@ -168,10 +175,24 @@ En Docker, le service `whatsapp` (docker-compose) embarque Baileys avec sa sessi
 - **Dashboard** — statistiques par type avec navigation directe
 
 ### Administration
-- **Paramètres** — configuration école, couleurs, langue
+- **Paramètres** — configuration école, couleurs, langue, design personnalisable
 - **Approbation paramètres** — les non-admins soumettent, les admins valident
 - **Statistiques** — dashboards par rôle avec données en temps réel
 - **Affectation enseignants** — gestion admin des matières/classes par enseignant
+- **Abonnements** — FREEMIUM/STANDARD/PREMIUM/ENTERPRISE/CORPORATE
+
+### Application de bureau
+- **Base locale** — SQLite embarquée, 100% hors ligne
+- **Import de base** — import d'une base existante (fusion intelligente)
+- **QR codes parents** — génération avec durée de vie paramétrable
+- **Bulletins/reçus officiels** — PDF avec QR code de vérification
+- **Windows** — installateur NSIS + version portable
+
+### Sécurité
+- **Auth RBAC** — 15 rôles, 43 permissions, tokens JWT
+- **Chiffrement** — AES-256-GCM pour les clés API
+- **Vérification documents** — QR code unique par PDF officiel
+- **Rate limiting** — protection brute-force
 
 ## Structure du projet
 
@@ -222,11 +243,18 @@ edugest/
 ## Stack technique
 
 - **Framework** : Next.js 16 + React 19
-- **Base de données** : SQLite (Prisma ORM)
+- **Base de données** : SQLite (Prisma ORM, 43 modèles)
 - **State** : Zustand
 - **Styling** : Tailwind CSS — thème LUXE AFRICAIN (oklch, or/vert, motifs Kente, glassmorphism)
-- **Authentification** : tokens JWT signés + sessions fichier, RBAC complet
-- **WhatsApp** : Baileys (`@trashcore/baileys` 4.2.2, serveur autonome Bun, port 3001)
-- **Paiements** : DPO, Stripe, PayPal, Flutterwave, M-Pesa, Orange Money, Airtel Money
-- **Devise** : sélection multi-devises avec conversion
+- **Authentification** : tokens JWT signés + RBAC complet (15 rôles, 43 permissions)
+- **WhatsApp** : Baileys (`@trashcore/baileys` 4.2.2, serveur autonome Bun, port 3001) + Meta Cloud API
+- **Paiements** : DPO, Visa, Mastercard, Flutterwave, M-Pesa, Orange Money, Airtel Money, Bictorys
+- **Desktop** : Electron 33 (Windows .exe, NSIS + portable)
+- **Devise** : sélection multi-devises avec conversion (10 devises)
+- **Languages** : TypeScript
+
+## Documentation
+
+- **[Documentation technique complète](docs/PRODUCTION.md)** — architecture, API, déploiement, maintenance
+- **[Application de bureau](DESKTOP.md)** —构建 .exe, import DB, QR parents
 - **Languages** : TypeScript
