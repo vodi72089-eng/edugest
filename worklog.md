@@ -1338,3 +1338,25 @@ Work Log:
 Stage Summary:
 - L'upgrade FREEMIUM fonctionne de bout en bout ; comptes de démonstration disponibles pour chaque école.
 - desktop/package.json : 1.3.1 → 1.3.2 (le push reconstruit l'exe sur la Release).
+
+---
+Task ID: UI-REORG-1
+Agent: Z.ai Code (session principale)
+Task: Restaurer l'ancienne animation + génération QR fiable + réorganisation des menus (Personnalisation→Paramètres, WhatsApp API & Quotas→Connexion WhatsApp, Config API Resend dans Communications admin)
+
+Work Log:
+- ANIMATION : ancienne animation « edu-book » (livre animé + titre EduGest bicolore + slogan) restaurée sur la page de connexion (CSS globals.css intact depuis l'origine, markup rétabli dans page.tsx) ; BrandLogoPlate retiré de la connexion
+- QR FIX (cause racine du « le QR ne s'affiche pas ») : checkStatus était enregistré une seule fois dans useEffect([]) et capturait connectionMode initial (null) — setQrCode ne s'exécutait JAMAIS. Correction : connectionModeRef synchronisé via wrapper setConnectionMode ; polling 3s→2s ; test e2e RÉEL validé : clic « Option 2 » → « En attente du scan... » + QR affiché (screenshot), img[alt="QR Code WhatsApp"] = true
+- ÉVÉNEMENT SESSION : session WhatsApp auto-réinitialisée par le garde-fou anti-boucle (code 408 = téléphone injoignable 3 cycles) → QR régénéré en attente de scan ; l'utilisateur doit re-scanne/re-pairer
+- WHATSAPP API & QUOTAS : onglet extrait de Config. Paiements → nouveau composant WhatsAppApiQuotasSection (états + loadWaConfig/saveWaConfig/handleTestWa déplacés) intégré dans Connexion WhatsApp avec onglets [Connexion | API WhatsApp & Quotas] (super admin) ; SCHOOL_ADMIN/SECRETARY par URL : section quotas seule, sans polling 403 (guard isSuperAdmin) ; menu SCHOOL_ADMIN « Config. Paiements & WhatsApp » renommé « Config. Paiements »
+- PERSONNALISATION → PARAMÈTRES : item de menu retiré des sidebars SUPER_ADMIN_GLOBAL et SCHOOL_ADMIN ; onglet « Personnalisation » ajouté à SettingsView (visible SUPER_ADMIN_GLOBAL + SCHOOL_ADMIN) qui rend PersonalizationView (gating forfait/rôles inchangé) ; SettingsView autorise désormais SCHOOL_ADMIN (personalizationOnly : onglet unique, onglets Informations/Frais/Appareils masqués) ; bug fixé au passage : personalizationOnly référencé dans SettingsViewInner alors que défini dans SettingsView (ReferenceError → crash client) — définitions déplacées dans Inner
+- CONFIG API (RESEND) : nouveau bouton/panneau « Config API » dans Communications (rendu UNIQUEMENT si userRole === 'SUPER_ADMIN_GLOBAL') : toggle activation, clé API (password, conservée si vide), adresse expéditeur, nom, envoi d'un email de test ; nouvelle API /api/email-config (GET masqué + POST save/test, requireRole SUPER_ADMIN_GLOBAL, validation email + clé requise si enabled) ; src/lib/email.ts réécrit : getEmailApiConfig (DB GlobalApiConfig.RESEND_EMAIL_CONFIG, cache 30s), sendEmailViaResend (api.resend.com, timeout 20s), isResendActive ; sendOtpEmail = Resend prioritaire → fallback SMTP inchangé
+- TESTS API : GET config vide OK ; save disabled OK ; save enabled sans clé → 400 « Clé API Resend requise » ; test sans config → 400 clair ; sans token → 401 ; SCHOOL_ADMIN → 403 sur email-config ET whatsapp-status
+- Vérifications navigateur (agent-browser) : login mobile+desktop avec animation ; sidebar super admin sans Personnalisation ; onglets Connexion WhatsApp OK + quotas « 5000 msgs restants » (PREMIUM) ; Paramètres → Personnalisation (aperçu live, palettes) ; Communications → Config API ouvert avec formulaire complet ; Config. Paiements sans onglet WhatsApp (non-régression) ; SECRETARY : vue quotas sans erreur, Paramètres complets (comportement inchangé)
+- Lint : 108 problems = baseline identique (0 nouveau) ; dev.log sans erreur
+
+Stage Summary:
+- Connexion : animation historique de retour ; QR désormais VISIBLE et fiable (le bug réel était le stale closure, pas le serveur)
+- Menus réorganisés conformément à la demande : Personnalisation dans Paramètres, WhatsApp API & Quotas dans Connexion WhatsApp, Config API (Resend) uniquement dans Communications du compte admin
+- Backend : /api/email-config sécurisé + Resend branché en priorité pour l'OTP email (fallback SMTP conservé)
+- ATTENTION : session WhatsApp réinitialisée automatiquement (timeout 408) — l'utilisateur doit re-connecter son numéro via QR (affiché) ou code de parrainage

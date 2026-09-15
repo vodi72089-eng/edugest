@@ -9,7 +9,7 @@ import { ACCENT, ACCENT2, ACCENT_SOFT, SUCCESS, WARNING, DANGER, INFO, MUTED, BO
 import { getInitials, formatDate, formatNumber, formatCurrency, getSchoolTypeLabel, getSubscriptionLabel, getSubscriptionPrice, getRoleLabel, getStatusPill, API_ROLE_MAP } from '@/lib/helpers'
 import { EDUCATIONAL_SYSTEMS_LIST } from '@/lib/educational-systems'
 import StudentAvatar from '@/components/ui/StudentAvatar'
-import BrandLogo, { BrandLogoPlate } from '@/components/BrandLogo'
+import BrandLogo from '@/components/BrandLogo'
 import { FlagIcon } from '@/components/FlagIcon'
 import dynamic from 'next/dynamic'
 const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
@@ -1403,12 +1403,24 @@ function LoginView() {
 
       {/* Main content: animated book + login card */}
       <main className="relative z-20 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-4 sm:py-8 gap-8 sm:gap-10">
-        {/* Logo officiel EduGest sur plaque claire */}
-        <div className="text-center flex flex-col items-center gap-4">
-          <BrandLogoPlate height={86} />
-          <p className="text-white/55 text-sm sm:text-base font-medium">
-            La plateforme de gestion scolaire
-          </p>
+        {/* Animated Book + Brand */}
+        <div className="text-center flex flex-col items-center gap-5">
+          <div className="edu-book mx-auto" style={{ transform: 'scale(1.1)' }}>
+            <div className="edu-book__pg-shadow"></div>
+            <div className="edu-book__pg"></div>
+            <div className="edu-book__pg edu-book__pg--2"></div>
+            <div className="edu-book__pg edu-book__pg--3"></div>
+            <div className="edu-book__pg edu-book__pg--4"></div>
+            <div className="edu-book__pg edu-book__pg--5"></div>
+          </div>
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight mb-2">
+              Edu<span style={{ color: 'oklch(72% 0.15 65)', textShadow: '0 0 20px oklch(72% 0.15 65 / 0.4)' }}>Gest</span>
+            </h1>
+            <p className="text-white/50 text-sm sm:text-base font-medium">
+              La plateforme de gestion scolaire
+            </p>
+          </div>
         </div>
 
         {/* Glass morphism login card */}
@@ -1657,7 +1669,6 @@ function Sidebar() {
       { icon: <HeartPulse size={16} />, label: 'Service Médical', view: 'medical' as ViewType },
       { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
       { icon: <Users size={16} />, label: 'Gestion des Parents', view: 'parents' as ViewType },
-      { icon: <Palette size={16} />, label: 'Personnalisation', view: 'personalization' as ViewType },
       { icon: <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>, label: 'Connexion WhatsApp', view: 'whatsapp-config' as ViewType },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
@@ -1669,7 +1680,7 @@ function Sidebar() {
       { icon: <UsersRound size={16} />, label: 'Personnel', view: 'personnel' as ViewType },
       { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
       { icon: <CheckCircle size={16} />, label: 'Vérification paiements', view: 'payment-verification' as ViewType },
-      { icon: <CreditCard size={16} />, label: 'Config. Paiements & WhatsApp', view: 'payment-config' as ViewType },
+      { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <Megaphone size={16} />, label: 'Convocations', view: 'convocation' },
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
@@ -1680,7 +1691,7 @@ function Sidebar() {
       { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
       { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
       { icon: <Users size={16} />, label: 'Gestion des Parents', view: 'parents' as ViewType },
-      { icon: <Palette size={16} />, label: 'Personnalisation', view: 'personalization' as ViewType },
+      { icon: <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>, label: 'Connexion WhatsApp', view: 'whatsapp-config' as ViewType },
       { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
@@ -2357,8 +2368,13 @@ function DashboardLayout() {
 // ===== MAIN CONTENT ROUTER =====
 // ===== WHATSAPP CONFIG VIEW =====
 function WhatsAppConfigView() {
+  const { userRole } = useEduGestStore()
+  const isSuperAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
+  // Onglets : « Connexion » (agent Baileys) et « API WhatsApp & Quotas »
+  // (déplacé depuis Config. Paiements — demande utilisateur)
+  const [waTab, setWaTab] = useState<'connexion' | 'api'>('connexion')
   const [whatsappStatus, setWhatsappStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected')
-  const [connectionMode, setConnectionMode] = useState<'qr' | 'phone' | null>(null)
+  const [connectionMode, setConnectionModeState] = useState<'qr' | 'phone' | null>(null)
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [pairCode, setPairCode] = useState<string | null>(null)
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -2367,10 +2383,22 @@ function WhatsAppConfigView() {
   const [requestingPair, setRequestingPair] = useState(false)
   const [pairProgress, setPairProgress] = useState<string[]>([])
   const boundRef = useRef(false)
+  // Ref synchronisée avec connectionMode : le polling checkStatus est enregistré
+  // une seule fois (useEffect []), une closure classique lirait une valeur périmée
+  // et le QR ne s'afficherait jamais.
+  const connectionModeRef = useRef<'qr' | 'phone' | null>(null)
+  function setConnectionMode(mode: 'qr' | 'phone' | null) {
+    connectionModeRef.current = mode
+    setConnectionModeState(mode)
+    if (mode !== 'qr') setQrCode(null)
+  }
 
   useEffect(() => {
+    // Le statut temps-réel de l'agent est réservé au super administrateur
+    // (l'API /api/whatsapp-status applique requireRole SUPER_ADMIN_GLOBAL)
+    if (!isSuperAdmin) { setLoading(false); return }
     checkStatus()
-    const interval = setInterval(checkStatus, 3000)
+    const interval = setInterval(checkStatus, 2000)
     return () => clearInterval(interval)
   }, [])
 
@@ -2380,7 +2408,10 @@ function WhatsAppConfigView() {
       if (res.ok) {
         const json = await res.json()
         setWhatsappStatus(json.data?.status || 'disconnected')
-        if (connectionMode === 'qr') setQrCode(json.data?.qr || null)
+        if (connectionModeRef.current === 'qr') {
+          const incoming = json.data?.qr || null
+          setQrCode(prev => (prev !== incoming ? incoming : prev))
+        }
         if (json.data?.status === 'connected') {
           setPairCode(null); setPairProgress([])
           // Liaison automatique de l'agent WhatsApp au numéro de l'école
@@ -2483,6 +2514,34 @@ function WhatsAppConfigView() {
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Connexion WhatsApp</h1>
       </div>
 
+      {!isSuperAdmin ? (
+        // Admins d'école : uniquement la gestion « API WhatsApp & Quotas » —
+        // la connexion de l'agent (QR / code) est réservée au super administrateur
+        <WhatsAppApiQuotasSection />
+      ) : (
+        <>
+          {/* Onglets : Connexion | API WhatsApp & Quotas */}
+          <div className="flex gap-1 border-b mb-6 overflow-x-auto" style={{ borderColor: 'oklch(90% 0.01 175)' }}>
+            <button
+              onClick={() => setWaTab('connexion')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+                waTab === 'connexion' ? 'border-[oklch(72%_0.15_65)] text-[oklch(72%_0.15_65)]' : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Connexion
+            </button>
+            <button
+              onClick={() => setWaTab('api')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
+                waTab === 'api' ? 'border-[oklch(72%_0.15_65)] text-[oklch(72%_0.15_65)]' : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <MessageSquare size={15} />
+              API WhatsApp &amp; Quotas
+            </button>
+          </div>
+
+          {waTab === 'connexion' ? (
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl max-w-lg shadow-sm overflow-hidden">
         <div className="h-28 relative" style={{ background: `linear-gradient(135deg, ${TEAL_COLOR}, ${GOLD_COLOR})` }}>
           <div className="absolute bottom-4 left-6 flex items-center gap-3">
@@ -2654,6 +2713,11 @@ function WhatsAppConfigView() {
           )}
         </div>
       </div>
+          ) : (
+            <WhatsAppApiQuotasSection />
+          )}
+        </>
+      )}
     </div>
   )
 }
@@ -3058,35 +3122,11 @@ const GATEWAY_SVG_LOGOS: Record<string, string> = {
   MANUAL: '/logos/manual.svg',
 }
 
-function PaymentConfigView() {
-  const { userData, setCurrentView } = useEduGestStore()
-  const [activeTab, setActiveTab] = useState<'gateways' | 'currency' | 'transactions' | 'fees' | 'whatsapp_api'>('gateways')
-  const [gateways, setGateways] = useState<any[]>([])
-  const [availableGateways, setAvailableGateways] = useState<any[]>([])
-  const [currencyConfig, setCurrencyConfig] = useState<any>(null)
-  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({})
-  const [transactions, setTransactions] = useState<any[]>([])
-  const [schoolFees, setSchoolFees] = useState<any[]>([])
-  const [classes, setClasses] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [showGatewayModal, setShowGatewayModal] = useState<string | null>(null)
-  const [showFeeModal, setShowFeeModal] = useState(false)
-  const [editingFee, setEditingFee] = useState<any>(null)
-  const [feeForm, setFeeForm] = useState({ name: '', amount: '', trimester: 'T1', classId: '' })
-  const [gatewayForm, setGatewayForm] = useState<any>({})
-  const [currencyForm, setCurrencyForm] = useState<any>({
-    baseCurrency: 'CDF',
-    displayCurrency: 'CDF',
-    enabledCurrencies: ['CDF', 'USD'],
-    useManualRates: false,
-    manualRates: {},
-  })
-  const [convertForm, setConvertForm] = useState({ amount: 100, from: 'CDF', to: 'USD' })
-  const [convertResult, setConvertResult] = useState<any>(null)
-  const [supportedCurrencies, setSupportedCurrencies] = useState<any[]>([])
-
-  // WhatsApp API Configuration state
+// ===== SECTION API WHATSAPP & QUOTAS =====
+// Anciennement onglet « WhatsApp API & Quotas » de Config. Paiements —
+// désormais intégrée dans la vue « Connexion WhatsApp » (demande utilisateur).
+function WhatsAppApiQuotasSection() {
+  const { userData } = useEduGestStore()
   const [waConfig, setWaConfig] = useState<any>(null)
   const [waForm, setWaForm] = useState<any>({
     customEnabled: false,
@@ -3102,11 +3142,6 @@ function PaymentConfigView() {
 
   useEffect(() => {
     if (!userData?.schoolId) return
-    loadGateways()
-    loadCurrencyConfig()
-    loadTransactions()
-    loadSchoolFees()
-    loadClasses()
     loadWaConfig()
   }, [userData?.schoolId])
 
@@ -3125,7 +3160,7 @@ function PaymentConfigView() {
           customEndpoint: json.data.customEndpoint || '',
         })
       }
-    } catch (e) { console.error('[PaymentConfig] loadWaConfig:', e) }
+    } catch (e) { console.error('[WhatsAppApi] loadWaConfig:', e) }
   }
 
   async function saveWaConfig(e: React.FormEvent) {
@@ -3185,6 +3220,268 @@ function PaymentConfigView() {
       setTestingWa(false)
     }
   }
+
+  return (
+        <div className="space-y-6">
+          {/* Suivi des Quotas en Temps Réel */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <MessageSquare className="text-emerald-600" size={18} />
+                  Suivi des Messages WhatsApp en Temps Réel
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Consommation mensuelle pour l'école <strong>{waConfig?.schoolName || userData?.schoolName}</strong> (Forfait : <span className="font-semibold text-amber-600">{waConfig?.tier}</span>)
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                  waConfig?.customEnabled
+                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                    : (waConfig?.percentUsed || 0) > 80
+                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                }`}>
+                  {waConfig?.customEnabled ? 'Propre API Active' : `${waConfig?.remaining} msg(s) restants`}
+                </span>
+                <button
+                  onClick={loadWaConfig}
+                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600"
+                  title="Rafraîchir"
+                >
+                  <RefreshCw size={14} />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-semibold text-slate-700">
+                <span>Consommation du mois</span>
+                <span>
+                  {waConfig?.customEnabled
+                    ? 'Illimité (Non bridé par EduGest)'
+                    : `${waConfig?.used || 0} / ${waConfig?.monthlyLimit >= 999999 ? 'Illimité' : waConfig?.monthlyLimit} messages`}
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    waConfig?.customEnabled
+                      ? 'bg-purple-500'
+                      : (waConfig?.percentUsed || 0) > 85
+                      ? 'bg-rose-500'
+                      : (waConfig?.percentUsed || 0) > 65
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-500'
+                  }`}
+                  style={{ width: waConfig?.customEnabled ? '100%' : `${waConfig?.percentUsed || 0}%` }}
+                />
+              </div>
+            </div>
+
+            {waConfig?.customEnabled ? (
+              <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900">
+                🎉 <strong>Mode Propre API activé</strong> : Vos envois transitent directement par vos identifiants Meta Cloud API ou passerelle dédiée. <strong>Aucune limitation de volume ou blocage n'est appliqué par EduGest.</strong>
+              </div>
+            ) : (waConfig?.percentUsed || 0) > 80 ? (
+              <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 flex items-center justify-between">
+                <div>
+                  ⚠️ <strong>Attention</strong> : Vous approchez de la limite mensuelle de votre forfait ({waConfig?.used} / {waConfig?.monthlyLimit}).
+                </div>
+                <button
+                  onClick={() => setCurrentView('my-subscription')}
+                  className="px-3 py-1 bg-rose-600 text-white rounded-lg font-bold text-xs hover:bg-rose-500"
+                >
+                  Surclasser le forfait
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 mt-3">
+                Le compteur est réinitialisé automatiquement au début de chaque cycle mensuel.
+              </p>
+            )}
+          </div>
+
+          {/* Configuration Propre API WhatsApp (BYO) */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <Zap className="text-amber-500" size={18} />
+              Connecter votre propre API WhatsApp (BYO)
+            </h3>
+            <p className="text-xs text-slate-500 mb-5">
+              Si vous disposez d'un compte WhatsApp Business API (Meta Cloud API) ou d'un serveur dédié, renseignez vos identifiants ci-dessous. EduGest lèvera toutes les restrictions de volume.
+            </p>
+
+            <form onSubmit={saveWaConfig} className="space-y-4">
+              <div className="flex items-center gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="customWaSwitch"
+                  checked={waForm.customEnabled}
+                  onChange={(e) => setWaForm({ ...waForm, customEnabled: e.target.checked })}
+                  className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
+                />
+                <label htmlFor="customWaSwitch" className="text-sm font-bold text-slate-800 cursor-pointer">
+                  Activer ma propre API WhatsApp (Supprimer la limite de messages EduGest)
+                </label>
+              </div>
+
+              {waForm.customEnabled && (
+                <div className="space-y-4 pt-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        Type de connecteur API
+                      </label>
+                      <select
+                        value={waForm.apiType}
+                        onChange={(e) => setWaForm({ ...waForm, apiType: e.target.value })}
+                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500"
+                      >
+                        <option value="META_CLOUD">Meta Cloud API (Officielle WhatsApp Business)</option>
+                        <option value="BAILEYS_DEDICATED">Serveur Passerelle Dédié (Webhook)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        Phone Number ID (Meta)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ex: 1098237498234"
+                        value={waForm.metaPhoneId}
+                        onChange={(e) => setWaForm({ ...waForm, metaPhoneId: e.target.value })}
+                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        WhatsApp Business Account ID (WABA ID)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ex: 8237498234723"
+                        value={waForm.metaWabaId}
+                        onChange={(e) => setWaForm({ ...waForm, metaWabaId: e.target.value })}
+                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        Token d'accès Permanent Meta (System User Token)
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="EAABw..."
+                        value={waForm.metaToken}
+                        onChange={(e) => setWaForm({ ...waForm, metaToken: e.target.value })}
+                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {waForm.apiType === 'BAILEYS_DEDICATED' && (
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        URL de la passerelle dédiée (Endpoint)
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="https://wa.monecole.com/send"
+                        value={waForm.customEndpoint}
+                        onChange={(e) => setWaForm({ ...waForm, customEndpoint: e.target.value })}
+                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500 font-mono"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                <button
+                  type="submit"
+                  disabled={savingWa}
+                  className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md transition disabled:opacity-50"
+                >
+                  {savingWa ? 'Enregistrement...' : 'Enregistrer la configuration WhatsApp'}
+                </button>
+              </div>
+            </form>
+
+            {/* Test de Transmission */}
+            <div className="mt-6 pt-5 border-t border-slate-200">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Send size={13} className="text-emerald-600" />
+                Tester la connexion WhatsApp
+              </h4>
+              <p className="text-xs text-slate-500 mb-3">
+                Envoyez un message d'essai pour vérifier que votre passerelle ou vos identifiants Meta fonctionnent en direct.
+              </p>
+              <div className="flex gap-2 max-w-md">
+                <input
+                  type="tel"
+                  placeholder="+243..."
+                  value={testPhone}
+                  onChange={(e) => setTestPhone(e.target.value)}
+                  className="flex-1 text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-emerald-500 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={handleTestWa}
+                  disabled={testingWa}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                >
+                  {testingWa ? 'Envoi...' : 'Tester'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+  )
+}
+
+function PaymentConfigView() {
+  const { userData, setCurrentView } = useEduGestStore()
+  const [activeTab, setActiveTab] = useState<'gateways' | 'currency' | 'transactions' | 'fees'>('gateways')
+  const [gateways, setGateways] = useState<any[]>([])
+  const [availableGateways, setAvailableGateways] = useState<any[]>([])
+  const [currencyConfig, setCurrencyConfig] = useState<any>(null)
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({})
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [schoolFees, setSchoolFees] = useState<any[]>([])
+  const [classes, setClasses] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [showGatewayModal, setShowGatewayModal] = useState<string | null>(null)
+  const [showFeeModal, setShowFeeModal] = useState(false)
+  const [editingFee, setEditingFee] = useState<any>(null)
+  const [feeForm, setFeeForm] = useState({ name: '', amount: '', trimester: 'T1', classId: '' })
+  const [gatewayForm, setGatewayForm] = useState<any>({})
+  const [currencyForm, setCurrencyForm] = useState<any>({
+    baseCurrency: 'CDF',
+    displayCurrency: 'CDF',
+    enabledCurrencies: ['CDF', 'USD'],
+    useManualRates: false,
+    manualRates: {},
+  })
+  const [convertForm, setConvertForm] = useState({ amount: 100, from: 'CDF', to: 'USD' })
+  const [convertResult, setConvertResult] = useState<any>(null)
+  const [supportedCurrencies, setSupportedCurrencies] = useState<any[]>([])
+
+  useEffect(() => {
+    if (!userData?.schoolId) return
+    loadGateways()
+    loadCurrencyConfig()
+    loadTransactions()
+    loadSchoolFees()
+    loadClasses()
+  }, [userData?.schoolId])
 
   async function loadGateways() {
     try {
@@ -3457,15 +3754,6 @@ function PaymentConfigView() {
           }`}
         >
           Transactions
-        </button>
-        <button
-          onClick={() => setActiveTab('whatsapp_api')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition flex items-center gap-2 ${
-            activeTab === 'whatsapp_api' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <MessageSquare size={15} />
-          WhatsApp API & Quotas
         </button>
       </div>
 
@@ -3859,231 +4147,6 @@ function PaymentConfigView() {
               </table>
             </div>
           )}
-        </div>
-      )}
-
-      {/* WhatsApp API & Quotas Tab */}
-      {activeTab === 'whatsapp_api' && (
-        <div className="space-y-6">
-          {/* Suivi des Quotas en Temps Réel */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <MessageSquare className="text-emerald-600" size={18} />
-                  Suivi des Messages WhatsApp en Temps Réel
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Consommation mensuelle pour l'école <strong>{waConfig?.schoolName || userData?.schoolName}</strong> (Forfait : <span className="font-semibold text-amber-600">{waConfig?.tier}</span>)
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
-                  waConfig?.customEnabled
-                    ? 'bg-purple-50 text-purple-700 border-purple-200'
-                    : (waConfig?.percentUsed || 0) > 80
-                    ? 'bg-rose-50 text-rose-700 border-rose-200'
-                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                }`}>
-                  {waConfig?.customEnabled ? 'Propre API Active' : `${waConfig?.remaining} msg(s) restants`}
-                </span>
-                <button
-                  onClick={loadWaConfig}
-                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600"
-                  title="Rafraîchir"
-                >
-                  <RefreshCw size={14} />
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs font-semibold text-slate-700">
-                <span>Consommation du mois</span>
-                <span>
-                  {waConfig?.customEnabled
-                    ? 'Illimité (Non bridé par EduGest)'
-                    : `${waConfig?.used || 0} / ${waConfig?.monthlyLimit >= 999999 ? 'Illimité' : waConfig?.monthlyLimit} messages`}
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    waConfig?.customEnabled
-                      ? 'bg-purple-500'
-                      : (waConfig?.percentUsed || 0) > 85
-                      ? 'bg-rose-500'
-                      : (waConfig?.percentUsed || 0) > 65
-                      ? 'bg-amber-500'
-                      : 'bg-emerald-500'
-                  }`}
-                  style={{ width: waConfig?.customEnabled ? '100%' : `${waConfig?.percentUsed || 0}%` }}
-                />
-              </div>
-            </div>
-
-            {waConfig?.customEnabled ? (
-              <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900">
-                🎉 <strong>Mode Propre API activé</strong> : Vos envois transitent directement par vos identifiants Meta Cloud API ou passerelle dédiée. <strong>Aucune limitation de volume ou blocage n'est appliqué par EduGest.</strong>
-              </div>
-            ) : (waConfig?.percentUsed || 0) > 80 ? (
-              <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 flex items-center justify-between">
-                <div>
-                  ⚠️ <strong>Attention</strong> : Vous approchez de la limite mensuelle de votre forfait ({waConfig?.used} / {waConfig?.monthlyLimit}).
-                </div>
-                <button
-                  onClick={() => setCurrentView('my-subscription')}
-                  className="px-3 py-1 bg-rose-600 text-white rounded-lg font-bold text-xs hover:bg-rose-500"
-                >
-                  Surclasser le forfait
-                </button>
-              </div>
-            ) : (
-              <p className="text-xs text-slate-400 mt-3">
-                Le compteur est réinitialisé automatiquement au début de chaque cycle mensuel.
-              </p>
-            )}
-          </div>
-
-          {/* Configuration Propre API WhatsApp (BYO) */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
-              <Zap className="text-amber-500" size={18} />
-              Connecter votre propre API WhatsApp (BYO)
-            </h3>
-            <p className="text-xs text-slate-500 mb-5">
-              Si vous disposez d'un compte WhatsApp Business API (Meta Cloud API) ou d'un serveur dédié, renseignez vos identifiants ci-dessous. EduGest lèvera toutes les restrictions de volume.
-            </p>
-
-            <form onSubmit={saveWaConfig} className="space-y-4">
-              <div className="flex items-center gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
-                <input
-                  type="checkbox"
-                  id="customWaSwitch"
-                  checked={waForm.customEnabled}
-                  onChange={(e) => setWaForm({ ...waForm, customEnabled: e.target.checked })}
-                  className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
-                />
-                <label htmlFor="customWaSwitch" className="text-sm font-bold text-slate-800 cursor-pointer">
-                  Activer ma propre API WhatsApp (Supprimer la limite de messages EduGest)
-                </label>
-              </div>
-
-              {waForm.customEnabled && (
-                <div className="space-y-4 pt-2">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-semibold text-slate-700 block mb-1">
-                        Type de connecteur API
-                      </label>
-                      <select
-                        value={waForm.apiType}
-                        onChange={(e) => setWaForm({ ...waForm, apiType: e.target.value })}
-                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500"
-                      >
-                        <option value="META_CLOUD">Meta Cloud API (Officielle WhatsApp Business)</option>
-                        <option value="BAILEYS_DEDICATED">Serveur Passerelle Dédié (Webhook)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-semibold text-slate-700 block mb-1">
-                        Phone Number ID (Meta)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Ex: 1098237498234"
-                        value={waForm.metaPhoneId}
-                        onChange={(e) => setWaForm({ ...waForm, metaPhoneId: e.target.value })}
-                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500 font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-semibold text-slate-700 block mb-1">
-                        WhatsApp Business Account ID (WABA ID)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Ex: 8237498234723"
-                        value={waForm.metaWabaId}
-                        onChange={(e) => setWaForm({ ...waForm, metaWabaId: e.target.value })}
-                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500 font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-semibold text-slate-700 block mb-1">
-                        Token d'accès Permanent Meta (System User Token)
-                      </label>
-                      <input
-                        type="password"
-                        placeholder="EAABw..."
-                        value={waForm.metaToken}
-                        onChange={(e) => setWaForm({ ...waForm, metaToken: e.target.value })}
-                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500 font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  {waForm.apiType === 'BAILEYS_DEDICATED' && (
-                    <div>
-                      <label className="text-xs font-semibold text-slate-700 block mb-1">
-                        URL de la passerelle dédiée (Endpoint)
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="https://wa.monecole.com/send"
-                        value={waForm.customEndpoint}
-                        onChange={(e) => setWaForm({ ...waForm, customEndpoint: e.target.value })}
-                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500 font-mono"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                <button
-                  type="submit"
-                  disabled={savingWa}
-                  className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md transition disabled:opacity-50"
-                >
-                  {savingWa ? 'Enregistrement...' : 'Enregistrer la configuration WhatsApp'}
-                </button>
-              </div>
-            </form>
-
-            {/* Test de Transmission */}
-            <div className="mt-6 pt-5 border-t border-slate-200">
-              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <Send size={13} className="text-emerald-600" />
-                Tester la connexion WhatsApp
-              </h4>
-              <p className="text-xs text-slate-500 mb-3">
-                Envoyez un message d'essai pour vérifier que votre passerelle ou vos identifiants Meta fonctionnent en direct.
-              </p>
-              <div className="flex gap-2 max-w-md">
-                <input
-                  type="tel"
-                  placeholder="+243..."
-                  value={testPhone}
-                  onChange={(e) => setTestPhone(e.target.value)}
-                  className="flex-1 text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-emerald-500 font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={handleTestWa}
-                  disabled={testingWa}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition disabled:opacity-50 flex items-center gap-1.5 shrink-0"
-                >
-                  {testingWa ? 'Envoi...' : 'Tester'}
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
@@ -4776,6 +4839,66 @@ function CommunicationsView() {
     }
   }, [highlightedId])
 
+  // ── Config API (Resend) — super administrateur uniquement ──────────────
+  // L'utilisateur configure ici la clé API Resend pour l'envoi des emails
+  // (codes de vérification, notifications). Stockée côté serveur.
+  const isPlatformAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
+  const [showApiConfig, setShowApiConfig] = useState(false)
+  const [emailCfg, setEmailCfg] = useState<any>(null)
+  const [emailForm, setEmailForm] = useState({ enabled: false, fromEmail: '', fromName: '', apiKey: '' })
+  const [testEmail, setTestEmail] = useState('')
+  const [savingEmailCfg, setSavingEmailCfg] = useState(false)
+  const [testingEmail, setTestingEmail] = useState(false)
+
+  useEffect(() => {
+    if (!isPlatformAdmin) return
+    authFetch('/api/email-config').then(r => r.json()).then(j => {
+      if (j.data) {
+        setEmailCfg(j.data)
+        setEmailForm({
+          enabled: !!j.data.enabled,
+          fromEmail: j.data.fromEmail || '',
+          fromName: j.data.fromName || '',
+          apiKey: '',
+        })
+      }
+    }).catch(() => {})
+  }, [isPlatformAdmin])
+
+  async function saveEmailCfg() {
+    setSavingEmailCfg(true)
+    try {
+      const res = await authFetch('/api/email-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save', ...emailForm }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success(json.message || 'Configuration enregistrée')
+        setEmailCfg(json.data)
+        setEmailForm(f => ({ ...f, apiKey: '' }))
+      } else {
+        toast.error(json.error || 'Erreur de sauvegarde')
+      }
+    } catch { toast.error('Erreur réseau') } finally { setSavingEmailCfg(false) }
+  }
+
+  async function handleTestEmail() {
+    if (!testEmail.trim()) { toast.error('Entrez une adresse email de test'); return }
+    setTestingEmail(true)
+    try {
+      const res = await authFetch('/api/email-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'test', testEmail }),
+      })
+      const json = await res.json()
+      if (res.ok) toast.success(json.message || 'Email de test envoyé')
+      else toast.error(json.error || 'Échec du test')
+    } catch { toast.error('Erreur réseau') } finally { setTestingEmail(false) }
+  }
+
   if (!hasAccess) return null
 
   useEffect(() => {
@@ -4843,6 +4966,129 @@ function CommunicationsView() {
           </span>
         )}
       </div>
+
+      {/* ── Config API (Resend) — super administrateur uniquement ── */}
+      {isPlatformAdmin && (
+        <div className="mb-6">
+          <button
+            onClick={() => setShowApiConfig(v => !v)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition hover:shadow-sm"
+            style={{ borderColor: 'oklch(90% 0.01 175)', color: TEXT_PRIMARY, background: 'white' }}
+          >
+            <Zap size={15} style={{ color: GOLD }} />
+            Config API
+            {emailCfg?.configured ? (
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${emailCfg?.enabled ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>
+                {emailCfg?.enabled ? 'Resend actif' : 'Configuré (inactif)'}
+              </span>
+            ) : (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]">Non configuré</span>
+            )}
+            {showApiConfig ? <ChevronUp size={14} style={{ color: TEXT_MUTED_LUXE }} /> : <ChevronDown size={14} style={{ color: TEXT_MUTED_LUXE }} />}
+          </button>
+
+          {showApiConfig && (
+            <div className="mt-3 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm space-y-4">
+              <div>
+                <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+                  <Mail size={15} style={{ color: GOLD }} />
+                  Configuration de l&apos;API email Resend
+                </h3>
+                <p className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>
+                  Les emails EduGest (codes de vérification de compte, notifications) seront envoyés via Resend.
+                  Obtenez votre clé API sur <span className="font-semibold">resend.com</span> puis validez votre domaine expéditeur.
+                </p>
+              </div>
+
+              <label className="flex items-center gap-3 p-3.5 rounded-xl cursor-pointer" style={{ background: 'oklch(97% 0.02 175)', border: '1px solid oklch(90% 0.01 175)' }}>
+                <input
+                  type="checkbox"
+                  checked={emailForm.enabled}
+                  onChange={e => setEmailForm(f => ({ ...f, enabled: e.target.checked }))}
+                  className="w-4 h-4 rounded accent-[oklch(72%_0.15_65)]"
+                />
+                <span className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>
+                  Activer l&apos;envoi d&apos;emails via Resend
+                </span>
+              </label>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>
+                    Clé API Resend {emailCfg?.configured && <span className="text-[10px] font-normal">(actuelle : <span className="font-mono">{emailCfg.apiKeyMasked}</span> — laisser vide pour conserver)</span>}
+                  </label>
+                  <input
+                    type="password"
+                    value={emailForm.apiKey}
+                    onChange={e => setEmailForm(f => ({ ...f, apiKey: e.target.value }))}
+                    placeholder="re_123456789..."
+                    className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] font-mono"
+                    style={{ color: TEXT_PRIMARY }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Adresse expéditeur (from)</label>
+                  <input
+                    type="email"
+                    value={emailForm.fromEmail}
+                    onChange={e => setEmailForm(f => ({ ...f, fromEmail: e.target.value }))}
+                    placeholder="noreply@votre-ecole.cd"
+                    className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+                    style={{ color: TEXT_PRIMARY }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom de l&apos;expéditeur</label>
+                  <input
+                    type="text"
+                    value={emailForm.fromName}
+                    onChange={e => setEmailForm(f => ({ ...f, fromName: e.target.value }))}
+                    placeholder="EduGest"
+                    className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+                    style={{ color: TEXT_PRIMARY }}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={saveEmailCfg}
+                    disabled={savingEmailCfg}
+                    className="px-5 py-2.5 rounded-xl text-white font-semibold text-sm flex items-center gap-2 disabled:opacity-50 transition hover:opacity-90 w-full md:w-auto"
+                    style={{ background: `linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))` }}
+                  >
+                    {savingEmailCfg ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save size={15} />}
+                    {savingEmailCfg ? 'Enregistrement...' : 'Enregistrer la configuration'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-[oklch(90%_0.01_175)]">
+                <h4 className="text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: TEXT_PRIMARY }}>
+                  <Send size={12} style={{ color: 'oklch(55% 0.15 175)' }} />
+                  Tester l&apos;envoi d&apos;email
+                </h4>
+                <div className="flex gap-2 max-w-md">
+                  <input
+                    type="email"
+                    value={testEmail}
+                    onChange={e => setTestEmail(e.target.value)}
+                    placeholder="vous@exemple.com"
+                    className="flex-1 px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+                    style={{ color: TEXT_PRIMARY }}
+                  />
+                  <button
+                    onClick={handleTestEmail}
+                    disabled={testingEmail}
+                    className="px-4 py-2.5 rounded-xl text-white font-semibold text-sm disabled:opacity-50 transition shrink-0"
+                    style={{ background: 'oklch(55% 0.15 175)' }}
+                  >
+                    {testingEmail ? 'Envoi...' : 'Envoyer le test'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className={`grid grid-cols-1 gap-6 ${canCreate ? 'lg:grid-cols-[1fr_1fr]' : ''}`}>
         {/* Compose */}

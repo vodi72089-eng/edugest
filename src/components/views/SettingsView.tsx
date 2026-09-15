@@ -5,7 +5,8 @@ import { useEduGestStore, authFetch } from '@/lib/store'
 import type { SchoolData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
-import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera, ImagePlus, Plus, Edit, GraduationCap, Monitor, Smartphone, LogOut, Tablet, Globe, Fingerprint } from 'lucide-react'
+import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera, ImagePlus, Plus, Edit, GraduationCap, Monitor, Smartphone, LogOut, Tablet, Globe, Fingerprint, Palette } from 'lucide-react'
+import PersonalizationView from './PersonalizationView'
 import { toast } from 'sonner'
 import { detectDevice, formatDeviceTitle, formatDeviceSummary } from '@/lib/detect-device'
 
@@ -15,9 +16,12 @@ export default function SettingsView() {
   // ── Defense-in-depth role guard ────────────────────────────────────────
   // School settings are restricted to SUPER_ADMIN_GLOBAL, SECRETARY, and
   // DIRECTION_* on FREEMIUM schools (they are the admin of the school).
+  // SCHOOL_ADMIN accède uniquement à l'onglet « Personnalisation »
+  // (anciennement menu séparé — désormais intégré dans Paramètres).
   const isFreemium = userData?.subscriptionTier === 'FREEMIUM'
   const isDirection = userRole?.startsWith('DIRECTION')
-  const canManageSchool = userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SECRETARY' || (isFreemium && isDirection)
+  const personalizationOnly = userRole === 'SCHOOL_ADMIN'
+  const canManageSchool = personalizationOnly || userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SECRETARY' || (isFreemium && isDirection)
   if (!canManageSchool) {
     return (
       <div className="max-w-md mx-auto mt-16 text-center">
@@ -41,6 +45,10 @@ export default function SettingsView() {
 
 function SettingsViewInner() {
   const { userData, userRole, setCurrentView } = useEduGestStore()
+  // SCHOOL_ADMIN : uniquement l'onglet Personnalisation (intègre l'ancienne
+  // vue « Personnalisation » — demande utilisateur)
+  const personalizationOnly = userRole === 'SCHOOL_ADMIN'
+  const canPersonalize = userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SCHOOL_ADMIN'
   const [school, setSchool] = useState<SchoolData | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -49,7 +57,7 @@ function SettingsViewInner() {
   const [comments, setComments] = useState<{ id: string; authorName: string; rating: number; comment: string; isApproved: boolean; createdAt: string }[]>([])
   const logoInputRef = useRef<HTMLInputElement | null>(null)
   const coverInputRef = useRef<HTMLInputElement | null>(null)
-  const [activeTab, setActiveTab] = useState<'info' | 'fees' | 'devices'>('info')
+  const [activeTab, setActiveTab] = useState<'info' | 'fees' | 'devices' | 'personalization'>(personalizationOnly ? 'personalization' : 'info')
   const [fees, setFees] = useState<any[]>([])
   const [classes, setClasses] = useState<any[]>([])
   const [showFeeModal, setShowFeeModal] = useState(false)
@@ -341,16 +349,27 @@ function SettingsViewInner() {
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Paramètres de l&apos;école</h1>
       </div>
 
-      <div className="flex gap-2 mb-6">
-        <button onClick={() => setActiveTab('info')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'info' ? 'text-white' : ''}`} style={activeTab === 'info' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
-          Informations
-        </button>
-        <button onClick={() => setActiveTab('fees')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'fees' ? 'text-white' : ''}`} style={activeTab === 'fees' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
-          <GraduationCap size={14} className="inline mr-1" /> Frais scolaires
-        </button>
-        <button onClick={() => setActiveTab('devices')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'devices' ? 'text-white' : ''}`} style={activeTab === 'devices' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
-          <Monitor size={14} className="inline mr-1" /> Appareils connectés
-        </button>
+      <div className="flex gap-2 mb-6 flex-wrap">
+        {!personalizationOnly && (
+          <button onClick={() => setActiveTab('info')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'info' ? 'text-white' : ''}`} style={activeTab === 'info' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
+            Informations
+          </button>
+        )}
+        {!personalizationOnly && (
+          <button onClick={() => setActiveTab('fees')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'fees' ? 'text-white' : ''}`} style={activeTab === 'fees' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
+            <GraduationCap size={14} className="inline mr-1" /> Frais scolaires
+          </button>
+        )}
+        {!personalizationOnly && (
+          <button onClick={() => setActiveTab('devices')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'devices' ? 'text-white' : ''}`} style={activeTab === 'devices' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
+            <Monitor size={14} className="inline mr-1" /> Appareils connectés
+          </button>
+        )}
+        {canPersonalize && (
+          <button onClick={() => setActiveTab('personalization')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'personalization' ? 'text-white' : ''}`} style={activeTab === 'personalization' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
+            <Palette size={14} className="inline mr-1" /> Personnalisation
+          </button>
+        )}
       </div>
 
       {/* Pending Approvals (Admin only) */}
@@ -699,6 +718,8 @@ function SettingsViewInner() {
           )}
         </div>
       )}
+
+      {activeTab === 'personalization' && <PersonalizationView />}
 
       {activeTab === 'devices' && (
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
