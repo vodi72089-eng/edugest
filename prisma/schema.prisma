@@ -74,6 +74,8 @@ model School {
   medicalDocuments      MedicalDocument[]
   qrCodes               SchoolQrCode[]
   documents             DocumentVerification[]
+  platformEvents        PlatformEvent[]
+  repechageExams        RepechageExam[]
 }
 
 model User {
@@ -145,6 +147,7 @@ model Student {
   infirmaryVisits InfirmaryVisit[]
   medicalDispensations MedicalDispensation[]
   medicalDocuments MedicalDocument[]
+  repechageExams RepechageExam[]
 }
 
 model Class {
@@ -823,4 +826,47 @@ model DocumentVerification {
 
   @@index([schoolId, type])
   @@index([studentId])
+}
+
+// ─── Événements plateforme (Passage de classe / Publication des bulletins) ───
+model PlatformEvent {
+  id                String   @id @default(cuid())
+  key               String
+  schoolId          String?
+  school            School?  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolYearLabel   String?
+  officialDate      DateTime
+  visibleDaysBefore Int      @default(21)
+  enabled           Boolean  @default(true)
+  message           String?
+  createdById       String
+  createdByName     String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([key, enabled])
+}
+
+// ─── Examens de repêchage (Passage de classe) ───
+model RepechageExam {
+  id              String    @id @default(cuid())
+  studentId       String
+  student         Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId         String?
+  schoolId        String
+  school          School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolYearId    String?
+  subjects        String
+  status          String    @default("PLANNED")
+  examDate        DateTime?
+  note            String?
+  sentViaApp      Boolean   @default(false)
+  sentViaWhatsapp Boolean   @default(false)
+  whatsappDetail  String?
+  createdById     String
+  createdByName   String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([schoolId])
 }

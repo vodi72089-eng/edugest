@@ -3,6 +3,7 @@ import { notify } from '@/lib/notify';
 import { requireAuth, requireRole, verifySchoolAccess, sanitizeError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { notifyBulletin } from '@/lib/whatsapp-agent';
+import { notifyPassingUpdateToAdmins } from '@/lib/passing-notify';
 
 const CONFIG_ROLES = ['SUPER_ADMIN_GLOBAL', 'ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'HEAD_TEACHER'];
 
@@ -159,25 +160,24 @@ export async function POST(request: NextRequest) {
         select: { firstName: true, lastName: true, parentId: true, schoolId: true, classId: true },
       });
       if (student) {
-        const decisionLabel = decision === 'PASSED' ? 'Admis' : decision === 'REPEAT' ? 'Redoublant' : 'En attente';
+        const decisionLabel = decision === 'PASSED' ? 'Admis' : decision === 'REPEAT' ? 'Redoublant' : decision === 'RATTRAPAGE' ? 'Rattrapage' : 'En attente';
 
-        // Notify admins
-        const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
-        const schoolAdmins = await db.user.findMany({
-          where: { schoolId: student.schoolId, role: { in: adminRoles }, id: { not: user.id } },
-          select: { id: true },
-        });
-        for (const admin of schoolAdmins) {
-          await notify({
-            data: {
-              type: 'BULLETIN_UPDATED',
-              title: 'Bulletin mis à jour',
-              message: `${student.firstName} ${student.lastName} - ${trimester} - ${decisionLabel}${average ? ` - Moy: ${average}` : ''}`,
-              userId: admin.id,
-              schoolId: student.schoolId,
-              relatedId: reportCard.id,
-            },
+        // ── Notify admins (in-app + push + EMAIL via Resend) ────────────────
+        // Personnel de l'école (SCHOOL_ADMIN inclus) + super admins plateforme.
+        // Une décision T3 = décision de passage de classe → titre dédié.
+        const isPassingDecision = trimester === 'T3' && decision !== 'PENDING';
+        try {
+          void notifyPassingUpdateToAdmins({
+            type: isPassingDecision ? 'CLASS_PASSING' : 'BULLETIN_UPDATED',
+            title: isPassingDecision ? 'Passage de classe — décision enregistrée' : 'Bulletin mis à jour',
+            message: `${student.firstName} ${student.lastName} - ${trimester} - ${decisionLabel}${average ? ` - Moy: ${average}` : ''}`,
+            schoolId: student.schoolId,
+            schoolName: (await db.school.findUnique({ where: { id: student.schoolId }, select: { name: true } }))?.name ?? null,
+            relatedId: reportCard.id,
+            excludeUserId: user.id,
           });
+        } catch (adminNotifyError) {
+          console.error('[ReportCard] Admin notify error (non-blocking):', adminNotifyError);
         }
 
         // Notify parent (in-app)

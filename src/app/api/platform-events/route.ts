@@ -1,15 +1,10 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole, sanitizeError } from '@/lib/auth';
-import { notify } from '@/lib/notify';
 import { isPlatformEventKey } from '@/lib/platform-events';
+import { notifyPassingUpdateToAdmins } from '@/lib/passing-notify';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-// Rôles du personnel notifiés lors de la création d'un événement activé
-const STAFF_ROLES = ['SCHOOL_ADMIN', 'SECRETARY', 'DIRECTION', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
-// Plafond de notifications quand l'événement est global (toutes les écoles)
-const MAX_NOTIFICATIONS = 500;
 
 /**
  * GET /api/platform-events — SUPER_ADMIN_GLOBAL uniquement
@@ -103,44 +98,37 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // ── Notifications in-app au personnel des écoles ciblées ────────────────
+    // ── Notifications in-app + EMAIL au personnel des écoles ciblées ────────
+    // (assistants des écoles ciblées ou de TOUTES les écoles, + super admins)
     let notified = 0;
+    let emailed = 0;
     if (event.enabled) {
       try {
         const openDate = new Date(new Date(event.officialDate).getTime() - event.visibleDaysBefore * DAY_MS);
-        const openFr = openDate.toLocaleDateString('fr-FR');
-        const officialFr = new Date(event.officialDate).toLocaleDateString('fr-FR');
+        const openFr = openDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+        const officialFr = new Date(event.officialDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
         const baseMessage = key === 'CLASS_PASSING'
           ? `L'interface Passage de classe sera disponible à partir du ${openFr} (publication officielle : ${officialFr})`
           : `La publication des bulletins sera disponible à partir du ${openFr} (publication officielle : ${officialFr})`;
         const notifMessage = message ? `${baseMessage}. ${message}` : baseMessage;
         const title = key === 'CLASS_PASSING' ? 'Passage de classe' : 'Publication des bulletins';
 
-        const staff = await db.user.findMany({
-          where: { isActive: true, role: { in: STAFF_ROLES }, schoolId: event.schoolId ?? undefined },
-          select: { id: true },
-          take: MAX_NOTIFICATIONS,
+        const result = await notifyPassingUpdateToAdmins({
+          type: key,
+          title,
+          message: notifMessage,
+          schoolId: event.schoolId,
+          relatedId: event.id,
+          excludeUserId: user.id,
         });
-
-        for (const staffUser of staff) {
-          await notify({
-            data: {
-              type: key,
-              title,
-              message: notifMessage,
-              userId: staffUser.id,
-              schoolId: event.schoolId,
-              relatedId: event.id,
-            },
-          });
-          notified++;
-        }
+        notified = result.appSent;
+        emailed = result.emailSent;
       } catch (notifError) {
         console.error('[PlatformEvents] Notification error (non-blocking):', notifError);
       }
     }
 
-    return NextResponse.json({ data: event, notifications: { sent: notified } }, { status: 201 });
+    return NextResponse.json({ data: event, notifications: { sent: notified, emails: emailed } }, { status: 201 });
   } catch (error) {
     console.error('[PlatformEvents] POST error:', error);
     return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });

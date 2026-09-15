@@ -28,6 +28,7 @@ export const VIEW_PATHS: Record<string, string> = {
   bulletin: '/bulletin',
   'admin-analytics': '/admin-analytics',
   'whatsapp-config': '/whatsapp-config',
+  'platform-control': '/platform-control',
   personnel: '/personnel',
   settings: '/settings',
   'school-reviews': '/school-reviews',

@@ -144,6 +144,7 @@ export type ViewType =
   | 'bulletin'
   | 'admin-analytics'
   | 'whatsapp-config'
+  | 'platform-control'
   | 'personnel'
   | 'settings'
   | 'school-reviews'

@@ -5,8 +5,8 @@ import { resolveEventVisibility } from '@/lib/platform-events'
 import { getSchoolTier } from '@/lib/subscription'
 import { NextRequest, NextResponse } from 'next/server'
 
-// Passage de classe réservé aux administrateurs d'école (SCHOOL_ADMIN)
-const CLASS_PASSING_ROLES = ['SCHOOL_ADMIN']
+// Passage de classe : administrateurs d'école (SCHOOL_ADMIN) + super admin plateforme
+const CLASS_PASSING_ROLES = ['SCHOOL_ADMIN', 'SUPER_ADMIN_GLOBAL']
 
 const PREMIUM_TIERS = ['PREMIUM', 'ENTERPRISE', 'CORPORATE']
 
@@ -36,8 +36,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 })
     }
 
-    // ── Gate forfait : PREMIUM minimum ─────────────────────────────────
-    {
+    // ── Gate forfait : PREMIUM minimum (le super admin plateforme passe toujours) ──
+    if (user.role !== 'SUPER_ADMIN_GLOBAL') {
       const tier = await getSchoolTier(schoolId)
       if (!PREMIUM_TIERS.includes(tier)) {
         return NextResponse.json(

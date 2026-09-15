@@ -4,10 +4,11 @@ import { resolveEventVisibility } from '@/lib/platform-events'
 import { getSchoolTier } from '@/lib/subscription'
 import { notify } from '@/lib/notify'
 import { notifyRepechage } from '@/lib/whatsapp-agent'
+import { notifyPassingUpdateToAdmins } from '@/lib/passing-notify'
 import { NextRequest, NextResponse } from 'next/server'
 
 // Repêchage réservé aux administrateurs d'école (SCHOOL_ADMIN)
-const REPECHAGE_ROLES = ['SCHOOL_ADMIN']
+const REPECHAGE_ROLES = ['SCHOOL_ADMIN', 'SUPER_ADMIN_GLOBAL']
 
 const PREMIUM_TIERS = ['PREMIUM', 'ENTERPRISE', 'CORPORATE']
 
@@ -49,8 +50,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 })
     }
 
-    // Gate forfait : PREMIUM minimum
-    {
+    // Gate forfait : PREMIUM minimum (le super admin plateforme passe toujours)
+    if (user.role !== 'SUPER_ADMIN_GLOBAL') {
       const tier = await getSchoolTier(schoolId)
       if (!PREMIUM_TIERS.includes(tier)) {
         return NextResponse.json(
@@ -200,8 +201,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 })
     }
 
-    // Gate forfait : PREMIUM minimum
-    {
+    // Gate forfait : PREMIUM minimum (le super admin plateforme passe toujours)
+    if (user.role !== 'SUPER_ADMIN_GLOBAL') {
       const tier = await getSchoolTier(student.schoolId)
       if (!PREMIUM_TIERS.includes(tier)) {
         return NextResponse.json(
@@ -289,6 +290,17 @@ export async function POST(request: NextRequest) {
     } else {
       whatsappDetail = 'Envoi WhatsApp désactivé'
     }
+
+    // c) Notification admins (in-app + email) — mise à jour du passage de classe, non bloquant
+    void notifyPassingUpdateToAdmins({
+      type: 'CLASS_PASSING',
+      title: 'Passage de classe — repêchage envoyé',
+      message: `${student.firstName} ${student.lastName} (${student.class?.name ?? 'classe non définie'}) — examens de repêchage créés pour ${parsedSubjects.length} matière(s) et envoyés aux parents.`,
+      schoolId: student.schoolId,
+      schoolName: (await db.school.findUnique({ where: { id: student.schoolId }, select: { name: true } }))?.name ?? null,
+      relatedId: repechageExam.id,
+      excludeUserId: user.id,
+    });
 
     repechageExam = await db.repechageExam.update({
       where: { id: repechageExam.id },
