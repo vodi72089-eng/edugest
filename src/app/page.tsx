@@ -3676,11 +3676,17 @@ function ClassesView() {
 // PaymentsView imported from @/components/views/PaymentsView
 
 // ===== PAYMENT CONFIGURATION VIEW =====
+// Logos officiels des passerelles (canonique : GATEWAY_INFO.logo dans
+// src/lib/payment-gateway.ts, servis depuis /public/logos/payment).
 const GATEWAY_SVG_LOGOS: Record<string, string> = {
-  ORANGE_MONEY: '/logos/orange-money.svg',
-  MPESA: '/logos/m-pesa.svg',
-  AIRTEL_MONEY: '/logos/airtel-money.svg',
-  MANUAL: '/logos/manual.svg',
+  VISA: '/logos/payment/visa.svg',
+  MASTERCARD: '/logos/payment/mastercard.svg',
+  FLUTTERWAVE: '/logos/payment/flutterwave.png',
+  BICTORYS: '/logos/payment/bictorys.svg',
+  MPESA: '/logos/payment/mpesa.svg',
+  ORANGE_MONEY: '/logos/payment/orange_money.svg',
+  AIRTEL_MONEY: '/logos/payment/airtel_money.svg',
+  MANUAL: '/logos/payment/cash.svg',
 }
 
 // ===== SECTION API WHATSAPP & QUOTAS =====
@@ -7949,6 +7955,9 @@ export default function Home() {
   const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
   useIsomorphicLayoutEffect(() => {
     restoreSession()
+    // App desktop (Electron) : prévient main.js que l'interface est peinte
+    // pour afficher la fenêtre (jamais de fenêtre vide). Sans effet sur le web.
+    try { (window as any).__edugest?.ready?.() } catch {}
   }, [])
 
   // Fetch subscription tier if missing from existing sessions

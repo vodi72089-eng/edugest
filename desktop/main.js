@@ -18,7 +18,7 @@
  * Build : voir DESKTOP.md (electron-builder → installateur .exe + portable).
  */
 
-const { app, BrowserWindow, shell, dialog } = require('electron');
+const { app, BrowserWindow, shell, dialog, ipcMain } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -198,6 +198,30 @@ function closeSplash() {
   splashWindow = null;
 }
 
+/** Affiche la fenêtre principale (une seule fois) et ferme le splash. */
+let mainShown = false;
+function showMainWindow() {
+  if (mainShown) return;
+  mainShown = true;
+  closeSplash();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    // Sécurité : fenêtre toujours visible et bien positionnée (jamais un
+    // bandeau hors écran).
+    try {
+      mainWindow.center();
+      if (mainWindow.isMinimized()) mainWindow.restore();
+    } catch {}
+    mainWindow.show();
+    mainWindow.focus();
+  }
+}
+
+// L'interface prévient quand elle est réellement peinte (preload.js) :
+// la fenêtre ne s'affiche jamais vide ou à moitié chargée.
+try {
+  ipcMain.on('ui-ready', () => showMainWindow());
+} catch {}
+
 function createWindow(port) {
   setSplashStage('Ouverture de l\u2019interface…');
   mainWindow = new BrowserWindow({
@@ -206,11 +230,13 @@ function createWindow(port) {
     minWidth: 1024,
     minHeight: 640,
     show: false,
+    center: true,
     title: 'EduGest',
     icon: ICON_PATH,
     backgroundColor: '#0a0f0d',
     autoHideMenuBar: true,
     webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       spellcheck: false,
@@ -225,20 +251,11 @@ function createWindow(port) {
   // L'app desktop démarre directement sur la connexion (pas de landing page :
   // le store rabat de toute façon 'home' vers 'login' en mode Electron).
   mainWindow.loadURL(`http://127.0.0.1:${port}/login`);
-  // Le splash reste visible jusqu'au chargement COMPLET de la page (pas de
-  // fenêtre blanche / à moitié peinte). Sécurité : affichage forcé à 25 s.
-  let shown = false;
-  const showNow = () => {
-    if (shown) return;
-    shown = true;
-    closeSplash();
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.show();
-      mainWindow.focus();
-    }
-  };
-  mainWindow.webContents.on('did-finish-load', showNow);
-  setTimeout(showNow, 25000);
+  // Le splash reste visible jusqu'au chargement COMPLET de la page.
+  // Ordre d'affichage : 1) signal 'ui-ready' de l'interface (peinte),
+  // 2) did-finish-load, 3) sécurité à 25 s. Jamais de fenêtre vide.
+  mainWindow.webContents.on('did-finish-load', () => showMainWindow());
+  setTimeout(() => showMainWindow(), 25000);
   mainWindow.once('ready-to-show', () => {
     setupAutoUpdate();
   });
