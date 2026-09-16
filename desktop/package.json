@@ -76,7 +76,8 @@
       "shortcutName": "EduGest",
       "installerIcon": "icon.ico",
       "uninstallerIcon": "icon.ico",
-      "installerHeaderIcon": "icon.ico"
+      "installerHeaderIcon": "icon.ico",
+      "include": "installer.nsh"
     },
     "portable": {
       "artifactName": "EduGest-Portable-${version}.exe"
