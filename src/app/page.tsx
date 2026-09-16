@@ -219,8 +219,7 @@ function PublicHeader({ dark = false }: { dark?: boolean }) {
     <header className={`sticky top-0 z-50 ${dark ? 'bg-transparent' : 'bg-white/85 backdrop-blur-xl border-b border-edu-border'}`}>
       <div className="container-premium h-16 flex items-center justify-between">
         <button onClick={() => setCurrentView('home')} className="flex items-center gap-2 font-bold text-base">
-          <i className="ri-graduation-cap-fill text-xl" style={{ color: '#f5a623' }}></i>
-          EduGest
+          <BrandLogo height={36} variant="full" />
         </button>
         <nav className="hidden sm:flex items-center gap-1">
           <button onClick={() => setCurrentView('home')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Écoles</button>
@@ -4189,8 +4188,9 @@ function PaymentConfigView() {
         body: JSON.stringify({
           schoolId: userData?.schoolId,
           ...currencyForm,
-          enabledCurrencies: currencyForm.enabledCurrencies.join(','),
-          manualRates: JSON.stringify(currencyForm.manualRates),
+          // L'API /api/currency exige un tableau et un objet (elle sérialise elle-même)
+          enabledCurrencies: currencyForm.enabledCurrencies,
+          manualRates: currencyForm.manualRates,
         }),
       })
       const json = await res.json()
