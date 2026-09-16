@@ -206,9 +206,12 @@ function showMainWindow() {
   closeSplash();
   if (mainWindow && !mainWindow.isDestroyed()) {
     // Sécurité : fenêtre toujours visible et bien positionnée (jamais un
-    // bandeau hors écran).
+    // bandeau hors écran). Maximisée façon opencode.
     try {
-      mainWindow.center();
+      if (!mainWindow.isMaximized()) {
+        mainWindow.center();
+        mainWindow.maximize();
+      }
       if (mainWindow.isMinimized()) mainWindow.restore();
     } catch {}
     mainWindow.show();
@@ -243,6 +246,10 @@ function createWindow(port) {
       backgroundThrottling: false,
     },
   });
+
+  // Fenêtre maximisée façon opencode : pleine page dès l'ouverture,
+  // jamais un bandeau ni une fenêtre perdue hors écran.
+  mainWindow.maximize();
 
   // Barre de menu système SUPPRIMÉE (EduGest / Affichage / Édition)
   mainWindow.setMenuBarVisibility(false);
