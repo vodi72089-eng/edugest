@@ -122,6 +122,7 @@ function waitForServer(url, timeoutMs = 120000) {
 // ─── Fenêtres ────────────────────────────────────────────────────────────────
 
 let serverProcess = null;
+let waProcess = null;
 let mainWindow = null;
 let splashWindow = null;
 let currentPort = 0;
@@ -430,10 +431,42 @@ async function startBackend() {
     log('Erreur préparation base de données :', e.message);
   }
 
-  // 2) Port local libre
+  // 2) Ports locaux libres (interface + agent WhatsApp)
   const port = await findFreePort(3927);
   currentPort = port;
   log('Démarrage du serveur EduGest sur le port', port);
+
+  // 2b) Agent WhatsApp embarqué (Baileys, bundlé — même Node qu'Electron).
+  //     Démarre avec l'app, session dans userData (survit aux MAJ).
+  //     À la fermeture : socket fermé SANS logout → reconnexion auto au
+  //     prochain lancement, sans re-scan. Absent en dev (bundle non construit).
+  const WA_BUNDLE = isPackaged
+    ? path.join(process.resourcesPath, 'wa-server', 'wa-server.cjs')
+    : path.join(__dirname, 'wa-server', 'wa-server.cjs');
+  const WA_AUTH_DIR = path.join(USER_DATA, 'whatsapp-auth');
+  try { if (!fs.existsSync(WA_AUTH_DIR)) fs.mkdirSync(WA_AUTH_DIR, { recursive: true }); } catch {}
+  let waPort = 0;
+  if (fs.existsSync(WA_BUNDLE)) {
+    waPort = await findFreePort(3001);
+    log("Démarrage de l'agent WhatsApp sur le port", waPort);
+    waProcess = spawn(process.execPath, [WA_BUNDLE], {
+      cwd: path.dirname(WA_BUNDLE),
+      env: {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: '1',
+        NODE_ENV: 'production',
+        WA_PORT: String(waPort),
+        WHATSAPP_AUTH_DIR: WA_AUTH_DIR,
+        WHATSAPP_API_KEY: process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key',
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    waProcess.stdout.on('data', (d) => log('[whatsapp]', String(d).trim()));
+    waProcess.stderr.on('data', (d) => log('[whatsapp:err]', String(d).trim()));
+    waProcess.on('exit', (code) => log('Agent WhatsApp arrêté (code', code, ')'));
+  } else {
+    log("Agent WhatsApp non embarqué (bundle absent) — service externe attendu sur le port 3001 s'il existe");
+  }
 
   // 3) Serveur Next.js standalone en processus fils (Node embarqué d'Electron)
   setSplashStage('Démarrage du serveur local…');
@@ -456,6 +489,9 @@ async function startBackend() {
       // Sessions persistantes (survivent aux MAJ et aux redémarrages)
       EDUGEST_SESSIONS_DIR: SESSIONS_DIR,
       EDUGEST_SESSION_DAYS: '30',
+      // Agent WhatsApp embarqué (ou service externe sur 3001 par défaut)
+      WHATSAPP_SERVER_URL: waPort ? `http://127.0.0.1:${waPort}` : 'http://127.0.0.1:3001',
+      WHATSAPP_API_KEY: process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key',
       NEXT_PUBLIC_APP_URL: `http://127.0.0.1:${port}`,
       NEXT_TELEMETRY_DISABLED: '1',
     },
@@ -499,5 +535,11 @@ app.on('before-quit', () => {
   if (serverProcess) {
     try { serverProcess.kill(); } catch {}
     serverProcess = null;
+  }
+  // Agent WhatsApp : simple extinction (SANS logout réseau) → la session
+  // Baileys est conservée et reprend automatiquement au prochain lancement.
+  if (waProcess) {
+    try { waProcess.kill(); } catch {}
+    waProcess = null;
   }
 });

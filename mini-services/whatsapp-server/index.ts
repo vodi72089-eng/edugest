@@ -26,7 +26,9 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = 3001;
+// Port fixe par défaut (3001) ; l'app desktop (Electron) peut imposer un port
+// libre via WA_PORT (plusieurs instances sur la même machine).
+const PORT = Number(process.env.WA_PORT) || 3001;
 // Dossier de session : priorité à WHATSAPP_AUTH_DIR (utile en Docker),
 // sinon <racine du projet>/whatsapp-auth (gitignoré, jamais commité).
 const AUTH_DIR = process.env.WHATSAPP_AUTH_DIR

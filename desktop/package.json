@@ -40,6 +40,10 @@
       {
         "from": "../public",
         "to": "app/public"
+      },
+      {
+        "from": "wa-server",
+        "to": "wa-server"
       }
     ],
     "win": {

@@ -14,6 +14,23 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // better-sqlite3 est un module natif : ne pas le bundler (import de BDD)
   serverExternalPackages: ["better-sqlite3"],
+  // Le tracing nftw suit les lectures fs dynamiques (process.cwd() + chemin
+  // variable) et embarquerait sinon tout le repo — dont desktop/dist* (les
+  // exes + win-unpacked ≈ 1 Go, récursion qui remplit le disque et fait
+  // exploser l'installeur). Ces dossiers ne sont jamais requis au runtime.
+  experimental: {
+    outputFileTracingExcludes: {
+      "*": [
+        "./desktop/**",
+        "./mini-services/**/node_modules/**",
+        "./whatsapp-auth/**",
+        "./.sessions/**",
+        "./upload/**",
+        "./download/**",
+        "./.next/**",
+      ],
+    },
+  },
   /* config options here */
   typescript: {
     ignoreBuildErrors: true,
