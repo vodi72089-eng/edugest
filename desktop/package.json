@@ -73,7 +73,10 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "artifactName": "EduGest-Setup-${version}.exe",
-      "shortcutName": "EduGest"
+      "shortcutName": "EduGest",
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "installerHeaderIcon": "icon.ico"
     },
     "portable": {
       "artifactName": "EduGest-Portable-${version}.exe"
