@@ -134,18 +134,20 @@ function setSplashStage(text) {
   splashWindow.webContents.executeJavaScript(js).catch(() => {});
 }
 
-/** Splash : vrai logo officiel EduGest, affiché instantanément au démarrage */
+/** Splash minimaliste (style grands éditeurs) : logo officiel intégré en base64
+ *  (les file:// sont bloqués depuis une page data:), plaque claire, nom,
+ *  fine barre de progression + étape en cours, version en bas. */
 function createSplash() {
   splashWindow = new BrowserWindow({
-    width: 440,
-    height: 360,
+    width: 400,
+    height: 300,
     frame: false,
     resizable: false,
     movable: true,
     alwaysOnTop: true,
     skipTaskbar: true,
     transparent: false,
-    backgroundColor: '#0a0f0d',
+    backgroundColor: '#0b0f0e',
     center: true,
     show: true,
     webPreferences: {
@@ -156,30 +158,35 @@ function createSplash() {
     },
   });
   const logoUri = (() => {
-    try { return 'file://' + SPLASH_LOGO.replace(/\\/g, '/'); } catch { return ''; }
+    try {
+      const buf = fs.readFileSync(SPLASH_LOGO);
+      return 'data:image/png;base64,' + buf.toString('base64');
+    } catch { return ''; }
   })();
+  const logoHtml = logoUri
+    ? `<div class="plate"><img src="${logoUri}" alt="EduGest" draggable="false"></div>`
+    : `<div class="plate fallback">EduGest</div>`;
   splashWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
-  html,body{margin:0;padding:0;height:100%;background:#0a0f0d;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;user-select:none}
-  .halo{position:absolute;top:-120px;right:-120px;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle,rgba(245,166,35,.14),transparent 65%);pointer-events:none}
-  .halo2{position:absolute;bottom:-140px;left:-110px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(20,154,128,.12),transparent 65%);pointer-events:none}
-  .plate{position:relative;background:#fdfbf7;border-radius:30px;padding:20px 34px;border:1px solid rgba(255,255,255,.65);box-shadow:0 18px 60px rgba(0,0,0,.55);animation:float 2.6s ease-in-out infinite}
-  .plate img{width:220px;height:auto;display:block}
-  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-  .ring{position:relative;width:16px;height:16px;margin:22px auto 0;border-radius:50%;border:2.5px solid rgba(255,255,255,.14);border-top-color:#f5a623;animation:spin .8s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  #stage{color:rgba(255,255,255,.72);font-size:13px;font-weight:600;margin:12px 0 0;text-align:center;min-height:18px;transition:opacity .2s}
-  .bar{width:190px;height:4px;background:rgba(255,255,255,.09);border-radius:2px;margin:10px auto 0;overflow:hidden}
-  .bar span{display:block;height:100%;width:40%;background:linear-gradient(90deg,#149a80,#f5a623);border-radius:2px;animation:slide 1.1s ease-in-out infinite}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%;background:#0b0f0e;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;user-select:none}
+  .plate{background:#fff;border-radius:18px;padding:14px 26px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+  .plate img{width:150px;height:auto;display:block}
+  .plate.fallback{color:#0b0f0e;font-weight:800;font-size:22px}
+  h1{color:#fff;font-size:17px;font-weight:700;margin:16px 0 2px;letter-spacing:.2px}
+  .sub{color:rgba(255,255,255,.42);font-size:11.5px;font-weight:500;margin:0 0 18px}
+  .bar{width:160px;height:3px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden}
+  .bar span{display:block;height:100%;width:40%;background:#f5a623;border-radius:2px;animation:slide 1.1s ease-in-out infinite}
   @keyframes slide{0%{transform:translateX(-110%)}100%{transform:translateX(320%)}}
-  .ver{position:absolute;bottom:12px;left:0;right:0;text-align:center;color:rgba(255,255,255,.28);font-size:10.5px;letter-spacing:.4px}
+  #stage{color:rgba(255,255,255,.6);font-size:12px;font-weight:500;margin:10px 0 0;text-align:center;min-height:16px;transition:opacity .2s}
+  .ver{position:absolute;bottom:10px;left:0;right:0;text-align:center;color:rgba(255,255,255,.25);font-size:10px;letter-spacing:.3px}
 </style></head><body>
-  <div class="halo"></div><div class="halo2"></div>
-  <div class="plate"><img src="${logoUri}" alt="EduGest" draggable="false"></div>
-  <div class="ring"></div>
-  <p id="stage">Préparation de votre espace…</p>
+  ${logoHtml}
+  <h1>EduGest</h1>
+  <p class="sub">Édition bureau</p>
   <div class="bar"><span></span></div>
-  <div class="ver">EduGest Desktop ${APP_VERSION ? 'v' + APP_VERSION : ''} — édition bureau</div>
+  <p id="stage">Préparation de votre espace…</p>
+  <div class="ver">EduGest Desktop ${APP_VERSION ? 'v' + APP_VERSION : ''}</div>
   <script>
     window.__setStage = function(t){
       var el = document.getElementById('stage');

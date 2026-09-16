@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
   // variable) et embarquerait sinon tout le repo — dont desktop/dist* (les
   // exes + win-unpacked ≈ 1 Go, récursion qui remplit le disque et fait
   // exploser l'installeur). Ces dossiers ne sont jamais requis au runtime.
+  // ⚠️ Ne JAMAIS exclure ./.next/** : le serveur standalone en a besoin
+  // (chunks SSR, manifests) — build cassé sinon.
   experimental: {
     outputFileTracingExcludes: {
       "*": [
@@ -27,7 +29,6 @@ const nextConfig: NextConfig = {
         "./.sessions/**",
         "./upload/**",
         "./download/**",
-        "./.next/**",
       ],
     },
   },
