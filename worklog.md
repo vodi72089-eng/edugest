@@ -1484,3 +1484,27 @@ Stage Summary:
 - L'onglet « Contrôle plateforme » (envoi/programmation aux admins d'écoles) et la vue complète « Passage de classe » (délibération, repêchage, vraies stats) sont restaurés et fonctionnels
 - Toute mise à jour de passage (décision, repêchage, programmation) notifie les admins des écoles dans l'app (push) ET par email dès configuration Resend (Communications → Config API)
 - Infra réparée : modèles Prisma restaurés, accès plateforme aux APIs de passage
+
+---
+Task ID: 17
+Agent: Z.ai Code (main)
+Task: « dans onglet controle de la plateforme ajoute resend et un truc pour la verification par sms un truc gratuit + mettre l'api et créer l'email de l'app + vraie connexion DB (paiement → base) + mise à jour locale quand la base change »
+
+Work Log:
+- Resend dans Contrôle plateforme : nouvelle section « Communication & notifications » (src/components/views/PlatformApiConfigSection.tsx) — carte Emails — Resend (badge actif/non configuré, clé API masquée conservée si vide, email de l'app (expéditeur), nom, envoi de test) branchée sur l'API /api/email-config existante (l'UI Communications → Config API reste en place)
+- Vérification par SMS (gratuit) : carte avec 4 fournisseurs à offre d'essai gratuite — Africa's Talking (sandbox gratuit, recommandé RDC), Twilio (crédits d'essai), Vonage (essai), Webhook personnalisé — AppSelect de fournisseur, champs par fournisseur, secrets masqués et conservés si champ vide (SECRET_FIELDS côté serveur)
+- src/lib/sms.ts : config GlobalApiConfig.SMS_CONFIG (cache 30 s), normalisation téléphone E.164, sendSmsViaProvider() (Twilio REST form-encoded, Africa's Talking /version1/messaging, Vonage sms/json, webhook POST {to,message}), timeout 20 s
+- API /api/sms-config : GET (super admin, secrets masqués), POST save/test ; branchée sur /api/auth/forgot-password — le code de réinitialisation part par SMS quand WhatsApp est indisponible (fallback WhatsApp → SMS)
+- Synchro temps réel : API /api/sync/pulse (requireAuth) — comptes réels School/User/Student/PaymentRecord/Communication/Notification + max(createdAt/updatedAt) + signature ; toute écriture en base change la signature
+- src/lib/realtime.ts : polling 5 s (uniquement onglet visible + token présent), événement window edugest:db-changed, onDbChange(handler) ; démarré dans Home() (page.tsx) dès userRole
+- Refetch auto : PaymentsView (liste paiements) et StudentsView (liste élèves) s'abonnent à edugest:db-changed et rechargent silencieusement — un paiement créé dans une autre session/appareil apparaît sans rechargement
+- Carte « Base de données — connexion & synchronisation » : badge Connectée/Déconnectée, vrais compteurs (6 écoles, 20 utilisateurs, 20 élèves, 60 paiements…), dernière écriture en base relative, vérification auto 5 s + manuelle
+- Vérifications : curl — pulse 200 avec vraies stats + 401 sans auth, sms-config save/get persistés (sandbox/EDUGEST visibles ensuite dans l'UI), email-config 200 ; navigateur (agent-browser, Super Admin) — Contrôle plateforme : 9/9 marqueurs de section OK, carte DB « Connectée » + compteurs réels, capture d'écran ; test temps réel de bout en bout : INSERT Notification (Prisma direct) → événement edugest:db-changed, DELETE → 2e événement (window.__db = 2) — la boucle DB → UI fonctionne
+- Git : rebase sur origin/main (nouveaux commits distants : audit 3 bugs, dropdown scroll, moyennes période) — conflits résolus en gardant les DEUX côtés (worklog.md ; page.tsx : imports watchdog + startRealtimeSync fusionnés, Home() avec les deux effets) ; push 5f11303 sur main
+- Lint 109 = baseline exacte (0 nouveau) ; tsc 101 = 89 baseline + 12 erreurs préexistantes apportées par les commits distants (schoolLogo/schoolLevel, verify/document, import-db — aucun de mes fichiers, vérifié fichier par fichier)
+- Cleanup : package-lock.json + pnpm-lock.yaml parasites (créés par npx) supprimés ; landing/whatsapp non suivis laissés en l'état (préexistants, hors périmètre)
+
+Stage Summary:
+- Contrôle plateforme centralise désormais Resend (clé API + email de l'app) et la vérification par SMS (fournisseurs gratuits) — les configs sont persistées en base (GlobalApiConfig) et utilisées réellement (forgot-password envoie le code par SMS)
+- La base SQLite est la source de vérité : /api/sync/pulse expose son état réel, le client détecte toute écriture en ≤ 5 s et met à jour Paiements/Élèves automatiquement — prouvé en navigateur (2 événements sur insert+delete)
+- Zéro régression : lint baseline exacte, aucun fichier distant cassé par le merge, design/branding intacts
