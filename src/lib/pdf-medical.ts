@@ -567,17 +567,20 @@ export function buildMedicalDocumentPDF(
     doc.line(W - mx - 68, y, W - mx - 8, y);
   }
 
-  // ═══ QR DE VÉRIFICATION (bas gauche) ═══
+  // ═══ QR DE VÉRIFICATION (centré, au-dessus du pied de page) ═══
   try {
     if (qrCodeDataUrl) {
-      doc.addImage(qrCodeDataUrl, 'PNG', mx + 4, H - 46, 26, 26);
+      const qrSize = 24;
+      const qrX = W / 2 - qrSize / 2;
+      const qrY = H - 54;
+      doc.addImage(qrCodeDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
       setT(doc, GRAY);
-      doc.text('VERIFICATION', mx + 17, H - 16, { align: 'center' });
+      doc.text('VERIFICATION', W / 2, qrY + qrSize + 3.5, { align: 'center' });
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7);
-      doc.text(docData.docCode, mx + 17, H - 12.5, { align: 'center' });
+      doc.text(docData.docCode, W / 2, qrY + qrSize + 7, { align: 'center' });
     }
   } catch { /* QR ignoré */ }
 

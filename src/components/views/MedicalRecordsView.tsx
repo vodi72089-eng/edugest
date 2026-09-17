@@ -8,6 +8,7 @@ import {
   Lock, X, RefreshCw, Hash, User as UserIcon, Stethoscope
 } from 'lucide-react';
 import { toast } from 'sonner';
+import AppSelect from '@/components/ui/AppSelect';
 
 /**
  * Gestion des fiches médicales — stockage des documents médicaux officiels
@@ -524,12 +525,18 @@ export default function MedicalRecordsView() {
               {createType !== 'REGISTRE_SANTE' && (
                 <div>
                   <label className="text-xs font-bold uppercase tracking-wide mb-1.5 block" style={{ color: 'oklch(45% 0.02 175)' }}>Élève *</label>
-                  <select value={form.studentId} onChange={(e) => setForm({ ...form, studentId: e.target.value })} className={inputCls} style={inputStyle}>
-                    <option value="">Sélectionner un élève...</option>
-                    {students.map((s) => (
-                      <option key={s.id} value={s.id}>{s.lastName} {s.firstName} — {s.matricule} {s.class ? `(${s.class.name})` : ''}</option>
-                    ))}
-                  </select>
+                  <AppSelect
+                    value={form.studentId}
+                    onChange={(v) => setForm({ ...form, studentId: v })}
+                    placeholder="Sélectionner un élève..."
+                    options={[
+                      { value: '', label: 'Sélectionner un élève...' },
+                      ...students.map((s) => ({
+                        value: s.id,
+                        label: `${s.lastName} ${s.firstName} — ${s.matricule}${s.class ? ` (${s.class.name})` : ''}`,
+                      })),
+                    ]}
+                  />
                 </div>
               )}
 

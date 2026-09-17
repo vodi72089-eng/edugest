@@ -15,6 +15,8 @@ import {
   MessageSquareText,
   RefreshCw,
   Building2,
+  Megaphone,
+  Send,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { authFetch } from '@/lib/store'
@@ -395,6 +397,117 @@ function EventItem({
 }
 
 // ---------------------------------------------------------------------------
+// Annonces plateforme (nouveautés…) → notifications des admins d'écoles
+// ---------------------------------------------------------------------------
+
+function AnnouncementCard({ schools }: { schools: SchoolOption[] }) {
+  const [schoolId, setSchoolId] = useState('')
+  const [title, setTitle] = useState('')
+  const [message, setMessage] = useState('')
+  const [sending, setSending] = useState(false)
+
+  const inputClass =
+    'w-full rounded-xl border border-[oklch(90%_0.01_175)] bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[oklch(55%_0.15_175/0.25)] transition'
+  const labelClass = 'text-[11px] font-bold uppercase tracking-wide mb-1.5 block'
+
+  async function handleSend(e: React.FormEvent) {
+    e.preventDefault()
+    if (!title.trim() || !message.trim()) {
+      toast.error('Titre et message requis.')
+      return
+    }
+    setSending(true)
+    try {
+      const res = await authFetch('/api/platform-announcements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schoolId: schoolId || null, title: title.trim(), message: message.trim() }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`)
+      toast.success(`Annonce envoyée à ${json?.data?.sent ?? 0} administrateur(s)`)
+      setSchoolId('')
+      setTitle('')
+      setMessage('')
+    } catch (e: any) {
+      toast.error(e?.message || "Échec de l'envoi de l'annonce.")
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl shadow-sm p-4 sm:p-6">
+      <div className="flex items-start gap-3">
+        <span
+          className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
+          style={{ background: 'oklch(95% 0.05 65)', color: 'oklch(55% 0.15 65)' }}
+        >
+          <Megaphone className="w-5 h-5" />
+        </span>
+        <div>
+          <h3 className="text-base font-extrabold tracking-tight" style={{ color: TEXT_PRIMARY }}>
+            Annonces plateforme
+          </h3>
+          <p className="mt-0.5 text-xs leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
+            Nouveautés, maintenance, infos — notification in-app (+ push) aux administrateurs des écoles.
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSend} className="mt-4 space-y-3">
+        <div>
+          <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>
+            Écoles destinataires
+          </label>
+          <AppSelect
+            value={schoolId}
+            onChange={setSchoolId}
+            placeholder="Toutes les écoles"
+            options={[
+              { value: '', label: 'Toutes les écoles' },
+              ...schools.map((s) => ({ value: s.id, label: s.name })),
+            ]}
+          />
+        </div>
+        <div>
+          <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>
+            Titre
+          </label>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Ex. Nouveauté : bulletins PDF vérifiables"
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>
+            Message
+          </label>
+          <textarea
+            rows={3}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Décrivez la nouveauté ou l'information à diffuser…"
+            className={`${inputClass} resize-none`}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={sending}
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+          style={{ background: GOLD }}
+        >
+          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          {sending ? 'Envoi…' : 'Envoyer l’annonce'}
+        </button>
+      </form>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main view
 // ---------------------------------------------------------------------------
 
@@ -495,6 +608,7 @@ export default function PlatformControlView() {
             onCreated={() => fetchEvents(true)}
           />
         ))}
+        <AnnouncementCard schools={schools} />
       </div>
 
       {/* Liste des événements existants */}

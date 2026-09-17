@@ -43,6 +43,7 @@ export default function SchoolsManagementView() {
     schoolCategory: 'PRIVEE', maxStudents: 200, establishmentYear: undefined as number | undefined,
     description: '', mission: '', subscriptionTier: 'FREEMIUM', isActive: true,
     logo: '', coverImage: '',
+    giftSub: false, giftMonths: 12,
   })
   const [editLogoPreview, setEditLogoPreview] = useState<string | null>(null)
   const [uploadingEditLogo, setUploadingEditLogo] = useState(false)
@@ -160,6 +161,7 @@ export default function SchoolsManagementView() {
       establishmentYear: s.establishmentYear, description: s.description || '', mission: s.mission || '',
       subscriptionTier: s.subscriptionTier || 'FREEMIUM', isActive: s.isActive !== false,
       logo: s.logo || '', coverImage: s.coverImage || '',
+      giftSub: false, giftMonths: 12,
     })
     setEditLogoPreview(s.logo || null)
   }
@@ -192,10 +194,20 @@ export default function SchoolsManagementView() {
     if (!editingSchool) return
     setSaving(true)
     try {
+      // Abonnement offert : active la formule avec dates (sinon formule seule, comportement inchangé)
+      const now = new Date()
+      const gift =
+        editForm.giftSub && editForm.subscriptionTier !== 'FREEMIUM'
+          ? {
+              subscriptionStatus: 'ACTIVE',
+              subscriptionStartDate: now.toISOString(),
+              subscriptionEndDate: new Date(now.getTime() + editForm.giftMonths * 30 * 24 * 60 * 60 * 1000).toISOString(),
+            }
+          : {}
       const res = await authFetch(`/api/schools/${editingSchool.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify({ ...editForm, ...gift }),
       })
       if (res.ok) {
         toast.success('École modifiée avec succès !')
@@ -496,6 +508,25 @@ export default function SchoolsManagementView() {
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Formule</label>
                     <AppSelect value={editForm.subscriptionTier} onChange={(val) => setEditForm({ ...editForm, subscriptionTier: val })} options={[{ value: 'FREEMIUM', label: 'Freemium — 0$/mois' }, { value: 'ESSENTIEL', label: 'Essentiel — 100$/mois' }, { value: 'STANDARD', label: 'Standard — 250$/mois' }, { value: 'PREMIUM', label: 'Professionnel — 500$/mois' }, { value: 'ENTERPRISE', label: 'Enterprise — 1 000$/mois' }, { value: 'CORPORATE', label: 'Corporate — Sur mesure' }]} />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <label className="flex items-center gap-2 text-[13px] font-medium cursor-pointer" style={{ color: TEXT_PRIMARY }}>
+                      <input type="checkbox" checked={editForm.giftSub} onChange={e => setEditForm({ ...editForm, giftSub: e.target.checked })} className="w-4 h-4 accent-[oklch(72%_0.15_65)]" />
+                      Offrir / renouveler cet abonnement
+                    </label>
+                    {editForm.giftSub && editForm.subscriptionTier !== 'FREEMIUM' && (
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <AppSelect value={String(editForm.giftMonths)} onChange={(val) => setEditForm({ ...editForm, giftMonths: parseInt(val, 10) || 12 })} options={[{ value: '1', label: '1 mois' }, { value: '3', label: '3 mois' }, { value: '6', label: '6 mois' }, { value: '12', label: '12 mois' }, { value: '24', label: '24 mois' }]} />
+                        </div>
+                        <span className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>
+                          → actif jusqu'au {new Date(Date.now() + editForm.giftMonths * 30 * 24 * 60 * 60 * 1000).toLocaleDateString('fr-FR')}
+                        </span>
+                      </div>
+                    )}
+                    {editForm.giftSub && editForm.subscriptionTier === 'FREEMIUM' && (
+                      <p className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>Choisissez une formule payante pour offrir un abonnement.</p>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Statut</label>

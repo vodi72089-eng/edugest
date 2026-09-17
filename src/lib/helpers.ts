@@ -1,4 +1,5 @@
 import { UserRole } from '@/lib/store'
+import { formatAmount } from '@/lib/currency-display'
 
 export function getInitials(name: string) {
   return name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
@@ -13,7 +14,8 @@ export function formatNumber(n: number) {
 }
 
 export function formatCurrency(n: number) {
-  return n.toLocaleString('fr-FR') + ' CDF'
+  // Devise d'affichage de l'école (EUR, USD…) avec conversion ; repli CDF.
+  return formatAmount(n)
 }
 
 export function getSchoolTypeLabel(type: string, category: string, level?: string | null) {

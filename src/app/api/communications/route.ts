@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
-import { notifyCommunication } from '@/lib/whatsapp-agent';
+import { notifyCommunication, isWhatsAppConnected } from '@/lib/whatsapp-agent';
 
 export async function GET(request: NextRequest) {
   try {
@@ -177,9 +177,31 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Diffusion WhatsApp RÉELLE via l'agent de l'école ──────────────────
+    // Vérité d'abord : si WhatsApp est demandé mais l'agent est hors ligne,
+    // on le signale explicitement au lieu d'un faux succès.
+    let whatsappWarning: string | null = null;
+    let whatsappStarted = false;
+    if (communication.sentToWhatsapp && communication.status === 'APPROVED') {
+      let waUp = false;
+      try {
+        waUp = await Promise.race([
+          isWhatsAppConnected(),
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 2500)),
+        ]);
+      } catch {
+        waUp = false;
+      }
+      if (!waUp) {
+        whatsappWarning =
+          "Agent WhatsApp non connecté — message enregistré dans l'app, diffusion WhatsApp en attente. Connectez l'agent puis renvoyez.";
+      } else {
+        whatsappStarted = true;
+      }
+    }
+
     // Exécutée en arrière-plan (les envois sont espacés d'1,2s anti-ban) :
     // la réponse HTTP reste rapide, les messages partent réellement.
-    if (communication.sentToWhatsapp && communication.status === 'APPROVED') {
+    if (whatsappStarted) {
       void (async () => {
         try {
           const school = await db.school.findUnique({
@@ -202,7 +224,10 @@ export async function POST(request: NextRequest) {
       })();
     }
 
-    return NextResponse.json({ data: communication }, { status: 201 });
+    return NextResponse.json(
+      { data: communication, warning: whatsappWarning },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Error creating communication:', error);
     return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });

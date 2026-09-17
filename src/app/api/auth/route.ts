@@ -2,6 +2,8 @@ import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { createToken, getClientIp, getUserAgentFromRequest, checkRateLimit } from '@/lib/auth';
+import { checkSubscription } from '@/lib/subscription';
+import { notify } from '@/lib/notify';
 
 const MOBILE_ELIGIBLE_TIERS = new Set(['PREMIUM', 'ENTERPRISE', 'CORPORATE']);
 
@@ -165,6 +167,38 @@ export async function POST(request: NextRequest) {
       userAgent: getUserAgentFromRequest(request),
       ip: getClientIp(request),
     });
+
+    // ── Rappel d'expiration d'abonnement (non-bloquant) ──────────────────
+    // Si la formule payante de l'école expire dans ≤ 14 jours, une notification
+    // est créée (dédupliquée : pas de doublon tant qu'une non-lue existe).
+    void (async () => {
+      try {
+        const sub = await checkSubscription(user.schoolId);
+        if (sub.tier === 'FREEMIUM' || sub.daysRemaining === null || sub.daysRemaining > 14) return;
+        const existing = await db.notification.findFirst({
+          where: { userId: user.id, type: 'SUBSCRIPTION_EXPIRING', isRead: false },
+          select: { id: true },
+        });
+        if (existing) return;
+        const when =
+          sub.daysRemaining <= 0
+            ? "expire aujourd'hui"
+            : sub.daysRemaining === 1
+              ? 'expire demain'
+              : `expire dans ${sub.daysRemaining} jours`;
+        await notify({
+          data: {
+            userId: user.id,
+            schoolId: user.schoolId,
+            type: 'SUBSCRIPTION_EXPIRING',
+            title: 'Abonnement bientôt expiré',
+            message: `Votre abonnement ${sub.tier} ${when}. Renouvelez-le pour garder l'accès complet.`,
+          },
+        });
+      } catch (e) {
+        console.error('[auth] rappel abonnement (non-bloquant) :', (e as Error)?.message);
+      }
+    })();
 
     // Return user data without password + token
     const { password: _, ...userData } = user;

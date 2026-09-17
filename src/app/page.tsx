@@ -7,6 +7,7 @@ import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
 import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, DisciplineData, CommunicationData, HomeworkData } from '@/lib/types'
 import { ACCENT, ACCENT2, ACCENT_SOFT, SUCCESS, WARNING, DANGER, INFO, MUTED, BORDER, GOLD, GOLD_SOFT, GOLD_GLOW, DARK, DARK_ALT, IVORY, IVORY_WARM, TEXT_PRIMARY, TEXT_MUTED_LUXE, SUCCESS_SOFT, SUBSCRIPTION_TIERS, PROVINCES, FILTER_CHIPS, COVER_GRADIENTS, LOGO_COLORS, ENROLLMENT_DATA, SUBSCRIPTION_DATA } from '@/lib/constants'
 import { getInitials, formatDate, formatNumber, formatCurrency, getSchoolTypeLabel, getSubscriptionLabel, getSubscriptionPrice, getRoleLabel, getStatusPill, API_ROLE_MAP } from '@/lib/helpers'
+import { setCurrencyDisplay } from '@/lib/currency-display'
 import { EDUCATIONAL_SYSTEMS_LIST } from '@/lib/educational-systems'
 import StudentAvatar from '@/components/ui/StudentAvatar'
 import AppSelect from '@/components/ui/AppSelect';
@@ -4075,12 +4076,18 @@ function PaymentConfigView() {
         setExchangeRates(json.data.exchangeRates || {})
         setSupportedCurrencies(json.data.supportedCurrencies || [])
         if (json.data.config) {
+          const mrRaw = json.data.config.manualRates
+          let mrParsed: Record<string, number> = {}
+          if (mrRaw) {
+            if (typeof mrRaw === 'string') { try { mrParsed = JSON.parse(mrRaw) } catch { mrParsed = {} } }
+            else if (typeof mrRaw === 'object') mrParsed = mrRaw
+          }
           setCurrencyForm({
             baseCurrency: json.data.config.baseCurrency || 'USD',
             displayCurrency: json.data.config.displayCurrency || 'USD',
             enabledCurrencies: (json.data.config.enabledCurrencies || 'USD,EUR,CDF').split(','),
             useManualRates: json.data.config.useManualRates || false,
-            manualRates: json.data.config.manualRates ? JSON.parse(json.data.config.manualRates) : {},
+            manualRates: mrParsed,
           })
         }
       }
@@ -5610,7 +5617,9 @@ function CommunicationsView() {
         }),
       })
       if (res.ok) {
-        toast.success('Communication envoyée!')
+        const created = await res.json().catch(() => ({} as any))
+        if (created?.warning) toast.warning(created.warning, { duration: 6000 })
+        else toast.success('Communication envoyée!')
         setTitle(''); setContent('')
         const json = await (await authFetch(`/api/communications?limit=20${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)).json()
         setComms(json.data || [])
@@ -6880,7 +6889,7 @@ function BulletinView() {
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(totalStudents)} bulletin{totalStudents > 1 ? 's' : ''} · {byClass.length} classe{byClass.length > 1 ? 's' : ''}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 py-2 -my-1" style={{ background: IVORY }}>
           <AppSelect value={selectedTrimester} onChange={(val) => { setSelectedTrimester(val); setLoading(true) }} options={[{ value: 'T1', label: 'Trimestre 1' }, { value: 'T2', label: 'Trimestre 2' }, { value: 'T3', label: 'Trimestre 3' }]} />
           <AppSelect value={selectedClassId} onChange={setSelectedClassId} options={[{ value: 'all', label: 'Toutes les classes' }, ...classes.map(c => ({ value: c.id, label: c.name }))]} />
           <SearchAutocomplete
@@ -7984,6 +7993,32 @@ export default function Home() {
         })
         .catch(() => {})
     }
+  }, [userData?.schoolId])
+
+  // Devise d'affichage globale : charge la config monnaie de l'école
+  // (base + affichage + taux) pour convertir tous les montants affichés.
+  useEffect(() => {
+    if (!userData?.schoolId) return
+    authFetch(`/api/currency?schoolId=${userData.schoolId}`)
+      .then(r => r.json())
+      .then(json => {
+        const c = json?.data?.config
+        if (!c) return
+        let manual: Record<string, number> | null = null
+        const mr = c.manualRates
+        if (mr) {
+          if (typeof mr === 'string') { try { manual = JSON.parse(mr) } catch { manual = null } }
+          else if (typeof mr === 'object') manual = mr
+        }
+        setCurrencyDisplay({
+          baseCurrency: c.baseCurrency || 'CDF',
+          displayCurrency: c.displayCurrency || c.baseCurrency || 'CDF',
+          rates: json?.data?.exchangeRates || {},
+          manualRates: manual,
+          useManualRates: !!c.useManualRates,
+        })
+      })
+      .catch(() => {})
   }, [userData?.schoolId])
 
   // Report device fingerprint once when authenticated (best-effort)
