@@ -274,8 +274,10 @@ function createWindow(port) {
   mainWindow.once('ready-to-show', () => {
     setupAutoUpdate();
   });
-  // Sécurité : si l'UI plante au chargement, ne pas laisser un écran noir
-  mainWindow.webContents.on('did-fail-load', () => {
+  // Sécurité : si l'UI plante au chargement, ne pas laisser un écran noir —
+  // et JOURNALISER l'URL en échec (diagnostic des pages d'erreur).
+  mainWindow.webContents.on('did-fail-load', (event, code, desc, url) => {
+    log('Échec chargement UI :', code, desc, '→', url);
     closeSplash();
   });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

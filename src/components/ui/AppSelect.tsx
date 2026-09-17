@@ -53,6 +53,7 @@ export default function AppSelect({
   // vers le haut si pas assez de place en bas (cartes, modales…).
   const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; width: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLUListElement>(null);
   const items = normalize(options);
   const selected = items.find((o) => o.value === value);
 
@@ -64,8 +65,10 @@ export default function AppSelect({
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpen(false);
     }
-    // Le panneau est en portail : tout scroll/resize le referme (position recalculée à l'ouverture).
-    function onScrollResize() {
+    // Le panneau est en portail : scroll/resize ailleurs le referme.
+    // (Un scroll DANS la liste ne doit pas la fermer.)
+    function onScrollResize(e: Event) {
+      if (e.target instanceof Node && panelRef.current?.contains(e.target)) return;
       setOpen(false);
     }
     document.addEventListener('pointerdown', onPointerDown);
@@ -180,6 +183,7 @@ export default function AppSelect({
         typeof document !== 'undefined' &&
         createPortal(
           <ul
+            ref={panelRef}
             role="listbox"
             tabIndex={0}
             autoFocus

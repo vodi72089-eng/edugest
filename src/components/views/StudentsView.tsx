@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useEduGestStore, authFetch } from '@/lib/store'
-import type { StudentData, ClassData } from '@/lib/types'
-import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT } from '@/lib/constants'
+import type { StudentData, ClassData, GradeData } from '@/lib/types'
+import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT, DANGER } from '@/lib/constants'
 import { getInitials, formatNumber, getStatusPill } from '@/lib/helpers'
 import StudentAvatar from '@/components/ui/StudentAvatar'
 import { Plus, X, Users, ChevronDown, Eye, EyeOff, Edit, Trash2, Check, Archive } from 'lucide-react'
@@ -33,6 +33,19 @@ export default function StudentsView() {
   const [showParentPwd, setShowParentPwd] = useState(false)
   const [adding, setAdding] = useState(false)
   const [viewingStudent, setViewingStudent] = useState<StudentData | null>(null)
+  // Résultats de la période dans le modal « Détails de l'élève »
+  const [viewTrimester, setViewTrimester] = useState('T1')
+  const [viewGrades, setViewGrades] = useState<GradeData[]>([])
+  const [viewGradesLoading, setViewGradesLoading] = useState(false)
+  useEffect(() => {
+    if (!viewingStudent) { setViewGrades([]); return }
+    setViewGradesLoading(true)
+    authFetch(`/api/grades?studentId=${viewingStudent.id}&trimester=${viewTrimester}&limit=100`)
+      .then(r => r.json())
+      .then(j => setViewGrades(j.data || []))
+      .catch(() => setViewGrades([]))
+      .finally(() => setViewGradesLoading(false))
+  }, [viewingStudent?.id, viewTrimester])
   const [editingStudent, setEditingStudent] = useState<StudentData | null>(null)
   const [editFirstName, setEditFirstName] = useState('')
   const [editLastName, setEditLastName] = useState('')
@@ -447,6 +460,45 @@ export default function StudentsView() {
                   <div className="text-[11px] font-medium" style={{ color: TEXT_MUTED_LUXE }}>Parent</div>
                   <div className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{viewingStudent.parent?.name || '—'}</div>
                 </div>
+              </div>
+              {/* Résultats de la période (si disponibles) */}
+              <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-3">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="text-[11px] font-medium" style={{ color: TEXT_MUTED_LUXE }}>Résultats de la période</div>
+                  <div className="w-36">
+                    <AppSelect
+                      value={viewTrimester}
+                      onChange={setViewTrimester}
+                      options={['Trimestre 1', 'Trimestre 2', 'Trimestre 3'].map((label, i) => ({ value: `T${i + 1}`, label }))}
+                    />
+                  </div>
+                </div>
+                {viewGradesLoading ? (
+                  <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Chargement…</div>
+                ) : viewGrades.length === 0 ? (
+                  <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Aucune note pour cette période.</div>
+                ) : (() => {
+                  const totalCoef = viewGrades.reduce((s, g) => s + (g.subject?.coefficient || 1), 0)
+                  const avg = totalCoef > 0
+                    ? viewGrades.reduce((s, g) => s + g.score * (g.subject?.coefficient || 1), 0) / totalCoef
+                    : 0
+                  return (
+                    <div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-extrabold" style={{ color: avg >= 10 ? GOLD : DANGER }}>{avg.toFixed(1)}/20</span>
+                        <span className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>moyenne · {viewGrades.length} note{viewGrades.length > 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                        {viewGrades.map(g => (
+                          <div key={g.id} className="flex items-center justify-between text-[13px]">
+                            <span style={{ color: TEXT_MUTED_LUXE }}>{g.subject?.name || '—'} <span className="text-[11px]">(×{g.subject?.coefficient || 1})</span></span>
+                            <span className="font-semibold" style={{ color: g.score >= 10 ? GOLD : DANGER }}>{g.score.toFixed(1)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           </div>
