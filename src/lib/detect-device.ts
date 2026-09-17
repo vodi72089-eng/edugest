@@ -75,7 +75,13 @@ export function detectDevice(ua: string): DeviceInfo {
 
   let browser = 'Navigateur inconnu'
   let browserVersion = ''
-  for (const [pattern, name] of BROWSER_PATTERNS) {
+  // Application de bureau EduGest (Electron) : marque affichée au lieu du moteur.
+  // Ex. : Mozilla/5.0 (Windows NT 10.0; Win64; x64) ... Chrome/134.0.0.0 Safari/537.36 Electron/35.7.5
+  const electronMatch = ua.match(/Electron\/([\d.]+)/i)
+  if (electronMatch) {
+    browser = 'EduGest Desktop'
+    browserVersion = electronMatch[1] || ''
+  } else for (const [pattern, name] of BROWSER_PATTERNS) {
     const m = ua.match(pattern)
     if (m) {
       browser = name
@@ -100,11 +106,15 @@ export function detectDevice(ua: string): DeviceInfo {
       os = name
       osVersion = m[1] ? m[1].replace(/_/g, '.') : defaultVersion
       if (name === 'Windows') {
-        const ver = parseFloat(osVersion)
-        if (ver >= 10) osVersion = '10/11'
-        else if (ver >= 6.2) osVersion = '8/8.1'
-        else if (ver >= 6.0) osVersion = 'Vista/7'
-        else osVersion = 'Ancienne'
+        // Windows 10 ET 11 s'annoncent tous deux « Windows NT 10.0 »
+        // (le sous-numéro ne distingue rien) → affichage « 10/11 ».
+        if (/Windows NT 10\./i.test(ua)) osVersion = '10/11'
+        else {
+          const ver = parseFloat(osVersion)
+          if (ver >= 6.2) osVersion = '8/8.1'
+          else if (ver >= 6.0) osVersion = 'Vista/7'
+          else osVersion = 'Ancienne'
+        }
       }
       break
     }
@@ -159,6 +169,13 @@ export function getDeviceIcon(device: string, deviceModel: string): string {
   if (device === 'Tablette' || deviceModel.toLowerCase().includes('ipad')) return 'tablet'
   if (device === 'Téléphone') return 'phone'
   return 'monitor'
+}
+
+/** IP de bouclage local (127.0.0.1, ::1…) : aucun intérêt affiché, on la masque. */
+export function isLoopbackIp(ip?: string | null): boolean {
+  if (!ip) return false
+  const v = ip.trim().toLowerCase()
+  return v === '127.0.0.1' || v === '::1' || v === '::ffff:127.0.0.1' || v === 'localhost'
 }
 
 export function formatDeviceSummary(info: DeviceInfo): string {

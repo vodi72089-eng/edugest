@@ -8,7 +8,7 @@ import { getInitials } from '@/lib/helpers'
 import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera, ImagePlus, Plus, Edit, GraduationCap, Monitor, Smartphone, LogOut, Tablet, Globe, Fingerprint, Palette } from 'lucide-react'
 import PersonalizationView from './PersonalizationView'
 import { toast } from 'sonner'
-import { detectDevice, formatDeviceTitle, formatDeviceSummary } from '@/lib/detect-device'
+import { detectDevice, formatDeviceTitle, formatDeviceSummary, isLoopbackIp } from '@/lib/detect-device'
 import AppSelect from '@/components/ui/AppSelect'
 
 export default function SettingsView() {
@@ -789,7 +789,7 @@ function SettingsViewInner() {
                       </div>
                       <div className="text-xs flex items-center gap-1 flex-wrap" style={{ color: TEXT_MUTED_LUXE }}>
                         <span>{formatDeviceSummary(info)}</span>
-                        {s.ip && <><span>·</span><span className="inline-flex items-center gap-0.5"><Globe size={10} />{s.ip}</span></>}
+                        {s.ip && !isLoopbackIp(s.ip) && <><span>·</span><span className="inline-flex items-center gap-0.5"><Globe size={10} />{s.ip}</span></>}
                         {s.location?.city && (
                           <>
                             <span>·</span>
