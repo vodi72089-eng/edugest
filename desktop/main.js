@@ -85,6 +85,30 @@ function log(...args) {
   try { fs.appendFileSync(path.join(DB_DIR, 'desktop.log'), line + '\n'); } catch {}
 }
 
+/** Clés VAPID (Web Push) : explicites via env, sinon générées une fois par
+ *  installation et persistées dans userData. Sans elles, aucune notification
+ *  push ne peut partir (ni web ni bureau). */
+async function getVapidKeys() {
+  if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    return { publicKey: process.env.VAPID_PUBLIC_KEY, privateKey: process.env.VAPID_PRIVATE_KEY };
+  }
+  const f = path.join(USER_DATA, 'vapid.json');
+  try {
+    const raw = JSON.parse(fs.readFileSync(f, 'utf-8'));
+    if (raw.publicKey && raw.privateKey) return raw;
+  } catch {}
+  // ECDH P-256 via WebCrypto — même format que `web-push generateVAPIDKeys`.
+  const { subtle } = require('crypto').webcrypto;
+  const kp = await subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey', 'deriveBits']);
+  const pubRaw = Buffer.from(await subtle.exportKey('raw', kp.publicKey));
+  const privJwk = await subtle.exportKey('jwk', kp.privateKey);
+  const b64url = (buf) => Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const keys = { publicKey: b64url(pubRaw), privateKey: privJwk.d };
+  try { fs.writeFileSync(f, JSON.stringify(keys)); } catch {}
+  log('Clés VAPID générées pour cette installation.');
+  return keys;
+}
+
 /** Trouve un port TCP libre à partir de `start` */
 function findFreePort(start) {
   return new Promise((resolve, reject) => {
@@ -476,6 +500,16 @@ async function startBackend() {
   // forcée après une MAJ ou un redémarrage.
   const SESSIONS_DIR = path.join(USER_DATA, '.sessions');
   try { if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR, { recursive: true }); } catch {}
+  // Clés VAPID pour les notifications push (générées une fois par installation)
+  let vapidPublicKey = '';
+  let vapidPrivateKey = '';
+  try {
+    const vk = await getVapidKeys();
+    vapidPublicKey = vk.publicKey;
+    vapidPrivateKey = vk.privateKey;
+  } catch (e) {
+    log('VAPID indisponible (push désactivé) :', e.message);
+  }
   serverProcess = spawn(process.execPath, [SERVER_JS], {
     cwd: APP_DIR,
     env: {
@@ -489,6 +523,10 @@ async function startBackend() {
       // Sessions persistantes (survivent aux MAJ et aux redémarrages)
       EDUGEST_SESSIONS_DIR: SESSIONS_DIR,
       EDUGEST_SESSION_DAYS: '30',
+      // Web Push : clés de cette installation (push même app fermée côté web)
+      VAPID_PUBLIC_KEY: vapidPublicKey,
+      VAPID_PRIVATE_KEY: vapidPrivateKey,
+      VAPID_SUBJECT: 'mailto:contact@edugest.app',
       // Agent WhatsApp embarqué (ou service externe sur 3001 par défaut)
       WHATSAPP_SERVER_URL: waPort ? `http://127.0.0.1:${waPort}` : 'http://127.0.0.1:3001',
       WHATSAPP_API_KEY: process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key',

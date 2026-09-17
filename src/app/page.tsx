@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react'
-import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken, restoreSession, startSessionRestoreWatchdog } from '@/lib/store'
+import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken, restoreSession,
+startSessionRestoreWatchdog, isDesktopApp } from '@/lib/store'
 import { startRealtimeSync } from '@/lib/realtime'
 import { toast } from 'sonner'
 import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
@@ -2532,8 +2533,11 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   }, [userData?.id]);
 
   // ===== WEB PUSH : enregistrement du service worker + auto-abonnement =====
+  // App desktop (Electron) : pas de Web Push navigateur (pushManager
+  // incompatible) — les notifications passent par la cloche in-app.
   useEffect(() => {
     if (!userData?.id) return;
+    if (isDesktopApp()) { setPushStatus('unsupported'); return; }
     if (typeof window === 'undefined' || !('serviceWorker' in navigator) || typeof Notification === 'undefined') {
       setPushStatus('unsupported');
       return;

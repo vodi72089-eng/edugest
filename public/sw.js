@@ -24,8 +24,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'EduGest';
   const options = {
     body: data.body || data.message || 'Vous avez une nouvelle notification',
-    icon: data.icon || '/edugest-logo-new.png',
-    badge: data.badge || '/edugest-logo-new.png',
+    icon: data.icon || '/edugest-logo-mark.png',
+    badge: data.badge || '/edugest-logo-mark.png',
     tag: data.tag || 'edugest-notification',
     renotify: true,
     vibrate: [100, 50, 100],
