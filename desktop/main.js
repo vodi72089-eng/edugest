@@ -287,14 +287,42 @@ function createWindow(port) {
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
-// ─── Mises à jour automatiques (style opencode) ──────────────────────────────
-//
-// Version INSTALLÉE (NSIS) : electron-updater télécharge la MAJ en arrière-plan
-// et propose de redémarrer. Les données (%APPDATA%/EduGest/edugest.db) ne sont
-// JAMAIS touchées : l'installeur ne remplace que le code dans Program Files.
-//
-// Version PORTABLE : pas de MAJ silencieuse possible → on prévient l'utilisateur
-// et on ouvre la page de la release GitHub pour télécharger le nouvel exe.
+// ─── Mises à jour : simple bannière DANS l'app (zéro popup) ─────────────────
+// Le processus principal détecte/télécharge, l'interface affiche une bannière
+// discrète (UpdateBanner) : disponible → téléchargement (% ) → redémarrer.
+// Les données (%APPDATA%/EduGest/edugest.db) ne sont JAMAIS touchées.
+
+/** Envoie un événement MAJ à l'interface (bannière in-app). */
+function sendUpdate(type, payload) {
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('edugest-update', { type, ...(payload || {}) });
+    }
+  } catch {}
+}
+
+// Actions déclenchées depuis la bannière (preload → ipcRenderer).
+try {
+  ipcMain.on('update-download', () => {
+    if (!autoUpdater) return;
+    log('Téléchargement de la mise à jour…');
+    autoUpdater.downloadUpdate()
+      .then(() => sendUpdate('downloading', { percent: 100 }))
+      .catch((e) => {
+        log('Échec téléchargement MAJ :', e.message);
+        sendUpdate('error', { message: e.message });
+      });
+  });
+  ipcMain.on('update-install', () => {
+    if (!autoUpdater) return;
+    try { if (serverProcess) serverProcess.kill(); } catch {}
+    try { if (waProcess) waProcess.kill(); } catch {}
+    autoUpdater.quitAndInstall(false, true);
+  });
+  ipcMain.on('update-open-page', (_e, url) => {
+    if (url) shell.openExternal(url);
+  });
+} catch {}
 
 const UPDATE_CHECK_DELAY_MS = 8000;
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -324,20 +352,10 @@ function checkPortableUpdate(manual = false) {
         const latest = String(rel.tag_name || '').replace(/^v/, '');
         if (!latest) return;
         if (compareVersions(latest, app.getVersion()) <= 0) {
-          if (manual) dialog.showMessageBox(mainWindow, { type: 'info', title: 'EduGest', message: `Vous êtes à jour (v${app.getVersion()}).` });
           return;
         }
-        dialog.showMessageBox(mainWindow, {
-          type: 'info',
-          title: 'Mise à jour EduGest',
-          message: `Une nouvelle version est disponible (v${latest}).`,
-          detail: 'Vos données sont conservées. Télécharger la nouvelle version portable ?',
-          buttons: ['Télécharger', 'Plus tard'],
-          defaultId: 0,
-          cancelId: 1,
-        }).then(({ response }) => {
-          if (response === 0 && rel.html_url) shell.openExternal(rel.html_url);
-        });
+        // Bannière in-app : nouvelle version portable → lien GitHub.
+        sendUpdate('portable', { version: latest, url: rel.html_url || 'https://github.com/vodi72089-eng/edugest/releases/latest' });
       } catch {}
     });
   });
@@ -354,35 +372,22 @@ function setupAutoUpdate() {
     return;
   }
 
-  // — Version installée : MAJ auto façon opencode —
+  // — Version installée : détection + téléchargement, annonce en bannière —
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
 
   autoUpdater.on('update-available', (info) => {
     log('Mise à jour disponible :', info.version);
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'Mise à jour EduGest',
-      message: `Une nouvelle version est disponible (v${info.version}).`,
-      detail: 'Vos données (élèves, notes, paiements) sont conservées. Voulez-vous la télécharger maintenant ?',
-      buttons: ['Télécharger', 'Plus tard'],
-      defaultId: 0,
-      cancelId: 1,
-    }).then(({ response }) => {
-      if (response === 0) {
-        log('Téléchargement de la mise à jour…');
-        autoUpdater.downloadUpdate().catch((e) => log('Échec téléchargement MAJ :', e.message));
-      }
-    });
+    sendUpdate('available', { version: info.version });
   });
 
   autoUpdater.on('download-progress', (p) => {
     try {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.setProgressBar(p.percent / 100);
-        mainWindow.setTitle(`EduGest — mise à jour ${Math.round(p.percent)} %`);
       }
     } catch {}
+    sendUpdate('downloading', { percent: Math.round(p.percent) });
   });
 
   autoUpdater.on('update-downloaded', (info) => {
@@ -390,23 +395,9 @@ function setupAutoUpdate() {
     try {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.setProgressBar(-1);
-        mainWindow.setTitle('EduGest');
       }
     } catch {}
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'Mise à jour prête',
-      message: 'La mise à jour est téléchargée.',
-      detail: 'Redémarrer EduGest maintenant pour l\u2019installer ? Vos données sont conservées.',
-      buttons: ['Redémarrer et installer', 'Plus tard'],
-      defaultId: 0,
-      cancelId: 1,
-    }).then(({ response }) => {
-      if (response === 0) {
-        try { if (serverProcess) serverProcess.kill(); } catch {}
-        autoUpdater.quitAndInstall(false, true);
-      }
-    });
+    sendUpdate('ready', { version: info.version });
   });
 
   autoUpdater.on('update-not-available', () => log('EduGest est à jour.'));

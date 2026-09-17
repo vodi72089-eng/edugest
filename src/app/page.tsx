@@ -17,6 +17,7 @@ import { FlagIcon } from '@/components/FlagIcon'
 import dynamic from 'next/dynamic'
 const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
 import { AnimatedCounter, ScrollReveal, StaggerContainer, StaggerItem, GlowCard, MagneticButton, AuroraBackground, BlurText, GradientText } from '@/components/animated'
+import UpdateBanner from '@/components/UpdateBanner'
 import SuperAdminDashboard from '@/components/dashboards/SuperAdminDashboard'
 import SchoolAdminDashboard from '@/components/dashboards/SchoolAdminDashboard'
 import SecretaryDashboard from '@/components/dashboards/SecretaryDashboard'
@@ -8101,17 +8102,19 @@ export default function Home() {
   }
 
   if (!userRole) {
+    let view: React.ReactNode
     switch (currentView) {
-      case 'home': return <HomeView />
-      case 'login': return <LoginView />
-      case 'create-school': return <CreateSchoolView />
-      case 'pricing': return <PricingView />
-      case 'school-detail': return <SchoolDetailView />
+      case 'home': view = <HomeView />; break
+      case 'login': view = <LoginView />; break
+      case 'create-school': view = <CreateSchoolView />; break
+      case 'pricing': view = <PricingView />; break
+      case 'school-detail': view = <SchoolDetailView />; break
       // Landing restaurée à la demande : « Gestion Scolaire Intégrale » est de
       // retour sur la page d'accueil publique (connexion toujours unifiée sur /login)
-      default: return <LoginView />
+      default: view = <LoginView />; break
     }
+    return <>{view}<UpdateBanner /></>
   }
 
-  return <DashboardLayout />
+  return <><DashboardLayout /><UpdateBanner /></>
 }
