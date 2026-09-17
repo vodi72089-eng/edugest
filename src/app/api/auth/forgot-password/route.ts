@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
     const code = createResetToken(user.id, phone)
 
     // Send code via WhatsApp if possible
+    let codeSent = false
     try {
       const { isWhatsAppConnected } = await import('@/lib/whatsapp-agent')
       if (await isWhatsAppConnected()) {
@@ -49,9 +50,26 @@ export async function POST(request: NextRequest) {
           headers: { 'Content-Type': 'application/json', 'x-api-key': WA_API_KEY },
           body: JSON.stringify({ phone, message: `🔐 Code de réinitialisation: *${code}*\nValable 15 minutes.` }),
         })
+        codeSent = true
       }
     } catch {
-      // WhatsApp not configured — log code for dev
+      // WhatsApp not configured — try SMS below
+    }
+
+    // Vérification par SMS (fournisseur configuré dans Contrôle plateforme)
+    if (!codeSent) {
+      try {
+        const { sendSmsViaProvider, isSmsActive } = await import('@/lib/sms')
+        if (await isSmsActive()) {
+          const smsResult = await sendSmsViaProvider(phone, `EduGest : code de réinitialisation ${code}. Valable 15 minutes.`)
+          if (smsResult.success) codeSent = true
+        }
+      } catch {
+        // SMS non configuré — log for dev
+      }
+    }
+
+    if (!codeSent) {
       console.log(`[ForgotPassword] Code for ${phone}: ${code}`)
     }
 

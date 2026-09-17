@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react'
 import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken, restoreSession, startSessionRestoreWatchdog } from '@/lib/store'
+import { startRealtimeSync } from '@/lib/realtime'
 import { toast } from 'sonner'
 import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
 import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, DisciplineData, CommunicationData, HomeworkData } from '@/lib/types'
@@ -7961,6 +7962,12 @@ function PricingDashboard() {
 export default function Home() {
   const { currentView, userRole, logout, setCurrentView, userData, setUserData } = useEduGestStore()
   const [subscriptionRequired, setSubscriptionRequired] = useState<{ tier: string; expired: boolean } | null>(null)
+
+  // Synchronisation temps réel : détecte les changements de la base de données
+  // (paiements, élèves, notes…) et met à jour l'application automatiquement
+  useEffect(() => {
+    if (userRole) startRealtimeSync()
+  }, [userRole])
 
   // Restore session from localStorage before first paint (avoids hydration
   // mismatch + évite tout flash de la landing dans l'app desktop qui démarre

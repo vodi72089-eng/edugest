@@ -10,6 +10,7 @@ import { Plus, X, Users, ChevronDown, Eye, EyeOff, Edit, Trash2, Check, Archive 
 import { toast } from 'sonner'
 import SearchAutocomplete, { AutocompleteItem } from './SearchAutocomplete'
 import AppSelect from '@/components/ui/AppSelect'
+import { onDbChange } from '@/lib/realtime'
 
 export default function StudentsView() {
   const [students, setStudents] = useState<StudentData[]>([])
@@ -80,6 +81,22 @@ export default function StudentsView() {
     }
     load()
   }, [userData?.schoolId])
+
+  // Synchronisation temps réel : recharge les élèves dès qu'un changement
+  // est détecté dans la base de données (autre session, autre utilisateur…)
+  const [dbPulse, setDbPulse] = useState(0)
+  useEffect(() => onDbChange(() => setDbPulse((t) => t + 1)), [])
+  useEffect(() => {
+    if (dbPulse === 0) return
+    async function reload() {
+      try {
+        const res = await authFetch(`/api/students?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
+        const json = await res.json()
+        setStudents(json.data || [])
+      } catch (e) { console.error(e) }
+    }
+    reload()
+  }, [dbPulse, userData?.schoolId])
 
   useEffect(() => {
     if (userData?.schoolId) {

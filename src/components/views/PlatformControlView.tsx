@@ -1,6 +1,7 @@
 'use client'
 
 import AppSelect from '@/components/ui/AppSelect'
+import PlatformApiConfigSection from '@/components/views/PlatformApiConfigSection'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ListChecks,
@@ -610,6 +611,9 @@ export default function PlatformControlView() {
         ))}
         <AnnouncementCard schools={schools} />
       </div>
+
+      {/* Communication & notifications (Resend, SMS) + Base de données */}
+      <PlatformApiConfigSection />
 
       {/* Liste des événements existants */}
       <section>

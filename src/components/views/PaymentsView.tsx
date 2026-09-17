@@ -13,6 +13,7 @@ import AppSelect from '@/components/ui/AppSelect'
 import { SUPPORTED_CURRENCIES } from '@/lib/exchange-rate'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import { useRouter } from 'next/navigation'
+import { onDbChange } from '@/lib/realtime'
 
 export default function PaymentsView() {
   const [payments, setPayments] = useState<PaymentData[]>([])
@@ -104,6 +105,18 @@ export default function PaymentsView() {
       authFetch(`/api/payments?limit=30${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => { setPayments(j.data || []); setLoading(false) }).catch(() => setLoading(false))
     }
   }, [isParent, userData?.id, userData?.schoolId])
+
+  // Synchronisation temps réel : recharge les paiements dès qu'un changement
+  // est détecté dans la base de données (autre session, autre utilisateur…)
+  const [dbPulse, setDbPulse] = useState(0)
+  useEffect(() => onDbChange(() => setDbPulse((t) => t + 1)), [])
+  useEffect(() => {
+    if (dbPulse === 0 || isParent) return
+    authFetch(`/api/payments?limit=30${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
+      .then((r) => r.json())
+      .then((j) => setPayments(j.data || []))
+      .catch(() => {})
+  }, [dbPulse, isParent, userData?.schoolId])
 
   useEffect(() => {
     if (studentSearch.length < 2) return
