@@ -14,7 +14,7 @@ import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import { useRouter } from 'next/navigation'
 
 export default function DisciplineView() {
-  const { userRole, userData, highlightedId } = useEduGestStore()
+  const { userRole, userData, highlightedId, pendingStudentFocus, setPendingStudentFocus } = useEduGestStore()
   const highlightedRef = useRef<HTMLTableRowElement>(null)
   const tabBarRef = useRef<HTMLDivElement>(null)
   const { hasAccess, requiredTier } = useFeatureAccess('discipline')
@@ -173,6 +173,17 @@ export default function DisciplineView() {
   }, [childSearch, myChildren, isParent])
 
   useEffect(() => {
+    // Enfant ciblé depuis le dashboard parent (puce « Discipline ») : présélection directe.
+    // Early-return : le re-run (selectedChildId mis à jour) lance le fetch ciblé,
+    // évitant la course entre le fetch parentId et le fetch studentId.
+    if (pendingStudentFocus && isParent) {
+      const focus = pendingStudentFocus
+      setPendingStudentFocus(null)
+      setSelectedChildSearchId(focus.id)
+      setSelectedChildId(focus.id)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
     let cancelled = false
     const params = new URLSearchParams()
     params.set('listType', tab)

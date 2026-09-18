@@ -13,7 +13,7 @@ import { SUPPORTED_CURRENCIES } from '@/lib/exchange-rate'
 type PaymentStep = 'select' | 'confirm' | 'success'
 
 export default function OnlinePaymentView() {
-  const { userData } = useEduGestStore()
+  const { userData, pendingStudentFocus, setPendingStudentFocus } = useEduGestStore()
   const [step, setStep] = useState<PaymentStep>('select')
   const [children, setChildren] = useState<StudentData[]>([])
   const [loading, setLoading] = useState(true)
@@ -59,6 +59,30 @@ export default function OnlinePaymentView() {
       })
       .catch(() => setLoading(false))
   }, [userData?.id])
+
+  // Enfant ciblé depuis le dashboard parent (puce « Paiements ») : présélection
+  // directe → les frais, la tranche et le montant se chargent automatiquement.
+  useEffect(() => {
+    const focus = pendingStudentFocus
+    if (!focus) return
+    setPendingStudentFocus(null)
+    setSelectedStudentId(focus.id)
+    setSelectedStudent({
+      id: focus.id,
+      matricule: focus.matricule,
+      firstName: focus.firstName,
+      lastName: focus.lastName,
+      classId: focus.classId || '',
+      schoolId: '',
+      schoolYearId: '',
+      photoUrl: focus.photoUrl,
+    })
+    setStudentSuggestions([{
+      id: focus.id, label: `${focus.firstName} ${focus.lastName}`, sublabel: focus.matricule, photoUrl: focus.photoUrl
+    }])
+    setStep('select')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [pendingStudentFocus, setPendingStudentFocus])
 
   // Search students
   useEffect(() => {

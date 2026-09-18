@@ -15,7 +15,7 @@ import { tierAllowsParentGrades } from '@/lib/subscription';
 import { useRouter } from 'next/navigation';
 
 export default function GradesView() {
-  const { userRole, userData, highlightedId } = useEduGestStore()
+  const { userRole, userData, highlightedId, pendingStudentFocus, setPendingStudentFocus } = useEduGestStore()
   const { hasAccess, requiredTier } = useFeatureAccess('grades');
   const router = useRouter();
 
@@ -132,6 +132,17 @@ export default function GradesView() {
   }, [userData?.schoolId, isParent, userData?.id, isTeacher, teacherClassIds, userRole])
 
   useEffect(() => {
+    // Enfant ciblé depuis le dashboard parent (puce « Notes ») : présélection directe.
+    // Early-return : le re-run (selectedChildId mis à jour) lance le fetch ciblé,
+    // évitant la course entre le fetch parentId et le fetch studentId.
+    if (pendingStudentFocus && userRole === 'PARENT') {
+      const focus = pendingStudentFocus
+      setPendingStudentFocus(null)
+      setSelectedChildSearchId(focus.id)
+      setSelectedChildId(focus.id)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
     loadGrades()
   }, [selectedClass, selectedTrimester, selectedChildId, isParent, userData?.id])
 
@@ -219,7 +230,7 @@ export default function GradesView() {
       acc[key].grades.push(g)
       return acc
     }, {} as Record<string, { student: GradeData['student']; grades: GradeData[] }>)
-  ) : []
+  ).filter(([id]) => !selectedChildId || id === selectedChildId) : []
 
   return (
     <div>

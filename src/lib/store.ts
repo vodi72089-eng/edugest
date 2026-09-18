@@ -230,6 +230,11 @@ interface EduGestStore {
   pendingPaymentStudent: { id: string; firstName: string; lastName: string; matricule: string; classId?: string; tranche?: string; amount?: number } | null
   setPendingPaymentStudent: (student: { id: string; firstName: string; lastName: string; matricule: string; classId?: string; tranche?: string; amount?: number } | null) => void
 
+  // Enfant ciblé depuis le dashboard parent (puce Notes/Bulletin/Paiements/Discipline)
+  // → consommé UNE fois par la vue de destination pour présélectionner l'enfant.
+  pendingStudentFocus: { id: string; firstName: string; lastName: string; matricule: string; classId?: string; photoUrl?: string } | null
+  setPendingStudentFocus: (student: { id: string; firstName: string; lastName: string; matricule: string; classId?: string; photoUrl?: string } | null) => void
+
   sidebarOpen: boolean
   setSidebarOpen: (open: boolean) => void
 
@@ -370,6 +375,9 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
   pendingPaymentStudent: null,
   setPendingPaymentStudent: (student) => set({ pendingPaymentStudent: student }),
 
+  pendingStudentFocus: null,
+  setPendingStudentFocus: (student) => set({ pendingStudentFocus: student }),
+
   sidebarOpen: initial.sidebarOpen,
   setSidebarOpen: (open) => {
     set({ sidebarOpen: open });
@@ -420,6 +428,8 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
       sidebarOpen: false,
       selectedSchoolId: null,
       selectedStudentId: null,
+      pendingStudentFocus: null,
+      pendingPaymentStudent: null,
     });
     syncUrl(homeView, 'replace');
   },

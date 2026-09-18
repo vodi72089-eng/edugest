@@ -12,7 +12,7 @@ import StudentAvatar from '@/components/ui/StudentAvatar'
 import StatCard from './StatCard'
 
 export default function ParentDashboard() {
-  const { userData, setCurrentView, setSelectedStudentId } = useEduGestStore()
+  const { userData, setCurrentView, setSelectedStudentId, setPendingStudentFocus } = useEduGestStore()
   // Forfait sans notes/bulletins aux parents (Freemium, Essentiel) → puces retirées
   const parentGradesAllowed = tierAllowsParentGrades(userData?.subscriptionTier || 'FREEMIUM')
   const [children, setChildren] = useState<StudentData[]>([])
@@ -216,10 +216,10 @@ export default function ParentDashboard() {
                       { label: 'Notes', view: 'grades' as ViewType, icon: <BookOpen size={14} /> },
                       { label: 'Bulletin', view: 'bulletin' as ViewType, icon: <FileText size={14} /> },
                     ] : []),
-                    { label: 'Paiements', view: 'payments' as ViewType, icon: <CreditCard size={14} /> },
+                    { label: 'Paiements', view: 'online-payment' as ViewType, icon: <CreditCard size={14} /> },
                     { label: 'Discipline', view: 'discipline' as ViewType, icon: <Shield size={14} /> },
                   ].map(chip => (
-                    <button key={chip.label} onClick={() => { setSelectedStudentId(child.id); setCurrentView(chip.view) }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(95%_0.04_175)] hover:border-[oklch(72%_0.15_65_/_0.3)] transition" style={{ color: TEXT_PRIMARY }}>
+                    <button key={chip.label} onClick={() => { setSelectedStudentId(child.id); setPendingStudentFocus({ id: child.id, firstName: child.firstName, lastName: child.lastName, matricule: child.matricule, classId: child.classId, photoUrl: child.photoUrl }); setCurrentView(chip.view) }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(95%_0.04_175)] hover:border-[oklch(72%_0.15_65_/_0.3)] transition" style={{ color: TEXT_PRIMARY }}>
                       {chip.icon} {chip.label}
                     </button>
                   ))}

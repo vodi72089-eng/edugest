@@ -1572,3 +1572,25 @@ Stage Summary:
 - 31 tests sécurité automatisés (31/31 verts) + CI GitHub qui échoue si TS invalide, lint régressé, build cassé ou tests sécurité rouges
 - Desktop : même code serveur (aucun RBAC dupliqué), template.db vierge de CI, plus de clé WhatsApp en dur
 - Limites connues : build .exe Windows non exécutable dans le sandbox Linux (workflow CI/CD existant s'en charge) ; rate limiting toujours in-memory (mono-instance) ; tests idempotents mais écoles fixtures créées/supprimées à chaque run
+
+---
+Task ID: 19
+Agent: Z.ai Code (main)
+Task: Navigation directe enfant → section avec données pré-établies (puces Paiements/Bulletin/Discipline/Notes du dashboard parent)
+
+Work Log:
+- Diagnostic : les puces du ParentDashboard écrivaient selectedStudentId dans le store, mais AUCUNE vue cible ne le lisait (états locaux à null) ; de plus la puce « Paiements » ciblait la vue 'payments' absente de VIEWS_BY_ROLE.PARENT (vue interdite au rôle → navigation cassée)
+- store.ts : nouveau champ pendingStudentFocus {id, firstName, lastName, matricule, classId?, photoUrl?} + setter (pattern pendingPaymentStudent), réinitialisé au logout
+- ParentDashboard : puces → setPendingStudentFocus(enfant) + setCurrentView ; puce « Paiements » → 'online-payment' (vue réelle de paiement parent)
+- OnlinePaymentView : effet de consommation → élève présélectionné + suggestions seedées → les frais, la tranche et le montant se chargent automatiquement (effet existant)
+- GradesView : consommation fusionnée dans l'effet loadGrades avec early-return (pas de nouveau hook → lint baseline préservée) + filtre défensif selectedChildId sur gradesByStudent
+- DisciplineView : consommation fusionnée dans l'effet de fetch des records avec early-return (pas de nouveau hook)
+- BulletinView (page.tsx) : effet de consommation (pill + filtre API studentId déjà protégé côté client par `filtered`)
+- Correctif de race détecté au test : double fetch parentId/studentId au mount pouvait afficher les notes de TOUS les enfants → early-return (fetch unique) + filtre client
+- Lint : 109 = baseline exacte (0 nouveau) ; tsc --noEmit : 0 erreur
+- Tests navigateur réels (agent-browser, parent@email.com « Papa Kazadi », 11 enfants) : Paiements → /online-payment « Amani Baketu » prérempli + T1 + 100 000 CDF auto ; Notes → /grades pill « Amani Baketu (CSL-2025-016) » + SES notes uniquement ; Bulletin → /bulletin pill + bulletin d'Amani seul ; Discipline → /discipline pill + records de l'enfant cliqué (Kabongo Mutombo → « Retard répété » seul) ; non-régression admin (0 pill fantôme, 20 bulletins tous affichés) ; 0 erreur console
+
+Stage Summary:
+- Le parent cliquant une puce (Notes/Bulletin/Paiements/Discipline) sur la carte d'un enfant est dirigé vers la section correspondante avec les données de CET enfant déjà établies : notes/bulletin/discipline filtrés, formulaire de paiement en ligne prérempli (frais, tranche, montant calculés)
+- Mécanisme générique réutilisable (pendingStudentFocus) consommé une fois par vue de destination ; race condition de fetch éliminée
+- Puce « Paiements » parent réparée : elle pointait vers une vue interdite au rôle, elle pointe désormais vers « Payer en ligne »

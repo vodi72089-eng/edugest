@@ -6800,7 +6800,7 @@ function ClassPassingView() {
 
 // ===== BULLETIN VIEW =====
 function BulletinView() {
-  const { userData, userRole, highlightedId } = useEduGestStore()
+  const { userData, userRole, highlightedId, pendingStudentFocus, setPendingStudentFocus } = useEduGestStore()
   const [grades, setGrades] = useState<GradeData[]>([])
   const [classes, setClasses] = useState<ClassData[]>([])
   const [loading, setLoading] = useState(true)
@@ -6834,6 +6834,16 @@ function BulletinView() {
     if (userData?.schoolId) params.set('schoolId', userData.schoolId)
     authFetch(`/api/classes?${params}`).then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
   }, [userData?.schoolId])
+
+  // Enfant ciblé depuis le dashboard parent (puce « Bulletin ») : présélection directe
+  useEffect(() => {
+    const focus = pendingStudentFocus
+    if (!focus) return
+    setPendingStudentFocus(null)
+    setSelectedStudentId(focus.id)
+    setStudentSuggestions([{ id: focus.id, label: `${focus.firstName} ${focus.lastName}`, sublabel: focus.matricule, photoUrl: focus.photoUrl }])
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [pendingStudentFocus, setPendingStudentFocus])
 
   useEffect(() => {
     if (studentSearch.length < 2) return
