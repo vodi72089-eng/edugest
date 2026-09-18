@@ -4,6 +4,7 @@ import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } fr
 import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken, restoreSession,
 startSessionRestoreWatchdog, isDesktopApp } from '@/lib/store'
 import { startRealtimeSync } from '@/lib/realtime'
+import { playNotificationSound, unlockNotificationAudio, isNotificationSoundEnabled, setNotificationSoundEnabled } from '@/lib/notification-sound'
 import { toast } from 'sonner'
 import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
 import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, DisciplineData, CommunicationData, HomeworkData } from '@/lib/types'
@@ -57,7 +58,7 @@ import {
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
    ChevronUp, ExternalLink, Check, Copy, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown,
-  User, Landmark, Palette, BellRing, HeartPulse, Database, Stethoscope
+   User, Landmark, Palette, BellRing, HeartPulse, Database, Stethoscope, Volume2, VolumeX
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -2513,6 +2514,10 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   const notifPanelRef = useRef<HTMLDivElement>(null)
   const [pushStatus, setPushStatus] = useState<'unsupported' | 'default' | 'granted' | 'denied' | 'subscribed'>('default')
   const [pushLoading, setPushLoading] = useState(false)
+  const [notifSoundOn, setNotifSoundOn] = useState(true)
+  // IDs déjà vus : évite le « ding » au premier chargement, ne sonne que pour les vraies nouveautés
+  const seenNotifIdsRef = useRef<Set<string> | null>(null)
+  useEffect(() => { setNotifSoundOn(isNotificationSoundEnabled()) }, [])
 
   const adminRoles = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'SECRETARY']
   const showPendingComms = adminRoles.includes(userRole || '')
@@ -2524,8 +2529,18 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   useEffect(() => {
     if (!userData?.id) return;
     const load = () => authFetch('/api/notifications?limit=20').then(r => r.json()).then(j => {
-      setNotifications(j.data || []);
+      const list = j.data || [];
+      setNotifications(list);
       setUnreadNotifCount(j.unreadCount || 0);
+      // Son WhatsApp-like si de VRAIES nouvelles notifications non lues arrivent
+      const unreadIds = new Set<string>(list.filter((n: any) => !n.isRead).map((n: any) => n.id));
+      if (seenNotifIdsRef.current === null) {
+        seenNotifIdsRef.current = unreadIds; // premier chargement : on mémorise sans sonner
+      } else {
+        const hasNew = [...unreadIds].some(id => !seenNotifIdsRef.current!.has(id));
+        seenNotifIdsRef.current = unreadIds;
+        if (hasNew && isNotificationSoundEnabled()) playNotificationSound();
+      }
     }).catch(() => {});
     load();
     const interval = setInterval(load, 30000);
@@ -2628,7 +2643,15 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   }
 
   const handleBellClick = () => {
+    unlockNotificationAudio(); // autorise le son (politique autoplay) pour les prochains polls
     setShowNotifications(!showNotifications)
+  }
+
+  const toggleNotifSound = () => {
+    const next = !notifSoundOn;
+    setNotifSoundOn(next);
+    setNotificationSoundEnabled(next);
+    if (next) { unlockNotificationAudio(); playNotificationSound(); } // aperçu immédiat
   }
 
   const handleNotifItemClick = (notif: any) => {
@@ -2737,6 +2760,15 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
                   style={{ color: ACCENT }}
                 >Tout lire</button>
               )}
+              <button
+                onClick={toggleNotifSound}
+                className="p-1.5 rounded-lg hover:bg-white/60 transition"
+                title={notifSoundOn ? 'Couper le son des notifications' : 'Activer le son des notifications'}
+              >
+                {notifSoundOn
+                  ? <Volume2 size={15} style={{ color: TEXT_PRIMARY }} />
+                  : <VolumeX size={15} style={{ color: TEXT_MUTED_LUXE }} />}
+              </button>
             </div>
             {(pushStatus === 'default' || pushStatus === 'granted') && (
               <div className="px-4 py-2.5 flex items-center justify-between gap-2 border-b" style={{ borderColor: `oklch(92% 0.005 250)`, background: GOLD_SOFT }}>
