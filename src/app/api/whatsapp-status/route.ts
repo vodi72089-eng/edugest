@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth';
 
 const WA_SERVER = process.env.WHATSAPP_SERVER_URL || 'http://localhost:3001';
-const WA_API_KEY = process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key';
+const WA_API_KEY = process.env.WHATSAPP_API_KEY || (process.env.NODE_ENV !== 'production' ? 'edugest-wa-dev-key' : '');
 
 async function waFetch(path: string, method: string = 'GET', body?: any) {
   const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json', 'x-api-key': WA_API_KEY } };

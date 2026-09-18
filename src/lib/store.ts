@@ -188,6 +188,7 @@ export type UserRole =
   | 'DISCIPLINE_SECONDAIRE'
   | 'TEACHER'
   | 'HEAD_TEACHER'
+  | 'EPS'
   | 'PARENT'
   | 'MEDICAL'
 
@@ -197,6 +198,8 @@ export interface UserData {
   role: UserRole
   schoolId: string
   schoolName: string
+  schoolLogo?: string | null
+  schoolDesign?: { primary: string; accent: string; gold: string } | null
   initials: string
   profileImageUrl?: string | null
   subjectName?: string | null

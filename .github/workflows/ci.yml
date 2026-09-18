@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Typecheck + Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: bunx prisma generate
+
+      # Le build Next.js ne masque PLUS les erreurs TypeScript
+      # (typescript.ignoreBuildErrors: false dans next.config.ts)
+      - name: Typecheck (tsc --noEmit)
+        run: bunx tsc --noEmit
+
+      - name: Lint
+        run: bun run lint
+
+  build-and-security:
+    name: Build + Tests sécurité (RBAC / multi-tenant / IDOR)
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: bunx prisma generate
+
+      - name: Setup local SQLite database
+        run: |
+          mkdir -p db
+          export DATABASE_URL="file:../db/custom.db"
+          bunx prisma db push --skip-generate
+
+      - name: Build Next.js (échoue si TypeScript invalide)
+        env:
+          DATABASE_URL: file:./db/custom.db
+        run: bunx next build
+
+      - name: Start server
+        env:
+          DATABASE_URL: file:./db/custom.db
+          SUBSCRIPTION_WEBHOOK_SECRET: test-secret
+          NODE_ENV: production
+        run: |
+          cp -r .next/static .next/standalone/.next/ || true
+          cp -r public .next/standalone/ || true
+          node .next/standalone/server.js &
+          echo $! > server.pid
+          # Warm-up : attendre que le serveur réponde
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000/api > /dev/null; then break; fi
+            sleep 2
+          done
+
+      - name: Seed minimal (super admin)
+        env:
+          DATABASE_URL: file:./db/custom.db
+        run: |
+          # Le endpoint /api/seed ne s'exécute que si la base est vide
+          curl -sf -X POST http://localhost:3000/api/seed -H 'Content-Type: application/json' -d '{}' || true
+
+      - name: Run security tests (auth, rôles, multi-tenant, IDOR, abonnement)
+        env:
+          SUBSCRIPTION_WEBHOOK_SECRET: test-secret
+        run: node scripts/security-tests/run-security-tests.mjs http://localhost:3000
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f server.pid ]; then kill $(cat server.pid) || true; fi

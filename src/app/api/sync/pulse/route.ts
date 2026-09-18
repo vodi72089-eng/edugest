@@ -7,27 +7,35 @@ import { requireAuth, sanitizeError } from '@/lib/auth';
 // « signature » de changement : toute écriture en base (paiement, élève,
 // note, communication…) modifie cette signature, ce qui permet au client
 // de détecter les mises à jour et de rafraîchir l'affichage automatiquement.
+//
+// ── SÉCURITÉ (P2) : les compteurs sont scopés à l'école de l'utilisateur
+// pour tout non-SUPER_ADMIN_GLOBAL (avant : compteurs globaux de toute la
+// plateforme exposés à tout utilisateur authentifié).
 export async function GET(request: NextRequest) {
   try {
     const authResult = await requireAuth(request);
     if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
+    const isSuperAdmin = user.role === 'SUPER_ADMIN_GLOBAL';
+    const schoolScope = isSuperAdmin ? {} : { schoolId: user.schoolId || '__none__' };
 
     const [schools, users, students, payments, communications, notifications] = await Promise.all([
-      db.school.count(),
-      db.user.count(),
-      db.student.count(),
-      db.paymentRecord.count(),
-      db.communication.count(),
-      db.notification.count(),
+      isSuperAdmin ? db.school.count() : Promise.resolve(1),
+      db.user.count({ where: schoolScope }),
+      db.student.count({ where: schoolScope }),
+      db.paymentRecord.count({ where: schoolScope }),
+      db.communication.count({ where: schoolScope }),
+      db.notification.count({ where: { ...schoolScope, ...(isSuperAdmin ? {} : { OR: [{ userId: user.id }, { schoolId: user.schoolId || '__none__' }] }) } }),
     ]);
 
     const [maxSchool, maxUser, maxStudent, maxPayment, maxCommunication, maxNotification] = await Promise.all([
-      db.school.aggregate({ _max: { updatedAt: true } }),
-      db.user.aggregate({ _max: { updatedAt: true } }),
-      db.student.aggregate({ _max: { updatedAt: true } }),
-      db.paymentRecord.aggregate({ _max: { updatedAt: true } }),
-      db.communication.aggregate({ _max: { createdAt: true } }),
-      db.notification.aggregate({ _max: { createdAt: true } }),
+      isSuperAdmin ? db.school.aggregate({ _max: { updatedAt: true } }) : Promise.resolve({ _max: { updatedAt: null } }),
+      db.user.aggregate({ _max: { updatedAt: true }, where: schoolScope }),
+      db.student.aggregate({ _max: { updatedAt: true }, where: schoolScope }),
+      db.paymentRecord.aggregate({ _max: { updatedAt: true }, where: schoolScope }),
+      db.communication.aggregate({ _max: { createdAt: true }, where: schoolScope }),
+      db.notification.aggregate({ _max: { createdAt: true }, where: { ...schoolScope, ...(isSuperAdmin ? {} : { OR: [{ userId: user.id }, { schoolId: user.schoolId || '__none__' }] }) } }),
     ]);
 
     const stamps = [

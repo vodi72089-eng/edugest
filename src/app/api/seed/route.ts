@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
       paymentRecords: 0,
       communications: 0,
       homeworks: 0,
+      teacherAssignments: 0,
     };
 
     // ===== CREATE SCHOOLS =====

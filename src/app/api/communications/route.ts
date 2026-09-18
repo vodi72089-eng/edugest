@@ -2,12 +2,17 @@ import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
+import { requireFeature } from '@/lib/feature-gate';
 import { notifyCommunication, isWhatsAppConnected } from '@/lib/whatsapp-agent';
 
 export async function GET(request: NextRequest) {
   try {
     const authResult = await requirePermission(request, 'communications:read');
     if ('error' in authResult) return authResult.error;
+    // Feature communications réservée STANDARD+ côté serveur (avant : API
+    // accessible aux écoles FREEMIUM alors que l'UI la masque).
+    const featureCheck = await requireFeature(request, 'communications');
+    if ('error' in featureCheck) return featureCheck.error;
     const { user } = authResult;
 
     const { searchParams } = new URL(request.url);
@@ -95,6 +100,9 @@ export async function POST(request: NextRequest) {
 
     const authResult = await requirePermission(request, 'communications:create');
     if ('error' in authResult) return authResult.error;
+    // Feature communications réservée STANDARD+ côté serveur.
+    const featureCheck = await requireFeature(request, 'communications');
+    if ('error' in featureCheck) return featureCheck.error;
     const { user } = authResult;
 
     const body = await request.json();

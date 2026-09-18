@@ -639,20 +639,23 @@ async function getEffectivePermissions(role: string, schoolId: string | null): P
   const school = await db.school.findUnique({ where: { id: schoolId }, select: { subscriptionTier: true } })
   const tier = school?.subscriptionTier || 'FREEMIUM'
 
-  // --- SCHOOL_ADMIN: apply tier restrictions ---
-  if (role === 'SCHOOL_ADMIN') {
-    const denied = tier === 'FREEMIUM' ? FREEMIUM_DENIED : tier === 'ESSENTIEL' ? ESSENTIEL_DENIED : []
-    if (denied.length === 0) return base // STANDARD+ gets full SCHOOL_ADMIN permissions
-    return base.filter(p => !denied.includes(p))
+  // --- Rôles DIRECTION_* d'une école FREEMIUM : bonus SECRETARY (gérance de
+  // leur école) — comportement produit conservé, la matrice des features
+  // (requireFeature) continue de s'appliquer par ailleurs ---
+  if (FREEMIUM_ADMIN_ROLES.includes(role) && tier === 'FREEMIUM') {
+    const secretaryPerms = ROLE_PERMISSIONS['SECRETARY'] || []
+    const merged = [...new Set([...base, ...secretaryPerms])]
+    merged.push('school:update')
+    return merged
   }
 
-  // --- FREEMIUM DIRECTION roles: get SECRETARY bonus permissions ---
-  if (!FREEMIUM_ADMIN_ROLES.includes(role)) return base
-  if (tier !== 'FREEMIUM') return base
-  const secretaryPerms = ROLE_PERMISSIONS['SECRETARY'] || []
-  const merged = [...new Set([...base, ...secretaryPerms])]
-  merged.push('school:update')
-  return merged
+  // --- TOUS les rôles rattachés à une école : restrictions de forfait
+  // appliquées côté serveur (SCHOOL_ADMIN, ADMIN_FREEMIUM, DIRECTION*,
+  // SECRETARY, CASHIER, TEACHER…). Une fonctionnalité masquée dans l'UI
+  // doit l'être aussi dans l'API. ---
+  const denied = tier === 'FREEMIUM' ? FREEMIUM_DENIED : tier === 'ESSENTIEL' ? ESSENTIEL_DENIED : []
+  if (denied.length === 0) return base
+  return base.filter(p => !denied.includes(p))
 }
 
 export async function requirePermission(request: NextRequest, permission: string): Promise<{ user: AuthUser } | { error: Response }> {
@@ -704,21 +707,103 @@ export function checkRateLimit(key: string, maxRequests: number, windowMs: numbe
 }
 
 // ─── Role validation ───────────────────────────────────────────────────────
-const ALLOWED_CREATION_ROLES = ['SECRETARY', 'CASHIER', 'TEACHER', 'HEAD_TEACHER', 'PARENT', 'DISCIPLINE', 'DIRECTION', 'EPS', 'MEDICAL'];
-const DIRECTION_ROLES = ['DIRECTION', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
-const DISCIPLINE_ROLES = ['DISCIPLINE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE'];
+// Niveau de privilège de chaque rôle. Un rôle ne peut jamais créer/modifier/
+// promouvoir un compte d'un niveau supérieur au sien (imposé côté serveur).
+export const ROLE_LEVELS: Record<string, number> = {
+  SUPER_ADMIN_GLOBAL: 100,
+  SCHOOL_ADMIN: 80,
+  ADMIN_FREEMIUM: 80,
+  DIRECTION: 70,
+  DIRECTION_MATERNELLE: 70,
+  DIRECTION_PRIMAIRE: 70,
+  DIRECTION_SECONDAIRE: 70,
+  SECRETARY: 40,
+  DISCIPLINE: 38,
+  DISCIPLINE_MATERNELLE: 38,
+  DISCIPLINE_PRIMAIRE: 38,
+  DISCIPLINE_SECONDAIRE: 38,
+  CASHIER: 36,
+  HEAD_TEACHER: 34,
+  TEACHER: 32,
+  EPS: 32,
+  MEDICAL: 32,
+  PARENT: 10,
+};
+
+export function getRoleLevel(role: string): number {
+  return ROLE_LEVELS[role] ?? 0;
+}
+
+// Rôles internes à une école. Seul SUPER_ADMIN_GLOBAL peut créer
+// SCHOOL_ADMIN / ADMIN_FREEMIUM / SUPER_ADMIN_GLOBAL (les clés du royaume).
+const SCHOOL_STAFF_CREATION_ROLES = [
+  'SECRETARY', 'CASHIER', 'TEACHER', 'HEAD_TEACHER', 'PARENT',
+  'DIRECTION', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE',
+  'DISCIPLINE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE',
+  'EPS', 'MEDICAL',
+];
+
+/**
+ * Matrice explicite : quel rôle peut créer quel rôle.
+ * - SUPER_ADMIN_GLOBAL → tous les rôles (y compris SCHOOL_ADMIN/ADMIN_FREEMIUM).
+ * - SCHOOL_ADMIN / ADMIN_FREEMIUM / DIRECTION* → tout le staff de LEUR école,
+ *   jamais un administrateur (SCHOOL_ADMIN/ADMIN_FREEMIUM/SUPER_ADMIN_GLOBAL).
+ * - SECRETARY → rôles strictement inférieurs (PAS DIRECTION, PAS SCHOOL_ADMIN).
+ * - DISCIPLINE* → uniquement TEACHER / HEAD_TEACHER.
+ * - Tous les autres rôles (CASHIER, TEACHER, PARENT…) → personne.
+ */
+const ROLE_CREATION_MATRIX: Record<string, string[]> = {
+  SUPER_ADMIN_GLOBAL: ['*'],
+  SCHOOL_ADMIN: SCHOOL_STAFF_CREATION_ROLES,
+  ADMIN_FREEMIUM: SCHOOL_STAFF_CREATION_ROLES,
+  DIRECTION: SCHOOL_STAFF_CREATION_ROLES,
+  DIRECTION_MATERNELLE: SCHOOL_STAFF_CREATION_ROLES,
+  DIRECTION_PRIMAIRE: SCHOOL_STAFF_CREATION_ROLES,
+  DIRECTION_SECONDAIRE: SCHOOL_STAFF_CREATION_ROLES,
+  SECRETARY: ['SECRETARY', 'CASHIER', 'TEACHER', 'HEAD_TEACHER', 'PARENT', 'EPS', 'MEDICAL', 'DISCIPLINE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE'],
+  DISCIPLINE: ['TEACHER', 'HEAD_TEACHER'],
+  DISCIPLINE_MATERNELLE: ['TEACHER', 'HEAD_TEACHER'],
+  DISCIPLINE_PRIMAIRE: ['TEACHER', 'HEAD_TEACHER'],
+  DISCIPLINE_SECONDAIRE: ['TEACHER', 'HEAD_TEACHER'],
+};
 
 export function canCreateRole(creatorRole: string, targetRole: string): boolean {
-  if (creatorRole === 'SUPER_ADMIN_GLOBAL') return true;
-  // DIRECTION, DIRECTION_*, and SCHOOL_ADMIN can create most roles
-  if (DIRECTION_ROLES.includes(creatorRole) || creatorRole === 'SCHOOL_ADMIN') return ALLOWED_CREATION_ROLES.includes(targetRole);
-  // SECRETARY can create most roles
-  if (creatorRole === 'SECRETARY') return ALLOWED_CREATION_ROLES.includes(targetRole);
-  // DISCIPLINE_* can only create TEACHER and HEAD_TEACHER
-  if (DISCIPLINE_ROLES.includes(creatorRole)) {
-    return ['TEACHER', 'HEAD_TEACHER'].includes(targetRole);
-  }
-  return false;
+  // Seul SUPER_ADMIN_GLOBAL peut créer/attribuer SUPER_ADMIN_GLOBAL.
+  if (targetRole === 'SUPER_ADMIN_GLOBAL') return creatorRole === 'SUPER_ADMIN_GLOBAL';
+  const allowed = ROLE_CREATION_MATRIX[creatorRole];
+  if (!allowed || !allowed.includes(targetRole)) return false;
+  // Double barrière hiérarchique : jamais un rôle strictement supérieur au sien.
+  if (creatorRole !== 'SUPER_ADMIN_GLOBAL' && getRoleLevel(targetRole) > getRoleLevel(creatorRole)) return false;
+  return true;
+}
+
+/**
+ * Contrôle du CHANGEMENT de rôle d'un compte existant.
+ * - Seul SUPER_ADMIN_GLOBAL peut toucher un compte SUPER_ADMIN_GLOBAL.
+ * - L'acteur doit appartenir à la même école que la cible.
+ * - Le nouveau rôle doit être créable par l'acteur (canCreateRole).
+ * - La cible ne peut pas être d'un niveau supérieur à l'acteur.
+ */
+export function canChangeUserRole(actor: AuthUser, targetUser: { role: string; schoolId: string | null }, newRole: string): boolean {
+  if (actor.role === 'SUPER_ADMIN_GLOBAL') return true;
+  if (targetUser.role === 'SUPER_ADMIN_GLOBAL') return false; // seul le SAG touche un SAG
+  if (actor.schoolId === null || actor.schoolId !== targetUser.schoolId) return false; // isolation multi-écoles
+  if (!canCreateRole(actor.role, newRole)) return false;
+  // La cible ne peut pas être d'un niveau supérieur à l'acteur.
+  if (getRoleLevel(targetUser.role) > getRoleLevel(actor.role)) return false;
+  return true;
+}
+
+/**
+ * Contrôle de modification d'un compte existant pour les champs sensibles
+ * (rôle, isActive, mot de passe) : impossible de toucher un compte de niveau
+ * supérieur au sien, un SUPER_ADMIN_GLOBAL, ou un compte d'une autre école.
+ */
+export function canManageUserAccount(actor: AuthUser, targetUser: { role: string; schoolId: string | null }): boolean {
+  if (actor.role === 'SUPER_ADMIN_GLOBAL') return true;
+  if (targetUser.role === 'SUPER_ADMIN_GLOBAL') return false;
+  if (actor.schoolId === null || actor.schoolId !== targetUser.schoolId) return false;
+  return getRoleLevel(targetUser.role) <= getRoleLevel(actor.role);
 }
 
 export function sanitizeError(error: unknown): string {

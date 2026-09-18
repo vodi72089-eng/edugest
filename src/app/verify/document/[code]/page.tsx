@@ -16,7 +16,7 @@ function formatDate(d: Date | null | undefined): string {
 
 export default async function VerifyDocumentPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  let record = null;
+  let record: Awaited<ReturnType<typeof getVerificationRecord>> = null;
   try {
     record = await getVerificationRecord(code);
   } catch {
@@ -105,7 +105,7 @@ export default async function VerifyDocumentPage({ params }: { params: Promise<{
                 </div>
 
                 {/* Élève */}
-                {(student || meta.studentName) && (
+                {!!(student || meta.studentName) && (
                   <div className="flex items-start justify-between gap-4 py-2.5 border-b border-white/5">
                     <dt className="text-white/45 text-[13px] font-medium">Élève</dt>
                     <dd className="text-white text-[13px] font-semibold text-right">

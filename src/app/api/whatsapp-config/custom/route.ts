@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, verifySchoolAccess } from '@/lib/auth';
 import { getTierLimits } from '@/lib/subscription';
+
+// Rôles habilités à voir/configurer l'API WhatsApp personnalisée.
+// (Avant : requireAuth seul → un PARENT pouvait activer l'API perso de son
+// école et contourner les quotas WhatsApp payants.)
+const WHATSAPP_CONFIG_ROLES = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN'];
 
 // GET /api/whatsapp-config/custom — Récupère la config WhatsApp et les quotas de l'école
 export async function GET(req: NextRequest) {
@@ -10,8 +15,14 @@ export async function GET(req: NextRequest) {
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
 
-    const { searchParams } = new URL(req.url);
-    const schoolId = user.schoolId || searchParams.get('schoolId');
+    if (!WHATSAPP_CONFIG_ROLES.includes(user.role)) {
+      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
+    }
+
+    // ── SÉCURITÉ : le schoolId du query n'est honoré que pour le super admin.
+    const schoolId = user.role === 'SUPER_ADMIN_GLOBAL'
+      ? (user.schoolId || new URL(req.url).searchParams.get('schoolId'))
+      : user.schoolId;
 
     if (!schoolId) {
       return NextResponse.json({ error: 'École non spécifiée' }, { status: 400 });
@@ -78,6 +89,11 @@ export async function POST(req: NextRequest) {
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
 
+    // ── SÉCURITÉ (P1) : réservé aux admins (avant : tout user authentifié).
+    if (!WHATSAPP_CONFIG_ROLES.includes(user.role)) {
+      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
+    }
+
     const body = await req.json();
     const {
       schoolId: requestedSchoolId,
@@ -91,9 +107,30 @@ export async function POST(req: NextRequest) {
       testPhone,
     } = body;
 
-    const schoolId = user.schoolId || requestedSchoolId;
+    const schoolId = user.role === 'SUPER_ADMIN_GLOBAL' ? (user.schoolId || requestedSchoolId) : user.schoolId;
     if (!schoolId) {
       return NextResponse.json({ error: 'École non spécifiée' }, { status: 400 });
+    }
+
+    // ── SÉCURITÉ : isolation multi-écoles.
+    if (!verifySchoolAccess(user, schoolId)) {
+      return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });
+    }
+
+    // ── SÉCURITÉ (abonnement) : l'API WhatsApp personnalisée est réservée
+    // aux forfaits PREMIUM+ (avant : contournement des quotas par tout le monde).
+    if (customEnabled) {
+      const schoolForTier = await db.school.findUnique({
+        where: { id: schoolId },
+        select: { subscriptionTier: true },
+      });
+      const tierLimits = getTierLimits(schoolForTier?.subscriptionTier || 'FREEMIUM');
+      if (!tierLimits.canUseCustomWhatsappApi && user.role !== 'SUPER_ADMIN_GLOBAL') {
+        return NextResponse.json(
+          { error: 'Votre propre API WhatsApp est réservée aux forfaits Professionnel et supérieurs.', tierRequired: 'PREMIUM' },
+          { status: 403 }
+        );
+      }
     }
 
     // Action de test de message

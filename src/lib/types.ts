@@ -4,7 +4,8 @@ export interface SchoolData {
   id: string; name: string; shortName: string; email: string; phone: string;
   address: string; city: string; province: string; country: string;
   latitude?: number; longitude?: number; logo?: string; coverImage?: string;
-  description?: string; mission?: string; establishmentYear?: number; subscriptionTier: string;
+  description?: string; mission?: string; history?: string; schoolLevel?: string;
+  establishmentYear?: number; subscriptionTier: string;
   maxStudents: number; schoolType: string; schoolCategory: string;
   averageRating: number; totalReviews: number; studentCount: number; classCount: number;
   isActive: boolean; _count?: { students: number; classes: number; users: number };

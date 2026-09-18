@@ -2,12 +2,16 @@ import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
+import { requireFeature } from '@/lib/feature-gate';
 import { notifyConvocation } from '@/lib/whatsapp-agent';
 
 export async function GET(request: NextRequest) {
   try {
     const authResult = await requirePermission(request, 'convocations:read');
     if ('error' in authResult) return authResult.error;
+    // Feature convocations réservée STANDARD+ côté serveur.
+    const featureCheck = await requireFeature(request, 'convocations');
+    if ('error' in featureCheck) return featureCheck.error;
     const { user } = authResult;
 
     const { searchParams } = new URL(request.url);
@@ -101,6 +105,9 @@ export async function POST(request: NextRequest) {
 
     const authResult = await requirePermission(request, 'convocations:create');
     if ('error' in authResult) return authResult.error;
+    // Feature convocations réservée STANDARD+ côté serveur.
+    const featureCheck = await requireFeature(request, 'convocations');
+    if ('error' in featureCheck) return featureCheck.error;
     const { user } = authResult;
 
     const body = await request.json();
@@ -210,6 +217,9 @@ export async function PUT(request: NextRequest) {
   try {
     const authResult = await requirePermission(request, 'convocations:update');
     if ('error' in authResult) return authResult.error;
+    // Feature convocations réservée STANDARD+ côté serveur.
+    const featureCheck = await requireFeature(request, 'convocations');
+    if ('error' in featureCheck) return featureCheck.error;
     const { user } = authResult;
 
     const body = await request.json();
@@ -226,6 +236,15 @@ export async function PUT(request: NextRequest) {
     }
     if (!verifySchoolAccess(user, existing.schoolId)) {
       return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
+    }
+
+    // ── SÉCURITÉ (P1) : le PARENT ne peut PAS changer le statut d'une
+    // convocation (il répond via /respond, pour ses enfants uniquement).
+    if (user.role === 'PARENT') {
+      return NextResponse.json(
+        { error: 'Les parents répondent aux convocations via la réponse dédiée' },
+        { status: 403 }
+      );
     }
 
     const updated = await db.convocation.update({

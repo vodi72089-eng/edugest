@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireRole, verifySchoolAccess, sanitizeError } from '@/lib/auth';
 import { archiveExcessStudents } from '@/lib/archive';
 
+// Ordre des forfaits (index croissant = niveau supérieur)
+const TIER_ORDER = ['FREEMIUM', 'ESSENTIEL', 'STANDARD', 'PREMIUM', 'ENTERPRISE', 'CORPORATE'];
+
 export async function POST(request: NextRequest) {
   try {
     // Sécurité : seul un SUPER_ADMIN_GLOBAL ou le SCHOOL_ADMIN de l'école peut
@@ -30,12 +33,32 @@ export async function POST(request: NextRequest) {
     }
 
     // Vérifier que le nouveau tier est valide
-    const validTiers = ['FREEMIUM', 'ESSENTIEL', 'STANDARD', 'PREMIUM', 'ENTERPRISE', 'CORPORATE'];
+    const validTiers = TIER_ORDER;
     if (!validTiers.includes(newTier)) {
       return NextResponse.json(
         { error: 'Tier invalide' },
         { status: 400 }
       );
+    }
+
+    // ── SÉCURITÉ (P0) : un SCHOOL_ADMIN ne peut que RÉTROGRADER son école.
+    // Avant, ce endpoint acceptait n'importe quel tier → un admin FREEMIUM
+    // pouvait s'auto-promouvoir en ENTERPRISE/CORPORATE gratuitement et
+    // neutraliser tous les gating par forfait. Seul SUPER_ADMIN_GLOBAL peut
+    // monter un tier (via la validation du paiement d'abonnement).
+    if (user.role !== 'SUPER_ADMIN_GLOBAL') {
+      const school = await db.school.findUnique({
+        where: { id: schoolId },
+        select: { subscriptionTier: true },
+      });
+      const currentIndex = TIER_ORDER.indexOf(school?.subscriptionTier || 'FREEMIUM');
+      const newIndex = TIER_ORDER.indexOf(newTier);
+      if (newIndex > currentIndex) {
+        return NextResponse.json(
+          { error: 'Seul un SUPER_ADMIN_GLOBAL peut augmenter le forfait. Passez par « Mon abonnement » pour demander une montée de formule.' },
+          { status: 403 }
+        );
+      }
     }
 
     // Archiver les élèves excédentaires

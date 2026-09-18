@@ -238,7 +238,8 @@ export default function AppSelect({
               </li>
             );
           })}
-        </ul>
+        </ul>,
+        document.body
       )}
     </div>
   );

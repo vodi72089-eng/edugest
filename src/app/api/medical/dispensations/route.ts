@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, verifySchoolAccess } from '@/lib/auth';
 import { hasFeatureAccess } from '@/lib/subscription';
 import { generateDocCode } from '@/lib/doc-codes';
 
@@ -64,6 +64,13 @@ export async function POST(req: NextRequest) {
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
 
+    // ── SÉCURITÉ (P1) : avant, TOUT utilisateur authentifié pouvait créer des
+    // dispenses cross-écoles. Rôles habilités + vérification d'école.
+    const MEDICAL_STAFF = ['MEDICAL', 'SCHOOL_ADMIN', 'DIRECTION', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'SECRETARY'];
+    if (!MEDICAL_STAFF.includes(user.role) && user.role !== 'SUPER_ADMIN_GLOBAL') {
+      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
+    }
+
     const body = await req.json();
     const {
       studentId,
@@ -86,6 +93,11 @@ export async function POST(req: NextRequest) {
 
     if (!student) {
       return NextResponse.json({ error: 'Élève introuvable' }, { status: 404 });
+    }
+
+    // ── SÉCURITÉ : l'élève doit appartenir à l'école de l'acteur.
+    if (!verifySchoolAccess(user, student.schoolId)) {
+      return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });
     }
 
     const tier = student.school.subscriptionTier || 'FREEMIUM';
@@ -123,7 +135,7 @@ export async function POST(req: NextRequest) {
     // ── Génération automatique du document officiel (PDF gianelli) ──
     // Chaque dispense créée produit une fiche stockée dans « Gestion des
     // fiches médicales » avec un code unique DIS-{AA}-{NNNN}.
-    let medicalDocument = null;
+    let medicalDocument: Awaited<ReturnType<typeof db.medicalDocument.create>> | null = null;
     try {
       const docCode = await generateDocCode('DIS');
       medicalDocument = await db.medicalDocument.create({

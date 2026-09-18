@@ -11,11 +11,17 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id') || '';
-    const schoolId = searchParams.get('schoolId') || '';
 
     if (!id) {
       return NextResponse.json({ error: 'id est requis' }, { status: 400 });
     }
+
+    // ── SÉCURITÉ (cross-tenant P1) : le schoolId du query n'est plus
+    // optionnel pour les non-SAG (avant : sans schoolId, la recherche
+    // portait sur les 1000 derniers paiements de TOUTES les écoles).
+    const schoolId = user.role === 'SUPER_ADMIN_GLOBAL'
+      ? searchParams.get('schoolId') || ''
+      : user.schoolId || '';
 
     if (schoolId && !verifySchoolAccess(user, schoolId)) {
       return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });

@@ -43,6 +43,13 @@ export async function POST(
       return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
     }
 
+    // ── SÉCURITÉ (IDOR P1) : un PARENT ne peut répondre qu'aux convocations
+    // de SES enfants (avant : n'importe quel parent de l'école répondait
+    // PRESENT/ABSENT pour l'enfant d'un autre).
+    if (user.role === 'PARENT' && convocation.student.parentId !== user.id) {
+      return NextResponse.json({ error: 'Cette convocation ne concerne pas votre enfant' }, { status: 403 });
+    }
+
     const updatedConvocation = await db.convocation.update({
       where: { id: convocationId },
       data: {

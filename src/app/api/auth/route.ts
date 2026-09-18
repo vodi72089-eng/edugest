@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { createToken, getClientIp, getUserAgentFromRequest, checkRateLimit } from '@/lib/auth';
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
     // ── Find User ────────────────────────────────────────────────────────
     // Le champ « email » peut contenir un email OU un numéro WhatsApp
     // (connexion parent par téléphone) — fallback phone si l'email est inconnu.
-    let user = null;
+    let user: Awaited<ReturnType<typeof db.user.findUnique>> = null;
     if (email) {
       user = await db.user.findUnique({ where: { email } });
       if (!user) {
@@ -205,15 +206,16 @@ export async function POST(request: NextRequest) {
 
     // École : enrichissement non-bloquant — un schéma local en retard ne doit
     // jamais empêcher la connexion (le login est un chemin critique).
-    let school = null;
+    const LOGIN_SCHOOL_SELECT = {
+      id: true, name: true, shortName: true, city: true, country: true,
+      subscriptionTier: true, logo: true,
+      designPrimary: true, designAccent: true, designGold: true,
+    } as const;
+    let school: Prisma.SchoolGetPayload<{ select: typeof LOGIN_SCHOOL_SELECT }> | null = null;
     try {
       school = user.schoolId ? await db.school.findUnique({
         where: { id: user.schoolId },
-        select: {
-          id: true, name: true, shortName: true, city: true, country: true,
-          subscriptionTier: true, logo: true,
-          designPrimary: true, designAccent: true, designGold: true,
-        },
+        select: LOGIN_SCHOOL_SELECT,
       }) : null;
     } catch (e) {
       console.error('[auth] école introuvable (non-bloquant) :', (e as Error)?.message);

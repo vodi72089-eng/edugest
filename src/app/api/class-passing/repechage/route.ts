@@ -281,7 +281,8 @@ export async function POST(request: NextRequest) {
           examDate: examDateDate,
           note: note || null,
         })
-        whatsappSent = waResult.sent
+        // waResult.sent est un booléen (1 seul message au parent) — comptage
+        whatsappSent = waResult.sent ? 1 : 0
         whatsappDetail = waResult.detail
       } catch (waError) {
         console.error('[Repechage] WhatsApp notification error (non-blocking):', waError)

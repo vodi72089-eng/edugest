@@ -189,7 +189,7 @@ En Docker, le service `whatsapp` (docker-compose) embarque Baileys avec sa sessi
 - **Windows** — installateur NSIS + version portable
 
 ### Sécurité
-- **Auth RBAC** — 15 rôles, 43 permissions, tokens JWT
+- **Auth RBAC** — 18 rôles, 45 permissions, sessions serveur (fichiers `.sessions/`, Bearer token), hiérarchie anti-escalade (`canCreateRole`/`canChangeUserRole`), isolation multi-écoles et gating par forfait imposés côté API
 - **Chiffrement** — AES-256-GCM pour les clés API
 - **Vérification documents** — QR code unique par PDF officiel
 - **Rate limiting** — protection brute-force
@@ -246,7 +246,7 @@ edugest/
 - **Base de données** : SQLite (Prisma ORM, 43 modèles)
 - **State** : Zustand
 - **Styling** : Tailwind CSS — thème LUXE AFRICAIN (oklch, or/vert, motifs Kente, glassmorphism)
-- **Authentification** : tokens JWT signés + RBAC complet (15 rôles, 43 permissions)
+- **Authentification** : sessions serveur persistantes (token Bearer, fichiers `.sessions/`) + RBAC complet (18 rôles, 45 permissions, matrice de création de rôles, restrictions par forfait FREEMIUM→CORPORATE appliquées serveur)
 - **WhatsApp** : Baileys (`@trashcore/baileys` 4.2.2, serveur autonome Bun, port 3001) + Meta Cloud API
 - **Paiements** : DPO, Visa, Mastercard, Flutterwave, M-Pesa, Orange Money, Airtel Money, Bictorys
 - **Desktop** : Electron 33 (Windows .exe, NSIS + portable)

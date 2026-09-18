@@ -34,7 +34,7 @@
         "to": "app"
       },
       {
-        "from": "../prisma/db/custom.db",
+        "from": "../db/desktop-template.db",
         "to": "template.db"
       },
       {

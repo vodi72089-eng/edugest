@@ -1,11 +1,52 @@
 import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
+
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { reference, status, transactionId } = body;
+    const rawBody = await request.text();
+
+    // ── SÉCURITÉ (P0) : ce webhook était totalement ouvert — n'importe qui
+    // pouvait marquer une demande d'abonnement PAID en POSTant anonymement.
+    // Signature HMAC-SHA256 obligatoire (header x-webhook-signature) dès lors
+    // que SUBSCRIPTION_WEBHOOK_SECRET est configuré ; refusé en production
+    // si aucun secret n'est défini (comme /api/payments/webhook).
+    const secret = process.env.SUBSCRIPTION_WEBHOOK_SECRET;
+    const signature = request.headers.get('x-webhook-signature');
+    if (secret) {
+      if (!signature) {
+        return NextResponse.json({ error: 'Signature requise' }, { status: 401 });
+      }
+      try {
+        const hmac = crypto.createHmac('sha256', secret);
+        hmac.update(rawBody);
+        if (!safeEqual(signature, hmac.digest('hex'))) {
+          console.warn('[SubscriptionWebhook] Signature invalide');
+          return NextResponse.json({ error: 'Signature invalide' }, { status: 401 });
+        }
+      } catch {
+        return NextResponse.json({ error: 'Signature invalide' }, { status: 401 });
+      }
+    } else if (process.env.NODE_ENV === 'production') {
+      console.warn('[SubscriptionWebhook] Aucun SUBSCRIPTION_WEBHOOK_SECRET configuré — requête rejetée');
+      return NextResponse.json({ error: 'Webhook non authentifié' }, { status: 401 });
+    }
+
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json({ error: 'JSON invalide' }, { status: 400 });
+    }
+    const { reference, status, transactionId } = body as { reference?: string; status?: string; transactionId?: string };
 
     if (!reference || !status) {
       return NextResponse.json(

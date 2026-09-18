@@ -20,21 +20,21 @@ const nextConfig: NextConfig = {
   // exploser l'installeur). Ces dossiers ne sont jamais requis au runtime.
   // ⚠️ Ne JAMAIS exclure ./.next/** : le serveur standalone en a besoin
   // (chunks SSR, manifests) — build cassé sinon.
-  experimental: {
-    outputFileTracingExcludes: {
-      "*": [
-        "./desktop/**",
-        "./mini-services/**/node_modules/**",
-        "./whatsapp-auth/**",
-        "./.sessions/**",
-        "./upload/**",
-        "./download/**",
-      ],
-    },
+  // (Next 16 : outputFileTracingExcludes est une option de premier niveau,
+  // plus sous `experimental`.)
+  outputFileTracingExcludes: {
+    "*": [
+      "./desktop/**",
+      "./mini-services/**/node_modules/**",
+      "./whatsapp-auth/**",
+      "./.sessions/**",
+      "./upload/**",
+      "./download/**",
+    ],
   },
   /* config options here */
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   reactStrictMode: false,
   async rewrites() {

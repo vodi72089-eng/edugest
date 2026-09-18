@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { requirePermission, requireRole, verifySchoolAccess, canCreateRole, safeParseInt, sanitizeError } from '@/lib/auth';
+import { requirePermission, requireRole, verifySchoolAccess, canCreateRole, canChangeUserRole, canManageUserAccount, safeParseInt, sanitizeError } from '@/lib/auth';
 
 function generateRandomPassword(length: number = 12): string {
   return crypto.randomBytes(length).toString('base64').slice(0, length);
@@ -240,7 +240,7 @@ export async function PUT(request: NextRequest) {
     const { user } = authResult;
 
     const body = await request.json();
-    const { id, name, email, phone, role, isActive, password, subjectName, classNames, isTitulaire } = body;
+    const { id, name, email, phone, role, isActive, password, subjectName, classNames, isTitulaire, schoolId } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
@@ -257,6 +257,43 @@ export async function PUT(request: NextRequest) {
         { error: 'Accès non autorisé à cette école' },
         { status: 403 }
       );
+    }
+
+    // ── SÉCURITÉ : le schoolId d'un compte est immuable pour tout non-SAG.
+    // Un utilisateur ne peut jamais déplacer un compte vers une autre école.
+    if (schoolId !== undefined && schoolId !== null && schoolId !== existing.schoolId) {
+      if (user.role !== 'SUPER_ADMIN_GLOBAL') {
+        return NextResponse.json(
+          { error: 'Le changement d\'école d\'un compte est réservé au SUPER_ADMIN_GLOBAL' },
+          { status: 403 }
+        );
+      }
+      const targetSchool = await db.school.findUnique({ where: { id: schoolId }, select: { id: true } });
+      if (!targetSchool) {
+        return NextResponse.json({ error: 'École cible non trouvée' }, { status: 404 });
+      }
+    }
+
+    // ── SÉCURITÉ : toute modification de compte exige que l'acteur ait un
+    // niveau >= à la cible (empêche un SECRETARY de modifier/réinitialiser
+    // le mot de passe d'un DIRECTION, SCHOOL_ADMIN, etc.).
+    if (!canManageUserAccount(user, existing)) {
+      return NextResponse.json(
+        { error: 'Vous ne pouvez pas modifier un compte de niveau supérieur au vôtre' },
+        { status: 403 }
+      );
+    }
+
+    // ── SÉCURITÉ CRITIQUE : changement de rôle contrôlé par canChangeUserRole
+    // (avant : seul SUPER_ADMIN_GLOBAL était protégé → un SECRETARY pouvait
+    // se promouvoir lui-même ou n'importe quel compte en DIRECTION/SCHOOL_ADMIN).
+    if (role !== undefined && role !== existing.role) {
+      if (!canChangeUserRole(user, existing, role)) {
+        return NextResponse.json(
+          { error: `Changement de rôle vers « ${role} » non autorisé pour votre rôle` },
+          { status: 403 }
+        );
+      }
     }
 
     // Only SUPER_ADMIN_GLOBAL can assign SUPER_ADMIN_GLOBAL role
@@ -298,6 +335,11 @@ export async function PUT(request: NextRequest) {
     if (role !== undefined) data.role = role;
     if (isActive !== undefined) data.isActive = isActive;
     if (password) data.password = await bcrypt.hash(password, 12);
+    // schoolId ne passe JAMAIS par le body non-sécurisé : si un SAG a demandé
+    // un transfert d'école (validé plus haut), on l'applique ici.
+    if (schoolId !== undefined && schoolId !== null && schoolId !== existing.schoolId && user.role === 'SUPER_ADMIN_GLOBAL') {
+      data.schoolId = schoolId;
+    }
 
     // Handle teacher-specific fields (EPS se comporte comme un TEACHER)
     const targetRole = role || existing.role;
@@ -366,8 +408,10 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    // SCHOOL_ADMIN/SUPER_ADMIN_GLOBAL only
-    const authResult = await requireRole(request, ['SCHOOL_ADMIN']);
+    // users:delete — SUPER_ADMIN_GLOBAL ('*') + SCHOOL_ADMIN hors forfaits qui
+    // le retirent (FREEMIUM/ESSENTIEL). Avant : requireRole(['SCHOOL_ADMIN'])
+    // contournait la restriction d'abonnement et excluait le super admin.
+    const authResult = await requirePermission(request, 'users:delete');
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
 
@@ -387,6 +431,15 @@ export async function DELETE(request: NextRequest) {
     if (!verifySchoolAccess(user, existing.schoolId)) {
       return NextResponse.json(
         { error: 'Accès non autorisé à cette école' },
+        { status: 403 }
+      );
+    }
+
+    // Hiérarchie : impossible de désactiver un compte de niveau supérieur
+    // (ex. un DIRECTION ne peut pas désactiver un SCHOOL_ADMIN).
+    if (!canManageUserAccount(user, existing)) {
+      return NextResponse.json(
+        { error: 'Vous ne pouvez pas désactiver un compte de niveau supérieur au vôtre' },
         { status: 403 }
       );
     }

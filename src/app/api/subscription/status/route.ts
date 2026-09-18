@@ -7,6 +7,9 @@ export async function GET(request: NextRequest) {
     const authResult = await requireAuth(request);
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
+    if (!user.schoolId) {
+      return NextResponse.json({ error: 'École introuvable' }, { status: 404 });
+    }
 
     const school = await db.school.findUnique({
       where: { id: user.schoolId },

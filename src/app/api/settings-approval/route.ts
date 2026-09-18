@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAuth, verifySchoolAccess } from '@/lib/auth'
 
+// Rôles habilités à créer/approuver des demandes de changement de paramètres
+// (avant : tout utilisateur authentifié, PARENT inclus, pouvait créer ET
+// s'auto-approuver un changement de paramètres de l'école).
+const SETTINGS_ROLES = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'DIRECTION', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'SECRETARY']
+
 export async function GET(req: NextRequest) {
   const authResult = await requireAuth(req)
   if ('error' in authResult) return authResult.error
@@ -22,6 +27,10 @@ export async function POST(req: NextRequest) {
   const authResult = await requireAuth(req)
   if ('error' in authResult) return authResult.error
   const { user } = authResult
+
+  if (!SETTINGS_ROLES.includes(user.role)) {
+    return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
+  }
 
   const { changeType, changeData, currentData } = await req.json()
   if (!changeType || !changeData) {
@@ -45,6 +54,11 @@ export async function PATCH(req: NextRequest) {
   const authResult = await requireAuth(req)
   if ('error' in authResult) return authResult.error
   const { user } = authResult
+
+  // Seul le personnel habilité peut approuver/rejeter.
+  if (!SETTINGS_ROLES.includes(user.role)) {
+    return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
+  }
 
   const { id, status } = await req.json()
   if (!id || !status) {

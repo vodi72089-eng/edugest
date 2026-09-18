@@ -35,7 +35,16 @@ const AUTH_DIR = process.env.WHATSAPP_AUTH_DIR
   ? path.resolve(process.env.WHATSAPP_AUTH_DIR)
   : path.resolve(__dirname, '..', '..', 'whatsapp-auth');
 
-const API_KEY = process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key';
+// ── SÉCURITÉ : la clé par défaut n'est acceptée qu'en développement.
+// En production, WHATSAPP_API_KEY est obligatoire (sinon clé aléatoire →
+// l'agent refuse les appels non authentifiés au lieu d'être ouvert).
+const API_KEY = process.env.WHATSAPP_API_KEY
+  || (process.env.NODE_ENV === 'production'
+    ? require('crypto').randomBytes(24).toString('hex')
+    : 'edugest-wa-dev-key');
+if (!process.env.WHATSAPP_API_KEY && process.env.NODE_ENV === 'production') {
+  console.warn('[WhatsApp Server] ⚠️ WHATSAPP_API_KEY non défini — clé aléatoire générée (les appelants devront fournir la même clé).');
+}
 const ALLOWED_ORIGINS = (process.env.WHATSAPP_CORS_ORIGINS || '*')
   .split(',').map(s => s.trim()).filter(Boolean);
 
@@ -603,8 +612,12 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`[WhatsApp Server] natsu-baileys-v10 démarré sur le port ${PORT}`);
+// ── SÉCURITÉ : écoute par défaut sur 127.0.0.1 uniquement (avant : toutes
+// les interfaces → API de contrôle WhatsApp exposée au LAN). WA_HOST permet
+// de surcharger pour Docker.
+const WA_HOST = process.env.WA_HOST || '127.0.0.1';
+server.listen(PORT, WA_HOST, () => {
+  console.log(`[WhatsApp Server] natsu-baileys-v10 démarré sur ${WA_HOST}:${PORT}`);
   console.log(`[WhatsApp Server] Auth dir: ${AUTH_DIR}`);
   startWhatsApp().catch(e => console.error('[WhatsApp] Erreur au démarrage :', e?.message));
 });

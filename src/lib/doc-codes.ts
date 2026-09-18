@@ -12,29 +12,40 @@ export type DocCodePrefix = 'BUL' | 'NOT' | 'DIS' | 'FSA' | 'REG';
 
 const YEAR = () => new Date().getFullYear().toString().slice(-2);
 
-/** Table Prisma + champ portant le code, par préfixe. */
-function tableFor(prefix: DocCodePrefix) {
+/**
+ * Table Prisma + champ portant le code, par préfixe.
+ * NB : les delegates Prisma ne sont pas appelables en union — les requêtes
+ * sont donc typées par branche (même comportement, types exacts).
+ */
+async function countByDocCode(prefix: DocCodePrefix, yy: string): Promise<number> {
   switch (prefix) {
-    case 'BUL': return { delegate: db.reportCard, field: 'docCode' as const };
-    case 'NOT': return { delegate: db.grade, field: 'docCode' as const };
-    default: return { delegate: db.medicalDocument, field: 'docCode' as const };
+    case 'BUL':
+      return db.reportCard.count({ where: { docCode: { startsWith: `${prefix}-${yy}-` } } });
+    case 'NOT':
+      return db.grade.count({ where: { docCode: { startsWith: `${prefix}-${yy}-` } } });
+    default:
+      return db.medicalDocument.count({ where: { docCode: { startsWith: `${prefix}-${yy}-` } } });
+  }
+}
+
+async function docCodeExists(prefix: DocCodePrefix, code: string): Promise<boolean> {
+  switch (prefix) {
+    case 'BUL':
+      return (await db.reportCard.findFirst({ where: { docCode: code }, select: { id: true } })) !== null;
+    case 'NOT':
+      return (await db.grade.findFirst({ where: { docCode: code }, select: { id: true } })) !== null;
+    default:
+      return (await db.medicalDocument.findFirst({ where: { docCode: code }, select: { id: true } })) !== null;
   }
 }
 
 export async function generateDocCode(prefix: DocCodePrefix): Promise<string> {
   const yy = YEAR();
-  const { delegate, field } = tableFor(prefix);
 
   for (let attempt = 0; attempt < 12; attempt++) {
-    const count = await delegate.count({
-      where: { [field]: { startsWith: `${prefix}-${yy}-` } },
-    });
+    const count = await countByDocCode(prefix, yy);
     const code = `${prefix}-${yy}-${String(count + 1 + attempt).padStart(4, '0')}`;
-    const exists = await delegate.findFirst({
-      where: { [field]: code },
-      select: { id: true },
-    });
-    if (!exists) return code;
+    if (!(await docCodeExists(prefix, code))) return code;
   }
 
   // Filet de sécurité : suffixe horodaté (quasi-impossible à collisions)

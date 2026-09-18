@@ -44,6 +44,12 @@ export async function POST(
       return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
     }
 
+    // ── SÉCURITÉ (P1) : la replanification est réservée au personnel —
+    // jamais aux parents.
+    if (user.role === 'PARENT') {
+      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
+    }
+
     const updatedConvocation = await db.convocation.update({
       where: { id: convocationId },
       data: {

@@ -48,7 +48,7 @@
 | **Baileys** | Serveur WhatsApp autonome |
 | **Electron 33** | Application de bureau |
 | **bcryptjs** | Hachage des mots de passe |
-| **JWT** | Tokens d'authentification |
+| **Sessions fichiers** | Tokens Bearer persistés dans `.sessions/` (UUID, expiration, révocation) |
 | **AES-256-GCM** | Chiffrement des clés API paiement |
 | **Ant Design Icons** | Iconographie |
 | **Plus Jakarta Sans** | Police principale |
@@ -78,7 +78,7 @@ edugest/
 │   │   ├── ui/                # Composants UI génériques (shadcn/ui)
 │   │   └── views/             # 18+ vues métier
 │   └── lib/
-│       ├── auth.ts            # Auth, RBAC, 43 permissions
+│       ├── auth.ts            # Auth, RBAC, 45 permissions, hiérarchie de rôles
 │       ├── db.ts              # Client Prisma singleton
 │       ├── store.ts           # Zustand store (session, navigation)
 │       ├── subscription.ts    # Logique abonnements/tiers
@@ -193,13 +193,14 @@ FREEMIUM ──▶ STANDARD ──▶ PREMIUM ──▶ ENTERPRISE ──▶ COR
 ```
 1. POST /api/auth { email, password }
    → Vérification bcrypt
-   → Génération token JWT
-   → Cookie HTTP-only (edugest_token, 24h)
+   → Génération d'une session serveur (UUID aléatoire, fichier .sessions/, 24 h web — 30 j desktop via EDUGEST_SESSION_DAYS)
+   → Réponse JSON { token } + cookie HTTP-only (edugest_token)
    → Réponse: { user, school, token }
 
 2. Requêtes API suivantes
    → Header: Authorization: Bearer <token>
-   → OU Cookie: edugest_token=<token>
+   → OU Cookie: edugest_token=<token> (web)
+   → OU Authorization: Bearer <token> (web, mobile et desktop)
    → requireAuth() décode le token
    → Vérifie isActive + schoolId
 ```
@@ -209,14 +210,29 @@ FREEMIUM ──▶ STANDARD ──▶ PREMIUM ──▶ ENTERPRISE ──▶ COR
 | Mesure | Implémentation |
 |--------|----------------|
 | Mots de passe | bcryptjs (12 rounds) |
-| Tokens | JWT signés avec secret serveur |
+| Tokens | UUID de session (128 bits, serveur uniquement), jamais décodable côté client |
 | Cookies | HTTP-only, SameSite=Lax, Secure en prod |
 | Rate limiting | 30 requêtes/15min par IP, 5 tentatives login/15min |
 | Chiffrement API | AES-256-GCM pour les clés de passerelles |
+
 | CSRF | SameSite cookies + origin checking |
 | Headers | X-Frame-Options, X-Content-Type-Options, Referrer-Policy |
 | Anti-énumération | Messages d'erreur identiques pour email inexistant/mot de passe faux |
 | Vérification documents | QR code unique par PDF officiel |
+
+### Modèle de sécurité serveur (RBAC & multi-tenant)
+
+La sécurité est **imposée côté API** (`src/lib/auth.ts`, `src/lib/feature-gate.ts`) — l'interface ne fait que la refléter :
+
+- **Hiérarchie de privilèges** (`ROLE_LEVELS`) : personne ne peut créer, promouvoir, modifier le mot de passe ni désactiver un compte d'un niveau supérieur ou égal au sien (`canCreateRole`, `canChangeUserRole`, `canManageUserAccount`).
+- **Matrice de création de rôles** : seul SUPER_ADMIN_GLOBAL crée SCHOOL_ADMIN/ADMIN_FREEMIUM/SUPER_ADMIN_GLOBAL ; un SECRETARY ne peut créer que des rôles strictement inférieurs ; DISCIPLINE_* uniquement TEACHER/HEAD_TEACHER.
+- **Isolation multi-écoles** : le `schoolId` envoyé par le client n'est JAMAIS considéré — chaque route force `user.schoolId` (ou `verifySchoolAccess`) ; le `schoolId` d'un compte est immuable pour tout non-SAG (PUT /api/users).
+- **Parent (IDOR)** : un parent n'accède qu'aux données (`students`, `medical/records`, `payments`, `convocations`, `bulletins`) des enfants où `student.parentId === user.id`, vérifié serveur.
+- **Restrictions par forfait** : `getEffectivePermissions` retire (FREEMIUM/ESSENTIEL) les permissions payantes pour TOUS les rôles rattachés à une école ; `requireFeature(feature)` (communications, convocations, homework, discipline, report_cards, medical, class-passing…) renvoie 403 + `tierRequired` si le forfait n'inclut pas la fonctionnalité. Une fonctionnalité masquée dans l'UI l'est aussi dans l'API.
+- **Abonnements** : montée de forfait réservée au SUPER_ADMIN_GLOBAL (validation du paiement) ; un SCHOOL_ADMIN ne peut que rétrograder (`/api/subscription/downgrade`) ; l'activation (`/api/payments/subscription/renew`) exige une demande d'abonnement PAYÉE ; les webhooks de paiement/abonnement exigent une signature HMAC (`x-webhook-signature`, secret obligatoire en production).
+- **Anti-énumération** : login/OTP/forgot-password renvoient des messages génériques ; OTP limité par IP et par compte.
+- **Tests** : `node scripts/security-tests/run-security-tests.mjs <baseUrl>` — 31 vérifications (auth, escalade, isolation, IDOR parent, abonnement) ; exécutées par `.github/workflows/ci.yml`.
+- **Desktop** : le serveur Next standalone embarqué exécute exactement le même code (aucun RBAC dupliqué) ; sessions dans `%APPDATA%/EduGest/.sessions` (EDUGEST_SESSIONS_DIR), SQLite par installation (`template.db` vierge généré par CI), agent WhatsApp lié à 127.0.0.1 avec clé aléatoire par installation.
 
 ### Variables d'environnement critiques
 
@@ -249,7 +265,7 @@ WHATSAPP_CORS_ORIGINS=http://localhost:3000
 | `HEAD_TEACHER` | École | Chef de classe (+ bulletins) |
 | `PARENT` | École | Parent d'élève (lecture) |
 | `MEDICAL` | École | Compte médical (dispenses) |
-| `SPORTS` | École | Compte EPS (dispenses) |
+| `EPS` | École | Compte EPS/éducation physique (dispenses) |
 
 ### Permissions (43)
 

@@ -76,6 +76,29 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // ── SÉCURITÉ (P1) : création d'école publique (onboarding) —
+    // rate limit strict par IP (avant : spam d'écoles illimité sans auth).
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const { checkRateLimit } = await import('@/lib/auth');
+    if (!checkRateLimit(`school-create:${clientIp}`, 3, 60 * 60 * 1000)) {
+      return NextResponse.json(
+        { error: 'Trop de créations d\'écoles. Réessayez plus tard.' },
+        { status: 429 }
+      );
+    }
+
+    // ── SÉCURITÉ : seul un SUPER_ADMIN_GLOBAL authentifié peut choisir le
+    // forfait et le mot de passe admin. Pour tout appel public, le forfait
+    // est FORCÉ à FREEMIUM (avant : subscriptionTier:"ENTERPRISE" accepté
+    // anonymement) et le mot de passe admin est toujours généré.
+    let callerRole: string | null = null;
+    try {
+      const { requireAuth } = await import('@/lib/auth');
+      const maybeAuth = await requireAuth(request);
+      if (!('error' in maybeAuth)) callerRole = maybeAuth.user.role;
+    } catch {}
+    const isPlatformAdmin = callerRole === 'SUPER_ADMIN_GLOBAL';
+
     const body = await request.json();
     const {
       name,
@@ -143,7 +166,7 @@ export async function POST(request: NextRequest) {
         maxStudents: maxStudents || 100,
         establishmentYear: establishmentYear || null,
         mission: mission || null,
-        subscriptionTier: subscriptionTier || 'FREEMIUM',
+        subscriptionTier: isPlatformAdmin ? (subscriptionTier || 'FREEMIUM') : 'FREEMIUM',
         logo: logo || null,
         coverImage: coverImage || null,
       },
@@ -162,7 +185,10 @@ export async function POST(request: NextRequest) {
         data: {
           name: adminName,
           email: adminEmail || null,
-          phone: adminPhone || phone,
+          // User.phone est @unique : le compte admin ne peut pas hériter
+          // tel quel du téléphone de l'école (2 écoles créées avec le même
+          // numéro → crash 500). Fallback unique par école.
+          phone: adminPhone || `admin-${school.id}`,
           password: hashedPassword,
           role: 'SCHOOL_ADMIN',
           isVerified: true, // Auto-verify since OTP is disabled
@@ -214,7 +240,9 @@ export async function POST(request: NextRequest) {
             capacity: t.capacity ?? 40,
             schoolId: school.id,
             schoolYearId: schoolYear.id,
-            option: t.option ?? null,
+            // NB : le modèle Class n'a pas de champ `option` — l'option
+            // (Commerciale & Gestion, Pédagogie…) est encodée dans `name`.
+            // (Avant : `option` envoyé à Prisma → création d'école en 500.)
           })),
         });
         classesCreated = result.count;

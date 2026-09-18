@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
+import { requireFeature } from '@/lib/feature-gate';
 import { notifyDiscipline } from '@/lib/whatsapp-agent';
 import { classifyStudent, learnKeywordsFromRecord } from '@/lib/discipline-classifier';
 
@@ -9,6 +10,9 @@ export async function GET(request: NextRequest) {
   try {
     const authResult = await requirePermission(request, 'discipline:read');
     if ('error' in authResult) return authResult.error;
+    // Feature discipline incluse dès ESSENTIEL côté serveur.
+    const featureCheck = await requireFeature(request, 'discipline');
+    if ('error' in featureCheck) return featureCheck.error;
     const { user } = authResult;
 
     const { searchParams } = new URL(request.url);
@@ -79,6 +83,9 @@ export async function POST(request: NextRequest) {
 
     const authResult = await requirePermission(request, 'discipline:create');
     if ('error' in authResult) return authResult.error;
+    // Feature discipline incluse dès ESSENTIEL côté serveur.
+    const featureCheck = await requireFeature(request, 'discipline');
+    if ('error' in featureCheck) return featureCheck.error;
     const { user } = authResult;
 
     const body = await request.json();
@@ -278,6 +285,9 @@ export async function PUT(request: NextRequest) {
   try {
     const authResult = await requirePermission(request, 'discipline:update');
     if ('error' in authResult) return authResult.error;
+    // Feature discipline incluse dès ESSENTIEL côté serveur.
+    const featureCheck = await requireFeature(request, 'discipline');
+    if ('error' in featureCheck) return featureCheck.error;
     const { user } = authResult;
 
     const body = await request.json();

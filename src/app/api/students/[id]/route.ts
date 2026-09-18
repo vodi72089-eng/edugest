@@ -105,35 +105,75 @@ export async function PUT(
       return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
 
-    // Parent can only update their own children
-    if (user.role === 'PARENT' && existing.parentId !== user.id) {
-      return NextResponse.json(
-        { error: 'Vous ne pouvez modifier que vos propres enfants' },
-        { status: 403 }
-      );
-    }
-
-    // Verify school access (skip for parents)
-    if (user.role !== 'PARENT' && !verifySchoolAccess(user, existing.schoolId)) {
+    // Verify school access
+    if (!verifySchoolAccess(user, existing.schoolId)) {
       return NextResponse.json(
         { error: 'Accès non autorisé à cette école' },
         { status: 403 }
       );
     }
 
+    // ── SÉCURITÉ (IDOR P1) : le parent ne peut modifier QUE les champs de
+    // contact de SES enfants — jamais classId/parentId/isExcluded/identité.
+    const isParent = user.role === 'PARENT';
+    if (isParent && existing.parentId !== user.id) {
+      return NextResponse.json(
+        { error: 'Vous ne pouvez modifier que vos propres enfants' },
+        { status: 403 }
+      );
+    }
+    // Les autres rôles doivent avoir la permission students:update
+    // (avant : requireAuth seul → TEACHER/CASHIER/etc. pouvaient tout éditer).
+    if (!isParent) {
+      const permCheck = await requirePermission(request, 'students:update');
+      if ('error' in permCheck) return permCheck.error;
+    }
+
     const body = await request.json();
 
     const updateData: Record<string, unknown> = {};
-    const allowedFields = [
-      'firstName', 'lastName', 'dateOfBirth', 'gender', 'address',
-      'phone', 'classId', 'parentId', 'isExcluded', 'photoUrl',
-    ];
-
-    for (const field of allowedFields) {
-      if (body[field] !== undefined) {
-        updateData[field] = field === 'dateOfBirth' && body[field]
-          ? new Date(body[field])
-          : body[field];
+    if (isParent) {
+      // Whitelist parent : coordonnées uniquement.
+      const parentFields = ['phone', 'address', 'photoUrl'];
+      for (const field of parentFields) {
+        if (body[field] !== undefined) updateData[field] = body[field];
+      }
+    } else {
+      const allowedFields = [
+        'firstName', 'lastName', 'dateOfBirth', 'gender', 'address',
+        'phone', 'classId', 'isExcluded', 'photoUrl',
+      ];
+      for (const field of allowedFields) {
+        if (body[field] !== undefined) {
+          updateData[field] = field === 'dateOfBirth' && body[field]
+            ? new Date(body[field])
+            : body[field];
+        }
+      }
+      // ── SÉCURITÉ : le lien parent d'un élève n'est modifiable que par le
+      // SUPER_ADMIN_GLOBAL (avant : n'importe quel staff via parentId).
+      if (body.parentId !== undefined && body.parentId !== existing.parentId) {
+        if (user.role !== 'SUPER_ADMIN_GLOBAL') {
+          return NextResponse.json(
+            { error: 'Le changement de parent d\'un élève est réservé au SUPER_ADMIN_GLOBAL' },
+            { status: 403 }
+          );
+        }
+        updateData.parentId = body.parentId;
+      }
+      // ── SÉCURITÉ : la classe cible doit appartenir à l'école de l'élève
+      // (avant : classId d'une autre école accepté → élève « déplacé »).
+      if (body.classId !== undefined && body.classId && body.classId !== existing.classId) {
+        const targetClass = await db.class.findUnique({
+          where: { id: body.classId },
+          select: { schoolId: true },
+        });
+        if (!targetClass || targetClass.schoolId !== existing.schoolId) {
+          return NextResponse.json(
+            { error: 'Cette classe n\'appartient pas à l\'école de l\'élève' },
+            { status: 400 }
+          );
+        }
       }
     }
 

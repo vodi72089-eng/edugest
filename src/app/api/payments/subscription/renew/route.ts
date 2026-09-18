@@ -5,9 +5,17 @@ import { SUBSCRIPTION_PRICES } from '@/lib/subscription';
 
 /**
  * POST /api/payments/subscription/renew
- * Allows a school to renew/upgrade their subscription.
+ * Allows a school to renew/activate their subscription.
  * Body: { tier: string, paymentMethod: string }
- * School pays for their own subscription.
+ *
+ * ── SÉCURITÉ (P0) ── Avant, n'importe quel SECRETARY pouvait activer
+ * n'importe quel tier (ENTERPRISE inclus) sans aucun paiement réel.
+ * Désormais :
+ *  - SUPER_ADMIN_GLOBAL : peut activer directement (validation hors-ligne).
+ *  - SCHOOL_ADMIN : uniquement si une SubscriptionRequest de SON école pour
+ *    CE tier existe avec le statut PAID (paiement passerelle reçu via le
+ *    webhook signé) — sinon 403 avec guidage vers « Mon abonnement ».
+ *  - Tous les autres rôles : refusés.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +24,7 @@ export async function POST(request: NextRequest) {
     const { user } = authResult;
 
     // Only school admins can renew
-    if (!['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'SECRETARY'].includes(user.role)) {
+    if (!['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN'].includes(user.role)) {
       return NextResponse.json(
         { error: 'Seuls les administrateurs peuvent renouveler l\'abonnement' },
         { status: 403 }
@@ -42,6 +50,24 @@ export async function POST(request: NextRequest) {
     const school = await db.school.findUnique({ where: { id: user.schoolId } });
     if (!school) {
       return NextResponse.json({ error: 'École non trouvée' }, { status: 404 });
+    }
+
+    // ── SÉCURITÉ : preuve de paiement requise pour les non-super-admins.
+    if (user.role !== 'SUPER_ADMIN_GLOBAL') {
+      const paidRequest = await db.subscriptionRequest.findFirst({
+        where: {
+          schoolId: user.schoolId,
+          requestedTier: tier,
+          status: 'PAID',
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!paidRequest) {
+        return NextResponse.json(
+          { error: 'Aucun paiement validé trouvé pour cette formule. Créez une demande d\'abonnement et réglez-la via une passerelle de paiement avant de l\'activer.' },
+          { status: 403 }
+        );
+      }
     }
 
     const amount = SUBSCRIPTION_PRICES[tier];

@@ -204,11 +204,13 @@ export default function DisciplineView() {
       studentId: s.id,
       student: { id: s.id, firstName: s.firstName, lastName: s.lastName, matricule: s.matricule, photoUrl: s.photoUrl },
       title: 'Aucune infraction',
+      description: '',
       type: 'CLEAN',
       severity: 'NONE',
       points: 0,
       listType: 'WHITELIST',
       status: 'ACTIVE',
+      schoolId: s.schoolId,
       createdAt: new Date().toISOString(),
     }))
     return [...records, ...cleanRecords]

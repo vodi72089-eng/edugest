@@ -3703,7 +3703,7 @@ const GATEWAY_SVG_LOGOS: Record<string, string> = {
 // Anciennement onglet « WhatsApp API & Quotas » de Config. Paiements —
 // désormais intégrée dans la vue « Connexion WhatsApp » (demande utilisateur).
 function WhatsAppApiQuotasSection() {
-  const { userData } = useEduGestStore()
+  const { userData, setCurrentView } = useEduGestStore()
   const [waConfig, setWaConfig] = useState<any>(null)
   const [waForm, setWaForm] = useState<any>({
     customEnabled: false,
@@ -5900,7 +5900,7 @@ function HomeworkView() {
   const [loading, setLoading] = useState(true)
   const isTeacher = userRole === 'TEACHER' || userRole === 'HEAD_TEACHER'
   const isParent = userRole === 'PARENT'
-  const canCreate = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const canCreate = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
   const canSeeStats = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
   const [totalUsers, setTotalUsers] = useState(0)
   const [expandedHomework, setExpandedHomework] = useState<string | null>(null)
@@ -6335,7 +6335,7 @@ const RISK_BADGE: Record<string, { label: string; color: string }> = {
 function ClassPassingView() {
   const { userData, userRole } = useEduGestStore()
   const router = useRouter()
-  const allowedRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'HEAD_TEACHER']
+  const allowedRoles = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN']
   // Passage de classe : réservé aux admins abonnés au forfait Professionnel (PREMIUM) et plus
   const tier = userData?.subscriptionTier || 'FREEMIUM'
   const isSuperAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
@@ -7000,7 +7000,7 @@ function ConvocationView() {
 
   const { userData, userRole, highlightedId } = useEduGestStore()
   const isParent = userRole === 'PARENT'
-  const canCreate = ['SUPER_ADMIN_GLOBAL', 'ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE'].includes(userRole || '')
+  const canCreate = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE'].includes(userRole || '')
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])

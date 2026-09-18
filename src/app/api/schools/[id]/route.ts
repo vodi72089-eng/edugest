@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, requireRole, verifySchoolAccess, sanitizeError } from '@/lib/auth';
+import { requirePermission, requireRole, verifySchoolAccess, sanitizeError, type AuthUser } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
@@ -11,7 +11,7 @@ export async function GET(
 
     // Allow public access for active schools (SchoolDetailView is public)
     // Authenticated users get school access verification
-    let user: { schoolId?: string } | null = null;
+    let user: AuthUser | null = null;
     try {
       const authResult = await requirePermission(request, 'school:read');
       if (!('error' in authResult)) {
@@ -54,7 +54,12 @@ export async function GET(
       return NextResponse.json({ error: 'School not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ data: school });
+    // ── SÉCURITÉ (P1) : la liste du personnel (noms, EMAILS, rôles) n'est
+    // plus exposée aux visiteurs anonymes — réservée aux utilisateurs
+    // authentifiés habilités (school:read).
+    const data = user ? school : { ...school, users: [] };
+
+    return NextResponse.json({ data });
   } catch (error) {
     console.error('Error getting school:', error);
     return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });

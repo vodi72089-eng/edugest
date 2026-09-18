@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       const { isWhatsAppConnected } = await import('@/lib/whatsapp-agent')
       if (await isWhatsAppConnected()) {
         const WA_SERVER = process.env.WHATSAPP_SERVER_URL || 'http://localhost:3001'
-        const WA_API_KEY = process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key'
+        const WA_API_KEY = process.env.WHATSAPP_API_KEY || (process.env.NODE_ENV !== 'production' ? 'edugest-wa-dev-key' : '')
         await fetch(`${WA_SERVER}/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-api-key': WA_API_KEY },

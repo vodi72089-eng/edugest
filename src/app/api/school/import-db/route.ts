@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, sanitizeError } from '@/lib/auth';
+import { requireAuth, sanitizeError, type AuthUser } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   let tmpPath: string | null = null;
   try {
     // ── Authentification : Bearer OU identifiants du formulaire ────────
-    let user = null as Awaited<ReturnType<typeof requireAuth>> extends { user: infer U } ? U : never;
+    let user: AuthUser | null = null;
     let authError: string | null = null;
 
     const authHeader = request.headers.get('authorization');
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       if (!IMPORT_ADMIN_ROLES.includes(candidate.role)) {
         return NextResponse.json({ error: 'Seuls les administrateurs peuvent importer une base de données' }, { status: 403 });
       }
-      user = candidate as typeof user;
+      user = candidate;
     } else if (!IMPORT_ADMIN_ROLES.includes(user.role)) {
       return NextResponse.json({ error: 'Seuls les administrateurs peuvent importer une base de données' }, { status: 403 });
     }
@@ -85,6 +85,9 @@ export async function POST(request: NextRequest) {
     const schoolId = user.role === 'SUPER_ADMIN_GLOBAL' && formData.get('schoolId')
       ? String(formData.get('schoolId'))
       : user.schoolId;
+    if (!schoolId) {
+      return NextResponse.json({ error: 'École non trouvée' }, { status: 404 });
+    }
 
     const school = await db.school.findUnique({
       where: { id: schoolId },

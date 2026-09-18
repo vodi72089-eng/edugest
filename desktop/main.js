@@ -25,6 +25,13 @@ const fs = require('fs');
 const http = require('http');
 const https = require('https');
 const net = require('net');
+const crypto = require('crypto');
+
+// ── SÉCURITÉ : clé de l'agent WhatsApp. Avant : 'edugest-wa-dev-key' en dur
+// → n'importe quel processus de la machine pouvait parler à l'agent local.
+// Désormais : clé aléatoire générée par installation (ou WHATSAPP_API_KEY),
+// transmise identiquement au service WhatsApp ET au serveur Next.
+const WA_API_KEY = process.env.WHATSAPP_API_KEY || crypto.randomBytes(24).toString('hex');
 
 /** Mise à jour auto (NSIS installé). Chargé uniquement en mode packagé. */
 let autoUpdater = null;
@@ -357,7 +364,11 @@ try {
     autoUpdater.quitAndInstall(false, true);
   });
   ipcMain.on('update-open-page', (_e, url) => {
-    if (url) shell.openExternal(url);
+    // ── SÉCURITÉ : allowlist — uniquement des URLs https de confiance
+    // (un XSS dans l'UI ne doit pas pouvoir ouvrir un schéma arbitraire).
+    try {
+      if (typeof url === 'string' && url.startsWith('https://')) shell.openExternal(url);
+    } catch {}
   });
 } catch {}
 
@@ -550,7 +561,7 @@ async function startBackend() {
         NODE_ENV: 'production',
         WA_PORT: String(waPort),
         WHATSAPP_AUTH_DIR: WA_AUTH_DIR,
-        WHATSAPP_API_KEY: process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key',
+        WHATSAPP_API_KEY: WA_API_KEY,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -598,7 +609,7 @@ async function startBackend() {
       VAPID_SUBJECT: 'mailto:contact@edugest.app',
       // Agent WhatsApp embarqué (ou service externe sur 3001 par défaut)
       WHATSAPP_SERVER_URL: waPort ? `http://127.0.0.1:${waPort}` : 'http://127.0.0.1:3001',
-      WHATSAPP_API_KEY: process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key',
+      WHATSAPP_API_KEY: WA_API_KEY,
       NEXT_PUBLIC_APP_URL: `http://127.0.0.1:${port}`,
       NEXT_TELEMETRY_DISABLED: '1',
     },

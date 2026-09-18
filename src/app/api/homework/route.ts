@@ -2,12 +2,16 @@ import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
+import { requireFeature } from '@/lib/feature-gate';
 import { notifyHomework } from '@/lib/whatsapp-agent';
 
 export async function GET(request: NextRequest) {
   try {
     const authResult = await requirePermission(request, 'homework:read');
     if ('error' in authResult) return authResult.error;
+    // Feature homework incluse dès ESSENTIEL côté serveur.
+    const featureCheck = await requireFeature(request, 'homework');
+    if ('error' in featureCheck) return featureCheck.error;
     const { user } = authResult;
 
     const { searchParams } = new URL(request.url);
@@ -136,6 +140,9 @@ export async function POST(request: NextRequest) {
 
     const authResult = await requirePermission(request, 'homework:create');
     if ('error' in authResult) return authResult.error;
+    // Feature homework incluse dès ESSENTIEL côté serveur.
+    const featureCheck = await requireFeature(request, 'homework');
+    if ('error' in featureCheck) return featureCheck.error;
     const { user } = authResult;
 
     // Only TEACHER, HEAD_TEACHER, and DIRECTION roles can create homework

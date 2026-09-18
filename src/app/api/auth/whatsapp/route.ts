@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import { checkRateLimit, createSession, getClientIp, getUserAgentFromRequest } from '@/lib/auth';
 
 const WA_SERVER = process.env.WHATSAPP_SERVER_URL || 'http://localhost:3001';
-const WA_API_KEY = process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key';
+const WA_API_KEY = process.env.WHATSAPP_API_KEY || (process.env.NODE_ENV !== 'production' ? 'edugest-wa-dev-key' : '');
 
 const verificationCodes = new Map<string, { code: string; expiresAt: number; attempts: number }>();
 

@@ -4,20 +4,29 @@ import { requireAuth, requireRole, verifySchoolAccess, sanitizeError } from '@/l
 import { NextRequest, NextResponse } from 'next/server';
 import { notifyBulletin } from '@/lib/whatsapp-agent';
 import { notifyPassingUpdateToAdmins } from '@/lib/passing-notify';
+import { requireFeature } from '@/lib/feature-gate';
 
-const CONFIG_ROLES = ['SUPER_ADMIN_GLOBAL', 'ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'HEAD_TEACHER'];
+// Rôles pouvant enregistrer une décision de passage. (Avant : rôle fantôme
+// 'ADMIN' inexistant et SCHOOL_ADMIN/DIRECTION absents.)
+const CONFIG_ROLES = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'SECRETARY', 'DIRECTION', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'HEAD_TEACHER'];
 
 // GET /api/report-cards?studentId=...&trimester=...&schoolId=...
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireAuth(request);
+    // Feature report_cards (bulletins) réservée STANDARD+ côté serveur.
+    const authResult = await requireFeature(request, 'report_cards');
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
 
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('studentId');
     const trimester = searchParams.get('trimester');
-    const schoolId = searchParams.get('schoolId') || user.schoolId;
+    // ── SÉCURITÉ (cross-tenant P1) : le schoolId du query n'est honoré que
+    // pour SUPER_ADMIN_GLOBAL (avant : un SCHOOL_ADMIN voyait toutes les
+    // écoles). Feature bulletin (report_cards) réservée STANDARD+ côté API.
+    const schoolId = user.role === 'SUPER_ADMIN_GLOBAL'
+      ? (searchParams.get('schoolId') || user.schoolId)
+      : user.schoolId;
 
     if (!schoolId) {
       return NextResponse.json({ error: 'schoolId est requis' }, { status: 400 });
@@ -30,6 +39,9 @@ export async function GET(request: NextRequest) {
     const where: any = {};
     if (studentId) where.studentId = studentId;
     if (trimester) where.trimester = trimester;
+    // Scoping école systématique via l'élève : les décisions d'une autre
+    // école ne fuient plus jamais dans la liste.
+    where.student = { ...(where.student || {}), schoolId };
 
     // For TEACHER/HEAD_TEACHER, only show report cards from their assigned classes
     if (user.role === 'TEACHER' || user.role === 'HEAD_TEACHER') {
@@ -38,16 +50,15 @@ export async function GET(request: NextRequest) {
         select: { classId: true },
       });
       const classIds = [...new Set(assignments.map(a => a.classId))];
-      if (classIds.length > 0) {
-        where.student = { classId: { in: classIds } };
-      } else {
-        where.student = { classId: '__NONE__' };
-      }
+      where.student = {
+        schoolId,
+        ...(classIds.length > 0 ? { classId: { in: classIds } } : { classId: '__NONE__' }),
+      };
     }
 
     // For PARENT role, only show their children's report cards
     if (user.role === 'PARENT') {
-      where.student = { parentId: user.id };
+      where.student = { schoolId, parentId: user.id };
     }
 
     // If studentId specified, verify access
@@ -84,6 +95,9 @@ export async function POST(request: NextRequest) {
   try {
     const authResult = await requireRole(request, CONFIG_ROLES);
     if ('error' in authResult) return authResult.error;
+    // Feature report_cards (bulletins) réservée STANDARD+ côté serveur.
+    const featureCheck = await requireFeature(request, 'report_cards');
+    if ('error' in featureCheck) return featureCheck.error;
     const { user } = authResult;
 
     const body = await request.json();
@@ -102,6 +116,20 @@ export async function POST(request: NextRequest) {
 
     if (!verifySchoolAccess(user, schoolId)) {
       return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });
+    }
+
+    // ── SÉCURITÉ (cross-tenant) : l'élève ciblé doit appartenir à l'école
+    // (avant : décision de passage enregistrable pour un élève d'une autre
+    // école sur l'en-tête de la sienne).
+    const targetStudent = await db.student.findUnique({
+      where: { id: studentId },
+      select: { schoolId: true },
+    });
+    if (!targetStudent) {
+      return NextResponse.json({ error: 'Élève non trouvé' }, { status: 404 });
+    }
+    if (targetStudent.schoolId !== schoolId) {
+      return NextResponse.json({ error: 'Cet élève n\'appartient pas à cette école' }, { status: 403 });
     }
 
     // Validate decision (RATTRAPAGE = passage sous condition d'examens de rattrapage)

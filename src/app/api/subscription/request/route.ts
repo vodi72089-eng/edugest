@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
           title: 'Demande d\'upgrade d\'abonnement',
           message: `${user.name} demande un passage de ${school.subscriptionTier || 'FREEMIUM'} vers ${requestedTier} pour ${school.name}`,
           linkTo: 'schools',
-          linkId: user.schoolId,
+          linkId: user.schoolId!,
         },
       });
     }

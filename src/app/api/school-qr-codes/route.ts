@@ -16,6 +16,9 @@ export async function GET(request: NextRequest) {
     const schoolId = user.role === 'SUPER_ADMIN_GLOBAL'
       ? (new URL(request.url).searchParams.get('schoolId') || user.schoolId)
       : user.schoolId;
+    if (!schoolId) {
+      return NextResponse.json({ error: 'schoolId est requis' }, { status: 400 });
+    }
 
     const codes = await db.schoolQrCode.findMany({
       where: { schoolId },

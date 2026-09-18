@@ -4,7 +4,7 @@ import { generateOtp } from '@/lib/otp';
 import { sendOtpEmail } from '@/lib/email';
 
 const WA_SERVER = process.env.WHATSAPP_SERVER_URL || 'http://localhost:3001';
-const WA_API_KEY = process.env.WHATSAPP_API_KEY || 'edugest-wa-dev-key';
+const WA_API_KEY = process.env.WHATSAPP_API_KEY || (process.env.NODE_ENV !== 'production' ? 'edugest-wa-dev-key' : '');
 
 async function sendWhatsAppOtp(phone: string, code: string): Promise<boolean> {
   try {
@@ -40,13 +40,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'userId et channel requis' }, { status: 400 });
     }
 
+    // ── SÉCURITÉ (P2) : rate limit — avant, n'importe qui pouvait demander
+    // des OTP pour n'importe quel userId (bombing SMS/WhatsApp + énumération).
+    const { checkRateLimit } = await import('@/lib/auth');
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    if (!checkRateLimit(`send-otp:ip:${clientIp}`, 10, 15 * 60 * 1000) ||
+        !checkRateLimit(`send-otp:user:${userId}`, 5, 15 * 60 * 1000)) {
+      return NextResponse.json({ error: 'Trop de demandes de code. Réessayez dans 15 minutes.' }, { status: 429 });
+    }
+
     const user = await db.user.findUnique({
       where: { id: userId },
       select: { id: true, email: true, phone: true, name: true, isVerified: true, schoolId: true },
     });
 
+    // Réponse générique : ne pas révéler si l'userId existe (anti-énumération).
     if (!user) {
-      return NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 });
+      return NextResponse.json({ error: 'Impossible d\'envoyer le code pour ce compte' }, { status: 404 });
     }
 
     if (user.isVerified) {

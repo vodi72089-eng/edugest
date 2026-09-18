@@ -311,6 +311,7 @@ export async function POST(request: NextRequest) {
     const student = await db.student.findUnique({
       where: { id: studentId },
       select: {
+        schoolId: true,
         firstName: true,
         lastName: true,
         matricule: true,
@@ -320,6 +321,12 @@ export async function POST(request: NextRequest) {
 
     if (!student) {
       return NextResponse.json({ error: 'Élève non trouvé' }, { status: 404 })
+    }
+
+    // ── SÉCURITÉ : l'élève sommé doit appartenir à l'école de l'en-tête
+    // (avant : élève d'une autre école possible sur le PDF).
+    if (student.schoolId !== schoolId) {
+      return NextResponse.json({ error: 'Cet élève n\'appartient pas à cette école' }, { status: 403 })
     }
 
     const school = await db.school.findUnique({

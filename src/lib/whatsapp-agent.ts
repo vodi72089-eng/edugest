@@ -827,7 +827,7 @@ export async function notifyRepechage(params: {
   note: string | null;
 }): Promise<{ sent: boolean; detail: string }> {
   const gate = await checkSchoolAgentReady(params.schoolId);
-  if (!gate.ok) return { sent: false, detail: gate.reason };
+  if (!gate.ok) return { sent: false, detail: gate.reason ?? 'Agent WhatsApp indisponible' };
 
   const school = await db.school.findUnique({ where: { id: params.schoolId }, select: { name: true } });
   const parent = await db.user.findFirst({ where: { role: 'PARENT', schoolId: params.schoolId }, select: { phone: true } });

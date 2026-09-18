@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole, verifySchoolAccess, sanitizeError } from '@/lib/auth';
 import { notify } from '@/lib/notify';
@@ -35,17 +36,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });
     }
 
-    const where: Record<string, unknown> = { schoolId };
+    // NB : le modèle est MedicalDispensation (pas de champ `status`) — une
+    // dispense est « active » tant que sa date de fin n'est pas échue.
+    const where: Prisma.MedicalDispensationWhereInput = { schoolId };
 
     if (statusFilter === 'ACTIVE') {
-      where.status = 'ACTIVE';
-      where.OR = [{ endDate: null }, { endDate: { gte: new Date() } }];
+      where.endDate = { gte: new Date() };
     } // status=ALL → tout
 
-    if (classId) where.student = { ...((where.student as Record<string, unknown>) || {}), classId };
+    if (classId) where.student = { classId };
     if (studentId) where.studentId = studentId;
 
-    const dispenses = await db.dispense.findMany({
+    const dispenses = await db.medicalDispensation.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       take: 200,
@@ -78,10 +80,12 @@ export async function GET(request: NextRequest) {
         reason: d.reason,
         startDate: d.startDate,
         endDate: d.endDate,
-        status: d.status,
-        note: d.note,
-        createdById: d.createdById,
-        createdByName: d.createdByName,
+        // Statut dérivé (le modèle n'a pas de champ status) + champs sans
+        // équivalent sur MedicalDispensation renvoyés à null.
+        status: d.endDate >= new Date() ? 'ACTIVE' : 'EXPIRED',
+        note: null,
+        createdById: null,
+        createdByName: null,
         createdAt: d.createdAt,
       })),
     });
@@ -132,22 +136,19 @@ export async function POST(request: NextRequest) {
     if (isNaN(start.getTime())) {
       return NextResponse.json({ error: 'startDate invalide (date ISO attendue)' }, { status: 400 });
     }
-    const end = endDate ? new Date(endDate) : null;
-    if (endDate && end && isNaN(end.getTime())) {
+    // endDate est requis dans MedicalDispensation : par défaut, même jour.
+    const end = endDate ? new Date(endDate) : start;
+    if (endDate && isNaN(end.getTime())) {
       return NextResponse.json({ error: 'endDate invalide (date ISO attendue)' }, { status: 400 });
     }
 
-    const dispense = await db.dispense.create({
+    const dispense = await db.medicalDispensation.create({
       data: {
         studentId: student.id,
         type: type || 'EPS',
         reason,
         startDate: start,
         endDate: end,
-        status: 'ACTIVE',
-        note: note || null,
-        createdById: user.id,
-        createdByName: user.name,
         schoolId: student.schoolId,
       },
     });
