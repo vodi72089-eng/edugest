@@ -188,15 +188,13 @@ function createSplash() {
     } catch { return ''; }
   })();
   const logoHtml = logoUri
-    ? `<div class="plate"><img src="${logoUri}" alt="EduGest" draggable="false"></div>`
-    : `<div class="plate fallback">EduGest</div>`;
+    ? `<img src="${logoUri}" alt="EduGest" draggable="false" style="width:140px;height:auto;display:block;filter:drop-shadow(0 8px 28px rgba(0,0,0,.5))">`
+    : `<div class="fallback">EduGest</div>`;
   splashWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;height:100%;background:#0b0f0e;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden;user-select:none}
-  .plate{background:#fff;border-radius:18px;padding:14px 26px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
-  .plate img{width:150px;height:auto;display:block}
-  .plate.fallback{color:#0b0f0e;font-weight:800;font-size:22px}
+  .fallback{color:#fff;font-weight:800;font-size:24px}
   h1{color:#fff;font-size:17px;font-weight:700;margin:16px 0 2px;letter-spacing:.2px}
   .sub{color:rgba(255,255,255,.42);font-size:11.5px;font-weight:500;margin:0 0 18px}
   .bar{width:160px;height:3px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden}
@@ -326,8 +324,15 @@ function sendUpdate(type, payload) {
 }
 
 // Actions déclenchées depuis la bannière (preload → ipcRenderer).
+// Installée : electron-updater (GitHub invisible). Portable : téléchargement
+// direct de l'exe + relance — l'utilisateur ne voit jamais GitHub.
+let pendingPortableAsset = null; // { url, version, file }
 try {
   ipcMain.on('update-download', () => {
+    if (pendingPortableAsset) {
+      downloadPortableUpdate(pendingPortableAsset);
+      return;
+    }
     if (!autoUpdater) return;
     log('Téléchargement de la mise à jour…');
     autoUpdater.downloadUpdate()
@@ -338,6 +343,14 @@ try {
       });
   });
   ipcMain.on('update-install', () => {
+    if (pendingPortableAsset && pendingPortableAsset.file && fs.existsSync(pendingPortableAsset.file)) {
+      // Portable : lance le nouvel exe puis quitte (l'ancien reste à supprimer).
+      const f = pendingPortableAsset.file;
+      pendingPortableAsset = null;
+      log('Lancement de la nouvelle version portable :', f);
+      shell.openPath(f).then(() => app.quit()).catch((e) => log('Échec lancement MAJ :', e.message));
+      return;
+    }
     if (!autoUpdater) return;
     try { if (serverProcess) serverProcess.kill(); } catch {}
     try { if (waProcess) waProcess.kill(); } catch {}
@@ -347,6 +360,54 @@ try {
     if (url) shell.openExternal(url);
   });
 } catch {}
+
+/** Télécharge le nouvel exe portable (suit les redirections GitHub),
+ *  avec progression → bannière « prête ». GitHub reste invisible. */
+function downloadPortableUpdate(asset) {
+  const dest = path.join(app.getPath('downloads'), `EduGest-Portable-${asset.version}.exe`);
+  if (fs.existsSync(dest)) {
+    log('Portable déjà téléchargé :', dest);
+    pendingPortableAsset.file = dest;
+    sendUpdate('ready', { version: asset.version });
+    return;
+  }
+  log('Téléchargement portable :', dest);
+  sendUpdate('downloading', { percent: 0, version: asset.version });
+  const get = (url, redirects) => {
+    https.get(url, { headers: { 'User-Agent': 'EduGest-Desktop', Accept: 'application/octet-stream' } }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects > 0) {
+        res.resume();
+        get(res.headers.location, redirects - 1);
+        return;
+      }
+      if (res.statusCode !== 200) {
+        res.resume();
+        sendUpdate('error', { message: `Téléchargement impossible (HTTP ${res.statusCode})` });
+        return;
+      }
+      const total = Number(res.headers['content-length']) || 0;
+      let received = 0;
+      const out = fs.createWriteStream(dest);
+      res.on('data', (c) => {
+        received += c.length;
+        if (total > 0) sendUpdate('downloading', { percent: Math.round((received / total) * 100), version: asset.version });
+      });
+      res.pipe(out);
+      out.on('finish', () => {
+        out.close(() => {
+          pendingPortableAsset.file = dest;
+          try { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setProgressBar(-1); } catch {}
+          sendUpdate('ready', { version: asset.version });
+        });
+      });
+      out.on('error', (e) => {
+        try { fs.unlinkSync(dest); } catch {}
+        sendUpdate('error', { message: e.message });
+      });
+    }).on('error', (e) => sendUpdate('error', { message: e.message }));
+  };
+  get(asset.url, 5);
+}
 
 const UPDATE_CHECK_DELAY_MS = 8000;
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -376,10 +437,15 @@ function checkPortableUpdate(manual = false) {
         const latest = String(rel.tag_name || '').replace(/^v/, '');
         if (!latest) return;
         if (compareVersions(latest, app.getVersion()) <= 0) {
+          pendingPortableAsset = null;
           return;
         }
-        // Bannière in-app : nouvelle version portable → lien GitHub.
-        sendUpdate('portable', { version: latest, url: rel.html_url || 'https://github.com/vodi72089-eng/edugest/releases/latest' });
+        // Bannière in-app (comme l'installée) : l'asset portable est
+        // téléchargé directement, GitHub reste invisible.
+        const asset = (rel.assets || []).find((a) => /portable.*\.exe$/i.test(a.name || ''));
+        if (!asset || !asset.browser_download_url) return;
+        pendingPortableAsset = { url: asset.browser_download_url, version: latest, file: null };
+        sendUpdate('available', { version: latest });
       } catch {}
     });
   });
@@ -390,9 +456,12 @@ function checkPortableUpdate(manual = false) {
 function setupAutoUpdate() {
   if (!app.isPackaged || !mainWindow || mainWindow.isDestroyed()) return;
 
-  // — Version portable : simple notification + lien GitHub —
+  // — Version portable : même bannière, téléchargement direct + relance —
   if (isPortable() || !autoUpdater) {
-    if (isPortable()) setTimeout(() => checkPortableUpdate(false), UPDATE_CHECK_DELAY_MS);
+    if (isPortable()) {
+      setTimeout(() => checkPortableUpdate(false), UPDATE_CHECK_DELAY_MS);
+      setInterval(() => checkPortableUpdate(false), UPDATE_CHECK_INTERVAL_MS);
+    }
     return;
   }
 
