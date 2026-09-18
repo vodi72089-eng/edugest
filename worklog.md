@@ -1542,3 +1542,33 @@ Stage Summary:
 - 2 vraies réparations runtime découvertes par le typage : (1) modèles Prisma WhatsappApiConfig/WhatsappMessageLog restaurés (suppression accidentelle 4f1ec04 — l'API WhatsApp perso 500-sait depuis) ; (2) portail AppSelect sans conteneur qui faisait planter l'ouverture de tous les dropdowns. Plus les routes /api/dispenses/** mortes-nées (delegate inexistant) alignées sur MedicalDispensation.
 - Fixes « fichiers interdits » minimaux et isolés (subscription/request, subscription/status, schools/[id]) : chaque fichier contenait encore des erreurs après la première passe — annotations/gardes uniquement, aucune logique métier changée.
 - Risques résiduels : client.ts exclu du typecheck (dette : réinstaller baileys/boom/pino ou supprimer le fichier un jour) ; endpoints /api/dispenses/** désormais fonctionnels mais non consommés (vue jamais montée) — à recycler ou retirer ; lint à la baseline 109 inchangée. Non commité, non pushé.
+
+---
+Task ID: 18
+Agent: Z.ai Code (main, orchestrateur)
+Task: Audit sécurité complet + corrections serveur (rôles, permissions, isolation multi-écoles, IDOR parent, abonnements, API, desktop, CI, tests)
+
+Work Log:
+- Mise à jour repo (pull --rebase) : Tasks 16/17 (Resend gratuit + SMS + synchro DB) déjà poussées ; commit local UUID re-renommé et fusionné
+- Recon : lecture intégrale src/lib/auth.ts + /api/users ; 2 sous-agents Explore → carte des 124 fichiers route.ts (tableau endpoint | auth | permission | tenant | ownership | subscription) + audit subscription/frontend/desktop/docs
+- auth.ts : ROLE_LEVELS (hiérarchie 100→10), ROLE_CREATION_MATRIX explicite, canCreateRole corrigé (SECRETARY ne peut plus créer DIRECTION/SCHOOL_ADMIN/SAG), canChangeUserRole + canManageUserAccount ; getEffectivePermissions applique FREEMIUM/ESSENTIEL_DENIED à TOUS les rôles (plus seulement SCHOOL_ADMIN)
+- /api/users : PUT (rôle contrôlé, schoolId immuable hors SAG, comptes supérieurs intouchables) ; DELETE → requirePermission users:delete + hiérarchie (SAG débloqué)
+- P0 finance : /api/subscription/downgrade (downgrade only pour SCHOOL_ADMIN), /api/payments/webhook/subscription (HMAC SUBSCRIPTION_WEBHOOK_SECRET, refusé en prod sans secret), /api/payments/subscription/renew (demande PAYÉE exigée, SECRETARY exclu)
+- IDOR médical P0 : records/visits/dispensations — rôles MEDICAL_STAFF, verifySchoolAccess sur l'élève, PARENT limité à ses enfants
+- P1 isolation : teacher-assignments (GET/DELETE scopés + teacherId validé), school-fees +[id] (verifySchoolAccess partout), report-cards (GET scopé, studentId validé, gate report_cards, rôles réparés — ADMIN fantôme retiré, SCHOOL_ADMIN ajouté), payments/verify-receipt (schoolId imposé), whatsapp-config/custom (SAG/SCHOOL_ADMIN + tier PREMIUM+ BYO), settings-approval (rôles, PARENT exclu), students/[id] PUT (PARENT whitelist contact, parentId SAG-only, classId validé, students:update requis), convocations PUT/respond/reschedule (PARENT restreint à SES enfants), sync/pulse (compteurs par école), sommation (élève validé), schools POST (rate limit 3/h + tier forcé FREEMIUM hors SAG), schools/[id] GET public (users[] masqué), send-otp (rate limit + anti-énumération)
+- Gating feature branché côté API : requireFeature réparé (bypass SAG) + branché sur communications, convocations (GET/POST/PUT), homework (GET/POST), discipline (GET/POST/PUT), report-cards ; canUseCustomWhatsappApi ajouté à TierLimits
+- Desktop : package.json template.db → db/desktop-template.db (CI, plus la base de dev avec comptes seedés) ; main.js clé WA aléatoire par installation + openPage allowlist https ; mini-service WA bind 127.0.0.1 + clé de dev seulement hors prod ; fallbacks 'edugest-wa-dev-key' des routes Next limités au dev
+- Frontend : src/lib/client-permissions.ts (ROLE_PERMISSIONS + denied + SUBSCRIPTION_FEATURES + can()/hasFeature()) ; 3 incohérences UI corrigées (homework canCreate sans SECRETARY, Passage de classe allowedRoles = SAG+SCHOOL_ADMIN, 'ADMIN' fantôme convocations)
+- Sous-agent SEC-TS : tsc --noEmit 96 → 0 erreur ; tsconfig exclut examples/skills/mini-services/desktop/whatsapp-client orphelin ; next.config.ts : outputFileTracingExcales déplacé au niveau racine + ignoreBuildErrors:false ; 2 vrais bugs runtime trouvés (AppSelect createPortal sans conteneur ; modèles Prisma WhatsappApiConfig/WhatsappMessageLog supprimés accidentellement → restaurés + db push)
+- Bugs runtime trouvés par les tests : création d'école 500 (class.createMany champ `option` inexistant → retiré), collision User.phone à la création d'école (fallback admin-<schoolId>)
+- CI : .github/workflows/ci.yml (typecheck tsc, lint, build Next, serveur + suite sécurité) ; tests scripts/security-tests/run-security-tests.mjs (fixtures 2 écoles + 6 comptes, cleanup auto)
+- Tests réels : 31/31 réussis (auth 2, escalade création 6, escalade changement de rôle 5, isolation 7, IDOR parent 5, abonnement 3) — sur serveur dev réel avec SUBSCRIPTION_WEBHOOK_SECRET
+- Docs : README/PRODUCTION corrigés (sessions fichiers ≠ JWT, 18 rôles/45 permissions, EPS ≠ SPORTS, section « Modèle de sécurité serveur » complète)
+- Vérifications : lint 109 = baseline exacte ; tsc 0 erreur ; navigateur (agent-browser) : login SAG, vue Personnel (15 membres), Contrôle plateforme OK, 0 erreur console, 0 overflow mobile 390px
+- Push 60e7803 sur main (rebase sur b2b77e3)
+
+Stage Summary:
+- Les restrictions des membres d'une école sont désormais imposées par le SERVEUR : hiérarchie de privilèges, matrice de création de rôles, isolation multi-écoles systématique, IDOR parent fermé, forfaits FREEMIUM/ESSENTIEL enforceés dans l'API — l'UI ne fait que refléter
+- 31 tests sécurité automatisés (31/31 verts) + CI GitHub qui échoue si TS invalide, lint régressé, build cassé ou tests sécurité rouges
+- Desktop : même code serveur (aucun RBAC dupliqué), template.db vierge de CI, plus de clé WhatsApp en dur
+- Limites connues : build .exe Windows non exécutable dans le sandbox Linux (workflow CI/CD existant s'en charge) ; rate limiting toujours in-memory (mono-instance) ; tests idempotents mais écoles fixtures créées/supprimées à chaque run
