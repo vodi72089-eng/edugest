@@ -14,6 +14,9 @@ import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { tierAllowsParentGrades } from '@/lib/subscription';
 import { useRouter } from 'next/navigation';
 
+// Notifications de notes deja resolues (anti-boucle : une seule resolution par note).
+const resolvedGradeNotifs = new Set<string>()
+
 export default function GradesView() {
   const { userRole, userData, highlightedId, pendingStudentFocus, setPendingStudentFocus } = useEduGestStore()
   const { hasAccess, requiredTier } = useFeatureAccess('grades');
@@ -146,33 +149,6 @@ export default function GradesView() {
     loadGrades()
   }, [selectedClass, selectedTrimester, selectedChildId, isParent, userData?.id])
 
-  // Clic notification GRADE_CREATED / GRADE_UPDATED : la note peut concerner un
-  // autre enfant ou un autre trimestre que le filtre courant -> retrouver la
-  // note (tous trimestres) puis aligner enfant + trimestre dessus.
-  const resolvedNotifRef = useRef<string | null>(null)
-  useEffect(() => {
-    if (!highlightedId || !isParent || !userData?.id) return
-    if (!loading && grades.some(g => g.id === highlightedId)) return
-    if (loading || resolvedNotifRef.current === highlightedId) return
-    resolvedNotifRef.current = highlightedId
-    authFetch(`/api/grades?parentId=${userData.id}&limit=100`)
-      .then(r => r.json())
-      .then(j => {
-        const found = (j.data || []).find((g: GradeData) => g.id === highlightedId)
-        if (found) {
-          if (found.studentId && found.studentId !== selectedChildId) {
-            setSelectedChildId(found.studentId)
-            setSelectedChildSearchId(found.studentId)
-          }
-          if (found.trimester && found.trimester !== selectedTrimester) {
-            setSelectedTrimester(found.trimester)
-          }
-        }
-      })
-      .catch(() => {})
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highlightedId, loading])
-
   async function loadGrades() {
     setLoading(true)
     try {
@@ -196,6 +172,27 @@ export default function GradesView() {
       // une fois les lignes rendues.
       if (useEduGestStore.getState().highlightedId) {
         setTimeout(() => highlightedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200)
+      }
+      // Clic notification GRADE_CREATED / GRADE_UPDATED : la note peut concerner
+      // un autre enfant ou trimestre que le filtre courant -> retrouver la note
+      // (tous trimestres) puis aligner enfant + trimestre dessus (une seule fois).
+      const hid = useEduGestStore.getState().highlightedId
+      const list = json.data || []
+      if (hid && isParent && userData?.id && !list.some((g: GradeData) => g.id === hid) && !resolvedGradeNotifs.has(hid)) {
+        resolvedGradeNotifs.add(hid)
+        setTimeout(() => resolvedGradeNotifs.delete(hid), 15000)
+        authFetch(`/api/grades?parentId=${userData.id}&limit=100`).then(r => r.json()).then(j => {
+          const found = (j.data || []).find((g: GradeData) => g.id === hid)
+          if (found) {
+            if (found.studentId && found.studentId !== selectedChildId) {
+              setSelectedChildId(found.studentId)
+              setSelectedChildSearchId(found.studentId)
+            }
+            if (found.trimester && found.trimester !== selectedTrimester) {
+              setSelectedTrimester(found.trimester)
+            }
+          }
+        }).catch(() => {})
       }
     } catch (e) { console.error(e) }
     finally { setLoading(false) }

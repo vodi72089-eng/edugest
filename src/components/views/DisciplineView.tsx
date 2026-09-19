@@ -39,6 +39,14 @@ export default function DisciplineView() {
       setTimeout(() => tabBarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
     }
   }, [])
+
+  // Le surlignage notification est pose avant le chargement du tableau :
+  // re-tente le scroll une fois les lignes rendues.
+  function scrollToHighlight() {
+    if (useEduGestStore.getState().highlightedId) {
+      setTimeout(() => highlightedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200)
+    }
+  }
   const [records, setRecords] = useState<DisciplineData[]>([])
   const [loading, setLoading] = useState(true)
   const { disciplineTab } = useEduGestStore()
@@ -167,25 +175,6 @@ export default function DisciplineView() {
     return filtered
   }, [myChildren, childDisciplineCounts, tab, selectedChildId])
 
-  // Quand un enfant est selectionne (puce Discipline du dashboard, carte ou
-  // recherche), basculer automatiquement sur la liste ou il a reellement des
-  // enregistrements au lieu de rester bloque sur Liste Grise.
-  // Jamais sanctionne -> Liste Blanche.
-  useEffect(() => {
-    if (!isParent || !selectedChildId) return
-    const counts = childDisciplineCounts[selectedChildId]
-    if (!counts || (counts.blacklist === 0 && counts.greylist === 0 && counts.whitelist === 0)) {
-      if (tab !== 'WHITELIST') setTab('WHITELIST')
-      return
-    }
-    if (tab === 'BLACKLIST' && counts.blacklist > 0) return
-    if (tab === 'GREYLIST' && counts.greylist > 0) return
-    if (tab === 'WHITELIST' && counts.whitelist > 0) return
-    if (counts.blacklist > 0) setTab('BLACKLIST')
-    else if (counts.greylist > 0) setTab('GREYLIST')
-    else if (counts.whitelist > 0) setTab('WHITELIST')
-  }, [selectedChildId, childDisciplineCounts, isParent, tab])
-
   const studentSuggestions = useMemo(() => {
     if (!isDisciplineRole) return []
     if (studentSearch.length < 1) return sectionStudents.map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule }))
@@ -214,6 +203,43 @@ export default function DisciplineView() {
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
+    if (isParent) {
+      // Clic notification DISCIPLINE_INCIDENT : le record peut se trouver dans
+      // une autre liste que l'onglet courant -> enfant + onglet du record.
+      const hid = useEduGestStore.getState().highlightedId
+      if (hid) {
+        const found = allDisciplineRecords.find(r => r.id === hid)
+        if (found?.student) {
+          const target = found.listType as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST'
+          let changed = false
+          if (found.student.id !== selectedChildId) {
+            setSelectedChildSearchId(found.student.id)
+            setSelectedChildId(found.student.id)
+            changed = true
+          }
+          if (target !== tab) { setTab(target); changed = true }
+          if (changed) return
+        }
+      }
+      // Enfant selectionne : basculer sur sa vraie liste au lieu de rester
+      // bloque sur Liste Grise (jamais sanctionne -> Liste Blanche).
+      if (selectedChildId) {
+        let blacklist = 0, greylist = 0, whitelist = 0
+        for (const r of allDisciplineRecords) {
+          if (r.student?.id !== selectedChildId) continue
+          if (r.listType === 'BLACKLIST') blacklist++
+          else if (r.listType === 'GREYLIST') greylist++
+          else if (r.listType === 'WHITELIST') whitelist++
+        }
+        const desired: 'BLACKLIST' | 'GREYLIST' | 'WHITELIST' =
+          blacklist + greylist + whitelist === 0 ? 'WHITELIST'
+          : tab === 'BLACKLIST' && blacklist > 0 ? 'BLACKLIST'
+          : tab === 'GREYLIST' && greylist > 0 ? 'GREYLIST'
+          : tab === 'WHITELIST' && whitelist > 0 ? 'WHITELIST'
+          : blacklist > 0 ? 'BLACKLIST' : greylist > 0 ? 'GREYLIST' : 'WHITELIST'
+        if (desired !== tab) { setTab(desired); return }
+      }
+    }
     let cancelled = false
     const params = new URLSearchParams()
     params.set('listType', tab)
@@ -234,28 +260,7 @@ export default function DisciplineView() {
     }
     authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { if (!cancelled) { setRecords(j.data || []); setLoading(false); scrollToHighlight() } }).catch(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [tab, isParent, userData?.id, selectedChildId, isDisciplineRole, selectedStudentId, userData?.schoolId])
-
-  // Le surlignage notification est pose avant le chargement du tableau :
-  // re-tente le scroll une fois les lignes rendues.
-  function scrollToHighlight() {
-    if (useEduGestStore.getState().highlightedId) {
-      setTimeout(() => highlightedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200)
-    }
-  }
-
-  // Clic notification DISCIPLINE_INCIDENT : le record peut se trouver dans une
-  // autre liste que l'onglet courant -> selectionner l'enfant et l'onglet du record.
-  useEffect(() => {
-    if (!highlightedId || !isParent) return
-    if (records.some(r => r.id === highlightedId)) return
-    const found = allDisciplineRecords.find(r => r.id === highlightedId)
-    if (found?.student) {
-      setSelectedChildId(found.student.id)
-      setSelectedChildSearchId(found.student.id)
-      setTab(found.listType as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST')
-    }
-  }, [highlightedId, records, allDisciplineRecords, isParent])
+  }, [tab, isParent, userData?.id, selectedChildId, isDisciplineRole, selectedStudentId, userData?.schoolId, allDisciplineRecords])
 
   const displayRecords = useMemo(() => {
     if (tab !== 'WHITELIST' || !isDisciplineRole) return records
