@@ -76,6 +76,9 @@ jobs:
         env:
           DATABASE_URL: file:${{ github.workspace }}/db/custom.db
           SUBSCRIPTION_WEBHOOK_SECRET: test-secret
+          # Active la voie webhook abonnement (sinon fail-closed 503 ; le test
+          # « sans signature » attend alors 401, pas 503).
+          PLATFORM_WEBHOOK_SECRET: test-secret
           NODE_ENV: production
         run: |
           cp -r .next/static .next/standalone/.next/ || true

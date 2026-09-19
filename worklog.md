@@ -1646,3 +1646,17 @@ Work Log:
 Stage Summary:
 - La CI sécurité devient déterministe : base unique (chemin absolu), SAG garanti par seed idempotent, erreurs serveur désormais visibles dans le log CI ; la classe entière de bugs « ça passe en local, 500 en CI » liée à la résolution SQLite relative est éliminée
 - Documentation du mécanisme de résolution Prisma (schéma-relatif) ajoutée en commentaires du workflow — leçon durable pour le projet
+
+---
+Task ID: 20-d
+Agent: Z.ai Code (main)
+Task: Dernier échec CI (1/31) — webhook abonnement 503 au lieu de 401
+
+Work Log:
+- Le run d2f2f1b valide les corrections de chemins : seed déterministe OK (« SAG créé »), création d'écoles CI OK (l'ancien 500 a disparu), capture server.log opérationnelle → 30/31 tests verts
+- Seul échec : « Webhook abonnement SANS signature = REFUSÉ (401) — status=503 » ; server.log : « [Webhook:subscription] PLATFORM_WEBHOOK_SECRET absent — requête rejetée » — la route (fail-closed, cf. son en-tête ligne 12) renvoie 503 tant que PLATFORM_WEBHOOK_SECRET n'est pas défini, or le CI ne fournissait que SUBSCRIPTION_WEBHOOK_SECRET
+- Fix ci.yml : PLATFORM_WEBHOOK_SECRET=test-secret dans l'env du step « Start server » → la route passe en vérification HMAC → sans signature = 401 attendu par le test
+- YAML validé
+
+Stage Summary:
+- Cause exacte du dernier échec identifiée par la capture server.log (preuve de la valeur du diagnostic ajouté) ; 31/31 attendu au prochain run
