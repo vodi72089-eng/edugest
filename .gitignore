@@ -102,3 +102,6 @@ whatsapp-auth/
 # Sandbox runtime build scripts
 .zscripts/database-runtime-build.sh
 .zscripts/python-runtime-build.sh
+
+# Bases SQLite de test (résidus de résolution relative CLI — la vraie DB est db/custom.db)
+prisma/db/*.db
