@@ -263,25 +263,54 @@ export default function DisciplineView() {
   }, [tab, isParent, userData?.id, selectedChildId, isDisciplineRole, selectedStudentId, userData?.schoolId, allDisciplineRecords])
 
   const displayRecords = useMemo(() => {
-    if (tab !== 'WHITELIST' || !isDisciplineRole) return records
-    const studentIdsWithRecords = new Set(records.map(r => r.studentId))
-    const cleanStudents = sectionStudents.filter(s => !studentIdsWithRecords.has(s.id))
-    const cleanRecords = cleanStudents.map(s => ({
-      id: `clean-${s.id}`,
-      studentId: s.id,
-      student: { id: s.id, firstName: s.firstName, lastName: s.lastName, matricule: s.matricule, photoUrl: s.photoUrl },
-      title: 'Aucune infraction',
-      description: '',
-      type: 'CLEAN',
-      severity: 'NONE',
-      points: 0,
-      listType: 'WHITELIST',
-      status: 'ACTIVE',
-      schoolId: s.schoolId,
-      createdAt: new Date().toISOString(),
-    }))
-    return [...records, ...cleanRecords]
-  }, [tab, records, sectionStudents, isDisciplineRole])
+    if (tab !== 'WHITELIST') return records
+    // Rôle discipline : élèves sages de la section (sans enregistrement).
+    if (isDisciplineRole) {
+      const studentIdsWithRecords = new Set(records.map(r => r.studentId))
+      const cleanStudents = sectionStudents.filter(s => !studentIdsWithRecords.has(s.id))
+      const cleanRecords = cleanStudents.map(s => ({
+        id: `clean-${s.id}`,
+        studentId: s.id,
+        student: { id: s.id, firstName: s.firstName, lastName: s.lastName, matricule: s.matricule, photoUrl: s.photoUrl },
+        title: 'Aucune infraction',
+        description: '',
+        type: 'CLEAN',
+        severity: 'NONE',
+        points: 0,
+        listType: 'WHITELIST',
+        status: 'ACTIVE',
+        schoolId: s.schoolId,
+        createdAt: new Date().toISOString(),
+      }))
+      return [...records, ...cleanRecords]
+    }
+    // Parent : même logique avec SES enfants (jamais sanctionné = Liste Blanche,
+    // comme les cartes « MES ENFANTS »). Sans ça, l'onglet restait vide alors
+    // que les cartes affichent les enfants en liste blanche.
+    if (isParent) {
+      const studentIdsWithRecords = new Set(records.map(r => r.studentId))
+      const cleanChildren = myChildren.filter(s =>
+        !studentIdsWithRecords.has(s.id) &&
+        (!selectedChildId || s.id === selectedChildId)
+      )
+      const cleanRecords = cleanChildren.map(s => ({
+        id: `clean-${s.id}`,
+        studentId: s.id,
+        student: { id: s.id, firstName: s.firstName, lastName: s.lastName, matricule: s.matricule, photoUrl: (s as any).photoUrl },
+        title: 'Aucune infraction',
+        description: '',
+        type: 'CLEAN',
+        severity: 'NONE',
+        points: 0,
+        listType: 'WHITELIST',
+        status: 'ACTIVE',
+        schoolId: (s as any).schoolId || userData?.schoolId || '',
+        createdAt: new Date().toISOString(),
+      }))
+      return [...records, ...cleanRecords]
+    }
+    return records
+  }, [tab, records, sectionStudents, isDisciplineRole, isParent, myChildren, selectedChildId, userData?.schoolId])
 
   const selectedChildName = selectedChildId ? myChildren.find(c => c.id === selectedChildId) : null
   const selectedStudentName = selectedStudentId ? sectionStudents.find(s => s.id === selectedStudentId) : null
