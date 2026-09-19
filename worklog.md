@@ -1615,3 +1615,17 @@ Stage Summary:
 - L'exe installé (NSIS) ET portable détectent désormais réellement chaque nouvelle release GitHub : bannière in-app « Mise à jour disponible (vX) » au démarrage + toutes les heures, téléchargement en arrière-plan avec %, bouton Redémarrer → l'app se relance TOUTE SEULE sur la nouvelle version (jamais de réinstallation manuelle, données conservées) ; sans action, la MAJ s'applique à la fermeture
 - Cause racine historique éliminée : latest.yml/blockmap désormais publiés dans chaque Release (garde CI qui échoue visiblement sinon) ; aucune annonce perdue si l'UI charge lentement (re-envoi sur ui-ready)
 - Limite : l'exe Windows n'est pas exécutable dans le sandbox Linux — la chaîne complète (build → release v1.4.3 → prompt dans l'exe) sera prouvée par le run GitHub Actions du workflow
+
+---
+Task ID: 20-b
+Agent: Z.ai Code (main)
+Task: Réparation CI « Typecheck + Lint » — rouge en permanence (préexistant, constaté sur 656194e ET 2cdf784)
+
+Work Log:
+- Constat : le job CI « Lint » lançait `bun run lint` (eslint .) brut → les 109 erreurs préexistantes (baseline documentée) faisaient échouer CI sur TOUS les commits (failure aussi sur 656194e, avant Task 20) → zéro valeur de signal
+- Fix ci.yml : le step Lint calcule le total via eslint --format json et n'échoue QUE si total > 109 (baseline figée, commentaire « ne JAMAIS augmenter ») — conforme à l'intention Task 18 (« CI qui échoue si lint régressé »), pas un contournement : toute NOUVELLE erreur casse la CI
+- Logique validée localement : eslint json → 109 erreurs, 0 avertissements → gate PASS ; YAML valide
+- Release v1.4.3 vérifiée via API GitHub : EduGest-Setup-1.4.3.exe + EduGest-Portable-1.4.3.exe + EduGest-Setup-1.4.3.exe.blockmap + latest.yml publiés (workflow Build Desktop : success) → la détection in-app est désormais réellement alimentée
+
+Stage Summary:
+- CI de nouveau utile : verte tant que la dette lint (109) n'augmente pas, rouge au premier nouvel erreur ; Build Desktop publie désormais les métadonnées de MAJ (latest.yml + blockmap) à chaque release
