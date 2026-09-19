@@ -146,6 +146,33 @@ export default function GradesView() {
     loadGrades()
   }, [selectedClass, selectedTrimester, selectedChildId, isParent, userData?.id])
 
+  // Clic notification GRADE_CREATED / GRADE_UPDATED : la note peut concerner un
+  // autre enfant ou un autre trimestre que le filtre courant -> retrouver la
+  // note (tous trimestres) puis aligner enfant + trimestre dessus.
+  const resolvedNotifRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!highlightedId || !isParent || !userData?.id) return
+    if (!loading && grades.some(g => g.id === highlightedId)) return
+    if (loading || resolvedNotifRef.current === highlightedId) return
+    resolvedNotifRef.current = highlightedId
+    authFetch(`/api/grades?parentId=${userData.id}&limit=100`)
+      .then(r => r.json())
+      .then(j => {
+        const found = (j.data || []).find((g: GradeData) => g.id === highlightedId)
+        if (found) {
+          if (found.studentId && found.studentId !== selectedChildId) {
+            setSelectedChildId(found.studentId)
+            setSelectedChildSearchId(found.studentId)
+          }
+          if (found.trimester && found.trimester !== selectedTrimester) {
+            setSelectedTrimester(found.trimester)
+          }
+        }
+      })
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightedId, loading])
+
   async function loadGrades() {
     setLoading(true)
     try {
@@ -165,6 +192,11 @@ export default function GradesView() {
       const json = await res.json()
       setGrades(json.data || [])
       setTotalUsers(json.totalUsers || 0)
+      // Surlignage notification pose avant le chargement : re-tente le scroll
+      // une fois les lignes rendues.
+      if (useEduGestStore.getState().highlightedId) {
+        setTimeout(() => highlightedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200)
+      }
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }

@@ -195,10 +195,10 @@ export async function classifyStudent(
     }
   }
 
-  // 9. No sanctions → GREYLIST (default)
+  // 9. No sanctions -> WHITELIST (eleve jamais sanctionne = liste blanche)
   return {
-    listType: 'GREYLIST',
-    reason: 'Aucune sanctions',
+    listType: 'WHITELIST',
+    reason: 'Aucune sanction',
     autoClassified: true,
     details: { totalPoints, sanctionCount: typeCounts.reduce((s, t) => s + t.count, 0), criticalCount, sameTypeCount: 0, matchedKeywords: [] }
   }

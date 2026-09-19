@@ -7016,7 +7016,15 @@ function BulletinView() {
     if (highlightedId && highlightedRef.current) {
       highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
-  }, [highlightedId])
+  }, [highlightedId, grades])
+  // Re-tente le scroll quand les donnees arrivent (le surlignage est pose
+  // par la notification avant le chargement du tableau).
+  useEffect(() => {
+    if (highlightedId && !loading && highlightedRef.current) {
+      highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
 
   useEffect(() => {
     const params = new URLSearchParams({ limit: '200', trimester: selectedTrimester })
@@ -7044,6 +7052,27 @@ function BulletinView() {
     setStudentSuggestions([{ id: focus.id, label: `${focus.firstName} ${focus.lastName}`, sublabel: focus.matricule, photoUrl: focus.photoUrl }])
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [pendingStudentFocus, setPendingStudentFocus])
+
+  // Clic notification BULLETIN_UPDATED (relatedId = eleve) : preselectionner
+  // l'eleve et aligner le trimestre sur celui de son bulletin.
+  const resolvedBulletinNotifRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!highlightedId) return
+    if (studentGrades[highlightedId]) {
+      if (selectedStudentId !== highlightedId) setSelectedStudentId(highlightedId)
+      return
+    }
+    if (loading || resolvedBulletinNotifRef.current === highlightedId) return
+    resolvedBulletinNotifRef.current = highlightedId
+    const scope = isParent && userData?.id ? `parentId=${userData.id}` : userData?.schoolId ? `schoolId=${userData.schoolId}` : ''
+    authFetch(`/api/grades?${scope}&limit=200`).then(r => r.json()).then(j => {
+      const found = (j.data || []).find((g: GradeData) => g.studentId === highlightedId)
+      if (!found) return
+      if (found.trimester && found.trimester !== selectedTrimester) setSelectedTrimester(found.trimester)
+      setSelectedStudentId(highlightedId)
+    }).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightedId, loading])
 
   useEffect(() => {
     if (studentSearch.length < 2) return

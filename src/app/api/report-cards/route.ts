@@ -209,6 +209,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Notify parent (in-app)
+        // relatedId = studentId : BulletinView surligne par eleve (pas par bulletin)
         if (student.parentId) {
           await notify({
             data: {
@@ -217,7 +218,7 @@ export async function POST(request: NextRequest) {
               message: `${student.firstName} ${student.lastName} - ${trimester} - ${decisionLabel}${average ? ` - Moyenne: ${average}` : ''}`,
               userId: student.parentId,
               schoolId: student.schoolId,
-              relatedId: reportCard.id,
+              relatedId: studentId,
             },
           });
 

@@ -148,13 +148,43 @@ export default function DisciplineView() {
   }, [allDisciplineRecords])
 
   const visibleChildren = useMemo(() => {
-    return myChildren.filter(c => {
-      const counts = childDisciplineCounts[c.id] || { blacklist: 0, greylist: 0, whitelist: 0, totalPoints: 0 }
+    const filtered = myChildren.filter(c => {
+      const counts = childDisciplineCounts[c.id]
+      // Jamais sanctionne : aucun enregistrement -> Liste Blanche
+      if (!counts || (counts.blacklist === 0 && counts.greylist === 0 && counts.whitelist === 0)) {
+        return tab === 'WHITELIST'
+      }
       if (tab === 'BLACKLIST') return counts.blacklist > 0
       if (tab === 'GREYLIST') return counts.greylist > 0
       return counts.whitelist > 0
     })
-  }, [myChildren, childDisciplineCounts, tab])
+    // Toujours garder l'enfant selectionne visible, meme si sa vraie liste
+    // n'est pas l'onglet courant (evite la carte qui disparait).
+    if (selectedChildId && !filtered.some(c => c.id === selectedChildId)) {
+      const selected = myChildren.find(c => c.id === selectedChildId)
+      if (selected) return [selected, ...filtered]
+    }
+    return filtered
+  }, [myChildren, childDisciplineCounts, tab, selectedChildId])
+
+  // Quand un enfant est selectionne (puce Discipline du dashboard, carte ou
+  // recherche), basculer automatiquement sur la liste ou il a reellement des
+  // enregistrements au lieu de rester bloque sur Liste Grise.
+  // Jamais sanctionne -> Liste Blanche.
+  useEffect(() => {
+    if (!isParent || !selectedChildId) return
+    const counts = childDisciplineCounts[selectedChildId]
+    if (!counts || (counts.blacklist === 0 && counts.greylist === 0 && counts.whitelist === 0)) {
+      if (tab !== 'WHITELIST') setTab('WHITELIST')
+      return
+    }
+    if (tab === 'BLACKLIST' && counts.blacklist > 0) return
+    if (tab === 'GREYLIST' && counts.greylist > 0) return
+    if (tab === 'WHITELIST' && counts.whitelist > 0) return
+    if (counts.blacklist > 0) setTab('BLACKLIST')
+    else if (counts.greylist > 0) setTab('GREYLIST')
+    else if (counts.whitelist > 0) setTab('WHITELIST')
+  }, [selectedChildId, childDisciplineCounts, isParent, tab])
 
   const studentSuggestions = useMemo(() => {
     if (!isDisciplineRole) return []
@@ -202,9 +232,30 @@ export default function DisciplineView() {
         params.set('schoolId', userData.schoolId)
       }
     }
-    authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { if (!cancelled) { setRecords(j.data || []); setLoading(false) } }).catch(() => { if (!cancelled) setLoading(false) })
+    authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { if (!cancelled) { setRecords(j.data || []); setLoading(false); scrollToHighlight() } }).catch(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [tab, isParent, userData?.id, selectedChildId, isDisciplineRole, selectedStudentId, userData?.schoolId])
+
+  // Le surlignage notification est pose avant le chargement du tableau :
+  // re-tente le scroll une fois les lignes rendues.
+  function scrollToHighlight() {
+    if (useEduGestStore.getState().highlightedId) {
+      setTimeout(() => highlightedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200)
+    }
+  }
+
+  // Clic notification DISCIPLINE_INCIDENT : le record peut se trouver dans une
+  // autre liste que l'onglet courant -> selectionner l'enfant et l'onglet du record.
+  useEffect(() => {
+    if (!highlightedId || !isParent) return
+    if (records.some(r => r.id === highlightedId)) return
+    const found = allDisciplineRecords.find(r => r.id === highlightedId)
+    if (found?.student) {
+      setSelectedChildId(found.student.id)
+      setSelectedChildSearchId(found.student.id)
+      setTab(found.listType as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST')
+    }
+  }, [highlightedId, records, allDisciplineRecords, isParent])
 
   const displayRecords = useMemo(() => {
     if (tab !== 'WHITELIST' || !isDisciplineRole) return records
@@ -716,7 +767,7 @@ export default function DisciplineView() {
         ].map(t => (
           <button
             key={t.key}
-            onClick={() => { setTab(t.key); setLoading(true); if (isParent) { setSelectedChildId(''); setSelectedChildSearchId(null); setChildSearch('') } }}
+            onClick={() => { setTab(t.key); setLoading(true) }}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-[13.5px] font-medium border-b-2 -mb-px transition ${
               tab === t.key ? 'border-current' : 'border-transparent hover:text-edu-fg'
             }`}
