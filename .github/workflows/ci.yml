@@ -60,43 +60,55 @@ jobs:
         run: bunx prisma generate
 
       - name: Setup local SQLite database
-        run: |
-          mkdir -p db
-          export DATABASE_URL="file:../db/custom.db"
-          bunx prisma db push --skip-generate
+        env:
+          # Chemin ABSOLU : la résolution des chemins SQLite relatifs diffère
+          # entre CLI (prisma/), dev (prisma/) et standalone (.next/standalone/)
+          # — absolu = un seul et même fichier pour db push, build et serveur.
+          DATABASE_URL: file:${{ github.workspace }}/db/custom.db
+        run: bunx prisma db push --skip-generate
 
       - name: Build Next.js (échoue si TypeScript invalide)
         env:
-          DATABASE_URL: file:./db/custom.db
+          DATABASE_URL: file:${{ github.workspace }}/db/custom.db
         run: bunx next build
 
       - name: Start server
         env:
-          DATABASE_URL: file:./db/custom.db
+          DATABASE_URL: file:${{ github.workspace }}/db/custom.db
           SUBSCRIPTION_WEBHOOK_SECRET: test-secret
           NODE_ENV: production
         run: |
           cp -r .next/static .next/standalone/.next/ || true
           cp -r public .next/standalone/ || true
-          node .next/standalone/server.js &
+          # Log serveur capturé : les routes masquent les erreurs en production
+          # (« Une erreur interne ») — sans cette capture, un 500 est indéchiffrable.
+          node .next/standalone/server.js > server.log 2>&1 &
           echo $! > server.pid
-          # Warm-up : attendre que le serveur réponde
+          # Warm-up : attendre que le serveur réponde (GET public)
           for i in $(seq 1 60); do
-            if curl -sf http://localhost:3000/api > /dev/null; then break; fi
+            if curl -sf http://localhost:3000/api/schools > /dev/null; then break; fi
             sleep 2
           done
 
       - name: Seed minimal (super admin)
         env:
-          DATABASE_URL: file:./db/custom.db
+          DATABASE_URL: file:${{ github.workspace }}/db/custom.db
         run: |
-          # Le endpoint /api/seed ne s'exécute que si la base est vide
-          curl -sf -X POST http://localhost:3000/api/seed -H 'Content-Type: application/json' -d '{}' || true
+          # Seed déterministe (le /api/seed HTTP est interdit en production et
+          # la résolution SQLite y est ambiguë) — idempotent.
+          node scripts/security-tests/seed-sag.mjs
+          # Diagnostic : où vit réellement la base du serveur ?
+          ls -la "$GITHUB_WORKSPACE/db/" .next/standalone/db/ 2>/dev/null || true
 
       - name: Run security tests (auth, rôles, multi-tenant, IDOR, abonnement)
         env:
           SUBSCRIPTION_WEBHOOK_SECRET: test-secret
-        run: node scripts/security-tests/run-security-tests.mjs http://localhost:3000
+        run: |
+          if ! node scripts/security-tests/run-security-tests.mjs http://localhost:3000; then
+            echo "─────────────── SERVER LOG (stack des erreurs) ───────────────"
+            tail -n 120 server.log
+            exit 1
+          fi
 
       - name: Stop server
         if: always()

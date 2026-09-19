@@ -1629,3 +1629,20 @@ Work Log:
 
 Stage Summary:
 - CI de nouveau utile : verte tant que la dette lint (109) n'augmente pas, rouge au premier nouvel erreur ; Build Desktop publie désormais les métadonnées de MAJ (latest.yml + blockmap) à chaque release
+
+---
+Task ID: 20-c
+Agent: Z.ai Code (main)
+Task: CI « Build + Tests sécurité » rouge — diagnostic complet du 500 « Création école » et correction racine (résolution des chemins SQLite)
+
+Work Log:
+- Reproduction locale du scénario CI (standalone + NODE_ENV=production + DB fraîche) : les tests PASSENT — le 500 CI ne se reproduit pas tel quel ; trois premiers essais invalidés par un serveur zombie « next-server » (pkill -f server.js le rate : titre de process renommé) + EADDRINUSE silencieux
+- SONDE décisive : DATABASE_URL="file:./db/probe.db" + PrismaClient → le fichier atterrit dans prisma/db/ : la résolution SQLite relative se fait PAR RAPPORT AU DOSSIER DU SCHÉMA — prisma/ pour CLI/dev, .next/standalone/ pour le serveur standalone (qui lisait donc une COPIE tracée de la base, pas celle du db push)
+- Conséquences établies : (1) le step « Seed minimal » CI était un no-op permanent (POST /api/seed → 405 : la route n'a que GET ; GET → 403 en production) — jamais vu car `|| true` ; (2) le serveur CI et le db push CI ne lisaient PAS le même fichier → état indéterminé à chaque run (500 « Création école » à 13 ms = crash Prisma sur une base sans les tables attendues) ; (3) en local le seed officiel avait déjà peuplé la base → tout passait
+- Corrections ci.yml : DATABASE_URL ABSOLU (file:${{ github.workspace }}/db/custom.db) dans les 4 steps (db push, build, serveur, seed) → un seul fichier quelle que soit la résolution ; « Seed minimal » remplacé par le script déterministe scripts/security-tests/seed-sag.mjs (PrismaClient + bcryptjs, crée école démo + SAG admin@edugest.app/admin123, idempotent, affiche les comptes) ; warm-up serveur sur /api/schools (GET public, toujours 200) au lieu de /api (404) ; serveur lancé avec `> server.log 2>&1` + dump des 120 dernières lignes en cas d'échec des tests (les routes masquent les erreurs en prod via sanitizeError — auth.ts:811 — la stack n'apparaissait nulle part)
+- seed-sag.mjs : corrigé findUnique→findFirst (School.email n'est PAS @unique) ; testé sur 3 cas : DB existante (no-op), DB neuve (création école+SAG, FK schoolId respectée), ré-exécution (idempotent) ; node --check OK ; probe.db nettoyés ; dev DB (db/custom.db) restaurée depuis la sauvegarde
+- Vérifications : YAML valide ; lint 109 = baseline exacte ; dev server relancé (app=200, login=200)
+
+Stage Summary:
+- La CI sécurité devient déterministe : base unique (chemin absolu), SAG garanti par seed idempotent, erreurs serveur désormais visibles dans le log CI ; la classe entière de bugs « ça passe en local, 500 en CI » liée à la résolution SQLite relative est éliminée
+- Documentation du mécanisme de résolution Prisma (schéma-relatif) ajoutée en commentaires du workflow — leçon durable pour le projet
