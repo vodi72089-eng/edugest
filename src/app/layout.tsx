@@ -26,6 +26,8 @@ const playfairDisplay = Playfair_Display({
 export const metadata: Metadata = {
   title: "EduGest — Gestion Scolaire Premium",
   description: "La plateforme de gestion scolaire multi-écoles qui simplifie la vie des directions, enseignants et parents.",
+  manifest: '/manifest.webmanifest',
+  appleWebApp: { capable: true, title: 'EduGest' },
   icons: {
     icon: "/edugest-logo-mark.png",
   },

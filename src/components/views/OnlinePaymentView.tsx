@@ -36,6 +36,8 @@ export default function OnlinePaymentView() {
   const [amountConverted, setAmountConverted] = useState<string>('')
   const [currencyConfig, setCurrencyConfig] = useState<any>(null)
   const [allPaid, setAllPaid] = useState(false)
+  const [remaining, setRemaining] = useState<number | null>(null)
+  const [paidSoFar, setPaidSoFar] = useState(0)
 
   // Result state
   const [resultRef, setResultRef] = useState('')
@@ -115,7 +117,7 @@ export default function OnlinePaymentView() {
   // Fetch class fees + student payments + auto-select tranche when student selected
   useEffect(() => {
     if (!selectedStudentId || !userData?.schoolId) {
-      setClassFees([]); setAllPaid(false); setTranche(''); setAmount(''); setPayCurrency('CDF'); setPayConvertedAmount(''); setAmountConverted(''); return
+      setClassFees([]); setAllPaid(false); setTranche(''); setAmount(''); setPayCurrency('CDF'); setPayConvertedAmount(''); setAmountConverted(''); setRemaining(null); setPaidSoFar(0); return
     }
     let cancelled = false
     const load = async () => {
@@ -127,7 +129,7 @@ export default function OnlinePaymentView() {
           const sJson = await sRes.json()
           classId = sJson.data?.classId
         }
-        if (!classId || cancelled) { setClassFees([]); setAllPaid(false); setTranche(''); setAmount(''); return }
+        if (!classId || cancelled) { setClassFees([]); setAllPaid(false); setTranche(''); setAmount(''); setRemaining(null); setPaidSoFar(0); return }
 
         const feesRes = await authFetch(`/api/school-fees?schoolId=${userData.schoolId}&classId=${classId}`)
         const feesJson = await feesRes.json()
@@ -140,7 +142,7 @@ export default function OnlinePaymentView() {
         if (cancelled) return
 
         const trancheNames = [...new Set(allFees.map(f => f.trimester))].sort()
-        if (trancheNames.length === 0) { setClassFees([]); setAllPaid(false); setTranche(''); setAmount(''); return }
+        if (trancheNames.length === 0) { setClassFees([]); setAllPaid(false); setTranche(''); setAmount(''); setRemaining(null); setPaidSoFar(0); return }
 
         const trancheStatus = trancheNames.map(name => {
           const feesForTranche = allFees.filter(f => f.trimester === name)
@@ -158,11 +160,14 @@ export default function OnlinePaymentView() {
         if (!nextUnpaid) {
           setAllPaid(true); setTranche(''); setAmount(''); setClassFees([])
           setPayCurrency('CDF'); setPayConvertedAmount(''); setAmountConverted('')
+          setRemaining(null); setPaidSoFar(0)
         } else {
           setAllPaid(false)
           setTranche(nextUnpaid.name)
           setClassFees(nextUnpaid.fees)
-          setAmount(String(Math.round(nextUnpaid.totalFee)))
+          setRemaining(nextUnpaid.remaining)
+          setPaidSoFar(nextUnpaid.paidForTranche)
+          setAmount(String(Math.round(nextUnpaid.remaining)))
           setPayCurrency('CDF'); setPayConvertedAmount(''); setAmountConverted('')
         }
       } catch { setClassFees([]); setAllPaid(false); setTranche(''); setAmount('') }
@@ -231,6 +236,8 @@ export default function OnlinePaymentView() {
     setPayCurrency('CDF')
     setPayConvertedAmount('')
     setAmountConverted('')
+    setRemaining(null)
+    setPaidSoFar(0)
   }
 
   async function handleSubmit() {
@@ -245,6 +252,12 @@ export default function OnlinePaymentView() {
       let amountInCDF = parseInt(amount)
       if (payCurrency !== 'CDF' && exchangeRate) {
         amountInCDF = Math.round(parseFloat(amount) * exchangeRate)
+      }
+      // Plafond : jamais plus que le reste à payer de la tranche
+      if (remaining !== null && amountInCDF > remaining) {
+        toast.error(`Le montant ne peut pas dépasser le reste à payer (${formatNumber(remaining)} CDF)`)
+        setSubmitting(false)
+        return
       }
       const res = await authFetch('/api/payments/online', {
         method: 'POST',
@@ -331,6 +344,8 @@ export default function OnlinePaymentView() {
     setPayCurrency('CDF')
     setPayConvertedAmount('')
     setAmountConverted('')
+    setRemaining(null)
+    setPaidSoFar(0)
   }
 
   async function downloadReceipt() {
@@ -495,7 +510,7 @@ export default function OnlinePaymentView() {
                 items={studentSuggestions}
                 selectedId={selectedStudentId}
                 onSelect={handleSelectStudent}
-                onClear={() => { setSelectedStudentId(null); setSelectedStudent(null); setStudentSearch('') }}
+                onClear={() => { setSelectedStudentId(null); setSelectedStudent(null); setStudentSearch(''); setAmount(''); setRemaining(null); setPaidSoFar(0); setTranche(''); setClassFees([]); setAllPaid(false) }}
                 searchQuery={studentSearch}
                 onSearchChange={(v) => { setStudentSearch(v); setSelectedStudent(null); setSelectedStudentId(null) }}
                 loading={studentSearchLoading}
@@ -516,13 +531,22 @@ export default function OnlinePaymentView() {
               <div>
                 <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant à payer (CDF) *</label>
                 <input
-                  placeholder="Montant"
+                  placeholder="Entrez le montant (max : reste à payer)"
                   value={amount}
-                  readOnly
+                  onChange={e => setAmount(e.target.value)}
                   type="number"
-                  className="w-full mt-1 px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-[oklch(97%_0.005_175)] outline-none cursor-not-allowed"
+                  min={1}
+                  max={remaining ?? undefined}
+                  className="w-full mt-1 px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]"
                   style={{ color: amount ? ACCENT : TEXT_MUTED_LUXE }}
                 />
+                {remaining !== null && (
+                  <div className="mt-1 text-[11px] px-3 py-2 rounded-lg" style={{ background: `${ACCENT}10`, color: TEXT_MUTED_LUXE }}>
+                    Reste à payer {tranche ? `${tranche} : ` : ''}<strong style={{ color: ACCENT }}>{formatNumber(remaining)} CDF</strong>
+                    {paidSoFar > 0 && <span> (déjà payé : {formatNumber(paidSoFar)} CDF — vous pouvez payer une partie)</span>}
+                    {paidSoFar === 0 && <span> — vous pouvez payer tout ou une partie</span>}
+                  </div>
+                )}
                 {payCurrency !== 'CDF' && exchangeRate && amount && (
                   <div className="mt-1 flex items-center gap-1.5 text-[11px] px-3 py-2 rounded-lg" style={{ background: `${ACCENT}10`, color: TEXT_MUTED_LUXE }}>
                     <ArrowRightLeft size={11} />

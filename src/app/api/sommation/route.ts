@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { requirePermission, verifySchoolAccess, sanitizeError } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { jsPDF } from 'jspdf'
+import { registerDocument, qrDataUrlForDocument } from '@/lib/document-verify'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('fr-FR', {
@@ -46,6 +47,8 @@ function buildSommationPDF(
   debts: Array<{ trimester: string; amount: number; paidAmount: number; remaining: number; status: string }>,
   schoolLogoBase64: string | null,
   totalRemaining: number,
+  qrCodeDataUrl: string | null,
+  verifyCode: string | null,
 ): Buffer {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -273,6 +276,26 @@ function buildSommationPDF(
   doc.text('La Direction', marginX + contentWidth - 60, y + 6)
   doc.text(formatDate(today), marginX + contentWidth - 60, y + 12)
 
+  // QR code de vérification (scannable sans compte : atteste l'authenticité)
+  if (qrCodeDataUrl) {
+    const qrY = pageHeight - 64
+    try {
+      doc.addImage(qrCodeDataUrl, 'PNG', pageWidth / 2 - 10, qrY, 20, 20)
+    } catch {}
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7)
+    doc.setTextColor(100, 116, 139)
+    doc.text('VERIFICATION', pageWidth / 2, qrY + 23, { align: 'center' })
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6.5)
+    doc.setTextColor(148, 163, 184)
+    doc.text('Pour verifier l\'authenticite de cette sommation, scannez le QR code', pageWidth / 2, qrY + 27, { align: 'center' })
+    if (verifyCode) {
+      doc.setFontSize(6.5)
+      doc.text(`Code : ${verifyCode}`, pageWidth / 2, qrY + 31, { align: 'center' })
+    }
+  }
+
   // Footer
   y = pageHeight - 16
   doc.setDrawColor(226, 232, 240)
@@ -366,6 +389,25 @@ export async function POST(request: NextRequest) {
 
     const totalRemaining = debts.reduce((sum: number, d: { remaining: number }) => sum + d.remaining, 0)
 
+    // ── Enregistrement du document officiel + QR code unique ─────────
+    // (même registre universel que bulletins, reçus et fiches médicales :
+    // n'importe qui, sans compte, peut vérifier l'authenticité via le QR)
+    const docRecord = await registerDocument({
+      type: 'SUMMONS',
+      schoolId,
+      studentId,
+      metadata: {
+        studentName: `${student.firstName} ${student.lastName}`,
+        matricule: student.matricule,
+        parentName: student.parent?.name || null,
+        totalRemaining,
+        debtsCount: debts.length,
+        trimesters: debts.map((d: { trimester: string }) => d.trimester),
+      },
+    })
+    const qrCodeDataUrl = await qrDataUrlForDocument(docRecord.id)
+    const verifyCode = `SOM-${docRecord.id.slice(-8).toUpperCase()}`
+
     const pdfBuffer = buildSommationPDF(
       student,
       student.parent,
@@ -373,6 +415,8 @@ export async function POST(request: NextRequest) {
       debts,
       schoolLogoBase64,
       totalRemaining,
+      qrCodeDataUrl,
+      verifyCode,
     )
 
     const studentName = `${student.lastName}-${student.firstName}`.replace(/\s+/g, '_')

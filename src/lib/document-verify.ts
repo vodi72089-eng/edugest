@@ -4,12 +4,13 @@ import QRCode from 'qrcode';
 /**
  * Registre des documents officiels EduGest.
  *
- * Chaque bulletin ou reçu PDF généré contient un QR code unique qui pointe
- * vers `${APP_URL}/verify/document/{code}`. La page publique affiche les
- * informations du document et confirme qu'il est officiel.
+ * Chaque document PDF généré (bulletin, reçu, fiche médicale, sommation)
+ * contient un QR code unique qui pointe vers `${APP_URL}/verify/document/{code}`.
+ * La page publique affiche les informations du document et confirme qu'il
+ * est officiel — sans compte, sans connexion.
  */
 
-export type DocumentType = 'BULLETIN' | 'RECEIPT' | 'MEDICAL';
+export type DocumentType = 'BULLETIN' | 'RECEIPT' | 'MEDICAL' | 'SUMMONS';
 
 /** URL de base de l'application (fonctionne en web et en desktop). */
 export function appBaseUrl(): string {

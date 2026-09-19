@@ -38,7 +38,12 @@ export default async function VerifyDocumentPage({ params }: { params: Promise<{
     try { return JSON.parse(record?.metadata || '{}') as Record<string, unknown>; } catch { return {}; }
   })();
 
-  const typeLabel = record?.type === 'RECEIPT' ? 'Reçu de paiement' : record?.type === 'BULLETIN' ? 'Bulletin scolaire' : 'Document';
+  const typeLabel =
+    record?.type === 'RECEIPT' ? 'Reçu de paiement'
+    : record?.type === 'BULLETIN' ? 'Bulletin scolaire'
+    : record?.type === 'MEDICAL' ? 'Document médical'
+    : record?.type === 'SUMMONS' ? 'Sommation'
+    : 'Document';
   const isOfficial = !!record;
 
   return (
@@ -144,6 +149,32 @@ export default async function VerifyDocumentPage({ params }: { params: Promise<{
                     <dd className="text-[13px] font-semibold text-right" style={{ color: '#22c55e' }}>
                       {Number(meta.paidAmount).toLocaleString('fr-FR')} CDF
                       {meta.receiptNumber ? <span className="block text-white/40 text-[11px] font-normal">Reçu n° {String(meta.receiptNumber)}</span> : null}
+                    </dd>
+                  </div>
+                )}
+
+                {/* Médical : titre + référence du document */}
+                {record.type === 'MEDICAL' && (
+                  <div className="flex items-start justify-between gap-4 py-2.5 border-b border-white/5">
+                    <dt className="text-white/45 text-[13px] font-medium">Document</dt>
+                    <dd className="text-white text-[13px] font-semibold text-right">
+                      {meta.title ? String(meta.title) : 'Document médical'}
+                      {meta.docCode ? <span className="block text-white/40 text-[11px] font-normal">Réf. {String(meta.docCode)}</span> : null}
+                    </dd>
+                  </div>
+                )}
+
+                {/* Sommation : montant restant dû */}
+                {record.type === 'SUMMONS' && meta.totalRemaining !== undefined && (
+                  <div className="flex items-start justify-between gap-4 py-2.5 border-b border-white/5">
+                    <dt className="text-white/45 text-[13px] font-medium">Montant restant dû</dt>
+                    <dd className="text-[13px] font-semibold text-right" style={{ color: '#f87171' }}>
+                      {Number(meta.totalRemaining).toLocaleString('fr-FR')} CDF
+                      {meta.debtsCount !== undefined ? (
+                        <span className="block text-white/40 text-[11px] font-normal">
+                          {String(meta.debtsCount)} échéance{Number(meta.debtsCount) > 1 ? 's' : ''} impayée{Number(meta.debtsCount) > 1 ? 's' : ''}
+                        </span>
+                      ) : null}
                     </dd>
                   </div>
                 )}

@@ -261,19 +261,6 @@ export async function POST(request: NextRequest) {
       console.error('[Discipline] Notification failed:', notifError);
     }
 
-    // Auto-classify student after new sanction
-    try {
-      const classification = await classifyStudent(studentId, schoolId)
-      if (classification.listType !== listType) {
-        await db.disciplineRecord.update({
-          where: { id: record.id },
-          data: { listType: classification.listType }
-        })
-      }
-    } catch (e) {
-      console.warn('[Discipline] Auto-classification failed:', e)
-    }
-
     return NextResponse.json({ data: record }, { status: 201 });
   } catch (error) {
     console.error('Error creating discipline record:', error);

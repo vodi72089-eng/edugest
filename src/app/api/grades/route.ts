@@ -281,16 +281,16 @@ export async function POST(request: NextRequest) {
 
     // Envoyer notification WhatsApp au parent
     try {
-      const student = await db.student.findUnique({
+      const studentInfo = await db.student.findUnique({
         where: { id: studentId },
         select: { parentId: true, firstName: true, lastName: true, schoolId: true },
       });
 
       // Create in-app notifications for school admins
-      if (student?.schoolId) {
+      if (studentInfo?.schoolId) {
         const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
         const schoolAdmins = await db.user.findMany({
-          where: { schoolId: student.schoolId, role: { in: adminRoles }, id: { not: user.id } },
+          where: { schoolId: studentInfo.schoolId, role: { in: adminRoles }, id: { not: user.id } },
           select: { id: true },
         });
         for (const admin of schoolAdmins) {
@@ -298,9 +298,9 @@ export async function POST(request: NextRequest) {
             data: {
               type: 'GRADE_CREATED',
               title: 'Note enregistrée',
-              message: `${student.firstName} ${student.lastName} - ${grade.subject.name}: ${score}/20 - ${trimester}`,
+              message: `${studentInfo.firstName} ${studentInfo.lastName} - ${grade.subject.name}: ${score}/20 - ${trimester}`,
               userId: admin.id,
-              schoolId: student.schoolId,
+              schoolId: studentInfo.schoolId,
               relatedId: grade.id,
             },
           });
@@ -308,39 +308,39 @@ export async function POST(request: NextRequest) {
       }
 
       // Create in-app notification for parent
-      if (student?.parentId) {
+      if (studentInfo?.parentId) {
         await notify({
           data: {
             type: 'GRADE_CREATED',
             title: 'Nouvelle note',
-            message: `${student.firstName} ${student.lastName} a obtenu ${score}/20 en ${grade.subject.name} - ${trimester}`,
-            userId: student.parentId,
-            schoolId: student.schoolId,
+            message: `${studentInfo.firstName} ${studentInfo.lastName} a obtenu ${score}/20 en ${grade.subject.name} - ${trimester}`,
+            userId: studentInfo.parentId,
+            schoolId: studentInfo.schoolId,
             relatedId: grade.id,
           },
         });
       }
 
       // WhatsApp notification
-      if (student?.parentId) {
+      if (studentInfo?.parentId) {
         const parent = await db.user.findUnique({
-          where: { id: student.parentId },
+          where: { id: studentInfo.parentId },
           select: { phone: true },
         });
         const school = await db.school.findUnique({
-          where: { id: student.schoolId },
+          where: { id: studentInfo.schoolId },
           select: { name: true },
         });
         if (parent?.phone && school) {
           await notifyGrade({
             parentPhone: parent.phone,
-            studentName: `${student.firstName} ${student.lastName}`,
+            studentName: `${studentInfo.firstName} ${studentInfo.lastName}`,
             subject: grade.subject.name,
             score,
             maxScore: 20,
             trimester,
             schoolName: school.name,
-            schoolId: student.schoolId,
+            schoolId: studentInfo.schoolId,
           });
         }
       }

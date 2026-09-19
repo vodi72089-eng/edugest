@@ -2262,7 +2262,7 @@ function Sidebar() {
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
       { icon: <Megaphone size={16} />, label: 'Convocations', view: 'convocation' },
       { icon: <CreditCard size={16} />, label: 'Payer en ligne', view: 'online-payment' as ViewType },
-      { icon: <CheckCircle size={16} />, label: 'Vérifier reçu', view: 'payment-verification' as ViewType },
+      { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
@@ -4885,10 +4885,26 @@ function PaymentVerificationView() {
   }
 
   async function handleParentReceiptSearch() {
-    if (!receiptSearch.trim()) { toast.error('Entrez un numéro de reçu'); return }
+    if (!receiptSearch.trim()) { toast.error('Entrez un code de document (REC-, BUL-, NOT-, DIS-, FSA-, REG-)'); return }
     setSearching(true)
     setSearchResult(null)
+    setUniversalResult(null)
     try {
+      // 1) Vérification universelle : code lisible (REC/BUL/NOT/DIS/FSA/REG) ou id
+      try {
+        const uniRes = await authFetch(`/api/verify/document?code=${encodeURIComponent(receiptSearch.trim())}`)
+        if (uniRes.ok) {
+          const uniJson = await uniRes.json()
+          if (uniJson.found) {
+            if (uniJson.type === 'RECEIPT') {
+              setSearchResult(uniJson.data as PaymentData)
+            } else {
+              setUniversalResult(uniJson)
+            }
+            return
+          }
+        }
+      } catch { /* fallback vers recherche reçus enfants */ }
       if (userData?.id) {
         const childrenRes = await authFetch(`/api/students?parentId=${userData.id}&limit=20`)
         const childrenJson = await childrenRes.json()
@@ -4925,13 +4941,99 @@ function PaymentVerificationView() {
     finally { setSearching(false) }
   }
 
+  async function handleParentScanReceipt() {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*,.pdf'
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      setSearching(true)
+      const rawName = file.name.replace(/\.[^.]+$/, '')
+      const reader = new FileReader()
+      reader.onload = async () => {
+        try {
+          const bytes = new Uint8Array(reader.result as ArrayBuffer)
+          const text = new TextDecoder('latin1').decode(bytes)
+          const idMatch = text.match(/EDUGEST-ID:([a-z0-9-]+)/i)
+          if (idMatch) {
+            const docId = idMatch[1]
+            setReceiptSearch(docId)
+            toast.success('ID extrait du fichier. Recherche...')
+            try {
+              const uniRes = await authFetch(`/api/verify/document?code=${encodeURIComponent(docId)}`)
+              if (uniRes.ok) {
+                const uniJson = await uniRes.json()
+                if (uniJson.found) {
+                  if (uniJson.type === 'RECEIPT') setSearchResult(uniJson.data as PaymentData)
+                  else setUniversalResult(uniJson)
+                  setSearching(false)
+                  return
+                }
+              }
+            } catch { /* fall through */ }
+          }
+        } catch { /* ignore parse errors */ }
+        const cleanedName = rawName.replace(/^recu[-_]?/i, '').replace(/^receipt[-_]?/i, '').replace(/^facture[-_]?/i, '')
+        setReceiptSearch(cleanedName)
+        toast.success('Fichier importé. Recherche du document...')
+        setTimeout(async () => {
+          try {
+            const uniRes = await authFetch(`/api/verify/document?code=${encodeURIComponent(cleanedName)}`)
+            if (uniRes.ok) {
+              const uniJson = await uniRes.json()
+              if (uniJson.found) {
+                if (uniJson.type === 'RECEIPT') setSearchResult(uniJson.data as PaymentData)
+                else setUniversalResult(uniJson)
+                return
+              }
+            }
+          } catch { /* continue */ }
+          if (!userData?.id) { setSearching(false); return }
+          try {
+            const childrenRes = await authFetch(`/api/students?parentId=${userData.id}&limit=20`)
+            const childrenJson = await childrenRes.json()
+            const children: { id: string }[] = childrenJson.data || []
+            let found: PaymentData | null = null
+            for (const child of children) {
+              const pRes = await authFetch(`/api/payments?studentId=${child.id}&limit=50`)
+              const pJson = await pRes.json()
+              const childPayments: PaymentData[] = pJson.data || []
+              const searchLower = cleanedName.toLowerCase()
+              const rawLower = rawName.toLowerCase()
+              const searchNoHyphens = searchLower.replace(/-/g, '')
+              const match = childPayments.find(p => {
+                if (p.receiptNumber && (p.receiptNumber.toLowerCase() === searchLower || p.receiptNumber.toLowerCase() === rawLower)) return true
+                if (p.referenceNumber && (p.referenceNumber.toLowerCase() === searchLower || p.referenceNumber.toLowerCase() === rawLower)) return true
+                if (p.id.toLowerCase() === rawLower || p.id.toLowerCase() === searchLower) return true
+                if (p.id.toLowerCase().replace(/-/g, '') === searchNoHyphens) return true
+                if (p.id.slice(-8).toLowerCase() === searchLower.slice(-8) || p.id.slice(-8).toLowerCase() === rawLower.slice(-8)) return true
+                if (rawLower.includes(p.id.toLowerCase()) || rawLower.includes(p.id.slice(-8).toLowerCase())) return true
+                if (searchLower.includes(p.id.toLowerCase()) || searchLower.includes(p.id.slice(-8).toLowerCase())) return true
+                if (p.receiptNumber && (rawLower.includes(p.receiptNumber.toLowerCase()) || searchLower.includes(p.receiptNumber.toLowerCase()))) return true
+                if (p.referenceNumber && (rawLower.includes(p.referenceNumber.toLowerCase()) || searchLower.includes(p.referenceNumber.toLowerCase()))) return true
+                return false
+              })
+              if (match) { found = match; break }
+            }
+            setSearchResult(found || null)
+            if (!found && !universalResult) toast.error('Aucun document trouvé pour ce fichier')
+          } catch { toast.error('Erreur lors de la recherche') }
+          finally { setSearching(false) }
+        }, 300)
+      }
+      reader.readAsArrayBuffer(file)
+    }
+    input.click()
+  }
+
   // ===== PARENT VIEW =====
   if (isParent) {
     return (
       <div>
         <div className="flex items-center gap-3 mb-6">
           <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Vérifier un reçu</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Vérification</h1>
         </div>
 
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm mb-6">
@@ -4940,14 +5042,14 @@ function PaymentVerificationView() {
               <CheckCircle size={20} className="text-white" />
             </div>
             <div>
-              <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Vérification de reçu</h3>
-              <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Entrez le numéro de reçu pour vérifier son authenticité</p>
+              <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Vérifier un document</h3>
+              <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Code unique : reçu (REC-), bulletin (BUL-), note (NOT-), fiche médicale (DIS-, FSA-, REG-) — ou importez un PDF</p>
             </div>
           </div>
 
           <div className="flex gap-3 mb-4">
             <input
-              placeholder="Ex: REC-M1A2B3C4 ou numéro du reçu"
+              placeholder="Ex: REC-M1A2B3C4, BUL-26-0001, DIS-26-0002..."
               value={receiptSearch}
               onChange={e => setReceiptSearch(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleParentReceiptSearch()}
@@ -4961,7 +5063,105 @@ function PaymentVerificationView() {
               {searching ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Search size={14} />}
               Vérifier
             </button>
+            <button
+              onClick={handleParentScanReceipt}
+              disabled={searching}
+              className="px-4 py-3 rounded-xl text-sm font-semibold inline-flex items-center gap-2 border border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm transition disabled:opacity-50"
+              style={{ color: TEXT_PRIMARY }}
+            >
+              {searching ? <div className="h-4 w-4 border-2 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" /> : <Upload size={14} />}
+              Importer
+            </button>
           </div>
+
+          {/* Universal Document Result (bulletin, note, fiche médicale) */}
+          {universalResult && universalResult.found && (
+            <div className="border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden mt-4">
+              <div className="px-5 py-4 flex items-center gap-3" style={{ background: 'oklch(96% 0.03 145)' }}>
+                <div className="w-10 h-10 rounded-full grid place-items-center" style={{ background: SUCCESS }}>
+                  <CheckCircle size={20} className="text-white" />
+                </div>
+                <div>
+                  <div className="font-semibold" style={{ color: SUCCESS }}>Document vérifié ✓</div>
+                  <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                    {universalResult.type === 'MEDICAL_DOCUMENT'
+                      ? 'Document médical officiel'
+                      : universalResult.type === 'BULLETIN'
+                        ? 'Bulletin scolaire officiel'
+                        : 'Note officielle'}
+                    {' · '}{universalResult.data?.school?.name || universalResult.data?.student?.class?.name || '—'}
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setUniversalResult(null); setReceiptSearch('') }}
+                  className="ml-auto p-2 rounded-lg hover:bg-[oklch(95%_0.01_175)]"
+                  title="Fermer"
+                >
+                  <X size={16} style={{ color: TEXT_MUTED_LUXE }} />
+                </button>
+              </div>
+              <div className="p-5 space-y-3">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg font-mono text-sm font-bold" style={{ background: 'oklch(95% 0.03 75)', color: 'oklch(45% 0.1 70)' }}>
+                  <Hash size={13} /> {universalResult.data.docCode || universalResult.data.id}
+                </div>
+                <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                  {universalResult.type === 'MEDICAL_DOCUMENT' && (
+                    <>
+                      <Detail label="Type" value={universalResult.data.docType === 'DISPENSE_MEDICALE' ? 'Dispense médicale' : universalResult.data.docType === 'FICHE_SANTE' ? 'Fiche de santé' : 'Registre de santé'} />
+                      <Detail label="Titre" value={universalResult.data.title} />
+                      {universalResult.data.student && (
+                        <Detail label="Élève" value={`${universalResult.data.student.lastName} ${universalResult.data.student.firstName} · ${universalResult.data.student.matricule || ''} ${universalResult.data.student.class?.name ? '· ' + universalResult.data.student.class.name : ''}`} />
+                      )}
+                      <Detail label="Créé par" value={universalResult.data.createdBy || '—'} />
+                      <Detail label="Date" value={new Date(universalResult.data.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} />
+                      <div>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await authFetch(`/api/medical/documents/${universalResult.data.id}/pdf`)
+                              if (!res.ok) throw new Error()
+                              const blob = await res.blob()
+                              const url = URL.createObjectURL(blob)
+                              const a = document.createElement('a')
+                              a.href = url
+                              a.download = `${(universalResult.data.docCode || 'document').toLowerCase()}.pdf`
+                              document.body.appendChild(a)
+                              a.click()
+                              document.body.removeChild(a)
+                              URL.revokeObjectURL(url)
+                            } catch { toast.error('Erreur lors du téléchargement du PDF') }
+                          }}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white"
+                          style={{ background: 'oklch(45% 0.12 145)' }}
+                        >
+                          <Download size={13} /> Télécharger le PDF
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {universalResult.type === 'BULLETIN' && (
+                    <>
+                      <Detail label="Élève" value={`${universalResult.data.student.lastName} ${universalResult.data.student.firstName} · ${universalResult.data.student.matricule || ''}`} />
+                      <Detail label="Classe" value={universalResult.data.student.class?.name || '—'} />
+                      <Detail label="Trimestre" value={universalResult.data.trimester} />
+                      <Detail label="Moyenne" value={universalResult.data.average != null ? `${Number(universalResult.data.average).toFixed(2)}/20` : '—'} />
+                      <Detail label="Décision" value={universalResult.data.decision || '—'} />
+                      <Detail label="Généré le" value={universalResult.data.generatedAt ? new Date(universalResult.data.generatedAt).toLocaleDateString('fr-FR') : '—'} />
+                    </>
+                  )}
+                  {universalResult.type === 'GRADE' && (
+                    <>
+                      <Detail label="Élève" value={`${universalResult.data.student.lastName} ${universalResult.data.student.firstName} · ${universalResult.data.student.matricule || ''}`} />
+                      <Detail label="Matière" value={universalResult.data.subject?.name || '—'} />
+                      <Detail label="Note" value={`${universalResult.data.score}/20`} />
+                      <Detail label="Trimestre" value={universalResult.data.trimester} />
+                      {universalResult.data.comment && <Detail label="Commentaire" value={universalResult.data.comment} />}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {searchResult && (
             <div className="border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden mt-4">
