@@ -48,7 +48,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const formData = await request.formData();
+    // Note: typé `any` — la lib DOM du tsconfig n'expose pas FormData.get
+    // (multipart NextRequest), accès runtime standard.
+    const formData: any = await request.formData();
     const file = formData.get('file') as File | null;
 
     if (!user) {

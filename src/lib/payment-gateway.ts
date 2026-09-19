@@ -12,6 +12,7 @@
 import { db } from '@/lib/db';
 import { convertCurrency } from '@/lib/exchange-rate';
 import { decryptSecret } from '@/lib/gateway-keys';
+import { randomBytes } from 'crypto';
 
 /** École sentinelle : passerelles de paiement de la PLATEFORME (abonnements EduGest) */
 export const PLATFORM_SCHOOL_ID = '__PLATFORM__';
@@ -37,7 +38,9 @@ export interface PaymentRequest {
   customerEmail?: string;
   customerName?: string;
   paymentMethod?: string;
-  /** Paiement carte (Visa/Mastercard) — uniquement encaissement direct */
+  /** @deprecated DONNÉES CARTE INTERDITES (PCI-DSS) : Visa/Mastercard passent
+   *  uniquement par checkout hébergé. Ces champs sont IGNORÉS s'ils sont
+   *  envoyés (défense en profondeur, voir initiate). */
   cardNumber?: string;
   cardExpiryMonth?: string | number;
   cardExpiryYear?: string | number;
@@ -55,6 +58,10 @@ export interface PaymentResponse {
   message?: string;
   convertedAmount?: number;
   baseCurrency?: string;
+  /** Vrai si AUCUN appel réel n'a eu lieu (simulation mode TEST).
+   *  Le frontend DOIT l'afficher (« MODE TEST ») et ne jamais le
+   *  présenter comme un paiement réel. */
+  testMode?: boolean;
 }
 
 export const GATEWAY_INFO: Record<GatewayType, {
@@ -202,7 +209,9 @@ export async function initiatePayment(
     }
   }
 
-  const reference = `PAY-${Date.now().toString(36).toUpperCase()}`;
+  // Référence interne unique : préfixe + temps + aléa (jamais tronquée ici ;
+  // les limites fournisseur utilisent gatewayReference dédiée côté process).
+  const reference = `PAY-${Date.now().toString(36).toUpperCase()}-${randomBytes(4).toString('hex').toUpperCase()}`;
   const transaction = await db.paymentTransaction.create({
     data: {
       schoolId: request.schoolId,
@@ -340,6 +349,7 @@ async function processMpesaPayment(
       gatewayTransactionId: `MPESA-TEST-${Date.now()}`,
       status: 'PENDING',
       message: 'STK Push simulé — paiement en attente de confirmation',
+      testMode: true,
     };
   }
 
@@ -456,6 +466,7 @@ async function processOrangeMoneyPayment(
       gatewayTransactionId: `OM-TEST-${Date.now()}`,
       status: 'PENDING',
       message: 'Paiement Orange Money simulé — en attente de confirmation',
+      testMode: true,
     };
   }
 
@@ -553,6 +564,7 @@ async function processAirtelMoneyPayment(
       gatewayTransactionId: `AM-TEST-${Date.now()}`,
       status: 'PENDING',
       message: 'Paiement Airtel Money simulé — en attente de confirmation',
+      testMode: true,
     };
   }
 
@@ -637,7 +649,8 @@ async function processAirtelMoneyPayment(
 }
 
 // ─── Manuel (espèces, virement) ─────────────────────────────────────────────
-
+// AUCUNE preuve externe : reste TOUJOURS PENDING jusqu'à validation caissier.
+// Ne retourne jamais SUCCESS (un succès sans preuve est un faux succès).
 async function processManualPayment(
   config: any,
   request: PaymentRequest,
@@ -646,9 +659,9 @@ async function processManualPayment(
   return {
     success: true,
     reference,
-    gatewayTransactionId: `MANUAL-${Date.now()}`,
-    status: 'SUCCESS',
-    message: 'Paiement manuel enregistré - En attente de validation',
+    status: 'PENDING',
+    message: 'Demande de paiement manuel enregistrée — en attente de validation par le caissier',
+    testMode: false,
   };
 }
 
@@ -664,6 +677,7 @@ function simulateCardPayment(prefix: string, reference: string): PaymentResponse
     gatewayTransactionId: `${prefix}-TEST-${Date.now()}`,
     status: 'PENDING',
     message: 'Paiement carte simulé (mode test) — en attente de capture',
+    testMode: true,
   };
 }
 
@@ -695,55 +709,16 @@ async function processVisaPayment(
     };
   }
 
-  try {
-    // API Cybersource (plateforme d'acquisition Visa) : autorisation de paiement
-    const response = await fetch('https://api.visa.com/cybersource/v2/payments', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${Buffer.from(`${config.apiKey}:${config.secretKey}`).toString('base64')}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        clientReferenceInformation: { code: reference },
-        paymentInformation: {
-          card: {
-            number: compactPan(request.cardNumber || ''),
-            expirationMonth: String(request.cardExpiryMonth || ''),
-            expirationYear: String(request.cardExpiryYear || ''),
-            securityCode: String(request.cardCvv || ''),
-          },
-        },
-        orderInformation: {
-          amountDetails: { totalAmount: String(request.amount), currency: request.currency },
-          billTo: {
-            firstName: (request.customerName || 'Client').split(' ')[0],
-            lastName: (request.customerName || 'Client').split(' ').slice(1).join(' ') || 'EduGest',
-            email: request.customerEmail || undefined,
-          },
-        },
-      }),
-    });
-    const data = await response.json().catch(() => ({}));
-
-    if (response.ok && (data.status === 'AUTHORIZED' || data.status === 'PENDING_AUTH')) {
-      return {
-        success: true,
-        reference,
-        gatewayTransactionId: data.id || reference,
-        status: data.status === 'AUTHORIZED' ? 'SUCCESS' : 'PENDING',
-        message: 'Paiement Visa autorisé',
-      };
-    }
-
-    return {
-      success: false,
-      reference,
-      status: 'FAILED',
-      message: data.errorInformation?.message || data.responseInformation?.reason || `Autorisation Visa refusée (${response.status})`,
-    };
-  } catch (error) {
-    return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur Visa' };
-  }
+  // PCI-DSS : AUCUN numéro de carte ne transite par nos serveurs.
+  // Le paiement carte direct (PAN/CVV) est REFUSÉ : utilisez le checkout
+  // hébergé du fournisseur (redirection). Aucune tokenisation disponible
+  // côté EduGest à ce jour.
+  return {
+    success: false,
+    reference,
+    status: 'FAILED',
+    message: 'Paiement carte direct non supporté (sécurité PCI-DSS) — utilisez le checkout hébergé du fournisseur',
+  };
 }
 
 // ─── Mastercard (Mastercard Payment Gateway Services) ───────────────────────
@@ -751,6 +726,7 @@ async function processVisaPayment(
 //   merchantId  = Merchant ID (MPGS)
 //   apiKey      = User ID (API)
 //   secretKey   = Password (API)
+// PCI-DSS : voir Visa ci-dessus — pas de PAN sur nos serveurs.
 async function processMastercardPayment(
   config: any,
   request: PaymentRequest,
@@ -773,52 +749,13 @@ async function processMastercardPayment(
     };
   }
 
-  try {
-    // MPGS : PAY session via REST (région par défaut : Afrique)
-    const baseUrl = config.publicKey || 'https://gateway-mastercard.cloud/api';
-    const response = await fetch(`${baseUrl}/rest/version/100/merchant/${config.merchantId}/order/${reference}/transaction/1`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Basic ${Buffer.from(`merchant.${config.merchantId}:${config.apiKey}:${config.secretKey}`).toString('base64')}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        apiOperation: 'PAY',
-        order: { amount: String(request.amount), currency: request.currency, reference },
-        sourceOfFunds: {
-          type: 'CARD',
-          provided: {
-            card: {
-              number: compactPan(request.cardNumber || ''),
-              expiry: { month: String(request.cardExpiryMonth || ''), year: String(request.cardExpiryYear || '') },
-              securityCode: String(request.cardCvv || ''),
-            },
-          },
-        },
-        transaction: { reference },
-      }),
-    });
-    const data = await response.json().catch(() => ({}));
-
-    if (data.result === 'SUCCESS') {
-      return {
-        success: true,
-        reference,
-        gatewayTransactionId: data.transaction?.id || reference,
-        status: 'SUCCESS',
-        message: 'Paiement Mastercard accepté',
-      };
-    }
-
-    return {
-      success: false,
-      reference,
-      status: 'FAILED',
-      message: data.error?.explanation || data.response?.gatewayMessage || `Paiement Mastercard refusé (${response.status})`,
-    };
-  } catch (error) {
-    return { success: false, reference, status: 'FAILED', message: error instanceof Error ? error.message : 'Erreur Mastercard' };
-  }
+  // PCI-DSS : AUCUN numéro de carte ne transite par nos serveurs (voir Visa).
+  return {
+    success: false,
+    reference,
+    status: 'FAILED',
+    message: 'Paiement carte direct non supporté (sécurité PCI-DSS) — utilisez le checkout hébergé du fournisseur',
+  };
 }
 
 // ─── Flutterwave (V3 standard payment) ──────────────────────────────────────
@@ -837,6 +774,7 @@ async function processFlutterwavePayment(
       gatewayTransactionId: `FLW-TEST-${Date.now()}`,
       status: 'PENDING',
       message: 'Lien de paiement Flutterwave simulé (mode test)',
+      testMode: true,
     };
   }
 
@@ -905,6 +843,7 @@ async function processBictorysPayment(
       gatewayTransactionId: `BCT-TEST-${Date.now()}`,
       status: 'PENDING',
       message: 'Lien de paiement Bictorys simulé (mode test)',
+      testMode: true,
     };
   }
 

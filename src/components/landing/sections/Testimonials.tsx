@@ -143,7 +143,7 @@ function TestimonialCard({ testimonial, isActive }: { testimonial: Testimonial; 
 export default function Testimonials() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const goToNext = useCallback(() => {
     setCurrentIndex((prev) => (prev + 1) % TESTIMONIALS.length)

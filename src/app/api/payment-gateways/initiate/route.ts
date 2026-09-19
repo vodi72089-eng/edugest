@@ -36,6 +36,18 @@ export async function POST(request: NextRequest) {
       paymentMethod,
     } = body;
 
+    // PCI-DSS : AUCUNE donnée carte (PAN/CVV) n'est acceptée par cette route.
+    // Visa/Mastercard passent uniquement par checkout hébergé (redirection).
+    if (
+      body.cardNumber !== undefined || body.cardCvv !== undefined ||
+      body.cardExpiryMonth !== undefined || body.cardExpiryYear !== undefined
+    ) {
+      return NextResponse.json(
+        { error: 'Données carte refusées (PCI-DSS) — utilisez le checkout hébergé du fournisseur' },
+        { status: 400 }
+      );
+    }
+
     // Validate required fields
     if (!schoolId) {
       return NextResponse.json(
@@ -90,11 +102,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify an optional paymentRecordId belongs to the target school
+    // Verify an optional paymentRecordId belongs to the target school,
+    // and lock the amount to the remaining due (no amount tampering).
+    let recordRemaining: number | null = null;
     if (paymentRecordId) {
       const paymentRecord = await db.paymentRecord.findUnique({
         where: { id: paymentRecordId },
-        select: { schoolId: true },
+        select: { schoolId: true, amount: true, paidAmount: true, status: true },
       });
       if (!paymentRecord || paymentRecord.schoolId !== schoolId) {
         return NextResponse.json(
@@ -102,6 +116,22 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
+      if (paymentRecord.status === 'PAID') {
+        return NextResponse.json(
+          { error: 'Ce paiement est déjà soldé (PAID)' },
+          { status: 409 }
+        );
+      }
+      recordRemaining = paymentRecord.amount - paymentRecord.paidAmount;
+    }
+
+    // Montant verrouillé au reste dû quand lié à un PaymentRecord existant
+    // (pas de modification du montant après initiation).
+    if (recordRemaining !== null && Number(amount) > recordRemaining) {
+      return NextResponse.json(
+        { error: `Montant supérieur au reste dû (${recordRemaining})` },
+        { status: 400 }
+      );
     }
 
     // Verify the gateway is configured & active for this school
@@ -154,12 +184,15 @@ export async function POST(request: NextRequest) {
       initiatedBy: user.id,
     });
 
-    // Return appropriate status code based on response
-    const statusCode = paymentResponse.success
-      ? 200
-      : paymentResponse.status === 'PENDING'
-      ? 202
-      : 400;
+    // Codes honnêtes : PENDING = accepté pour traitement (202), jamais 200.
+    // SUCCESS direct = 200 (réservé aux flux synchrones confirmés).
+    // FAILED = 400. Le champ testMode signale une simulation (MODE TEST).
+    const statusCode =
+      paymentResponse.status === 'PENDING'
+        ? 202
+        : paymentResponse.success
+          ? 200
+          : 400;
 
     return NextResponse.json(
       {

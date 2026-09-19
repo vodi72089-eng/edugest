@@ -576,6 +576,15 @@ export async function GET(
       return NextResponse.json({ error: 'Payment record not found' }, { status: 404 });
     }
 
+    // RÈGLE ABSOLUE : reçu officiel UNIQUEMENT si soldé (PAID) ou partiel
+    // encaissé (PARTIAL). PENDING/REJECTED/OVERDUE → 409, jamais de PDF.
+    if (payment.status !== 'PAID' && payment.status !== 'PARTIAL') {
+      return NextResponse.json(
+        { error: `Reçu indisponible : paiement au statut ${payment.status} (reçu officiel après encaissement uniquement)` },
+        { status: 409 }
+      );
+    }
+
     // Verify school access
     if (!verifySchoolAccess(user, payment.schoolId)) {
       return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });

@@ -43,6 +43,15 @@ export default function OnlinePaymentView() {
   const [resultStudent, setResultStudent] = useState('')
   const [resultPaymentId, setResultPaymentId] = useState('')
   const [pdfLoading, setPdfLoading] = useState(false)
+  // Orchestration honnête : transaction passerelle + prochaine étape + statuts live
+  const [resultTxId, setResultTxId] = useState<string | null>(null)
+  const [resultTestMode, setResultTestMode] = useState(false)
+  const [resultNextStep, setResultNextStep] = useState<{ action: 'redirect' | 'wait'; url?: string; hint?: string } | null>(null)
+  const [txStatus, setTxStatus] = useState('PENDING')
+  const [recordStatus, setRecordStatus] = useState('PENDING')
+  // Passerelles RÉELLEMENT disponibles (configurées + actives côté école)
+  const [availableMethods, setAvailableMethods] = useState<string[] | null>(null)
+  const HOSTED_METHODS = ['ORANGE_MONEY', 'MPESA', 'AIRTEL_MONEY', 'FLUTTERWAVE', 'BICTORYS']
 
   // Fetch children
   useEffect(() => {
@@ -169,6 +178,19 @@ export default function OnlinePaymentView() {
         .then(r => r.json())
         .then(j => { if (j.data) setCurrencyConfig(j.data) })
         .catch(() => {})
+      // Passerelles réellement configurées + actives (jamais de catalogue statique)
+      authFetch(`/api/payment-gateways?schoolId=${userData.schoolId}`)
+        .then(r => r.json())
+        .then(j => {
+          const configured: any[] = j.data?.configured || []
+          // Actives + (clés réelles OU mode test explicite — le badge MODE TEST l'indique)
+          const active = configured
+            .filter(g => g.isActive && (g.hasCredentials || g.isTestMode) && HOSTED_METHODS.includes(g.gatewayType))
+            .map(g => g.gatewayType)
+          setAvailableMethods(active)
+          if (active.length > 0 && !active.includes(paymentMethod)) setPaymentMethod(active[0])
+        })
+        .catch(() => setAvailableMethods(HOSTED_METHODS))
     }
   }, [userData?.schoolId])
 
@@ -236,15 +258,23 @@ export default function OnlinePaymentView() {
         }),
       })
       const json = await res.json()
-      if (res.ok) {
-        setResultRef(json.data.referenceNumber)
+      if (res.ok || res.status === 202) {
+        const d = json.data
+        setResultRef(d.referenceNumber)
         setResultAmount(Number(amount))
-        setResultStudent(`${json.data.student.firstName} ${json.data.student.lastName}`)
-        setResultPaymentId(json.data.id)
+        setResultStudent(`${d.student.firstName} ${d.student.lastName}`)
+        setResultPaymentId(d.id)
+        setResultTxId(d.transaction?.id || null)
+        setResultTestMode(!!d.testMode)
+        setResultNextStep(d.nextStep || null)
+        setTxStatus(d.transaction?.status || 'PENDING')
+        setRecordStatus('PENDING')
         setStep('success')
-        toast.success('Paiement enregistré avec succès!')
+        toast.success(d.testMode
+          ? 'Demande enregistrée (MODE TEST) — le caissier vérifiera manuellement.'
+          : 'Paiement initié — en attente de confirmation.')
       } else {
-        toast.error(json.error || 'Erreur lors de l\'enregistrement')
+        toast.error(json.error || "Échec de l'initiation du paiement")
       }
     } catch {
       toast.error('Erreur réseau')
@@ -252,6 +282,35 @@ export default function OnlinePaymentView() {
       setSubmitting(false)
     }
   }
+
+  // Suivi live de la transaction : la confirmation (webhook vérifié) débloque
+  // le reçu. Sans confirmation, JAMAIS de reçu officiel.
+  useEffect(() => {
+    if (step !== 'success' || !resultTxId) return
+    if (txStatus === 'SUCCESS' || txStatus === 'FAILED') return
+    let tries = 0
+    const id = setInterval(async () => {
+      tries++
+      try {
+        const r = await authFetch(`/api/payment-transactions/${resultTxId}`)
+        const j = await r.json()
+        const st = j.data?.status as string | undefined
+        if (st && st !== 'PENDING') {
+          setTxStatus(st)
+          if (st === 'SUCCESS' && selectedStudentId) {
+            const pr = await authFetch(`/api/payments?studentId=${selectedStudentId}&limit=100`).then(x => x.json())
+            const rec = (pr.data || []).find((p: any) => p.id === resultPaymentId)
+            if (rec) setRecordStatus(rec.status)
+          }
+          clearInterval(id)
+        } else if (tries >= 36 || st === 'FAILED') {
+          if (st === 'FAILED') setTxStatus('FAILED')
+          clearInterval(id)
+        }
+      } catch { /* retry silencieux */ }
+    }, 5000)
+    return () => clearInterval(id)
+  }, [step, resultTxId])
 
   function handleReset() {
     setStep('select')
@@ -261,6 +320,11 @@ export default function OnlinePaymentView() {
     setPhone('')
     setResultRef('')
     setResultPaymentId('')
+    setResultTxId(null)
+    setResultTestMode(false)
+    setResultNextStep(null)
+    setTxStatus('PENDING')
+    setRecordStatus('PENDING')
     setTranche('Tranche 1')
     setClassFees([])
     setAllPaid(false)
@@ -292,34 +356,70 @@ export default function OnlinePaymentView() {
     }
   }
 
-  // Logos officiels des passerelles (servis depuis /public/logos/payment)
-  // Stripe, PayPal et DPO retirés — non disponibles pour les marchands en RDC.
+  // Méthodes HONNÊTES : uniquement les flux hébergés réellement initiables.
+  // PAS de Visa/Mastercard (redirect-only sans intégration), PAS de MANUAL
+  // (le cash se déclare au caissier, pas en « paiement en ligne »).
+  // L'affichage est filtré par `availableMethods` (config école réelle).
   const methodLabels: Record<string, { label: string; color: string; icon: string; svg: string }> = {
-    VISA: { label: 'Visa', color: '#1A1F71', icon: '💳', svg: '/logos/payment/visa.svg' },
-    MASTERCARD: { label: 'Mastercard', color: '#EB001B', icon: '💳', svg: '/logos/payment/mastercard.svg' },
     FLUTTERWAVE: { label: 'Flutterwave', color: '#FF6D00', icon: '🌊', svg: '/logos/payment/flutterwave.png' },
     BICTORYS: { label: 'Bictorys', color: '#1DC9A0', icon: '⚡', svg: '/logos/payment/bictorys.svg' },
     ORANGE_MONEY: { label: 'Orange Money', color: '#FF6600', icon: '🟠', svg: '/logos/payment/orange_money.svg' },
     MPESA: { label: 'M-Pesa', color: '#00A651', icon: '🟢', svg: '/logos/payment/mpesa.svg' },
     AIRTEL_MONEY: { label: 'Airtel Money', color: '#E40000', icon: '🔴', svg: '/logos/payment/airtel_money.svg' },
-    MANUAL: { label: 'Paiement Manuel', color: '#0E7C4A', icon: '💵', svg: '/logos/payment/cash.svg' },
   }
+  const visibleMethods = (availableMethods || HOSTED_METHODS).filter(k => methodLabels[k])
 
   if (step === 'success') {
+    const paid = recordStatus === 'PAID'
+    const failed = txStatus === 'FAILED'
     return (
       <div>
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-1 h-8 rounded-full" style={{ background: SUCCESS }} />
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Paiement enregistré</h1>
+          <div className="w-1 h-8 rounded-full" style={{ background: failed ? DANGER : paid ? SUCCESS : GOLD }} />
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>
+            {paid ? 'Paiement confirmé' : failed ? 'Paiement échoué' : 'Paiement en attente'}
+          </h1>
+          {resultTestMode && (
+            <span className="text-[11px] font-bold px-2 py-1 rounded-lg" style={{ background: 'oklch(94% 0.06 65)', color: 'oklch(45% 0.13 65)' }}>
+              MODE TEST — aucune transaction réelle
+            </span>
+          )}
         </div>
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-8 shadow-sm text-center max-w-lg mx-auto">
-          <div className="w-16 h-16 rounded-full mx-auto mb-4 grid place-items-center" style={{ background: 'oklch(94% 0.05 145)' }}>
-            <CheckCircle size={32} style={{ color: SUCCESS }} />
+          <div className="w-16 h-16 rounded-full mx-auto mb-4 grid place-items-center" style={{ background: failed ? 'oklch(95% 0.04 25)' : paid ? 'oklch(94% 0.05 145)' : 'oklch(94% 0.06 65)' }}>
+            <CheckCircle size={32} style={{ color: failed ? DANGER : paid ? SUCCESS : GOLD }} />
           </div>
-          <h2 className="text-xl font-bold mb-2" style={{ color: TEXT_PRIMARY }}>Demande de paiement envoyée</h2>
+          <h2 className="text-xl font-bold mb-2" style={{ color: TEXT_PRIMARY }}>
+            {paid ? 'Paiement confirmé !' : failed ? 'Le paiement a échoué' : 'Paiement initié — en attente de confirmation'}
+          </h2>
           <p className="text-sm mb-6" style={{ color: TEXT_MUTED_LUXE }}>
-            Votre paiement est en attente de confirmation par le caissier de l&apos;école.
+            {paid
+              ? 'Le paiement a été confirmé par la passerelle. Votre reçu officiel est disponible.'
+              : failed
+                ? "La passerelle n'a pas confirmé ce paiement. Aucun montant n'a été encaissé — réessayez ou contactez l'école."
+                : resultTestMode
+                  ? "Simulation (MODE TEST) : aucun argent n'a bougé. Le caissier vérifiera manuellement."
+                  : resultNextStep?.action === 'redirect'
+                    ? 'Finalisez le paiement sur la page sécurisée de la passerelle, puis revenez ici.'
+                    : 'Confirmez le paiement sur votre téléphone. Cette page se met à jour automatiquement.'}
           </p>
+          {/* Prochaine étape honnête : redirection checkout OU attente STK */}
+          {!paid && !failed && resultNextStep?.action === 'redirect' && resultNextStep.url && (
+            <a
+              href={resultNextStep.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white mb-6 transition hover:opacity-90"
+              style={{ background: ACCENT }}
+            >
+              Continuer vers la passerelle <ArrowRightLeft size={14} />
+            </a>
+          )}
+          {!paid && !failed && txStatus === 'PENDING' && (
+            <p className="text-xs mb-6 inline-flex items-center gap-2" style={{ color: TEXT_MUTED_LUXE }}>
+              <Loader2 size={12} className="animate-spin" /> Vérification automatique en cours…
+            </p>
+          )}
           <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-4 mb-6 text-left space-y-2">
             <div className="flex justify-between text-sm">
               <span style={{ color: TEXT_MUTED_LUXE }}>Élève</span>
@@ -335,24 +435,30 @@ export default function OnlinePaymentView() {
             </div>
             <div className="flex justify-between text-sm">
               <span style={{ color: TEXT_MUTED_LUXE }}>Statut</span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]">
-                En attente
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium" style={paid ? { background: 'oklch(94% 0.05 145)', color: SUCCESS } : failed ? { background: 'oklch(95% 0.04 25)', color: DANGER } : { background: 'oklch(94% 0.06 65)', color: 'oklch(45% 0.13 65)' }}>
+                {paid ? 'Payé' : failed ? 'Échoué' : 'En attente'}
               </span>
             </div>
           </div>
           <p className="text-xs mb-4" style={{ color: TEXT_MUTED_LUXE }}>
-            Conservez cette référence pour suivre votre paiement. Le caissier vérifiera et confirmera le paiement.
+            Conservez cette référence pour suivre votre paiement.
           </p>
           <div className="flex gap-3 justify-center">
-            <button
-              onClick={downloadReceipt}
-              disabled={pdfLoading}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}
-            >
-              {pdfLoading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
-              Télécharger le reçu
-            </button>
+            {paid ? (
+              <button
+                onClick={downloadReceipt}
+                disabled={pdfLoading}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}
+              >
+                {pdfLoading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+                Télécharger le reçu officiel
+              </button>
+            ) : (
+              <span className="text-xs px-4 py-2" style={{ color: TEXT_MUTED_LUXE }}>
+                Le reçu officiel sera disponible après confirmation du paiement.
+              </span>
+            )}
             <button onClick={handleReset} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2">
               <CreditCard size={14} /> Effectuer un autre paiement
             </button>
@@ -437,23 +543,32 @@ export default function OnlinePaymentView() {
 
               <div>
                 <label className="text-xs font-medium mb-2 block" style={{ color: TEXT_MUTED_LUXE }}>Méthode de paiement *</label>
+                {availableMethods !== null && visibleMethods.length === 0 ? (
+                  <p className="text-[13px] px-3 py-2.5 rounded-xl" style={{ background: 'oklch(94% 0.06 65)', color: 'oklch(45% 0.13 65)' }}>
+                    Aucune passerelle activée pour votre école. Contactez la direction ou payez au caissier.
+                  </p>
+                ) : (
                 <div className="grid grid-cols-3 gap-2">
-                  {Object.entries(methodLabels).map(([key, info]) => (
-                    <button
-                      key={key}
-                      onClick={() => setPaymentMethod(key)}
-                      className={`p-3 rounded-xl border-2 text-center transition-all ${
-                        paymentMethod === key
-                          ? 'border-[oklch(72%_0.15_65)] shadow-md'
-                          : 'border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.4)]'
-                      }`}
-                      style={{ background: paymentMethod === key ? 'oklch(97% 0.005 175)' : 'white' }}
-                    >
-                      <div className="h-8 w-full flex items-center justify-center mb-1 bg-white rounded-lg border border-[oklch(90%_0.01_175)] p-1"><img src={info.svg} alt={info.label} className="max-w-full max-h-full w-auto h-auto object-contain" /></div>
-                      <div className="text-[11px] font-semibold" style={{ color: TEXT_PRIMARY }}>{info.label}</div>
-                    </button>
-                  ))}
+                  {visibleMethods.map((key) => {
+                    const info = methodLabels[key]
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setPaymentMethod(key)}
+                        className={`p-3 rounded-xl border-2 text-center transition-all ${
+                          paymentMethod === key
+                            ? 'border-[oklch(72%_0.15_65)] shadow-md'
+                            : 'border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.4)]'
+                        }`}
+                        style={{ background: paymentMethod === key ? 'oklch(97% 0.005 175)' : 'white' }}
+                      >
+                        <div className="h-8 w-full flex items-center justify-center mb-1 bg-white rounded-lg border border-[oklch(90%_0.01_175)] p-1"><img src={info.svg} alt={info.label} className="max-w-full max-h-full w-auto h-auto object-contain" /></div>
+                        <div className="text-[11px] font-semibold" style={{ color: TEXT_PRIMARY }}>{info.label}</div>
+                      </button>
+                    )
+                  })}
                 </div>
+                )}
               </div>
 
               <div>
@@ -493,10 +608,10 @@ export default function OnlinePaymentView() {
               <h3 className="font-semibold mb-3" style={{ color: TEXT_PRIMARY }}>Comment ça marche ?</h3>
               <div className="space-y-3">
                 {[
-                  { step: '1', text: 'Sélectionnez l\'élève et le trimestre' },
-                  { step: '2', text: 'Entrez le montant et choisissez la méthode' },
-                  { step: '3', text: 'Le caissier reçoit la demande et vérifie le paiement' },
-                  { step: '4', text: 'Une fois confirmé, le reçu est généré automatiquement' },
+                  { step: '1', text: 'Sélectionnez l\'élève et la tranche' },
+                  { step: '2', text: 'Choisissez une passerelle activée par votre école' },
+                  { step: '3', text: 'Confirmez sur votre téléphone ou la page sécurisée' },
+                  { step: '4', text: 'Le reçu officiel se débloque après confirmation réelle' },
                 ].map(s => (
                   <div key={s.step} className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full grid place-items-center text-[11px] font-bold text-white shrink-0" style={{ background: GOLD }}>
@@ -511,12 +626,15 @@ export default function OnlinePaymentView() {
             <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
               <h3 className="font-semibold mb-3" style={{ color: TEXT_PRIMARY }}>Méthodes acceptées</h3>
               <div className="space-y-2">
-                {Object.entries(methodLabels).map(([key, info]) => (
-                  <div key={key} className="flex items-center gap-2.5 p-2 rounded-lg" style={{ background: paymentMethod === key ? 'oklch(97% 0.005 175)' : 'transparent' }}>
-                    <img src={info.svg} alt={info.label} className="h-6 w-10 rounded-md object-contain shrink-0 bg-white border border-[oklch(90%_0.01_175)] p-0.5" />
-                    <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{info.label}</span>
-                  </div>
-                ))}
+                {visibleMethods.map((key) => {
+                  const info = methodLabels[key]
+                  return (
+                    <div key={key} className="flex items-center gap-2.5 p-2 rounded-lg" style={{ background: paymentMethod === key ? 'oklch(97% 0.005 175)' : 'transparent' }}>
+                      <img src={info.svg} alt={info.label} className="h-6 w-10 rounded-md object-contain shrink-0 bg-white border border-[oklch(90%_0.01_175)] p-0.5" />
+                      <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{info.label}</span>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </div>

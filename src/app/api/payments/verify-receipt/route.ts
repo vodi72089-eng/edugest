@@ -27,44 +27,43 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });
     }
 
-    const q = id.trim().toLowerCase();
+    const raw = id.trim();
+    const q = raw.toLowerCase();
     const qNoHyphens = q.replace(/-/g, '');
 
-    // Search by exact ID, receipt number, reference number, or partial matches
-    const payment = await db.paymentRecord.findFirst({
-      where: schoolId ? { schoolId } : {},
+    // Correspondances EXACTES uniquement (DB, pas de scan flou) :
+    // id, id sans tirets, receiptNumber, referenceNumber. AUCUNE recherche
+    // partielle/sous-chaîne (faux positifs + énumération inter-écoles).
+    // (Comparaisons brutes : SQLite `=` est sensible à la casse.)
+    const whereClause: Record<string, unknown> = schoolId ? { schoolId } : {};
+    const match = await db.paymentRecord.findFirst({
+      where: {
+        ...whereClause,
+        OR: [
+          { id: raw },
+          { id: q },
+          { receiptNumber: raw },
+          { referenceNumber: raw },
+        ],
+      },
       include: {
         school: { select: { name: true, shortName: true } },
       },
-    });
-
-    // Try to find matching payment
-    const whereClause: Record<string, unknown> = schoolId ? { schoolId } : {};
-
-    // First: try exact match on common fields
-    const candidates = await db.paymentRecord.findMany({
-      where: whereClause,
-      take: 1000,
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const match = candidates.find(p => {
-      // Exact ID match
-      if (p.id.toLowerCase() === q) return true;
-      // ID without hyphens
-      if (p.id.toLowerCase().replace(/-/g, '') === qNoHyphens) return true;
-      // Last 8 chars of ID
-      if (p.id.slice(-8).toLowerCase() === q.slice(-8)) return true;
-      // Receipt number
-      if (p.receiptNumber && p.receiptNumber.toLowerCase() === q) return true;
-      // Reference number
-      if (p.referenceNumber && p.referenceNumber.toLowerCase() === q) return true;
-      // Partial containment
-      if (q.includes(p.id.toLowerCase()) || q.includes(p.id.slice(-8).toLowerCase())) return true;
-      if (p.id.toLowerCase().includes(q) || p.id.slice(-8).toLowerCase().includes(q)) return true;
-      if (p.receiptNumber && (q.includes(p.receiptNumber.toLowerCase()) || p.receiptNumber.toLowerCase().includes(q))) return true;
-      if (p.referenceNumber && (q.includes(p.referenceNumber.toLowerCase()) || p.referenceNumber.toLowerCase().includes(q))) return true;
-      return false;
+    }).then(async (m) => {
+      if (m) return m;
+      // Repli : id sans tirets (cuid possibles avec/sans tirets selon saisie).
+      if (!qNoHyphens || qNoHyphens === q) return null;
+      const candidates = await db.paymentRecord.findMany({
+        where: whereClause,
+        select: { id: true },
+        take: 500,
+      });
+      const hit = candidates.find(p => p.id.toLowerCase().replace(/-/g, '') === qNoHyphens);
+      if (!hit) return null;
+      return db.paymentRecord.findUnique({
+        where: { id: hit.id },
+        include: { school: { select: { name: true, shortName: true } } },
+      });
     });
 
     if (!match) {

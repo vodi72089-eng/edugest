@@ -51,6 +51,14 @@ export async function POST(request: NextRequest) {
     });
 
     if (action === 'approve') {
+      // Garde d'honnêteté : on n'approuve (PAID) que si le montant encaissé
+      // couvre le dû. Sinon : ajustez paidAmount d'abord (PUT), ou rejetez.
+      if (Number(existing.paidAmount) + 0.01 < Number(existing.amount)) {
+        return NextResponse.json(
+          { error: `Montant encaissé insuffisant (${existing.paidAmount}/${existing.amount}) — ajustez le montant payé ou rejetez` },
+          { status: 409 }
+        );
+      }
       const payment = await db.paymentRecord.update({
         where: { id: paymentId },
         data: {
