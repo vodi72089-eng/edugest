@@ -1660,3 +1660,19 @@ Work Log:
 
 Stage Summary:
 - Cause exacte du dernier échec identifiée par la capture server.log (preuve de la valeur du diagnostic ajouté) ; 31/31 attendu au prochain run
+
+---
+Task ID: MAJ-1
+Agent: Z.ai Code (main)
+Task: Mise à jour du dépôt demandée par l'utilisateur (« fais une mise a jour ») — synchro locale/remote, dépendances, vérification baseline
+
+Work Log:
+- État initial : branche main locale « ahead by 10 » avant fetch ; après git fetch origin → divergence révélée : 1 commit local unique vs 7 commits distants nouveaux (b2b77e3..1e2ca62) + tags v1.4.2/v1.4.3/v1.4.4
+- Commits distants récupérés : corrections côté parent (onglet Discipline auto, Liste Blanche jamais-sanctionnés, clic notifications Notes/Bulletins/Discipline), backdrop panneau Notifications, vérification universelle des comptes, desktop v1.4.4 (force update check) — preuve que le travail Task 20 (MAJ in-app exe) a progressé côté remote
+- Commit local 4c2bfda (« hygiène: détacher prisma/db/custom.db ») déjà présent en double côté remote (0878330) → rebase : git pull --rebase origin main réussi ; le commit rebasé b64615d ne contient plus que des changements de mode fichier (644→755 sur 6 fichiers : ci.yml, seed-sag.mjs, run-security-tests.mjs, UpdateBanner.tsx, client-permissions.ts, notification-sound.ts — contenu 0 insertion/0 suppression)
+- Push réussi avec PAT : 1e2ca62..b64615d → main synchronisé, working tree clean, plus aucune divergence
+- bun install : package.json/bun.lock inchangés par les commits distants ; install de cohérence OK (1 package, 724 ms)
+- bun run lint : 109 problèmes = baseline exacte, zéro régression après intégration des 7 commits distants
+
+Stage Summary:
+- Dépôt 100 % synchronisé avec origin/main (b64615d) ; aucune régression lint ; état local prêt pour les tâches en attente (Task 19 deep-link parent, Task 18 audit sécurité 19 sections, Task 17 Resend/SMS/synchro DB, Task 16 Passages de classe) ; constat important : Task 20 (MAJ in-app exe) déjà largement implémentée côté remote (UpdateBanner.tsx, v1.4.4, force update check)
