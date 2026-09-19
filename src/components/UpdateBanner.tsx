@@ -53,6 +53,16 @@ export default function UpdateBanner() {
     return off
   }, [])
 
+  // « Plus tard » n'efface pas la mise à jour : rappel automatique toutes les
+  // 30 minutes tant qu'une MAJ reste en attente (et à chaque nouvel événement).
+  // (Hook AVANT tout return conditionnel — règles des Hooks.)
+  useEffect(() => {
+    if (!dismissed) return
+    if (state.kind !== 'available' && state.kind !== 'portable' && state.kind !== 'ready') return
+    const t = setTimeout(() => setDismissed(false), 30 * 60 * 1000)
+    return () => clearTimeout(t)
+  }, [dismissed, state.kind])
+
   if (state.kind === 'idle' || dismissed) return null
   const bridge = getBridge()
 

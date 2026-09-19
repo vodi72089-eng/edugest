@@ -259,7 +259,11 @@ function showMainWindow() {
 // L'interface prévient quand elle est réellement peinte (preload.js) :
 // la fenêtre ne s'affiche jamais vide ou à moitié chargée.
 try {
-  ipcMain.on('ui-ready', () => showMainWindow());
+  ipcMain.on('ui-ready', () => {
+    showMainWindow();
+    // L'interface vient de monter : lui renvoyer l'état MAJ déjà connu.
+    if (lastUpdateState) sendUpdate(lastUpdateState.type, lastUpdateState);
+  });
 } catch {}
 
 function createWindow(port) {
@@ -321,11 +325,18 @@ function createWindow(port) {
 // discrète (UpdateBanner) : disponible → téléchargement (% ) → redémarrer.
 // Les données (%APPDATA%/EduGest/edugest.db) ne sont JAMAIS touchées.
 
+/** Dernier état MAJ connu — renvoyé à l'interface si elle (re)charge après
+ *  l'événement (une annonce arrivée pendant le chargement ne doit pas être
+ *  perue : le prochain check serait sinon une heure plus tard). */
+let lastUpdateState = null;
+
 /** Envoie un événement MAJ à l'interface (bannière in-app). */
 function sendUpdate(type, payload) {
   try {
+    const data = { type, ...(payload || {}) };
+    if (type !== 'error') lastUpdateState = data;
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('edugest-update', { type, ...(payload || {}) });
+      mainWindow.webContents.send('edugest-update', data);
     }
   } catch {}
 }
@@ -421,7 +432,9 @@ function downloadPortableUpdate(asset) {
 }
 
 const UPDATE_CHECK_DELAY_MS = 8000;
-const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+// Vérification horaire : une nouvelle version publiée est proposée au plus
+// tard 1 h après sa publication (et dès le démarrage de l'application).
+const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 function compareVersions(a, b) {
   const pa = String(a).replace(/^v/, '').split('.').map(Number);
@@ -478,7 +491,17 @@ function setupAutoUpdate() {
 
   // — Version installée : détection + téléchargement, annonce en bannière —
   autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
+  // Même si l'utilisateur ignore la bannière, la MAJ déjà téléchargée est
+  // appliquée automatiquement à la prochaine fermeture de l'application.
+  autoUpdater.autoInstallOnAppQuit = true;
+  // Diagnostics : journaliser les étapes internes d'electron-updater.
+  try {
+    autoUpdater.logger = {
+      info: (...a) => log('[maj]', ...a),
+      warn: (...a) => log('[maj:warn]', ...a),
+      error: (...a) => log('[maj:err]', ...a),
+    };
+  } catch {}
 
   autoUpdater.on('update-available', (info) => {
     log('Mise à jour disponible :', info.version);

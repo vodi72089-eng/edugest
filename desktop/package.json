@@ -1,6 +1,6 @@
 {
   "name": "edugest-desktop",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "EduGest — La plateforme de gestion scolaire (application de bureau)",
   "main": "main.js",
   "author": "EduGest",

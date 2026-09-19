@@ -1594,3 +1594,24 @@ Stage Summary:
 - Le parent cliquant une puce (Notes/Bulletin/Paiements/Discipline) sur la carte d'un enfant est dirigé vers la section correspondante avec les données de CET enfant déjà établies : notes/bulletin/discipline filtrés, formulaire de paiement en ligne prérempli (frais, tranche, montant calculés)
 - Mécanisme générique réutilisable (pendingStudentFocus) consommé une fois par vue de destination ; race condition de fetch éliminée
 - Puce « Paiements » parent réparée : elle pointait vers une vue interdite au rôle, elle pointe désormais vers « Payer en ligne »
+
+---
+Task ID: 20
+Agent: Z.ai Code (main)
+Task: Mise à jour automatique in-app dans l'exe desktop — « à chaque nouvelle version, proposer la MAJ sans quitter l'app »
+
+Work Log:
+- Diagnostic de la chaîne MAJ existante (électron-updater déjà présent : package.json desktop deps + publish github, setupAutoUpdate sur ready-to-show, bannière UpdateBanner montée page.tsx 8162/8165) → 5 défauts trouvés :
+- (1) P0 CI : build-desktop.yml ne publiait QUE desktop/dist/*.exe dans la Release GitHub — latest.yml et .blockmap générés par electron-builder n'étaient JAMAIS uploadés → electron-updater (version installée NSIS) 404 sur latest.yml → la bannière n'apparaissait jamais. Ajout de latest.yml + *.blockmap aux steps softprops/action-gh-release ET upload-artifact + étape garde « Verify update metadata » (échec CI visible si latest.yml absent)
+- (2) Race démarrage : premier check à 8 s après ready-to-show ; si l'UI React montait après (splash jusqu'à 25 s), l'événement « available » était perdu → prochain check 6 h plus tard. Fix main.js : lastUpdateState mémorisé dans sendUpdate (hors « error ») et re-envoyé au handler ipcMain 'ui-ready' (l'UI appelle window.__edugest.ready() au montage)
+- (3) Intervalle 6 h → 1 h (UPDATE_CHECK_INTERVAL_MS) : une nouvelle release est proposée au plus tard 1 h après publication, et à chaque démarrage
+- (4) autoInstallOnAppQuit false → true : même si l'utilisateur ignore la bannière, la MAJ déjà téléchargée s'applique à la prochaine fermeture
+- (5) « Plus tard » = silence 6 h → UpdateBanner : relance automatique 30 min après dismissal tant qu'une MAJ (available/portable/ready) est en attente ; effet placé AVANT le return conditionnel (règles des Hooks — première édition corrigée immédiatement)
+- Divers : autoUpdater.logger branché sur log() (diagnostics [maj]/[maj:warn]/[maj:err]) ; version desktop 1.4.2 → 1.4.3 (indispensable : compareVersions exige une version supérieure pour déclencher le prompt sur les installs existantes) ; note MAJ intégrée dans le body de release
+- Vérifié : repo GitHub PUBLIC (private:false) → provider github electron-updater + check API portable fonctionnent sans token ; installée = quitAndInstall(false,true) → relance auto, données %APPDATA% préservées ; portable = API releases/latest + téléchargement direct + relance
+- Contrôles : node --check main.js/preload.js OK ; YAML workflow valide ; tsc --noEmit 0 erreur ; lint 109 = baseline exacte ; agent-browser : login SAG → /dashboard, sidebar complète, vue Contrôle plateforme rendue (screenshot), bannerCount=0 & hasBridge=false sur web (bannière invisible hors exe), 0 erreur page/console ; dev.log propre
+
+Stage Summary:
+- L'exe installé (NSIS) ET portable détectent désormais réellement chaque nouvelle release GitHub : bannière in-app « Mise à jour disponible (vX) » au démarrage + toutes les heures, téléchargement en arrière-plan avec %, bouton Redémarrer → l'app se relance TOUTE SEULE sur la nouvelle version (jamais de réinstallation manuelle, données conservées) ; sans action, la MAJ s'applique à la fermeture
+- Cause racine historique éliminée : latest.yml/blockmap désormais publiés dans chaque Release (garde CI qui échoue visiblement sinon) ; aucune annonce perdue si l'UI charge lentement (re-envoi sur ui-ready)
+- Limite : l'exe Windows n'est pas exécutable dans le sandbox Linux — la chaîne complète (build → release v1.4.3 → prompt dans l'exe) sera prouvée par le run GitHub Actions du workflow

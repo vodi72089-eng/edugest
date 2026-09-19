@@ -54,6 +54,12 @@ jobs:
           npm install
           npx electron-builder --win --publish never
 
+      - name: Verify update metadata (latest.yml)
+        shell: bash
+        run: |
+          ls -la desktop/dist/
+          test -f desktop/dist/latest.yml || { echo "ERREUR : latest.yml absent — la détection de mise à jour in-app serait cassée"; exit 1; }
+
       - name: Read desktop version
         id: version
         shell: bash
@@ -87,10 +93,17 @@ jobs:
 
             ## Notes
 
+            - ✅ **Mise à jour intégrée** : l'application installée propose la nouvelle version toute seule (bannière dans l'app), sans quitter EduGest — les données sont conservées.
             - La désinstallation ne supprime **pas** les données (`%APPDATA%\EduGest\`).
             - L'administrateur peut importer/mettre à jour sa base à tout moment depuis l'app.
             - Au tout premier lancement, l'ouverture peut prendre quelques instants (analyse antivirus Windows) — le splash affiche la progression.
-          files: desktop/dist/*.exe
+          # latest.yml + blockmap : INDISPENSABLES à la détection de MAJ par
+          # electron-updater (version installée). Sans eux, la bannière in-app
+          # n'apparaît jamais sur les installations NSIS.
+          files: |
+            desktop/dist/*.exe
+            desktop/dist/latest.yml
+            desktop/dist/*.blockmap
           draft: false
           prerelease: false
           make_latest: true
@@ -103,4 +116,6 @@ jobs:
           name: EduGest-Windows
           path: |
             desktop/dist/*.exe
+            desktop/dist/latest.yml
+            desktop/dist/*.blockmap
           if-no-files-found: error
