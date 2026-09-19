@@ -2740,7 +2740,9 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
         </button>
 
         {showNotifications && (
-          <div className="absolute right-0 top-full mt-2 w-[360px] max-h-[480px] rounded-2xl shadow-2xl border overflow-hidden" style={{ background: '#fff', borderColor: `oklch(88% 0.01 175)` }}>
+          <>
+          <div className="fixed inset-0 z-30" style={{ background: 'rgba(0,0,0,0.15)' }} onClick={() => setShowNotifications(false)} />
+          <div className="absolute right-0 top-full mt-2 w-[360px] max-h-[480px] rounded-2xl shadow-2xl border overflow-hidden z-40" style={{ background: '#fff', borderColor: `oklch(88% 0.01 175)` }}>
             <div className="px-4 py-3 flex items-center justify-between border-b" style={{ borderColor: `oklch(88% 0.01 175)` }}>
               <div className="flex items-center gap-2">
                 <Bell size={15} style={{ color: TEXT_PRIMARY }} />
@@ -2829,6 +2831,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
               )}
             </div>
           </div>
+          </>
         )}
       </div>
     </header>
@@ -4684,9 +4687,9 @@ function PaymentConfigView() {
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
                   Taux: 1 {convertForm.from} = {convertResult.rate.toFixed(4)} {convertForm.to} (Source: {convertResult.source})
-                </div>
-              </div>
-            )}
+            </div>
+          </div>
+        )}
           </div>
         </div>
       )}
