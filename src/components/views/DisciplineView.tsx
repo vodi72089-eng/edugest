@@ -669,7 +669,7 @@ export default function DisciplineView() {
         </div>
       )}
 
-      {isParent && myChildren.length > 0 && (
+      {isParent && myChildren.length > 0 && !selectedChildId && (
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
             <Users size={16} style={{ color: GOLD }} />
