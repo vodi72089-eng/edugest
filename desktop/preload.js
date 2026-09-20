@@ -55,4 +55,10 @@ contextBridge.exposeInMainWorld('__edugest', {
       return () => ipcRenderer.removeListener('edugest:navigate', listener);
     },
   },
+  /** Informations système de l'ordinateur (marque, modèle, OS, IP…). */
+  systemInfo: () => {
+    try {
+      return ipcRenderer.invoke('edugest:system-info').catch(() => ({}));
+    } catch { return Promise.resolve({}); }
+  },
 });

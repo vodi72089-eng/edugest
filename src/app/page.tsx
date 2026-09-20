@@ -2295,7 +2295,6 @@ function Sidebar() {
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
       { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
-      { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
       // « Paramètres » retiré pour le secrétaire : ce compte n'a plus AUCUN
       // accès aux paramètres de l'école (décision produit, gardé aussi côté API).
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
@@ -3895,8 +3894,8 @@ function ClassesView() {
         </div>
         <div className="flex items-center gap-3">
           {canManage && (
-            <button onClick={() => setShowAddClass(true)} className="edu-gold-cta px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2">
-              <span className="text-lg leading-none">+</span> Créer une classe
+            <button onClick={() => setShowAddClass(true)} className="edu-gold-cta whitespace-nowrap shrink-0 px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2">
+              <Plus size={14} /> Créer une classe
             </button>
           )}
           <SearchAutocomplete

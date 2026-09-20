@@ -152,6 +152,18 @@ export function detectDevice(ua: string): DeviceInfo {
     }
   }
 
+  // Ordinateur de bureau EduGest : la marque du PC est injectée dans le
+  // user-agent par l'application Electron (« EduGestPC/… (Marque: Dell Inc.;
+  // Modele: Latitude 5400; PC: BUREAU-01) »). On l'extrait pour l'affichage.
+  if (isDesktop) {
+    const pcBrand = ua.match(/Marque:\s*([^;)]+)/i)?.[1]?.trim() || ''
+    const pcModel = ua.match(/Modele:\s*([^;)]+)/i)?.[1]?.trim() || ''
+    const pcName = ua.match(/\bPC:\s*([^;)]+)/i)?.[1]?.trim() || ''
+    const full = [pcBrand, pcModel].filter(Boolean).join(' ')
+    if (full) deviceModel = full
+    else if (pcName) deviceModel = pcName
+  }
+
   return {
     browser,
     browserVersion,

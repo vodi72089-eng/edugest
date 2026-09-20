@@ -9,6 +9,7 @@ import StudentAvatar from '@/components/ui/StudentAvatar'
 import { Edit, Check, Camera, Lock, Phone, Monitor, LogOut, Shield, Building2, Smartphone, Globe, Tablet, Fingerprint, MapPin, BellRing, Volume2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { detectDevice, formatDeviceTitle, formatDeviceSummary, isLoopbackIp } from '@/lib/detect-device'
+import CurrentDeviceInfo from '@/components/CurrentDeviceInfo'
 import {
   isNotificationSoundEnabled, setNotificationSoundEnabled,
   getNotificationSoundVolume, setNotificationSoundVolume,
@@ -617,6 +618,7 @@ export default function ProfileView() {
           </div>
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto">
+            <CurrentDeviceInfo />
             {sessions.map(s => {
               const info = detectDevice(s.userAgent)
               const DeviceIcon = info.isMobile ? Smartphone : info.isTablet ? Tablet : Monitor

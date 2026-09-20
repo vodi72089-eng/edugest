@@ -9,6 +9,7 @@ import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera,
 import PersonalizationView from './PersonalizationView'
 import { toast } from 'sonner'
 import { detectDevice, formatDeviceTitle, formatDeviceSummary, isLoopbackIp } from '@/lib/detect-device'
+import CurrentDeviceInfo from '@/components/CurrentDeviceInfo'
 import AppSelect from '@/components/ui/AppSelect'
 
 export default function SettingsView() {
@@ -775,6 +776,7 @@ function SettingsViewInner() {
             </div>
           ) : (
             <div className="space-y-2 max-h-96 overflow-y-auto">
+              <CurrentDeviceInfo />
               {sessions.map(s => {
                 const info = detectDevice(s.userAgent)
                 const DeviceIcon = info.isMobile ? Smartphone : info.isTablet ? Tablet : Monitor

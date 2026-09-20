@@ -19,12 +19,13 @@
  */
 
 const { app, BrowserWindow, shell, dialog, ipcMain, net: electronNet, Notification } = require('electron');
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
 const net = require('net');
+const os = require('os');
 const crypto = require('crypto');
 
 // ── SÉCURITÉ : clé de l'agent WhatsApp. Avant : 'edugest-wa-dev-key' en dur
@@ -266,6 +267,65 @@ try {
   });
 } catch {}
 
+// ─── Informations système (marque du PC, OS, IP) ─────────────────────────────
+// Collectées une seule fois au lancement, exposées via IPC à l'interface
+// (panneau « Appareils connectés ») et injectées dans le user-agent pour que
+// les sessions côté serveur enregistrent la marque de l'ordinateur.
+let SYSTEM_INFO = { brand: '', model: '', osName: '', hostname: '', localIp: '', publicIp: '' };
+
+function runPowerShell(cmd) {
+  return new Promise((resolve) => {
+    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', cmd],
+      { timeout: 8000, windowsHide: true },
+      (err, stdout) => resolve(err ? '' : String(stdout || '').trim()));
+  });
+}
+
+function fetchPublicIp() {
+  return new Promise((resolve) => {
+    const req = https.get({ hostname: 'api.ipify.org', path: '/', timeout: 5000 }, (res) => {
+      let data = '';
+      res.on('data', (c) => { data += c; });
+      res.on('end', () => resolve(data.trim()));
+    });
+    req.on('error', () => resolve(''));
+    req.on('timeout', () => { req.destroy(); resolve(''); });
+  });
+}
+
+async function collectSystemInfo() {
+  try { SYSTEM_INFO.hostname = os.hostname(); } catch {}
+  try {
+    const nics = os.networkInterfaces();
+    outer: for (const list of Object.values(nics)) {
+      for (const n of list || []) {
+        if (!n.internal && n.family === 'IPv4') { SYSTEM_INFO.localIp = n.address; break outer; }
+      }
+    }
+  } catch {}
+  // Marque / modèle / nom commercial de l'OS (Windows uniquement, best-effort)
+  if (process.platform === 'win32') {
+    const out = await runPowerShell(
+      '$cs=Get-CimInstance Win32_ComputerSystem; $os=Get-CimInstance Win32_OperatingSystem; ' +
+      '"$($cs.Manufacturer)|$($cs.Model)|$($os.Caption)"'
+    );
+    if (out) {
+      const [brand, model, caption] = out.split('|').map(s => s.trim());
+      if (brand) SYSTEM_INFO.brand = brand;
+      if (model) SYSTEM_INFO.model = model;
+      if (caption) SYSTEM_INFO.osName = caption;
+    }
+  }
+  if (!SYSTEM_INFO.osName) {
+    try { SYSTEM_INFO.osName = `${os.type()} ${os.release()}`; } catch {}
+  }
+  SYSTEM_INFO.publicIp = await fetchPublicIp();
+  log('[edugest-desktop] Infos système :', JSON.stringify(SYSTEM_INFO));
+  return SYSTEM_INFO;
+}
+
+ipcMain.handle('edugest:system-info', () => SYSTEM_INFO || {});
+
 function createWindow(port) {
   setSplashStage('Ouverture de l\u2019interface…');
   mainWindow = new BrowserWindow({
@@ -298,6 +358,18 @@ function createWindow(port) {
 
   // L'app desktop démarre directement sur la connexion (pas de landing page :
   // le store rabat de toute façon 'home' vers 'login' en mode Electron).
+  // Injecte la marque/OS de l'ordinateur dans le user-agent : chaque session
+  // créée côté serveur enregistre ainsi « Marque: … ; Modele: … ; PC: … ».
+  try {
+    const uaBase = mainWindow.webContents.getUserAgent();
+    const tags = [
+      SYSTEM_INFO.brand && `Marque: ${SYSTEM_INFO.brand}`,
+      SYSTEM_INFO.model && `Modele: ${SYSTEM_INFO.model}`,
+      SYSTEM_INFO.hostname && `PC: ${SYSTEM_INFO.hostname}`,
+    ].filter(Boolean).join('; ');
+    if (tags) mainWindow.webContents.setUserAgent(`${uaBase} EduGestPC/${app.getVersion()} (${tags})`);
+  } catch {}
+
   mainWindow.loadURL(`http://127.0.0.1:${port}/login`);
   // Le splash reste visible jusqu'au chargement COMPLET de la page.
   // Ordre d'affichage : 1) signal 'ui-ready' de l'interface (peinte),
@@ -729,6 +801,9 @@ async function startBackend() {
 }
 
 app.whenReady().then(async () => {
+  // Collecte des infos système en parallèle (non bloquante pour le démarrage :
+  // si elle n'est pas finie quand la fenêtre se crée, le UA n'aura pas les tags).
+  collectSystemInfo().catch(() => {});
   // Splash instantané (vrai logo officiel) — AVANT tout le reste
   createSplash();
 
