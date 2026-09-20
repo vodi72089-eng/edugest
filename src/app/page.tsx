@@ -2288,15 +2288,13 @@ function Sidebar() {
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
       { icon: <BookOpen size={16} />, label: 'Classes', view: 'classes' as ViewType },
-      // Le secrétaire voit les trois environnements : DIRECTION (convocations),
-      // DISCIPLINE (listes) et CAISSE (paiements + situation financière).
-      { icon: <Megaphone size={16} />, label: 'Convocations', view: 'convocation' as ViewType },
+      // Compte secrétaire : ni Convocations, ni Enregistrer paiement, ni
+      // Passage de classe (caisse et direction couvrent ces environnements).
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
-      { icon: <CreditCard size={16} />, label: 'Enregistrer paiement', view: 'payments' as ViewType },
       { icon: <BarChart3 size={16} />, label: 'Situation financière', view: 'finance' as ViewType },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
-      { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
+      { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
       { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
       // « Paramètres » retiré pour le secrétaire : ce compte n'a plus AUCUN
       // accès aux paramètres de l'école (décision produit, gardé aussi côté API).
@@ -2814,10 +2812,10 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   }
 
   // ── Demandes d'approbation depuis les notifications ────────────────────
-  // QR code du secrétaire, suppression de classe… : l'admin de l'école et le
-  // super admin global peuvent ACCEPTER ou REFUSER directement depuis la
-  // notification — le PATCH /api/settings-approval exécute l'action côté
-  // serveur (création réelle du QR, suppression effective de la classe).
+  // QR code du secrétaire, suppression / création de classe… : l'admin de
+  // l'école et le super admin global peuvent ACCEPTER ou REFUSER directement
+  // depuis la notification — le PATCH /api/settings-approval exécute l'action
+  // côté serveur (création réelle du QR / de la classe, suppression effective).
   const isApprovalApprover = userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SCHOOL_ADMIN'
   const [approvingNotifId, setApprovingNotifId] = useState<string | null>(null)
   const handleApprovalDecision = async (notif: any, decision: 'APPROVED' | 'REJECTED') => {
@@ -3706,7 +3704,11 @@ function ClassesView() {
   const { userData, userRole, highlightedId } = useEduGestStore()
   const [showAddClass, setShowAddClass] = useState(false)
   const [newClassName, setNewClassName] = useState('')
-  const [newClassSection, setNewClassSection] = useState('PRIMAIRE')
+  // Cycle par défaut = celui de la direction (modifiable librement)
+  const directionCycle = userRole === 'DIRECTION_MATERNELLE' ? 'MATERNELLE'
+    : userRole === 'DIRECTION_PRIMAIRE' ? 'PRIMAIRE'
+    : userRole === 'DIRECTION_SECONDAIRE' ? 'SECONDAIRE' : null
+  const [newClassSection, setNewClassSection] = useState(directionCycle || 'PRIMAIRE')
   const [newClassCapacity, setNewClassCapacity] = useState('40')
   const [addingClass, setAddingClass] = useState(false)
   const [deletingClassId, setDeletingClassId] = useState<string | null>(null)
@@ -3717,10 +3719,6 @@ function ClassesView() {
   const [activeSchoolYear, setActiveSchoolYear] = useState<string>('')
   const canManage = userRole === 'SUPER_ADMIN_GLOBAL' || (userRole && userRole.startsWith('DIRECTION'))
   const isTeacherView = userRole === 'TEACHER' || userRole === 'HEAD_TEACHER'
-  // Cycle imposé pour une direction : pas de choix possible
-  const directionCycle = userRole === 'DIRECTION_MATERNELLE' ? 'MATERNELLE'
-    : userRole === 'DIRECTION_PRIMAIRE' ? 'PRIMAIRE'
-    : userRole === 'DIRECTION_SECONDAIRE' ? 'SECONDAIRE' : null
   const highlightedRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (highlightedId && highlightedRef.current) {
@@ -3774,6 +3772,35 @@ function ClassesView() {
 
   async function handleAddClass() {
     if (!newClassName.trim()) { toast.error('Le nom est requis'); return }
+    // ── Une direction ne crée PAS directement : accord de l'admin requis ──
+    // (section imposée = son cycle, l'admin crée la classe à l'approbation)
+    if (userRole && userRole.startsWith('DIRECTION')) {
+      setAddingClass(true)
+      try {
+        const res = await authFetch('/api/settings-approval', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            changeType: 'class_create',
+            changeData: {
+              name: newClassName.trim(),
+              capacity: parseInt(newClassCapacity) || 40,
+              schoolYearId: activeSchoolYear,
+            },
+          }),
+        })
+        const j = await res.json().catch(() => ({}))
+        if (res.ok) {
+          toast.success('Demande envoyée à l\'admin de l\'école — la classe sera créée après son accord')
+          setShowAddClass(false)
+          setNewClassName('')
+        } else {
+          toast.error(j.error || 'Erreur lors de l\'envoi de la demande')
+        }
+      } catch { toast.error('Erreur réseau') }
+      finally { setAddingClass(false) }
+      return
+    }
     setAddingClass(true)
     try {
       const res = await authFetch('/api/classes', {

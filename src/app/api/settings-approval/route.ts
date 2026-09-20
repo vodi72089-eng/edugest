@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireAuth, verifySchoolAccess } from '@/lib/auth'
+import { requireAuth, verifySchoolAccess, getRoleCycle } from '@/lib/auth'
 import { notify } from '@/lib/notify'
+import { notifyEvent } from '@/lib/notification-service'
 import crypto from 'crypto'
 
 // Rôles habilités à créer des demandes (school_info, qr_create, class_delete…).
@@ -18,7 +19,7 @@ const APPROVER_ROLES = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN']
 // Le secrétaire peut uniquement DEMANDER un QR code (pas toucher aux paramètres)
 const QR_REQUEST_ROLES = [...SETTINGS_ROLES, 'SECRETARY']
 
-const CHANGE_TYPES = ['school_info', 'school_fee', 'currency', 'qr_create', 'class_delete']
+const CHANGE_TYPES = ['school_info', 'school_fee', 'currency', 'qr_create', 'class_delete', 'class_create']
 
 export async function GET(req: NextRequest) {
   const authResult = await requireAuth(req)
@@ -62,11 +63,13 @@ export async function POST(req: NextRequest) {
   const pendingSame = await db.settingsApproval.findFirst({
     where: { schoolId, status: 'PENDING', changeType }
   })
-  if (pendingSame && ['qr_create', 'class_delete'].includes(changeType)) {
+  if (pendingSame && ['qr_create', 'class_delete', 'class_create'].includes(changeType)) {
     const pendingData = JSON.parse(pendingSame.changeData || '{}')
     const sameTarget = changeType === 'class_delete'
       ? pendingData?.classId === changeData?.classId
-      : (pendingData?.label || '') === (changeData?.label || '')
+      : changeType === 'class_create'
+        ? (pendingData?.name || '').trim().toLowerCase() === (changeData?.name || '').trim().toLowerCase()
+        : (pendingData?.label || '') === (changeData?.label || '')
     if (sameTarget) {
       return NextResponse.json({ error: 'Une demande similaire est déjà en attente d\u2019approbation' }, { status: 409 })
     }
@@ -97,6 +100,9 @@ export async function POST(req: NextRequest) {
     } else if (changeType === 'class_delete') {
       title = 'Demande de suppression de classe'
       message = `${requesterName} demande la suppression de la classe « ${changeData?.className || changeData?.classId} ».`
+    } else if (changeType === 'class_create') {
+      title = 'Demande de création de classe'
+      message = `${requesterName} demande la création de la classe « ${changeData?.name || '?'} » (capacité ${changeData?.capacity || 40}).`
     }
     for (const approver of approvers) {
       await notify({
@@ -149,6 +155,7 @@ export async function PATCH(req: NextRequest) {
   // ── Exécution serveur à l'approbation ───────────────────────────────────
   // qr_create   → le QR code est créé immédiatement côté serveur
   // class_delete→ la classe est supprimée (si vide) côté serveur
+  // class_create→ la classe est créée (section imposée du cycle du demandeur)
   if (status === 'APPROVED' && existing.changeType === 'qr_create') {
     const data = JSON.parse(existing.changeData || '{}')
     let expiresAt: Date
@@ -197,6 +204,51 @@ export async function PATCH(req: NextRequest) {
     })
   }
 
+  if (status === 'APPROVED' && existing.changeType === 'class_create') {
+    const data = JSON.parse(existing.changeData || '{}')
+    const className = (data.name || '').trim()
+    if (!className || !data.schoolYearId) {
+      return NextResponse.json({ error: 'Demande de création incomplète (nom / année scolaire manquants)' }, { status: 400 })
+    }
+    // Section IMPOSÉE : cycle du demandeur (une direction ne crée que dans son cycle)
+    const requester = await db.user.findUnique({ where: { id: existing.requestedBy }, select: { role: true } })
+    const imposedSection = getRoleCycle(requester?.role) || data.section || null
+    const year = await db.schoolYear.findUnique({ where: { id: data.schoolYearId }, select: { schoolId: true } })
+    if (!year || year.schoolId !== existing.schoolId) {
+      return NextResponse.json({ error: 'Année scolaire invalide pour cette école' }, { status: 400 })
+    }
+    const duplicate = await db.class.findUnique({
+      where: { name_schoolYearId: { name: className, schoolYearId: data.schoolYearId } },
+    })
+    if (duplicate) {
+      return NextResponse.json({ error: `Impossible d'approuver : la classe « ${className} » existe déjà pour cette année scolaire` }, { status: 400 })
+    }
+    const created = await db.class.create({
+      data: {
+        name: className,
+        section: imposedSection,
+        level: null,
+        capacity: Number(data.capacity) > 0 ? Math.round(Number(data.capacity)) : 40,
+        schoolId: existing.schoolId,
+        schoolYearId: data.schoolYearId,
+      },
+    })
+    await db.school.update({
+      where: { id: existing.schoolId },
+      data: { classCount: { increment: 1 } },
+    })
+    try {
+      await notifyEvent(
+        { type: 'CLASS_CREATED', schoolId: existing.schoolId, classId: created.id, actorId: user.id, section: imposedSection },
+        {
+          title: 'Nouvelle classe créée',
+          message: `Classe « ${className} » - ${imposedSection || ''} - Capacité: ${created.capacity}`,
+          relatedId: created.id,
+        }
+      )
+    } catch { /* notification failed, non-critical */ }
+  }
+
   const approval = await db.settingsApproval.update({
     where: { id },
     data: { status, reviewedBy: user.id, reviewedAt: new Date() }
@@ -210,7 +262,9 @@ export async function PATCH(req: NextRequest) {
         ? `Votre demande de QR code a été ${status === 'APPROVED' ? 'approuvée — le QR code est disponible' : 'rejetée'}.`
         : existing.changeType === 'class_delete'
           ? `Votre demande de suppression de classe a été ${status === 'APPROVED' ? 'approuvée — la classe a été supprimée' : 'rejetée'}.`
-          : `Votre demande (${existing.changeType}) a été ${status === 'APPROVED' ? 'approuvée' : 'rejetée'}.`
+          : existing.changeType === 'class_create'
+            ? `Votre demande de création de classe a été ${status === 'APPROVED' ? 'approuvée — la classe a été créée' : 'rejetée'}.`
+            : `Votre demande (${existing.changeType}) a été ${status === 'APPROVED' ? 'approuvée' : 'rejetée'}.`
     await notify({
       data: {
         type: 'APPROVAL_DECIDED',

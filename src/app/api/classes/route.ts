@@ -37,8 +37,9 @@ export async function GET(request: NextRequest) {
     }
 
     // ── Cycle scoping serveur ─────────────────────────────────────────────
-    // Une DIRECTION_* ne voit QUE les classes de son cycle, quelle que soit
-    // l'URL demandée (le paramètre éventuel est ignoré — pas de contournement).
+    // Un rôle cyclé (DIRECTION_*, DISCIPLINE_*) ne voit QUE les classes de
+    // son cycle, quelle que soit l'URL demandée (le paramètre éventuel est
+    // ignoré — pas de contournement).
     const roleCycle = getRoleCycle(user.role);
     if (roleCycle) {
       // Filtre tolérant : section du cycle OU (maternelle) nom de classe M1/M2/PS/MS/GS…
@@ -93,8 +94,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     let { name, section, level, capacity, schoolId, schoolYearId, headTeacherId } = body;
 
-    // Une DIRECTION_* crée forcément dans SON cycle (imposé côté serveur)
+    // Une DIRECTION_* ne crée JAMAIS directement : elle passe par une demande
+    // d'approbation (changeType 'class_create' sur /api/settings-approval) —
+    // l'UI lui présente ce flux ; l'API refuse net pour éviter tout contournement.
     const creatorCycle = getRoleCycle(user.role);
+    if (creatorCycle && user.role.startsWith('DIRECTION')) {
+      return NextResponse.json(
+        { error: 'La création d\u2019une classe requiert l\u2019accord de l\u2019admin de l\u2019école.', requiresApproval: true },
+        { status: 403 }
+      );
+    }
+
+    // (Garde-fou historique : section imposée si un rôle cyclé atteignait ce point)
     if (creatorCycle) section = creatorCycle;
 
     if (!name || !schoolId || !schoolYearId) {
