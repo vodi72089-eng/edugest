@@ -1852,6 +1852,28 @@ function LoginView() {
   const [waLoading, setWaLoading] = useState(false)
   const [schools, setSchools] = useState<{ id: string; name: string; shortName: string; city: string }[]>([])
   const [selectedSchoolId, setSelectedSchoolId] = useState('')
+  // ── Verrou progressif (compte à rebours affiché sur le bouton) ──────────
+  const [lockRemaining, setLockRemaining] = useState(0)
+  const lockIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const startLockCountdown = useCallback((seconds: number) => {
+    if (!seconds || seconds <= 0) return
+    setLockRemaining(seconds)
+    if (lockIntervalRef.current) clearInterval(lockIntervalRef.current)
+    lockIntervalRef.current = setInterval(() => {
+      setLockRemaining(prev => {
+        if (prev <= 1) {
+          if (lockIntervalRef.current) { clearInterval(lockIntervalRef.current); lockIntervalRef.current = null }
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }, [])
+
+  useEffect(() => {
+    return () => { if (lockIntervalRef.current) clearInterval(lockIntervalRef.current) }
+  }, [])
 
   useEffect(() => {
     fetch('/api/schools?limit=50').then(r => r.json()).then(j => setSchools(j.data || [])).catch(() => {})
@@ -1862,6 +1884,8 @@ function LoginView() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!email || !password) return
+    // Verrou actif : aucun appel réseau, le bouton est déjà désactivé
+    if (lockRemaining > 0) return
     setLoading(true)
     try {
       const res = await fetch('/api/auth', {
@@ -1901,7 +1925,16 @@ function LoginView() {
         return
       }
       if (json.error) {
-        toast.error(json.error === 'Invalid credentials' ? 'Email ou mot de passe incorrect' : json.error)
+        if (json.error === 'Invalid credentials') {
+          toast.error('Email ou mot de passe incorrect')
+        } else {
+          toast.error(json.error)
+        }
+        // Verrou progressif : 401 (verrou déclenché par ce échec) ou 429 (déjà verrouillé)
+        const lockSeconds = Number(json.retryAfterSeconds || json.lockSeconds || 0)
+        if ((res.status === 429 || json.lockSeconds) && lockSeconds > 0) {
+          startLockCountdown(lockSeconds)
+        }
       } else {
         toast.error('Erreur de connexion au serveur')
       }
@@ -2008,9 +2041,18 @@ function LoginView() {
               </label>
               <button type="button" className="font-medium hover:underline" style={{ color: 'oklch(72% 0.15 65 / 0.8)' }}>Mot de passe oublié ?</button>
             </div>
-            <button type="submit" disabled={loading} className="w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]" style={{ background: 'oklch(55% 0.15 175)', color: 'oklch(97% 0.005 175)', boxShadow: '0 4px 16px oklch(55% 0.15 175 / 0.25)' }}>
-              {loading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Se connecter'}
+            <button type="submit" disabled={loading || lockRemaining > 0} className="w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]" style={{ background: 'oklch(55% 0.15 175)', color: 'oklch(97% 0.005 175)', boxShadow: '0 4px 16px oklch(55% 0.15 175 / 0.25)' }}>
+              {loading
+                ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                : lockRemaining > 0
+                  ? `Réessayez dans ${String(Math.floor(lockRemaining / 60)).padStart(2, '0')}:${String(lockRemaining % 60).padStart(2, '0')}`
+                  : 'Se connecter'}
             </button>
+            {lockRemaining > 0 && (
+              <p className="text-xs text-center" style={{ color: 'oklch(72% 0.15 65)' }}>
+                Trop de tentatives. Le bouton sera réactivé automatiquement.
+              </p>
+            )}
           </form>
 
           <div className="flex items-center gap-3 my-5 text-xs uppercase tracking-wider text-white/40">
@@ -2244,7 +2286,8 @@ function Sidebar() {
       { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
-      { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
+      // « Paramètres » retiré pour le secrétaire : ce compte n'a plus AUCUN
+      // accès aux paramètres de l'école (décision produit, gardé aussi côté API).
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
     CASHIER: [
@@ -2332,6 +2375,8 @@ HEAD_TEACHER: [
       menuItems.push({ icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType })
     }
   } else if (directionRoles.includes(userRole as UserRole)) {
+    // Menu direction : « Paramètres » retiré — une direction ne gère pas les
+    // paramètres de l'école ; son cycle est imposé par son rôle (pas de choix).
     menuItems = [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
@@ -2339,7 +2384,6 @@ HEAD_TEACHER: [
       { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
       { icon: <Megaphone size={16} />, label: 'Convocation', view: 'convocation' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
-      { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ]
   }
@@ -3460,13 +3504,17 @@ function ClassesView() {
   const [newClassCapacity, setNewClassCapacity] = useState('40')
   const [addingClass, setAddingClass] = useState(false)
   const [deletingClassId, setDeletingClassId] = useState<string | null>(null)
-  const [pendingApprovals, setPendingApprovals] = useState<{id: string; name: string; type: string; requestedBy: string}[]>([])
   const [viewingClassId, setViewingClassId] = useState<string | null>(null)
   const [viewingClassName, setViewingClassName] = useState('')
   const [classStudents, setClassStudents] = useState<StudentData[]>([])
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [activeSchoolYear, setActiveSchoolYear] = useState<string>('')
   const canManage = userRole === 'SUPER_ADMIN_GLOBAL' || (userRole && userRole.startsWith('DIRECTION'))
+  const isTeacherView = userRole === 'TEACHER' || userRole === 'HEAD_TEACHER'
+  // Cycle imposé pour une direction : pas de choix possible
+  const directionCycle = userRole === 'DIRECTION_MATERNELLE' ? 'MATERNELLE'
+    : userRole === 'DIRECTION_PRIMAIRE' ? 'PRIMAIRE'
+    : userRole === 'DIRECTION_SECONDAIRE' ? 'SECONDAIRE' : null
   const highlightedRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (highlightedId && highlightedRef.current) {
@@ -3483,6 +3531,14 @@ function ClassesView() {
           setSelectedClassId(allClasses[0].id)
           handleViewClass(allClasses[0].id, allClasses[0].name)
         }
+      }
+      // Classe titulaire TOUJOURS en première position pour les enseignants
+      if (isTeacherView && userData?.id) {
+        allClasses = [...allClasses].sort((a, b) => {
+          const aTit = (a as any).headTeacherId === userData.id ? 0 : 1
+          const bTit = (b as any).headTeacherId === userData.id ? 0 : 1
+          return aTit - bTit
+        })
       }
       setClasses(allClasses); setLoading(false)
     }).catch(() => setLoading(false))
@@ -3519,7 +3575,7 @@ function ClassesView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newClassName.trim(),
-          section: newClassSection,
+          section: directionCycle || newClassSection,
           capacity: parseInt(newClassCapacity) || 40,
           schoolId: userData?.schoolId,
           schoolYearId: activeSchoolYear,
@@ -3540,6 +3596,29 @@ function ClassesView() {
   }
 
   async function handleDeleteClass(classId: string, className: string) {
+    // ── Une direction ne supprime PAS directement : accord de l'admin requis ──
+    if (userRole && userRole.startsWith('DIRECTION')) {
+      if (!confirm(`Demander l'accord de l'admin de l'école pour supprimer la classe "${className}" ?`)) return
+      setDeletingClassId(classId)
+      try {
+        const res = await authFetch('/api/settings-approval', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            changeType: 'class_delete',
+            changeData: { classId, className },
+          }),
+        })
+        const j = await res.json().catch(() => ({}))
+        if (res.ok) {
+          toast.success('Demande envoyée à l\'admin de l\'école — la classe sera supprimée après son accord')
+        } else {
+          toast.error(j.error || 'Erreur lors de l\'envoi de la demande')
+        }
+      } catch { toast.error('Erreur réseau') }
+      finally { setDeletingClassId(null) }
+      return
+    }
     if (!confirm(`Supprimer la classe "${className}" ? Cette action est irréversible.`)) return
     setDeletingClassId(classId)
     try {
@@ -3549,7 +3628,11 @@ function ClassesView() {
         setClasses(prev => prev.filter(c => c.id !== classId))
       } else {
         const j = await res.json()
-        toast.error(j.error || 'Erreur lors de la suppression')
+        if (j.requiresApproval) {
+          toast.error('La suppression requiert l\'accord de l\'admin de l\'école')
+        } else {
+          toast.error(j.error || 'Erreur lors de la suppression')
+        }
       }
     } catch { toast.error('Erreur réseau') }
     finally { setDeletingClassId(null) }
@@ -3603,7 +3686,13 @@ function ClassesView() {
           {filteredClasses.map(c => (
             <div ref={highlightedId === c.id ? highlightedRef : undefined} key={c.id} className={`bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift cursor-pointer ${highlightedId === c.id ? 'edu-highlight' : ''}`} onClick={() => handleViewClass(c.id, c.name)}>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{c.name}</h3>
+                <div className="flex items-center gap-2 min-w-0">
+                  <h3 className="text-lg font-bold truncate" style={{ color: TEXT_PRIMARY }}>{c.name}</h3>
+                  {/* Badge Titulaire : la classe dont le prof est titulaire */}
+                  {isTeacherView && (c as any).headTeacherId === userData?.id && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ color: GOLD, background: GOLD_SOFT, border: `1px solid ${GOLD}` }}>TITULAIRE</span>
+                  )}
+                </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs px-2 py-1 rounded-full" style={{ color: GOLD, background: GOLD_SOFT }}>{c.level || c.section || ''}</span>
                   {canManage && (
@@ -3645,7 +3734,14 @@ function ClassesView() {
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Section</label>
-                <AppSelect value={newClassSection} onChange={setNewClassSection} options={[{ value: 'MATERNELLE', label: 'Maternelle' }, { value: 'PRIMAIRE', label: 'Primaire' }, { value: 'SECONDAIRE', label: 'Secondaire' }]} className="w-full" />
+                {/* Cycle imposé pour une direction : automatique selon sa fonction */}
+                {directionCycle ? (
+                  <div className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_PRIMARY }}>
+                    {directionCycle === 'MATERNELLE' ? 'Maternelle' : directionCycle === 'PRIMAIRE' ? 'Primaire' : 'Secondaire'} <span className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>(automatique selon votre fonction)</span>
+                  </div>
+                ) : (
+                  <AppSelect value={newClassSection} onChange={setNewClassSection} options={[{ value: 'MATERNELLE', label: 'Maternelle' }, { value: 'PRIMAIRE', label: 'Primaire' }, { value: 'SECONDAIRE', label: 'Secondaire' }]} className="w-full" />
+                )}
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Capacité</label>
@@ -5759,6 +5855,11 @@ function CommunicationsView() {
   const canCreate = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
   const canSeeStats = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
   const isDirection = ['DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  // Cycle imposé automatiquement selon la fonction de la direction (pas de choix)
+  const directionScope = userRole === 'DIRECTION_MATERNELLE' ? 'MATERNELLE'
+    : userRole === 'DIRECTION_PRIMAIRE' ? 'PRIMAIRE'
+    : userRole === 'DIRECTION_SECONDAIRE' ? 'SECONDAIRE' : ''
+  useEffect(() => { if (directionScope) setScope(directionScope) }, [directionScope])
   const pendingCount = comms.filter(c => c.status === 'PENDING').length
   const highlightedRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -6031,7 +6132,9 @@ function CommunicationsView() {
               <AppSelect value={targetType} onChange={setTargetType} options={isDirection ? [{ value: 'PARENTS', label: 'Parents' }, { value: 'CLASS', label: 'Classe' }] : [{ value: 'ALL', label: 'Tout le monde' }, { value: 'PARENTS', label: 'Parents' }, { value: 'STAFF', label: 'Personnel' }, { value: 'CLASS', label: 'Classe' }]} />
             </div>
             {isDirection && (
-              <AppSelect value={scope} onChange={setScope} options={[{ value: '', label: 'Toutes les classes' }, { value: 'MATERNELLE', label: 'Maternelle' }, { value: 'PRIMAIRE', label: 'Primaire' }, { value: 'SECONDAIRE', label: 'Secondaire' }]} placeholder="Toutes les classes" />
+              <div className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_PRIMARY }}>
+                Cycle : {directionScope === 'MATERNELLE' ? 'Maternelle' : directionScope === 'PRIMAIRE' ? 'Primaire' : 'Secondaire'} <span className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>(automatique selon votre fonction)</span>
+              </div>
             )}
             <input placeholder="Titre" value={title} onChange={e => setTitle(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" />
             <textarea placeholder="Contenu du message..." value={content} onChange={e => setContent(e.target.value)} rows={4} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)] resize-none" />
@@ -6204,7 +6307,14 @@ function HomeworkView() {
         const allClasses = j.data || []
         if (teacherAssignments.length > 0) {
           const assignedClassIds = [...new Set(teacherAssignments.map(a => a.classId))]
-          setClasses(allClasses.filter(c => assignedClassIds.includes(c.id)))
+          const mine = allClasses.filter((c: any) => assignedClassIds.includes(c.id))
+          // Classe titulaire TOUJOURS en première position
+          mine.sort((a: any, b: any) => {
+            const aTit = a.headTeacherId === userData?.id ? 0 : 1
+            const bTit = b.headTeacherId === userData?.id ? 0 : 1
+            return aTit - bTit
+          })
+          setClasses(mine)
         } else {
           setClasses(allClasses)
         }
@@ -7203,7 +7313,7 @@ function BulletinView() {
                   </div>
                   <div className="flex items-center gap-4 text-xs">
                     <div className="text-center">
-                      <div className="font-bold text-sm" style={{ color: classAvg >= 10 ? GOLD : DANGER }}>{classAvg.toFixed(1)}%</div>
+                      <div className="font-bold text-sm" style={{ color: classAvg >= 10 ? GOLD : DANGER }}>{((classAvg / 20) * 100).toFixed(1)}%</div>
                       <div style={{ color: TEXT_MUTED_LUXE }}>Moy. classe</div>
                     </div>
                     <div className="text-center">
@@ -7213,39 +7323,64 @@ function BulletinView() {
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-5">
-                  {group.students.map((st, idx) => (
-                    <div ref={highlightedId === st.id ? highlightedRef : undefined} key={st.id} className={`rounded-xl border border-[oklch(92%_0.01_175)] p-4 hover:shadow-md transition-all ${highlightedId === st.id ? 'edu-highlight' : ''}`} style={{ background: idx === 0 && st.avg >= 10 ? `linear-gradient(135deg, ${GOLD}06, ${GOLD}03)` : undefined }}>
+                  {group.students.map((st, idx) => {
+                    // Bulletin complet : moyenne pondérée /20, pourcentage réel
+                    // (moyenne/20 × 100) et position explicite dans la classe.
+                    const percentage = (st.avg / 20) * 100
+                    const position = idx + 1
+                    const totalInClass = group.students.length
+                    const isTitulaireClass = (classMap[group.classId] as any)?.headTeacherId === userData?.id
+                    return (
+                    <div ref={highlightedId === st.id ? highlightedRef : undefined} key={st.id} className={`rounded-xl border p-4 hover:shadow-md transition-all ${highlightedId === st.id ? 'edu-highlight' : ''}`} style={{ borderColor: isTitulaireClass ? `${GOLD}55` : 'oklch(92% 0.01 175)', background: idx === 0 && st.avg >= 10 ? `linear-gradient(135deg, ${GOLD}06, ${GOLD}03)` : undefined }}>
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: idx === 0 && st.avg >= 10 ? `linear-gradient(135deg, ${GOLD}, ${ACCENT})` : '#f3f4f6', color: idx === 0 && st.avg >= 10 ? '#fff' : TEXT_MUTED_LUXE }}>
-                            {idx + 1}
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: position === 1 && st.avg >= 10 ? `linear-gradient(135deg, ${GOLD}, ${ACCENT})` : '#f3f4f6', color: position === 1 && st.avg >= 10 ? '#fff' : TEXT_MUTED_LUXE }}>
+                            {position}
                           </div>
                           <div>
                             <div className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>{st.student?.firstName} {st.student?.lastName}</div>
                             <div className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>{st.student?.matricule}</div>
                           </div>
                         </div>
-                        <div className="text-xl font-bold" style={{ color: st.avg >= 10 ? GOLD : DANGER }}>{st.avg.toFixed(1)}%</div>
+                        {isTitulaireClass && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: GOLD, background: GOLD_SOFT }}>COMPLET</span>
+                        )}
                       </div>
-                      <div className="space-y-1 text-[11px] mb-3">
-                        {st.grades.slice(0, 4).map(g => (
+                      {/* Toutes les notes — bulletin complet (zone défilante) */}
+                      <div className="space-y-1 text-[11px] mb-3 max-h-40 overflow-y-auto pr-1 edu-scroll">
+                        {st.grades.map(g => (
                           <div key={g.id} className="flex justify-between">
                             <span style={{ color: TEXT_MUTED_LUXE }}>{g.subject?.name}</span>
                             <span className="font-medium" style={{ color: g.score >= 10 ? GOLD : DANGER }}>{g.score.toFixed(1)}/20</span>
                           </div>
                         ))}
-                        {st.grades.length > 4 && <div className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>+{st.grades.length - 4} matière{st.grades.length - 4 > 1 ? 's' : ''}</div>}
+                      </div>
+                      {/* Récapitulatif bas de bulletin : moyenne, pourcentage, position */}
+                      <div className="rounded-lg px-3 py-2 mb-3 text-[11px] space-y-1" style={{ background: IVORY }}>
+                        <div className="flex justify-between">
+                          <span style={{ color: TEXT_MUTED_LUXE }}>Moyenne</span>
+                          <span className="font-bold" style={{ color: st.avg >= 10 ? GOLD : DANGER }}>{st.avg.toFixed(2)}/20</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span style={{ color: TEXT_MUTED_LUXE }}>Pourcentage</span>
+                          <span className="font-bold" style={{ color: percentage >= 50 ? SUCCESS : DANGER }}>{percentage.toFixed(1)}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span style={{ color: TEXT_MUTED_LUXE }}>Position</span>
+                          <span className="font-bold" style={{ color: TEXT_PRIMARY }}>{position}<sup>{position === 1 ? 'er' : 'e'}</sup> / {totalInClass}</span>
+                        </div>
                       </div>
                       <button onClick={() => handleDownload(st.id, st.student?.lastName)} className="w-full py-1.5 rounded-lg text-xs font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] hover:shadow-sm transition inline-flex items-center justify-center gap-1.5" style={{ color: TEXT_PRIMARY }}>
                         <FileText size={12} /> Voir bulletin
                       </button>
                       {!isParent && (
-                        <button onClick={() => handleSendWhatsApp(st.id, st.student?.lastName)} disabled={waSendingId === st.id} className="w-full py-1.5 rounded-lg text-xs font-medium border border-[oklch(70%_0.12_175)]/40 bg-[oklch(97%_0.02_175)] hover:bg-[oklch(94%_0.04_175)] hover:shadow-sm transition disabled:opacity-60 inline-flex items-center justify-center gap-1.5" style={{ color: 'oklch(45%_0.1_175)' }}>
+                        <button onClick={() => handleSendWhatsApp(st.id, st.student?.lastName)} disabled={waSendingId === st.id} className="w-full py-1.5 mt-2 rounded-lg text-xs font-medium border border-[oklch(70%_0.12_175)]/40 bg-[oklch(97%_0.02_175)] hover:bg-[oklch(94%_0.04_175)] hover:shadow-sm transition disabled:opacity-60 inline-flex items-center justify-center gap-1.5" style={{ color: 'oklch(45%_0.1_175)' }}>
                           {waSendingId === st.id ? <div className="h-3 w-3 border-2 border-[oklch(45%_0.1_175)] border-t-transparent rounded-full animate-spin" /> : <Send size={12} />} Envoyer sur WhatsApp
                         </button>
                       )}
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )

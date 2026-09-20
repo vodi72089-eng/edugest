@@ -431,6 +431,48 @@ export async function requireRole(request: NextRequest, allowedRoles: string[]):
   return authResult;
 }
 
+// ─── Cycle mapping pour les rôles DIRECTION_* ──────────────────────────────
+// Un rôle DIRECTION_* est automatiquement lié à UN cycle unique :
+// la direction maternelle ne voit que la maternelle, etc. Ce mapping est la
+// source de vérité partagée par les routes API (scoping serveur).
+export const ROLE_CYCLE_MAP: Record<string, string> = {
+  DIRECTION_MATERNELLE: 'MATERNELLE',
+  DIRECTION_PRIMAIRE: 'PRIMAIRE',
+  DIRECTION_SECONDAIRE: 'SECONDAIRE',
+};
+
+// Renvoie le cycle imposé par le rôle ('MATERNELLE'|'PRIMAIRE'|'SECONDAIRE') ou null
+export function getRoleCycle(role: string | null | undefined): string | null {
+  if (!role) return null;
+  return ROLE_CYCLE_MAP[role] || null;
+}
+
+// Variantes de casse d'un cycle : la base contient un mélange historique
+// (« MATERNELLE », « Maternelle », « PrImAiRe »…). SQLite n'a pas de
+// comparaison insensible à la casse fiable via Prisma → on filtre avec `in`.
+export function sectionVariantsForCycle(cycle: string): string[] {
+  const c = (cycle || '').toUpperCase();
+  if (!c) return [];
+  const title = c.charAt(0) + c.slice(1).toLowerCase();
+  return Array.from(new Set([c, title, c.toLowerCase()]));
+}
+
+// Filtre Prisma `section` pour un cycle donné (toutes les casses connues)
+export function sectionFilterForCycle(cycle: string): { in: string[] } | Record<string, never> {
+  const variants = sectionVariantsForCycle(cycle);
+  return variants.length ? { in: variants } : {};
+}
+
+// Rôles DIRECTION destinataires pour une section de classe donnée.
+// Section inconnue/vide → toutes les directions (comportement historique).
+export function directionRolesForSection(section: string | null | undefined): string[] {
+  const cycle = (section || '').toUpperCase();
+  const matched = Object.entries(ROLE_CYCLE_MAP)
+    .filter(([, c]) => c === cycle)
+    .map(([r]) => r);
+  return matched.length ? matched : Object.keys(ROLE_CYCLE_MAP);
+}
+
 // ─── Permission-based auth ─────────────────────────────────────────────────
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPER_ADMIN_GLOBAL: ['*'],

@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { requirePermission, safeParseInt, sanitizeError } from '@/lib/auth';
+import { requirePermission, safeParseInt, sanitizeError, getRoleCycle, sectionFilterForCycle } from '@/lib/auth';
 import { getEffectiveStatus } from '@/lib/helpers';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -12,6 +12,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get('schoolId') || '';
     const schoolYearId = searchParams.get('schoolYearId') || '';
+
+    // ── Cycle scoping ─────────────────────────────────────────────────────
+    // Un rôle DIRECTION_* est TOUJOURS scellé à son cycle côté serveur
+    // (le paramètre ?cycle= est ignoré pour ces rôles — pas de contournement).
+    const roleCycle = getRoleCycle(user.role);
+    const cycle = (roleCycle || searchParams.get('cycle') || '').toUpperCase();
+    const cycleClassWhere: Record<string, unknown> = cycle ? { section: sectionFilterForCycle(cycle) } : {};
 
     // For non-SUPER_ADMIN_GLOBAL, force schoolId to their own school
     const effectiveSchoolId = user.role !== 'SUPER_ADMIN_GLOBAL' ? user.schoolId : schoolId;
@@ -53,6 +60,7 @@ export async function GET(request: NextRequest) {
     // Student stats
     const studentWhere: Record<string, unknown> = { schoolId: effectiveSchoolId };
     if (activeYearId) studentWhere.schoolYearId = activeYearId;
+    if (cycle) studentWhere.class = cycleClassWhere;
 
     const [
       totalStudents,
@@ -66,12 +74,21 @@ export async function GET(request: NextRequest) {
       db.student.count({ where: { ...studentWhere, gender: 'M' } }),
       db.student.count({ where: { ...studentWhere, gender: 'F' } }),
       db.student.count({ where: { ...studentWhere, isExcluded: true } }),
-      db.class.count({ where: { schoolId: effectiveSchoolId, schoolYearId: activeYearId || undefined } }),
-      db.subject.count({ where: { schoolId: effectiveSchoolId, schoolYearId: activeYearId || undefined } }),
+      db.class.count({ where: { schoolId: effectiveSchoolId, schoolYearId: activeYearId || undefined, ...cycleClassWhere } }),
+      db.subject.count({ where: { schoolId: effectiveSchoolId, schoolYearId: activeYearId || undefined, ...(cycle ? { class: cycleClassWhere } : {}) } }),
     ]);
 
     // Payment stats — compute effective status from paidAmount vs amount
+    // (scellé au cycle : PaymentRecord n'a pas de relation student, on passe
+    // par la liste des IDs d'élèves du cycle)
     const paymentWhere: Record<string, unknown> = { schoolId: effectiveSchoolId };
+    if (cycle) {
+      const cycleStudents = await db.student.findMany({
+        where: { schoolId: effectiveSchoolId, ...(activeYearId ? { schoolYearId: activeYearId } : {}), class: cycleClassWhere },
+        select: { id: true },
+      });
+      paymentWhere.studentId = { in: cycleStudents.map(s => s.id) };
+    }
     const allPayments = await db.paymentRecord.findMany({
       where: paymentWhere,
       select: { amount: true, paidAmount: true, status: true },
@@ -92,13 +109,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate REAL expected amount from school fees × students per class
-    const schoolFees = await db.schoolFee.findMany({
-      where: { schoolId: effectiveSchoolId, isActive: true },
-      select: { classId: true, amount: true },
-    });
     const classesWithStudents = await db.class.findMany({
-      where: { schoolId: effectiveSchoolId, schoolYearId: activeYearId || undefined },
+      where: { schoolId: effectiveSchoolId, schoolYearId: activeYearId || undefined, ...cycleClassWhere },
       select: { id: true, _count: { select: { students: true } } },
+    });
+    const cycleClassIds = classesWithStudents.map(c => c.id);
+    const schoolFees = await db.schoolFee.findMany({
+      where: {
+        schoolId: effectiveSchoolId,
+        isActive: true,
+        ...(cycle && cycleClassIds.length > 0 ? { classId: { in: cycleClassIds } } : {}),
+      },
+      select: { classId: true, amount: true },
     });
     const studentCountByClass = new Map(classesWithStudents.map(c => [c.id, c._count.students]));
     let totalExpected = 0;
@@ -109,6 +131,7 @@ export async function GET(request: NextRequest) {
 
     // Discipline stats
     const disciplineWhere: Record<string, unknown> = { schoolId: effectiveSchoolId };
+    if (cycle) disciplineWhere.student = { class: cycleClassWhere };
     const [
       totalDisciplineRecords,
       blacklistCount,
@@ -130,7 +153,7 @@ export async function GET(request: NextRequest) {
 
     // Class distribution
     const classDistribution = await db.class.findMany({
-      where: { schoolId: effectiveSchoolId, schoolYearId: activeYearId || undefined },
+      where: { schoolId: effectiveSchoolId, schoolYearId: activeYearId || undefined, ...cycleClassWhere },
       select: {
         name: true,
         section: true,
@@ -141,7 +164,7 @@ export async function GET(request: NextRequest) {
 
     // Recent students
     const recentStudents = await db.student.findMany({
-      where: { schoolId: effectiveSchoolId },
+      where: { schoolId: effectiveSchoolId, ...(cycle ? { class: cycleClassWhere } : {}) },
       orderBy: { createdAt: 'desc' },
       take: 5,
       select: {
@@ -165,6 +188,7 @@ export async function GET(request: NextRequest) {
         schoolName: school.name,
         schoolShortName: school.shortName,
         activeYearId,
+        cycle: cycle || null,
         students: {
           total: totalStudents,
           male: maleStudents,

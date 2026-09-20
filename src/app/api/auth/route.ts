@@ -18,10 +18,58 @@ function hasActiveMobileSubscription(school: {
   return !school.subscriptionEndDate || school.subscriptionEndDate >= new Date();
 }
 
-// Simple in-memory rate limiter for login attempts
-const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
-const MAX_LOGIN_ATTEMPTS = 5;
-const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+// ── Verrou progressif par compte ──────────────────────────────────────────────
+// 5 échecs → 1 min ; +5 (cumul 10) → 3 min ; +3 (cumul 13) → 10 min ;
+// +2 (cumul 15) → 20 min ; au-delà, chaque échec double la durée (cap 24 h).
+// Le client reçoit retryAfterSeconds/lockSeconds pour désactiver le bouton
+// avec un compte à rebours — plus de blocage serveur fixe de 15 minutes.
+// Stocké sur globalThis : survit au rechargement des modules en dev.
+const loginAttempts: Map<string, { count: number; lockedUntil: number; lastLockSeconds: number; lastAttempt: number }> =
+  ((globalThis as unknown as { __edugestLoginAttempts?: Map<string, { count: number; lockedUntil: number; lastLockSeconds: number; lastAttempt: number }> }).__edugestLoginAttempts =
+    (globalThis as unknown as { __edugestLoginAttempts?: Map<string, { count: number; lockedUntil: number; lastLockSeconds: number; lastAttempt: number }> }).__edugestLoginAttempts ||
+    new Map());
+const LOCK_SCHEDULE: Array<{ at: number; seconds: number }> = [
+  { at: 5, seconds: 60 },
+  { at: 10, seconds: 180 },
+  { at: 13, seconds: 600 },
+  { at: 15, seconds: 1200 },
+];
+const MAX_LOCK_SECONDS = 24 * 60 * 60;
+const ATTEMPTS_TTL_MS = 24 * 60 * 60 * 1000;
+
+function computeLockSeconds(count: number, lastLockSeconds: number): number | null {
+  const step = LOCK_SCHEDULE.find(s => s.at === count);
+  if (step) return step.seconds;
+  if (count > LOCK_SCHEDULE[LOCK_SCHEDULE.length - 1].at) {
+    return Math.min(lastLockSeconds > 0 ? lastLockSeconds * 2 : 1200, MAX_LOCK_SECONDS);
+  }
+  return null;
+}
+
+// Incrémente le compteur d'échecs et renvoie le verrou éventuellement déclenché.
+function registerFailure(identifier: string): { lockSeconds: number; lockedUntil: number } | null {
+  const prev = loginAttempts.get(identifier);
+  const count = (prev?.count || 0) + 1;
+  const lockSeconds = computeLockSeconds(count, prev?.lastLockSeconds || 0);
+  const lockedUntil = lockSeconds ? Date.now() + lockSeconds * 1000 : 0;
+  loginAttempts.set(identifier, {
+    count,
+    lockedUntil,
+    lastLockSeconds: lockSeconds || prev?.lastLockSeconds || 0,
+    lastAttempt: Date.now(),
+  });
+  return lockSeconds ? { lockSeconds, lockedUntil } : null;
+}
+
+function getRemainingLock(identifier: string): number {
+  const entry = loginAttempts.get(identifier);
+  if (!entry) return 0;
+  if (entry.lastAttempt && Date.now() - entry.lastAttempt > ATTEMPTS_TTL_MS) {
+    loginAttempts.delete(identifier);
+    return 0;
+  }
+  return entry.lockedUntil > Date.now() ? Math.ceil((entry.lockedUntil - Date.now()) / 1000) : 0;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,26 +90,23 @@ export async function POST(request: NextRequest) {
     // ── Rate Limiting ────────────────────────────────────────────────────
     // IP-based limit: prevents distributed brute-force that rotates emails/phones
     const ip = getClientIp(request) || 'unknown';
-    if (!checkRateLimit(`login_ip_${ip}`, 30, LOGIN_WINDOW_MS)) {
+    if (!checkRateLimit(`login_ip_${ip}`, 30, 15 * 60 * 1000)) {
       return NextResponse.json(
         { error: 'Trop de tentatives. Réessayez plus tard.' },
         { status: 429 }
       );
     }
 
-    const identifier = email || phone;
-    const attempts = loginAttempts.get(identifier);
-    if (attempts) {
-      const timeSinceLastAttempt = Date.now() - attempts.lastAttempt;
-      if (timeSinceLastAttempt < LOGIN_WINDOW_MS && attempts.count >= MAX_LOGIN_ATTEMPTS) {
-        return NextResponse.json(
-          { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
-          { status: 429 }
-        );
-      }
-      if (timeSinceLastAttempt >= LOGIN_WINDOW_MS) {
-        loginAttempts.delete(identifier);
-      }
+    const identifier = (email || phone || '').toLowerCase();
+    const remainingLock = getRemainingLock(identifier);
+    if (remainingLock > 0) {
+      return NextResponse.json(
+        {
+          error: `Trop de tentatives. Réessayez dans ${Math.ceil(remainingLock / 60)} minute${remainingLock > 120 ? 's' : ''}.`,
+          retryAfterSeconds: remainingLock,
+        },
+        { status: 429 }
+      );
     }
 
     // ── Find User ────────────────────────────────────────────────────────
@@ -78,36 +123,40 @@ export async function POST(request: NextRequest) {
     }
 
     if (!user) {
-      // Increment failed attempts
-      const current = loginAttempts.get(identifier) || { count: 0, lastAttempt: 0 };
-      loginAttempts.set(identifier, { count: current.count + 1, lastAttempt: Date.now() });
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
+      // Échec : incrémente le compteur et déclenche éventuellement un verrou progressif
+      const lock = registerFailure(identifier);
+      const payload: Record<string, unknown> = { error: 'Invalid credentials' };
+      if (lock) {
+        payload.lockSeconds = lock.lockSeconds;
+        payload.lockedUntil = new Date(lock.lockedUntil).toISOString();
+      }
+      return NextResponse.json(payload, { status: 401 });
     }
 
     // Anti-enumeration : un compte désactivé ou sans mot de passe répond
     // exactement comme un mauvais identifiant — impossible de deviner l'état
     // d'un compte de l'extérieur. Le frontend traduit ce message.
     if (!user.isActive || !user.password) {
-      const current = loginAttempts.get(identifier) || { count: 0, lastAttempt: 0 };
-      loginAttempts.set(identifier, { count: current.count + 1, lastAttempt: Date.now() });
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
+      // Anti-énumération : même traitement qu'un mauvais mot de passe
+      const lock = registerFailure(identifier);
+      const payload: Record<string, unknown> = { error: 'Invalid credentials' };
+      if (lock) {
+        payload.lockSeconds = lock.lockSeconds;
+        payload.lockedUntil = new Date(lock.lockedUntil).toISOString();
+      }
+      return NextResponse.json(payload, { status: 401 });
     }
 
     // ── Verify Password ──────────────────────────────────────────────────
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
-      const current = loginAttempts.get(identifier) || { count: 0, lastAttempt: 0 };
-      loginAttempts.set(identifier, { count: current.count + 1, lastAttempt: Date.now() });
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
+      const lock = registerFailure(identifier);
+      const payload: Record<string, unknown> = { error: 'Invalid credentials' };
+      if (lock) {
+        payload.lockSeconds = lock.lockSeconds;
+        payload.lockedUntil = new Date(lock.lockedUntil).toISOString();
+      }
+      return NextResponse.json(payload, { status: 401 });
     }
 
     // L'application mobile est une offre Premium : cette règle est appliquée

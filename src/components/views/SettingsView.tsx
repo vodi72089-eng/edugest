@@ -15,14 +15,12 @@ export default function SettingsView() {
   const { userRole, userData, setCurrentView } = useEduGestStore()
 
   // ── Defense-in-depth role guard ────────────────────────────────────────
-  // School settings are restricted to SUPER_ADMIN_GLOBAL, SECRETARY, and
-  // DIRECTION_* on FREEMIUM schools (they are the admin of the school).
-  // SCHOOL_ADMIN accède uniquement à l'onglet « Personnalisation »
-  // (anciennement menu séparé — désormais intégré dans Paramètres).
-  const isFreemium = userData?.subscriptionTier === 'FREEMIUM'
-  const isDirection = userRole?.startsWith('DIRECTION')
+  // Paramètres école : réservés à SUPER_ADMIN_GLOBAL et SCHOOL_ADMIN
+  // (personnalisation). Le secrétaire et les DIRECTION_* n'y ont plus
+  // AUCUN accès — décision produit, le menu ne leur est plus non plus
+  // affiché, et l'API refuse leurs demandes de changement.
   const personalizationOnly = userRole === 'SCHOOL_ADMIN'
-  const canManageSchool = personalizationOnly || userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SECRETARY' || (isFreemium && isDirection)
+  const canManageSchool = userRole === 'SUPER_ADMIN_GLOBAL' || personalizationOnly
   if (!canManageSchool) {
     return (
       <div className="max-w-md mx-auto mt-16 text-center">
@@ -172,8 +170,8 @@ function SettingsViewInner() {
           .then(j => setComments(j.data || []))
           .catch(() => {})
       }
-      // Fetch pending settings approvals (admin only)
-      if (userRole === 'SUPER_ADMIN_GLOBAL') {
+      // Fetch pending settings approvals (approvers : admin école + super admin)
+      if (userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SCHOOL_ADMIN') {
         authFetch(`/api/settings-approval?status=PENDING`)
           .then(r => r.json())
           .then(j => setPendingApprovals(j.data || []))
@@ -283,7 +281,8 @@ function SettingsViewInner() {
     try {
       const approval = pendingApprovals.find(a => a.id === id)
       if (!approval) return
-      if (decision === 'APPROVED') {
+      if (decision === 'APPROVED' && approval.changeType === 'school_info') {
+        // school_info : application côté client (PUT école) — réservé au super admin
         const changeData = JSON.parse(approval.changeData)
         const res = await authFetch(`/api/schools/${userData?.schoolId}`, {
           method: 'PUT',
@@ -309,14 +308,22 @@ function SettingsViewInner() {
         setSchoolCategory(changeData.schoolCategory || 'PRIVEE')
         setMaxStudents(String(changeData.maxStudents || 100))
       }
+      // qr_create / class_delete : exécutés côté serveur au moment du PATCH
       await authFetch('/api/settings-approval', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status: decision }),
+      }).then(async res => {
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}))
+          throw new Error(j.error || 'Erreur')
+        }
       })
       setPendingApprovals(prev => prev.filter(a => a.id !== id))
-      toast.success(decision === 'APPROVED' ? 'Changements appliqués' : 'Demande rejetée')
-    } catch { toast.error('Erreur') }
+      toast.success(decision === 'APPROVED' ? (approval.changeType === 'school_info' ? 'Changements appliqués' : 'Demande approuvée et appliquée') : 'Demande rejetée')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    }
   }
 
   async function handleApproveComment(id: string) {
@@ -379,8 +386,8 @@ function SettingsViewInner() {
         )}
       </div>
 
-      {/* Pending Approvals (Admin only) */}
-      {isAdmin && pendingApprovals.length > 0 && (
+      {/* Pending Approvals (approbateurs : admin école + super admin) */}
+      {(isAdmin || userRole === 'SCHOOL_ADMIN') && pendingApprovals.length > 0 && (
         <div className="mb-6 bg-white border-2 border-[oklch(72%_0.15_65_/_0.3)] rounded-2xl p-6 shadow-sm">
           <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: ACCENT }}>
             <Star size={16} style={{ color: ACCENT }} /> Demandes d&apos;approbation en attente ({pendingApprovals.length})
@@ -388,10 +395,18 @@ function SettingsViewInner() {
           <div className="space-y-3">
             {pendingApprovals.map(a => {
               const data = JSON.parse(a.changeData || '{}')
+              const typeLabel = a.changeType === 'qr_create' ? 'Création QR code'
+                : a.changeType === 'class_delete' ? 'Suppression de classe'
+                : a.changeType === 'school_info' ? 'Infos école'
+                : a.changeType === 'school_fee' ? 'Frais scolaires'
+                : a.changeType === 'currency' ? 'Devise'
+                : a.changeType
               return (
                 <div key={a.id} className="flex items-center justify-between p-3 rounded-xl border border-[oklch(90%_0.01_175)]" style={{ background: GOLD_SOFT }}>
                   <div className="text-sm">
-                    <span className="font-semibold" style={{ color: TEXT_PRIMARY }}>{a.changeType}</span>
+                    <span className="font-semibold" style={{ color: TEXT_PRIMARY }}>{typeLabel}</span>
+                    {a.changeType === 'class_delete' && data.className && <span className="text-xs ml-2" style={{ color: TEXT_PRIMARY }}>« {data.className} »</span>}
+                    {a.changeType === 'qr_create' && data.label && <span className="text-xs ml-2" style={{ color: TEXT_PRIMARY }}>« {data.label} »</span>}
                     <span className="text-xs ml-2" style={{ color: TEXT_MUTED_LUXE }}>par {a.requestedBy}</span>
                     {data.name && <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Nom: {data.name}</div>}
                   </div>

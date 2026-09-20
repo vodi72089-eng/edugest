@@ -3,7 +3,7 @@ import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, directionRolesForSection, sectionFilterForCycle } from '@/lib/auth';
 import { checkCanCreateStudent, getTierLimits } from '@/lib/subscription';
 
 function generateRandomPassword(length: number = 12): string {
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const { user } = authResult;
 
     const { searchParams } = new URL(request.url);
-    const search = searchParams.get('search') || '';
+    const search = (searchParams.get('search') || '').trim();
     const classId = searchParams.get('classId') || '';
     const schoolId = searchParams.get('schoolId') || '';
     const schoolYearId = searchParams.get('schoolYearId') || '';
@@ -39,12 +39,12 @@ export async function GET(request: NextRequest) {
       where.schoolId = schoolId;
     }
 
-    if (search) {
-      where.OR = [
-        { firstName: { contains: search } },
-        { lastName: { contains: search } },
-        { matricule: { contains: search } },
-      ];
+    // ── Cycle scoping serveur ─────────────────────────────────────────────
+    // Une DIRECTION_* ne voit QUE les élèves de son cycle (via la section de
+    // la classe) — indépendamment des paramètres passés à l'URL.
+    const roleCycle = getRoleCycle(user.role);
+    if (roleCycle) {
+      where.class = { section: sectionFilterForCycle(roleCycle) };
     }
 
     if (classId) {
@@ -58,6 +58,35 @@ export async function GET(request: NextRequest) {
     // Allow explicit parentId filter only for non-PARENT users (PARENT is already filtered above)
     if (parentId && user.role !== 'PARENT') {
       where.parentId = parentId;
+    }
+
+    // ── Recherche insensible à la casse ───────────────────────────────────
+    // SQLite ne supporte pas `mode: 'insensitive'` : on filtre en JS sur un
+    // échantillon élargi pour que « ka » trouve « Kabange » comme « kabange ».
+    if (search) {
+      const candidates = await db.student.findMany({
+        where,
+        orderBy: { lastName: 'asc' },
+        take: 2000,
+        include: {
+          class: { select: { id: true, name: true, section: true } },
+          parent: { select: { id: true, name: true, email: true, phone: true } },
+          school: { select: { id: true, name: true, shortName: true } },
+          schoolYear: { select: { id: true, label: true } },
+        },
+      });
+      const q = search.toLowerCase();
+      const matched = candidates.filter(s =>
+        (s.firstName || '').toLowerCase().includes(q) ||
+        (s.lastName || '').toLowerCase().includes(q) ||
+        (s.matricule || '').toLowerCase().includes(q)
+      );
+      const total = matched.length;
+      const start = (page - 1) * limit;
+      return NextResponse.json({
+        data: matched.slice(start, start + limit),
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      });
     }
 
     const [students, total] = await Promise.all([
@@ -225,8 +254,9 @@ export async function POST(request: NextRequest) {
     });
 
     // Create in-app notifications for school admins
+    // (scellées au cycle : un élève de maternelle ne notifie que la direction maternelle)
     try {
-      const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
+      const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', ...directionRolesForSection(student.class?.section)];
       const schoolAdmins = await db.user.findMany({
         where: { schoolId, role: { in: adminRoles }, id: { not: user.id } },
         select: { id: true },

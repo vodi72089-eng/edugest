@@ -32,8 +32,12 @@ function formatDateFr(iso: string): string {
 }
 
 export default function ParentQrView() {
-  const { userData } = useEduGestStore()
+  const { userData, userRole } = useEduGestStore()
+  // Le secrétaire ne crée PAS de QR code directement : sa demande est soumise
+  // à l'approbation de l'admin général (admin de l'école).
+  const isSecretary = userRole === 'SECRETARY'
   const [codes, setCodes] = useState<QrItem[]>([])
+  const [qrRequests, setQrRequests] = useState<{ id: string; label?: string; status: string; createdAt: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [label, setLabel] = useState('')
@@ -48,9 +52,14 @@ export default function ParentQrView() {
       const r = await authFetch('/api/school-qr-codes')
       const j = await r.json()
       setCodes(j.data || [])
+      if (userRole === 'SECRETARY') {
+        const rr = await authFetch('/api/settings-approval?status=PENDING')
+        const jr = await rr.json()
+        setQrRequests((jr.data || []).filter((a: { changeType: string }) => a.changeType === 'qr_create'))
+      }
     } catch { toast.error('Erreur de chargement des QR codes') }
     finally { setLoading(false) }
-  }, [])
+  }, [userRole])
 
   useEffect(() => { loadCodes() }, [loadCodes])
 
@@ -59,6 +68,27 @@ export default function ParentQrView() {
     setCreating(true)
     try {
       const d = DURATIONS.find(x => x.value === duration) || DURATIONS[3]
+      // ── Secrétaire : demande d'approbation à l'admin général ────────────
+      if (isSecretary) {
+        const r = await authFetch('/api/settings-approval', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            changeType: 'qr_create',
+            changeData: { label: label || null, durationHours: d.hours },
+          }),
+        })
+        const j = await r.json().catch(() => ({}))
+        if (!r.ok) {
+          toast.error(j.error || 'Erreur lors de l\'envoi de la demande')
+          return
+        }
+        toast.success('Demande envoyée à l\'admin général — le QR code sera créé après son accord')
+        setShowCreate(false)
+        setLabel('')
+        await loadCodes()
+        return
+      }
       const r = await authFetch('/api/school-qr-codes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -66,7 +96,11 @@ export default function ParentQrView() {
       })
       const j = await r.json()
       if (!r.ok) {
-        toast.error(j.error || 'Erreur lors de la génération')
+        if (j.requiresApproval) {
+          toast.error('La création d\'un QR code requiert l\'accord de l\'admin général')
+        } else {
+          toast.error(j.error || 'Erreur lors de la génération')
+        }
         return
       }
       toast.success('QR code généré avec succès')
@@ -135,9 +169,26 @@ export default function ParentQrView() {
           </p>
         </div>
         <button onClick={() => setShowCreate(true)} className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
-          <Plus size={14} /> Générer un QR code
+          <Plus size={14} /> {isSecretary ? 'Demander un QR code' : 'Générer un QR code'}
         </button>
       </div>
+
+      {/* Demandes en attente (secrétaire) */}
+      {isSecretary && qrRequests.length > 0 && (
+        <div className="mb-5 rounded-2xl border p-5" style={{ borderColor: `${GOLD}55`, background: IVORY }}>
+          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: GOLD }}>
+            <Clock size={14} /> Demandes de QR code en attente d&apos;accord ({qrRequests.length})
+          </h3>
+          <div className="space-y-2">
+            {qrRequests.map(req => (
+              <div key={req.id} className="flex items-center justify-between text-[13px] rounded-xl px-3 py-2 bg-white border border-[oklch(90%_0.01_175)]">
+                <span style={{ color: TEXT_PRIMARY }}>{req.label || 'Inscription parents'}</span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ color: '#854d0e', background: '#fef9c3' }}>En attente de l&apos;admin</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Liste */}
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
@@ -198,9 +249,14 @@ export default function ParentQrView() {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowCreate(false)}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>Générer un QR code parents</h2>
+              <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{isSecretary ? 'Demander un QR code parents' : 'Générer un QR code parents'}</h2>
               <button onClick={() => setShowCreate(false)}><X size={18} /></button>
             </div>
+            {isSecretary && (
+              <p className="text-[12px] mb-4 rounded-xl px-3 py-2" style={{ color: '#854d0e', background: '#fef9c3' }}>
+                Votre demande sera soumise à l&apos;accord de l&apos;admin général de l&apos;école. Le QR code sera créé automatiquement dès son approbation.
+              </p>
+            )}
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label className="text-sm font-medium block mb-1" style={{ color: TEXT_PRIMARY }}>Libellé (optionnel)</label>
@@ -216,7 +272,7 @@ export default function ParentQrView() {
               </div>
               <button type="submit" disabled={creating} className="w-full py-2.5 rounded-xl font-semibold text-sm edu-gold-cta inline-flex items-center justify-center gap-2 disabled:opacity-50">
                 {creating ? <Loader2 size={14} className="animate-spin" /> : <QrCode size={14} />}
-                Générer le QR code
+                {isSecretary ? 'Envoyer la demande' : 'Générer le QR code'}
               </button>
             </form>
           </div>

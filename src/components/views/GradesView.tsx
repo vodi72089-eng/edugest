@@ -121,7 +121,14 @@ export default function GradesView() {
           setClasses([])
         }
       } else if (isTeacher && teacherClassIds.length > 0) {
-        setClasses(allClasses.filter((c: { id: string }) => teacherClassIds.includes(c.id)))
+        // Classe titulaire TOUJOURS en première position dans la liste du prof
+        const mine = allClasses.filter((c: { id: string }) => teacherClassIds.includes(c.id))
+        mine.sort((a: any, b: any) => {
+          const aTit = a.headTeacherId === userData?.id ? 0 : 1
+          const bTit = b.headTeacherId === userData?.id ? 0 : 1
+          return aTit - bTit
+        })
+        setClasses(mine)
       } else {
         setClasses(allClasses)
       }
@@ -286,8 +293,24 @@ export default function GradesView() {
               <AppSelect value={gradeClassId} onChange={(val) => { setGradeClassId(val); setGradeStudentId(''); setGradeStudentSearchId(null) }} placeholder="Sélectionner une classe" options={[{ value: '', label: 'Sélectionner une classe' }, ...classes.map(c => ({ value: c.id, label: c.name }))]} />
             </div>
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Matière *</label>
-              <AppSelect value={gradeSubjectId} onChange={setGradeSubjectId} disabled={!gradeClassId} placeholder="Sélectionner une matière" options={[{ value: '', label: gradeClassId ? 'Sélectionner une matière' : 'D\'abord choisir une classe' }, ...subjects.map(s => ({ value: s.id, label: `${s.name} (coef. ${s.coefficient})` }))]} />
+              {/* Matière : le sélecteur n'apparaît que si le prof enseigne 2+
+                  matières dans cette classe. Une seule matière → auto-sélectionnée
+                  et affichée en lecture seule ; aucune → champ masqué. */}
+              {isTeacher && gradeClassId && subjects.length < 2 ? (
+                subjects.length === 1 ? (
+                  <>
+                    <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Matière</label>
+                    <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_PRIMARY }}>
+                      {subjects[0].name} <span className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>(coef. {subjects[0].coefficient})</span>
+                    </div>
+                  </>
+                ) : null
+              ) : (
+                <>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Matière *</label>
+                  <AppSelect value={gradeSubjectId} onChange={setGradeSubjectId} disabled={!gradeClassId} placeholder="Sélectionner une matière" options={[{ value: '', label: gradeClassId ? 'Sélectionner une matière' : 'D\'abord choisir une classe' }, ...subjects.map(s => ({ value: s.id, label: `${s.name} (coef. ${s.coefficient})` }))]} />
+                </>
+              )}
             </div>
             <div>
               <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Trimestre *</label>

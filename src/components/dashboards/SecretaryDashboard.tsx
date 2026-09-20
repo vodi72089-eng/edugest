@@ -13,6 +13,10 @@ export default function SecretaryDashboard({ role }: { role?: string } = {}) {
   const [stats, setStats] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(true)
   const isDirection = role?.startsWith('DIRECTION') || false
+  // Cycle imposé par le rôle — l'API /api/stats scelle aussi ce filtre côté serveur
+  const directionCycle = role === 'DIRECTION_MATERNELLE' ? 'Maternelle'
+    : role === 'DIRECTION_PRIMAIRE' ? 'Primaire'
+    : role === 'DIRECTION_SECONDAIRE' ? 'Secondaire' : null
 
   useEffect(() => {
     function fetchStats() {
@@ -42,7 +46,14 @@ export default function SecretaryDashboard({ role }: { role?: string } = {}) {
             <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Bonjour {userData?.name || 'Secrétaire'}</h1>
           </div>
-          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{userData?.schoolName || 'Gestion scolaire'}</p>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>
+            {userData?.schoolName || 'Gestion scolaire'}
+            {directionCycle && (
+              <span className="inline-flex items-center ml-2 px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ color: GOLD, background: `linear-gradient(135deg, ${GOLD}15, ${ACCENT}10)`, border: `1px solid ${GOLD}55` }}>
+                Cycle {directionCycle}
+              </span>
+            )}
+          </p>
         </div>
       </div>
 

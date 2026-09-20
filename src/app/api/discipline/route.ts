@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, directionRolesForSection } from '@/lib/auth';
 import { requireFeature } from '@/lib/feature-gate';
 import { notifyDiscipline } from '@/lib/whatsapp-agent';
 import { classifyStudent, learnKeywordsFromRecord } from '@/lib/discipline-classifier';
@@ -196,12 +196,12 @@ export async function POST(request: NextRequest) {
     try {
       const student = await db.student.findUnique({
         where: { id: studentId },
-        select: { parentId: true, firstName: true, lastName: true, schoolId: true },
+        select: { parentId: true, firstName: true, lastName: true, schoolId: true, class: { select: { section: true } } },
       });
 
-      // Create in-app notifications for school admins
+      // Create in-app notifications for school admins (scellées au cycle de l'élève)
       if (student?.schoolId) {
-        const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
+        const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', ...directionRolesForSection(student.class?.section)];
         const schoolAdmins = await db.user.findMany({
           where: { schoolId: student.schoolId, role: { in: adminRoles }, id: { not: user.id } },
           select: { id: true },

@@ -8,6 +8,18 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
 
+    // ── Suppression soumise à l'accord de l'admin de l'école ─────────────
+    // Seuls SUPER_ADMIN_GLOBAL et SCHOOL_ADMIN suppriment directement.
+    // Une DIRECTION_* doit passer par une demande d'approbation
+    // (changeType 'class_delete' sur /api/settings-approval) — l'UI lui
+    // présente ce flux ; l'API refuse net pour éviter tout contournement.
+    if (user.role !== 'SUPER_ADMIN_GLOBAL' && user.role !== 'SCHOOL_ADMIN') {
+      return NextResponse.json(
+        { error: 'La suppression d\u2019une classe requiert l\u2019accord de l\u2019admin de l\u2019école.', requiresApproval: true },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
     const existing = await db.class.findUnique({ where: { id }, include: { _count: { select: { students: true } } } });
     if (!existing) return NextResponse.json({ error: 'Classe non trouvée' }, { status: 404 });

@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, directionRolesForSection, sectionFilterForCycle } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,6 +34,14 @@ export async function GET(request: NextRequest) {
 
     if (schoolYearId) {
       where.schoolYearId = schoolYearId;
+    }
+
+    // ── Cycle scoping serveur ─────────────────────────────────────────────
+    // Une DIRECTION_* ne voit QUE les classes de son cycle, quelle que soit
+    // l'URL demandée (le paramètre éventuel est ignoré — pas de contournement).
+    const roleCycle = getRoleCycle(user.role);
+    if (roleCycle) {
+      where.section = sectionFilterForCycle(roleCycle);
     }
 
     const [classes, total] = await Promise.all([
@@ -82,7 +90,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, section, level, capacity, schoolId, schoolYearId, headTeacherId } = body;
+    let { name, section, level, capacity, schoolId, schoolYearId, headTeacherId } = body;
+
+    // Une DIRECTION_* crée forcément dans SON cycle (imposé côté serveur)
+    const creatorCycle = getRoleCycle(user.role);
+    if (creatorCycle) section = creatorCycle;
 
     if (!name || !schoolId || !schoolYearId) {
       return NextResponse.json(
@@ -136,8 +148,9 @@ export async function POST(request: NextRequest) {
     });
 
     // Create in-app notifications for school admins
+    // (scellées au cycle : une classe maternelle ne notifie que la direction maternelle)
     try {
-      const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
+      const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', ...directionRolesForSection(section)];
       const schoolAdmins = await db.user.findMany({
         where: { schoolId, role: { in: adminRoles }, id: { not: user.id } },
         select: { id: true },

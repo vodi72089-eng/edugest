@@ -3,8 +3,12 @@ import { requireRole, sanitizeError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 
-// QR codes d'inscription parent — réservés aux administrateurs de l'école
+// QR codes d'inscription parent — consultation/révocation pour le personnel,
+// création réservée aux administrateurs et à la direction.
 const QR_ADMIN_ROLES = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
+// Le secrétaire doit DEMANDER l'accord de l'admin général avant toute création
+// (flux d'approbation via /api/settings-approval, changeType 'qr_create').
+const QR_CREATE_ROLES = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
 
 // GET /api/school-qr-codes — liste des QR codes de l'école
 export async function GET(request: NextRequest) {
@@ -37,12 +41,21 @@ export async function GET(request: NextRequest) {
 // Body: { label?, durationHours?, durationDays?, expiresAt? , schoolId? }
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireRole(request, QR_ADMIN_ROLES);
+    const auth = await requireRole(request, QR_CREATE_ROLES);
     if ('error' in auth) return auth.error;
     const { user } = auth;
 
     const body = await request.json().catch(() => ({}));
     const schoolId = user.role === 'SUPER_ADMIN_GLOBAL' && body.schoolId ? body.schoolId : user.schoolId;
+
+    // Garde-fou : un secrétaire qui contournerait l'UI reçoit l'instruction
+    // de passer par la demande d'approbation (l'UI ParentQrView le fait déjà).
+    if (user.role === 'SECRETARY') {
+      return NextResponse.json(
+        { error: 'La création d\u2019un QR code requiert l\u2019accord de l\u2019admin général.', requiresApproval: true },
+        { status: 403 }
+      );
+    }
 
     // Vérifier que l'école existe
     const school = await db.school.findUnique({ where: { id: schoolId }, select: { id: true, name: true } });

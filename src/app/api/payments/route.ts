@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
-import { requirePermission, verifySchoolAccess, verifyParentAccess, safeParseInt, sanitizeError } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, verifyParentAccess, safeParseInt, sanitizeError, directionRolesForSection } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
     // Verify student exists
     const student = await db.student.findUnique({
       where: { id: resolvedStudentId },
-      select: { id: true, firstName: true, lastName: true, matricule: true, classId: true, schoolId: true },
+      select: { id: true, firstName: true, lastName: true, matricule: true, classId: true, schoolId: true, class: { select: { section: true } } },
     });
 
     if (!student) {
@@ -214,8 +214,8 @@ export async function POST(request: NextRequest) {
       const trimesterLabel = body.trimester || 'N/A';
       const amount = Number(body.amount || 0);
 
-      // Notify admins (direction + secretary + cashier)
-      const adminRoles = ['SUPER_ADMIN_GLOBAL', 'CASHIER', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
+      // Notify admins (direction du cycle de l'élève + secretary + cashier)
+      const adminRoles = ['SUPER_ADMIN_GLOBAL', 'CASHIER', ...directionRolesForSection(student.class?.section)];
       const schoolAdmins = user.schoolId ? await db.user.findMany({
         where: { schoolId: user.schoolId, role: { in: adminRoles }, id: { not: user.id } },
         select: { id: true, phone: true, name: true },
