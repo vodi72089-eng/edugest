@@ -37,7 +37,9 @@ export async function POST(request: NextRequest) {
     if ('error' in authResult) return authResult.error;
 
     const formData = await request.formData();
-    const file = formData.get('file');
+    // Certains typages de Next/undici n'exposent pas `get` sur le FormData
+    // retourné — on passe par une signature explicite équivalente.
+    const file = (formData as unknown as { get(name: string): unknown }).get('file');
     if (!(file instanceof File)) {
       return NextResponse.json({ error: 'Aucun fichier fourni' }, { status: 400 });
     }
