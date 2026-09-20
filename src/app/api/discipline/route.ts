@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
-import { notify } from '@/lib/notify';
+import { notifyEvent } from '@/lib/notification-service';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, directionRolesForSection } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
 import { requireFeature } from '@/lib/feature-gate';
 import { notifyDiscipline } from '@/lib/whatsapp-agent';
 import { classifyStudent, learnKeywordsFromRecord } from '@/lib/discipline-classifier';
@@ -199,39 +199,19 @@ export async function POST(request: NextRequest) {
         select: { parentId: true, firstName: true, lastName: true, schoolId: true, class: { select: { section: true } } },
       });
 
-      // Create in-app notifications for school admins (scellées au cycle de l'élève)
+      // ── Notifications : Parent + DIRECTION_<cycle> + DISCIPLINE_<cycle>
+      //    de l'école (resolver centralisé — scellé au cycle de l'élève).
+      //    NI caissier, NI secrétaire : discipline = environnement disciplinaire. ─
       if (student?.schoolId) {
-        const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', ...directionRolesForSection(student.class?.section)];
-        const schoolAdmins = await db.user.findMany({
-          where: { schoolId: student.schoolId, role: { in: adminRoles }, id: { not: user.id } },
-          select: { id: true },
-        });
-        for (const admin of schoolAdmins) {
-          await notify({
-            data: {
-              type: 'DISCIPLINE_INCIDENT',
-              title: 'Incident de discipline',
-              message: `${student.firstName} ${student.lastName} - ${title} (${severity})`,
-              userId: admin.id,
-              schoolId: student.schoolId,
-              relatedId: record.id,
-            },
-          });
-        }
-      }
-
-      // Create in-app notification for parent
-      if (student?.parentId) {
-        await notify({
-          data: {
-            type: 'DISCIPLINE_INCIDENT',
+        await notifyEvent(
+          { type: 'DISCIPLINE_INCIDENT', schoolId: student.schoolId, studentId, actorId: user.id, section: student.class?.section ?? null },
+          {
             title: 'Incident de discipline',
-            message: `${student.firstName} ${student.lastName} - ${title}: ${description}`,
-            userId: student.parentId,
-            schoolId: student.schoolId,
+            message: `${student.firstName} ${student.lastName} - ${title} (${severity})`,
+            parentMessage: `${student.firstName} ${student.lastName} - ${title}: ${description}`,
             relatedId: record.id,
-          },
-        });
+          }
+        );
       }
 
       // WhatsApp notification

@@ -18,7 +18,7 @@
  * Build : voir DESKTOP.md (electron-builder → installateur .exe + portable).
  */
 
-const { app, BrowserWindow, shell, dialog, ipcMain, net: electronNet } = require('electron');
+const { app, BrowserWindow, shell, dialog, ipcMain, net: electronNet, Notification } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -381,6 +381,51 @@ try {
       if (typeof url === 'string' && url.startsWith('https://')) shell.openExternal(url);
     } catch {}
   });
+
+  // ── Notifications natives Windows (showDesktopNotification côté main) ────
+  // L'interface demande l'affichage d'un toast système quand une notification
+  // métier arrive pendant que la fenêtre est en arrière-plan/minimisée.
+  // 1) reçoit l'événement   2) construit la notification native
+  //    (titre/corps/icône, silent:false → son par défaut SI Windows l'autorise)
+  // 3) au clic : restaure/focus la fenêtre puis lui envoie 'edugest:navigate'
+  //    (URL de la vue + id) — le renderer ouvre la bonne page et marque lu.
+  // Le son du toast est régi par les réglages de notifications de Windows :
+  // l'application complète TOUJOURS avec SON son in-app (cohérence garantie).
+  try {
+    ipcMain.on('edugest:notify', (_e, payload) => {
+      try {
+        if (!Notification.isSupported()) { _e.reply('edugest:notify:result', false); return; }
+        const p = payload || {};
+        const notif = new Notification({
+          title: String(p.title || 'EduGest').slice(0, 120),
+          body: String(p.body || '').slice(0, 300),
+          icon: ICON_PATH,
+          silent: p.silent === true,
+        });
+        notif.on('click', () => {
+          try {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              if (mainWindow.isMinimized()) mainWindow.restore();
+              mainWindow.show();
+              mainWindow.focus();
+              mainWindow.webContents.send('edugest:navigate', {
+                url: typeof p.url === 'string' && p.url.startsWith('/') ? p.url : '/',
+                notificationId: p.notificationId || null,
+                notifType: p.notifType || null,
+                relatedId: p.relatedId || null,
+              });
+            }
+          } catch {}
+        });
+        notif.on('failed', (_ev, error) => log('Toast système échoué :', String(error || '')));
+        notif.show();
+        _e.reply('edugest:notify:result', true);
+      } catch (e) {
+        log('Notification native impossible :', e.message);
+        try { _e.reply('edugest:notify:result', false); } catch {}
+      }
+    });
+  } catch {}
 } catch {}
 
 /** Télécharge le nouvel exe portable (suit les redirections GitHub),
@@ -432,6 +477,9 @@ function downloadPortableUpdate(asset) {
 }
 
 const UPDATE_CHECK_DELAY_MS = 8000;
+// Garde partagée : un SEUL check à la fois (cadencement 60 s + retour réseau
+// ne doivent jamais déclencher deux vérifications simultanées).
+let isCheckingUpdate = false;
 // Vérification CHAQUE MINUTE (demande utilisateur) : dès qu'une mise à jour
 // sort, l'exe connecté à internet est informé en moins d'une minute et la
 // bannière « Mettre à jour » s'affiche immédiatement (re-vérification aussi
@@ -456,6 +504,10 @@ function compareVersions(a, b) {
 const RELEASE_LATEST_BASE = 'https://github.com/vodi72089-eng/edugest/releases/latest/download';
 
 function checkPortableUpdate(manual = false) {
+  // Garde anti-checks simultanés (l'appelant au retour du réseau et le
+  // cadencement d'une minute peuvent se chevaucher).
+  if (isCheckingUpdate) return;
+  isCheckingUpdate = true;
   // latest.yml : fichier de métadonnées publié par electron-builder à chaque
   // release (version + fichiers). Remplace l'appel api.github.com qui était
   // plafonné à 60 requêtes/h — incompatible avec un check chaque minute.
@@ -482,6 +534,7 @@ function checkPortableUpdate(manual = false) {
       } catch {}
     });
   });
+  req.on('close', () => { isCheckingUpdate = false; });
   req.on('error', () => {});
   req.setTimeout(10000, () => req.destroy());
 }
@@ -555,7 +608,11 @@ function setupAutoUpdate() {
   autoUpdater.on('error', (e) => log('Erreur vérification MAJ (ignorée) :', e.message));
 
   const doCheck = () => {
-    autoUpdater.checkForUpdates().catch((e) => log('Check MAJ impossible :', e.message));
+    if (isCheckingUpdate) return;
+    isCheckingUpdate = true;
+    autoUpdater.checkForUpdates()
+      .catch((e) => log('Check MAJ impossible :', e.message))
+      .finally(() => { isCheckingUpdate = false; });
   };
   setTimeout(doCheck, UPDATE_CHECK_DELAY_MS);
   setInterval(doCheck, UPDATE_CHECK_INTERVAL_MS);

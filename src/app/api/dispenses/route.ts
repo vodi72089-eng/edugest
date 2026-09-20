@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole, verifySchoolAccess, sanitizeError } from '@/lib/auth';
-import { notify } from '@/lib/notify';
+import { notifyEvent } from '@/lib/notification-service';
 
 const DISPENSE_READ_ROLES = [
   'MEDICAL', 'EPS', 'SCHOOL_ADMIN', 'SUPER_ADMIN_GLOBAL', 'SECRETARY',
@@ -153,7 +153,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // ── Notifications in-app aux comptes EPS + SCHOOL_ADMIN de l'école ──────
+    // ── Notifications in-app (resolver centralisé) ─────────────────────────
+    // Destinataires : Parent (politique médical) + SCHOOL_ADMIN + EPS
+    // (besoin métier sport) de l'école.
     let epsNotified = 0;
     try {
       const startFr = start.toLocaleDateString('fr-FR');
@@ -163,28 +165,15 @@ export async function POST(request: NextRequest) {
         `${student.firstName} ${student.lastName} (${student.class?.name ?? 'classe non définie'}) est dispensé(e) ${typeLabel} du ${startFr} au ${endFr}. Motif : ${reason}.` +
         (note ? ` Note : ${note}` : '');
 
-      const recipients = await db.user.findMany({
-        where: {
-          schoolId: student.schoolId,
-          isActive: true,
-          role: { in: ['EPS', 'SCHOOL_ADMIN'] },
-        },
-        select: { id: true, role: true },
-      });
-
-      for (const recipient of recipients) {
-        await notify({
-          data: {
-            type: 'DISPENSE',
-            title: 'Nouvel élève dispensé (EPS)',
-            message,
-            userId: recipient.id,
-            schoolId: student.schoolId,
-            relatedId: dispense.id,
-          },
-        });
-        if (recipient.role === 'EPS') epsNotified++;
-      }
+      const notifyResult = await notifyEvent(
+        { type: 'DISPENSE', schoolId: student.schoolId, studentId, actorId: user.id },
+        {
+          title: 'Nouvel élève dispensé (EPS)',
+          message,
+          relatedId: dispense.id,
+        }
+      );
+      epsNotified = notifyResult.recipients.filter((r) => r.role === 'EPS').length;
     } catch (notifError) {
       console.error('[Dispenses] Notification error (non-blocking):', notifError);
     }

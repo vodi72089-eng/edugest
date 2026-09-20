@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { notify } from '@/lib/notify'
+import { notifyEvent } from '@/lib/notification-service'
 import { decryptSecret } from '@/lib/gateway-keys'
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
@@ -268,20 +268,18 @@ export async function POST(request: NextRequest) {
       try {
         const student = await db.student.findUnique({
           where: { id: record.studentId },
-          select: { firstName: true, lastName: true, parentId: true },
+          select: { firstName: true, lastName: true },
         })
-        if (student?.parentId) {
-          await notify({
-            data: {
-              type: 'PAYMENT_APPROVED',
-              title: finalStatus === 'PAID' ? 'Paiement confirmé' : 'Paiement partiel reçu',
-              message: `Paiement de ${Number(incoming).toLocaleString('fr-FR')} ${transaction.currency} confirmé via ${gateway}`,
-              userId: student.parentId,
-              schoolId: record.schoolId,
-              relatedId: transaction.paymentRecordId,
-            },
-          })
-        }
+        // Parent + CASHIER + SCHOOL_ADMIN de l'école (resolver centralisé).
+        await notifyEvent(
+          { type: 'PAYMENT_APPROVED', schoolId: record.schoolId, studentId: record.studentId },
+          {
+            title: finalStatus === 'PAID' ? 'Paiement confirmé' : 'Paiement partiel reçu',
+            message: `Paiement de ${student ? `${student.firstName} ${student.lastName}` : 'l\u2019élève'} — ${Number(incoming).toLocaleString('fr-FR')} ${transaction.currency} confirmé via ${gateway}`,
+            parentMessage: `Paiement de ${Number(incoming).toLocaleString('fr-FR')} ${transaction.currency} confirmé via ${gateway}`,
+            relatedId: transaction.paymentRecordId,
+          }
+        )
       } catch { /* non-critical */ }
     }
 

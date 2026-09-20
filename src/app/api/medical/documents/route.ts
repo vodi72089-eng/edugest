@@ -110,6 +110,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { type, studentId, title, sourceId, content } = body || {};
+    let studentSchoolId: string | null = null;
 
     if (!type || !ALLOWED_TYPES.includes(type)) {
       return NextResponse.json(
@@ -127,6 +128,7 @@ export async function POST(req: NextRequest) {
       if (!verifySchoolAccess(user, student.schoolId)) {
         return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
       }
+      studentSchoolId = student.schoolId;
     }
 
     const docCode = await generateDocCode(getMedicalDocCodePrefix(type));
@@ -152,6 +154,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Notification Parent + SCHOOL_ADMIN (resolver) — non bloquant.
+    void notifyMedicalDocumentCreated(created.id, type, studentId || null, user.id, user.schoolId || studentSchoolId);
+
     return NextResponse.json({
       data: { ...created, content: safeParse(created.content) },
       message: `Document créé avec le code ${docCode}`,
@@ -160,6 +165,28 @@ export async function POST(req: NextRequest) {
     console.error('[Medical Documents API] POST error:', error);
     return NextResponse.json({ error: sanitizeError(error) || 'Erreur serveur' }, { status: 500 });
   }
+}
+
+// Notification document médical — Parent + SCHOOL_ADMIN (resolver), détails
+// strictement minimaux hors application (type + élève, JAMAIS le contenu).
+async function notifyMedicalDocumentCreated(docId: string, type: string, studentId: string | null, actorId: string, schoolId?: string | null) {
+  try {
+    const { notifyEvent } = await import('@/lib/notification-service');
+    const student = studentId
+      ? await db.student.findUnique({ where: { id: studentId }, select: { firstName: true, lastName: true } })
+      : null;
+    const label = defaultTitle(type);
+    await notifyEvent(
+      { type: 'MEDICAL_DOCUMENT', schoolId: schoolId ?? null, studentId, actorId },
+      {
+        title: 'Document médical',
+        message: student
+          ? `${student.firstName} ${student.lastName} — ${label} disponible`
+          : `${label} disponible`,
+        relatedId: docId,
+      }
+    );
+  } catch { /* non-critical */ }
 }
 
 function defaultTitle(type: string): string {

@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { notify } from '@/lib/notify';
+import { notifyEvent } from '@/lib/notification-service';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
 import { requireFeature } from '@/lib/feature-gate';
@@ -165,23 +165,18 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Notify admin if pending
+    // Notify approvers if pending — roles RÉELS uniquement (le rôle 'ADMIN'
+    // historique n'existe pas : les demandes n'étaient jamais notifiées).
+    // Le resolver cible SCHOOL_ADMIN de l'école + super admin plateforme
+    // (autorisés à approuver via communications:create) et exclut l'auteur.
     if (status === 'PENDING') {
-      const admins = await db.user.findMany({
-        where: { schoolId, role: { in: ['SUPER_ADMIN_GLOBAL', 'ADMIN'] } },
-      });
-      for (const admin of admins) {
-        await notify({
-          data: {
-            userId: admin.id,
-            schoolId,
-            type: 'COMMUNICATION_PENDING',
-            title: 'Communication en attente',
-            message: `${user.name} a créé une communication "${title}" qui nécessite votre approbation.`,
-            isRead: false,
-          },
-        });
-      }
+      await notifyEvent(
+        { type: 'COMMUNICATION_PENDING', schoolId, actorId: user.id },
+        {
+          title: 'Communication en attente',
+          message: `${user.name} a créé une communication "${title}" qui nécessite votre approbation.`,
+        }
+      );
     }
 
     // ── Diffusion WhatsApp RÉELLE via l'agent de l'école ──────────────────

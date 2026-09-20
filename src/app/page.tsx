@@ -4,7 +4,9 @@ import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } fr
 import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken, restoreSession,
 startSessionRestoreWatchdog, isDesktopApp } from '@/lib/store'
 import { startRealtimeSync } from '@/lib/realtime'
-import { playNotificationSound, unlockNotificationAudio, isNotificationSoundEnabled, setNotificationSoundEnabled } from '@/lib/notification-sound'
+import { playNotificationSound, unlockNotificationAudio, isNotificationSoundEnabled, setNotificationSoundEnabled, getNotificationSoundVolume, setNotificationSoundVolume, getNotificationSoundType, setNotificationSoundType, NotificationSoundType } from '@/lib/notification-sound'
+import { resolveNotifView, notifSoundLevel } from '@/lib/notification-routing'
+import { viewToPath, pathToView } from '@/lib/view-paths'
 import { toast } from 'sonner'
 import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
 import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, DisciplineData, CommunicationData, HomeworkData } from '@/lib/types'
@@ -2470,36 +2472,13 @@ HEAD_TEACHER: [
 }
 
 // ===== NOTIFICATION TYPE → VIEW MAPPING =====
-function notifTypeToView(type: string): ViewType {
-  const map: Record<string, ViewType> = {
-    COMMUNICATION_PENDING: 'communications',
-    COMMUNICATION_APPROVED: 'communications',
-    COMMUNICATION_REJECTED: 'communications',
-    PAYMENT_CREATED: 'payments',
-    PAYMENT_APPROVED: 'payments',
-    PAYMENT_REJECTED: 'payments',
-    GRADE_CREATED: 'grades',
-    GRADE_UPDATED: 'grades',
-    STUDENT_ENROLLED: 'students',
-    STUDENT_ENROLLED_PARENT: 'students',
-    DISCIPLINE_INCIDENT: 'discipline',
-    HOMEWORK_ASSIGNED: 'homework',
-    CLASS_CREATED: 'classes',
-    BULLETIN_UPDATED: 'bulletin',
-    CONVOCATION_RESPONSE: 'convocation',
-    CONVOCATION: 'convocation',
-    CONVOCATION_RESCHEDULED: 'convocation',
-    ANNOUNCEMENT: 'communications',
-    NOTIFICATION: 'communications',
-    EVENT: 'communications',
-    ALERT: 'communications',
-    // Demandes d'approbation : clic → panneau des demandes (paramètres école,
-    // ouvert à l'admin de l'école et au super admin global) ; décision → vue
-    // du demandeur (QR parent) avec repli automatique sur le dashboard.
-    APPROVAL_REQUESTED: 'settings',
-    APPROVAL_DECIDED: 'parent-qr',
-  }
-  return map[type] || 'dashboard'
+// Délégue au module centralisé notification-routing.ts : le même type
+// n'ouvre PAS la même vue selon le rôle (ex. un paiement → « payments »
+// pour la caisse mais « payment-verification » pour un parent ; une
+// convocation → « discipline » pour un compte DISCIPLINE_*). Garantit
+// qu'une notification n'ouvre jamais une vue inexistante pour le rôle.
+function notifTypeToView(type: string, role?: string | null): ViewType {
+  return resolveNotifView(type, role || null) as ViewType
 }
 
 // ===== ROLE-BASED VIEW ACCESS =====
@@ -2577,9 +2556,18 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   const [pushStatus, setPushStatus] = useState<'unsupported' | 'default' | 'granted' | 'denied' | 'subscribed'>('default')
   const [pushLoading, setPushLoading] = useState(false)
   const [notifSoundOn, setNotifSoundOn] = useState(true)
-  // IDs déjà vus : évite le « ding » au premier chargement, ne sonne que pour les vraies nouveautés
+  // IDs déjà vus (lastSeenNotificationIds) : évite le « ding » au premier
+  // chargement et ne sonne QUE pour les vraies nouveautés — jamais deux fois
+  // pour la même notification, jamais à chaque poll inutile.
   const seenNotifIdsRef = useRef<Set<string> | null>(null)
-  useEffect(() => { setNotifSoundOn(isNotificationSoundEnabled()) }, [])
+  // Préférences son du compte courant (volume + type) — persistées par utilisateur.
+  const [soundVolume, setSoundVolume] = useState(60)
+  const [soundType, setSoundType] = useState<NotificationSoundType>('DEFAULT')
+  useEffect(() => {
+    setNotifSoundOn(isNotificationSoundEnabled(userData?.id || null))
+    setSoundVolume(getNotificationSoundVolume(userData?.id || null))
+    setSoundType(getNotificationSoundType(userData?.id || null))
+  }, [userData?.id])
 
   // Politique autoplay des navigateurs : l'audio est bloqué jusqu'au premier
   // geste utilisateur. On déverrouille donc le son de notification au PREMIER
@@ -2616,20 +2604,73 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
       const list = j.data || [];
       setNotifications(list);
       setUnreadNotifCount(j.unreadCount || 0);
-      // Son WhatsApp-like si de VRAIES nouvelles notifications non lues arrivent
+      // Son + notification native UNIQUEMENT pour de NOUVELLES notifications
+      // non lues (jamais parce qu'une notification existe déjà au poll).
       const unreadIds = new Set<string>(list.filter((n: any) => !n.isRead).map((n: any) => n.id));
       if (seenNotifIdsRef.current === null) {
         seenNotifIdsRef.current = unreadIds; // premier chargement : on mémorise sans sonner
       } else {
-        const hasNew = [...unreadIds].some(id => !seenNotifIdsRef.current!.has(id));
+        const fresh = list.filter((n: any) => !n.isRead && !seenNotifIdsRef.current!.has(n.id));
         seenNotifIdsRef.current = unreadIds;
-        if (hasNew && isNotificationSoundEnabled()) playNotificationSound();
+        if (fresh.length > 0) {
+          // Priorité métier → type de son (ALERT pour convocation/appro/médical).
+          const level = notifSoundLevel(fresh[0].type);
+          playNotificationSound({ userId: userData.id, type: level === 'HIGH' ? 'ALERT' : undefined });
+          showDesktopNotification(fresh[0]);
+        }
       }
     }).catch(() => {});
     load();
+    // Cadence métier (30 s) — INDÉPENDANTE du timer de mise à jour de l'exe
+    // (60 s, côté processus principal Electron) : deux systèmes séparés.
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
   }, [userData?.id]);
+
+  // ── NOTIFICATION NATIVE WINDOWS (application de bureau) ─────────────────
+  // L'exe affiche un toast système (Electron Notification) quand une
+  // notification importante arrive pendant que la fenêtre n'est PAS au
+  // premier plan (minimisée / en arrière-plan). Au clic : focus + navigation
+  // vers la vue correspondant AU RÔLE. Le son natif dépend des réglages
+  // Windows : l'app complète toujours avec SON son in-app (cohérence).
+  const showDesktopNotification = (notif: any) => {
+    try {
+      const bridge = (window as any).__edugest?.notifications;
+      if (!bridge?.show) return; // navigateur web : rien (Web Push gère)
+      if (document.hasFocus()) return; // premier plan : le son in-app suffit
+      bridge.show({
+        title: notif.title || 'EduGest',
+        body: notif.message || '',
+        tag: notif.id,
+        url: viewToPath(notifTypeToView(notif.type, userRole)),
+        notificationId: notif.id,
+        notifType: notif.type,
+      });
+    } catch { /* jamais bloquant */ }
+  };
+
+  // Clic sur la notification native → focus + ouverture de la bonne page,
+  // puis marquage lu (le main process renvoie l'URL + l'id).
+  useEffect(() => {
+    const bridge = (window as any).__edugest?.notifications;
+    if (!bridge?.onNavigate) return;
+    const off = bridge.onNavigate((payload: any) => {
+      try {
+        const viewFromUrl = pathToView(payload?.url || '/');
+        let target: ViewType = 'dashboard';
+        if (viewFromUrl && canAccessView(userRole, viewFromUrl as ViewType, userData?.subscriptionTier)) {
+          target = viewFromUrl as ViewType;
+        } else {
+          target = notifTypeToView(payload?.notifType || '', userRole);
+        }
+        setHighlightedId(payload?.relatedId || null);
+        setCurrentView(target);
+        if (payload?.notificationId) markAsRead(payload.notificationId);
+        setTimeout(() => setHighlightedId(null), 5000);
+      } catch { /* silencieux */ }
+    });
+    return off;
+  }, [userRole, userData?.subscriptionTier]);
 
   // ===== WEB PUSH : enregistrement du service worker + auto-abonnement =====
   // App desktop (Electron) : pas de Web Push navigateur (pushManager
@@ -2720,10 +2761,31 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showNotifications])
 
+  // Marquage lu : le frontend attend le RÉSULTAT SERVEUR avant de modifier
+  // l'état local — en cas de 403/500 la notification reste NON LUE.
   const markAsRead = async (notifId: string) => {
-    await authFetch('/api/notifications', { method: 'PATCH', body: JSON.stringify({ notificationId: notifId }) })
-    setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, isRead: true } : n))
-    setUnreadNotifCount(prev => Math.max(0, prev - 1))
+    try {
+      const res = await authFetch('/api/notifications', { method: 'PATCH', body: JSON.stringify({ notificationId: notifId }) })
+      if (!res.ok) throw new Error('Erreur serveur')
+      setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, isRead: true } : n))
+      setUnreadNotifCount(prev => Math.max(0, prev - 1))
+    } catch {
+      toast.error('Impossible de marquer la notification comme lue — réessayez')
+    }
+  }
+
+  // « Tout lire » : UNE SEULE implémentation (PATCH /api/notifications/read-all,
+  // permission notifications:read). État local modifié SEULEMENT en cas de 200.
+  const markAllAsRead = async () => {
+    try {
+      const res = await authFetch('/api/notifications/read-all', { method: 'PATCH' })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Erreur')
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+      setUnreadNotifCount(0)
+    } catch {
+      toast.error('Impossible de tout marquer comme lu — réessayez')
+    }
   }
 
   const handleBellClick = () => {
@@ -2734,12 +2796,12 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   const toggleNotifSound = () => {
     const next = !notifSoundOn;
     setNotifSoundOn(next);
-    setNotificationSoundEnabled(next);
-    if (next) { unlockNotificationAudio(); playNotificationSound(); } // aperçu immédiat
+    setNotificationSoundEnabled(next, userData?.id || null);
+    if (next) { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null }); } // aperçu immédiat
   }
 
   const handleNotifItemClick = (notif: any) => {
-    let targetView = notifTypeToView(notif.type)
+    let targetView = notifTypeToView(notif.type, userRole)
     if (!canAccessView(userRole, targetView, userData?.subscriptionTier)) targetView = 'dashboard'
     setHighlightedId(notif.relatedId || null)
     setCurrentView(targetView)
@@ -2874,11 +2936,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
               </div>
               {unreadNotifications.length > 0 && (
                 <button
-                  onClick={async () => {
-                    await authFetch('/api/notifications', { method: 'PATCH', body: JSON.stringify({ notificationId: 'all' }) }).catch(() => {})
-                    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
-                    setUnreadNotifCount(0)
-                  }}
+                  onClick={markAllAsRead}
                   className="text-[11px] font-medium hover:underline"
                   style={{ color: ACCENT }}
                 >Tout lire</button>
@@ -2914,6 +2972,49 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
                 <span>Notifications bloquées — autorisez-les dans les paramètres du navigateur</span>
               </div>
             )}
+            {/* ── Réglages du son (persistés par utilisateur) ─────────────────── */}
+            <div className="px-4 py-2.5 border-b flex items-center gap-2 flex-wrap" style={{ borderColor: `oklch(92% 0.005 250)`, background: IVORY_WARM }}>
+              <span className="text-[10px] font-semibold" style={{ color: TEXT_MUTED_LUXE }}>Son</span>
+              <input
+                type="range" min={0} max={100} step={5} value={soundVolume}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10)
+                  setSoundVolume(v)
+                  setNotificationSoundVolume(v, userData?.id || null)
+                }}
+                onMouseUp={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume }) }}
+                onTouchEnd={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume }) }}
+                className="w-20 h-1 accent-current"
+                style={{ accentColor: GOLD }}
+                title={`Volume : ${soundVolume}%`}
+                aria-label="Volume du son de notification"
+              />
+              <span className="text-[10px] w-8" style={{ color: TEXT_MUTED_LUXE }}>{soundVolume}%</span>
+              <select
+                value={soundType}
+                onChange={(e) => {
+                  const t = e.target.value as NotificationSoundType
+                  setSoundType(t)
+                  setNotificationSoundType(t, userData?.id || null)
+                  unlockNotificationAudio()
+                  playNotificationSound({ userId: userData?.id || null, type: t })
+                }}
+                className="text-[10px] rounded-lg px-1.5 py-1 border bg-white"
+                style={{ borderColor: BORDER, color: TEXT_PRIMARY }}
+                title="Type de son"
+                aria-label="Type de son de notification"
+              >
+                <option value="DEFAULT">Standard</option>
+                <option value="SOFT">Doux</option>
+                <option value="ALERT">Alerte</option>
+              </select>
+              <button
+                onClick={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume, type: soundType }) }}
+                className="text-[10px] font-semibold px-2 py-1 rounded-lg"
+                style={{ background: GOLD_SOFT, color: TEXT_PRIMARY }}
+                title="Écouter le son"
+              >Tester</button>
+            </div>
             <div className="overflow-y-auto" style={{ maxHeight: '420px' }}>
               {notifications.length === 0 ? (
                 <div className="px-4 py-8 text-center" style={{ color: TEXT_MUTED_LUXE }}>
@@ -2966,7 +3067,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>{timeAgo(notif.createdAt)}</span>
                           <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium" style={{ background: IVORY, color: TEXT_MUTED_LUXE }}>
-                            {viewTitles[notifTypeToView(notif.type)] || notif.type}
+                            {viewTitles[notifTypeToView(notif.type, userRole)] || notif.type}
                           </span>
                         </div>
                       </div>

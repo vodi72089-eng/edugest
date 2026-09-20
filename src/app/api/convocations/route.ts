@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { notify } from '@/lib/notify';
+import { notifyEvent } from '@/lib/notification-service';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, classMatchesCycle } from '@/lib/auth';
 import { requireFeature } from '@/lib/feature-gate';
@@ -176,32 +176,33 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Envoyer notification WhatsApp + notification in-app au parent
+    // ── Notifications convocation (resolver centralisé) ──────────────────────
+    // Destinataires : Parent + DIRECTION_<cycle> + DISCIPLINE_<cycle>
+    // + SCHOOL_ADMIN + SECRETARY de l'école. Les rôles DISCIPLINE_* voient
+    // leurs convocations dans la vue « discipline » (routage par rôle).
     try {
       const student = record.student;
+
+      await notifyEvent(
+        { type: 'CONVOCATION', schoolId, studentId: student.id, actorId: user.id },
+        {
+          title: 'Nouvelle convocation',
+          message: `${student.firstName} ${student.lastName} convoqué(e) pour ${motif} le ${convocationDate.toLocaleDateString('fr-FR')}`,
+          parentMessage: `Votre enfant ${student.firstName} ${student.lastName} a été convoqué pour ${motif} le ${convocationDate.toLocaleDateString('fr-FR')}`,
+          relatedId: record.id,
+        }
+      );
+
+      // WhatsApp au parent (template riche dédié)
       if (student.parentId) {
         const parent = await db.user.findUnique({
           where: { id: student.parentId },
-          select: { phone: true, name: true },
+          select: { phone: true },
         });
         const school = await db.school.findUnique({
           where: { id: schoolId },
           select: { name: true },
         });
-
-        // Notification in-app pour le parent
-        await notify({
-          data: {
-            userId: student.parentId,
-            type: 'CONVOCATION',
-            title: 'Nouvelle convocation',
-            message: `Votre enfant ${student.firstName} ${student.lastName} a été convoqué pour ${motif} le ${convocationDate.toLocaleDateString('fr-FR')}`,
-            schoolId,
-            metadata: JSON.stringify({ convocationId: record.id, studentId: student.id }),
-          },
-        });
-
-        // Notification WhatsApp
         if (parent?.phone && school) {
           await notifyConvocation({
             parentPhone: parent.phone,

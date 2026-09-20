@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
-import { notify } from '@/lib/notify';
-import { requirePermission, verifySchoolAccess, verifyParentAccess, safeParseInt, sanitizeError, directionRolesForSection } from '@/lib/auth';
+import { notifyEvent } from '@/lib/notification-service';
+import { requirePermission, verifySchoolAccess, verifyParentAccess, safeParseInt, sanitizeError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -207,55 +207,36 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Return payment with student data for immediate use
-      // Create in-app notifications for school admins + parent
+    // ── Notifications (resolver centralisé : Parent + CASHIER + SCHOOL_ADMIN
+    //    de la même école — in-app + push ; routage par rôle) ─────────────────
     try {
       const studentName = `${student.firstName} ${student.lastName}`;
       const trimesterLabel = body.trimester || 'N/A';
       const amount = Number(body.amount || 0);
 
-      // Notify admins (direction du cycle de l'élève + secretary + cashier)
-      const adminRoles = ['SUPER_ADMIN_GLOBAL', 'CASHIER', ...directionRolesForSection(student.class?.section)];
-      const schoolAdmins = user.schoolId ? await db.user.findMany({
-        where: { schoolId: user.schoolId, role: { in: adminRoles }, id: { not: user.id } },
-        select: { id: true, phone: true, name: true },
-      }) : [];
+      const notifyResult = await notifyEvent(
+        { type: 'PAYMENT_CREATED', schoolId, studentId: resolvedStudentId, actorId: user.id },
+        {
+          title: 'Nouveau paiement',
+          message: `${studentName} - ${amount.toLocaleString('fr-FR')} CDF - ${trimesterLabel}`,
+          parentMessage: `Paiement de ${amount.toLocaleString('fr-FR')} CDF pour ${studentName} - ${trimesterLabel}`,
+          relatedId: payment.id,
+        }
+      );
 
-      for (const admin of schoolAdmins) {
-        await notify({
-          data: {
-            type: 'PAYMENT_CREATED',
-            title: 'Nouveau paiement',
-            message: `${studentName} - ${amount.toLocaleString('fr-FR')} CDF - ${trimesterLabel}`,
-            userId: admin.id,
-            schoolId: user.schoolId!,
-            relatedId: payment.id,
-          },
-        });
-      }
-
-      // Notify parent
+      // WhatsApp : la MÊME liste de destinataires que le resolver
+      // (parent + caisse + admin de l'école — personne d'autre).
+      const { notifyPaymentCreated } = await import('@/lib/whatsapp-agent');
+      const schoolData = await db.school.findUnique({ where: { id: schoolId }, select: { name: true } });
+      const staffPhones = await db.user.findMany({
+        where: { id: { in: notifyResult.recipients.filter((r) => r.role !== 'PARENT').map((r) => r.userId) } },
+        select: { phone: true, name: true },
+      });
       const parentData = await db.student.findUnique({
         where: { id: resolvedStudentId },
-        select: { parentId: true, parent: { select: { phone: true, name: true } } },
+        select: { parent: { select: { phone: true, name: true } } },
       });
-      if (parentData?.parentId) {
-        await notify({
-          data: {
-            type: 'PAYMENT_CREATED',
-            title: 'Paiement enregistré',
-            message: `Paiement de ${amount.toLocaleString('fr-FR')} CDF pour ${studentName} - ${trimesterLabel}`,
-            userId: parentData.parentId,
-            schoolId: user.schoolId!,
-            relatedId: payment.id,
-          },
-        });
-      }
-
-      // Send WhatsApp notifications
-      const { notifyPaymentCreated } = await import('@/lib/whatsapp-agent');
-      const schoolData = user.schoolId ? await db.school.findUnique({ where: { id: user.schoolId }, select: { name: true } }) : null;
-      const recipients = schoolAdmins.filter(u => u.phone).map(u => ({ phone: u.phone!, name: u.name }));
+      const recipients = staffPhones.filter((u) => u.phone).map((u) => ({ phone: u.phone!, name: u.name }));
       if (parentData?.parent?.phone) {
         recipients.push({ phone: parentData.parent.phone, name: parentData.parent.name });
       }

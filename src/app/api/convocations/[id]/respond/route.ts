@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { notify } from '@/lib/notify';
+import { notifyEvent } from '@/lib/notification-service';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, sanitizeError } from '@/lib/auth';
 
@@ -63,27 +63,20 @@ export async function POST(
       },
     });
 
-    // Create notification for admin/direction users in the school
+    // ── Notifications réponse convocation (resolver centralisé) ──────────────
+    // Destinataires : DIRECTION_<cycle> + DISCIPLINE_<cycle> + SCHOOL_ADMIN
+    // + SECRETARY de l'école (scellés au cycle de l'élève) — routage par rôle :
+    // les DISCIPLINE_* ouvrent leur vue « discipline ».
     try {
-      const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
-      const schoolAdmins = await db.user.findMany({
-        where: { schoolId: convocation.schoolId, role: { in: adminRoles }, id: { not: user.id } },
-        select: { id: true },
-      });
-
       const responseLabel = response === 'PRESENT' ? 'Présent' : response === 'ABSENT' ? 'Absent' : 'Autre réponse';
-      for (const admin of schoolAdmins) {
-        await notify({
-          data: {
-            type: 'CONVOCATION_RESPONSE',
-            title: 'Réponse à la convocation',
-            message: `${convocation.student.firstName} ${convocation.student.lastName} - ${responseLabel}${response === 'CUSTOM' ? `: ${message}` : ''}`,
-            userId: admin.id,
-            schoolId: convocation.schoolId,
-            relatedId: convocationId,
-          },
-        });
-      }
+      await notifyEvent(
+        { type: 'CONVOCATION_RESPONSE', schoolId: convocation.schoolId, studentId: updatedConvocation.student.id, actorId: user.id },
+        {
+          title: 'Réponse à la convocation',
+          message: `${convocation.student.firstName} ${convocation.student.lastName} - ${responseLabel}${response === 'CUSTOM' ? `: ${message}` : ''}`,
+          relatedId: convocationId,
+        }
+      );
     } catch (notifError) {
       console.error('[Convocation] Notification failed:', notifError);
     }

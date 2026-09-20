@@ -1,9 +1,9 @@
 import { db } from '@/lib/db';
-import { notify } from '@/lib/notify';
+import { notifyEvent } from '@/lib/notification-service';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, directionRolesForSection, classFilterForCycle } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, classFilterForCycle } from '@/lib/auth';
 import { checkCanCreateStudent, getTierLimits } from '@/lib/subscription';
 
 function generateRandomPassword(length: number = 12): string {
@@ -254,27 +254,17 @@ export async function POST(request: NextRequest) {
       data: { studentCount: { increment: 1 } },
     });
 
-    // Create in-app notifications for school admins
-    // (scellées au cycle : un élève de maternelle ne notifie que la direction maternelle)
+    // ── Notifications (resolver centralisé) : SECRETARY + SCHOOL_ADMIN
+    //    + DIRECTION_<cycle> de l'école — scellé au cycle de l'élève. ────────
     try {
-      const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', ...directionRolesForSection(student.class?.section)];
-      const schoolAdmins = await db.user.findMany({
-        where: { schoolId, role: { in: adminRoles }, id: { not: user.id } },
-        select: { id: true },
-      });
-      const className = await db.class.findUnique({ where: { id: classId }, select: { name: true } });
-      for (const admin of schoolAdmins) {
-        await notify({
-          data: {
-            type: 'STUDENT_ENROLLED',
-            title: 'Nouvel élève inscrit',
-            message: `${firstName} ${lastName} - ${className?.name || ''} - Matricule: ${matricule}`,
-            userId: admin.id,
-            schoolId,
-            relatedId: student.id,
-          },
-        });
-      }
+      await notifyEvent(
+        { type: 'STUDENT_ENROLLED', schoolId, studentId: student.id, classId, actorId: user.id, section: student.class?.section ?? null },
+        {
+          title: 'Nouvel élève inscrit',
+          message: `${firstName} ${lastName} - ${student.class?.name || ''} - Matricule: ${matricule}`,
+          relatedId: student.id,
+        }
+      );
     } catch { /* notification failed, non-critical */ }
 
     return NextResponse.json({ data: student }, { status: 201 });

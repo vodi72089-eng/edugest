@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
-import { notify } from '@/lib/notify';
+import { notifyEvent } from '@/lib/notification-service';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, verifySchoolAccess, verifyParentAccess, safeParseInt, sanitizeError, requireActiveSubscription, directionRolesForSection } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, verifyParentAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
 import { notifyGrade } from '@/lib/whatsapp-agent';
 import { tierAllowsParentGrades } from '@/lib/subscription';
 import { generateDocCode } from '@/lib/doc-codes';
@@ -286,39 +286,18 @@ export async function POST(request: NextRequest) {
         select: { parentId: true, firstName: true, lastName: true, schoolId: true, class: { select: { section: true } } },
       });
 
-      // Create in-app notifications for school admins (scellées au cycle de l'élève)
+      // ── Notifications : Parent + SCHOOL_ADMIN de l'école (resolver
+      //    centralisé — in-app + push, routage par rôle) ──────────────────────
       if (studentInfo?.schoolId) {
-        const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', ...directionRolesForSection(studentInfo.class?.section)];
-        const schoolAdmins = await db.user.findMany({
-          where: { schoolId: studentInfo.schoolId, role: { in: adminRoles }, id: { not: user.id } },
-          select: { id: true },
-        });
-        for (const admin of schoolAdmins) {
-          await notify({
-            data: {
-              type: 'GRADE_CREATED',
-              title: 'Note enregistrée',
-              message: `${studentInfo.firstName} ${studentInfo.lastName} - ${grade.subject.name}: ${score}/20 - ${trimester}`,
-              userId: admin.id,
-              schoolId: studentInfo.schoolId,
-              relatedId: grade.id,
-            },
-          });
-        }
-      }
-
-      // Create in-app notification for parent
-      if (studentInfo?.parentId) {
-        await notify({
-          data: {
-            type: 'GRADE_CREATED',
-            title: 'Nouvelle note',
-            message: `${studentInfo.firstName} ${studentInfo.lastName} a obtenu ${score}/20 en ${grade.subject.name} - ${trimester}`,
-            userId: studentInfo.parentId,
-            schoolId: studentInfo.schoolId,
+        await notifyEvent(
+          { type: 'GRADE_CREATED', schoolId: studentInfo.schoolId, studentId, actorId: user.id },
+          {
+            title: 'Note enregistrée',
+            message: `${studentInfo.firstName} ${studentInfo.lastName} - ${grade.subject.name}: ${score}/20 - ${trimester}`,
+            parentMessage: `${studentInfo.firstName} ${studentInfo.lastName} a obtenu ${score}/20 en ${grade.subject.name} - ${trimester}`,
             relatedId: grade.id,
-          },
-        });
+          }
+        );
       }
 
       // WhatsApp notification

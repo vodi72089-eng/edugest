@@ -13,11 +13,12 @@ import { isResendActive, sendEmailViaResend } from '@/lib/email';
 //        l'avertissement console est émis, l'opération n'échoue jamais.
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Rôles du personnel d'école notifiés pour les mises à jour du passage de classe */
+/** Rôles du personnel de l'école notifiés pour les mises à jour du passage de
+ *  classe. Le CASHIER en est EXCLU (environnement caisse = paiements, pas la
+ *  scolarité/passage). */
 export const PASSING_STAFF_ROLES = [
   'SCHOOL_ADMIN',
   'SECRETARY',
-  'CASHIER',
   'DIRECTION_MATERNELLE',
   'DIRECTION_PRIMAIRE',
   'DIRECTION_SECONDAIRE',
@@ -79,17 +80,23 @@ export async function notifyPassingUpdateToAdmins(params: PassingAdminNotice): P
   const result: PassingAdminNoticeResult = { appSent: 0, emailSent: 0, emailSkipped: 0, recipients: 0 };
 
   try {
+    // Politique destinataires (resolver-compatible) :
+    //   BULLETIN_UPDATED → Parent (déjà notifié par la route métier) + SCHOOL_ADMIN
+    //   CLASS_PASSING et assimilés → staff de l'école + super admins plateforme
+    const isBulletin = String(params.type || '').startsWith('BULLETIN');
     const whereSchool = params.schoolId
-      ? { isActive: true, role: { in: PASSING_STAFF_ROLES }, schoolId: params.schoolId }
-      : { isActive: true, role: { in: PASSING_STAFF_ROLES } };
+      ? { isActive: true, role: { in: isBulletin ? ['SCHOOL_ADMIN'] : PASSING_STAFF_ROLES }, schoolId: params.schoolId }
+      : { isActive: true, role: { in: isBulletin ? ['SCHOOL_ADMIN'] : PASSING_STAFF_ROLES } };
     const staff = await db.user.findMany({
       where: whereSchool,
       select: { id: true, email: true },
     });
-    const globals = await db.user.findMany({
-      where: { isActive: true, role: 'SUPER_ADMIN_GLOBAL' },
-      select: { id: true, email: true },
-    });
+    const globals = isBulletin
+      ? []
+      : await db.user.findMany({
+          where: { isActive: true, role: 'SUPER_ADMIN_GLOBAL' },
+          select: { id: true, email: true },
+        });
 
     // Déduplique (un user peut être staff école ET super admin), plafonne
     const seen = new Set<string>();

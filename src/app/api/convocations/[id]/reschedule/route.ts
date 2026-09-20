@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { notify } from '@/lib/notify';
+import { notifyEvent } from '@/lib/notification-service';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, sanitizeError } from '@/lib/auth';
 
@@ -62,19 +62,19 @@ export async function POST(
       },
     });
 
-    // Create notification for the parent
+    // ── Notifications report convocation (resolver centralisé) ───────────────
+    // Destinataires : Parent + DIRECTION_<cycle> + DISCIPLINE_<cycle>
+    // + SCHOOL_ADMIN + SECRETARY (scellés au cycle de l'élève).
     try {
-      if (convocation.student.parentId) {
-        await notify({
-          data: {
-            type: 'CONVOCATION_RESCHEDULED',
+      if (updatedConvocation.student?.id) {
+        await notifyEvent(
+          { type: 'CONVOCATION_RESCHEDULED', schoolId: convocation.schoolId, studentId: updatedConvocation.student.id, actorId: user.id },
+          {
             title: 'Convocation reportée',
             message: `La convocation de ${convocation.student.firstName} ${convocation.student.lastName} a été reportée au ${newConvocationDate.toLocaleDateString('fr-FR')}`,
-            userId: convocation.student.parentId,
-            schoolId: convocation.schoolId,
             relatedId: convocationId,
-          },
-        });
+          }
+        );
       }
     } catch (notifError) {
       console.error('[Convocation] Notification failed:', notifError);

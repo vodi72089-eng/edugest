@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { requireAuth, verifySchoolAccess } from '@/lib/auth';
 import { hasFeatureAccess } from '@/lib/subscription';
 import { notifyMedicalVisit } from '@/lib/whatsapp-agent';
+import { notifyEvent } from '@/lib/notification-service';
 
 // GET /api/medical/visits?studentId=...&schoolId=...
 export async function GET(req: NextRequest) {
@@ -171,6 +172,24 @@ export async function POST(req: NextRequest) {
         },
       },
     });
+
+    // ── Notifications (resolver centralisé) ──────────────────────────────────
+    // Destinataires : Parent + SCHOOL_ADMIN de l'école. Détails médicaux
+    // MINIMAUX hors application : le message ne contient jamais symptômes,
+    // traitement ni température — tout reste dans la vue Médical (permission).
+    try {
+      await notifyEvent(
+        { type: 'MEDICAL_VISIT', schoolId: visit.schoolId, studentId, actorId: user.id },
+        {
+          title: 'Passage à l’infirmerie',
+          message: `${student.firstName} ${student.lastName} — consultation à l’infirmerie enregistrée`,
+          parentMessage: `${student.firstName} ${student.lastName} a passé à l’infirmerie aujourd’hui. Détails dans EduGest.`,
+          relatedId: visit.id,
+        }
+      );
+    } catch (notifError) {
+      console.error('[Medical Visit] In-app notification failed:', notifError);
+    }
 
     return NextResponse.json({
       data: visit,

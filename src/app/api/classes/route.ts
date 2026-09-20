@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
-import { notify } from '@/lib/notify';
+import { notifyEvent } from '@/lib/notification-service';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, directionRolesForSection, classFilterForCycle } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, classFilterForCycle } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -148,26 +148,17 @@ export async function POST(request: NextRequest) {
       data: { classCount: { increment: 1 } },
     });
 
-    // Create in-app notifications for school admins
-    // (scellées au cycle : une classe maternelle ne notifie que la direction maternelle)
+    // ── Notifications (resolver centralisé) : SECRETARY + SCHOOL_ADMIN
+    //    + DIRECTION_<cycle> — scellé au cycle de la classe. ─────────────────
     try {
-      const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', ...directionRolesForSection(section)];
-      const schoolAdmins = await db.user.findMany({
-        where: { schoolId, role: { in: adminRoles }, id: { not: user.id } },
-        select: { id: true },
-      });
-      for (const admin of schoolAdmins) {
-        await notify({
-          data: {
-            type: 'CLASS_CREATED',
-            title: 'Nouvelle classe créée',
-            message: `Classe "${name}" - ${section || ''} ${level || ''} - Capacité: ${capacity || 40}`,
-            userId: admin.id,
-            schoolId,
-            relatedId: cls.id,
-          },
-        });
-      }
+      await notifyEvent(
+        { type: 'CLASS_CREATED', schoolId, classId: cls.id, actorId: user.id, section },
+        {
+          title: 'Nouvelle classe créée',
+          message: `Classe "${name}" - ${section || ''} ${level || ''} - Capacité: ${capacity || 40}`,
+          relatedId: cls.id,
+        }
+      );
     } catch { /* notification failed, non-critical */ }
 
     return NextResponse.json({ data: cls }, { status: 201 });

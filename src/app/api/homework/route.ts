@@ -285,45 +285,24 @@ export async function POST(request: NextRequest) {
         select: { name: true },
       });
 
-      // Create in-app notifications for school admins
-      // (scellées au cycle : un devoir de maternelle ne notifie que la direction maternelle)
+      // ── Notifications (resolver centralisé) : Parents de la classe
+      //    + SCHOOL_ADMIN + DIRECTION_<cycle> — in-app + push routé par rôle. ──
       const targetClass = await db.class.findUnique({ where: { id: classId }, select: { name: true, section: true } });
-      const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', ...directionRolesForSection(targetClass?.section)];
-      const schoolAdmins = await db.user.findMany({
-        where: { schoolId, role: { in: adminRoles }, id: { not: user.id } },
-        select: { id: true },
-      });
-      for (const admin of schoolAdmins) {
-        await notify({
-          data: {
-            type: 'HOMEWORK_ASSIGNED',
-            title: 'Nouveau devoir',
-            message: `${subjectName} - ${title} - ${targetClass?.name || ''} - Échéance: ${homeworkDueDate.toLocaleDateString('fr-FR')}`,
-            userId: admin.id,
-            schoolId,
-            relatedId: homework.id,
-          },
-        });
-      }
+      await notifyEvent(
+        { type: 'HOMEWORK_ASSIGNED', schoolId, classId, actorId: user.id, section: targetClass?.section ?? null },
+        {
+          title: 'Nouveau devoir',
+          message: `${subjectName} - ${title} - ${targetClass?.name || ''} - Échéance: ${homeworkDueDate.toLocaleDateString('fr-FR')}`,
+          relatedId: homework.id,
+        }
+      );
 
       if (school) {
-        // Notify each parent (in-app + WhatsApp)
+        // WhatsApp à chaque parent (template riche dédié)
         const notifiedParents = new Set<string>();
         for (const student of classStudents) {
           if (student.parentId && !notifiedParents.has(student.parentId)) {
             notifiedParents.add(student.parentId);
-
-            // In-app notification
-            await notify({
-              data: {
-                type: 'HOMEWORK_ASSIGNED',
-                title: 'Nouveau devoir',
-                message: `${student.firstName} ${student.lastName} - ${subjectName}: ${title} - Échéance: ${homeworkDueDate.toLocaleDateString('fr-FR')}`,
-                userId: student.parentId,
-                schoolId,
-                relatedId: homework.id,
-              },
-            });
 
             // WhatsApp notification
             const parent = await db.user.findUnique({

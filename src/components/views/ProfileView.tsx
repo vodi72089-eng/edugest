@@ -6,9 +6,16 @@ import type { StudentData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials, getRoleLabel } from '@/lib/helpers'
 import StudentAvatar from '@/components/ui/StudentAvatar'
-import { Edit, Check, Camera, Lock, Phone, Monitor, LogOut, Shield, Building2, Smartphone, Globe, Tablet, Fingerprint, MapPin } from 'lucide-react'
+import { Edit, Check, Camera, Lock, Phone, Monitor, LogOut, Shield, Building2, Smartphone, Globe, Tablet, Fingerprint, MapPin, BellRing, Volume2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { detectDevice, formatDeviceTitle, formatDeviceSummary, isLoopbackIp } from '@/lib/detect-device'
+import {
+  isNotificationSoundEnabled, setNotificationSoundEnabled,
+  getNotificationSoundVolume, setNotificationSoundVolume,
+  getNotificationSoundType, setNotificationSoundType,
+  playNotificationSound, unlockNotificationAudio,
+  type NotificationSoundType,
+} from '@/lib/notification-sound'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 interface SessionItem {
@@ -64,6 +71,17 @@ export default function ProfileView() {
   const [confirmPw, setConfirmPw] = useState('')
   const [savingPw, setSavingPw] = useState(false)
   const [showPw, setShowPw] = useState(false)
+
+  // Préférences notifications & sons (persistées par utilisateur, localStorage)
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const [soundVol, setSoundVol] = useState(60)
+  const [soundT, setSoundT] = useState<NotificationSoundType>('DEFAULT')
+  useEffect(() => {
+    const uid = userData?.id || null
+    setSoundEnabled(isNotificationSoundEnabled(uid))
+    setSoundVol(getNotificationSoundVolume(uid))
+    setSoundT(getNotificationSoundType(uid))
+  }, [userData?.id])
 
   // ── Phone save state ──
   const [savingPhone, setSavingPhone] = useState(false)
@@ -423,6 +441,86 @@ export default function ProfileView() {
             {savingPhone ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
             Mettre à jour
           </button>
+        </div>
+      </div>
+
+      {/* ── Notifications & sons (préférences persistées par compte) ─────── */}
+      <div className="mt-6 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: GOLD_SOFT }}>
+            <BellRing size={16} style={{ color: GOLD }} />
+          </div>
+          <div>
+            <h3 className="text-base font-bold" style={{ color: TEXT_PRIMARY }}>Notifications &amp; sons</h3>
+            <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Préférences sauvegardées pour votre compte sur cet appareil</p>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <label className="flex items-center justify-between gap-4 cursor-pointer">
+            <span className="text-sm" style={{ color: TEXT_PRIMARY }}>Son des notifications</span>
+            <input
+              type="checkbox"
+              checked={soundEnabled}
+              onChange={(e) => {
+                const next = e.target.checked
+                setSoundEnabled(next)
+                setNotificationSoundEnabled(next, userData?.id || null)
+                if (next) { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVol }) }
+                toast.success(next ? 'Son activé' : 'Son désactivé')
+              }}
+              className="w-9 h-5 appearance-none rounded-full relative cursor-pointer transition-colors before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-4 before:h-4 before:rounded-full before:bg-white before:transition-transform checked:before:translate-x-4"
+              style={{ background: soundEnabled ? GOLD : 'oklch(85% 0.01 175)' }}
+            />
+          </label>
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm flex items-center gap-2" style={{ color: TEXT_PRIMARY }}><Volume2 size={14} style={{ color: GOLD }} /> Volume</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="range" min={0} max={100} step={5} value={soundVol}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10)
+                  setSoundVol(v)
+                  setNotificationSoundVolume(v, userData?.id || null)
+                }}
+                onMouseUp={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVol, type: soundT }) }}
+                className="w-40"
+                style={{ accentColor: GOLD }}
+                aria-label="Volume"
+              />
+              <span className="text-xs w-10 text-right" style={{ color: TEXT_MUTED_LUXE }}>{soundVol}%</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm" style={{ color: TEXT_PRIMARY }}>Type de son</span>
+            <select
+              value={soundT}
+              onChange={(e) => {
+                const t = e.target.value as NotificationSoundType
+                setSoundT(t)
+                setNotificationSoundType(t, userData?.id || null)
+                unlockNotificationAudio()
+                playNotificationSound({ userId: userData?.id || null, type: t, volume: soundVol })
+              }}
+              className="px-3 py-1.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white"
+              style={{ color: TEXT_PRIMARY }}
+              aria-label="Type de son"
+            >
+              <option value="DEFAULT">Standard</option>
+              <option value="SOFT">Doux</option>
+              <option value="ALERT">Alerte</option>
+            </select>
+          </div>
+          <button
+            onClick={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVol, type: soundT }) }}
+            className="edu-gold-cta px-4 py-2 rounded-xl text-sm font-semibold"
+          >
+            Tester le son
+          </button>
+          {!soundEnabled && (
+            <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+              Le son est coupé — activez-le pour être alerté des nouvelles notifications.
+            </p>
+          )}
         </div>
       </div>
 
