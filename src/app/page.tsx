@@ -1886,7 +1886,10 @@ function LoginView() {
   // (évite de révéler qu'un email appartient à un compte admin/parent)
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!email || !password) return
+    // Trim : un espace collé par copier-coller rendait les identifiants « incorrects »
+    const cleanEmail = email.trim()
+    const cleanPassword = password.trim()
+    if (!cleanEmail || !cleanPassword) return
     // Verrou actif : aucun appel réseau, le bouton est déjà désactivé
     if (lockRemaining > 0) return
     setLoading(true)
@@ -1894,7 +1897,7 @@ function LoginView() {
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: cleanEmail, password: cleanPassword }),
       })
       const json = await res.json()
       if (json.data) {

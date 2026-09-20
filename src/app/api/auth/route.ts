@@ -74,7 +74,12 @@ function getRemainingLock(identifier: string): number {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, phone, password, client } = body;
+    // Trim défensif : un espace copié-collé ne doit jamais invalider un identifiant
+    const rawEmail = typeof body.email === 'string' ? body.email.trim() : body.email;
+    const rawPhone = typeof body.phone === 'string' ? body.phone.trim() : body.phone;
+    const { password, client } = body;
+    const email = rawEmail;
+    const phone = rawPhone;
 
     if (!password) {
       return NextResponse.json({ error: 'Password is required' }, { status: 400 });
