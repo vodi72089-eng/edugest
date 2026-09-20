@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
+import { notifyEvent } from '@/lib/notification-service';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, directionRolesForSection, getRoleCycle, classMatchesCycle } from '@/lib/auth';
 import { requireFeature } from '@/lib/feature-gate';

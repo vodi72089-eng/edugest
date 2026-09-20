@@ -140,15 +140,20 @@ export function setNotificationSoundType(type: NotificationSoundType, userId?: s
 
 /** S'assure que le contexte audio est bien « running » avant de jouer. */
 async function ensureRunning(ac: AudioContext): Promise<boolean> {
-  if (ac.state === 'running') return true;
+  // Lecture FRAÎCHE à chaque appel : resume() fait évoluer l'état asynchrone-
+  // ment. TypeScript ne peut pas le savoir et garde le narrowing de la toute
+  // première comparaison (TS2367) — on passe donc par une closure qui renvoie
+  // systématiquement l'union complète AudioContextState.
+  const readState = (): AudioContextState => ac.state;
+  if (readState() === 'running') return true;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       await ac.resume();
     } catch { /* rejeté : on retente */ }
-    if (ac.state === 'running') return true;
+    if (readState() === 'running') return true;
     await new Promise(r => setTimeout(r, 60));
   }
-  return ac.state === 'running';
+  return readState() === 'running';
 }
 
 /**
