@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, getRoleCycle } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, getRoleCycle, classMatchesCycle } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -91,11 +91,11 @@ export async function POST(request: NextRequest) {
     // Une DIRECTION_* ne crée des matières que dans SON cycle
     const subjectCycle = getRoleCycle(user.role);
     if (subjectCycle) {
-      const subjectClass = await db.class.findUnique({ where: { id: classId }, select: { schoolId: true, section: true } });
+      const subjectClass = await db.class.findUnique({ where: { id: classId }, select: { schoolId: true, section: true, name: true } });
       if (!subjectClass || subjectClass.schoolId !== schoolId) {
         return NextResponse.json({ error: 'La classe n’appartient pas à cette école' }, { status: 400 });
       }
-      if ((subjectClass.section || '').toUpperCase() !== subjectCycle) {
+      if (!classMatchesCycle(subjectClass.section, subjectClass.name, subjectCycle)) {
         return NextResponse.json({ error: 'Cette classe ne relève pas de votre cycle' }, { status: 403 });
       }
     }

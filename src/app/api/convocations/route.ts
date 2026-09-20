@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, classMatchesCycle } from '@/lib/auth';
 import { requireFeature } from '@/lib/feature-gate';
 import { notifyConvocation } from '@/lib/whatsapp-agent';
 
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
     // Verify the student exists and belongs to the target school
     const studentRecord = await db.student.findUnique({
       where: { id: studentId },
-      select: { schoolId: true, parentId: true },
+      select: { schoolId: true, parentId: true, class: { select: { name: true, section: true } } },
     });
     if (!studentRecord) {
       return NextResponse.json({ error: 'Élève non trouvé' }, { status: 404 });
@@ -142,6 +142,17 @@ export async function POST(request: NextRequest) {
     if (studentRecord.schoolId !== schoolId) {
       return NextResponse.json(
         { error: "L'élève n'appartient pas à cette école" },
+        { status: 403 }
+      );
+    }
+
+    // Un compte DISCIPLINE_*/DIRECTION_* (cycle imposé) ne peut convoquer que
+    // des élèves de SON cycle — la liste de l'UI est déjà scellée, ce garde
+    // serveur ferme la porte aux appels API directs.
+    const convenerCycle = getRoleCycle(user.role);
+    if (convenerCycle && !classMatchesCycle(studentRecord.class?.section, studentRecord.class?.name, convenerCycle)) {
+      return NextResponse.json(
+        { error: 'Cet élève ne relève pas de votre cycle' },
         { status: 403 }
       );
     }

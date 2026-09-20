@@ -38,6 +38,7 @@ import { getTierLimits } from '@/lib/subscription'
 import StudentsView from '@/components/views/StudentsView'
 import GradesView from '@/components/views/GradesView'
 import PaymentsView from '@/components/views/PaymentsView'
+import FinanceSituationView from '@/components/views/FinanceSituationView'
 import DisciplineView from '@/components/views/DisciplineView'
 import PersonnelView from '@/components/views/PersonnelView'
 import ProfileView from '@/components/views/ProfileView'
@@ -2282,6 +2283,12 @@ function Sidebar() {
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
       { icon: <BookOpen size={16} />, label: 'Classes', view: 'classes' as ViewType },
+      // Le secrétaire voit les trois environnements : DIRECTION (convocations),
+      // DISCIPLINE (listes) et CAISSE (paiements + situation financière).
+      { icon: <Megaphone size={16} />, label: 'Convocations', view: 'convocation' as ViewType },
+      { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
+      { icon: <CreditCard size={16} />, label: 'Enregistrer paiement', view: 'payments' as ViewType },
+      { icon: <BarChart3 size={16} />, label: 'Situation financière', view: 'finance' as ViewType },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
@@ -2292,10 +2299,11 @@ function Sidebar() {
     ],
     CASHIER: [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
+      // La caisse ne voit QUE son environnement financier — aucune vue discipline.
       { icon: <CreditCard size={16} />, label: 'Enregistrer paiement', view: 'payments' },
       { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
       { icon: <AlertTriangle size={16} />, label: 'Dettes', view: 'debts' as ViewType },
-      { icon: <BarChart3 size={16} />, label: 'Situation financière', view: 'payments' },
+      { icon: <BarChart3 size={16} />, label: 'Situation financière', view: 'finance' as ViewType },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
@@ -2380,10 +2388,12 @@ HEAD_TEACHER: [
   } else if (directionRoles.includes(userRole as UserRole)) {
     // Menu direction : « Paramètres » retiré — une direction ne gère pas les
     // paramètres de l'école ; son cycle est imposé par son rôle (pas de choix).
+    // La direction VOIT la discipline (listes) en lecture/gestion.
     menuItems = [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
       { icon: <School size={16} />, label: 'Classes', view: 'classes' },
+      { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
       { icon: <Megaphone size={16} />, label: 'Convocation', view: 'convocation' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
@@ -2497,17 +2507,17 @@ const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   PARENT: ['dashboard', 'grades', 'bulletin', 'online-payment', 'payment-verification', 'discipline', 'homework', 'communications', 'school-reviews', 'profile', 'convocation'],
   TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'communications', 'profile'],
   HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'bulletin', 'communications', 'profile'],
-  SECRETARY: ['dashboard', 'students', 'classes', 'communications', 'payment-verification', 'class-passing', 'parent-qr', 'my-subscription', 'settings', 'profile'],
-  CASHIER: ['dashboard', 'payments', 'payment-verification', 'debts', 'communications', 'profile'],
-  DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],
-  DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],
-  DIRECTION_SECONDAIRE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],
+  SECRETARY: ['dashboard', 'students', 'classes', 'convocation', 'discipline', 'payments', 'finance', 'communications', 'payment-verification', 'class-passing', 'parent-qr', 'my-subscription', 'settings', 'profile'],
+  CASHIER: ['dashboard', 'payments', 'finance', 'payment-verification', 'debts', 'communications', 'profile'],
+  DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],
+  DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],
+  DIRECTION_SECONDAIRE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],
   DISCIPLINE_MATERNELLE: ['dashboard', 'discipline', 'communications', 'profile'],
   DISCIPLINE_PRIMAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
   DISCIPLINE_SECONDAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
-  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'payment-verification', 'payment-config', 'discipline', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'medical-records', 'my-subscription', 'parent-qr', 'parents', 'personalization', 'whatsapp-config', 'settings', 'profile'],
+  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'discipline', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'medical-records', 'my-subscription', 'parent-qr', 'parents', 'personalization', 'whatsapp-config', 'settings', 'profile'],
   MEDICAL: ['dashboard', 'medical', 'medical-records', 'students', 'communications', 'profile'],
-  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'payment-verification', 'payment-config', 'pricing', 'platform-control', 'discipline', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'medical', 'medical-records', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
+  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'pricing', 'platform-control', 'discipline', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'medical', 'medical-records', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
 }
 
 const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment-verification', 'payment-config', 'my-subscription', 'settings', 'profile']
@@ -2577,11 +2587,19 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   // la cloche — pour que les notifications suivantes sonnent réellement.
   useEffect(() => {
     const unlock = () => unlockNotificationAudio()
+    // Premier geste n'importe où (souris, clavier, tactile) : déverrouille
+    // l'AudioContext pour que les notifications suivantes sonnent.
     document.addEventListener('pointerdown', unlock, { once: true })
     document.addEventListener('keydown', unlock, { once: true })
+    document.addEventListener('touchstart', unlock, { once: true })
+    // Filet de sécurité : si le contexte s'est re-suspendu (mise en veille,
+    // changement d'onglet prolongé), tout clic suivant le re-déverrouille.
+    document.addEventListener('click', unlock)
     return () => {
       document.removeEventListener('pointerdown', unlock)
       document.removeEventListener('keydown', unlock)
+      document.removeEventListener('touchstart', unlock)
+      document.removeEventListener('click', unlock)
     }
   }, [])
 
@@ -2807,6 +2825,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     'online-payment': 'Payer en ligne',
     'medical-records': 'Fiches médicales',
     'debts': 'Dettes',
+    'finance': 'Situation financière',
   }
 
   return (
@@ -3465,6 +3484,7 @@ function MainContent() {
     case 'classes': return <ClassesView />
     case 'grades': return <GradesView />
     case 'payments': return <PaymentsView />
+    case 'finance': return <FinanceSituationView />
     case 'payment-verification': return <PaymentVerificationView />
     case 'online-payment': return <OnlinePaymentView />
     case 'debts': return <DettesView onNavigate={(v) => setCurrentView(v as ViewType)} schoolId={userData?.schoolId || ''} />
@@ -6398,7 +6418,10 @@ function HomeworkView() {
           })
           setClasses(mine)
         } else {
-          setClasses(allClasses)
+          // Sécurité : sans affectation d'enseignement, AUCUNE classe proposée
+          // (le serveur refuserait de toute façon — un prof n'envoie des
+          // devoirs qu'à SES classes, la sélection est toujours côté serveur)
+          setClasses([])
         }
       }).catch(() => {})
     }

@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { requirePermission, safeParseInt, sanitizeError, getRoleCycle, sectionFilterForCycle } from '@/lib/auth';
+import { requirePermission, safeParseInt, sanitizeError, getRoleCycle, classFilterForCycle } from '@/lib/auth';
 import { getEffectiveStatus } from '@/lib/helpers';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     // (le paramètre ?cycle= est ignoré pour ces rôles — pas de contournement).
     const roleCycle = getRoleCycle(user.role);
     const cycle = (roleCycle || searchParams.get('cycle') || '').toUpperCase();
-    const cycleClassWhere: Record<string, unknown> = cycle ? { section: sectionFilterForCycle(cycle) } : {};
+    const cycleClassWhere: Record<string, unknown> = cycle ? classFilterForCycle(cycle) : {};
 
     // For non-SUPER_ADMIN_GLOBAL, force schoolId to their own school
     const effectiveSchoolId = user.role !== 'SUPER_ADMIN_GLOBAL' ? user.schoolId : schoolId;

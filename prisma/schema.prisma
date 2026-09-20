@@ -51,6 +51,7 @@ model School {
   communications    Communication[]
   paymentRecords    PaymentRecord[]
   homeworks         Homework[]
+  attendanceRecords AttendanceRecord[]
   schoolFees        SchoolFee[]
   notifications     Notification[]
   subscriptionRequests SubscriptionRequest[]
@@ -148,6 +149,7 @@ model Student {
   medicalDispensations MedicalDispensation[]
   medicalDocuments MedicalDocument[]
   repechageExams RepechageExam[]
+  attendanceRecords AttendanceRecord[]
 }
 
 model Class {
@@ -170,6 +172,7 @@ model Class {
   homeworks     Homework[]
   schoolFees    SchoolFee[]
   teacherAssignments TeacherAssignment[]
+  attendanceRecords AttendanceRecord[]
 
   @@unique([name, schoolYearId])
 }
@@ -500,6 +503,29 @@ model HomeworkRead {
   user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, homeworkId])
+}
+
+// ─── Liste de présence (appel quotidien) ────────────────────────────────────
+// Un enregistrement par élève et par journée (date locale YYYY-MM-DD).
+// Statuts : PRESENT | ABSENT | LATE. Utilisé par les comptes DISCIPLINE_*
+// (chaque compte ne peut appeler que les classes de SON cycle).
+model AttendanceRecord {
+  id         String   @id @default(cuid())
+  studentId  String
+  classId    String
+  schoolId   String
+  date       String   // YYYY-MM-DD
+  status     String   // PRESENT | ABSENT | LATE
+  recordedBy String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, date])
+  @@index([classId, date])
 }
 
 model ReportCard {

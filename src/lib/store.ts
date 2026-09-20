@@ -149,6 +149,7 @@ export type ViewType =
   | 'classes'
   | 'grades'
   | 'payments'
+  | 'finance'
   | 'discipline'
   | 'communications'
   | 'homework'

@@ -3,7 +3,7 @@ import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, directionRolesForSection, sectionFilterForCycle } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, directionRolesForSection, classFilterForCycle } from '@/lib/auth';
 import { checkCanCreateStudent, getTierLimits } from '@/lib/subscription';
 
 function generateRandomPassword(length: number = 12): string {
@@ -44,7 +44,8 @@ export async function GET(request: NextRequest) {
     // la classe) — indépendamment des paramètres passés à l'URL.
     const roleCycle = getRoleCycle(user.role);
     if (roleCycle) {
-      where.class = { section: sectionFilterForCycle(roleCycle) };
+      // Filtre tolérant : section du cycle OU (maternelle) nom de classe M1/M2/PS/MS/GS…
+      where.class = classFilterForCycle(roleCycle);
     }
 
     if (classId) {

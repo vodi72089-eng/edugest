@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, directionRolesForSection, getRoleCycle } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, directionRolesForSection, getRoleCycle, classMatchesCycle } from '@/lib/auth';
 import { requireFeature } from '@/lib/feature-gate';
 import { notifyHomework } from '@/lib/whatsapp-agent';
 
@@ -35,7 +35,6 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = {};
 
     if (schoolId) where.schoolId = schoolId;
-    if (classId) where.classId = classId;
 
     // For PARENT role, filter by their children's classes
     if (user.role === 'PARENT') {
@@ -60,9 +59,28 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // For TEACHER/HEAD_TEACHER, default to their own homework (unless classId/schoolId explicitly set)
-    if ((user.role === 'TEACHER' || user.role === 'HEAD_TEACHER') && !classId) {
-      where.teacherId = user.id;
+    // TEACHER/HEAD_TEACHER : uniquement les devoirs de SES classes — celles où
+    // il enseigne (TeacherAssignment) + sa classe titulaire. Un prof ne peut
+    // NI voir (même en passant classId) NI lister les devoirs des autres classes.
+    if (user.role === 'TEACHER' || user.role === 'HEAD_TEACHER') {
+      const [assignments, headClasses] = await Promise.all([
+        db.teacherAssignment.findMany({ where: { teacherId: user.id }, select: { classId: true } }),
+        db.class.findMany({ where: { headTeacherId: user.id }, select: { id: true } }),
+      ]);
+      const allowedClassIds = [...new Set([...assignments.map(a => a.classId), ...headClasses.map(c => c.id)])];
+      if (classId) {
+        if (!allowedClassIds.includes(classId)) {
+          return NextResponse.json({ error: "Vous n'enseignez pas dans cette classe" }, { status: 403 });
+        }
+        where.classId = classId;
+      } else if (allowedClassIds.length > 0) {
+        where.classId = { in: allowedClassIds };
+      } else {
+        // Aucune classe assignée : aucune liste de devoirs
+        return NextResponse.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } });
+      }
+    } else if (classId) {
+      where.classId = classId;
     }
 
     const [homeworks, total, totalUsers] = await Promise.all([
@@ -185,7 +203,7 @@ export async function POST(request: NextRequest) {
     // Verify the class belongs to the target school
     const targetClass = await db.class.findUnique({
       where: { id: classId },
-      select: { schoolId: true, section: true },
+      select: { schoolId: true, section: true, name: true },
     });
     if (!targetClass || targetClass.schoolId !== schoolId) {
       return NextResponse.json(
@@ -194,13 +212,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Une DIRECTION_* ne crée des devoirs que dans SON cycle
+    // Une DIRECTION_* / DISCIPLINE_* ne crée des devoirs que dans SON cycle
+    // (filtre tolérant : section OU nom de classe maternelle M1/M2/PS/MS/GS…)
     const writerCycle = getRoleCycle(user.role);
-    if (writerCycle && (targetClass.section || '').toUpperCase() !== writerCycle) {
+    if (writerCycle && !classMatchesCycle(targetClass.section, targetClass.name, writerCycle)) {
       return NextResponse.json(
         { error: 'Cette classe ne relève pas de votre cycle' },
         { status: 403 }
       );
+    }
+
+    // Un TEACHER/HEAD_TEACHER n'envoie des devoirs qu'à SES classes : celles où
+    // il enseigne (TeacherAssignment) + sa classe titulaire. La matière doit
+    // correspondre à l'une de SES affectations dans cette classe.
+    if (user.role === 'TEACHER' || user.role === 'HEAD_TEACHER') {
+      const [assignments, headClass] = await Promise.all([
+        db.teacherAssignment.findMany({
+          where: { teacherId: user.id, classId },
+          include: { subject: { select: { name: true } } },
+        }),
+        db.class.findFirst({ where: { id: classId, headTeacherId: user.id }, select: { id: true } }),
+      ]);
+      const isHeadOfClass = !!headClass;
+      if (assignments.length === 0 && !isHeadOfClass) {
+        return NextResponse.json(
+          { error: "Vous n'enseignez pas dans cette classe" },
+          { status: 403 }
+        );
+      }
+      if (assignments.length > 0) {
+        const mySubjects = assignments
+          .map(a => (a.subject?.name || '').trim().toLowerCase())
+          .filter(Boolean);
+        if (mySubjects.length > 0 && !mySubjects.includes((subjectName || '').trim().toLowerCase())) {
+          return NextResponse.json(
+            { error: "Vous n'enseignez pas cette matière dans cette classe" },
+            { status: 403 }
+          );
+        }
+      }
     }
 
     // Derive teacherId and teacherName from the authenticated user
@@ -238,7 +288,7 @@ export async function POST(request: NextRequest) {
       // Create in-app notifications for school admins
       // (scellées au cycle : un devoir de maternelle ne notifie que la direction maternelle)
       const targetClass = await db.class.findUnique({ where: { id: classId }, select: { name: true, section: true } });
-      const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'CASHIER', ...directionRolesForSection(targetClass?.section)];
+      const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', ...directionRolesForSection(targetClass?.section)];
       const schoolAdmins = await db.user.findMany({
         where: { schoolId, role: { in: adminRoles }, id: { not: user.id } },
         select: { id: true },

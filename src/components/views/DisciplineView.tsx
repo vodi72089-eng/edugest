@@ -6,7 +6,7 @@ import type { DisciplineData, StudentData, UserRole } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT, DANGER, WARNING, SUCCESS, SUCCESS_SOFT } from '@/lib/constants'
 import { getInitials, formatDate } from '@/lib/helpers'
 import StudentAvatar from '@/components/ui/StudentAvatar'
-import { Shield, Megaphone, Users, Ban, AlertTriangle, Award, Send, Check, X, Edit, Brain } from 'lucide-react'
+import { Shield, Megaphone, Users, Ban, AlertTriangle, Award, Send, Check, X, Edit, Brain, CalendarCheck, ClipboardList, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete from './SearchAutocomplete'
 import AppSelect from '@/components/ui/AppSelect'
@@ -25,8 +25,6 @@ export default function DisciplineView() {
       router.push(`/subscription-required?feature=discipline&requiredTier=${requiredTier}`)
     }
   }, [hasAccess, requiredTier, router])
-
-  if (!hasAccess) return null
 
   useEffect(() => {
     if (highlightedId && highlightedRef.current) {
@@ -86,6 +84,84 @@ export default function DisciplineView() {
   const [editStatus, setEditStatus] = useState('PENDING')
   const [savingEdit, setSavingEdit] = useState(false)
   const sectionLevel = userRole === 'DISCIPLINE_MATERNELLE' ? 'MATERNELLE' : userRole === 'DISCIPLINE_PRIMAIRE' ? 'PRIMAIRE' : userRole === 'DISCIPLINE_SECONDAIRE' ? 'SECONDAIRE' : ''
+
+  // ─── LISTE DE PRÉSENCE (appel quotidien) ───────────────────────────────────
+  // Comptes DISCIPLINE_* et DIRECTION_* (cycle scellé côté serveur), admin
+  // école et super admin : appel par classe et par jour, upsert serveur.
+  const directionVariants: UserRole[] = ['DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE']
+  const canTakeAttendance = isDisciplineRole || directionVariants.includes(userRole as UserRole) || userRole === 'SCHOOL_ADMIN' || userRole === 'SUPER_ADMIN_GLOBAL'
+  const [attendanceClasses, setAttendanceClasses] = useState<{ id: string; name: string; section?: string | null }[]>([])
+  const [attendanceClassId, setAttendanceClassId] = useState('')
+  const [attendanceDate, setAttendanceDate] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
+  const [attendanceStudents, setAttendanceStudents] = useState<{ id: string; firstName: string; lastName: string; matricule: string; photoUrl?: string | null }[]>([])
+  const [attendanceMap, setAttendanceMap] = useState<Record<string, string>>({})
+  const [attendanceLoading, setAttendanceLoading] = useState(false)
+  const [savingAttendance, setSavingAttendance] = useState(false)
+
+  useEffect(() => {
+    if (!canTakeAttendance || !userData?.schoolId) return
+    authFetch(`/api/classes?schoolId=${userData.schoolId}&limit=100`)
+      .then(r => r.json())
+      .then(j => setAttendanceClasses(j.data || []))
+      .catch(() => {})
+  }, [canTakeAttendance, userData?.schoolId])
+
+  useEffect(() => {
+    if (!canTakeAttendance || !attendanceClassId || !attendanceDate) return
+    let cancelled = false
+    authFetch(`/api/attendance?classId=${attendanceClassId}&date=${attendanceDate}`)
+      .then(r => r.json())
+      .then(j => {
+        if (cancelled) return
+        setAttendanceStudents(j.data?.students || [])
+        const map: Record<string, string> = {}
+        for (const rec of j.data?.records || []) map[rec.studentId] = rec.status
+        setAttendanceMap(map)
+        setAttendanceLoading(false)
+      })
+      .catch(() => { if (!cancelled) setAttendanceLoading(false) })
+    return () => { cancelled = true }
+  }, [canTakeAttendance, attendanceClassId, attendanceDate])
+
+  const attendanceCounts = useMemo(() => {
+    let present = 0, absent = 0, late = 0
+    for (const s of attendanceStudents) {
+      const st = attendanceMap[s.id]
+      if (st === 'PRESENT') present++
+      else if (st === 'ABSENT') absent++
+      else if (st === 'LATE') late++
+    }
+    return { present, absent, late, unmarked: attendanceStudents.length - present - absent - late }
+  }, [attendanceStudents, attendanceMap])
+
+  async function handleSaveAttendance() {
+    if (!attendanceClassId || !attendanceDate) return
+    const entries = Object.entries(attendanceMap).map(([studentId, status]) => ({ studentId, status }))
+    if (entries.length === 0) {
+      toast.error('Marquez au moins un élève')
+      return
+    }
+    setSavingAttendance(true)
+    try {
+      const res = await authFetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ classId: attendanceClassId, date: attendanceDate, entries }),
+      })
+      if (res.ok) {
+        toast.success('Liste de présence enregistrée !')
+      } else {
+        const j = await res.json().catch(() => ({}))
+        toast.error(j.error || 'Erreur lors de l\'enregistrement')
+      }
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setSavingAttendance(false)
+  }
 
   useEffect(() => {
     if (isParent && userData?.id) {
@@ -304,6 +380,11 @@ export default function DisciplineView() {
 
   const selectedChildName = selectedChildId ? myChildren.find(c => c.id === selectedChildId) : null
   const selectedStudentName = selectedStudentId ? sectionStudents.find(s => s.id === selectedStudentId) : null
+
+  // Garde d'accès placée APRÈS tous les hooks (règles React : hooks toujours
+  // appelés dans le même ordre). Sans accès, l'effet de redirection ci-dessus
+  // envoie déjà vers /subscription-required.
+  if (!hasAccess) return null
 
   async function handleAddSanction() {
     if (!selectedStudentId || !sanctionTitle || !sanctionDesc || !userData?.schoolId) {
@@ -648,6 +729,86 @@ export default function DisciplineView() {
                 ))}
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {canTakeAttendance && (
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm mb-6">
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <CalendarCheck size={16} style={{ color: GOLD }} />
+              <h3 className="font-semibold text-[15px]" style={{ color: TEXT_PRIMARY }}>Liste de présence</h3>
+            </div>
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <AppSelect
+                value={attendanceClassId}
+                onChange={(v) => { setAttendanceClassId(v); setAttendanceLoading(true) }}
+                className="w-44"
+                options={[{ value: '', label: 'Choisir une classe' }, ...attendanceClasses.map(c => ({ value: c.id, label: c.name }))]}
+              />
+              <input
+                type="date"
+                value={attendanceDate}
+                onChange={e => { setAttendanceDate(e.target.value); setAttendanceLoading(true) }}
+                className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+              />
+            </div>
+          </div>
+
+          {!attendanceClassId ? (
+            <div className="text-center py-6 text-sm" style={{ color: TEXT_MUTED_LUXE }}>
+              <ClipboardList size={28} className="mx-auto mb-2 opacity-30" />
+              Sélectionnez une classe pour faire l&apos;appel du jour
+            </div>
+          ) : attendanceLoading ? (
+            <div className="text-center py-6 text-sm" style={{ color: TEXT_MUTED_LUXE }}>Chargement des élèves...</div>
+          ) : attendanceStudents.length === 0 ? (
+            <div className="text-center py-6 text-sm" style={{ color: TEXT_MUTED_LUXE }}>Aucun élève dans cette classe</div>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-2 mb-3 text-[11px] font-semibold">
+                <span className="px-2 py-1 rounded-full" style={{ background: 'oklch(95% 0.04 145)', color: SUCCESS }}>Présents : {attendanceCounts.present}</span>
+                <span className="px-2 py-1 rounded-full" style={{ background: 'oklch(95% 0.04 25)', color: DANGER }}>Absents : {attendanceCounts.absent}</span>
+                <span className="px-2 py-1 rounded-full" style={{ background: GOLD_SOFT, color: GOLD }}>Retards : {attendanceCounts.late}</span>
+                <span className="px-2 py-1 rounded-full" style={{ background: 'oklch(95% 0.04 175)', color: TEXT_MUTED_LUXE }}>Non marqués : {attendanceCounts.unmarked}</span>
+                <button onClick={handleSaveAttendance} disabled={savingAttendance} className="edu-gold-cta ml-auto px-4 py-2 rounded-xl text-[13px] font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+                  {savingAttendance ? <div className="h-3.5 w-3.5 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={13} />}
+                  Enregistrer l&apos;appel
+                </button>
+              </div>
+              <div className="max-h-72 overflow-y-auto custom-scrollbar space-y-1.5">
+                {attendanceStudents.map(s => {
+                  const st = attendanceMap[s.id] || ''
+                  return (
+                    <div key={s.id} className="flex items-center gap-3 px-3 py-2 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition">
+                      <StudentAvatar firstName={s.firstName} lastName={s.lastName} photoUrl={s.photoUrl || undefined} size={30} className="text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-medium truncate" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
+                        <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</div>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        {([['PRESENT', 'Présent', SUCCESS], ['LATE', 'Retard', GOLD], ['ABSENT', 'Absent', DANGER]] as const).map(([val, label, color]) => (
+                          <button
+                            key={val}
+                            onClick={() => setAttendanceMap(prev => {
+                              const next = { ...prev }
+                              if (st === val) delete next[s.id]
+                              else next[s.id] = val
+                              return next
+                            })}
+                            className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition"
+                            style={st === val ? { background: color, color: 'white', borderColor: color } : { background: 'white', color: TEXT_MUTED_LUXE, borderColor: 'oklch(90% 0.01 175)' }}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
           )}
         </div>
       )}

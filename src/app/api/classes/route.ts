@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, directionRolesForSection, sectionFilterForCycle } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, directionRolesForSection, classFilterForCycle } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -41,7 +41,8 @@ export async function GET(request: NextRequest) {
     // l'URL demandée (le paramètre éventuel est ignoré — pas de contournement).
     const roleCycle = getRoleCycle(user.role);
     if (roleCycle) {
-      where.section = sectionFilterForCycle(roleCycle);
+      // Filtre tolérant : section du cycle OU (maternelle) nom de classe M1/M2/PS/MS/GS…
+      Object.assign(where, classFilterForCycle(roleCycle));
     }
 
     const [classes, total] = await Promise.all([

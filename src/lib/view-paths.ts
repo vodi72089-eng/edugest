@@ -17,6 +17,7 @@ export const VIEW_PATHS: Record<string, string> = {
   classes: '/classes',
   grades: '/grades',
   payments: '/payments',
+  finance: '/finance',
   discipline: '/discipline',
   communications: '/communications',
   homework: '/homework',

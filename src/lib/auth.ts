@@ -468,6 +468,46 @@ export function sectionFilterForCycle(cycle: string): { in: string[] } | Record<
   return variants.length ? { in: variants } : {};
 }
 
+// ─── Filtre cycle TOLÉRANT (maternelle) ──────────────────────────────────────
+// Les classes maternelle sont parfois créées SANS section (ou « Préscolaire ») :
+// le filtre par section seule rendait alors tous les élèves invisibles aux
+// comptes DISCIPLINE_MATERNELLE / DIRECTION_MATERNELLE (recherche vide,
+// convocation impossible). On élargit le maternelle au NOM de la classe :
+// M1/M2/M3, PS/MS/GS (petite/moyenne/grande section), Préscolaire, Maternelle.
+const MATERNELLE_NAME_PREFIXES = ['M1', 'M2', 'M3', 'PS', 'MS', 'GS'];
+const MATERNELLE_NAME_CONTAINS = ['maternelle', 'préscolaire', 'prescolaire', 'PRESCOLAIRE', 'MATERNELLE'];
+
+export function classFilterForCycle(cycle: string): Record<string, unknown> {
+  const c = (cycle || '').toUpperCase();
+  const sectionFilter = sectionFilterForCycle(c);
+  if (c !== 'MATERNELLE') return { section: sectionFilter };
+  return {
+    OR: [
+      { section: sectionFilter },
+      ...MATERNELLE_NAME_PREFIXES.map(p => ({ name: { startsWith: p } })),
+      ...MATERNELLE_NAME_PREFIXES.map(p => ({ name: { startsWith: p.toLowerCase() } })),
+      ...MATERNELLE_NAME_CONTAINS.map(n => ({ name: { contains: n } })),
+    ],
+  };
+}
+
+/** Vérif JS côté écriture : une classe (section + nom) appartient-elle au cycle ? */
+export function classMatchesCycle(
+  section: string | null | undefined,
+  className: string | null | undefined,
+  cycle: string
+): boolean {
+  const c = (cycle || '').toUpperCase();
+  const s = (section || '').toUpperCase();
+  if (s === c) return true;
+  if (c !== 'MATERNELLE') return false;
+  const nu = (className || '').toUpperCase();
+  if (!nu) return false;
+  if (MATERNELLE_NAME_PREFIXES.some(p => nu.startsWith(p))) return true;
+  if (MATERNELLE_NAME_CONTAINS.some(k => nu.includes(k.toUpperCase()))) return true;
+  return false;
+}
+
 // Rôles DIRECTION destinataires pour une section de classe donnée.
 // Section inconnue/vide → toutes les directions (comportement historique).
 export function directionRolesForSection(section: string | null | undefined): string[] {
@@ -566,7 +606,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'notifications:read',
   ],
   DISCIPLINE_MATERNELLE: [
-    'school:read', 'students:read',
+    'school:read', 'students:read', 'classes:read',
     'discipline:read', 'discipline:create', 'discipline:update',
     'attendance:read', 'attendance:create',
     'convocations:read', 'convocations:create', 'convocations:update',
@@ -574,7 +614,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'profile:read', 'profile:update', 'notifications:read',
   ],
   DISCIPLINE_PRIMAIRE: [
-    'school:read', 'students:read',
+    'school:read', 'students:read', 'classes:read',
     'discipline:read', 'discipline:create', 'discipline:update',
     'attendance:read', 'attendance:create',
     'convocations:read', 'convocations:create', 'convocations:update',
@@ -582,7 +622,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'profile:read', 'profile:update', 'notifications:read',
   ],
   DISCIPLINE_SECONDAIRE: [
-    'school:read', 'students:read',
+    'school:read', 'students:read', 'classes:read',
     'discipline:read', 'discipline:create', 'discipline:update',
     'attendance:read', 'attendance:create',
     'convocations:read', 'convocations:create', 'convocations:update',
@@ -595,7 +635,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'classes:read', 'classes:update',
     'subjects:read',
     'discipline:read', 'discipline:create',
-    'convocations:read', 'convocations:create',
+    // Convocations retirées : seuls les PARENTS, la DIRECTION, la DISCIPLINE,
+    // l'ADMIN DE L'ÉCOLE et le SECRÉTAIRE voient les convocations. Un professeur
+    // (titulaire inclus) ne voit que les notes et les communications reçues.
     'homework:read', 'homework:create',
     'communications:read',
     'stats:read',
@@ -617,7 +659,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'notifications:read',
   ],
   DISCIPLINE: [
-    'students:read',
+    'students:read', 'classes:read',
     'discipline:read', 'discipline:create', 'discipline:update',
     'convocations:read', 'convocations:create',
     'communications:read',
