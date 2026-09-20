@@ -568,6 +568,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   DISCIPLINE_MATERNELLE: [
     'school:read', 'students:read',
     'discipline:read', 'discipline:create', 'discipline:update',
+    'attendance:read', 'attendance:create',
     'convocations:read', 'convocations:create', 'convocations:update',
     'communications:read',
     'profile:read', 'profile:update', 'notifications:read',
@@ -575,6 +576,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   DISCIPLINE_PRIMAIRE: [
     'school:read', 'students:read',
     'discipline:read', 'discipline:create', 'discipline:update',
+    'attendance:read', 'attendance:create',
     'convocations:read', 'convocations:create', 'convocations:update',
     'communications:read',
     'profile:read', 'profile:update', 'notifications:read',
@@ -582,6 +584,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   DISCIPLINE_SECONDAIRE: [
     'school:read', 'students:read',
     'discipline:read', 'discipline:create', 'discipline:update',
+    'attendance:read', 'attendance:create',
     'convocations:read', 'convocations:create', 'convocations:update',
     'communications:read',
     'profile:read', 'profile:update', 'notifications:read',
@@ -715,10 +718,36 @@ export async function requirePermission(request: NextRequest, permission: string
   return authResult;
 }
 
+// ─── Discipline scope verification ─────────────────────────────────────────
+// Retourne le scope { schoolId, section } pour un rôle Discipline, ou null.
+// Le serveur devient l'autorité finale : toute API discipline doit appeler
+// cette fonction au début et refuser toute requête hors périmètre.
+export function getDisciplineScope(
+  role: string | null,
+  schoolId: string | null
+): { schoolId: string; section: 'MATERNELLE' | 'PRIMAIRE' | 'SECONDAIRE' } | null {
+  const sectionMap: Record<string, 'MATERNELLE' | 'PRIMAIRE' | 'SECONDAIRE'> = {
+    DISCIPLINE_MATERNELLE: 'MATERNELLE',
+    DISCIPLINE_PRIMAIRE: 'PRIMAIRE',
+    DISCIPLINE_SECONDAIRE: 'SECONDAIRE',
+  }
+  const section = sectionMap[role as keyof typeof sectionMap]
+  if (!section) return null
+  if (!schoolId) return null
+  return { schoolId, section }
+}
+
 // ─── School access verification ────────────────────────────────────────────
-export function verifySchoolAccess(user: AuthUser, schoolId: string | null): boolean {
-  if (user.role === 'SUPER_ADMIN_GLOBAL') return true;
-  return user.schoolId === schoolId;
+export function verifySchoolAccess(user: AuthUser, schoolId: string | null, section?: 'MATERNELLE' | 'PRIMAIRE' | 'SECONDAIRE'): boolean {
+  if (user.role === 'SUPER_ADMIN_GLOBAL') return true
+  if (user.schoolId !== schoolId) return false
+  // Si une section est précisée, l'utilisateur ne doit gérer que son niveau
+  if (section && user.role.startsWith('DISCIPLINE')) {
+    // On déduit la section attendue du rôle
+    const expected = getDisciplineScope(user.role, user.schoolId)?.section
+    if (expected && section !== expected) return false
+  }
+  return true
 }
 
 // ─── Parent access verification ────────────────────────────────────────────
