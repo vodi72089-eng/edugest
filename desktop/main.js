@@ -18,7 +18,7 @@
  * Build : voir DESKTOP.md (electron-builder → installateur .exe + portable).
  */
 
-const { app, BrowserWindow, shell, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, shell, dialog, ipcMain, net: electronNet } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -432,9 +432,12 @@ function downloadPortableUpdate(asset) {
 }
 
 const UPDATE_CHECK_DELAY_MS = 8000;
-// Vérification horaire : une nouvelle version publiée est proposée au plus
-// tard 1 h après sa publication (et dès le démarrage de l'application).
-const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+// Vérification CHAQUE MINUTE (demande utilisateur) : dès qu'une mise à jour
+// sort, l'exe connecté à internet est informé en moins d'une minute et la
+// bannière « Mettre à jour » s'affiche immédiatement (re-vérification aussi
+// au retour du réseau). Le contrôle lit latest.yml — une pièce jointe de la
+// release GitHub, SANS quota d'API — le cadence d'une minute est donc viable.
+const UPDATE_CHECK_INTERVAL_MS = 60 * 1000;
 
 function compareVersions(a, b) {
   const pa = String(a).replace(/^v/, '').split('.').map(Number);
@@ -447,28 +450,34 @@ function compareVersions(a, b) {
   return 0;
 }
 
+// Base des téléchargements « dernière release » : l'URL /releases/latest/
+// download/ pointe TOUJOURS sur la release la plus récente sans passer par
+// l'API GitHub (aucun rate-limit, requêtes minuscules).
+const RELEASE_LATEST_BASE = 'https://github.com/vodi72089-eng/edugest/releases/latest/download';
+
 function checkPortableUpdate(manual = false) {
-  const req = https.get({
-    hostname: 'api.github.com',
-    path: '/repos/vodi72089-eng/edugest/releases/latest',
-    headers: { 'User-Agent': 'EduGest-Desktop', Accept: 'application/vnd.github+json' },
+  // latest.yml : fichier de métadonnées publié par electron-builder à chaque
+  // release (version + fichiers). Remplace l'appel api.github.com qui était
+  // plafonné à 60 requêtes/h — incompatible avec un check chaque minute.
+  const req = https.get(RELEASE_LATEST_BASE + '/latest.yml', {
+    headers: { 'User-Agent': 'EduGest-Desktop' },
   }, (res) => {
     let body = '';
     res.on('data', (c) => { body += c; });
     res.on('end', () => {
       try {
-        const rel = JSON.parse(body);
-        const latest = String(rel.tag_name || '').replace(/^v/, '');
+        if (res.statusCode !== 200) return;
+        const m = body.match(/^version:\s*(.+)$/m);
+        const latest = String(m ? m[1] : '').trim().replace(/^v/, '');
         if (!latest) return;
         if (compareVersions(latest, app.getVersion()) <= 0) {
           pendingPortableAsset = null;
           return;
         }
-        // Bannière in-app (comme l'installée) : l'asset portable est
-        // téléchargé directement, GitHub reste invisible.
-        const asset = (rel.assets || []).find((a) => /portable.*\.exe$/i.test(a.name || ''));
-        if (!asset || !asset.browser_download_url) return;
-        pendingPortableAsset = { url: asset.browser_download_url, version: latest, file: null };
+        // Bannière in-app (comme l'installée) : l'exe portable est
+        // téléchargé directement (redirections GitHub suivies), GitHub reste
+        // invisible pour l'utilisateur.
+        pendingPortableAsset = { url: `${RELEASE_LATEST_BASE}/EduGest-Portable-${latest}.exe`, version: latest, file: null };
         sendUpdate('available', { version: latest });
       } catch {}
     });
@@ -479,6 +488,21 @@ function checkPortableUpdate(manual = false) {
 
 function setupAutoUpdate() {
   if (!app.isPackaged || !mainWindow || mainWindow.isDestroyed()) return;
+
+  // — Retour de la connexion internet : revérification IMMÉDIATE —
+  // Complète le cadencement d'une minute : si l'exe démarre ou reste ouvert
+  // hors ligne, la mise à jour est détectée dès que le réseau revient.
+  let wasOnline = null;
+  setInterval(() => {
+    try {
+      const online = electronNet.isOnline();
+      if (wasOnline === false && online) {
+        if (isPortable()) checkPortableUpdate(false);
+        else if (autoUpdater) autoUpdater.checkForUpdates().catch(() => {});
+      }
+      wasOnline = online;
+    } catch {}
+  }, 15000);
 
   // — Version portable : même bannière, téléchargement direct + relance —
   if (isPortable() || !autoUpdater) {

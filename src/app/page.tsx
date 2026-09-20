@@ -2324,6 +2324,7 @@ HEAD_TEACHER: [
   { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
   { icon: <School size={16} />, label: 'Ma Classe', view: 'classes' },
   { icon: <BookOpen size={16} />, label: 'Notes reçues', view: 'grades' },
+  { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
   { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
   { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
   { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
@@ -2480,6 +2481,11 @@ function notifTypeToView(type: string): ViewType {
     NOTIFICATION: 'communications',
     EVENT: 'communications',
     ALERT: 'communications',
+    // Demandes d'approbation : clic → panneau des demandes (paramètres école,
+    // ouvert à l'admin de l'école et au super admin global) ; décision → vue
+    // du demandeur (QR parent) avec repli automatique sur le dashboard.
+    APPROVAL_REQUESTED: 'settings',
+    APPROVAL_DECIDED: 'parent-qr',
   }
   return map[type] || 'dashboard'
 }
@@ -2488,7 +2494,7 @@ function notifTypeToView(type: string): ViewType {
 const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   PARENT: ['dashboard', 'grades', 'bulletin', 'online-payment', 'payment-verification', 'discipline', 'homework', 'communications', 'school-reviews', 'profile', 'convocation'],
   TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'communications', 'profile'],
-  HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'bulletin', 'communications', 'profile'],
+  HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'bulletin', 'communications', 'profile'],
   SECRETARY: ['dashboard', 'students', 'classes', 'communications', 'payment-verification', 'class-passing', 'parent-qr', 'my-subscription', 'settings', 'profile'],
   CASHIER: ['dashboard', 'payments', 'payment-verification', 'debts', 'communications', 'profile'],
   DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],
@@ -2562,6 +2568,20 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   // IDs déjà vus : évite le « ding » au premier chargement, ne sonne que pour les vraies nouveautés
   const seenNotifIdsRef = useRef<Set<string> | null>(null)
   useEffect(() => { setNotifSoundOn(isNotificationSoundEnabled()) }, [])
+
+  // Politique autoplay des navigateurs : l'audio est bloqué jusqu'au premier
+  // geste utilisateur. On déverrouille donc le son de notification au PREMIER
+  // geste n'importe où dans l'app (clic ou touche) — pas seulement au clic sur
+  // la cloche — pour que les notifications suivantes sonnent réellement.
+  useEffect(() => {
+    const unlock = () => unlockNotificationAudio()
+    document.addEventListener('pointerdown', unlock, { once: true })
+    document.addEventListener('keydown', unlock, { once: true })
+    return () => {
+      document.removeEventListener('pointerdown', unlock)
+      document.removeEventListener('keydown', unlock)
+    }
+  }, [])
 
   const adminRoles = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'SECRETARY']
   const showPendingComms = adminRoles.includes(userRole || '')
@@ -2708,7 +2728,41 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     setTimeout(() => setHighlightedId(null), 5000)
   }
 
+  // ── Demandes d'approbation depuis les notifications ────────────────────
+  // QR code du secrétaire, suppression de classe… : l'admin de l'école et le
+  // super admin global peuvent ACCEPTER ou REFUSER directement depuis la
+  // notification — le PATCH /api/settings-approval exécute l'action côté
+  // serveur (création réelle du QR, suppression effective de la classe).
+  const isApprovalApprover = userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SCHOOL_ADMIN'
+  const [approvingNotifId, setApprovingNotifId] = useState<string | null>(null)
+  const handleApprovalDecision = async (notif: any, decision: 'APPROVED' | 'REJECTED') => {
+    if (!notif?.relatedId || approvingNotifId) return
+    setApprovingNotifId(notif.id)
+    try {
+      const res = await authFetch('/api/settings-approval', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: notif.relatedId, status: decision }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Erreur')
+      toast.success(decision === 'APPROVED' ? 'Demande approuvée et appliquée' : 'Demande rejetée')
+      // La demande est traitée : la notification est marquée lue et quitte la
+      // liste localement — au prochain poll elle reviendra SANS boutons
+      // (canDecide exige une notification non lue).
+      if (!notif.isRead) markAsRead(notif.id)
+      setNotifications(prev => prev.filter(n => n.id !== notif.id))
+      if (!notif.isRead) setUnreadNotifCount(c => Math.max(0, c - 1))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setApprovingNotifId(null)
+    }
+  }
+
   const notifIcon = (type: string) => {
+    if (type === 'APPROVAL_REQUESTED') return <Star size={14} />
+    if (type === 'APPROVAL_DECIDED') return <Check size={14} />
     if (type.includes('COMMUNICATION')) return <MessageSquare size={14} />
     if (type.includes('PAYMENT')) return <DollarSign size={14} />
     if (type.includes('GRADE') || type.includes('BULLETIN')) return <FileText size={14} />
@@ -2720,6 +2774,8 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   }
 
   const notifIconBg = (type: string) => {
+    if (type === 'APPROVAL_REQUESTED') return { bg: `linear-gradient(135deg, ${GOLD}, ${WARNING})`, color: '#fff' }
+    if (type === 'APPROVAL_DECIDED') return { bg: `linear-gradient(135deg, ${SUCCESS}, ${ACCENT})`, color: '#fff' }
     if (type.includes('COMMUNICATION')) return { bg: `linear-gradient(135deg, ${ACCENT}, ${ACCENT2})`, color: '#fff' }
     if (type.includes('PAYMENT')) return { bg: `linear-gradient(135deg, ${GOLD}, ${GOLD_SOFT})`, color: '#fff' }
     if (type.includes('APPROVED')) return { bg: `linear-gradient(135deg, ${SUCCESS}, ${ACCENT})`, color: '#fff' }
@@ -2846,11 +2902,15 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
               ) : (
                 notifications.map((notif) => {
                   const iconStyle = notifIconBg(notif.type)
+                  const canDecide = isApprovalApprover && notif.type === 'APPROVAL_REQUESTED' && notif.relatedId && !notif.isRead
                   return (
-                    <button
+                    <div
                       key={notif.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handleNotifItemClick(notif)}
-                      className="w-full text-left px-4 py-3 flex gap-3 hover:bg-[oklch(97%_0.005_175)] transition border-b"
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleNotifItemClick(notif) } }}
+                      className="w-full text-left px-4 py-3 flex gap-3 hover:bg-[oklch(97%_0.005_175)] transition border-b cursor-pointer"
                       style={{ borderColor: `oklch(92% 0.005 250)`, opacity: notif.isRead ? 0.6 : 1 }}
                     >
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: iconStyle.bg, color: iconStyle.color }}>
@@ -2862,6 +2922,26 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
                           {!notif.isRead && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: ACCENT }} />}
                         </div>
                         <div className="text-[11px] leading-snug mt-0.5 line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{notif.message}</div>
+                        {canDecide && (
+                          <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => handleApprovalDecision(notif, 'APPROVED')}
+                              disabled={approvingNotifId === notif.id}
+                              className="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white disabled:opacity-50"
+                              style={{ background: SUCCESS }}
+                            >
+                              {approvingNotifId === notif.id ? '…' : '✓'} Approuver
+                            </button>
+                            <button
+                              onClick={() => handleApprovalDecision(notif, 'REJECTED')}
+                              disabled={approvingNotifId === notif.id}
+                              className="px-3 py-1.5 rounded-lg text-[11px] font-semibold border disabled:opacity-50"
+                              style={{ color: DANGER, borderColor: DANGER + '40' }}
+                            >
+                              ✕ Rejeter
+                            </button>
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>{timeAgo(notif.createdAt)}</span>
                           <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium" style={{ background: IVORY, color: TEXT_MUTED_LUXE }}>
@@ -2869,7 +2949,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
                           </span>
                         </div>
                       </div>
-                    </button>
+                    </div>
                   )
                 })
               )}

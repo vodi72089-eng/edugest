@@ -1701,3 +1701,23 @@ Work Log:
 
 Stage Summary:
 - 10 demandes livrées et vérifiées de bout en bout ; sécurité durée côté serveur (scoping cycle incontestable, approbations exécutées serveur, verrou progressif) ; /api/upload réparé (devoirs + logos + profils) ; le pattern d'approbation SettingsApproval est désormais générique (qr_create/class_delete/school_info) avec exécution serveur et notifications bidirectionnelles
+
+---
+Task ID: 22
+Agent: Z.ai Code (main)
+Task: Lot « arrange cette erreur » — onglet Devoirs titulaire, boutons accepter/refuser dans les notifications d'approbation (admin plateforme + école), son de notification, scoping cycle des comptes DISCIPLINE_* (élèves + convocation), DIRECTION_SECONDAIRE, vérification de mise à jour de l'exe chaque minute
+
+Work Log:
+- Restauration de 2 fichiers supprimés par erreur du working tree (src/app/api/upload/route.ts + [...path]/route.ts — le fix devoirs de Task 21 était cassé localement)
+- SCOPING DISCIPLINE_* (auth.ts) : DISCIPLINE_MATERNELLE/PRIMAIRE/SECONDAIRE ajoutés à ROLE_CYCLE_MAP → /api/students (et subjects/homework/classes/stats qui utilisent getRoleCycle) imposent désormais la section du cycle pour ces comptes ; DisciplineView : filtre client par regex supprimé (source d'erreurs — les listes maternelle/primaire étaient identiques ou vides), la liste vient directement du serveur ; vérifié API : disc.maternelle→0 (aucun élève maternelle en démo), disc.primaire→5 Primaire, disc.secondaire→15 Secondaire
+- CONVOCATION : les formulaires sanction ET convocation intègrent désormais un SearchAutocomplete inline (plus de blocage « impossible de choisir l'élève » quand la liste du haut est vide) ; test navigateur : sélection « Amani Baketu » → convocation envoyée → section « Convocations (1) »
+- ONGLET DEVOIRS TITULAIRE : menus.HEAD_TEACHER (+PenTool Devoirs) et VIEWS_BY_ROLE.HEAD_TEACHER (+homework) ; vérifié navigateur : compte headteacher@lumiere.cd → onglet Devoirs visible, /homework rend « Devoirs » + « Nouveau devoir »
+- APPROBATIONS DANS LES NOTIFICATIONS (page.tsx) : pour APPROVAL_REQUESTED, l'admin école (SCHOOL_ADMIN) et l'admin plateforme (SUPER_ADMIN_GLOBAL) voient des boutons « ✓ Approuver / ✕ Rejeter » directement dans le panneau de notifications (item converti button→div role=button accessible, stopPropagation sur les actions) ; handleApprovalDecision → PATCH /api/settings-approval qui EXÉCUTE côté serveur (création réelle du QR / suppression de classe) ; après décision : toast, notification marquée lue, retirée de la liste, canDecide exige non-lu (pas de boutons sur demande déjà traitée) ; notifTypeToView : APPROVAL_REQUESTED→settings (panneau complet), APPROVAL_DECIDED→parent-qr (repli dashboard si non accessible) ; icônes/fonds dédiés (Star/Check)
+- Flux QR vérifié de bout en bout (API + navigateur) : demande secrétaire 201 → notification SAG avec relatedId=MATCH → clic « Approuver » → statut APPROVED en base → QR réellement créé (3 QR actifs = 3 approbations) → notification APPROVAL_DECIDED au demandeur
+- SON DE NOTIFICATION : l'AudioContext reste suspendu sans geste utilisateur (politique autoplay) — déverrouillage désormais au PREMIER geste n'importe où (pointerdown/keydown once) en plus du clic cloche ; (test audio impossible en headless — vérifié par code)
+- DIRECTION_SECONDAIRE : rôle présent partout (type UserRole, API_ROLE_MAP, PersonnelView, SCHOOL_STAFF_CREATION_ROLES, getRoleLabel) ; vérifié end-to-end : création via POST /api/users par SCHOOL_ADMIN → login → classes {Secondaire:7} et élèves {Secondaire:15} uniquement ; comptes de test supprimés ; (si « n'existe pas » persistait côté utilisateur : version exe antérieure au commit d03be90 — la mise à jour auto le résout)
+- MISE À JOUR EXE CHAQUE MINUTE (desktop/main.js) : UPDATE_CHECK_INTERVAL_MS 1 h → 60 s ; checkPortableUpdate remplacé : latest.yml via /releases/latest/download/ (pièce jointe de release, SANS quota API GitHub — l'ancien api.github.com était plafonné à 60 req/h) ; revérification immédiate au retour du réseau (électronNet.isOnline(), transition offline→online, 15 s) ; node --check OK ; l'utilisateur est informé « à la minute » quand internet est disponible
+- lint : 109 problèmes = baseline exacte, zéro régression
+
+Stage Summary:
+- Les demandes d'approbation (QR secrétaire, suppression de classe, et tout type futur de settings-approval) se décident EN UN CLIC depuis la cloche de notifications par les deux admins habilités — l'exécution reste côté serveur ; comptes DISCIPLINE_* enfin scellés à leur cycle (élèves, convocations, notifications) ; titulaire a ses devoirs ; l'exe vérifie les mises à jour chaque minute et au retour du réseau sans dépendre du quota d'API GitHub

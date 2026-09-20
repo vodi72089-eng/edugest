@@ -431,14 +431,19 @@ export async function requireRole(request: NextRequest, allowedRoles: string[]):
   return authResult;
 }
 
-// ─── Cycle mapping pour les rôles DIRECTION_* ──────────────────────────────
-// Un rôle DIRECTION_* est automatiquement lié à UN cycle unique :
-// la direction maternelle ne voit que la maternelle, etc. Ce mapping est la
-// source de vérité partagée par les routes API (scoping serveur).
+// ─── Cycle mapping pour les rôles DIRECTION_* et DISCIPLINE_* ───────────────
+// Un rôle DIRECTION_* ou DISCIPLINE_* est automatiquement lié à UN cycle
+// unique : la direction/discipline maternelle ne voit que la maternelle, etc.
+// Ce mapping est la source de vérité partagée par les routes API (scoping
+// serveur) — les comptes DISCIPLINE_* voyaient autrefois TOUS les élèves de
+// l'école quelle que soit leur variante de cycle.
 export const ROLE_CYCLE_MAP: Record<string, string> = {
   DIRECTION_MATERNELLE: 'MATERNELLE',
   DIRECTION_PRIMAIRE: 'PRIMAIRE',
   DIRECTION_SECONDAIRE: 'SECONDAIRE',
+  DISCIPLINE_MATERNELLE: 'MATERNELLE',
+  DISCIPLINE_PRIMAIRE: 'PRIMAIRE',
+  DISCIPLINE_SECONDAIRE: 'SECONDAIRE',
 };
 
 // Renvoie le cycle imposé par le rôle ('MATERNELLE'|'PRIMAIRE'|'SECONDAIRE') ou null

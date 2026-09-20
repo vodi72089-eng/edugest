@@ -97,26 +97,16 @@ export default function DisciplineView() {
   }, [isParent, userData?.id])
 
   useEffect(() => {
-    if (isDisciplineRole && userData?.schoolId && sectionLevel) {
+    if (isDisciplineRole && userData?.schoolId) {
+      // Le scoping cycle est fait côté SERVEUR (/api/students impose la section
+      // selon le rôle DISCIPLINE_* — plus aucun filtre client devinable par
+      // regex : chaque compte ne reçoit QUE les élèves de SON cycle).
       authFetch(`/api/students?limit=200&schoolId=${userData.schoolId}`)
         .then(r => r.json())
-        .then(j => {
-          const allStudents: StudentData[] = j.data || []
-          const filtered = allStudents.filter(s => {
-            const cls = (s as any).class as { name?: string; section?: string; level?: string } | undefined
-            const sectionValue = cls?.section || cls?.level || ''
-            const nameValue = cls?.name || ''
-            return sectionValue.toUpperCase().includes(sectionLevel.toUpperCase()) ||
-                   nameValue.toUpperCase().includes(sectionLevel.toUpperCase()) ||
-                   (sectionLevel === 'MATERNELLE' && (nameValue.match(/^(M|MAT|MATERNELLE|PETITE|MOYENNE|GRANDE)/i) !== null)) ||
-                   (sectionLevel === 'PRIMAIRE' && (nameValue.match(/^(P|PRI|PRIMAIRE|1ERE|2EME|3EME|4EME|5EME|6EME|\d)/i) !== null)) ||
-                   (sectionLevel === 'SECONDAIRE' && (nameValue.match(/^(S|SEC|SECONDAIRE|7EME|8EME|9EME|10EME|11EME|12EME)/i) !== null))
-          })
-          setSectionStudents(filtered)
-        })
+        .then(j => setSectionStudents(j.data || []))
         .catch(() => {})
     }
-  }, [isDisciplineRole, userData?.schoolId, sectionLevel])
+  }, [isDisciplineRole, userData?.schoolId])
 
   useEffect(() => {
     if (isDisciplineRole && userData?.schoolId) {
@@ -565,7 +555,16 @@ export default function DisciplineView() {
                 <div>
                   <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Élève *</label>
                   {!selectedStudentId ? (
-                    <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm" style={{ color: DANGER }}>Sélectionnez un élève ci-dessus</div>
+                    <SearchAutocomplete
+                      placeholder="Tapez le nom de l'élève..."
+                      items={studentSuggestions}
+                      selectedId={selectedStudentSearchId}
+                      onSelect={(item) => { setSelectedStudentSearchId(item.id); setSelectedStudentId(item.id) }}
+                      onClear={() => { setSelectedStudentSearchId(null); setSelectedStudentId(null); setStudentSearch('') }}
+                      searchQuery={studentSearch}
+                      onSearchChange={setStudentSearch}
+                      itemTypeName="élève"
+                    />
                   ) : (
                     <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm font-medium" style={{ color: TEXT_PRIMARY, background: GOLD_SOFT }}>
                       {selectedStudentName?.firstName} {selectedStudentName?.lastName} ({selectedStudentName?.matricule})
@@ -618,7 +617,16 @@ export default function DisciplineView() {
                 <div>
                   <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Élève *</label>
                   {!selectedStudentId ? (
-                    <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm" style={{ color: DANGER }}>Sélectionnez un élève ci-dessus</div>
+                    <SearchAutocomplete
+                      placeholder="Tapez le nom de l'élève..."
+                      items={studentSuggestions}
+                      selectedId={selectedStudentSearchId}
+                      onSelect={(item) => { setSelectedStudentSearchId(item.id); setSelectedStudentId(item.id) }}
+                      onClear={() => { setSelectedStudentSearchId(null); setSelectedStudentId(null); setStudentSearch('') }}
+                      searchQuery={studentSearch}
+                      onSearchChange={setStudentSearch}
+                      itemTypeName="élève"
+                    />
                   ) : (
                     <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm font-medium" style={{ color: TEXT_PRIMARY, background: GOLD_SOFT }}>
                       {selectedStudentName?.firstName} {selectedStudentName?.lastName}
