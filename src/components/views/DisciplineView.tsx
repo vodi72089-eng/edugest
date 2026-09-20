@@ -495,31 +495,6 @@ export default function DisciplineView() {
             </div>
           </div>
 
-          {!selectedStudentId && sectionStudents.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Users size={14} style={{ color: GOLD }} />
-                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Élèves du secteur ({sectionStudents.length})</span>
-              </div>
-              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar">
-                {sectionStudents.slice(0, 30).map(s => (
-                  <button
-                    key={s.id}
-                    onClick={() => { setSelectedStudentId(s.id); setSelectedStudentSearchId(s.id) }}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-                      selectedStudentId === s.id ? 'border-[oklch(72%_0.15_65)] shadow-sm' : 'border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.4)]'
-                    }`}
-                    style={{ background: selectedStudentId === s.id ? GOLD_SOFT : 'white', color: TEXT_PRIMARY }}
-                  >
-                    <StudentAvatar firstName={s.firstName} lastName={s.lastName} photoUrl={s.photoUrl} size={20} className="text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
-                    {s.firstName} {s.lastName}
-                  </button>
-                ))}
-                {sectionStudents.length > 30 && <span className="text-xs px-2 py-1" style={{ color: TEXT_MUTED_LUXE }}>+{sectionStudents.length - 30} autres</span>}
-              </div>
-            </div>
-          )}
-
           {selectedStudentId && selectedStudentName && (
             <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4 shadow-sm flex items-center gap-4">
               {(() => {
