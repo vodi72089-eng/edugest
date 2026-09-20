@@ -1763,3 +1763,23 @@ Work Log:
 
 Stage Summary:
 - Le pipeline complet notification métier → destinataire (resolver unique DB/Push/Email/WhatsApp) → routage par rôle → son (web+desktop) → comportement Web/EXE est en place et vérifié par des tests réels ; read-all réparé ; le rôle fantôme 'ADMIN' (cause des approbations jamais notifiées) éliminé ; le médical notifie enfin ; lint 68 (0 nouveau, < baseline 109). Limites documentées : exe fermé = pas de toast natif (Web Push couvre le web) ; le son d'un toast Windows dépend des réglages système (l'app double toujours avec son son in-app) ; installation réelle Windows v1.0.0→v1.0.1 non exécutable depuis ce bac à sable Linux (electron-updater + latest.yml + garde isCheckingUpdate vérifiés statiquement).
+
+---
+Task ID: CI-FIX-1
+Agent: Z.ai Code (main)
+Task: Réparer CI #24/#25 + Build Desktop #79/#80 en échec (commits 9c891b9, f1e7430, 0788765)
+
+Work Log:
+- Diagnostic via API GitHub Actions : les 2 workflows échouaient sur `tsc --noEmit` / build Next.js standalone avec 3 erreurs TypeScript identiques.
+- Erreur 1 (TS2304) : `src/app/api/homework/route.ts:291` appelait `notifyEvent(...)` (resolver centralisé ajouté dans f1e7430) SANS l'importer → ajout de `import { notifyEvent } from '@/lib/notification-service';` (même pattern que les 10+ autres routes métier).
+- Erreurs 2+3 (TS2367) : `src/lib/notification-sound.ts` `ensureRunning()` — TypeScript garde le narrowing de `ac.state` après la 1re comparaison ; `resume()` modifiant l'état asynchrone, TS croyait la comparaison `'running'` impossible → lecture fraîche via closure `readState(): AudioContextState`.
+- Vérifié localement : `bunx tsc --noEmit` → 0 erreur ; lint 68 problems (< baseline 109, la dette a même baissé) ; public/sounds/notification.wav (37 Ko) bien tracké dans git.
+- Vérifié via agent-browser (session PARENT persistée) : page rendue, 0 erreur console/page, `/api/homework` → 200 (la route fixée compile et répond), panneau Notifications OK, AudioContext disponible, préférence son par défaut ON.
+- Push rejeté (remote avait 0788765 « fix(auth): trim des identifiants login ») → fetch + rebase, re-push OK.
+- Commit final : 1d72776 « fix(ci): import notifyEvent manquant (homework) + TS2367 narrowing AudioContext ».
+- Monitoring : CI #1d72776 → SUCCESS ; Build Desktop #1d72776 → SUCCESS.
+
+Stage Summary:
+- CI + Build Desktop de nouveau verts sur main (1d72776).
+- Release v1.4.4 publiée : EduGest-Portable/Setup-1.4.4.exe (147.9/148.2 Mo) + latest.yml (prérequis electron-updater) — la chaîne build→Release→auto-update est restaurée.
+- Note : 0788765 (fix auth trim) héritait des mêmes erreurs TS ; il est couvert par le fix.
