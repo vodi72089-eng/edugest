@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react'
 import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken, restoreSession,
-startSessionRestoreWatchdog, isDesktopApp } from '@/lib/store'
+startSessionRestoreWatchdog, isDesktopApp, getActiveSchoolId } from '@/lib/store'
 import { startRealtimeSync } from '@/lib/realtime'
 import { playNotificationSound, unlockNotificationAudio, isNotificationSoundEnabled, setNotificationSoundEnabled, getNotificationSoundVolume, setNotificationSoundVolume, getNotificationSoundType, setNotificationSoundType, NotificationSoundType } from '@/lib/notification-sound'
 import { resolveNotifView, notifSoundLevel } from '@/lib/notification-routing'
@@ -1912,8 +1912,8 @@ function LoginView() {
             id: apiUser.id,
             name: apiUser.name,
             role,
-            schoolId: apiUser.schoolId,
-            schoolName: apiUser.school?.name || 'EduGest',
+            schoolId: apiUser.schoolId ?? null,
+            schoolName: apiUser.school?.name || (role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'EduGest'),
             schoolLogo: apiUser.school?.logo || null,
             initials: getInitials(apiUser.name),
             profileImageUrl: apiUser.profileImageUrl || null,
@@ -2188,8 +2188,8 @@ function LoginView() {
                             id: apiUser.id,
                             name: apiUser.name,
                             role,
-                            schoolId: apiUser.schoolId,
-                            schoolName: apiUser.school?.name || 'EduGest',
+                            schoolId: apiUser.schoolId ?? null,
+                            schoolName: apiUser.school?.name || (role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'EduGest'),
                             schoolLogo: apiUser.school?.logo || null,
                             initials: getInitials(apiUser.name),
                             profileImageUrl: apiUser.profileImageUrl || null,
@@ -2232,7 +2232,17 @@ function LoginView() {
 
 // ===== SIDEBAR =====
 function Sidebar() {
-  const { userRole, userData, currentView, setCurrentView, logout, sidebarOpen, setSidebarOpen, setDisciplineTab } = useEduGestStore()
+  const { userRole, userData, currentView, setCurrentView, logout, sidebarOpen, setSidebarOpen, setDisciplineTab, activeSchoolId, setActiveSchoolId } = useEduGestStore()
+
+  // Admin plateforme : sélecteur d'« école active » — l'admin plateforme
+  // n'est rattaché à aucune école ; il choisit ici le contexte scolaire
+  // dans lequel il parcourt les vues (élèves, paiements, discipline…).
+  const isPlatformAdminSidebar = userRole === 'SUPER_ADMIN_GLOBAL'
+  const [contextSchools, setContextSchools] = useState<Array<{ id: string; name: string; shortName: string }>>([])
+  useEffect(() => {
+    if (!isPlatformAdminSidebar) return
+    authFetch('/api/schools?limit=100').then(r => r.json()).then(j => setContextSchools(j.data || [])).catch(() => {})
+  }, [isPlatformAdminSidebar])
 
   type MenuItem = { icon: React.ReactNode; label: string; view: ViewType; badge?: number; tab?: 'BLACKLIST' | 'GREYLIST' | 'WHITELIST' }
   const menus: Record<string, MenuItem[]> = {
@@ -2425,8 +2435,23 @@ HEAD_TEACHER: [
           ) : (
             <BrandMark height={32} />
           )}
-          <div className="text-[11px] text-white/50 font-medium">{userData?.subscriptionTier === 'FREEMIUM' ? 'Admin Freemium' : getRoleLabel(userRole!)}</div>
+          <div className="text-[11px] text-white/50 font-medium">{userRole === 'SUPER_ADMIN_GLOBAL' ? 'Super Admin' : (userData?.subscriptionTier === 'FREEMIUM' ? 'Admin Freemium' : getRoleLabel(userRole!))}</div>
         </div>
+
+        {isPlatformAdminSidebar && (
+          <div className="px-4 pt-3 pb-1">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-white/40 mb-1.5">École active</div>
+            <AppSelect
+              value={activeSchoolId || ''}
+              onChange={(v) => setActiveSchoolId(v || null)}
+              options={[
+                { value: '', label: '— Aucune (plateforme) —' },
+                ...contextSchools.map(s => ({ value: s.id, label: `${s.name} (${s.shortName})` })),
+              ]}
+              placeholder="— Aucune (plateforme) —"
+            />
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto custom-scrollbar py-2">
           <div className="px-5 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-white/40">Navigation</div>
@@ -2461,7 +2486,9 @@ HEAD_TEACHER: [
             )}
             <div className="min-w-0 flex-1">
               <div className="text-[13px] font-semibold truncate text-white/90">{userData?.name || 'Utilisateur'}</div>
-              <div className="text-[11px] text-white/50 truncate">{userData?.schoolName || ''}</div>
+              <div className="text-[11px] text-white/50 truncate">
+                {userRole === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : (userData?.schoolName || '')}
+              </div>
             </div>
             <button onClick={logout} className="text-white/40 hover:text-[oklch(58%_0.20_25)] transition shrink-0"><LogOut size={16} /></button>
           </div>
@@ -2739,7 +2766,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   useEffect(() => {
     if (!userData?.id || !showPendingComms) return;
     const loadComms = () => {
-      const schoolParam = userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''
+      const schoolParam = getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''
       authFetch(`/api/communications?limit=100${schoolParam}`).then(r => r.json()).then(j => {
         const data = j.data || []
         setPendingCommsCount(data.filter((c: any) => c.status === 'PENDING').length)
@@ -2748,7 +2775,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     loadComms()
     const interval = setInterval(loadComms, 30000)
     return () => clearInterval(interval)
-  }, [userData?.id, userData?.schoolId, showPendingComms])
+  }, [userData?.id, getActiveSchoolId() ?? null, showPendingComms])
 
   useEffect(() => {
     if (!showNotifications) return
@@ -3607,7 +3634,7 @@ function MainContent() {
     case 'finance': return <FinanceSituationView />
     case 'payment-verification': return <PaymentVerificationView />
     case 'online-payment': return <OnlinePaymentView />
-    case 'debts': return <DettesView onNavigate={(v) => setCurrentView(v as ViewType)} schoolId={userData?.schoolId || ''} />
+    case 'debts': return <DettesView onNavigate={(v) => setCurrentView(v as ViewType)} schoolId={getActiveSchoolId() || ''} />
     case 'payment-config': return <PaymentConfigView />
     case 'discipline': return <DisciplineView />
     case 'communications': return <CommunicationsView />
@@ -3745,7 +3772,7 @@ function ClassesView() {
   }, [highlightedId])
 
   useEffect(() => {
-    authFetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => {
+    authFetch(`/api/classes?limit=50${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}`).then(r => r.json()).then(j => {
       let allClasses: ClassData[] = j.data || []
       if (userRole === 'HEAD_TEACHER' && userData?.id) {
         allClasses = allClasses.filter(c => (c as any).headTeacherId === userData.id)
@@ -3765,14 +3792,14 @@ function ClassesView() {
       setClasses(allClasses); setLoading(false)
     }).catch(() => setLoading(false))
     // Fetch active school year
-    if (userData?.schoolId) {
-      authFetch(`/api/schools/${userData.schoolId}`).then(r => r.json()).then(j => {
+    if (getActiveSchoolId()) {
+      authFetch(`/api/schools/${getActiveSchoolId()}`).then(r => r.json()).then(j => {
         const years = j.data?.schoolYears || []
         const active = years.find((y: any) => y.isActive)
         if (active) setActiveSchoolYear(active.id)
       }).catch(() => {})
     }
-  }, [userData?.schoolId])
+  }, [getActiveSchoolId()])
 
   // Class search autocomplete - computed from local data
   const classSuggestions = useMemo(() => {
@@ -3828,7 +3855,7 @@ function ClassesView() {
           name: newClassName.trim(),
           section: directionCycle || newClassSection,
           capacity: parseInt(newClassCapacity) || 40,
-          schoolId: userData?.schoolId,
+          schoolId: getActiveSchoolId() ?? null,
           schoolYearId: activeSchoolYear,
         }),
       })
@@ -3836,7 +3863,7 @@ function ClassesView() {
         toast.success('Classe créée avec succès!')
         setShowAddClass(false)
         setNewClassName('')
-        const j = await authFetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json())
+        const j = await authFetch(`/api/classes?limit=50${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}`).then(r => r.json())
         setClasses(j.data || [])
       } else {
         const j = await res.json()
@@ -4100,13 +4127,13 @@ function WhatsAppApiQuotasSection() {
   const [savingWa, setSavingWa] = useState(false)
 
   useEffect(() => {
-    if (!userData?.schoolId) return
+    if (!getActiveSchoolId()) return
     loadWaConfig()
-  }, [userData?.schoolId])
+  }, [getActiveSchoolId()])
 
   async function loadWaConfig() {
     try {
-      const res = await authFetch(`/api/whatsapp-config/custom?schoolId=${userData?.schoolId}`)
+      const res = await authFetch(`/api/whatsapp-config/custom?schoolId=${getActiveSchoolId() || ''}`)
       const json = await res.json()
       if (json.data) {
         setWaConfig(json.data)
@@ -4130,7 +4157,7 @@ function WhatsAppApiQuotasSection() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          schoolId: userData?.schoolId,
+          schoolId: getActiveSchoolId() ?? null,
           ...waForm,
         }),
       })
@@ -4159,7 +4186,7 @@ function WhatsAppApiQuotasSection() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          schoolId: userData?.schoolId,
+          schoolId: getActiveSchoolId() ?? null,
           action: 'test',
           testPhone,
           customEnabled: waForm.customEnabled,
@@ -4435,17 +4462,17 @@ function PaymentConfigView() {
   const [supportedCurrencies, setSupportedCurrencies] = useState<any[]>([])
 
   useEffect(() => {
-    if (!userData?.schoolId) return
+    if (!getActiveSchoolId()) return
     loadGateways()
     loadCurrencyConfig()
     loadTransactions()
     loadSchoolFees()
     loadClasses()
-  }, [userData?.schoolId])
+  }, [getActiveSchoolId()])
 
   async function loadGateways() {
     try {
-      const res = await authFetch(`/api/payment-gateways${userData?.schoolId ? `?schoolId=${userData.schoolId}` : ''}`)
+      const res = await authFetch(`/api/payment-gateways${getActiveSchoolId() ? `?schoolId=${getActiveSchoolId()}` : ''}`)
       const json = await res.json()
       if (json.data) {
         setAvailableGateways(json.data.catalog || [])
@@ -4457,7 +4484,7 @@ function PaymentConfigView() {
 
   async function loadCurrencyConfig() {
     try {
-      const res = await authFetch(`/api/currency${userData?.schoolId ? `?schoolId=${userData.schoolId}` : ''}`)
+      const res = await authFetch(`/api/currency${getActiveSchoolId() ? `?schoolId=${getActiveSchoolId()}` : ''}`)
       const json = await res.json()
       if (json.data) {
         setCurrencyConfig(json.data.config)
@@ -4485,7 +4512,7 @@ function PaymentConfigView() {
   async function loadTransactions() {
     try {
       const params = new URLSearchParams({ limit: '10' })
-      if (userData?.schoolId) params.set('schoolId', userData.schoolId)
+      const schoolId = getActiveSchoolId(); if (schoolId) params.set('schoolId', schoolId)
       const res = await authFetch(`/api/payment-transactions?${params.toString()}`)
       const json = await res.json()
       if (json.data) setTransactions(json.data.transactions || json.data)
@@ -4494,7 +4521,7 @@ function PaymentConfigView() {
 
   async function loadSchoolFees() {
     try {
-      const res = await authFetch(`/api/school-fees?schoolId=${userData?.schoolId}`)
+      const res = await authFetch(`/api/school-fees?schoolId=${getActiveSchoolId() || ''}`)
       const json = await res.json()
       if (json.data) setSchoolFees(json.data)
     } catch (e) { console.error(e) }
@@ -4502,7 +4529,7 @@ function PaymentConfigView() {
 
   async function loadClasses() {
     try {
-      const res = await authFetch(`/api/classes?schoolId=${userData?.schoolId}`)
+      const res = await authFetch(`/api/classes?schoolId=${getActiveSchoolId() || ''}`)
       const json = await res.json()
       if (json.data) setClasses(json.data)
     } catch (e) { console.error(e) }
@@ -4520,7 +4547,7 @@ function PaymentConfigView() {
       const res = await authFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...feeForm, schoolId: userData?.schoolId }),
+        body: JSON.stringify({ ...feeForm, schoolId: getActiveSchoolId() || undefined }),
       })
       const json = await res.json()
       if (json.data) {
@@ -4581,7 +4608,7 @@ function PaymentConfigView() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          schoolId: userData?.schoolId,
+          schoolId: getActiveSchoolId() ?? null,
           ...currencyForm,
           // L'API /api/currency exige un tableau et un objet (elle sérialise elle-même)
           enabledCurrencies: currencyForm.enabledCurrencies,
@@ -4606,7 +4633,7 @@ function PaymentConfigView() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          schoolId: userData?.schoolId,
+          schoolId: getActiveSchoolId() ?? null,
           ...gatewayForm,
         }),
       })
@@ -4651,7 +4678,7 @@ function PaymentConfigView() {
 
   function openGatewayEditor(gatewayType: string, existing?: any) {
     setGatewayForm({
-      schoolId: userData?.schoolId,
+      schoolId: getActiveSchoolId() ?? null,
       gatewayType,
       isActive: existing?.isActive ?? false,
       isTestMode: existing?.isTestMode ?? true,
@@ -5683,14 +5710,14 @@ function PaymentVerificationView() {
       const isIdQuery = /^[a-z0-9]{20,}$/i.test(q.replace(/-/g, ''))
       if (isIdQuery) {
         try {
-          const verifyRes = await authFetch(`/api/payments/verify-receipt?id=${encodeURIComponent(staffReceiptSearch.trim())}&schoolId=${userData?.schoolId || ''}`)
+          const verifyRes = await authFetch(`/api/payments/verify-receipt?id=${encodeURIComponent(staffReceiptSearch.trim())}&schoolId=${getActiveSchoolId() || ''}`)
           if (verifyRes.ok) {
             const verifyJson = await verifyRes.json()
             if (verifyJson.data) { setStaffSearchResult(verifyJson.data); return }
           }
         } catch { /* fall through to local search */ }
       }
-      const res = await authFetch(`/api/payments?schoolId=${userData?.schoolId}&limit=500`)
+      const res = await authFetch(`/api/payments?schoolId=${getActiveSchoolId() || ''}&limit=500`)
       const json = await res.json()
       const allPayments: PaymentData[] = json.data || []
       const qNoHyphens = q.replace(/-/g, '')
@@ -5751,7 +5778,7 @@ function PaymentVerificationView() {
               }
             } catch { /* fall through */ }
             try {
-              const verifyRes = await authFetch(`/api/payments/verify-receipt?id=${encodeURIComponent(paymentId)}&schoolId=${userData?.schoolId || ''}`)
+              const verifyRes = await authFetch(`/api/payments/verify-receipt?id=${encodeURIComponent(paymentId)}&schoolId=${getActiveSchoolId() || ''}`)
               if (verifyRes.ok) {
                 const verifyJson = await verifyRes.json()
                 if (verifyJson.data) {
@@ -5771,7 +5798,7 @@ function PaymentVerificationView() {
           setScanning(false)
           setStaffReceiptSearch(cleanedName)
           setStaffSearching(true)
-          authFetch(`/api/payments?schoolId=${userData?.schoolId}&limit=500`)
+          authFetch(`/api/payments?schoolId=${getActiveSchoolId() || ''}&limit=500`)
             .then(r => r.json())
             .then(json => {
               const allPayments: PaymentData[] = json.data || []
@@ -6184,7 +6211,7 @@ function CommunicationsView() {
   useEffect(() => {
     const superAdminRoles = ['SUPER_ADMIN_GLOBAL', 'ADMIN']
     const mineParam = superAdminRoles.includes(userRole as string) ? '&mine=true' : ''
-    authFetch(`/api/communications?limit=20${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}${mineParam}`).then(r => r.json()).then(j => {
+    authFetch(`/api/communications?limit=20${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}${mineParam}`).then(r => r.json()).then(j => {
       const data = j.data || []
       setComms(data)
       setTotalUsers(j.totalUsers || 0)
@@ -6195,7 +6222,7 @@ function CommunicationsView() {
         })
       }
     }).catch(() => setLoading(false))
-  }, [userData?.schoolId, userData?.id, canCreate])
+  }, [getActiveSchoolId() ?? null, userData?.id, canCreate])
 
   async function handleSend() {
     if (!title || !content) return toast.error('Titre et contenu requis')
@@ -6205,7 +6232,7 @@ function CommunicationsView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           senderId: userData?.id || 'demo', senderRole: userData?.role || 'SECRETARY',
-          schoolId: userData?.schoolId || 'demo', type, title, content, targetType,
+          schoolId: getActiveSchoolId() || 'demo', type, title, content, targetType,
           sentToApp: app, sentToWhatsapp: whatsapp, scope: scope || undefined,
         }),
       })
@@ -6214,7 +6241,7 @@ function CommunicationsView() {
         if (created?.warning) toast.warning(created.warning, { duration: 6000 })
         else toast.success('Communication envoyée!')
         setTitle(''); setContent('')
-        const json = await (await authFetch(`/api/communications?limit=20${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)).json()
+        const json = await (await authFetch(`/api/communications?limit=20${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}`)).json()
         setComms(json.data || [])
         setTotalUsers(json.totalUsers || 0)
       }
@@ -6230,7 +6257,7 @@ function CommunicationsView() {
       })
       if (res.ok) {
         toast.success(action === 'approve' ? 'Communication approuvée !' : 'Communication rejetée')
-        const json = await (await authFetch(`/api/communications?limit=20${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)).json()
+        const json = await (await authFetch(`/api/communications?limit=20${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}`)).json()
         setComms(json.data || [])
         setTotalUsers(json.totalUsers || 0)
       }
@@ -6515,10 +6542,10 @@ function HomeworkView() {
   }, [highlightedId])
 
   useEffect(() => {
-    if (isParent && userData?.schoolId) {
-      authFetch(`/api/schools/${userData.schoolId}`).then(r => r.json()).then(j => { if (j.data) setSchoolData(j.data) }).catch(() => {})
+    if (isParent && getActiveSchoolId()) {
+      authFetch(`/api/schools/${getActiveSchoolId()}`).then(r => r.json()).then(j => { if (j.data) setSchoolData(j.data) }).catch(() => {})
     }
-  }, [isParent, userData?.schoolId])
+  }, [isParent, getActiveSchoolId()])
 
   // Auto-fill subject from teacher's assignments
   useEffect(() => {
@@ -6545,16 +6572,16 @@ function HomeworkView() {
   useEffect(() => {
     if (isParent && userData?.id) {
       authFetch(`/api/homework?parentId=${userData.id}&limit=30`).then(r => r.json()).then(j => { setHomework(j.data || []); setTotalUsers(j.totalUsers || 0); setLoading(false) }).catch(() => setLoading(false))
-    } else if (userData?.schoolId) {
-      authFetch(`/api/homework?schoolId=${userData.schoolId}&limit=30`).then(r => r.json()).then(j => { setHomework(j.data || []); setTotalUsers(j.totalUsers || 0); setLoading(false) }).catch(() => setLoading(false))
+    } else if (getActiveSchoolId()) {
+      authFetch(`/api/homework?schoolId=${getActiveSchoolId()}&limit=30`).then(r => r.json()).then(j => { setHomework(j.data || []); setTotalUsers(j.totalUsers || 0); setLoading(false) }).catch(() => setLoading(false))
     } else {
       authFetch('/api/homework?limit=30').then(r => r.json()).then(j => { setHomework(j.data || []); setTotalUsers(j.totalUsers || 0); setLoading(false) }).catch(() => setLoading(false))
     }
-  }, [isParent, userData?.id, userData?.schoolId])
+  }, [isParent, userData?.id, getActiveSchoolId()])
 
   useEffect(() => {
-    if (isTeacher && userData?.schoolId) {
-      authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`).then(r => r.json()).then(j => {
+    if (isTeacher && getActiveSchoolId()) {
+      authFetch(`/api/classes?limit=50&schoolId=${getActiveSchoolId()}`).then(r => r.json()).then(j => {
         const allClasses = j.data || []
         if (teacherAssignments.length > 0) {
           const assignedClassIds = [...new Set(teacherAssignments.map(a => a.classId))]
@@ -6574,7 +6601,7 @@ function HomeworkView() {
         }
       }).catch(() => {})
     }
-  }, [isTeacher, userData?.schoolId, teacherAssignments])
+  }, [isTeacher, getActiveSchoolId() ?? null, teacherAssignments])
 
   async function handleHomeworkFileUpload(file: File) {
     const allowed = ['text/plain', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
@@ -6598,7 +6625,7 @@ function HomeworkView() {
   }
 
   async function handleAddHomework() {
-    if (!hwTitle || !hwSubject || !hwClassId || !hwDueDate || !userData?.schoolId) {
+    if (!hwTitle || !hwSubject || !hwClassId || !hwDueDate || !getActiveSchoolId()) {
       toast.error('Veuillez remplir tous les champs obligatoires')
       return
     }
@@ -6616,7 +6643,7 @@ function HomeworkView() {
           teacherId: userData?.id,
           isTitulaire: userData?.isTitulaire || false,
           dueDate: hwDueDate,
-          schoolId: userData.schoolId,
+          schoolId: getActiveSchoolId(),
           attachmentUrl: hwAttachmentUrl || null,
         }),
       })
@@ -6626,7 +6653,7 @@ function HomeworkView() {
         setHwTitle(''); setHwDesc(''); setHwClassId(''); setHwDueDate('')
         // Don't reset hwSubject - keep it for the teacher
         // Refresh
-        authFetch(`/api/homework?schoolId=${userData.schoolId}&limit=30`).then(r => r.json()).then(j => setHomework(j.data || [])).catch(() => {})
+        authFetch(`/api/homework?schoolId=${getActiveSchoolId()}&limit=30`).then(r => r.json()).then(j => setHomework(j.data || [])).catch(() => {})
       } else {
         toast.error('Erreur lors de l\'ajout')
       }
@@ -6965,10 +6992,10 @@ function ClassPassingView() {
   }, [tierOk, router])
 
   const loadClassPassing = useCallback(async () => {
-    if (!userData?.schoolId) return
+    if (!getActiveSchoolId()) return
     setLoading(true)
     try {
-      const res = await authFetch(`/api/class-passing?schoolId=${userData.schoolId}`)
+      const res = await authFetch(`/api/class-passing?schoolId=${getActiveSchoolId()}`)
       const j = await res.json()
       if (res.ok) {
         setStudents(j.data || [])
@@ -6984,20 +7011,20 @@ function ClassPassingView() {
       }
     } catch { toast.error('Erreur réseau') }
     finally { setLoading(false) }
-  }, [userData?.schoolId])
+  }, [getActiveSchoolId()])
 
   useEffect(() => { loadClassPassing() }, [loadClassPassing])
 
   const loadRepHistory = useCallback(async () => {
-    if (!userData?.schoolId) return
+    if (!getActiveSchoolId()) return
     setRepHistoryLoading(true)
     try {
-      const res = await authFetch(`/api/class-passing/repechage?schoolId=${userData.schoolId}`)
+      const res = await authFetch(`/api/class-passing/repechage?schoolId=${getActiveSchoolId()}`)
       const j = await res.json()
       if (res.ok) setRepHistory(j.data || [])
     } catch { /* silencieux */ }
     finally { setRepHistoryLoading(false) }
-  }, [userData?.schoolId])
+  }, [getActiveSchoolId()])
 
   useEffect(() => { if (tab === 'repechage') loadRepHistory() }, [tab, loadRepHistory])
 
@@ -7027,7 +7054,7 @@ function ClassPassingView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentId: repStudent.id,
-          schoolId: userData?.schoolId,
+          schoolId: getActiveSchoolId() ?? null,
           subjects,
           examDate: repDate || undefined,
           note: repNote || undefined,
@@ -7216,7 +7243,7 @@ function ClassPassingView() {
                         if (!decision || decision === 'PENDING') { toast.error('Sélectionnez une décision'); return }
                         setSavingId(s.id)
                         try {
-                          const res = await authFetch('/api/report-cards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentId: s.id, decision, trimester: 'T3', schoolId: userData?.schoolId }) })
+                          const res = await authFetch('/api/report-cards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentId: s.id, decision, trimester: 'T3', schoolId: getActiveSchoolId() }) })
                           if (res.ok) toast.success('Décision enregistrée — admins & parents notifiés')
                           else toast.error('Erreur lors de l\'enregistrement')
                         } catch { toast.error('Erreur réseau') }
@@ -7393,7 +7420,7 @@ function BulletinView() {
       params.set('parentId', userData.id)
       if (selectedStudentId) { params.delete('parentId'); params.set('studentId', selectedStudentId) }
     } else {
-      if (userData?.schoolId) params.set('schoolId', userData.schoolId)
+      const schoolId = getActiveSchoolId(); if (schoolId) params.set('schoolId', schoolId)
     }
     authFetch(`/api/grades?${params}`).then(r => r.json()).then(j => {
       const list = j.data || []
@@ -7408,7 +7435,7 @@ function BulletinView() {
       } else if (!resolvedBulletinNotifs.has(hid)) {
         resolvedBulletinNotifs.add(hid)
         setTimeout(() => resolvedBulletinNotifs.delete(hid), 15000)
-        const scope = isParent && userData?.id ? `parentId=${userData.id}` : userData?.schoolId ? `schoolId=${userData.schoolId}` : ''
+        const scope = isParent && userData?.id ? `parentId=${userData.id}` : getActiveSchoolId() ? `schoolId=${getActiveSchoolId()}` : ''
         authFetch(`/api/grades?${scope}&limit=200`).then(r => r.json()).then(j2 => {
           const found = (j2.data || []).find((g: GradeData) => g.studentId === hid)
           if (found) {
@@ -7418,13 +7445,13 @@ function BulletinView() {
         }).catch(() => {})
       }
     }).catch(() => setLoading(false))
-  }, [selectedTrimester, userData?.schoolId, userData?.id, isParent, selectedStudentId])
+  }, [selectedTrimester, getActiveSchoolId() ?? null, userData?.id, isParent, selectedStudentId])
 
   useEffect(() => {
     const params = new URLSearchParams()
-    if (userData?.schoolId) params.set('schoolId', userData.schoolId)
+    const schoolId = getActiveSchoolId(); if (schoolId) params.set('schoolId', schoolId)
     authFetch(`/api/classes?${params}`).then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
-  }, [userData?.schoolId])
+  }, [getActiveSchoolId()])
 
   // Enfant ciblé depuis le dashboard parent (puce « Bulletin ») : présélection directe
   useEffect(() => {
@@ -7440,7 +7467,7 @@ function BulletinView() {
     if (studentSearch.length < 2) return
     const timer = setTimeout(() => {
       setStudentSearchLoading(true)
-      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
+      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}`)
         .then(r => r.json())
         .then(j => {
           setStudentSuggestions((j.data || []).map((s: StudentData) => ({
@@ -7451,7 +7478,7 @@ function BulletinView() {
         .catch(() => setStudentSearchLoading(false))
     }, 300)
     return () => { clearTimeout(timer); setStudentSearchLoading(false) }
-  }, [studentSearch, userData?.schoolId])
+  }, [studentSearch, getActiveSchoolId()])
 
   const classMap = useMemo(() => Object.fromEntries(classes.map(c => [c.id, c])), [classes])
 
@@ -7488,7 +7515,7 @@ function BulletinView() {
 
   const handleDownload = async (id: string, lastName?: string) => {
     try {
-      const res = await authFetch(`/api/bulletins/${id}?trimester=${selectedTrimester}${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
+      const res = await authFetch(`/api/bulletins/${id}?trimester=${selectedTrimester}${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}`)
       if (!res.ok) { toast.error('Erreur lors du téléchargement'); return }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
@@ -7506,7 +7533,7 @@ function BulletinView() {
       const res = await authFetch(`/api/bulletins/${id}/whatsapp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trimester: selectedTrimester, schoolId: userData?.schoolId || undefined }),
+        body: JSON.stringify({ trimester: selectedTrimester, schoolId: getActiveSchoolId() || undefined }),
       })
       const json = await res.json()
       if (res.ok && json.data?.sent) {
@@ -7691,7 +7718,7 @@ function ConvocationView() {
     if (studentSearch.length < 2) return
     const timer = setTimeout(() => {
       setStudentSearchLoading(true)
-      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&schoolId=${userData?.schoolId || ''}&limit=8`)
+      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&schoolId=${getActiveSchoolId() || ''}&limit=8`)
         .then(r => r.json())
         .then(j => {
           setStudentSuggestions((j.data || []).map((s: StudentData) => ({
@@ -7702,12 +7729,12 @@ function ConvocationView() {
         .catch(() => setStudentSearchLoading(false))
     }, 300)
     return () => { clearTimeout(timer); setStudentSearchLoading(false) }
-  }, [studentSearch, userData?.schoolId])
+  }, [studentSearch, getActiveSchoolId()])
 
   // Load existing convocations
   useEffect(() => {
-    if (userData?.schoolId) {
-      authFetch(`/api/convocations?schoolId=${userData.schoolId}&limit=30`)
+    if (getActiveSchoolId()) {
+      authFetch(`/api/convocations?schoolId=${getActiveSchoolId()}&limit=30`)
         .then(r => r.json())
         .then(j => { setConvocations(j.data || []); setTotalUsers(j.totalUsers || 0); setLoadingConvocations(false) })
         .catch(() => setLoadingConvocations(false))
@@ -7719,13 +7746,13 @@ function ConvocationView() {
     } else {
       queueMicrotask(() => setLoadingConvocations(false))
     }
-  }, [userData?.schoolId, isParent, userData?.id])
+  }, [getActiveSchoolId() ?? null, isParent, userData?.id])
 
   async function handleSendConvocation() {
     if (!selectedStudentId) { toast.error('Veuillez sélectionner un élève'); return }
     if (!motif) { toast.error('Veuillez entrer le motif'); return }
     if (!date) { toast.error('Veuillez entrer la date'); return }
-    if (!userData?.schoolId) { toast.error('Erreur: école non trouvée'); return }
+    if (!getActiveSchoolId()) { toast.error('Erreur: école non trouvée'); return }
     setSubmitting(true)
     try {
       let parentId = null
@@ -7743,8 +7770,8 @@ function ConvocationView() {
           parentId,
           motif,
           date,
-          schoolId: userData.schoolId,
-          createdBy: userData.id,
+          schoolId: getActiveSchoolId(),
+          createdBy: userData?.id ?? '',
         }),
       })
       if (res.ok) {
@@ -7753,7 +7780,7 @@ function ConvocationView() {
         setDate('')
         setSelectedStudentId(null)
         setStudentSearch('')
-        const listRes = await authFetch(`/api/convocations?schoolId=${userData.schoolId}&limit=30`)
+        const listRes = await authFetch(`/api/convocations?schoolId=${getActiveSchoolId()}&limit=30`)
         const listJson = await listRes.json()
         setConvocations(listJson.data || [])
         setTotalUsers(listJson.totalUsers || 0)
@@ -7806,7 +7833,7 @@ function ConvocationView() {
         toast.success('Convocation reportée !')
         setRescheduleModal(null)
         setRescheduleDate('')
-        const listRes = await authFetch(`/api/convocations?schoolId=${userData?.schoolId}&limit=30`)
+        const listRes = await authFetch(`/api/convocations?schoolId=${getActiveSchoolId() || ''}&limit=30`)
         const listJson = await listRes.json()
         setConvocations(listJson.data || [])
       } else {
@@ -8072,20 +8099,20 @@ function SchoolReviewsView() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    if (userData?.schoolId) {
-      authFetch(`/api/schools/${userData.schoolId}`)
+    if (getActiveSchoolId()) {
+      authFetch(`/api/schools/${getActiveSchoolId()}`)
         .then(r => r.json())
         .then(j => { if (j.data) setSchool(j.data); setLoading(false) })
         .catch(() => setLoading(false))
-      authFetch(`/api/school-comments?schoolId=${userData.schoolId}`)
+      authFetch(`/api/school-comments?schoolId=${getActiveSchoolId()}`)
         .then(r => r.json())
         .then(j => setComments(j.data || []))
         .catch(() => {})
     }
-  }, [userData?.schoolId])
+  }, [getActiveSchoolId()])
 
   async function handleSubmitReview() {
-    if (!userData?.schoolId || rating === 0 || !comment.trim()) {
+    if (!getActiveSchoolId() || rating === 0 || !comment.trim()) {
       toast.error('Veuillez donner une note et un commentaire')
       return
     }
@@ -8095,7 +8122,7 @@ function SchoolReviewsView() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          schoolId: userData.schoolId,
+          schoolId: getActiveSchoolId(),
           authorName: userData?.name || 'Parent',
           authorEmail: (userData as any)?.email || '',
           rating,
@@ -8339,7 +8366,7 @@ function SubscriptionUpgradeView() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          schoolId: userData?.schoolId,
+          schoolId: getActiveSchoolId() ?? null,
           gatewayType: selectedGateway,
           amount: tier.price,
           description: `Abonnement ${tier.name} - ${userData?.schoolName || 'EduGest'}`,
@@ -8663,13 +8690,40 @@ export default function Home() {
         })
         .catch(() => {})
     }
-  }, [userData?.schoolId])
+  }, [getActiveSchoolId()])
+
+  // Resynchronisation du profil au démarrage : la session stockée en
+  // localStorage peut être périmée (rattachement école d'un SUPER_ADMIN_GLOBAL
+  // révoqué côté serveur, changement d'école, etc.). Le serveur fait foi.
+  const profileResynced = useRef(false)
+  useEffect(() => {
+    if (!userData || profileResynced.current) return
+    profileResynced.current = true
+    authFetch('/api/profile')
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => {
+        const p = j?.data
+        if (!p) return
+        const current = useEduGestStore.getState().userData
+        if (!current || current.id !== p.id) return // session changée entre-temps
+        const patch: Partial<UserData> = {
+          schoolId: p.schoolId ?? null,
+          schoolName: p.school?.name || (current.role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'EduGest'),
+          schoolLogo: p.school?.logo ?? null,
+          profileImageUrl: p.profileImageUrl ?? null,
+        }
+        if (p.school?.subscriptionTier) patch.subscriptionTier = p.school.subscriptionTier
+        if (p.name) patch.name = p.name
+        setUserData({ ...current, ...patch })
+      })
+      .catch(() => {})
+  }, [!!userData])
 
   // Devise d'affichage globale : charge la config monnaie de l'école
   // (base + affichage + taux) pour convertir tous les montants affichés.
   useEffect(() => {
-    if (!userData?.schoolId) return
-    authFetch(`/api/currency?schoolId=${userData.schoolId}`)
+    if (!getActiveSchoolId()) return
+    authFetch(`/api/currency?schoolId=${getActiveSchoolId()}`)
       .then(r => r.json())
       .then(json => {
         const c = json?.data?.config
@@ -8689,7 +8743,7 @@ export default function Home() {
         })
       })
       .catch(() => {})
-  }, [userData?.schoolId])
+  }, [getActiveSchoolId()])
 
   // Report device fingerprint once when authenticated (best-effort)
   useEffect(() => {

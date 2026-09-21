@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         createdAt: true,
         updatedAt: true,
         school: {
-          select: { id: true, name: true, shortName: true, city: true, country: true },
+          select: { id: true, name: true, shortName: true, city: true, country: true, logo: true, subscriptionTier: true },
         },
       },
     });
@@ -97,7 +97,7 @@ export async function PUT(request: NextRequest) {
         profileImageUrl: true,
         isActive: true,
         school: {
-          select: { id: true, name: true, shortName: true, city: true, country: true },
+          select: { id: true, name: true, shortName: true, city: true, country: true, logo: true, subscriptionTier: true },
         },
       },
     });

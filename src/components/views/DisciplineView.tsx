@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { useEduGestStore, authFetch } from '@/lib/store'
+import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
 import type { DisciplineData, StudentData, UserRole } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT, DANGER, WARNING, SUCCESS, SUCCESS_SOFT } from '@/lib/constants'
 import { getInitials, formatDate } from '@/lib/helpers'
@@ -102,12 +102,12 @@ export default function DisciplineView() {
   const [savingAttendance, setSavingAttendance] = useState(false)
 
   useEffect(() => {
-    if (!canTakeAttendance || !userData?.schoolId) return
-    authFetch(`/api/classes?schoolId=${userData.schoolId}&limit=100`)
+    if (!canTakeAttendance || !getActiveSchoolId()) return
+    authFetch(`/api/classes?schoolId=${getActiveSchoolId()}&limit=100`)
       .then(r => r.json())
       .then(j => setAttendanceClasses(j.data || []))
       .catch(() => {})
-  }, [canTakeAttendance, userData?.schoolId])
+  }, [canTakeAttendance, getActiveSchoolId()])
 
   useEffect(() => {
     if (!canTakeAttendance || !attendanceClassId || !attendanceDate) return
@@ -173,20 +173,20 @@ export default function DisciplineView() {
   }, [isParent, userData?.id])
 
   useEffect(() => {
-    if (isDisciplineRole && userData?.schoolId) {
+    if (isDisciplineRole && getActiveSchoolId()) {
       // Le scoping cycle est fait côté SERVEUR (/api/students impose la section
       // selon le rôle DISCIPLINE_* — plus aucun filtre client devinable par
       // regex : chaque compte ne reçoit QUE les élèves de SON cycle).
-      authFetch(`/api/students?limit=200&schoolId=${userData.schoolId}`)
+      authFetch(`/api/students?limit=200&schoolId=${getActiveSchoolId()}`)
         .then(r => r.json())
         .then(j => setSectionStudents(j.data || []))
         .catch(() => {})
     }
-  }, [isDisciplineRole, userData?.schoolId])
+  }, [isDisciplineRole, getActiveSchoolId()])
 
   useEffect(() => {
-    if (isDisciplineRole && userData?.schoolId) {
-      authFetch(`/api/convocations?schoolId=${userData.schoolId}&limit=50`)
+    if (isDisciplineRole && getActiveSchoolId()) {
+      authFetch(`/api/convocations?schoolId=${getActiveSchoolId()}&limit=50`)
         .then(r => r.json())
         .then(j => setConvocations(j.data || []))
         .catch(() => {})
@@ -197,7 +197,7 @@ export default function DisciplineView() {
         .then(j => setConvocations(j.data || []))
         .catch(() => {})
     }
-  }, [isDisciplineRole, isParent, userData?.schoolId, userData?.id])
+  }, [isDisciplineRole, isParent, getActiveSchoolId(), userData?.id])
 
   useEffect(() => {
     if (isParent && userData?.id) {
@@ -320,13 +320,13 @@ export default function DisciplineView() {
     if (isDisciplineRole) {
       if (selectedStudentId) {
         params.set('studentId', selectedStudentId)
-      } else if (userData?.schoolId) {
-        params.set('schoolId', userData.schoolId)
+      } else if (getActiveSchoolId()) {
+        params.set('schoolId', getActiveSchoolId() || '')
       }
     }
     authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { if (!cancelled) { setRecords(j.data || []); setLoading(false); scrollToHighlight() } }).catch(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [tab, isParent, userData?.id, selectedChildId, isDisciplineRole, selectedStudentId, userData?.schoolId, allDisciplineRecords])
+  }, [tab, isParent, userData?.id, selectedChildId, isDisciplineRole, selectedStudentId, getActiveSchoolId(), allDisciplineRecords])
 
   const displayRecords = useMemo(() => {
     if (tab !== 'WHITELIST') return records
@@ -370,13 +370,13 @@ export default function DisciplineView() {
         points: 0,
         listType: 'WHITELIST',
         status: 'ACTIVE',
-        schoolId: (s as any).schoolId || userData?.schoolId || '',
+        schoolId: (s as any).schoolId || getActiveSchoolId() || '',
         createdAt: new Date().toISOString(),
       }))
       return [...records, ...cleanRecords]
     }
     return records
-  }, [tab, records, sectionStudents, isDisciplineRole, isParent, myChildren, selectedChildId, userData?.schoolId])
+  }, [tab, records, sectionStudents, isDisciplineRole, isParent, myChildren, selectedChildId, getActiveSchoolId()])
 
   const selectedChildName = selectedChildId ? myChildren.find(c => c.id === selectedChildId) : null
   const selectedStudentName = selectedStudentId ? sectionStudents.find(s => s.id === selectedStudentId) : null
@@ -387,7 +387,7 @@ export default function DisciplineView() {
   if (!hasAccess) return null
 
   async function handleAddSanction() {
-    if (!selectedStudentId || !sanctionTitle || !sanctionDesc || !userData?.schoolId) {
+    if (!selectedStudentId || !sanctionTitle || !sanctionDesc || !getActiveSchoolId()) {
       toast.error('Veuillez remplir tous les champs')
       return
     }
@@ -404,7 +404,7 @@ export default function DisciplineView() {
           description: sanctionDesc,
           points: parseInt(sanctionPoints) || 0,
           listType: sanctionListType,
-          schoolId: userData.schoolId,
+          schoolId: getActiveSchoolId(),
         }),
       })
       if (res.ok) {
@@ -429,7 +429,7 @@ export default function DisciplineView() {
   }
 
   async function handleAddConvocation() {
-    if (!selectedStudentId || !convocationMotif || !convocationDate || !userData?.schoolId) {
+    if (!selectedStudentId || !convocationMotif || !convocationDate || !getActiveSchoolId()) {
       toast.error('Veuillez remplir tous les champs')
       return
     }
@@ -444,8 +444,8 @@ export default function DisciplineView() {
           parentId: (student as any)?.parentId || null,
           motif: convocationMotif,
           date: convocationDate,
-          schoolId: userData.schoolId,
-          createdBy: userData.id,
+          schoolId: getActiveSchoolId(),
+          createdBy: userData?.id ?? '',
         }),
       })
       if (res.ok) {
@@ -453,7 +453,7 @@ export default function DisciplineView() {
         setShowConvocationForm(false)
         setConvocationMotif('')
         setConvocationDate('')
-        authFetch(`/api/convocations?schoolId=${userData.schoolId}&limit=50`)
+        authFetch(`/api/convocations?schoolId=${getActiveSchoolId()}&limit=50`)
           .then(r => r.json())
           .then(j => setConvocations(j.data || []))
           .catch(() => {})
@@ -514,7 +514,7 @@ export default function DisciplineView() {
       const res = await authFetch('/api/discipline/classify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId, schoolId: userData?.schoolId })
+        body: JSON.stringify({ studentId, schoolId: getActiveSchoolId() })
       })
       const json = await res.json()
       if (json.data) {
@@ -525,7 +525,7 @@ export default function DisciplineView() {
         params.set('limit', '50')
         if (isDisciplineRole) {
           if (selectedStudentId) params.set('studentId', selectedStudentId)
-          else if (userData?.schoolId) params.set('schoolId', userData.schoolId)
+          else if (getActiveSchoolId()) params.set('schoolId', getActiveSchoolId() || '')
         }
         if (isParent && userData?.id) {
           if (selectedChildId) params.set('studentId', selectedChildId)

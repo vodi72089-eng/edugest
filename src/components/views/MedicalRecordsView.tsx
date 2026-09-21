@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useEduGestStore, authFetch } from '@/lib/store';
+import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store';
 import { hasFeatureAccess } from '@/lib/subscription';
 import {
   FileText, Plus, Search, Download, HeartPulse, FileHeart, ClipboardList,
@@ -81,8 +81,8 @@ export default function MedicalRecordsView() {
         authFetch('/api/students?limit=1000'),
         // L'API classes exige un schoolId : pour le super admin (sans école) on
         // saute l'appel plutôt que de déclencher un 403 systématique.
-        userData?.schoolId
-          ? authFetch(`/api/classes?limit=200&schoolId=${userData.schoolId}`)
+        getActiveSchoolId()
+          ? authFetch(`/api/classes?limit=200&schoolId=${getActiveSchoolId()}`)
           : Promise.resolve(null),
       ]);
       if (docsRes.ok) setDocs((await docsRes.json()).data || []);
@@ -233,7 +233,7 @@ export default function MedicalRecordsView() {
         toast.success(`Fiche de santé créée — code ${json.data.docCode}`);
       } else {
         // REGISTRE : filtrer les visites de la période/classe et figer le contenu
-        const resV = await authFetch(`/api/medical/visits?schoolId=${userData?.schoolId || ''}`);
+        const resV = await authFetch(`/api/medical/visits?schoolId=${getActiveSchoolId() || ''}`);
         if (!resV.ok) throw new Error('Impossible de charger les visites');
         const jsonV = await resV.json();
         const allVisits: any[] = jsonV.data || [];

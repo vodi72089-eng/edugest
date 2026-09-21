@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import StudentAvatar from '@/components/ui/StudentAvatar'
-import { authFetch, useEduGestStore } from '@/lib/store'
+import { authFetch, useEduGestStore, getActiveSchoolId } from '@/lib/store'
 import {
   ACCENT,
   GOLD,
@@ -131,7 +131,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: LucideIcon; label
 
 export default function ParentsView() {
   const userData = useEduGestStore((s) => s.userData)
-  const schoolId = userData?.schoolId ?? ''
+  const schoolId = getActiveSchoolId() ?? ''
   const isSuperAdmin = userData?.role === 'SUPER_ADMIN_GLOBAL'
 
   const [parents, setParents] = useState<ParentItem[]>([])

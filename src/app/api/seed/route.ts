@@ -243,8 +243,9 @@ export async function GET(request: NextRequest) {
     }
 
     // ----- Users for Lumière -----
+    // NB : le SUPER_ADMIN_GLOBAL n'est PAS ici — l'admin de la plateforme
+    // n'est rattaché à aucune école (schoolId = null), il est créé plus bas.
     const usersData = [
-      { name: 'Admin Global', email: 'admin@edugest.app', phone: '+243810000001', role: 'SUPER_ADMIN_GLOBAL' },
       { name: 'Claudine Ngoie', email: 'claudine@lumiere.cd', phone: '+243810000010', role: 'SECRETARY' },
       { name: 'Joseph Kabongo', email: 'joseph@lumiere.cd', phone: '+243810000011', role: 'CASHIER' },
       { name: 'Directrice Maternelle', email: 'dir.maternelle@lumiere.cd', phone: '+243810000012', role: 'DIRECTION_MATERNELLE' },
@@ -275,6 +276,21 @@ export async function GET(request: NextRequest) {
       lumiereUsers.push({ id: createdUser.id, role: u.role, name: u.name, email: u.email });
       counts.users++;
     }
+
+    // ----- Admin plateforme (HORS de toute école) -----
+    // schoolId = null : le SUPER_ADMIN_GLOBAL gère toutes les écoles depuis la
+    // plateforme, il n'est l'admin d'aucune d'entre elles.
+    await db.user.create({
+      data: {
+        name: 'Admin Global',
+        email: 'admin@edugest.app',
+        phone: '+243810000001',
+        password: passwordHash,
+        role: 'SUPER_ADMIN_GLOBAL',
+        schoolId: null,
+      } as any,
+    }) as any;
+    counts.users++;
 
     // ----- Admins d'école (un par école) -----
     // Permettent de tester les abonnements, notamment la demande de passage

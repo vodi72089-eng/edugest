@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useEduGestStore, authFetch } from '@/lib/store'
+import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
 import type { SchoolData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
@@ -136,8 +136,8 @@ function SettingsViewInner() {
   }
 
   useEffect(() => {
-    if (userData?.schoolId) {
-      authFetch(`/api/schools/${userData.schoolId}`)
+    if (getActiveSchoolId()) {
+      authFetch(`/api/schools/${getActiveSchoolId()}`)
         .then(r => r.json())
         .then(j => {
           const s = j.data
@@ -166,7 +166,7 @@ function SettingsViewInner() {
         .catch(() => setLoading(false))
       // Fetch pending comments (modérateurs uniquement — sinon 403)
       if (canModerateComments) {
-        authFetch(`/api/school-comments?schoolId=${userData.schoolId}&approved=false`)
+        authFetch(`/api/school-comments?schoolId=${getActiveSchoolId()}&approved=false`)
           .then(r => r.json())
           .then(j => setComments(j.data || []))
           .catch(() => {})
@@ -179,17 +179,17 @@ function SettingsViewInner() {
           .catch(() => {})
       }
     }
-  }, [userData?.schoolId])
+  }, [getActiveSchoolId()])
 
   useEffect(() => {
-    if (userData?.schoolId) {
-      authFetch(`/api/school-fees?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setFees(j.data || []))
-      authFetch(`/api/classes?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setClasses(j.data || []))
+    if (getActiveSchoolId()) {
+      authFetch(`/api/school-fees?schoolId=${getActiveSchoolId()}`).then(r => r.json()).then(j => setFees(j.data || []))
+      authFetch(`/api/classes?schoolId=${getActiveSchoolId()}`).then(r => r.json()).then(j => setClasses(j.data || []))
     }
-  }, [userData?.schoolId])
+  }, [getActiveSchoolId()])
 
   async function handleSave() {
-    if (!userData?.schoolId) return
+    if (!getActiveSchoolId()) return
     setSaving(true)
     try {
       if (!isAdmin) {
@@ -220,7 +220,7 @@ function SettingsViewInner() {
         }
       } else {
         // Admin: save directly
-        const res = await authFetch(`/api/schools/${userData.schoolId}`, {
+        const res = await authFetch(`/api/schools/${getActiveSchoolId()}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -256,7 +256,7 @@ function SettingsViewInner() {
       if (uploadRes.ok) {
         const uploadJson = await uploadRes.json()
         const url = uploadJson.url
-        const res = await authFetch(`/api/schools/${userData?.schoolId}`, {
+        const res = await authFetch(`/api/schools/${getActiveSchoolId()}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ [type]: url }),
@@ -285,7 +285,7 @@ function SettingsViewInner() {
       if (decision === 'APPROVED' && approval.changeType === 'school_info') {
         // school_info : application côté client (PUT école) — réservé au super admin
         const changeData = JSON.parse(approval.changeData)
-        const res = await authFetch(`/api/schools/${userData?.schoolId}`, {
+        const res = await authFetch(`/api/schools/${getActiveSchoolId()}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(changeData),
@@ -872,7 +872,7 @@ function SettingsViewInner() {
                 onClick={async () => {
                   if (!feeForm.name || !feeForm.amount) { toast.error('Nom et montant requis'); return }
                   if (!feeForm.classId) { toast.error('Veuillez choisir une classe'); return }
-                  const body = { name: feeForm.name, amount: Number(feeForm.amount), currency: feeForm.currency, trimester: feeForm.trimester, classId: feeForm.classId, schoolId: userData?.schoolId }
+                  const body = { name: feeForm.name, amount: Number(feeForm.amount), currency: feeForm.currency, trimester: feeForm.trimester, classId: feeForm.classId, schoolId: getActiveSchoolId() }
                   let res
                   if (editingFee) {
                     res = await authFetch(`/api/school-fees/${editingFee.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })

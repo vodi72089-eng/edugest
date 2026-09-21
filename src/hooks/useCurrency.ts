@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { authFetch } from '@/lib/store'
 import { SUPPORTED_CURRENCIES } from '@/lib/exchange-rate'
 
-export function useCurrency(schoolId?: string) {
+export function useCurrency(schoolId?: string | null) {
   const [displayCurrency, setDisplayCurrency] = useState<string>('CDF')
   const [rates, setRates] = useState<Record<string, number>>({ CDF: 1 })
   const [loading, setLoading] = useState(false)

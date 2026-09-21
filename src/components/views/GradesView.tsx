@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { useEduGestStore, authFetch } from '@/lib/store'
+import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
 import type { GradeData, ClassData, StudentData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, DANGER } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
@@ -110,7 +110,7 @@ export default function GradesView() {
   }, [gradeStudentSearch, classStudents])
 
   useEffect(() => {
-    authFetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => {
+    authFetch(`/api/classes?limit=50${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}`).then(r => r.json()).then(j => {
       const allClasses = j.data || []
       if (userRole === 'HEAD_TEACHER' && userData?.id) {
         const myClass = allClasses.find((c: any) => c.headTeacherId === userData.id)
@@ -139,7 +139,7 @@ export default function GradesView() {
         .then(j => setMyChildren(j.data || []))
         .catch(() => {})
     }
-  }, [userData?.schoolId, isParent, userData?.id, isTeacher, teacherClassIds, userRole])
+  }, [getActiveSchoolId(), isParent, userData?.id, isTeacher, teacherClassIds, userRole])
 
   useEffect(() => {
     // Enfant ciblé depuis le dashboard parent (puce « Notes ») : présélection directe.
@@ -206,7 +206,7 @@ export default function GradesView() {
   }
 
   async function handleAddGrade() {
-    if (!gradeStudentId || !gradeSubjectId || !gradeClassId || !gradeScore || !userData?.schoolId) {
+    if (!gradeStudentId || !gradeSubjectId || !gradeClassId || !gradeScore || !getActiveSchoolId()) {
       toast.error('Veuillez remplir tous les champs obligatoires')
       return
     }
@@ -227,7 +227,7 @@ export default function GradesView() {
           trimester: gradeTrimester,
           score,
           comment: gradeComment || null,
-          schoolId: userData.schoolId,
+          schoolId: getActiveSchoolId(),
         }),
       })
       if (res.ok) {

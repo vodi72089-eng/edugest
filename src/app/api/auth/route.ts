@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import { createToken, getClientIp, getUserAgentFromRequest, checkRateLimit } from '@/lib/auth';
 import { checkSubscription } from '@/lib/subscription';
 import { notify } from '@/lib/notify';
+import { repairPlatformAdminIntegrity } from '@/lib/role-repair';
 
 const MOBILE_ELIGIBLE_TIERS = new Set(['PREMIUM', 'ENTERPRISE', 'CORPORATE']);
 
@@ -162,6 +163,22 @@ export async function POST(request: NextRequest) {
         payload.lockedUntil = new Date(lock.lockedUntil).toISOString();
       }
       return NextResponse.json(payload, { status: 401 });
+    }
+
+    // ── Integrity repair : roles administratifs ─────────────────────────
+    // Le SUPER_ADMIN_GLOBAL est l'admin de la PLATEFORME : il ne doit être
+    // rattaché à aucune école (bug historique des anciens seeds — il passait
+    // pour l'admin de la 1re école). Réparation idempotente + garantie que
+    // chaque école dispose d'un admin d'école (SCHOOL_ADMIN). Non bloquant.
+    if (user.role === 'SUPER_ADMIN_GLOBAL') {
+      try {
+        await repairPlatformAdminIntegrity();
+        // Relecture : schoolId (et compte) peuvent avoir été corrigés juste au-dessus.
+        const fresh = await db.user.findUnique({ where: { id: user.id } });
+        if (fresh) user = fresh;
+      } catch (e) {
+        console.error('[auth] réparation rôles (non bloquante) :', (e as Error)?.message);
+      }
     }
 
     // L'application mobile est une offre Premium : cette règle est appliquée

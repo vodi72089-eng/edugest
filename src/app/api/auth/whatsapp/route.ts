@@ -149,10 +149,12 @@ export async function POST(request: NextRequest) {
       ip: getClientIp(request),
     });
     const { password: _, ...userData } = user;
-    const school = await db.school.findUnique({
-      where: { id: user.schoolId },
-      select: { id: true, name: true, shortName: true, city: true, country: true },
-    });
+    const school = user.schoolId
+      ? await db.school.findUnique({
+          where: { id: user.schoolId },
+          select: { id: true, name: true, shortName: true, city: true, country: true },
+        })
+      : null;
 
     return NextResponse.json({ data: { ...userData, token: sessionToken, school } });
   } catch (error) {

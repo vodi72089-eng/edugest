@@ -197,7 +197,8 @@ export interface UserData {
   id: string
   name: string
   role: UserRole
-  schoolId: string
+  // null = admin plateforme (SUPER_ADMIN_GLOBAL) : rattaché à aucune école
+  schoolId: string | null
   schoolName: string
   schoolLogo?: string | null
   schoolDesign?: { primary: string; accent: string; gold: string } | null
@@ -221,6 +222,13 @@ interface EduGestStore {
 
   selectedSchoolId: string | null
   setSelectedSchoolId: (id: string | null) => void
+
+  // École ACTIVE pour l'admin plateforme (SUPER_ADMIN_GLOBAL) : le super
+  // admin n'appartient à aucune école — quand il parcourt une vue scolaire
+  // (élèves, paiements, discipline…), il choisit explicitement l'école de
+  // contexte. Toujours null pour les autres rôles (ils utilisent userData.schoolId).
+  activeSchoolId: string | null
+  setActiveSchoolId: (id: string | null) => void
 
   selectedStudentId: string | null
   setSelectedStudentId: (id: string | null) => void
@@ -255,6 +263,21 @@ function getInitialState() {
   // Always return 'home' (landing publique restaurée) on both server and client
   // to avoid hydration mismatch. Session is restored in a useEffect after mount.
   return { currentView: 'home' as ViewType, userRole: null as UserRole | null, userData: null as UserData | null, sidebarOpen: false };
+}
+
+/**
+ * École de contexte pour les requêtes scolaires :
+ * - SUPER_ADMIN_GLOBAL → activeSchoolId (choisie explicitement, sinon null)
+ * - tous les autres rôles → leur propre école (userData.schoolId)
+ * À utiliser dans les vues à portée école — renvoie null tant que le super
+ * admin n'a pas choisi d'école (les vues affichent alors un état vide,
+ * JAMAIS les données de la 1re école par effet de bord).
+ */
+export function getActiveSchoolId(): string | null {
+  const s = useEduGestStore.getState();
+  if (!s.userData) return null;
+  if (s.userData.role === 'SUPER_ADMIN_GLOBAL') return s.activeSchoolId;
+  return s.userData.schoolId ?? null;
 }
 
 export function restoreSession() {
@@ -367,6 +390,9 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
   selectedSchoolId: null,
   setSelectedSchoolId: (id) => set({ selectedSchoolId: id }),
 
+  activeSchoolId: null,
+  setActiveSchoolId: (id) => set({ activeSchoolId: id }),
+
   selectedStudentId: null,
   setSelectedStudentId: (id) => set({ selectedStudentId: id }),
 
@@ -428,6 +454,7 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
       currentView: homeView,
       sidebarOpen: false,
       selectedSchoolId: null,
+      activeSchoolId: null,
       selectedStudentId: null,
       pendingStudentFocus: null,
       pendingPaymentStudent: null,

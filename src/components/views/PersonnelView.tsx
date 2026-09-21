@@ -12,6 +12,13 @@ import AppSelect from '@/components/ui/AppSelect'
 
 export default function PersonnelView() {
   const { userData } = useEduGestStore()
+  const isPlatformAdmin = userData?.role === 'SUPER_ADMIN_GLOBAL'
+  // L'admin PLATEFORME n'appartient à aucune école : il choisit l'école dont
+  // il veut consulter le personnel (plus jamais « admin de la 1re école »
+  // par effet de bord). Les autres rôles voient leur propre école.
+  const [platformSchools, setPlatformSchools] = useState<Array<{ id: string; name: string; shortName: string }>>([])
+  const [selectedSchoolId, setSelectedSchoolId] = useState('')
+  const effectiveSchoolId = isPlatformAdmin ? selectedSchoolId : (userData?.schoolId || '')
   const [users, setUsers] = useState<Array<{
     id: string; name: string; email: string | null; phone: string;
     role: string; isActive: boolean; profileImageUrl: string | null;
@@ -61,10 +68,10 @@ export default function PersonnelView() {
   }
 
   useEffect(() => {
-    if (assignClassId && userData?.schoolId) {
+    if (assignClassId && effectiveSchoolId) {
       authFetch(`/api/subjects?classId=${assignClassId}&limit=20`).then(r => r.json()).then(j => { setAssignSubjects(j.data || []); setAssignSubjectId('') }).catch(() => {})
     }
-  }, [assignClassId, userData?.schoolId])
+  }, [assignClassId, effectiveSchoolId])
 
   async function handleAddAssignment() {
     if (!assignmentTeacher || !assignClassId || !assignSubjectId) return
@@ -96,12 +103,13 @@ export default function PersonnelView() {
   }
 
   useEffect(() => {
-    if ((showAddModal || editingUser) && isTeacherForm && userData?.schoolId) {
-      authFetch(`/api/classes?limit=50&schoolId=${userData.schoolId}`).then(r => r.json()).then(j => setAvailableClasses(j.data || [])).catch(() => {})
+    if ((showAddModal || editingUser) && isTeacherForm && effectiveSchoolId) {
+      authFetch(`/api/classes?limit=50&schoolId=${effectiveSchoolId}`).then(r => r.json()).then(j => setAvailableClasses(j.data || [])).catch(() => {})
     }
-  }, [showAddModal, editingUser, isTeacherForm, userData?.schoolId])
+  }, [showAddModal, editingUser, isTeacherForm, effectiveSchoolId])
 
   const ROLES = [
+    { value: 'SCHOOL_ADMIN', label: 'Admin École', color: 'oklch(55% 0.13 80)' },
     { value: 'SECRETARY', label: 'Secrétaire', color: 'oklch(60% 0.13 250)' },
     { value: 'CASHIER', label: 'Caissier', color: 'oklch(72% 0.15 65)' },
     { value: 'TEACHER', label: 'Enseignant', color: 'oklch(60% 0.15 145)' },
@@ -124,27 +132,34 @@ export default function PersonnelView() {
   // liste complète — y compris Secrétaire qui n'est plus interdit en Freemium
   // par la plateforme (exclu du comptage du forfait) MAIS que l'utilisateur
   // (admin d'école) a décidé de retirer du menu de création en Freemium.
-  const isFreemium = userData?.subscriptionTier === 'FREEMIUM'
+  const isFreemium = isPlatformAdmin ? false : userData?.subscriptionTier === 'FREEMIUM'
   const availableRoles = isFreemium
     ? ROLES.filter(r => r.value === 'PARENT')
     : ROLES
 
   function loadUsers() {
+    if (!effectiveSchoolId) { setUsers([]); setLoading(false); return }
     setLoading(true)
-    const params = new URLSearchParams({ schoolId: userData?.schoolId || '', limit: '50' })
+    const params = new URLSearchParams({ schoolId: effectiveSchoolId, limit: '50' })
     if (roleFilter) params.set('role', roleFilter)
     if (search) params.set('search', search)
     authFetch(`/api/users?${params}`).then(r => r.json()).then(j => { setUsers(j.data || []); setLoading(false) }).catch(() => setLoading(false))
   }
 
-  useEffect(() => { loadUsers() }, [roleFilter, userData?.schoolId])
+  // Écoles disponibles pour l'admin plateforme (sélecteur)
+  useEffect(() => {
+    if (!isPlatformAdmin) return
+    authFetch('/api/schools?limit=100').then(r => r.json()).then(j => setPlatformSchools(j.data || [])).catch(() => {})
+  }, [isPlatformAdmin])
+
+  useEffect(() => { loadUsers() }, [roleFilter, effectiveSchoolId])
 
   // Personnel search autocomplete
   useEffect(() => {
-    if (personnelSearch.length < 2) return
+    if (personnelSearch.length < 2 || !effectiveSchoolId) return
     const timer = setTimeout(() => {
       setPersonnelSearchLoading(true)
-      const params = new URLSearchParams({ schoolId: userData?.schoolId || '', limit: '8' })
+      const params = new URLSearchParams({ schoolId: effectiveSchoolId, limit: '8' })
       if (roleFilter) params.set('role', roleFilter)
       params.set('search', personnelSearch)
       authFetch(`/api/users?${params}`)
@@ -158,7 +173,7 @@ export default function PersonnelView() {
         .catch(() => setPersonnelSearchLoading(false))
     }, 300)
     return () => { clearTimeout(timer); setPersonnelSearchLoading(false) }
-  }, [personnelSearch, roleFilter, userData?.schoolId])
+  }, [personnelSearch, roleFilter, effectiveSchoolId])
 
   async function handleAddUser(e: React.FormEvent) {
     e.preventDefault()
@@ -177,7 +192,7 @@ export default function PersonnelView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          schoolId: userData?.schoolId,
+          schoolId: effectiveSchoolId || undefined,
           subjectName: isTeacherForm ? form.subjectName : undefined,
           classNames: isTeacherForm ? form.classNames : undefined,
           isTitulaire: isTeacherForm ? form.isTitulaire : undefined,
@@ -290,9 +305,24 @@ export default function PersonnelView() {
             {formatNumber(activeUsers.length)} membres actifs · {formatNumber(inactiveUsers.length)} inactifs
           </p>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
-          <UserPlus size={14} /> Ajouter un membre
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          {isPlatformAdmin && (
+            <div className="min-w-[220px]">
+              <AppSelect
+                value={selectedSchoolId}
+                onChange={(v) => { setSelectedSchoolId(v); setSearch(''); setSelectedPersonnelId(null); setPersonnelSearch(''); setRoleFilter('') }}
+                options={[
+                  { value: '', label: '— Choisir une école —' },
+                  ...platformSchools.map(s => ({ value: s.id, label: `${s.name} (${s.shortName})` })),
+                ]}
+                placeholder="— Choisir une école —"
+              />
+            </div>
+          )}
+          <button onClick={() => setShowAddModal(true)} disabled={!effectiveSchoolId} className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
+            <UserPlus size={14} /> Ajouter un membre
+          </button>
+        </div>
       </div>
 
       {/* Role summary cards */}
@@ -335,8 +365,12 @@ export default function PersonnelView() {
         ) : users.length === 0 ? (
           <div className="p-12 text-center">
             <UsersRound size={48} className="mx-auto mb-3" style={{ color: MUTED }} />
-            <p className="font-medium" style={{ color: TEXT_PRIMARY }}>Aucun membre du personnel</p>
-            <p className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>Ajoutez votre premier membre en cliquant sur le bouton ci-dessus</p>
+            <p className="font-medium" style={{ color: TEXT_PRIMARY }}>
+              {isPlatformAdmin && !effectiveSchoolId ? 'Sélectionnez une école pour consulter son personnel' : 'Aucun membre du personnel'}
+            </p>
+            <p className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>
+              {isPlatformAdmin && !effectiveSchoolId ? 'L\u2019administration plateforme n\u2019est rattachée à aucune école.' : 'Ajoutez votre premier membre en cliquant sur le bouton ci-dessus'}
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">

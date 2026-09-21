@@ -86,7 +86,10 @@ model User {
   password        String?
   name            String
   role            String
-  schoolId        String
+  // Nullable : le SUPER_ADMIN_GLOBAL (admin de la plateforme) n'est rattaché
+  // à AUCUNE école — c'est la distinction structurelle entre l'admin
+  // plateforme (schoolId = null) et l'admin d'une école (SCHOOL_ADMIN).
+  schoolId        String?
   isActive        Boolean  @default(true)
   lastLoginAt     DateTime?
   profileImageUrl String?
@@ -101,7 +104,7 @@ model User {
 
   verificationTokens VerificationToken[]
 
-  school          School   @relation(fields: [schoolId], references: [id])
+  school          School?  @relation(fields: [schoolId], references: [id])
   students        Student[] @relation("ParentChildren")
   notifications   Notification[]
   reads           CommunicationRead[]

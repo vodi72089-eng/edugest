@@ -96,12 +96,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, email, phone, password, role, schoolId, isActive, subjectName, classNames, isTitulaire } = body;
 
-    if (!name || !role || !schoolId) {
+    // L'admin PLATEFORME n'appartient à aucune école : schoolId est attendu
+    // absent/null pour ce rôle — obligatoire pour tous les autres.
+    const isPlatformAdminRole = role === 'SUPER_ADMIN_GLOBAL';
+    if (!name || !role || (!schoolId && !isPlatformAdminRole)) {
       return NextResponse.json(
         { error: 'Champs obligatoires manquants: name, role, schoolId' },
         { status: 400 }
       );
     }
+    const effectiveSchoolId: string | null = isPlatformAdminRole ? null : schoolId;
 
     if (!email && !phone) {
       return NextResponse.json(
@@ -127,7 +131,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Others can only assign roles within their school
-    if (!verifySchoolAccess(user, schoolId)) {
+    // (l'admin plateforme est créé HORS école : pas de vérification d'accès)
+    if (effectiveSchoolId && !verifySchoolAccess(user, effectiveSchoolId)) {
       return NextResponse.json(
         { error: 'Accès non autorisé à cette école' },
         { status: 403 }
@@ -157,8 +162,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify school exists
-    const school = await db.school.findUnique({ where: { id: schoolId } });
-    if (!school) {
+    const school = effectiveSchoolId ? await db.school.findUnique({ where: { id: effectiveSchoolId } }) : null;
+    if (effectiveSchoolId && !school) {
       return NextResponse.json(
         { error: 'École non trouvée' },
         { status: 404 }
@@ -167,7 +172,7 @@ export async function POST(request: NextRequest) {
 
     // ── Tier limit: maxAdmins / maxTeachers ────────────────────────────
     const { checkCanCreateUser } = await import('@/lib/subscription');
-    const tierCheck = await checkCanCreateUser(schoolId, role);
+    const tierCheck = effectiveSchoolId ? await checkCanCreateUser(effectiveSchoolId, role) : { ok: true as const };
     if (!tierCheck.ok) {
       return NextResponse.json({ error: tierCheck.error, limit: tierCheck.limit, current: tierCheck.current, tierLimit: true }, { status: 403 });
     }
@@ -187,7 +192,7 @@ export async function POST(request: NextRequest) {
         phone: phone || `user_${Date.now()}`,
         password: hashedPassword,
         role,
-        schoolId,
+        schoolId: effectiveSchoolId,
         isActive: isActive !== undefined ? isActive : true,
         subjectName: isTeacherRole ? (subjectName || null) : null,
         classNames: isTeacherRole ? (classNames || null) : null,

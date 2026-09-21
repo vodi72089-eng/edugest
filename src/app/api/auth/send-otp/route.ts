@@ -63,10 +63,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Compte déjà vérifié' }, { status: 400 });
     }
 
-    const school = await db.school.findUnique({
-      where: { id: user.schoolId },
-      select: { name: true },
-    });
+    const school = user.schoolId
+      ? await db.school.findUnique({
+          where: { id: user.schoolId },
+          select: { name: true },
+        })
+      : null;
 
     const results: Record<string, { sent: boolean; error?: string }> = {};
 
