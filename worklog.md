@@ -1783,3 +1783,28 @@ Stage Summary:
 - CI + Build Desktop de nouveau verts sur main (1d72776).
 - Release v1.4.4 publiée : EduGest-Portable/Setup-1.4.4.exe (147.9/148.2 Mo) + latest.yml (prérequis electron-updater) — la chaîne build→Release→auto-update est restaurée.
 - Note : 0788765 (fix auth trim) héritait des mêmes erreurs TS ; il est couvert par le fix.
+
+---
+Task ID: UPGRADE-FIX-1
+Agent: Z.ai Code (main)
+Task: Super admin ne pouvait pas accepter les demandes d'upgrade d'abonnement (+ incident sandbox + build cassé remote)
+
+Work Log:
+- AUDIT : PATCH /api/subscription/request/[id] (SUPER_ADMIN_GLOBAL uniquement) existait, mais AUCUNE UI ne l'appelait ; la notif « Demande d'upgrade d'abonnement » était créée en type 'SYSTEM' avec linkTo/linkId — champs SUPPRIMÉS par notify() → relatedId null → clic = Dashboard, impasse totale.
+- FIX notif : type sémantique 'SUBSCRIPTION_UPGRADE_REQUEST' + relatedId = id de la demande (api/subscription/request/route.ts).
+- FIX routage : notification-routing.ts → base 'schools', surcharge défensive { SUPER_ADMIN_GLOBAL: 'schools' }, son HIGH (notifSoundLevel).
+- FIX cloche : handleApprovalDecision généralisé (2 familles → 2 endpoints : subscription/request/[id] vs settings-approval) ; canDecide étendu aux upgrades RÉSERVÉS super admin ; icône CreditCard dorée.
+- FIX file : vue Écoles — section « Demandes d'upgrade d'abonnement » (PENDING), école/requester/tiers/paiement, boutons Approuver (SUCCESS) / Rejeter (contour rouge) + confirm(), rechargement écoles après décision.
+- TESTS E2E RÉELS (agent-browser, compte super admin admin@edugest.app) :
+  * Demande créée via API par Directeur Lumière (PREMIUM→ENTERPRISE) → notification avec boutons ✓ Approuver / ✕ Rejeter, tag « Écoles » (plus « Dashboard »).
+  * Approuver depuis la cloche → école passe ENTERPRISE/ACTIVE (+1 mois), demande APPROVED par Admin Global, PaymentRecord 1000$ PAID.
+  * 2e demande (ENTERPRISE→CORPORATE) rejetée depuis la file Écoles (confirm OK) → REJECTED, école inchangée, notif « Demande d'upgrade refusée » envoyée à l'école.
+  * RBAC négatif : SCHOOL_ADMIN sur PATCH → 403 « Accès non autorisé ».
+- INCIDENT SANDBOX : le disque .git a été restauré sur un vieil instantané en cours de session (commits récents perdus localement, remote intacts). Reconstruit : reset --hard origin/main, réapplication des 4 fichiers (diffs vérifiés ligne à ligne), commit propre.
+- BUILD CASSÉ remote (commits 1e37fd9/1d59217 d'une autre session, CI rouge) : CurrentDeviceInfo.tsx ('use client') → geo.ts → auth.ts → fs = « Module not found: fs » (Turbopack CI + dev webpack local). FIX : geo.ts client-safe (import type effacé), enrichSessionsWithLocation déplacée dans geo-server.ts, sessions/route.ts réimporté. PREUVE : chunk client page.js contient ip-api.com et zéro API fs ; GET / et /dashboard 200 ; tsc 0 erreur ; lint 68 (< 109).
+- CI + Build Desktop → SUCCESS sur 6e876bf (5baf3b1 avait hérité du bug geo, couvert par le fix). Release v1.4.4 toujours en tête (exe + latest.yml).
+
+Stage Summary:
+- Les demandes d'upgrade sont traitables en 2 endroits : boutons dans la notification (super admin) + file permanente dans Écoles.
+- Toute la chaîne est vérifiée en vrai navigateur avec effets DB réels (école mise à niveau, paiement abonnement, notification de refus à l'école, 403 RBAC).
+- Pipeline CI/Desktop vert ; dette technique : sandbox OOM fréquent (dev server à limiter --max-old-space-size=1024), instabilité disque à surveiller (toujours fetch+rebase avant push).
