@@ -580,35 +580,52 @@ function checkPortableUpdate(manual = false) {
   // cadencement d'une minute peuvent se chevaucher).
   if (isCheckingUpdate) return;
   isCheckingUpdate = true;
+  const checkDone = () => { isCheckingUpdate = false; };
   // latest.yml : fichier de métadonnées publié par electron-builder à chaque
-  // release (version + fichiers). Remplace l'appel api.github.com qui était
-  // plafonné à 60 requêtes/h — incompatible avec un check chaque minute.
-  const req = https.get(RELEASE_LATEST_BASE + '/latest.yml', {
-    headers: { 'User-Agent': 'EduGest-Desktop' },
-  }, (res) => {
-    let body = '';
-    res.on('data', (c) => { body += c; });
-    res.on('end', () => {
-      try {
-        if (res.statusCode !== 200) return;
-        const m = body.match(/^version:\s*(.+)$/m);
-        const latest = String(m ? m[1] : '').trim().replace(/^v/, '');
-        if (!latest) return;
-        if (compareVersions(latest, app.getVersion()) <= 0) {
-          pendingPortableAsset = null;
-          return;
+  // release (version + fichiers) — sans quota d'API GitHub.
+  // ⚠️ GitHub répond HTTP 302 sur /releases/latest/download/latest.yml
+  // (redirection vers la release courante) et Node https.get NE SUIT PAS les
+  // redirections : sans la boucle ci-dessous, le check s'arrêtait muet sur le
+  // 302 → aucune bannière portable, jamais (bug constaté en 1.4.4).
+  const get = (url, redirects) => {
+    if (redirects <= 0) { checkDone(); return; }
+    const req = https.get(url, {
+      headers: { 'User-Agent': 'EduGest-Desktop' },
+    }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume(); // vide le flux de la réponse de redirection
+        try {
+          get(new URL(res.headers.location, url).toString(), redirects - 1);
+        } catch {
+          checkDone();
         }
-        // Bannière in-app (comme l'installée) : l'exe portable est
-        // téléchargé directement (redirections GitHub suivies), GitHub reste
-        // invisible pour l'utilisateur.
-        pendingPortableAsset = { url: `${RELEASE_LATEST_BASE}/EduGest-Portable-${latest}.exe`, version: latest, file: null };
-        sendUpdate('available', { version: latest });
-      } catch {}
+        return;
+      }
+      let body = '';
+      res.on('data', (c) => { body += c; });
+      res.on('end', () => {
+        checkDone();
+        try {
+          if (res.statusCode !== 200) return;
+          const m = body.match(/^version:\s*(.+)$/m);
+          const latest = String(m ? m[1] : '').trim().replace(/^v/, '');
+          if (!latest) return;
+          if (compareVersions(latest, app.getVersion()) <= 0) {
+            pendingPortableAsset = null;
+            return;
+          }
+          // Bannière in-app (comme l'installée) : l'exe portable est
+          // téléchargé directement (redirections GitHub suivies), GitHub reste
+          // invisible pour l'utilisateur.
+          pendingPortableAsset = { url: `${RELEASE_LATEST_BASE}/EduGest-Portable-${latest}.exe`, version: latest, file: null };
+          sendUpdate('available', { version: latest });
+        } catch {}
+      });
     });
-  });
-  req.on('close', () => { isCheckingUpdate = false; });
-  req.on('error', () => {});
-  req.setTimeout(10000, () => req.destroy());
+    req.on('error', () => checkDone());
+    req.setTimeout(10000, () => req.destroy());
+  };
+  get(RELEASE_LATEST_BASE + '/latest.yml', 5);
 }
 
 function setupAutoUpdate() {

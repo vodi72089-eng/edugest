@@ -1920,7 +1920,9 @@ function LoginView() {
             subjectName: apiUser.subjectName || null,
             classNames: apiUser.classNames || null,
             isTitulaire: apiUser.isTitulaire || false,
-            subscriptionTier: apiUser.school?.subscriptionTier || 'FREEMIUM',
+            // Le compte plateforme n'a pas de forfait : undefined (jamais FREEMIUM,
+            // qui déclencherait les menus/gardes freemium sur le super admin).
+            subscriptionTier: role === 'SUPER_ADMIN_GLOBAL' ? undefined : (apiUser.school?.subscriptionTier || 'FREEMIUM'),
           }, json.data.token)
         // Popup import base de données : admin créateur uniquement — DANS l'app,
         // identifiants déjà validés (jamais sur la page de connexion).
@@ -2193,7 +2195,7 @@ function LoginView() {
                             schoolLogo: apiUser.school?.logo || null,
                             initials: getInitials(apiUser.name),
                             profileImageUrl: apiUser.profileImageUrl || null,
-                            subscriptionTier: apiUser.school?.subscriptionTier || 'FREEMIUM',
+                            subscriptionTier: role === 'SUPER_ADMIN_GLOBAL' ? undefined : (apiUser.school?.subscriptionTier || 'FREEMIUM'),
                           }, json.data.token)
                           // Popup import base de données : admin créateur uniquement
                           if (role === 'SCHOOL_ADMIN') {
@@ -2380,12 +2382,15 @@ HEAD_TEACHER: [
     menuItems = menuItems.filter(item => item.view !== 'medical-records')
   }
 
-  // FREEMIUM restrictions: DIRECTION_*, SECRETARY (admin freemium) and SUPER_ADMIN_GLOBAL see restricted menu
+  // FREEMIUM restrictions: DIRECTION_* et SECRETARY (admin freemium) voient un menu restreint
   // (pas de Passage de classe, Communications ni Paramètres en FREEMIUM — passage à un forfait supérieur requis)
-  const isFreemium = userData?.subscriptionTier === 'FREEMIUM'
+  // ⚠️ SUPER_ADMIN_GLOBAL JAMAIS concerné : c'est le compte PLATEFORME, sans forfait d'école.
+  // Son profil ne porte pas de tier (schoolId null) — le forcer dans le menu FREEMIUM
+  // masquait « Écoles » et rendait les demandes d'upgrade inaccessibles (bug signalé).
+  const isFreemium = userData?.subscriptionTier === 'FREEMIUM' && userRole !== 'SUPER_ADMIN_GLOBAL'
   // FREEMIUM : menu restreint — « Mon Abonnement » réservé à l'ADMIN CRÉATEUR
   // (SCHOOL_ADMIN). Le secrétaire ne le voit JAMAIS (aucun forfait).
-  if (isFreemium && (directionRoles.includes(userRole as UserRole) || userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SECRETARY' || userRole === 'SCHOOL_ADMIN')) {
+  if (isFreemium && (directionRoles.includes(userRole as UserRole) || userRole === 'SECRETARY' || userRole === 'SCHOOL_ADMIN')) {
     menuItems = [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
@@ -2530,14 +2535,18 @@ const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment
 
 function canAccessView(role: string | null, view: ViewType, subscriptionTier?: string): boolean {
   if (!role) return false
-  // Contrôle plateforme & Passage de classe : outils plateforme du super admin —
-  // pas de gating abonnement (le compte plateforme n'appartient à aucune école)
-  if (role === 'SUPER_ADMIN_GLOBAL' && (view === 'platform-control' || view === 'class-passing')) return true
+  // SUPER_ADMIN_GLOBAL = compte PLATEFORME : son profil n'a PAS de forfait d'école
+  // (schoolId null → tier undefined côté serveur). AUCUN gating d'abonnement ne
+  // doit s'appliquer à lui — sinon le fallback « FREEMIUM » du client bloquait la
+  // vue Écoles (file des demandes d'upgrade) et rebasculait chaque notification
+  // d'upgrade sur le dashboard. Le contrôle de RÔLE (VIEWS_BY_ROLE) reste actif.
+  if (role === 'SUPER_ADMIN_GLOBAL') return (VIEWS_BY_ROLE[role] || []).includes(view)
   // SÉCURITÉ ABONNEMENT : le secrétaire ne doit JAMAIS voir « Mon Abonnement »,
   // quelle que soit l'école ou le forfait (exclu du comptage freemium par ailleurs).
   if (role === 'SECRETARY' && view === 'my-subscription') return false
   // FREEMIUM : vues restreintes — « Mon Abonnement » réservé à l'admin créateur
-  if (subscriptionTier === 'FREEMIUM' && (role.startsWith('DIRECTION') || role === 'SECRETARY' || role === 'SCHOOL_ADMIN' || role === 'SUPER_ADMIN_GLOBAL')) {
+  // (le SUPER_ADMIN_GLOBAL est déjà retourné plus haut : jamais gated par un tier)
+  if (subscriptionTier === 'FREEMIUM' && (role.startsWith('DIRECTION') || role === 'SECRETARY' || role === 'SCHOOL_ADMIN')) {
     if (view === 'my-subscription' && role !== 'SCHOOL_ADMIN') return false
     return FREEMIUM_VIEWS.includes(view)
   }
