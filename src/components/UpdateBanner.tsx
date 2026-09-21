@@ -27,6 +27,10 @@ function getBridge(): any | null {
 export default function UpdateBanner() {
   const [state, setState] = useState<UpdateState>({ kind: 'idle' })
   const [dismissed, setDismissed] = useState(false)
+  // Filet de sécurité : si le téléchargement reste bloqué à 100% sans passer
+  // à « prêt » (bug historique v1.4.3→v1.4.5 : le .then() du main écrasait
+  // 'ready' par 'downloading 100%'), on propose quand même l'installation.
+  const [stuck, setStuck] = useState(false)
 
   useEffect(() => {
     const bridge = getBridge()
@@ -34,14 +38,21 @@ export default function UpdateBanner() {
     const off = bridge.onEvent((payload: any) => {
       if (!payload?.type) return
       setDismissed(false)
+      // Tout nouvel événement MAJ réarme le watchdog « bloqué à 100% ».
+      setStuck(false)
       if (payload.type === 'available') {
         setState({ kind: 'available', version: String(payload.version || '') })
       } else if (payload.type === 'downloading') {
-        setState((prev) => ({
-          kind: 'downloading',
-          version: 'version' in prev && prev.version ? (prev as any).version : String(payload.version || ''),
-          percent: Number(payload.percent || 0),
-        }))
+        // GARDE : une MAJ « prête » n'est jamais rétrogradée en téléchargement
+        // (symétrique du garde main.js — la bannière ne peut plus se bloquer).
+        setState((prev) => {
+          if (prev.kind === 'ready') return prev
+          return {
+            kind: 'downloading',
+            version: 'version' in prev && prev.version ? (prev as any).version : String(payload.version || ''),
+            percent: Number(payload.percent || 0),
+          }
+        })
       } else if (payload.type === 'ready') {
         setState({ kind: 'ready', version: String(payload.version || '') })
       } else if (payload.type === 'portable') {
@@ -62,6 +73,16 @@ export default function UpdateBanner() {
     const t = setTimeout(() => setDismissed(false), 30 * 60 * 1000)
     return () => clearTimeout(t)
   }, [dismissed, state.kind])
+
+  // Watchdog : « Téléchargement… 100% » sans passage à « prêt » sous 12 s →
+  // on propose un bouton « Installer maintenant » (porte de sortie manuelle).
+  // (Le reset de `stuck` se fait dans le callback d'événement IPC ci-dessus,
+  // pas ici — pas de setState synchrone dans le corps de l'effet.)
+  useEffect(() => {
+    if (state.kind !== 'downloading' || state.percent < 100) return
+    const t = setTimeout(() => setStuck(true), 12000)
+    return () => clearTimeout(t)
+  }, [state])
 
   if (state.kind === 'idle' || dismissed) return null
   const bridge = getBridge()
@@ -117,6 +138,11 @@ export default function UpdateBanner() {
           <div style={{ width: 120, height: 4, background: 'rgba(255,255,255,.15)', borderRadius: 2, overflow: 'hidden' }}>
             <div style={{ width: `${Math.min(100, Math.max(0, state.percent))}%`, height: '100%', background: '#f5a623' }} />
           </div>
+          {stuck && (
+            <button style={btn} onClick={() => bridge?.install?.()}>
+              Installer maintenant
+            </button>
+          )}
         </>
       )}
       {state.kind === 'ready' && (
@@ -136,6 +162,9 @@ export default function UpdateBanner() {
       {state.kind === 'error' && (
         <>
           <span>⚠️ {state.message}</span>
+          <button style={btn} onClick={() => { setStuck(false); setState({ kind: 'downloading', version: '', percent: 0 }); bridge?.download?.(); }}>
+            Réessayer
+          </button>
           <button style={ghost} onClick={() => setDismissed(true)}>Fermer</button>
         </>
       )}

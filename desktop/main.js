@@ -402,9 +402,16 @@ function createWindow(port) {
  *  perue : le prochain check serait sinon une heure plus tard). */
 let lastUpdateState = null;
 
-/** Envoie un événement MAJ à l'interface (bannière in-app). */
+/** Envoie un événement MAJ à l'interface (bannière in-app).
+ *  ⚠️ GARDE ANTI-RÉGRESSION : une MAJ « prête » n'est JAMAIS rétrogradée.
+ *  Bug v1.4.3→v1.4.5 prouvé (electron-updater 6.8.9, BaseUpdater.executeDownload) :
+ *  l'événement 'update-downloaded' est émis AVANT la résolution de la promesse
+ *  downloadUpdate() — le .then() envoyait 'downloading 100%' APRÈS 'ready' et
+ *  écrasait la bannière « Redémarrer » → bloquée à jamais sur « Téléchargement… 100% ».
+ *  Double protection : garde ici + garde symétrique dans UpdateBanner.tsx. */
 function sendUpdate(type, payload) {
   try {
+    if (lastUpdateState && lastUpdateState.type === 'ready' && (type === 'downloading' || type === 'available')) return;
     const data = { type, ...(payload || {}) };
     if (type !== 'error') lastUpdateState = data;
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -425,20 +432,42 @@ try {
     }
     if (!autoUpdater) return;
     log('Téléchargement de la mise à jour…');
+    // ⚠️ PAS de .then() ici : 'update-downloaded' (→ 'ready') est émis AVANT la
+    // résolution de cette promesse — tout sendUpdate('downloading') dans un
+    // .then() écraserait l'état « prêt » (bug bannière bloquée à 100%, v1.4.5).
     autoUpdater.downloadUpdate()
-      .then(() => sendUpdate('downloading', { percent: 100 }))
       .catch((e) => {
         log('Échec téléchargement MAJ :', e.message);
         sendUpdate('error', { message: e.message });
       });
   });
   ipcMain.on('update-install', () => {
-    if (pendingPortableAsset && pendingPortableAsset.file && fs.existsSync(pendingPortableAsset.file)) {
-      // Portable : lance le nouvel exe puis quitte (l'ancien reste à supprimer).
-      const f = pendingPortableAsset.file;
-      pendingPortableAsset = null;
-      log('Lancement de la nouvelle version portable :', f);
-      shell.openPath(f).then(() => app.quit()).catch((e) => log('Échec lancement MAJ :', e.message));
+    if (pendingPortableAsset) {
+      // Fallback : si « ready » n'a pas été marqué mais que le fichier attendu
+      // est présent et non vide dans Téléchargements, on l'utilise quand même.
+      let f = pendingPortableAsset.file;
+      if (!f || !fs.existsSync(f)) {
+        const expected = path.join(app.getPath('downloads'), `EduGest-Portable-${pendingPortableAsset.version}.exe`);
+        if (fs.existsSync(expected) && fs.statSync(expected).size > 0) f = expected;
+      }
+      if (f && fs.existsSync(f)) {
+        pendingPortableAsset = null;
+        log('Lancement de la nouvelle version portable :', f);
+        // ⚠️ openPath résout avec une STRING d'erreur (jamais de rejection) :
+        // SmartScreen/antivirus peut bloquer silencieusement. On ne quitte QUE
+        // si le lancement réussit, sinon on montre le fichier à l'utilisateur.
+        shell.openPath(f).then((err) => {
+          if (err) {
+            log('Lancement MAJ bloqué par Windows :', err);
+            try { shell.showItemInFolder(f); } catch {}
+            sendUpdate('error', { message: "Windows a bloqué le lancement — double-cliquez sur le fichier mis en surbrillance dans vos Téléchargements, puis rouvrez EduGest." });
+          } else {
+            app.quit();
+          }
+        }).catch((e) => log('Échec lancement MAJ :', e.message));
+        return;
+      }
+      sendUpdate('error', { message: 'Fichier téléchargé introuvable — cliquez sur Réessayer.' });
       return;
     }
     if (!autoUpdater) return;
@@ -501,51 +530,100 @@ try {
 } catch {}
 
 /** Télécharge le nouvel exe portable (suit les redirections GitHub),
- *  avec progression → bannière « prête ». GitHub reste invisible. */
+ *  avec progression → bannière « prête ». GitHub reste invisible.
+ *  ⚠️ Un fichier partiel d'une tentative précédente ne doit JAMAIS être
+ *  lancé : on compare sa taille au content-length réel (HEAD, redirections
+ *  suivies) avant de déclarer « prêt », sinon openPath échoue en silence. */
 function downloadPortableUpdate(asset) {
   const dest = path.join(app.getPath('downloads'), `EduGest-Portable-${asset.version}.exe`);
-  if (fs.existsSync(dest)) {
-    log('Portable déjà téléchargé :', dest);
-    pendingPortableAsset.file = dest;
-    sendUpdate('ready', { version: asset.version });
-    return;
-  }
-  log('Téléchargement portable :', dest);
-  sendUpdate('downloading', { percent: 0, version: asset.version });
-  const get = (url, redirects) => {
-    https.get(url, { headers: { 'User-Agent': 'EduGest-Desktop', Accept: 'application/octet-stream' } }, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects > 0) {
-        res.resume();
-        get(res.headers.location, redirects - 1);
-        return;
-      }
-      if (res.statusCode !== 200) {
-        res.resume();
-        sendUpdate('error', { message: `Téléchargement impossible (HTTP ${res.statusCode})` });
-        return;
-      }
-      const total = Number(res.headers['content-length']) || 0;
-      let received = 0;
-      const out = fs.createWriteStream(dest);
-      res.on('data', (c) => {
-        received += c.length;
-        if (total > 0) sendUpdate('downloading', { percent: Math.round((received / total) * 100), version: asset.version });
-      });
-      res.pipe(out);
-      out.on('finish', () => {
-        out.close(() => {
-          pendingPortableAsset.file = dest;
-          try { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setProgressBar(-1); } catch {}
-          sendUpdate('ready', { version: asset.version });
+  const startDownload = () => {
+    log('Téléchargement portable :', dest);
+    sendUpdate('downloading', { percent: 0, version: asset.version });
+    const get = (url, redirects) => {
+      https.get(url, { headers: { 'User-Agent': 'EduGest-Desktop', Accept: 'application/octet-stream' } }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects > 0) {
+          res.resume();
+          get(res.headers.location, redirects - 1);
+          return;
+        }
+        if (res.statusCode !== 200) {
+          res.resume();
+          sendUpdate('error', { message: `Téléchargement impossible (HTTP ${res.statusCode})` });
+          return;
+        }
+        const total = Number(res.headers['content-length']) || 0;
+        let received = 0;
+        const out = fs.createWriteStream(dest);
+        res.on('data', (c) => {
+          received += c.length;
+          if (total > 0) sendUpdate('downloading', { percent: Math.round((received / total) * 100), version: asset.version });
         });
-      });
-      out.on('error', (e) => {
-        try { fs.unlinkSync(dest); } catch {}
-        sendUpdate('error', { message: e.message });
-      });
-    }).on('error', (e) => sendUpdate('error', { message: e.message }));
+        res.pipe(out);
+        out.on('finish', () => {
+          out.close(() => {
+            try {
+              // Vérification d'intégrité : taille finale === content-length.
+              const sz = fs.statSync(dest).size;
+              if (total > 0 && sz !== total) {
+                try { fs.unlinkSync(dest); } catch {}
+                log(`Portable incomplet : ${sz}/${total} octets`);
+                sendUpdate('error', { message: `Téléchargement incomplet (${Math.round(sz / 1048576)} Mo sur ${Math.round(total / 1048576)} Mo) — cliquez sur Réessayer.` });
+                return;
+              }
+              pendingPortableAsset.file = dest;
+              try { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setProgressBar(-1); } catch {}
+              sendUpdate('ready', { version: asset.version });
+            } catch (e) {
+              sendUpdate('error', { message: e.message });
+            }
+          });
+        });
+        out.on('error', (e) => {
+          try { fs.unlinkSync(dest); } catch {}
+          sendUpdate('error', { message: e.message });
+        });
+      }).on('error', (e) => sendUpdate('error', { message: e.message }));
+    };
+    get(asset.url, 5);
   };
-  get(asset.url, 5);
+  if (fs.existsSync(dest)) {
+    const localSize = fs.statSync(dest).size;
+    if (localSize > 0) {
+      // Fichier déjà présent : valider sa taille avant de déclarer « prêt ».
+      headContentLength(asset.url, (err, remoteSize) => {
+        if (!err && remoteSize > 0 && remoteSize === localSize) {
+          log('Portable déjà téléchargé (taille vérifiée) :', dest);
+          pendingPortableAsset.file = dest;
+          sendUpdate('ready', { version: asset.version });
+        } else {
+          // Taille inconnue ou différente → fichier partiel/corrompu : refaire.
+          try { fs.unlinkSync(dest); } catch {}
+          startDownload();
+        }
+      });
+      return;
+    }
+    try { fs.unlinkSync(dest); } catch {}
+  }
+  startDownload();
+}
+
+/** HEAD avec suivi de redirections GitHub → content-length de l'asset
+ *  (null en cas d'erreur réseau : l'appelant retélécharge alors prudemment). */
+function headContentLength(url, cb, redirects = 5) {
+  if (redirects <= 0) { cb(new Error('too many redirects'), 0); return; }
+  const req = https.request(url, { method: 'HEAD', headers: { 'User-Agent': 'EduGest-Desktop' }, timeout: 15000 }, (res) => {
+    res.resume();
+    if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+      try { headContentLength(new URL(res.headers.location, url).toString(), cb, redirects - 1); } catch { cb(new Error('bad redirect'), 0); }
+      return;
+    }
+    if (res.statusCode !== 200) { cb(new Error(`HTTP ${res.statusCode}`), 0); return; }
+    cb(null, Number(res.headers['content-length']) || 0);
+  });
+  req.on('timeout', () => { req.destroy(new Error('timeout')); });
+  req.on('error', (e) => cb(e, 0));
+  req.end();
 }
 
 const UPDATE_CHECK_DELAY_MS = 8000;
