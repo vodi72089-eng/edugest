@@ -90,6 +90,9 @@ const NOTIF_BASE_VIEW: Record<string, string> = {
   APPROVAL_DECIDED: 'parent-qr',
   SUBSCRIPTION_EXPIRING: 'my-subscription',
   SUBSCRIPTION_PAYMENT: 'my-subscription',
+  // Demande d'upgrade d'abonnement : réservée au super admin plateforme,
+  // traitable depuis la vue Écoles (boutons Approuver/Rejeter + file dédiée).
+  SUBSCRIPTION_UPGRADE_REQUEST: 'schools',
 };
 
 /** Surcharges PAR RÔLE : le même événement n'ouvre pas la même vue selon
@@ -117,6 +120,9 @@ const NOTIF_VIEW_BY_ROLE: Record<string, Record<string, string>> = {
   // ── Abonnement ───────────────────────────────────────────────────────────
   SUBSCRIPTION_EXPIRING: { SCHOOL_ADMIN: 'my-subscription' },
   SUBSCRIPTION_PAYMENT: { SUPER_ADMIN_GLOBAL: 'schools', SCHOOL_ADMIN: 'my-subscription' },
+  // La demande d'upgrade n'est envoyée qu'aux super admins — surcharge
+  // défensive : tout autre rôle tomberait sur le repli `dashboard`.
+  SUBSCRIPTION_UPGRADE_REQUEST: { SUPER_ADMIN_GLOBAL: 'schools' },
   // ── Passage de classe : staff de l'école ─────────────────────────────────
   CLASS_PASSING: { SECRETARY: 'class-passing', SCHOOL_ADMIN: 'class-passing', SUPER_ADMIN_GLOBAL: 'class-passing' },
 };
@@ -155,6 +161,7 @@ export function notifSoundLevel(type: string): NotifSoundLevel {
     type.startsWith('CONVOCATION') ||
     type === 'APPROVAL_REQUESTED' ||
     type === 'SUBSCRIPTION_EXPIRING' ||
+    type === 'SUBSCRIPTION_UPGRADE_REQUEST' ||
     type.startsWith('MEDICAL')
   ) return 'HIGH';
   return 'NORMAL';

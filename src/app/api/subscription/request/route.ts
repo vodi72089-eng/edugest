@@ -92,11 +92,13 @@ export async function POST(request: NextRequest) {
         data: {
           userId: admin.id,
           schoolId: user.schoolId!,
-          type: 'SYSTEM',
+          // Type sémantique + relatedId = id de la demande : le super admin
+          // peut Approuver/Rejeter DIRECTEMENT depuis la notification
+          // (PATCH /api/subscription/request/[id]) — plus d'impasse « Dashboard ».
+          type: 'SUBSCRIPTION_UPGRADE_REQUEST',
           title: 'Demande d\'upgrade d\'abonnement',
           message: `${user.name} demande un passage de ${school.subscriptionTier || 'FREEMIUM'} vers ${requestedTier} pour ${school.name}`,
-          linkTo: 'schools',
-          linkId: user.schoolId!,
+          relatedId: req.id,
         },
       });
     }

@@ -2820,15 +2820,24 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   const handleApprovalDecision = async (notif: any, decision: 'APPROVED' | 'REJECTED') => {
     if (!notif?.relatedId || approvingNotifId) return
     setApprovingNotifId(notif.id)
+    // Deux familles d'approbation → deux endpoints serveur :
+    //  - SUBSCRIPTION_UPGRADE_REQUEST → PATCH /api/subscription/request/[id]
+    //    (réservé SUPER_ADMIN_GLOBAL : applique réellement la nouvelle formule)
+    //  - tout le reste (QR, création/suppression de classe…) →
+    //    PATCH /api/settings-approval
+    const isUpgrade = notif.type === 'SUBSCRIPTION_UPGRADE_REQUEST'
+    const approvalUrl = isUpgrade ? `/api/subscription/request/${notif.relatedId}` : '/api/settings-approval'
     try {
-      const res = await authFetch('/api/settings-approval', {
+      const res = await authFetch(approvalUrl, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: notif.relatedId, status: decision }),
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(j.error || 'Erreur')
-      toast.success(decision === 'APPROVED' ? 'Demande approuvée et appliquée' : 'Demande rejetée')
+      toast.success(decision === 'APPROVED'
+        ? (isUpgrade ? 'Upgrade approuvé — abonnement de l\'école mis à jour' : 'Demande approuvée et appliquée')
+        : 'Demande rejetée')
       // La demande est traitée : la notification est marquée lue et quitte la
       // liste localement — au prochain poll elle reviendra SANS boutons
       // (canDecide exige une notification non lue).
@@ -2845,6 +2854,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   const notifIcon = (type: string) => {
     if (type === 'APPROVAL_REQUESTED') return <Star size={14} />
     if (type === 'APPROVAL_DECIDED') return <Check size={14} />
+    if (type === 'SUBSCRIPTION_UPGRADE_REQUEST') return <CreditCard size={14} />
     if (type.includes('COMMUNICATION')) return <MessageSquare size={14} />
     if (type.includes('PAYMENT')) return <DollarSign size={14} />
     if (type.includes('GRADE') || type.includes('BULLETIN')) return <FileText size={14} />
@@ -2858,6 +2868,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   const notifIconBg = (type: string) => {
     if (type === 'APPROVAL_REQUESTED') return { bg: `linear-gradient(135deg, ${GOLD}, ${WARNING})`, color: '#fff' }
     if (type === 'APPROVAL_DECIDED') return { bg: `linear-gradient(135deg, ${SUCCESS}, ${ACCENT})`, color: '#fff' }
+    if (type === 'SUBSCRIPTION_UPGRADE_REQUEST') return { bg: `linear-gradient(135deg, ${GOLD}, ${WARNING})`, color: '#fff' }
     if (type.includes('COMMUNICATION')) return { bg: `linear-gradient(135deg, ${ACCENT}, ${ACCENT2})`, color: '#fff' }
     if (type.includes('PAYMENT')) return { bg: `linear-gradient(135deg, ${GOLD}, ${GOLD_SOFT})`, color: '#fff' }
     if (type.includes('APPROVED')) return { bg: `linear-gradient(135deg, ${SUCCESS}, ${ACCENT})`, color: '#fff' }
@@ -3024,7 +3035,15 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
               ) : (
                 notifications.map((notif) => {
                   const iconStyle = notifIconBg(notif.type)
-                  const canDecide = isApprovalApprover && notif.type === 'APPROVAL_REQUESTED' && notif.relatedId && !notif.isRead
+                  // Approuver/Rejeter dans la cloche : QR & création/suppression
+                  // de classe (admin école + super admin) ET demande d'upgrade
+                  // d'abonnement (super admin UNIQUEMENT — le PATCH côté serveur
+                  // l'exige).
+                  const isUpgradeRequest = notif.type === 'SUBSCRIPTION_UPGRADE_REQUEST'
+                  const canDecide = isApprovalApprover && notif.relatedId && !notif.isRead && (
+                    notif.type === 'APPROVAL_REQUESTED' ||
+                    (isUpgradeRequest && userRole === 'SUPER_ADMIN_GLOBAL')
+                  )
                   return (
                     <div
                       key={notif.id}

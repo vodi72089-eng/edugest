@@ -11,11 +11,33 @@ import dynamic from 'next/dynamic'
 const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
 import AppSelect from '@/components/ui/AppSelect'
 
+/** « il y a Xmin / Xh / Xj » pour les demandes d'upgrade (rendu FR compact). */
+function timeAgoFR(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return "à l'instant"
+  if (mins < 60) return `il y a ${mins}min`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `il y a ${hrs}h`
+  return `il y a ${Math.floor(hrs / 24)}j`
+}
+
 export default function SchoolsManagementView() {
   const [schools, setSchools] = useState<SchoolData[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [saving, setSaving] = useState(false)
+  // ── Demandes d'upgrade d'abonnement (file de traitement super admin) ──
+  // Le PATCH /api/subscription/request/[id] est réservé SUPER_ADMIN_GLOBAL :
+  // la vue Écoles n'étant accessible qu'à ce rôle, c'est ici que toute
+  // demande PENDING peut être approuvée/rejetée — y compris celles issues
+  // d'anciennes notifications sans relatedId.
+  const [subRequests, setSubRequests] = useState<Array<{
+    id: string; schoolId: string; requestedTier: string; currentTier: string;
+    status: string; requestedByName: string; notes?: string | null;
+    paymentRef?: string | null; createdAt: string;
+  }>>([])
+  const [decidingSubId, setDecidingSubId] = useState<string | null>(null)
   const [form, setForm] = useState<{
     name: string; shortName: string; email: string; phone: string; address: string;
     city: string; province: string; country: string; schoolType: string;
@@ -54,7 +76,40 @@ export default function SchoolsManagementView() {
     authFetch('/api/schools?limit=30').then(r => r.json()).then(j => { setSchools(j.data || []); setLoading(false) }).catch(() => setLoading(false))
   }
 
-  useEffect(() => { loadSchools() }, [])
+  function loadSubRequests() {
+    authFetch('/api/subscription/request').then(r => r.json()).then(j => setSubRequests(j.data || [])).catch(() => {})
+  }
+
+  useEffect(() => { loadSchools(); loadSubRequests() }, [])
+
+  const pendingSubRequests = subRequests.filter(r => r.status === 'PENDING')
+
+  async function handleSubDecision(id: string, decision: 'APPROVED' | 'REJECTED') {
+    const req = subRequests.find(r => r.id === id)
+    const label = req ? `${req.currentTier} → ${req.requestedTier}` : 'cette demande'
+    if (!confirm(decision === 'APPROVED'
+      ? `Approuver l'upgrade (${label}) ? La formule de l'école sera mise à jour immédiatement.`
+      : `Rejeter la demande d'upgrade (${label}) ?`)) return
+    setDecidingSubId(id)
+    try {
+      const res = await authFetch(`/api/subscription/request/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: decision }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Erreur')
+      toast.success(decision === 'APPROVED'
+        ? 'Upgrade approuvé — abonnement de l\'école mis à jour'
+        : 'Demande rejetée')
+      setSubRequests(prev => prev.map(r => r.id === id ? { ...r, status: decision } : r))
+      loadSchools() // refléter la nouvelle formule dans la liste des écoles
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur réseau')
+    } finally {
+      setDecidingSubId(null)
+    }
+  }
 
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -235,6 +290,76 @@ export default function SchoolsManagementView() {
           <Plus size={14} /> Ajouter une école
         </button>
       </div>
+
+      {/* ── Demandes d'upgrade d'abonnement en attente (super admin) ── */}
+      {pendingSubRequests.length > 0 && (
+        <div className="mb-8 rounded-2xl border-2 p-5 shadow-sm" style={{ borderColor: GOLD, background: IVORY }}>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-9 h-9 rounded-xl grid place-items-center text-white shrink-0" style={{ background: `linear-gradient(135deg, ${GOLD}, ${ACCENT})` }}>
+              <CreditCard size={18} />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-base font-bold" style={{ color: TEXT_PRIMARY }}>
+                Demandes d&apos;upgrade d&apos;abonnement
+              </h2>
+              <p className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>
+                {pendingSubRequests.length} demande{pendingSubRequests.length > 1 ? 's' : ''} en attente de traitement
+              </p>
+            </div>
+            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full text-white" style={{ background: GOLD }}>
+              {pendingSubRequests.length}
+            </span>
+          </div>
+          <div className="mt-4 space-y-3 max-h-96 overflow-y-auto">
+            {pendingSubRequests.map(req => {
+              const school = schools.find(s => s.id === req.schoolId)
+              return (
+                <div key={req.id} className="rounded-xl border bg-white p-4" style={{ borderColor: 'oklch(90% 0.01 175)' }}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold" style={{ color: TEXT_PRIMARY }}>
+                          {school?.name || 'École'}
+                        </span>
+                        <span className="text-[11px] px-2 py-0.5 rounded-md font-semibold" style={{ background: IVORY, color: TEXT_MUTED_LUXE }}>
+                          {getSubscriptionLabel(req.currentTier)} → {getSubscriptionLabel(req.requestedTier)}
+                        </span>
+                        {req.paymentRef && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-md font-medium" style={{ background: 'oklch(93% 0.03 145)', color: 'oklch(40% 0.1 150)' }}>
+                            Paiement : {req.paymentRef}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[12px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>
+                        Demandé par <strong>{req.requestedByName}</strong> · {timeAgoFR(req.createdAt)}
+                        {req.notes ? ` · « ${req.notes} »` : ''}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleSubDecision(req.id, 'APPROVED')}
+                        disabled={decidingSubId === req.id}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-semibold text-white disabled:opacity-50 transition hover:opacity-90"
+                        style={{ background: SUCCESS }}
+                      >
+                        <Check size={14} /> {decidingSubId === req.id ? '…' : 'Approuver'}
+                      </button>
+                      <button
+                        onClick={() => handleSubDecision(req.id, 'REJECTED')}
+                        disabled={decidingSubId === req.id}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-semibold border-2 disabled:opacity-50 transition hover:bg-[oklch(97%_0.01_25)]"
+                        style={{ color: 'oklch(55% 0.2 25)', borderColor: 'oklch(55% 0.2 25)' }}
+                      >
+                        <X size={14} /> Rejeter
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Add School Modal */}
       {showAddModal && (
