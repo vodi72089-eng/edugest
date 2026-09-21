@@ -3,13 +3,41 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { Cpu, Globe, MapPin, Monitor } from 'lucide-react'
 import { GOLD, GOLD_SOFT, TEXT_MUTED_LUXE, TEXT_PRIMARY } from '@/lib/constants'
-import { resolveIpLocation } from '@/lib/geo'
 
 /**
  * Panneau « Cet ordinateur » : marque du PC, logiciel (OS), IP et localisation.
  * Fonctionne uniquement dans l'application de bureau (Electron) — le pont
  * `window.__edugest.systemInfo()` n'existe pas dans le navigateur web.
+ *
+ * NOTE : ce composant est client ('use client') — il ne doit JAMAIS importer
+ * `@/lib/geo` (qui tire `lib/auth` → `fs`, modules Node interdits dans le
+ * bundle client). La géolocalisation IP est donc faite ici, inline.
  */
+interface IpLocation {
+  city: string
+  region: string
+  country: string
+  isp: string
+}
+
+/** Géolocalisation IP inline (ip-api.com, gratuit) — échec silencieux. */
+async function lookupIpLocation(ip: string): Promise<IpLocation | null> {
+  try {
+    const res = await fetch(`http://ip-api.com/json/${encodeURIComponent(ip)}?lang=fr&fields=status,city,regionName,country,isp`)
+    if (!res.ok) return null
+    const j = await res.json()
+    if (j.status !== 'success') return null
+    return {
+      city: typeof j.city === 'string' ? j.city : '',
+      region: typeof j.regionName === 'string' ? j.regionName : '',
+      country: typeof j.country === 'string' ? j.country : '',
+      isp: typeof j.isp === 'string' ? j.isp : '',
+    }
+  } catch {
+    return null
+  }
+}
+
 export default function CurrentDeviceInfo() {
   const [info, setInfo] = useState<{
     brand?: string
@@ -19,7 +47,7 @@ export default function CurrentDeviceInfo() {
     localIp?: string
     publicIp?: string
   } | null>(null)
-  const [location, setLocation] = useState<{ city: string; region: string; country: string; isp: string } | null>(null)
+  const [location, setLocation] = useState<IpLocation | null>(null)
 
   useEffect(() => {
     const bridge = (window as any).__edugest
@@ -29,7 +57,7 @@ export default function CurrentDeviceInfo() {
       if (cancelled || !i) return
       setInfo(i)
       if (i.publicIp) {
-        resolveIpLocation(i.publicIp).then(loc => {
+        lookupIpLocation(i.publicIp).then(loc => {
           if (!cancelled && loc) setLocation(loc)
         })
       }
