@@ -1831,3 +1831,27 @@ Stage Summary:
 - L'admin plateforme (Super Admin) n'est plus « admin de Complexe Lumière » : schoolId null garanti par le schéma, le seed et une auto-réparation au login (les bases EXE existantes sont réparées sans action utilisateur).
 - Les deux rôles sont visuellement et structurellement différenciés : « Super Admin / Administration plateforme » vs « Admin École / <école> » ; chaque école est garantie d'avoir son admin d'école (créé automatiquement + notifié si absent).
 - Le super admin parcourt les vues scolaires via un sélecteur « École active » explicite — plus aucun effet de bord « 1re école ». Pipeline CI/Desktop vert, release exe à jour.
+
+---
+Task ID: UPGRADE-CLICK-FIX-1 + UPDATER-PORTABLE-FIX-1
+Agent: Z.ai Code (main)
+Task: « quand je clique pour approve la demande d'upgrade je suis redirigé vers le dashboard » + « l'avant dernier exe ne donne jamais de demande de mise à jour quand tu push »
+
+Work Log:
+- AUDIT EXE UTILISATEUR : l'utilisateur tourne sur la v1.4.3 (2e dernière release). Git show v1.4.3:desktop/main.js révèle : check MAJ cadencé 1 HEURE (60*60*1000, pas 60 s) ET via api.github.com NON authentifié (60 req/h → épuisé en ~1 h de checks) → jamais de bannière. Le fix prévu (60 s + latest.yml CDN) n'était donc JAMAIS livré chez lui.
+- BUG UPDATER v1.4.4 (current) DÉCOUVERT ET PROUVÉ : checkPortableUpdate lit releases/latest/download/latest.yml avec https.get — GitHub répond HTTP 302 (curl -I prouvé) et Node https.get ne suit PAS les redirections → `if (statusCode !== 200) return` → check muet À CHAQUE FOIS, pour toutes les exes portables. La chaîne NSIS (electron-updater 6.8.9, vérifié dans le tarball npm : GitHubProvider = flux Atom releases.atom, pas d'API) était saine.
+- FIX main.js : boucle de suivi de redirections (5 max) dans checkPortableUpdate, garde isCheckingUpdate réinitialisée proprement (end/error). TEST RÉEL Node contre le GitHub live : réplique exacte du code → 1.4.3 détecte 1.4.4 → bannière OUI ; 1.4.4 → à jour → silence. (Script /tmp/test-updater.js.)
+- BUG #1 RACINE TROUVÉE EN NAVIGATEUR (le vrai bug du clic) : handleNotifItemClick → canAccessView('SUPER_ADMIN_GLOBAL','schools', userData.subscriptionTier='FREEMIUM') → false → fallback 'dashboard'. D'où vient ce tier ? Les handlers login/OTP forcent `subscriptionTier: apiUser.school?.subscriptionTier || 'FREEMIUM'` — le SAG n'a plus d'école (RBAC-SAG-1) → school null → FREEMIUM. Conséquences en chaîne : sidebar SAG écrasée par le menu FREEMIUM restreint (ligne 2388 : SAG inclus → « Écoles » DISPARU de la navigation), notif upgrade rebasculée dashboard, file des demandes INACCESSIBLE par aucun chemin. Le fix RBAC-SAG-1 (détachement de l'école) avait donc RÉVÉLÉ ce gating.
+- FIX page.tsx (3 points) : (1) isFreemium sidebar exclut SAG ; (2) canAccessView : return précoce SAG → VIEWS_BY_ROLE uniquement (gating abonnement désactivé pour le compte plateforme, contrôle de rôle conservé) ; (3) login/OTP : tier undefined pour SAG (jamais FREEMIUM).
+- TESTS NAVIGATEUR RÉELS (agent-browser, session SAG admin@edugest.app) :
+  * AVANT fix : clic notif upgrade → URL reste /dashboard (REPRODUIT) ; menu « Écoles » absent de la sidebar (REPRODUIT).
+  * APRÈS : sidebar complète (Dashboard, Écoles, Personnel, … 19 items) ; clic notif → /schools ; section « Demandes d'upgrade d'abonnement » visible.
+  * Approbation voie 1 (cloche) : demande créée via API (Directeur Lumière, PREMIUM) → boutons ✓/✕ → PATCH /api/subscription/request/cmubqwx19… 200 → DB : APPROVED par Admin Global + école CORPORATE→ENTERPRISE + end date prolongée.
+  * Approbation voie 2 (file Écoles) : demande PREMIUM → Approuver → confirm → toast « Upgrade approuvé — abonnement de l'école mis à jour » → DB : APPROVED + école ENTERPRISE→PREMIUM.
+- OOM SANDBOX ×2 pendant les tests (next-server heap) : relance `NODE_OPTIONS=--max-old-space-size=1024 setsid nohup node node_modules/.bin/next dev` (le flag inline ne se propage pas au worker). Re-tests après chaque relance.
+- QUALITÉ : tsc --noEmit → 0 erreur ; lint 67 problems (< baseline 109, < 68 précédent). desktop/package.json → 1.4.5. Commit 486937d, rebase origin/main (à jour), push main.
+
+Stage Summary:
+- Le super admin peut ENFIN traiter les demandes d'upgrade : menu Écoles restauré, notif → vue Écoles (plus de redirect), boutons dans la notif ET file permanente — les 2 voies validées avec effets DB réels (tier école mis à jour 2×).
+- Cause racine documentée : le compte plateforme recevait un tier « FREEMIUM » par défaut → gating abonnement appliqué au super admin. corrigé à la source (login/OTP) + défense (canAccessView, sidebar).
+- La détection de MAJ portable (302 non suivie) est réparée et prouvée contre le GitHub réel ; la v1.4.5 au push fournit un updater sain (60 s, CDN sans quota, redirections suivies). Limite assumée : l'exe v1.4.3 de l'utilisateur a un updater cassé en interne — il devra télécharger la v1.4.5 UNE fois manuellement, ensuite les MAJ seront détectées automatiquement (< 1 min).
