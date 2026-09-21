@@ -1873,3 +1873,21 @@ Stage Summary:
 - La mise à jour installée (NSIS) se termine désormais : téléchargement → « ✅ Prêt » → Redémarrer → quitAndInstall. La race .then() qui écrasait 'ready' est éliminée à la source ET gardée en surface (main + renderer).
 - Chemin utilisateur depuis v1.4.3/v1.4.5 bloquée : FERMER EduGest installe automatiquement la MAJ déjà téléchargée (autoInstallOnAppQuit=true) — v1.4.6 livrera un updater définitivement sain ; ensuite tout est automatique (check 60 s).
 - Chaîne portable durcie : fichier partiel jamais lancé, blocage SmartScreen signalé au lieu d'une fermeture silencieuse.
+
+---
+Task ID: UI-ECOLE-ACTIVE-TARIFS-1
+Agent: Z.ai Code (main)
+Task: « ce truc là en dessous d'école active me sert à quoi ? je veux qu'elle soit la même dropdown que les élèves (recherchable) » + « dans tarif standard les noms des 5 admins dépassent »
+
+Work Log:
+- EXPLICATION UI : le sélecteur « École active » (Super Admin uniquement) choisit le contexte scolaire dans lequel les vues sont parcourues (élèves, paiements, discipline…) ; vide = vue plateforme. Rendu auto-explicatif dans l'UI (texte d'aide sous le champ).
+- ÉCOLE ACTIVE → SearchAutocomplete (le composant de recherche d'élèves) : recherche instantanée nom/sigle/ville, dropdown complète au clic, puce de sélection tronquée (max-w-full+truncate+shrink-0 — la sidebar fait 240px), bouton X = retour vue plateforme, texte d'aide contextuel sous le champ. Prop foundWord ajoutée au SearchAutocomplete partagé (« école » → « trouvées » ; « résultats trouvés » préservé par défaut). Puce durcie pour TOUS les usages (élèves inclus).
+- TARIFS : cause du débordement — <li flex items-center> sans min-w-0 : le token insécable « (Direction/Secrétaire/Caisse/Discipline) » (40 car.) ne pouvait pas rétrécir → sortait de la carte. Fix : items-start + CheckCircle shrink-0 mt-[3px] + <span min-w-0 break-words>. Le texte se replie sur 3 lignes DANS la carte.
+- TESTS NAVIGATEUR RÉELS (agent-browser, session Super Admin) : focus → « 6 écoles trouvées » ; frappe « brazza » → 1 résultat ; sélection → puce « CB Collé… (CBA · Brazzaville) » + aide « Les vues affichent les données de cette école. » ; vue Élèves scellée sur Brazza (20 élèves, matricules CSL) ; X → « Aucune — vue plateforme » ; cycle rejoué 2×. Tarifs : feature repliée dans la carte (capture). tsc 0 erreur ; lint 67 (< baseline 109).
+- INCIDENTS SANDBOX : 2 OOM du dev server en cours de test (« approaching the used memory threshold, restarting ») — re-tests après relance ; et restauration disque d'un vieil instantané (11 fichiers passés en mode 100755 sans changement de contenu + 2 routes upload supprimées) — routes restaurées via git checkout, modes corrigés via chmod, vérifié que le diff commité ne contient QUE mes 2 fichiers (9 marqueurs d'édits vérifiés dans l'index avant commit).
+- desktop/package.json → 1.4.7 : livre ces correctifs dans l'exe ET sert de test réel de bout en bout de la chaîne auto-update réparée (v1.4.6 doit détecter v1.4.7 en < 60 s → Télécharger → ✅ Prêt → Redémarrer).
+
+Stage Summary:
+- Le sélecteur d'école active est désormais la même dropdown recherchable que celle des élèves : recherche, sélection claire (puce), retour plateforme (X) et libellé auto-explicatif.
+- La carte Tarif Standard ne déborde plus — aucun texte ne sort des cartes de tarifs.
+- Commit 188b205 poussé ; CI + Build Desktop surveillés ; Release v1.4.7 attendue (assets + latest.yml) pour valider la chaîne updater en conditions réelles.
