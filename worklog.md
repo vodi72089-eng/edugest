@@ -1808,3 +1808,26 @@ Stage Summary:
 - Les demandes d'upgrade sont traitables en 2 endroits : boutons dans la notification (super admin) + file permanente dans Écoles.
 - Toute la chaîne est vérifiée en vrai navigateur avec effets DB réels (école mise à niveau, paiement abonnement, notification de refus à l'école, 403 RBAC).
 - Pipeline CI/Desktop vert ; dette technique : sandbox OOM fréquent (dev server à limiter --max-old-space-size=1024), instabilité disque à surveiller (toujours fetch+rebase avant push).
+
+---
+Task ID: RBAC-SAG-1
+Agent: Z.ai Code (main)
+Task: « je suis automatiquement l'admin de complexe lumiere alors que je suis l'admin de la plateforme » — différencier les rôles SUPER_ADMIN_GLOBAL vs SCHOOL_ADMIN et créer l'admin d'école manquant
+
+Work Log:
+- AUDIT DB (prisma direct) : le compte « Admin Global » (SUPER_ADMIN_GLOBAL, admin@edugest.app) avait schoolId = Complexe Scolaire Lumière — cause racine. Deux niveaux : (1) le seed le plaçait DANS la liste des utilisateurs Lumière (schoolId: lumiere.id), (2) le schéma Prisma déclarait User.schoolId String NON nullable → « admin sans école » était impossible à représenter.
+- SCHEMA : User.schoolId → String? + relation school School? (db:push OK). 4 erreurs TS en cascade corrigées (useCurrency ?.: string|null, guards send-otp/whatsapp sur user.schoolId null).
+- SEED : « Admin Global » créé hors liste Lumière avec schoolId: null (commentaire d'intention).
+- NOUVEAU src/lib/role-repair.ts — repairPlatformAdminIntegrity() IDEMPOTENTE : 1) détache tout SUPER_ADMIN_GLOBAL attaché à une école (updateMany) ; 2) crée un SCHOOL_ADMIN « Directeur <shortName> » (email admin@<slug>.cd anti-collision suffixée, phone unique aléatoire, mdp admin123) pour toute école sans admin actif + notification SYSTEM aux admins plateforme avec les identifiants. Testé en base : détachement 1, création 2× (écoles test), suffixe -2 sur collision d'email, 2e run = 0 action, nettoyage complet des données test.
+- LOGIN (api/auth) : si role SUPER_ADMIN_GLOBAL → réparation (try/catch non bloquant) puis relecture user AVANT création du token → session/profil propres (school null) dès la première connexion sur une base ancienne (exe utilisateur réparé automatiquement).
+- users POST : SUPER_ADMIN_GLOBAL exempté du schoolId requis (créé schoolId: null) ; école toujours requise pour les autres rôles.
+- UI IDENTITÉ : sidebar « Super Admin / Administration plateforme » (plus jamais le nom d'une école) ; correction connexe : le SAG affichait « Admin Freemium » (fallback tier) → « Super Admin » ; PersonnelView : badge « Admin École » pour SCHOOL_ADMIN (était SCHOOL_ADMIN brut) ; isFreemium=false pour SAG (les 13 libellés de rôles réapparaissent).
+- ACTIVE SCHOOL CONTEXT (gros chantier) : 68 usages de userData?.schoolId dans page.tsx + DisciplineView/ParentsView/SettingsView/GradesView/MedicalRecordsView convertis vers getActiveSchoolId() (store) : SAG → activeSchoolId choisi explicitement, autres rôles → leur école (inchangé). Sidebar SAG : sélecteur « École active » (« — Aucune (plateforme) — » par défaut). Sans choix = vue plateforme/vide, JAMAIS les données de la 1re école par effet de bord. Logout réinitialise activeSchoolId. (api/students sans schoolId pour SAG = vue plateforme tous-élèves, comportement serveur préexistant assumé.)
+- PROFIL RESYNC : useEffect au démarrage → GET /api/profile (select enrichi logo+subscriptionTier) → patch userData (schoolId/schoolName/schoolLogo/tier) : sessions localStorage périmées réparées sans reconnexion ; garde current.id === p.id.
+- Vérifications navigateur (agent-browser) : login SAG → « Administration plateforme » zéro fuite Lumière ; sélecteur école → Élèves scellés à Lumière (Amani/Kazadi visibles) ; Personnel → Directeur Lumière « Admin École » ; login Directeur Lumière → PAS de sélecteur école, « Complexe Scolaire Lumière / Admin École » ; approbations upgrade re-testées 2× de bout en bout (file Écoles + cloche → APPROVED en base par « Admin Global ») ; console/erreurs page : 0.
+- QUALITÉ/CI : tsc 0 erreur ; lint 67 (< 68 précédent, < baseline 109) ; rebase sur 776d34b (fix geo d'une autre session) puis push f7f57e8 ; CI ✅ + Build Desktop ✅ ; Release v1.4.4 re-générée (exe 148 Mo ×2 + latest.yml — chaîne auto-update intacte).
+
+Stage Summary:
+- L'admin plateforme (Super Admin) n'est plus « admin de Complexe Lumière » : schoolId null garanti par le schéma, le seed et une auto-réparation au login (les bases EXE existantes sont réparées sans action utilisateur).
+- Les deux rôles sont visuellement et structurellement différenciés : « Super Admin / Administration plateforme » vs « Admin École / <école> » ; chaque école est garantie d'avoir son admin d'école (créé automatiquement + notifié si absent).
+- Le super admin parcourt les vues scolaires via un sélecteur « École active » explicite — plus aucun effet de bord « 1re école ». Pipeline CI/Desktop vert, release exe à jour.
