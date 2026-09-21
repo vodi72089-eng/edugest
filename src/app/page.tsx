@@ -94,6 +94,7 @@ function SearchAutocomplete({
   loading = false,
   emptyMessage = 'Aucun résultat',
   itemTypeName = 'résultat',
+  foundWord = 'trouvé',
   className = '',
 }: {
   label?: string
@@ -107,6 +108,7 @@ function SearchAutocomplete({
   loading?: boolean
   emptyMessage?: string
   itemTypeName?: string
+  foundWord?: string
   className?: string
 }) {
   const [showDropdown, setShowDropdown] = useState(false)
@@ -162,10 +164,10 @@ function SearchAutocomplete({
       </div>
       {/* Selected item chip */}
       {selectedId && selectedItem && (
-        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium" style={{ background: GOLD_SOFT, color: GOLD }}>
-          <StudentAvatar firstName={selectedItem.label.split(' ')[0] || ''} lastName={selectedItem.label.split(' ').slice(1).join(' ') || ''} photoUrl={selectedItem.photoUrl} size={24} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
-          {selectedItem.label}
-          {selectedItem.sublabel && <span className="text-[10px] opacity-70">({selectedItem.sublabel})</span>}
+        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium max-w-full" style={{ background: GOLD_SOFT, color: GOLD }}>
+          <StudentAvatar firstName={selectedItem.label.split(' ')[0] || ''} lastName={selectedItem.label.split(' ').slice(1).join(' ') || ''} photoUrl={selectedItem.photoUrl} size={24} className="text-white font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
+          <span className="truncate min-w-0">{selectedItem.label}</span>
+          {selectedItem.sublabel && <span className="text-[10px] opacity-70 shrink-0">({selectedItem.sublabel})</span>}
         </div>
       )}
       {/* Autocomplete dropdown */}
@@ -183,7 +185,7 @@ function SearchAutocomplete({
           ) : (
             <>
               <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider border-b border-[oklch(92%_0.005_250)]" style={{ color: TEXT_MUTED_LUXE }}>
-                {items.length} {itemTypeName}{items.length > 1 ? 's' : ''} trouvé{items.length > 1 ? 's' : ''}
+                {items.length} {itemTypeName}{items.length > 1 ? 's' : ''} {foundWord}{items.length > 1 ? 's' : ''}
               </div>
               {items.map(item => (
                 <button
@@ -1221,8 +1223,12 @@ function PricingView() {
                       </div>
                       <ul className="space-y-3 mb-6">
                         {featureList.map(f => (
-                          <li key={f} className="flex items-center gap-2 text-sm" style={{ color: TEXT_PRIMARY }}>
-                            <CheckCircle size={14} style={{ color }} /> {f}
+                          <li key={f} className="flex items-start gap-2 text-sm" style={{ color: TEXT_PRIMARY }}>
+                            <CheckCircle size={14} style={{ color }} className="shrink-0 mt-[3px]" />
+                            {/* min-w-0 + break-words : un long segment sans espace
+                                (ex. « (Direction/Secrétaire/Caisse/Discipline) »)
+                                passe à la ligne au lieu de déborder de la carte. */}
+                            <span className="min-w-0 break-words">{f}</span>
                           </li>
                         ))}
                       </ul>
@@ -2239,8 +2245,11 @@ function Sidebar() {
   // Admin plateforme : sélecteur d'« école active » — l'admin plateforme
   // n'est rattaché à aucune école ; il choisit ici le contexte scolaire
   // dans lequel il parcourt les vues (élèves, paiements, discipline…).
+  // Recherche locale (même UX que la recherche d'élèves) : les écoles sont
+  // déjà chargées (limit 100), le filtrage nom/ville est instantané.
   const isPlatformAdminSidebar = userRole === 'SUPER_ADMIN_GLOBAL'
-  const [contextSchools, setContextSchools] = useState<Array<{ id: string; name: string; shortName: string }>>([])
+  const [contextSchools, setContextSchools] = useState<Array<{ id: string; name: string; shortName: string; city?: string }>>([])
+  const [schoolQuery, setSchoolQuery] = useState('')
   useEffect(() => {
     if (!isPlatformAdminSidebar) return
     authFetch('/api/schools?limit=100').then(r => r.json()).then(j => setContextSchools(j.data || [])).catch(() => {})
@@ -2446,15 +2455,29 @@ HEAD_TEACHER: [
         {isPlatformAdminSidebar && (
           <div className="px-4 pt-3 pb-1">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-white/40 mb-1.5">École active</div>
-            <AppSelect
-              value={activeSchoolId || ''}
-              onChange={(v) => setActiveSchoolId(v || null)}
-              options={[
-                { value: '', label: '— Aucune (plateforme) —' },
-                ...contextSchools.map(s => ({ value: s.id, label: `${s.name} (${s.shortName})` })),
-              ]}
-              placeholder="— Aucune (plateforme) —"
+            <SearchAutocomplete
+              placeholder="Rechercher une école…"
+              items={(() => {
+                const q = schoolQuery.trim().toLowerCase()
+                const all = q
+                  ? contextSchools.filter(s => `${s.name} ${s.shortName} ${s.city || ''}`.toLowerCase().includes(q))
+                  : contextSchools
+                return all.map(s => ({ id: s.id, label: s.name, sublabel: [s.shortName, s.city].filter(Boolean).join(' · ') }))
+              })()}
+              selectedId={activeSchoolId || null}
+              onSelect={(item) => { setActiveSchoolId(item.id); setSchoolQuery('') }}
+              onClear={() => { setActiveSchoolId(null); setSchoolQuery('') }}
+              searchQuery={schoolQuery}
+              onSearchChange={setSchoolQuery}
+              emptyMessage="Aucune école ne correspond"
+              itemTypeName="école"
+              foundWord="trouvée"
             />
+            <div className="mt-1.5 text-[10px] leading-snug text-white/40">
+              {activeSchoolId
+                ? 'Les vues affichent les données de cette école.'
+                : 'Aucune — vue plateforme (données globales).' }
+            </div>
           </div>
         )}
 
