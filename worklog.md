@@ -1855,3 +1855,21 @@ Stage Summary:
 - Le super admin peut ENFIN traiter les demandes d'upgrade : menu Écoles restauré, notif → vue Écoles (plus de redirect), boutons dans la notif ET file permanente — les 2 voies validées avec effets DB réels (tier école mis à jour 2×).
 - Cause racine documentée : le compte plateforme recevait un tier « FREEMIUM » par défaut → gating abonnement appliqué au super admin. corrigé à la source (login/OTP) + défense (canAccessView, sidebar).
 - La détection de MAJ portable (302 non suivie) est réparée et prouvée contre le GitHub réel ; la v1.4.5 au push fournit un updater sain (60 s, CDN sans quota, redirections suivies). Limite assumée : l'exe v1.4.3 de l'utilisateur a un updater cassé en interne — il devra télécharger la v1.4.5 UNE fois manuellement, ensuite les MAJ seront détectées automatiquement (< 1 min).
+
+---
+Task ID: UPDATER-INSTALL-FIX-1
+Agent: Z.ai Code (main)
+Task: « je ne peux pas faire une mise a jour » — la bannière reste bloquée sur « Téléchargement… 100% », l'installation ne se lance jamais
+
+Work Log:
+- AUDIT CAPTURES UTILISATEUR : bannière « Mise à jour disponible (v1.4.5) » OK (détection réparée en UPDATER-PORTABLE-FIX-1), clic Télécharger → progression → 100% → PLUS RIEN. Le bouton « Redémarrer » n'apparaît jamais.
+- CAUSE RACINE PROUVÉE PAR LECTURE DU CODE electron-updater 6.8.9 (npm pack + décompilation out/BaseUpdater.js / out/AppUpdater.js) : executeDownload() appelle done() qui émet dispatchUpdateDownloaded (= notre 'ready') AVANT que la promesse downloadUpdate() ne se résolve. Dans main.js v1.4.3→v1.4.5, le handler 'update-download' chaînait .then(() => sendUpdate('downloading', {percent: 100})) → ce 'downloading 100%' arrivait DERNIER et écrasait 'ready' → bannière bloquée à jamais. Affecte la version INSTALLÉE (NSIS) = l'exe que l'utilisateur utilise.
+- FIX main.js : (1) .then() fautif supprimé ; (2) garde sticky dans sendUpdate : 'ready' ne peut plus être rétrogradé par 'downloading'/'available' ; (3) portable : le fichier déjà présent dans Téléchargements est validé par HEAD+content-length (redirections suivies) — un partiel corrompu est supprimé et retéléchargé au lieu d'être déclaré 'ready' puis lancé en échec silencieux ; (4) portable : intégrité finale vérifiée (taille === content-length, sinon unlink+erreur) ; (5) portable : shell.openPath résout avec une STRING d'erreur — l'app ne quitte PLUS si le lancement est bloqué (SmartScreen/AV) : showItemInFolder + message explicite ; (6) fallback install : fichier attendu dans Téléchargements utilisé même si 'ready' non marqué.
+- FIX UpdateBanner.tsx (défense en profondeur) : garde symétrique 'ready' jamais rétrogradé ; bouton « Réessayer » sur l'état erreur ; watchdog 12 s à 100% → bouton « Installer maintenant » (porte de sortie manuelle, setState du reset déplacé dans le callback IPC pour respecter react-hooks/set-state-in-effect).
+- TESTS RÉELS : (a) script A/B reproduisant l'ordre exact 6.8.9 : ancien code = séquence ready → downloading:100 → available (bug reproduit, état final jamais 'ready') ; nouveau code = ready préservé ✅. (b) headContentLength contre GitHub live : 302 suivie, EduGest-Portable-1.4.5.exe = 155 325 826 octets lus correctement. (c) tsc 0 erreur ; lint 67 (< baseline 109) après correction d'une erreur set-state-in-effect introduite puis retirée. (d) agent-browser : /login → session SAG conservée, sidebar 19 items, vue Écoles rendue, window.__edugest absent du web (bannière inerte, zéro régression).
+- QUALITÉ : rebase sur 9fb83c9 (convocations discipline d'une autre session) puis push f62a650. CI + Build Desktop lancés ; desktop/package.json → 1.4.6 pour livrer le fix.
+
+Stage Summary:
+- La mise à jour installée (NSIS) se termine désormais : téléchargement → « ✅ Prêt » → Redémarrer → quitAndInstall. La race .then() qui écrasait 'ready' est éliminée à la source ET gardée en surface (main + renderer).
+- Chemin utilisateur depuis v1.4.3/v1.4.5 bloquée : FERMER EduGest installe automatiquement la MAJ déjà téléchargée (autoInstallOnAppQuit=true) — v1.4.6 livrera un updater définitivement sain ; ensuite tout est automatique (check 60 s).
+- Chaîne portable durcie : fichier partiel jamais lancé, blocage SmartScreen signalé au lieu d'une fermeture silencieuse.
