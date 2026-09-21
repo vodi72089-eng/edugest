@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, classMatchesCycle } from '@/lib/auth';
 import { requireFeature } from '@/lib/feature-gate';
 import { notifyConvocation } from '@/lib/whatsapp-agent';
+import { isDirectionRole, isDisciplineCreated, disciplineCreatorNames } from '@/lib/convocation-access';
 
 export async function GET(request: NextRequest) {
   try {
@@ -57,10 +58,24 @@ export async function GET(request: NextRequest) {
       db.user.count({ where: { schoolId, isActive: true } }),
     ]);
 
+    // Un compte DIRECTION_* ne liste PAS les convocations créées par un
+    // compte disciplinaire (il les reçoit en notification, sans pouvoir agir).
+    // Gestion des rôles inchangée par ailleurs.
+    let visibleRecords = records;
+    if (isDirectionRole(user.role)) {
+      const discNames = await disciplineCreatorNames(
+        schoolId,
+        records.map((c) => c.createdBy)
+      );
+      if (discNames.size > 0) {
+        visibleRecords = records.filter((c) => !c.createdBy || !discNames.has(c.createdBy));
+      }
+    }
+
     // For PARENT role: auto-mark all convocations as read
     if (user.role === 'PARENT') {
       try {
-        const convocationIds = records.map(c => c.id);
+        const convocationIds = visibleRecords.map(c => c.id);
         if (convocationIds.length > 0) {
           await Promise.all(
             convocationIds.map(convocationId =>
@@ -72,7 +87,7 @@ export async function GET(request: NextRequest) {
             )
           );
           // Update the reads array for each convocation
-          records.forEach(convocation => {
+          visibleRecords.forEach(convocation => {
             const alreadyRead = convocation.reads?.some(r => r.userId === user.id);
             if (!alreadyRead) {
               if (!convocation.reads) convocation.reads = [];
@@ -91,7 +106,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ data: records, totalUsers });
+    return NextResponse.json({ data: visibleRecords, totalUsers });
   } catch (error) {
     console.error('Error listing convocations:', error);
     return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
@@ -255,6 +270,15 @@ export async function PUT(request: NextRequest) {
     if (user.role === 'PARENT') {
       return NextResponse.json(
         { error: 'Les parents répondent aux convocations via la réponse dédiée' },
+        { status: 403 }
+      );
+    }
+
+    // Un compte DIRECTION_* ne peut pas agir sur une convocation créée par
+    // un compte disciplinaire (il la reçoit en notification, lecture seule).
+    if (isDirectionRole(user.role) && await isDisciplineCreated(existing.schoolId, existing.createdBy)) {
+      return NextResponse.json(
+        { error: 'Convocation gérée par le compte discipline — voir la notification' },
         { status: 403 }
       );
     }

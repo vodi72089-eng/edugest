@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { notifyEvent } from '@/lib/notification-service';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, sanitizeError } from '@/lib/auth';
+import { isDirectionRole, isDisciplineCreated } from '@/lib/convocation-access';
 
 export async function POST(
   request: NextRequest,
@@ -48,6 +49,15 @@ export async function POST(
     // jamais aux parents.
     if (user.role === 'PARENT') {
       return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
+    }
+
+    // Un compte DIRECTION_* ne peut pas agir sur une convocation créée par
+    // un compte disciplinaire (notification en lecture seule).
+    if (isDirectionRole(user.role) && await isDisciplineCreated(convocation.schoolId, convocation.createdBy)) {
+      return NextResponse.json(
+        { error: 'Convocation gérée par le compte discipline — voir la notification' },
+        { status: 403 }
+      );
     }
 
     const updatedConvocation = await db.convocation.update({

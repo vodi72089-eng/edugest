@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useEduGestStore, authFetch, ViewType } from '@/lib/store'
-import { Users, School, AlertTriangle, Clock, BarChart3, UserPlus, MessageSquare, CreditCard, Megaphone } from 'lucide-react'
+import { Users, School, AlertTriangle, Clock, BarChart3, UserPlus,
+MessageSquare, Megaphone } from 'lucide-react'
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts'
 import { ACCENT, SUCCESS, WARNING, DANGER, INFO, GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE } from '@/lib/constants'
 import { formatNumber } from '@/lib/helpers'
@@ -102,8 +103,9 @@ export default function SecretaryDashboard({ role }: { role?: string } = {}) {
             {[
               { icon: <UserPlus size={20} />, label: 'Ajouter élève', view: 'students' as ViewType, color: ACCENT },
               { icon: <MessageSquare size={20} />, label: 'Communication', view: 'communications' as ViewType, color: INFO },
-              ...(!isDirection ? [{ icon: <CreditCard size={20} />, label: 'Paiement', view: 'payments' as ViewType, color: SUCCESS }] : []),
-              { icon: <Megaphone size={20} />, label: 'Convocation', view: 'convocation' as ViewType, color: WARNING },
+              // Convocation : direction uniquement (retiré du compte secrétaire).
+              // Paiement : géré par la caisse (retiré du compte secrétaire).
+              ...(isDirection ? [{ icon: <Megaphone size={20} />, label: 'Convocation', view: 'convocation' as ViewType, color: WARNING }] : []),
             ].map(a => (
               <button key={a.label} onClick={() => setCurrentView(a.view)} className="group flex flex-col items-center gap-2.5 p-4 rounded-2xl border border-[oklch(92%_0.005_250)] hover:border-[oklch(72%_0.15_65_/_0.3)] transition-all duration-300 hover:-translate-y-0.5" style={{ boxShadow: '0 1px 2px oklch(20% 0.02 250 / 0.03)' }}>
                 <div className="w-11 h-11 rounded-xl grid place-items-center transition-all duration-300 group-hover:scale-110 group-hover:rotate-3" style={{ color: 'white', background: `linear-gradient(135deg, ${a.color}, oklch(72% 0.15 65))`, boxShadow: `0 4px 12px ${a.color}25` }}>{a.icon}</div>
