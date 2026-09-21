@@ -1,7 +1,14 @@
-import { GeoLocation, SessionListItem, updateSessionLocationBySid } from './auth';
-
 // ─── IP geolocation (ip-api.com, free, no key) ────────────────────────────
 // Best-effort: any failure (offline, timeout, private IP) returns null.
+//
+// ⚠️ Ce module est importé par des composants CLIENT (CurrentDeviceInfo).
+// Il ne doit donc JAMAIS dépendre d'un module Node (fs/path) au runtime —
+// d'où `import type` (effacé à la compilation) et la partie serveur
+// (persist dans les fichiers de session) déplacée dans geo-server.ts.
+// Sans cela, le bundle client tente de résoudre « fs » et next build /
+// next dev échouent (Module not found: Can't resolve 'fs').
+import type { GeoLocation } from './auth';
+
 const cache = new Map<string, { at: number; data: GeoLocation }>();
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const TIMEOUT_MS = 3000;
@@ -42,18 +49,5 @@ export async function resolveIpLocation(ip: string): Promise<GeoLocation | null>
     return data;
   } catch {
     return null;
-  }
-}
-
-// Resolve and persist missing locations for a user's sessions, then mutate
-// the list items so the API response includes them immediately.
-export async function enrichSessionsWithLocation(userId: string, sessions: SessionListItem[]): Promise<void> {
-  for (const s of sessions) {
-    if (s.location || !s.ip) continue;
-    const loc = await resolveIpLocation(s.ip);
-    if (loc) {
-      updateSessionLocationBySid(userId, s.sid, loc);
-      s.location = loc;
-    }
   }
 }

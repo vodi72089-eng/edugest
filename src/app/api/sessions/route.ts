@@ -7,7 +7,7 @@ import {
   revokeSessionBySid,
   revokeAllUserSessionsExcept,
 } from '@/lib/auth';
-import { enrichSessionsWithLocation } from '@/lib/geo';
+import { enrichSessionsWithLocation } from '@/lib/geo-server';
 
 // GET /api/sessions — list the current user's active sessions (connected
 // devices). The current session is flagged with isCurrent=true.
