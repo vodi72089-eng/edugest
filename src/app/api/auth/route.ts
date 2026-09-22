@@ -75,13 +75,26 @@ function getRemainingLock(identifier: string): number {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body: any;
+    try {
+      body = await request.json();
+    } catch {
+      // Sécurité (SEC-1/F4) : JSON malformé → 400 générique (pas de détail interne)
+      return NextResponse.json({ error: 'Requête invalide' }, { status: 400 });
+    }
     // Trim défensif : un espace copié-collé ne doit jamais invalider un identifiant
     const rawEmail = typeof body.email === 'string' ? body.email.trim() : body.email;
     const rawPhone = typeof body.phone === 'string' ? body.phone.trim() : body.phone;
     const { password, client } = body;
     const email = rawEmail;
     const phone = rawPhone;
+
+    // Sécurité (SEC-1/F4) : payload malformé (JSON cassé arrive en erreur au
+    // niveau request.json → catch 400 ci-dessous) ou types inattendus —
+    // réponse 400 GÉNÉRIQUE au lieu d'un 500 avec détail d'implémentation.
+    if (typeof password !== 'string' || (email !== undefined && email !== null && typeof email !== 'string') || (phone !== undefined && phone !== null && typeof phone !== 'string')) {
+      return NextResponse.json({ error: 'Requête invalide' }, { status: 400 });
+    }
 
     if (!password) {
       return NextResponse.json({ error: 'Password is required' }, { status: 400 });

@@ -20,6 +20,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'École non spécifiée' }, { status: 400 });
     }
 
+    // ── Sécurité (SEC-1/F1 — faille CRITIQUE prouvée) : avant, TOUT compte
+    // authentifié (PARENT, CASHIER…) lisait les visites infirmières de TOUS
+    // les élèves de l'école (motifs, traitements + PII parents). Même matrice
+    // que le POST (P1) : staff médical/administration uniquement ; le PARENT
+    // est réintégré plus bas avec un filtre strict sur SES enfants.
+    const MEDICAL_STAFF = ['MEDICAL', 'SCHOOL_ADMIN', 'DIRECTION', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'SECRETARY'];
+    const isParentViewer = user.role === 'PARENT';
+    if (!isParentViewer && !MEDICAL_STAFF.includes(user.role) && user.role !== 'SUPER_ADMIN_GLOBAL') {
+      return NextResponse.json({ error: 'Accès non autorisé au module médical' }, { status: 403 });
+    }
+
     const school = await db.school.findUnique({
       where: { id: schoolId },
       select: { subscriptionTier: true },
@@ -34,6 +45,10 @@ export async function GET(req: NextRequest) {
 
     const whereClause: any = { schoolId };
     if (studentId) whereClause.studentId = studentId;
+    // Sécurité (SEC-1/F1) : un parent ne voit QUE les visites de SES enfants.
+    if (isParentViewer) {
+      whereClause.student = { parentId: user.id };
+    }
 
     const visits = await db.infirmaryVisit.findMany({
       where: whereClause,

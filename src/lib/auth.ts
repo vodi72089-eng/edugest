@@ -893,7 +893,12 @@ export function canCreateRole(creatorRole: string, targetRole: string): boolean 
   // Seul SUPER_ADMIN_GLOBAL peut créer/attribuer SUPER_ADMIN_GLOBAL.
   if (targetRole === 'SUPER_ADMIN_GLOBAL') return creatorRole === 'SUPER_ADMIN_GLOBAL';
   const allowed = ROLE_CREATION_MATRIX[creatorRole];
-  if (!allowed || !allowed.includes(targetRole)) return false;
+  if (!allowed) return false;
+  // Sécurité (SEC-1/F3) : le wildcard '*' du SAG doit être traité AVANT le
+  // .includes() ('*'.includes('CASHIER') = false bloquait TOUTE création de
+  // compte par le super admin plateforme).
+  if (allowed.includes('*')) return true;
+  if (!allowed.includes(targetRole)) return false;
   // Double barrière hiérarchique : jamais un rôle strictement supérieur au sien.
   if (creatorRole !== 'SUPER_ADMIN_GLOBAL' && getRoleLevel(targetRole) > getRoleLevel(creatorRole)) return false;
   return true;

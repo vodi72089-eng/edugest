@@ -131,6 +131,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Sécurité (SEC-1/F5) : plafonds de longueur (avant : 10 000+ caractères
+    // acceptés et stockés tels quels — gonflement DB/WhatsApp sans crash).
+    if (typeof title !== 'string' || typeof content !== 'string' || title.trim().length > 200 || content.trim().length > 5000) {
+      return NextResponse.json(
+        { error: 'Titre limité à 200 caractères, contenu à 5 000.' },
+        { status: 400 }
+      );
+    }
+
     // Verify school access
     if (!verifySchoolAccess(user, schoolId)) {
       return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });

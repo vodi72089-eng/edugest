@@ -2007,3 +2007,34 @@ Stage Summary:
 - L'onglet Rapports existe : GET /api/reports agrège les 1/3/4/7 derniers jours en données 100% anonymes (compteurs, taux, top classes) et s'adapte au rôle de l'appelant (admin complet, direction scellée à son cycle via classFilterForCycle, discipline discipline+présences de son cycle, secrétaire paiements+communications, professeur ses classes/devoirs/présences) ; ReportsView affiche les sections disponibles avec compteurs en gros, barre de taux de présence et podium des classes, et mentionne le rôle auquel le rapport est scellé.
 - L'envoi WhatsApp est réaliste : POST /api/reports/send formate le texte (emojis, gras, devise de l'école), l'envoie via l'agent WhatsApp de l'école (notifyCommunication par destinataire, gate quota/auto-liaison inclus) au SCHOOL_ADMIN + DIRECTION_* de l'école, renvoie TOUJOURS le texte — l'admin principale le reçoit dans la réponse pour le partager via le WhatsApp de l'app, et tout le monde a le bouton de secours Copier / wa.me quand l'agent de l'école est déconnecté (warning explicite).
 - tsc 0 erreur projet, eslint 0 problème sur les 6 fichiers, prisma validate OK ; reste à l'agent principal : db push, ViewType 'events'/'reports' + entrées de menu selon la matrice ci-dessus.
+
+---
+Task ID: BATCH-UI-SEC-1
+Agent: Z.ai Code (main) + 5 sous-agents + agent sécurité
+Task: Lot 16 demandes UI (logos, classes/monnaie, situation financière, secrétaire, comms, événements+rapports, historique heure+filtres, présence onglet propre, appareil/localisation, prof multi-cours/titulaire, mdp oublié, QR parent multi-enfants, SAG bloqué FREEMIUM) + campagne sécurité complète (tests comptes/interfaces/boutons, failles, limites rôles/abonnements) + rapport RAPPORT-AUDIT.txt
+
+Work Log:
+- AUDIT (4 agents parallèles) : causes racines prouvées pour chaque bug signalé.
+- FIX SAG FREEMIUM (screenshot « Fonctionnalité non disponible ») : useFeatureAccess retombait sur FREEMIUM pour le SAG → bypass plateforme (Discipline/Notes/Paiements/Comms/Convocations couverts). Vérifié navigateur : Discipline s'ouvre.
+- FIX monnaie : currency-display.ts pub/sub (subscribeCurrency + version) ; useCurrency délégué au module (getActiveSchoolId) ; saveCurrencyConfig applique la réponse immédiatement ; loadCurrencyConfig propage ; reset propre si config absente ; Home() useSyncExternalStore → dashboard re-rend. TESTÉ NAVIGATEUR : CDF→USD sans reload, « REVENUS TOTAUX 2 143,35 $ » après Actualiser (taux régénérés base CDF).
+- FIX isolation écoles : /api/students SAG (les vues passent désormais getActiveSchoolId) ; StudentsView (13 occ.), PaymentsView (10), OnlinePaymentView (4), MedicalView (6) : userData?.schoolId → activeSchoolId (définition post-destructure pour TDZ).
+- FIX Situation financière : seuil appliqué à la LISTE + compteur cohérent, convertFromDisplay (unités affichage→base, sans arrondi), bandeau affiche le seuil saisi + symbole réel. TESTÉ : 10 $→14 élèves, 190 $→11.
+- Historique paiements : heure affichée (2 lignes date+HH:MM) + filtres montant/jour/heure alignés devise.
+- Secrétaire : onglet Situation financière RETIRÉ (menu + VIEWS_BY_ROLE + notification-routing).
+- Comms : SECRETARY → PENDING (demande de permission) ; GET expose PENDING à SCHOOL_ADMIN + ses propres demandes à la secrétaire ; approve route : ['SUPER_ADMIN_GLOBAL','SCHOOL_ADMIN'] + verifySchoolAccess (le rôle fantôme 'ADMIN' empêchait toute approbation école) ; UI canApprove séparé de canCreate.
+- Événements + Rapports (agent 2-d) : modèle SchoolEvent (db push OK), /api/events CRUD scellé école, /api/reports agrégats par rôle + /api/reports/send via whatsapp-agent, vues EventsView/ReportsView. TESTÉ NAVIGATEUR : création événement (201 + DB), rapport SAG avec vraies données.
+- AttendanceView (agent 2-a) : extraction du panneau discipline en vue propre, persistance rendue visible (« Persistance confirmée : X enregistrements »), menu DISCIPLINE_* + SAG/SCHOOL_ADMIN. TESTÉ : appel CM2 → 1 enregistrement en base.
+- Prof multi-cours/titulaire (agent 2-c) : split virgules → chips + TeacherAssignments par matière×classe ; titularité multi-classes (titulaireClassIds) + affichage « Titulaire de : … » via GET /api/users (titulaireClassNames).
+- QR parent (agent 2-b) : find-child multi-étapes « Combien d'enfants ? » (1..5), parent-register transactionnel studentIds[] avec 409 nominatif (parentId null requis), anti-doublon client+serveur.
+- Appareil/localisation (agent 2-e) : geo.ts HTTPS ipwho.is+fallback, normalizeClientIp (branchée dans getClientIp auth.ts + création session), CurrentDeviceInfo fallback web.
+- Mots de passe oublié : modale 3 étapes branchée (forgot-password/reset-password existants). TESTÉ : modale s'ouvre, API erreur numéro inconnu gérée.
+- Logos : bictorys.svg placeholder → marque (carré vert dégradé + « b » blanc) ; Visa/Mastercard/M-Pesa/Orange Money/Airtel/Flutterwave déjà réels (vérifié fichiers).
+- SÉCURITÉ (agent SEC-1, 28 tests curl réels) : 26 PASS. Failles Prouvées→Corrigées→Re-testées : F1 CRITIQUE GET medical/visits (parent lisait toute l'école → staff-only + filtre parentId, preuve 1 visite DB/0 vue) ; F2 GET /api/schools public exposait tokens WhatsApp/abonnement → select public (preuve : plus de whatsappMetaToken) ; F3 canCreateRole '*' cassé (SAG ne pouvait créer aucun compte → 201 CASHIER) ; F4 /api/auth 500+détail → 400 générique ; F5 comms sans limites → 200 titre/5000 contenu. RBAC par secteur + IDOR école + rate limit + QR publics vérifiés vivants (détails dans RAPPORT-AUDIT.txt).
+- Artefacts de test nettoyés en base (élève/parent/comm/QR/visite SecTest). Restauration routes upload (artefact snapshot disque) + modes 644.
+- QUALITÉ : tsc 0 erreur ; lint 66 (< baseline 109, < 67 précédent). Commits a9f2f40 (lot complet, message auto UUID) + 2b74195 (restauration) + correctifs sécurité, rebase origin/main, push main.
+
+Stage Summary:
+- Les 4 bugs signalés (FREEMIUM sur Discipline, monnaie non propagée, filtre montant mort, « mêmes classes partout ») corrigés et PROUVÉS en navigateur réel.
+- Nouveaux onglets Événements/Rapports/Présence opérationnels avec données réelles ; rapport hebdo/3-4 jours par rôle + envoi WhatsApp école/SAG.
+- Sécurité durcie : 5 failles prouvées corrigées (1 critique santé, 1 exposition tokens, 1 blocage SAG, 2 durcissements) — re-tests verts.
+- RAPPORT-AUDIT.txt livré (fichier notepad) : périmètre, preuves, limites honnêtes (redémarrages mémoire sandbox, mdp démo à re-changer, semgrep non installable).

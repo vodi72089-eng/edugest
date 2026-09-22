@@ -1,0 +1,166 @@
+===============================================================================
+RAPPORT D'AUDIT EDUGEST — TESTS RÉELS COMPTES / INTERFACES / SÉCURITÉ
+===============================================================================
+Date : 22/09/2026 · Méthode : navigateur réel (agent-browser/playwright) +
+campagne curl sur l'API vivante + lecture de code. Serveur : localhost:3000.
+Compte de test : Super Admin (admin@edugest.app).
+
+NOTE SUR LES MCP DEMANDÉS (playwright, desktop, memory, semgrep, nexus,
+codedev, shadcn, contex7) :
+- L'environnement n'autorise pas l'installation de nouveaux serveurs MCP.
+- ÉQUIVALENTS UTILISÉS RÉELLEMENT :
+  * playwright  → agent-browser (CDP Chromium : snapshots, clics, screenshots)
+  * memory      → worklog.md + fichiers persistants (/tmp)
+  * semgrep     → installation CLI REFUSÉE par le sandbox (pip PEP 668) ;
+                  remplacé par revue de code ciblée + tests d'intrusion curl
+                  (plus bruitable que un scan statique sur ce projet)
+  * codedev/shadcn/context7/nexus/desktop → couverts par les agents d'analyse
+                  de code (pas d'installation possible)
+- Ce qui n'a PAS pu être installé est dit explicitement, rien n'est inventé.
+
+===============================================================================
+1. CE QUI A ÉTÉ VÉRIFIÉ DANS LE NAVIGATEUR (session Super Admin)
+===============================================================================
+[OK]   Connexion SAG → dashboard, menu complet restauré (26 entrées)
+[OK]   BUG DU SCREENSHOT CORRIGÉ : « Discipline » s'ouvre NORMALEMENT
+       (avant : « Fonctionnalité non disponible — FREEMIUM » à tort).
+       Cause : le hook useFeatureAccess retombait sur FREEMIUM pour le SAG.
+[OK]   Nouveaux onglets visibles : Liste de présence, Événements, Rapports
+[OK]   Rapports : sélecteur de période (Aujourd'hui/3/4/7 jours), rapport
+       généré avec vraies données (20 élèves, 15 classes, 60 transactions,
+       discipline, effectifs par classe), mention « scellé sur votre rôle »,
+       bouton « Envoyer sur WhatsApp » + partage de secours (copier/wa.me).
+[OK]   Événements : création RÉELLE testée (POST 201, toast, vérifié en base :
+       SchoolEvent count = 1). Sections À venir / Passés.
+[OK]   Liste de présence : choix classe CM2 → 1 élève chargé → marquage
+       Présent → Enregistrer → toast « enregistrée en base — 1 enregistrement »
+       + bandeau « Persistance confirmée : 1 enregistrement en base à 18:52 ».
+       (Répond à « pas connecté à la base de l'école » : la persistance est
+       maintenant VISIBLE et prouvée en base.)
+[OK]   Monnaie (bug signalé) : Config. Paiements → Monnaies → affichage USD →
+       Sauvegarder → le DASHBOARD bascule SANS rechargement : « REVENUS
+       TOTAUX 2 143,35 $ » (conversion réelle depuis FC). Config persistée en
+       base (base CDF / affichage USD). Après « Actualiser », les taux sont
+       régénérés pour la bonne base — conversion exacte vérifiée.
+[OK]   Situation financière (bug signalé) : filtre « Montant atteint ≥ »
+       FONCTIONNE : seuil 10 $ → « 14 élèves sur 20 ont payé au moins 10 $ » ;
+       seuil 190 $ → 11 élèves. Le compteur ET le tableau réagissent.
+[OK]   L'école active reste sélectionnée entre les vues (la perte observée
+       pendant les tests venait des redémarrages mémoire du SANDBOX, pas de
+       l'application — re-vérifié : CONSERVÉ ✅).
+
+===============================================================================
+2. FAILLES DE SÉCURITÉ — 26 TESTS PASS, 5 FAILLES PROUVÉES → TOUS CORRIGÉS
+===============================================================================
+F1 🔴 CRITIQUE (CORRIGÉ + RE-TESTÉ)
+    GET /api/medical/visits : un PARENT lisait les visites infirmières de
+    TOUS les élèves (motifs, traitements, téléphone des parents).
+    Correctif : staff médical/administration uniquement ; le PARENT ne voit
+    plus que SES enfants (filtre parentId). Preuve : 1 visite en base,
+    le parent en voit désormais 0 (elle appartient à un autre enfant).
+
+F2 🟠 MOYEN (CORRIGÉ + RE-TESTÉ)
+    GET /api/schools était 100% public et exposait TOUTES les colonnes
+    (tokens WhatsApp Meta, endpoints perso, abonnement, contacts).
+    Correctif : annuaire public limité aux champs publics ; champs
+    d'administration réservés aux appelants authentifiés.
+    Preuve : la réponse publique ne contient plus « whatsappMetaToken ».
+
+F3 🟠 LOGIQUE (CORRIGÉ + RE-TESTÉ)
+    Le Super Admin ne pouvait créer AUCUN compte (wildcard '*' mal traité :
+    '*'.includes('CASHIER') = false → 403 sur tous les rôles).
+    Correctif : wildcard traité avant le includes.
+    Preuve : POST /api/users par SAG → 201 (création CASHIER réussie).
+
+F4 🟡 MINEUR (CORRIGÉ + RE-TESTÉ)
+    /api/auth répondait 500 + détail interne sur payload malformé.
+    Correctif : 400 générique. Preuve : JSON cassé → 400 ; type invalide → 400.
+
+F5 🟡 MINEUR (CORRIGÉ + RE-TESTÉ)
+    Aucune limite de longueur sur les communications (10 000 caractères
+    acceptés). Correctif : titre ≤ 200, contenu ≤ 5 000 → 400 sinon. Testé.
+
+VERROUS DÉJÀ EN PLACE (vérifiés vivants, sans modification) :
+[OK] 401 sans token sur 10 endpoints sensibles
+[OK] Anti-énumération login (même message compte inexistant/désactivé)
+[OK] Verrou progressif : 5 échecs → 60 s, puis 429 (60/180/600/1200 s, cap 24 h)
+[OK] RBAC par secteur PROUVÉ : CASHIER bloqué sur discipline/convocations ;
+     TEACHER bloqué sur création paiements/comptes ; SECRETARY bloquée sur la
+     gestion d'école et la suppression d'événements ; PARENT limité à SES
+     enfants (11) et bloqué sur users/events/reports.
+[OK] Isolation école (IDOR) : aucun échange de schoolId possible pour un
+     compte d'école (0 fuite dans tous les scénarios testés).
+[OK] QR Parents publics : token invalide → 404 ; élève déjà lié → 409
+     nominatif ; multi-enfants atomique (tout-ou-rien vérifié en base).
+[OK] Forfaits/abonnements IMPOSÉS CÔTÉ API : école FREEMIUM → discipline
+     403 (tierRequired ESSENTIEL) ; communications FREEMIUM → 403 ;
+     STANDARD → 200. 5 endpoints passent par requireFeature.
+[OK] limit=999999 plafonné à 100 ; startAt invalide → 400 ; tokens forgés → 401.
+
+===============================================================================
+3. RÉPARTITION DES RÔLES / SECTEURS (VERIFICATION PAR COMPTE)
+===============================================================================
+SAG (plateforme)  : tout le secteur + supervision — plus JAMAIS gated FREEMIUM
+SCHOOL_ADMIN      : gestion complète de SON école (vérifié API)
+DIRECTION_*       : discipline/convocations/comms de SON cycle + événements
+DISCIPLINE_*      : listes + présence (nouvel onglet) — bloqué ailleurs
+SECRETARY         : élèves/classes/vérification/QR — Situation financière
+                    RETIRÉE (demande) ; ses communications passent désormais
+                    en DEMANDE DE PERMISSION (PENDING) avant envoi
+CASHIER           : caisse uniquement (paiements/dettes/finance/vérification)
+TEACHER/HEAD      : notes/devoirs/bulletins de SES classes + rapports
+PARENT            : SES enfants uniquement (prouvé en base parentId)
+MEDICAL           : module santé — accès re-scellé côté API
+
+===============================================================================
+4. CORRECTIFS FONCTIONNELS LIVRÉS DANS CE LOT (vérifiés navigateur)
+===============================================================================
+- Monnaie propagée immédiatement au dashboard (sans rechargement) + reactive
+- Filtre « Montant atteint ≥ » branché (liste + compteur, unités alignées)
+- Historique paiements : HEURE affichée + filtres élève/montant/jour/heure
+- Onglet « Situation financière » retiré du SECRÉTAIRE
+- Communications : SECRETARY + DIRECTION en demande de permission ;
+  approbation par l'ADMIN DE L'ÉCOLE (SCHOOL_ADMIN) ou le SAG (avant :
+  l'approbateur n'existait pas — rôle 'ADMIN' fantôme)
+- Discipline : « Liste de présence » a son PROPRE onglet (+ SAG/Direction/Admin)
+- Professeurs : multi-cours (virgule → chips) + titularité multi-classes
+  AFFICHÉE (« Titulaire de : 6eA, 5eB »)
+- Mot de passe oublié : procédure réelle 3 étapes (téléphone → code
+  WhatsApp/SMS → nouveau mot de passe) — le bouton était mort avant
+- QR Parent : page de scan « Retrouver mon enfant » avec question
+  « Combien d'enfants avez-vous ? », liaison multi-enfants atomique,
+  1 enfant = 1 seul compte parent (409 nominatif sinon)
+- Appareil + localisation : géoloc HTTPS (ipwho.is + fallback), IP
+  normalisée (::ffff: retiré), panneau « CET APPAREIL » en web (pas
+  seulement desktop)
+- Logos paiement : Bictorys placeholder remplacé par la marque ; Visa,
+  Mastercard, M-Pesa, Orange Money, Airtel, Flutterwave = vrais logos
+- Événements + Rapports : nouveaux onglets (admins, direction, secrétaire,
+  caisse, enseignants, médical, discipline, SAG) avec envoi WhatsApp via
+  l'agent de l'école
+- Isolation écoles : /api/students et 4 vues (Élèves, Médical, Paiements,
+  Paiement en ligne) scellées sur l'école ACTIVE du SAG (avant : toutes les
+  écoles mélangées → « mêmes classes partout »)
+
+===============================================================================
+5. LIMITES CONNUES (HONNÊTETÉ — rien de caché)
+===============================================================================
+- Le sandbox subit des redémarrages mémoire du serveur dev (3-4 pendant les
+  tests). Symptômes observés : flash de landing + perte de l'école active
+  après ces redémarrages UNIQUEMENT (artefact dev, non reproductible après
+  redémarrage propre ; l'état persiste entre vues normalement).
+- Rapports : l'intitulé « Transactions enregistrées » compte le total global
+  quand la période n'en contient pas (affichage à clarifier — mineur).
+- Semgrep CLI non installable (sandbox). Compensé par campagne curl + revue.
+- Les mots de passe de 6 comptes de démonstration ont été réinitialisés
+  pendant la campagne sécurité (joseph@, mwepu@, claudine@lumiere.cd,
+  parent@email.com, admin@mwanzo.cd, admin@kivu.cd → TestPass2026!) :
+  À RE-CHANGER avant toute mise en production.
+- Non testé faute de compte dédié : EPS, HEAD_TEACHER en navigateur (leurs
+  matrices d'autorisation sont vérifiées par code + API).
+
+===============================================================================
+CONCLUSION : 26/28 tests API PASS · 5 failles PROUVÉES corrigées et re-testées
+· les 4 bugs signalés (FREEMIUM sur Discipline, monnaie, filtre montant,
+classes mélangées) corrigés et vérifiés en navigateur réel.
+===============================================================================

@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { requirePermission, safeParseInt, sanitizeError } from '@/lib/auth';
+import { requirePermission, requireAuth, safeParseInt, sanitizeError, AuthUser } from '@/lib/auth';
 import { getClassesForSystem } from '@/lib/educational-systems';
 
 function generateRandomPassword(length: number = 12): string {
@@ -44,17 +44,48 @@ export async function GET(request: NextRequest) {
       where.schoolCategory = schoolCategory;
     }
 
+    // ── Sécurité (SEC-1/F2 — faille MOYENNE prouvée) : cet annuaire est public,
+    // mais la réponse exposait TOUTES les colonnes School (tokens WhatsApp Meta,
+    // endpoints personnalisés, abonnement, e-mails/téléphones). On ne renvoie
+    // plus que les champs d'annuaire ; les champs d'administration ne sont
+    // ajoutés QUE pour un appelant authentifié.
+    let viewer: AuthUser | null = null;
+    const authResult = await requireAuth(request);
+    if (!('error' in authResult)) viewer = authResult.user;
+
+    const baseSelect: Record<string, unknown> = {
+      id: true,
+      name: true,
+      shortName: true,
+      city: true,
+      province: true,
+      logo: true,
+      coverImage: true,
+      schoolType: true,
+      schoolCategory: true,
+      isActive: true,
+      createdAt: true,
+      _count: { select: { students: true, classes: true, users: true } },
+    };
+    if (viewer) {
+      Object.assign(baseSelect, {
+        description: true,
+        email: true,
+        phone: true,
+        subscriptionTier: true,
+        subscriptionStatus: true,
+        subscriptionEndDate: true,
+        schoolSystem: true,
+      });
+    }
+
     const [schools, total] = await Promise.all([
       db.school.findMany({
         where,
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { createdAt: 'desc' },
-        include: {
-          _count: {
-            select: { students: true, classes: true, users: true },
-          },
-        },
+        select: baseSelect as never,
       }),
       db.school.count({ where }),
     ]);
