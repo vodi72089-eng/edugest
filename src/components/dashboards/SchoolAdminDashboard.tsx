@@ -7,8 +7,9 @@ import { getTierLimits, TierLimits } from '@/lib/subscription';
 import {
   Users, GraduationCap, School, CreditCard, MessageSquare, Shield,
   Activity, AlertTriangle, CheckCircle, ArrowUpRight, TrendingUp,
-  Clock, HeartPulse, Sparkles
+  Clock, HeartPulse
 } from 'lucide-react';
+import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE } from '@/lib/constants';
 
 export default function SchoolAdminDashboard() {
   const { userData, setCurrentView } = useEduGestStore();
@@ -83,37 +84,34 @@ export default function SchoolAdminDashboard() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6">
-      {/* Bannière de Bienvenue */}
-      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-[oklch(22%_0.03_175)] to-[oklch(18%_0.02_250)] text-white shadow-xl">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-[oklch(72%_0.15_65_/_0.15)] rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-white/10 text-amber-300 mb-3 border border-white/10">
-              <Sparkles size={13} />
-              Direction Principale • {userData?.schoolName || 'Mon Établissement'}
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Bonjour, {userData?.name || 'Administrateur'} 👋
+      {/* En-tête simple, même design que l'interface admin globale */}
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>
+              Bonjour, {userData?.name || 'Administrateur'}
             </h1>
-            <p className="text-white/70 text-sm mt-1 max-w-xl">
-              Pilotage centralisé des effectifs, des finances, du corps pédagogique et des communications officielles.
-            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => setCurrentView('my-subscription')}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/20 transition backdrop-blur-sm"
-            >
-              Forfait : <span className="font-bold text-amber-300">{tier}</span>
-              <ArrowUpRight size={14} />
-            </button>
-            <button
-              onClick={() => setCurrentView('students')}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition shadow-lg shadow-amber-500/20"
-            >
-              + Inscrire un élève
-            </button>
-          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>
+            Direction Principale • {userData?.schoolName || 'Mon Établissement'}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setCurrentView('my-subscription')}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition hover:shadow-sm"
+            style={{ borderColor: 'oklch(90% 0.01 175)', color: TEXT_PRIMARY, background: 'white' }}
+          >
+            Forfait : <span className="font-bold" style={{ color: GOLD }}>{tier}</span>
+            <ArrowUpRight size={13} />
+          </button>
+          <button
+            onClick={() => setCurrentView('students')}
+            className="edu-gold-cta px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5"
+          >
+            + Inscrire un élève
+          </button>
         </div>
       </div>
 
