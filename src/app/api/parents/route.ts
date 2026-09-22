@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole, safeParseInt, sanitizeError } from '@/lib/auth';
+import { requireFeature } from '@/lib/feature-gate';
 
 /**
  * GET /api/parents
@@ -42,6 +43,12 @@ export async function GET(request: NextRequest) {
     const authResult = await requireRole(request, PARENTS_READ_ROLES);
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
+
+    // ── GATE FORFAIT : la gestion des comptes parents est réservée aux
+    // écoles ESSENTIEL et plus (canManageParentAccounts). Avant : les écoles
+    // FREEMIUM accédaient à la liste complète des parents via l'API.
+    const featureCheck = await requireFeature(request, 'parents');
+    if ('error' in featureCheck) return featureCheck.error;
 
     const { searchParams } = new URL(request.url);
     const search = (searchParams.get('search') || '').trim();

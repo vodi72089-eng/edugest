@@ -2038,3 +2038,26 @@ Stage Summary:
 - Nouveaux onglets Événements/Rapports/Présence opérationnels avec données réelles ; rapport hebdo/3-4 jours par rôle + envoi WhatsApp école/SAG.
 - Sécurité durcie : 5 failles prouvées corrigées (1 critique santé, 1 exposition tokens, 1 blocage SAG, 2 durcissements) — re-tests verts.
 - RAPPORT-AUDIT.txt livré (fichier notepad) : périmètre, preuves, limites honnêtes (redémarrages mémoire sandbox, mdp démo à re-changer, semgrep non installable).
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Corriger le crash formatNumber, auditer/tester tous les systèmes d'abonnement (upgrade/downgrade réels), créer les comptes de test pour les 6 forfaits, corriger l'erreur des rôles similaires, clarifier que le QR WhatsApp est généré par le serveur web
+
+Work Log:
+- Fix TypeError formatNumber (undefined.toLocaleString) : helpers.ts défensif + 3 call-sites `?? 0` dans page.tsx
+- Fix faille critique rôles : fallback `API_ROLE_MAP[role] || 'SUPER_ADMIN_GLOBAL'` → `|| 'SCHOOL_ADMIN'` dans les 2 flux d'onboarding (page.tsx:1365,1458) ; ajout de EPS dans API_ROLE_MAP
+- Découverte + fix bug 500 /api/schools authentifié : champ `schoolSystem` inexistant → `educationalSystem` (le SAG voyait « 0 écoles »)
+- Fix logique upgrade/downgrade : PUT /api/schools/[id] archive/restaure maintenant les élèves au changement de tier (import archive.ts) + toasts dans SchoolsManagementView
+- Fix UI « Demande en cours... » global → par forfait demandé (pendingForThisTier/pendingForOtherTier)
+- Fix faille tier parents : requireFeature('parents') ajouté à GET /api/parents (FREEMIUM passait avant)
+- Bannière « QR/code généré par le serveur EduGest (web) » dans la vue Connexion WhatsApp
+- Script scripts/seed-tier-accounts.js : 3 écoles créées (ESSENTIEL 120 élèves, ENTERPRISE, CORPORATE) + mot de passe admin123 uniformisé sur les 9 admins d'école
+- Tests agent-browser : landing sans crash, login SAG/ESSENTIEL/FREEMIUM/STANDARD, paywalls ESSENTIEL (médical/communications), dashboard FREEMIUM (0/100, 0/0 profs, santé verrouillée), approbation upgrade via notification sans redirection, downgrade 120→100+20 archivés, re-upgrade → 120 restaurés (vérifié en DB), pending=1/demander=2
+- Tests API gating : FREEMIUM discipline/homework/communications/convocations/parents=403, ESSENTIEL homework/discipline=200 + communications/convocations/medical=403, PREMIUM/ENTERPRISE/CORPORATE tout=200
+- tsc 0 erreur ; lint 68 ≤ 109 ; 2 crashs OOM du dev server → relance avec 1536MB
+
+Stage Summary:
+- Le cycle complet d'abonnement est prouvé en conditions réelles : demande → notification → approbation → tier + dates en DB ; downgrade archive réellement les excédents, upgrade les restaure
+- 4 bugs corrigés (crash dashboard, 500 écoles authentifiées, tier change sans archivage, parents accessible FREEMIUM) + 2 failles de rôles (fallback SAG, EPS)
+- Rapport utilisateur : RAPPORT-TESTS-ABONNEMENTS.txt ; comptes de test listés dedans (mot de passe admin123)

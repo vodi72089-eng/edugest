@@ -771,7 +771,7 @@ function HomeView() {
                     </div>
                     <div className="flex gap-4 py-3 border-t border-b border-[oklch(88%_0.01_175)] mb-4">
                       <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</strong>élèves
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students ?? school.studentCount ?? 0)}</strong>élèves
                       </div>
                       <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
                         <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</strong>classes
@@ -951,7 +951,7 @@ function SchoolDetailView() {
             <div className="flex items-center gap-4 mt-3 text-sm flex-wrap">
               <span className="flex items-center gap-1"><Star size={14} style={{ color: GOLD }} className="fill-current" /> <strong style={{ color: TEXT_PRIMARY }}>{school.averageRating?.toFixed(1)}</strong> <span style={{ color: TEXT_MUTED_LUXE }}>({school.totalReviews} avis)</span></span>
               <span style={{ color: TEXT_MUTED_LUXE }}>·</span>
-              <span style={{ color: TEXT_MUTED_LUXE }}>{school._count?.students || school.studentCount} élèves</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>{school._count?.students ?? school.studentCount ?? 0} élèves</span>
               <span style={{ color: TEXT_MUTED_LUXE }}>·</span>
               <span style={{ color: TEXT_MUTED_LUXE }}>{school._count?.classes || school.classCount} classes</span>
               <span style={{ color: TEXT_MUTED_LUXE }}>·</span>
@@ -967,7 +967,7 @@ function SchoolDetailView() {
 
             <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
-                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students || school.studentCount)}</div>
+                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students ?? school.studentCount ?? 0)}</div>
                 <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Élèves</div>
               </div>
               <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
@@ -1362,7 +1362,7 @@ function CreateSchoolView() {
         const loginJson = await loginRes.json()
         if (loginJson.data) {
           const apiUser = loginJson.data
-          const role = API_ROLE_MAP[apiUser.role] || 'SUPER_ADMIN_GLOBAL'
+          const role = API_ROLE_MAP[apiUser.role] || 'SCHOOL_ADMIN' // onboarding = admin d'école (jamais SAG)
           login(role, {
             id: apiUser.id, name: apiUser.name, role,
             schoolId: apiUser.schoolId, schoolName: json.data.school.name,
@@ -1455,7 +1455,7 @@ function CreateSchoolView() {
                   const loginJson = await loginRes.json()
                   if (loginJson.data) {
                     const apiUser = loginJson.data
-                    const role = API_ROLE_MAP[apiUser.role] || 'SUPER_ADMIN_GLOBAL'
+                    const role = API_ROLE_MAP[apiUser.role] || 'SCHOOL_ADMIN' // onboarding = admin d'école (jamais SAG)
                     login(role, {
                       id: apiUser.id, name: apiUser.name, role,
                       schoolId: apiUser.schoolId, schoolName: form.name,
@@ -3665,6 +3665,18 @@ function WhatsAppConfigView() {
               <div className={`flex items-center gap-3 p-3 rounded-xl ${st.bg}`}>
                 <div className={`w-2.5 h-2.5 rounded-full ${st.dot} ${whatsappStatus === 'connecting' ? 'animate-pulse' : ''}`} />
                 <span className={`text-sm font-semibold ${st.text}`}>{st.label}</span>
+              </div>
+
+              {/* Le QR / code de parrainage est TOUJOURS généré par le serveur
+                  web EduGest (mini-service WhatsApp) : la session vit sur le
+                  serveur et reste active même si l'exe desktop est fermé. */}
+              <div className="rounded-xl bg-[oklch(97%_0.02_175)] border border-[oklch(88%_0.01_175)] p-3 flex items-start gap-2">
+                <ShieldCheck size={16} className="shrink-0 mt-0.5" style={{ color: TEAL_COLOR }} />
+                <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                  Le QR / code est généré par <b style={{ color: TEXT_PRIMARY }}>le serveur EduGest</b> (application web).
+                  La connexion reste active en permanence — même si l'application desktop (exe) est fermée.
+                  Pour reconnecter le numéro, faites-le toujours depuis <b style={{ color: TEXT_PRIMARY }}>le site EduGest</b>.
+                </p>
               </div>
 
               {whatsappStatus === 'connected' && (
@@ -8666,6 +8678,10 @@ function SubscriptionUpgradeView() {
           const isUpgradable = TIER_ORDER.indexOf(tier.id) > currentTierIndex
           const isDowngrade = TIER_ORDER.indexOf(tier.id) < currentTierIndex
           const hasPending = !!pendingRequest
+          // « Demande en cours... » ne s'affiche QUE sur le forfait réellement
+          // demandé (avant : tous les forfaits montraient le même label).
+          const pendingForThisTier = !!pendingRequest && pendingRequest.requestedTier === tier.id
+          const pendingForOtherTier = !!pendingRequest && pendingRequest.requestedTier !== tier.id
 
           return (
             <div
@@ -8709,19 +8725,19 @@ function SubscriptionUpgradeView() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => { setSelectedTier(tier.id); setModalMode('pay') }}
-                      disabled={!!pendingRequest || submitting}
+                      disabled={hasPending || submitting}
                       className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-white transition disabled:opacity-50"
                       style={{ background: tier.color }}
-                      title="Payer maintenant en ligne"
+                      title={pendingForOtherTier ? 'Une demande est déjà en attente' : 'Payer maintenant en ligne'}
                     >
                       Payer en ligne
                     </button>
                     <button
                       onClick={() => { setSelectedTier(tier.id); setModalMode('request') }}
-                      disabled={!!pendingRequest || submitting}
+                      disabled={hasPending || submitting}
                       className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition disabled:opacity-50 border"
                       style={{ borderColor: tier.color, color: tier.color }}
-                      title="Envoyer une demande à l'administrateur"
+                      title={pendingForOtherTier ? 'Une demande est déjà en attente' : "Envoyer une demande à l'administrateur"}
                     >
                       Demander
                     </button>
@@ -8729,11 +8745,12 @@ function SubscriptionUpgradeView() {
                 ) : (
                   <button
                     onClick={() => { setSelectedTier(tier.id); setModalMode('request') }}
-                    disabled={!!pendingRequest || submitting}
+                    disabled={hasPending || submitting}
                     className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:opacity-50"
                     style={{ background: tier.color }}
+                    title={pendingForOtherTier ? 'Une demande est déjà en attente' : undefined}
                   >
-                    {pendingRequest ? 'Demande en cours...' : 'Demander'}
+                    {pendingForThisTier ? 'Demande en cours...' : 'Demander'}
                   </button>
                 )
               ) : isDowngrade ? (

@@ -1,0 +1,136 @@
+===============================================================================
+RAPPORT DE TESTS COMPLETS — ABONNEMENTS, RÔLES & CORRECTIONS
+EduGest — session du 22 septembre 2026
+Testé réellement via navigateur automatisé (agent-browser) + API + base de données
+===============================================================================
+
+1. ERREUR SIGNALÉE — CRASH DU TABLEAU DE BORD (RÉSOLUE)
+--------------------------------------------------------
+Erreur : "Cannot read properties of undefined (reading 'toLocaleString')"
+  at formatNumber (src/lib/helpers.ts:13) — HomeView page.tsx:774
+Cause  : certaines écoles renvoyaient un nombre d'élèves indéfini.
+Corrections :
+  - formatNumber() est maintenant défensif : (Number(n) || 0).toLocaleString()
+  - les 3 sites d'appel sécurisés : school._count?.students ?? school.studentCount ?? 0
+Vérification réelle : la grille des écoles (9 écoles) s'affiche sans erreur,
+les comptes élèves/classes sont corrects (ex. Lumière : 20 élèves, 15 classes).
+
+2. L'ERREUR DES RÔLES SIMILAIRES (RÉSOLUE)
+--------------------------------------------------------
+Deux failles détectées et corrigées :
+  a) FAILLE CRITIQUE : dans les 2 formulaires de création d'école (avec et
+     sans OTP), un rôle inconnu retombait sur... SUPER_ADMIN_GLOBAL !
+     → Tout compte au rôle non répertorié entrait en ADMIN PLATEFORME.
+     Correction : le fallback est maintenant SCHOOL_ADMIN (l'onboarding crée
+     toujours un admin d'école, jamais un super admin).
+  b) Le rôle EPS (prof d'éducation physique) manquait dans la table de
+     correspondance API→front : un prof EPS ne pouvait pas se connecter
+     correctement. Corrigé.
+Vérification : le login principal était déjà sûr (rôle inconnu = refus).
+
+3. SYSTÈME D'ABONNEMENT — TEST RÉEL DE TOUS LES FORFAITS
+--------------------------------------------------------
+Comptes de test créés (mot de passe unique : admin123) :
+
+  FORFAIT     | ÉCOLE                        | ADMIN                 | ÉLÈVES
+  ------------|------------------------------|-----------------------|-------
+  FREEMIUM    | Lycée Abidjan Excel          | admin@abidjan.cd      | 0
+  FREEMIUM    | Collège Brazza Avenir        | admin@brazza.cd       | 0
+  FREEMIUM    | Groupe Scolaire Kivu Espoir  | admin@kivu.cd         | 0
+  ESSENTIEL   | Institut Essentiel Démo      | admin@essentiel.cd    | 120
+  STANDARD    | Institut Mwanzo              | admin@mwanzo.cd       | 0
+  STANDARD    | École Dakar Sciences         | admin@dakar.cd        | 0
+  PREMIUM     | Complexe Scolaire Lumière    | admin@lumiere.cd      | 20
+  ENTERPRISE  | Académie Enterprise Démo     | admin@enterprise.cd   | 10
+  CORPORATE   | Groupe Corporate Démo        | admin@corporate.cd    | 10
+  (Super Admin Plateforme : admin@edugest.app / admin123)
+
+Matrice de contrôle testée (API + interface) :
+
+  FORFAIT    | élèves | devoirs | discipline | parents | commun. | médical
+  -----------|--------|---------|------------|---------|---------|--------
+  FREEMIUM   |  200 OK|  403 ✗  |   403 ✗    |  403 ✗* |  403 ✗  |  403 ✗
+  ESSENTIEL  |  200 OK|  200 OK |   200 OK   |  200 OK |  403 ✗  |  403 ✗
+  STANDARD   |  200 OK|  200 OK |   200 OK   |  200 OK |  200 OK |  403 ✗
+  PREMIUM+   |  200 OK|  200 OK |   200 OK   |  200 OK |  200 OK |  200 OK
+  (* faille corrigée pendant cette session, voir §4c)
+
+Interface vérifiée en conditions réelles :
+  - FREEMIUM : tableau de bord limité (0/100 élèves, 0/0 profs,
+    0/0 messages WhatsApp, Santé « Verrouillé — PRO requis », menu réduit) ✓
+  - ESSENTIEL : mur d'abonnement sur Service Médical
+    (« RÉSERVÉ AUX OFFRES PROFESSIONNEL, ENTERPRISE & CORPORATE ») ✓
+  - ESSENTIEL : mur d'abonnement sur Communications
+    (« Forfait minimum requis : STANDARD » + bouton upgrade) ✓
+  - Footer de chaque compte : « Forfait : XXX » conforme ✓
+
+4. UPGRADE / DOWNGRADE — EST-CE QUE ÇA AJOUTE/RETIRE VRAIMENT ?
+--------------------------------------------------------
+a) UPGRADE VIA DEMANDE + APPROBATION (testé de bout en bout) :
+   - Admin Abidjan (FREEMIUM) : « Mon Abonnement » → Essentiel → Demander
+     → confirmation → « Demande envoyée ! L'administrateur sera notifié. » ✓
+   - Super Admin : notification avec boutons « Approuver / Rejeter » intégrés
+     → Approuver → « Upgrade approuvé — abonnement de l'école mis à jour »,
+     SANS redirection parasite vers le tableau de bord ✓
+   - Base de données : Lycée Abidjan Excel → ESSENTIEL, ACTIF,
+     fin d'abonnement à +30 jours ✓
+
+b) CHANGEMENT DE FORFAIT PAR LE SUPER ADMIN (fiche école) :
+   FAILLE DE LOGIQUE CORRIGÉE : changer le forfait n'archivait ni ne
+   restaurait les élèves. Maintenant :
+   - DOWN-UPGRADE réel testé : Institut Essentiel Démo (ESSENTIEL, 120 élèves)
+     → FREEMIUM (limite 100) → toast « 20 élève(s) archivé(s) (limite du
+     forfait) » → base : 100 actifs + 20 archivés ✓
+   - RE-UPGRADE : retour ESSENTIEL → toast « 20 élève(s) restauré(s) »
+     → base : 120 actifs, 0 archivé ✓
+   Le downgrade retire donc VRAIMENT les élèves en trop et l'upgrade les
+   rajoute (les plus récemment archivés d'abord).
+
+c) FAILLE FORFAIT CORRIGÉE (parents) : la liste des comptes parents était
+   accessible aux écoles FREEMIUM via l'API alors que le menu est masqué.
+   → maintenant 403 + message d'upgrade (contrôlé ci-dessus).
+
+5. BUGS D'AFFICHAGE DES DEMANDES D'UPGRADE (CORRIGÉS)
+--------------------------------------------------------
+Avant : dès qu'une demande existait, TOUTES les formules affichaient
+« Demande en cours... » (trompeur).
+Après (testé) : seul le forfait réellement demandé affiche « Demande en
+cours... » (1 carte) ; les autres restent « Demander » (2 cartes), avec
+infobulle « Une demande est déjà en attente ». ✓
+
+6. BUG MAJEUR DÉCOVERT ET CORRIGÉ AU PASSAGE — API ÉCOLES EN 500
+--------------------------------------------------------
+Toute liste d'écoles pour un utilisateur CONNECTÉ renvoyait une erreur 500
+(« Unknown field schoolSystem ») : le champ a été renommé educationalSystem
+dans la base mais pas dans la route. L'admin plateforme voyait « 0 écoles »
+et ne pouvait plus gérer quoi que ce soit. Corrigé → les 9 écoles
+s'affichent avec forfaits, élèves et statuts. ✓
+
+7. QR DE PARRAINAGE WHATSAPP — GÉNÉRÉ PAR L'APPLICATION WEB
+--------------------------------------------------------
+Le QR / code de parrainage est généré par le serveur de l'application WEB
+(mini-service WhatsApp sur le serveur, session stockée côté serveur) :
+  - si l'exe est fermé, la session WhatsApp reste connectée sur le site ;
+  - une bannière explicite est maintenant affichée dans « Connexion
+    WhatsApp » : « Le QR / code est généré par le serveur EduGest
+    (application web). La connexion reste active en permanence — même si
+    l'application desktop (exe) est fermée. Pour reconnecter le numéro,
+    faites-le toujours depuis le site EduGest. » ✓ (vérifiée à l'écran)
+
+8. VÉRIFICATION TECHNIQUE FINALE
+--------------------------------------------------------
+- TypeScript (tsc) : 0 erreur ✓
+- ESLint : 68 problèmes (base de référence 109 — aucun nouveau problème) ✓
+- Serveur de dev : redémarré (2 crashs mémoire pendant les tests,
+  relancé avec plus de mémoire) ✓
+- Tests navigateur : connexion SAG + ESSENTIEL + FREEMIUM + STANDARD,
+  paywalls, approbation d'upgrade, archivage/restauration, bannière
+  WhatsApp — tout validé à l'écran ✓
+
+9. CE QUI RESTE RECOMMANDÉ (non bloquant)
+--------------------------------------------------------
+- Il existe actuellement 1 demande d'upgrade PENDING (Dakar → Professionnel)
+  volontairement laissée pour que vous puissiez tester l'approbation.
+- Note : le serveur de développement a crashé 2 fois (mémoire) pendant les
+  tests ; en production, prévoir la mémoire recommandée par Next.js.
+===============================================================================

@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
         subscriptionTier: true,
         subscriptionStatus: true,
         subscriptionEndDate: true,
-        schoolSystem: true,
+        educationalSystem: true,
       });
     }
 

@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, requireRole, verifySchoolAccess, sanitizeError, type AuthUser } from '@/lib/auth';
+import { archiveExcessStudents, restoreArchivedStudents } from '@/lib/archive';
 
 export async function GET(
   request: NextRequest,
@@ -117,12 +118,41 @@ export async function PUT(
       }
     }
 
+    // ── COHÉRENCE FORFAIT ⇄ ÉLÈVES : tout changement de tier via cette route
+    // doit réellement AJOUTER/RETIRER les élèves au-delà de la nouvelle limite
+    // (downgrade → archivage des excédents ; upgrade → restauration).
+    let tierChange: { archived: number; restored: number } | null = null;
+    const newTier = typeof updateData.subscriptionTier === 'string' ? updateData.subscriptionTier : null;
+    if (newTier && newTier !== existing.subscriptionTier) {
+      const tierOrder = ['FREEMIUM', 'ESSENTIEL', 'STANDARD', 'PREMIUM', 'ENTERPRISE', 'CORPORATE'];
+      const oldIdx = tierOrder.indexOf(existing.subscriptionTier || 'FREEMIUM');
+      const newIdx = tierOrder.indexOf(newTier);
+      if (newIdx < oldIdx) {
+        const { archived } = await archiveExcessStudents(id, newTier);
+        tierChange = { archived, restored: 0 };
+      } else if (newIdx > oldIdx) {
+        const { restored } = await restoreArchivedStudents(id, newTier);
+        tierChange = { archived: 0, restored };
+      }
+    }
+
     const school = await db.school.update({
       where: { id },
       data: updateData,
     });
 
-    return NextResponse.json({ data: school });
+    return NextResponse.json({
+      data: school,
+      ...(tierChange ? {
+        message:
+          tierChange.archived > 0
+            ? `${tierChange.archived} élève(s) archivé(s) : limite du forfait ${newTier} appliquée.`
+            : tierChange.restored > 0
+              ? `${tierChange.restored} élève(s) restauré(s) après extension du forfait.`
+              : undefined,
+        tierChange,
+      } : {}),
+    });
   } catch (error) {
     console.error('Error updating school:', error);
     return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });

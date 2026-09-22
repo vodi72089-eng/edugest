@@ -265,7 +265,16 @@ export default function SchoolsManagementView() {
         body: JSON.stringify({ ...editForm, ...gift }),
       })
       if (res.ok) {
-        toast.success('École modifiée avec succès !')
+        const json = await res.json().catch(() => null)
+        // Le backend archive/restaure les élèves lors d'un changement de tier
+        // (downgrade → excédents archivés ; upgrade → archivés restaurés).
+        if (json?.tierChange?.archived > 0) {
+          toast.success(`École modifiée — ${json.tierChange.archived} élève(s) archivé(s) (limite du forfait)`)
+        } else if (json?.tierChange?.restored > 0) {
+          toast.success(`École modifiée — ${json.tierChange.restored} élève(s) restauré(s)`)
+        } else {
+          toast.success('École modifiée avec succès !')
+        }
         setEditingSchool(null)
         loadSchools()
       } else {

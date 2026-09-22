@@ -9,8 +9,8 @@ export function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export function formatNumber(n: number) {
-  return n.toLocaleString('fr-FR')
+export function formatNumber(n: number | undefined | null) {
+  return (Number(n) || 0).toLocaleString('fr-FR')
 }
 
 export function formatCurrency(n: number) {
@@ -83,6 +83,7 @@ export const API_ROLE_MAP: Record<string, UserRole> = {
   HEAD_TEACHER: 'HEAD_TEACHER',
   PARENT: 'PARENT',
   MEDICAL: 'MEDICAL',
+  EPS: 'EPS',
 }
 
 export function getEffectiveStatus(amount: number, paidAmount: number, storedStatus: string): string {
