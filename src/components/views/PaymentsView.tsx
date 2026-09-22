@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useEduGestStore, authFetch } from '@/lib/store'
+import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
 import type { PaymentData, StudentData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, SUCCESS } from '@/lib/constants'
 import { getInitials, formatNumber, getStatusPill, getEffectiveStatus } from '@/lib/helpers'
@@ -40,6 +40,9 @@ export default function PaymentsView() {
   const [studentPayments, setStudentPayments] = useState<PaymentData[]>([])
   const [modalStudent, setModalStudent] = useState<{id: string; firstName: string; lastName: string; matricule: string; tranche: string; remaining: number; amount: number} | null>(null)
   const { userData, userRole, highlightedId, pendingPaymentStudent, setPendingPaymentStudent } = useEduGestStore()
+  // École active : pour le super admin plateforme, l'école choisie dans la
+  // sidebar (sinon activeSchoolId est null → toutes les écoles mélangées).
+  const activeSchoolId = getActiveSchoolId() || userData?.schoolId || ''
   const isParent = userRole === 'PARENT'
   const highlightedRef = useRef<HTMLTableRowElement>(null)
   const { hasAccess, requiredTier } = useFeatureAccess('payments')
@@ -102,9 +105,9 @@ export default function PaymentsView() {
         })
         .catch(() => setLoading(false))
     } else {
-      authFetch(`/api/payments?limit=30${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json()).then(j => { setPayments(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+      authFetch(`/api/payments?limit=30${activeSchoolId ? `&schoolId=${activeSchoolId}` : ''}`).then(r => r.json()).then(j => { setPayments(j.data || []); setLoading(false) }).catch(() => setLoading(false))
     }
-  }, [isParent, userData?.id, userData?.schoolId])
+  }, [isParent, userData?.id, activeSchoolId])
 
   // Synchronisation temps réel : recharge les paiements dès qu'un changement
   // est détecté dans la base de données (autre session, autre utilisateur…)
@@ -112,11 +115,11 @@ export default function PaymentsView() {
   useEffect(() => onDbChange(() => setDbPulse((t) => t + 1)), [])
   useEffect(() => {
     if (dbPulse === 0 || isParent) return
-    authFetch(`/api/payments?limit=30${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
+    authFetch(`/api/payments?limit=30${activeSchoolId ? `&schoolId=${activeSchoolId}` : ''}`)
       .then((r) => r.json())
       .then((j) => setPayments(j.data || []))
       .catch(() => {})
-  }, [dbPulse, isParent, userData?.schoolId])
+  }, [dbPulse, isParent, activeSchoolId])
 
   useEffect(() => {
     if (studentSearch.length < 2) return
@@ -138,13 +141,13 @@ export default function PaymentsView() {
 
   // Fetch class fees + student payments + auto-select tranche
   useEffect(() => {
-    if (!selectedStudent?.classId || !userData?.schoolId) {
+    if (!selectedStudent?.classId || !activeSchoolId) {
       setClassFees([]); setAllPaid(false); setStudentPayments([]); setTranche(''); setAmount(''); setPaidAmount(''); setPayCurrency('CDF'); setPayConvertedAmount(''); return
     }
     const load = async () => {
       try {
         // 1. Fetch all fees for this class (all trimesters/tranches)
-        const feesRes = await authFetch(`/api/school-fees?schoolId=${userData.schoolId}&classId=${selectedStudent.classId}`)
+        const feesRes = await authFetch(`/api/school-fees?schoolId=${activeSchoolId}&classId=${selectedStudent.classId}`)
         const feesJson = await feesRes.json()
         const allFees: any[] = feesJson.data || []
 
@@ -195,17 +198,17 @@ export default function PaymentsView() {
       } catch { setClassFees([]); setAllPaid(false); setTranche(''); setAmount('') }
     }
     load()
-  }, [selectedStudent?.classId, selectedStudent?.id, userData?.schoolId])
+  }, [selectedStudent?.classId, selectedStudent?.id, activeSchoolId])
 
   // Fetch school currency config
   useEffect(() => {
-    if (userData?.schoolId) {
-      authFetch(`/api/school-currency?schoolId=${userData.schoolId}`)
+    if (activeSchoolId) {
+      authFetch(`/api/school-currency?schoolId=${activeSchoolId}`)
         .then(r => r.json())
         .then(j => { if (j.data) setCurrencyConfig(j.data) })
         .catch(() => {})
     }
-  }, [userData?.schoolId])
+  }, [activeSchoolId])
 
   // Fetch exchange rate when pay currency changes
   useEffect(() => {
@@ -254,7 +257,7 @@ export default function PaymentsView() {
         paidAmountInBase = Math.round(parseFloat(paidAmount) * exchangeRate)
       }
       const body: Record<string, unknown> = {
-        schoolId: userData?.schoolId || '',
+        schoolId: activeSchoolId || '',
         amount: amountInBase,
         paidAmount: paidAmountInBase,
         trimester: tranche,
@@ -277,7 +280,7 @@ export default function PaymentsView() {
         const paymentId = json.data?.id
         if (!paymentId) { toast.error('Réponse serveur invalide'); return }
         setLastPaymentId(paymentId)
-        const listRes = await authFetch(`/api/payments?limit=30${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
+        const listRes = await authFetch(`/api/payments?limit=30${activeSchoolId ? `&schoolId=${activeSchoolId}` : ''}`)
         const listJson = await listRes.json()
         setPayments(listJson.data || [])
         setStudentSearch(''); setSelectedStudent(null); setAmount(''); setPaidAmount(''); setAllPaid(false); setTranche(''); setClassFees([]); setPayCurrency('CDF')

@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { useEduGestStore, authFetch } from '@/lib/store'
+import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, SUCCESS, DANGER, GOLD_SOFT } from '@/lib/constants'
 import { formatDate } from '@/lib/helpers'
 import StudentAvatar from '@/components/ui/StudentAvatar'
-import { BarChart3, Search, TrendingUp, Wallet, CheckCircle, AlertTriangle, History, Users } from 'lucide-react'
+import { BarChart3, Search, TrendingUp, Wallet, CheckCircle, AlertTriangle, History, Users, Calendar, Clock, Banknote } from 'lucide-react'
 import { useCurrency } from '@/hooks/useCurrency'
+import { convertFromDisplay, getDisplaySymbol } from '@/lib/currency-display'
 
 interface FinanceStudent {
   id: string
@@ -59,6 +60,13 @@ const BUCKETS: { key: Bucket; label: string }[] = [
   { key: 'NONE', label: 'Aucun paiement' },
 ]
 
+/** Heure courte d'un paiement (ex: 14:07) pour l'historique. */
+function formatTimeShort(iso: string): string {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
 /**
  * SITUATION FINANCIÈRE — vue dédiée du volet caisse (distincte d'« Enregistrer
  * un paiement ») : historique complet des paiements, recherche d'élève et
@@ -66,7 +74,7 @@ const BUCKETS: { key: Bucket; label: string }[] = [
  */
 export default function FinanceSituationView() {
   const { userData } = useEduGestStore()
-  const { format: fmt } = useCurrency(userData?.schoolId)
+  const { format: fmt } = useCurrency()
   const [students, setStudents] = useState<FinanceStudent[]>([])
   const [history, setHistory] = useState<FinanceHistoryItem[]>([])
   const [totals, setTotals] = useState<FinanceTotals | null>(null)
@@ -75,11 +83,17 @@ export default function FinanceSituationView() {
   const [threshold, setThreshold] = useState('')
   const [bucket, setBucket] = useState<Bucket>('ALL')
   const [historySearch, setHistorySearch] = useState('')
+  const [histMinAmount, setHistMinAmount] = useState('')
+  const [histDate, setHistDate] = useState('')
+  const [histTime, setHistTime] = useState('')
+
+  // École active (SAG : l'école choisie dans la sidebar ; rôles école : la leur)
+  const activeSchoolId = getActiveSchoolId() || userData?.schoolId || ''
 
   useEffect(() => {
-    if (!userData?.schoolId) return
+    if (!activeSchoolId) return
     let cancelled = false
-    authFetch(`/api/finance-overview?schoolId=${userData.schoolId}`)
+    authFetch(`/api/finance-overview?schoolId=${activeSchoolId}`)
       .then(r => r.json())
       .then(j => {
         if (cancelled) return
@@ -90,9 +104,17 @@ export default function FinanceSituationView() {
       })
       .catch(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [userData?.schoolId])
+  }, [activeSchoolId])
 
-  // Recherche élève (nom, matricule, classe) — filtrage RÉEL sur le nom tapé
+  // Seuil « montant atteint ≥ » : le montant est SAISI en monnaie d'affichage
+  // (ex: 10 $) ; les totaux élèves sont stockés en monnaie de base — on
+  // convertit le seuil vers la base AVANT comparaison (inverse exact, sans
+  // arrondi). AVANT : le seuil n'était appliqué ni à la liste ni au compteur
+  // de façon cohérente (le tableau montrait toujours les soldés en tête).
+  const thresholdNum = parseFloat(threshold.replace(',', '.'))
+  const thresholdBase = Number.isFinite(thresholdNum) ? convertFromDisplay(thresholdNum) : null
+
+  // Recherche élève (nom, matricule, classe) + filtre seuil — filtrage RÉEL
   const filteredStudents = useMemo(() => {
     const q = search.trim().toLowerCase()
     let list = students
@@ -111,13 +133,19 @@ export default function FinanceSituationView() {
       case 'NONE': list = list.filter(s => s.totalPaid <= 0); break
       default: break
     }
+    if (thresholdBase !== null) list = list.filter(s => s.totalPaid >= thresholdBase)
     return list
-  }, [students, search, bucket])
+  }, [students, search, bucket, thresholdBase])
 
-  // Classement par montant atteint : combien d'élèves ont atteint au moins X
-  const thresholdNum = parseFloat(threshold.replace(',', '.'))
-  const thresholdCount = Number.isFinite(thresholdNum)
-    ? students.filter(s => s.totalPaid >= thresholdNum).length
+  // Compteur du bandeau : cohérent avec la recherche affichée (sans le bucket)
+  const thresholdCount = thresholdBase !== null
+    ? students.filter(s => {
+        const q = search.trim().toLowerCase()
+        if (q && !(`${s.firstName} ${s.lastName}`.toLowerCase().includes(q) ||
+          (s.matricule || '').toLowerCase().includes(q) ||
+          (s.class?.name || '').toLowerCase().includes(q))) return false
+        return s.totalPaid >= thresholdBase
+      }).length
     : null
 
   // Effectif par catégorie (affiché sur les puces de filtrage)
@@ -133,16 +161,31 @@ export default function FinanceSituationView() {
     return c
   }, [students])
 
+  // Historique : recherche élève/tranche/classe + filtres montant, jour, heure
   const filteredHistory = useMemo(() => {
     const q = historySearch.trim().toLowerCase()
-    if (!q) return history
-    return history.filter(h =>
-      h.studentName.toLowerCase().includes(q) ||
-      (h.matricule || '').toLowerCase().includes(q) ||
-      (h.className || '').toLowerCase().includes(q) ||
-      (h.trimester || '').toLowerCase().includes(q)
-    )
-  }, [history, historySearch])
+    const minNum = parseFloat(histMinAmount.replace(',', '.'))
+    const minBase = Number.isFinite(minNum) ? convertFromDisplay(minNum) : null
+    return history.filter(h => {
+      if (q && !(
+        h.studentName.toLowerCase().includes(q) ||
+        (h.matricule || '').toLowerCase().includes(q) ||
+        (h.className || '').toLowerCase().includes(q) ||
+        (h.trimester || '').toLowerCase().includes(q)
+      )) return false
+      if (minBase !== null && !(h.paidAmount >= minBase)) return false
+      if (histDate && !h.date.startsWith(histDate)) return false
+      if (histTime) {
+        const d = new Date(h.date)
+        if (!isNaN(d.getTime())) {
+          const [hh, mm] = histTime.split(':')
+          if (hh && d.getHours() !== parseInt(hh, 10)) return false
+          if (mm && d.getMinutes() !== parseInt(mm, 10)) return false
+        }
+      }
+      return true
+    })
+  }, [history, historySearch, histMinAmount, histDate, histTime])
 
   const statusPill = (s: string) => {
     const map: Record<string, { bg: string; color: string; label: string }> = {
@@ -227,7 +270,7 @@ export default function FinanceSituationView() {
 
         {thresholdCount !== null && (
           <div className="mb-3 px-3 py-2 rounded-xl text-[13px] font-medium" style={{ background: GOLD_SOFT, color: GOLD }}>
-            {thresholdCount} élève{thresholdCount > 1 ? 's' : ''} sur {students.length} ont atteint au moins {fmt(Number.isFinite(thresholdNum) ? thresholdNum : 0)}
+            {thresholdCount} élève{thresholdCount > 1 ? 's' : ''} sur {students.length} ont payé au moins {threshold} {getDisplaySymbol()}
           </div>
         )}
 
@@ -299,7 +342,7 @@ export default function FinanceSituationView() {
 
       {/* Historique des paiements */}
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="flex flex-wrap items-center gap-2 mb-4">
           <div className="flex items-center gap-2">
             <History size={16} style={{ color: GOLD }} />
             <h3 className="font-semibold text-[15px]" style={{ color: TEXT_PRIMARY }}>Historique des paiements</h3>
@@ -309,8 +352,38 @@ export default function FinanceSituationView() {
             <input
               value={historySearch}
               onChange={e => setHistorySearch(e.target.value)}
-              placeholder="Rechercher dans l'historique (élève, tranche, classe)..."
-              className="border-0 bg-transparent outline-none text-sm w-72"
+              placeholder="Rechercher (élève, tranche, classe)..."
+              className="border-0 bg-transparent outline-none text-sm w-44"
+            />
+          </div>
+          <div className="flex items-center gap-1.5 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-2">
+            <Banknote size={13} style={{ color: TEXT_MUTED_LUXE }} />
+            <input
+              value={histMinAmount}
+              onChange={e => setHistMinAmount(e.target.value)}
+              placeholder="Montant ≥"
+              inputMode="decimal"
+              className="border-0 bg-transparent outline-none text-sm w-24"
+            />
+          </div>
+          <div className="flex items-center gap-1.5 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-2">
+            <Calendar size={13} style={{ color: TEXT_MUTED_LUXE }} />
+            <input
+              type="date"
+              value={histDate}
+              onChange={e => setHistDate(e.target.value)}
+              className="border-0 bg-transparent outline-none text-sm w-36"
+              aria-label="Filtrer par jour"
+            />
+          </div>
+          <div className="flex items-center gap-1.5 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-2">
+            <Clock size={13} style={{ color: TEXT_MUTED_LUXE }} />
+            <input
+              type="time"
+              value={histTime}
+              onChange={e => setHistTime(e.target.value)}
+              className="border-0 bg-transparent outline-none text-sm w-24"
+              aria-label="Filtrer par heure"
             />
           </div>
         </div>
@@ -319,7 +392,7 @@ export default function FinanceSituationView() {
             <table className="w-full">
               <thead className="sticky top-0 z-10">
                 <tr style={{ background: 'oklch(97% 0.005 175)' }}>
-                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-2.5" style={{ color: GOLD }}>Date</th>
+                  <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-2.5" style={{ color: GOLD }}>Date · Heure</th>
                   <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-2.5" style={{ color: GOLD }}>Élève</th>
                   <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-2.5" style={{ color: GOLD }}>Classe</th>
                   <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-2.5" style={{ color: GOLD }}>Tranche</th>
@@ -334,7 +407,10 @@ export default function FinanceSituationView() {
                   <tr><td colSpan={6} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun paiement enregistré</td></tr>
                 ) : filteredHistory.map(h => (
                   <tr key={h.id} className="border-t border-[oklch(94%_0.005_175)] hover:bg-[oklch(97%_0.005_175)] transition">
-                    <td className="px-4 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(h.date)}</td>
+                    <td className="px-4 py-2.5 text-[13px] whitespace-nowrap" style={{ color: TEXT_MUTED_LUXE }}>
+                      <div>{formatDate(h.date)}</div>
+                      <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{formatTimeShort(h.date)}</div>
+                    </td>
                     <td className="px-4 py-2.5 text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{h.studentName}</td>
                     <td className="px-4 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{h.className || '—'}</td>
                     <td className="px-4 py-2.5 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{h.trimester}</td>

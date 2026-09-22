@@ -14,7 +14,10 @@ export async function POST(
     const { user } = authResult;
     const { id } = await params;
 
-    if (!['SUPER_ADMIN_GLOBAL', 'ADMIN'].includes(user.role)) {
+    // Approbateurs : super admin plateforme + ADMIN DE L'ÉCOLE (SCHOOL_ADMIN).
+    // Le rôle 'ADMIN' historique n'existe pas — les demandes PENDING des
+    // directions/secrétaires n'étaient donc approuvables par personne côté école.
+    if (!['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN'].includes(user.role)) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 403 });
     }
 
@@ -28,6 +31,11 @@ export async function POST(
     const comm = await db.communication.findUnique({ where: { id } });
     if (!comm) {
       return NextResponse.json({ error: 'Communication non trouvée' }, { status: 404 });
+    }
+
+    // L'admin d'école ne traite que les communications de SA propre école.
+    if (user.role === 'SCHOOL_ADMIN' && comm.schoolId !== user.schoolId) {
+      return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
     }
 
     if (comm.status !== 'PENDING') {

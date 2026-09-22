@@ -2,6 +2,7 @@ import { db } from './db';
 import { NextRequest } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { normalizeClientIp } from './geo';
 
 // ─── Session store (file-based, survives HMR) ────────────────────────────
 // Session file shape (v2 — supports connected-devices feature):
@@ -375,15 +376,18 @@ export function getTokenFromRequest(request: NextRequest): string | null {
 
 // Best-effort client IP extraction from common proxy headers.
 export function getClientIp(request: NextRequest): string {
+  // Normalisation centralisée (geo.ts) : 1re IP d'un x-forwarded-for CSV,
+  // retrait du préfixe ::ffff: et des crochets [IPv6] — sans cela une IP
+  // LAN « ::ffff:192.168.x » passait le garde-fou d'IP privée côté géoloc.
   const xff = request.headers.get('x-forwarded-for');
   if (xff) {
-    const first = xff.split(',')[0]?.trim();
+    const first = normalizeClientIp(xff);
     if (first) return first;
   }
   const xreal = request.headers.get('x-real-ip');
-  if (xreal) return xreal.trim();
+  if (xreal) return normalizeClientIp(xreal);
   const cf = request.headers.get('cf-connecting-ip');
-  if (cf) return cf.trim();
+  if (cf) return normalizeClientIp(cf);
   return '';
 }
 

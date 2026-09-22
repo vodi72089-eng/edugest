@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useEduGestStore } from '@/lib/store';
+import { useEduGestStore, getActiveSchoolId } from '@/lib/store';
 import { authFetch } from '@/lib/store';
 import { hasFeatureAccess } from '@/lib/subscription';
 import {
@@ -42,6 +42,9 @@ const MOTIFS_DISPENSE = [
 
 export default function MedicalView() {
   const { userData, userRole, setCurrentView } = useEduGestStore();
+  // École active : pour le super admin plateforme, l'école choisie dans la
+  // sidebar (sinon userData.schoolId est null → toutes les écoles mélangées).
+  const activeSchoolId = getActiveSchoolId() || userData?.schoolId || '';
   const tier = userData?.subscriptionTier || 'FREEMIUM';
   const hasAccess = hasFeatureAccess(tier, 'medical') || userRole === 'SUPER_ADMIN_GLOBAL';
 
@@ -142,27 +145,27 @@ export default function MedicalView() {
   }
 
   useEffect(() => {
-    if (!hasAccess || !userData?.schoolId) {
+    if (!hasAccess || !activeSchoolId) {
       setLoading(false);
       return;
     }
     loadData();
     loadStudents();
-  }, [userData?.schoolId, hasAccess, activeTab]);
+  }, [activeSchoolId, hasAccess, activeTab]);
 
   async function loadData() {
     setLoading(true);
     try {
       if (activeTab === 'visits') {
-        const res = await authFetch(`/api/medical/visits?schoolId=${userData?.schoolId}`);
+        const res = await authFetch(`/api/medical/visits?schoolId=${activeSchoolId}`);
         const json = await res.json();
         setVisits(json.data || []);
       } else if (activeTab === 'records') {
-        const res = await authFetch(`/api/medical/records?schoolId=${userData?.schoolId}`);
+        const res = await authFetch(`/api/medical/records?schoolId=${activeSchoolId}`);
         const json = await res.json();
         setRecords(json.data || []);
       } else if (activeTab === 'dispensations') {
-        const res = await authFetch(`/api/medical/dispensations?schoolId=${userData?.schoolId}`);
+        const res = await authFetch(`/api/medical/dispensations?schoolId=${activeSchoolId}`);
         const json = await res.json();
         setDispensations(json.data || []);
       }
@@ -175,7 +178,7 @@ export default function MedicalView() {
 
   async function loadStudents() {
     try {
-      const res = await authFetch(`/api/students?schoolId=${userData?.schoolId}&limit=500`);
+      const res = await authFetch(`/api/students?schoolId=${activeSchoolId}&limit=500`);
       const json = await res.json();
       setStudentsList(json.data || []);
     } catch (e) {

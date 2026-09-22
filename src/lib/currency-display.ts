@@ -39,6 +39,22 @@ let cfg: DisplayConfig = {
   useManualRates: false,
 };
 
+// ── Réactivité ──────────────────────────────────────────────────────────────
+// Le module est une source de vérité hors React : on expose un compteur de
+// version + subscribe pour que les composants (page.tsx, useCurrency) se
+// re-rendent dès que la config change (chargement, sauvegarde immédiate).
+let version = 0;
+const listeners = new Set<() => void>();
+
+export function subscribeCurrency(cb: () => void): () => void {
+  listeners.add(cb);
+  return () => { listeners.delete(cb); };
+}
+
+export function getCurrencyVersion(): number {
+  return version;
+}
+
 export function setCurrencyDisplay(c: Partial<DisplayConfig>): void {
   cfg = {
     baseCurrency: c.baseCurrency || 'CDF',
@@ -47,6 +63,8 @@ export function setCurrencyDisplay(c: Partial<DisplayConfig>): void {
     manualRates: c.manualRates || null,
     useManualRates: !!c.useManualRates,
   };
+  version++;
+  listeners.forEach((l) => { try { l(); } catch { /* noop */ } });
 }
 
 export function getCurrencyDisplay(): DisplayConfig {
@@ -77,4 +95,25 @@ export function formatAmount(amount: number): string {
     return `${fmt(n)} ${symbol(baseCurrency)}`;
   }
   return `${fmt(n * rate)} ${symbol(displayCurrency)}`;
+}
+
+/**
+ * Conversion inverse : un montant SAISI en monnaie d'affichage (ex: filtre
+ * « montant atteint ≥ 10 » tapé en USD) vers la monnaie de base (comparaison
+ * avec les montants stockés). Inverse exact, SANS arrondi (sinon les petits
+ * seuils tombent à 0). Taux manquant → renvoie le montant tel quel.
+ */
+export function convertFromDisplay(displayAmount: number): number {
+  const n = Number(displayAmount) || 0;
+  const { baseCurrency, displayCurrency } = cfg;
+  if (!displayCurrency || displayCurrency === baseCurrency) return n;
+  const table = cfg.useManualRates && cfg.manualRates ? cfg.manualRates : cfg.rates;
+  const rate = table?.[displayCurrency];
+  if (!rate || !(rate > 0)) return n;
+  return n / rate;
+}
+
+/** Symbole de la monnaie d'affichage courante (ex: '$', 'FC', '€'). */
+export function getDisplaySymbol(): string {
+  return symbol(cfg.displayCurrency || cfg.baseCurrency || 'CDF');
 }

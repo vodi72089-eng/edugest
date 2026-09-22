@@ -77,6 +77,7 @@ model School {
   documents             DocumentVerification[]
   platformEvents        PlatformEvent[]
   repechageExams        RepechageExam[]
+  events                SchoolEvent[]
 }
 
 model User {
@@ -115,6 +116,7 @@ model User {
   pushSubscriptions PushSubscription[]
   infirmaryVisitsRecorded InfirmaryVisit[] @relation("RecordedVisits")
   medicalDocumentsCreated MedicalDocument[] @relation("MedicalDocumentsCreated")
+  events                SchoolEvent[] @relation("EventCreator")
 }
 
 model Student {
@@ -933,4 +935,26 @@ model RepechageExam {
   updatedAt       DateTime  @updatedAt
 
   @@index([schoolId])
+}
+
+// ─── Événements scolaires (onglet Événements) ───
+// Réunions, examens, fêtes, réunions parents-professeurs, sorties scolaires.
+// Scellé par école (schoolId) ; audience ALL / PERSONNEL / PARENTS.
+model SchoolEvent {
+  id          String    @id @default(cuid())
+  schoolId    String
+  school      School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  category    String    @default("AUTRE") // REUNION, EXAMEN, FETE, REUNION_PARENTS, SORTIE, AUTRE
+  startAt     DateTime
+  endAt       DateTime?
+  location    String?
+  audience    String    @default("ALL")   // ALL, PERSONNEL, PARENTS
+  createdBy   String
+  creator     User      @relation("EventCreator", fields: [createdBy], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([schoolId, startAt])
 }

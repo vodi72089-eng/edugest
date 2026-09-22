@@ -5,10 +5,15 @@ import { useEduGestStore, authFetch } from '@/lib/store'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT, DANGER, SUCCESS, MUTED } from '@/lib/constants'
 import { getInitials, formatDate, formatNumber, getRoleLabel } from '@/lib/helpers'
 import type { UserRole } from '@/lib/types'
-import { UserPlus, Edit, Ban, CheckCircle, Eye, EyeOff, X, UsersRound, Award, Check } from 'lucide-react'
+import { UserPlus, Edit, Ban, CheckCircle, Eye, EyeOff, X, UsersRound, Award, BookOpen, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete, { AutocompleteItem } from './SearchAutocomplete'
 import AppSelect from '@/components/ui/AppSelect'
+
+/** Saisie CSV « Maths, Français » → cours distincts (trim + déduplication). */
+function splitCsv(value: string | null | undefined): string[] {
+  return [...new Set((value || '').split(',').map(s => s.trim()).filter(Boolean))]
+}
 
 export default function PersonnelView() {
   const { userData } = useEduGestStore()
@@ -24,6 +29,7 @@ export default function PersonnelView() {
     role: string; isActive: boolean; profileImageUrl: string | null;
     lastLoginAt: string | null; createdAt: string; schoolId: string;
     subjectName?: string | null; classNames?: string | null; isTitulaire?: boolean;
+    titulaireClassNames?: string[];
   }>>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -49,6 +55,9 @@ export default function PersonnelView() {
     }
   }, [userData?.subscriptionTier])
   const [availableClasses, setAvailableClasses] = useState<{ id: string; name: string; _count?: { students: number } }[]>([])
+  // Classes de titularité choisies (NOMS — résolus en ids au submit via
+  // availableClasses, robuste à l'async de chargement des classes).
+  const [titulaireClasses, setTitulaireClasses] = useState<string[]>([])
   const [showAssignmentModal, setShowAssignmentModal] = useState(false)
   const [assignmentTeacher, setAssignmentTeacher] = useState<{ id: string; name: string } | null>(null)
   const [assignments, setAssignments] = useState<{ id: string; class: { id: string; name: string }; subject: { id: string; name: string } }[]>([])
@@ -58,6 +67,14 @@ export default function PersonnelView() {
   const [assignLoading, setAssignLoading] = useState(false)
 
   const isTeacherForm = form.role === 'TEACHER' || form.role === 'HEAD_TEACHER' || form.role === 'EPS'
+
+  // Aperçu live des cours saisis (« Maths, Français » → 2 chips distincts)
+  const subjectPreview = isTeacherForm ? splitCsv(form.subjectName) : []
+  // Classes occupées sélectionnées (nom + ids réels résolus depuis /api/classes)
+  const selectedClassEntries = isTeacherForm
+    ? splitCsv(form.classNames).map(name => ({ name, ids: availableClasses.filter(c => c.name === name).map(c => c.id) }))
+    : []
+  const effTitulaireClasses = titulaireClasses.filter(n => selectedClassEntries.some(e => e.name === n))
 
   function openAssignmentModal(teacher: { id: string; name: string }) {
     setAssignmentTeacher(teacher)
@@ -104,7 +121,7 @@ export default function PersonnelView() {
 
   useEffect(() => {
     if ((showAddModal || editingUser) && isTeacherForm && effectiveSchoolId) {
-      authFetch(`/api/classes?limit=50&schoolId=${effectiveSchoolId}`).then(r => r.json()).then(j => setAvailableClasses(j.data || [])).catch(() => {})
+      authFetch(`/api/classes?limit=100&schoolId=${effectiveSchoolId}`).then(r => r.json()).then(j => setAvailableClasses(j.data || [])).catch(() => {})
     }
   }, [showAddModal, editingUser, isTeacherForm, effectiveSchoolId])
 
@@ -185,6 +202,15 @@ export default function PersonnelView() {
       toast.error('Veuillez fournir un email ou un téléphone')
       return
     }
+    // Titularité : au moins une classe cochée parmi les classes occupées
+    if (isTeacherForm && form.isTitulaire && effTitulaireClasses.length === 0) {
+      toast.error('Sélectionnez au moins une classe de titularité')
+      return
+    }
+    const teacherSubjectNames = isTeacherForm ? splitCsv(form.subjectName) : []
+    const titulaireClassIds = isTeacherForm && form.isTitulaire
+      ? [...new Set(effTitulaireClasses.flatMap(n => selectedClassEntries.find(e => e.name === n)?.ids || []))]
+      : undefined
     setSaving(true)
     try {
       const res = await authFetch('/api/users', {
@@ -193,15 +219,21 @@ export default function PersonnelView() {
         body: JSON.stringify({
           ...form,
           schoolId: effectiveSchoolId || undefined,
-          subjectName: isTeacherForm ? form.subjectName : undefined,
+          subjectName: isTeacherForm ? teacherSubjectNames.join(', ') : undefined,
           classNames: isTeacherForm ? form.classNames : undefined,
           isTitulaire: isTeacherForm ? form.isTitulaire : undefined,
+          titulaireClassIds,
         }),
       })
       if (res.ok) {
+        const j = await res.json().catch(() => ({}))
         toast.success(`${getRoleLabel(form.role as UserRole)} cré avec succès !`)
+        if (Array.isArray(j.warnings) && j.warnings.length > 0) {
+          toast.warning(j.warnings[0] + (j.warnings.length > 1 ? ` (+${j.warnings.length - 1} autre(s))` : ''))
+        }
         setShowAddModal(false)
         setForm({ name: '', email: '', phone: '', password: '', role: 'SECRETARY', subjectName: '', classNames: '', isTitulaire: false })
+        setTitulaireClasses([])
         loadUsers()
       } else {
         const json = await res.json()
@@ -217,6 +249,15 @@ export default function PersonnelView() {
   async function handleEditUser(e: React.FormEvent) {
     e.preventDefault()
     if (!editingUser) return
+    // Titularité : au moins une classe cochée parmi les classes occupées
+    if (isTeacherForm && form.isTitulaire && effTitulaireClasses.length === 0) {
+      toast.error('Sélectionnez au moins une classe de titularité')
+      return
+    }
+    const teacherSubjectNames = isTeacherForm ? splitCsv(form.subjectName) : []
+    const titulaireClassIds = isTeacherForm && form.isTitulaire
+      ? [...new Set(effTitulaireClasses.flatMap(n => selectedClassEntries.find(e => e.name === n)?.ids || []))]
+      : undefined
     setSaving(true)
     try {
       const res = await authFetch('/api/users', {
@@ -229,15 +270,21 @@ export default function PersonnelView() {
           phone: form.phone,
           role: form.role,
           password: form.password || undefined,
-          subjectName: isTeacherForm ? form.subjectName : undefined,
+          subjectName: isTeacherForm ? teacherSubjectNames.join(', ') : undefined,
           classNames: isTeacherForm ? form.classNames : undefined,
           isTitulaire: isTeacherForm ? form.isTitulaire : undefined,
+          titulaireClassIds,
         }),
       })
       if (res.ok) {
+        const j = await res.json().catch(() => ({}))
         toast.success('Utilisateur modifié avec succès !')
+        if (Array.isArray(j.warnings) && j.warnings.length > 0) {
+          toast.warning(j.warnings[0] + (j.warnings.length > 1 ? ` (+${j.warnings.length - 1} autre(s))` : ''))
+        }
         setEditingUser(null)
         setForm({ name: '', email: '', phone: '', password: '', role: 'SECRETARY', subjectName: '', classNames: '', isTitulaire: false })
+        setTitulaireClasses([])
         loadUsers()
       } else {
         const json = await res.json()
@@ -278,12 +325,18 @@ export default function PersonnelView() {
       classNames: user.classNames || '',
       isTitulaire: user.isTitulaire || false,
     })
+    // Titularités existantes (noms réels renvoyés par GET /api/users),
+    // restreintes aux classes encore sélectionnées dans le formulaire.
+    setTitulaireClasses(
+      (user.titulaireClassNames || []).filter(n => splitCsv(user.classNames).includes(n))
+    )
   }
 
   function closeModal() {
     setShowAddModal(false)
     setEditingUser(null)
     setForm({ name: '', email: '', phone: '', password: '', role: 'SECRETARY', subjectName: '', classNames: '', isTitulaire: false })
+    setTitulaireClasses([])
   }
 
   const activeUsers = users.filter(u => u.isActive)
@@ -409,10 +462,21 @@ export default function PersonnelView() {
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold text-white" style={{ background: roleInfo?.color || ACCENT }}>
                           {roleInfo?.label || user.role}
                         </span>
-                        {(user.role === 'TEACHER' || user.role === 'HEAD_TEACHER') && user.subjectName && (
-                          <div className="mt-1 text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>
-                            {user.subjectName}
-                            {user.isTitulaire && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: GOLD_SOFT, color: GOLD }}>Titulaire</span>}
+                        {(user.role === 'TEACHER' || user.role === 'HEAD_TEACHER' || user.role === 'EPS') && user.subjectName && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {splitCsv(user.subjectName).map(s => (
+                              <span key={s} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>
+                                <BookOpen size={9} />{s}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {(user.role === 'TEACHER' || user.role === 'HEAD_TEACHER' || user.role === 'EPS') && user.isTitulaire && (
+                          <div className="mt-1">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: GOLD_SOFT, color: GOLD }}>
+                              <Award size={9} />
+                              {user.titulaireClassNames && user.titulaireClassNames.length > 0 ? `Titulaire de : ${user.titulaireClassNames.join(', ')}` : 'Titulaire'}
+                            </span>
                           </div>
                         )}
                         {(user.role === 'TEACHER' || user.role === 'HEAD_TEACHER') && user.classNames && (
@@ -533,9 +597,18 @@ export default function PersonnelView() {
                     <span className="text-sm font-semibold" style={{ color: GOLD }}>Informations enseignant</span>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Matière / Cours enseigné</label>
-                    <input type="text" value={form.subjectName} onChange={e => setForm({ ...form, subjectName: e.target.value })} placeholder="Ex: Mathématiques, Français, Histoire-Géo..." className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
-                    <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Vous pouvez assigner plusieurs professeurs au même cours</p>
+                    <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Cours / Matières enseignés</label>
+                    <input type="text" value={form.subjectName} onChange={e => setForm({ ...form, subjectName: e.target.value })} placeholder="Ex: Mathématiques, Français (séparez par des virgules)" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
+                    {subjectPreview.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {subjectPreview.map(s => (
+                          <span key={s} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>
+                            <BookOpen size={10} />{s}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Séparez plusieurs cours par des virgules — chaque cours sera assigné à chaque classe sélectionnée</p>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Classes occupées</label>
@@ -587,9 +660,44 @@ export default function PersonnelView() {
                     </label>
                     <div>
                       <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Titulaire</div>
-                      <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Cochez si ce professeur est le titulaire de sa classe</div>
+                      <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Cochez si ce professeur est le titulaire d'une ou plusieurs classes</div>
                     </div>
                   </div>
+                  {/* Titularité multi-classes : choix parmi les classes occupées */}
+                  {form.isTitulaire && (
+                    <div className="space-y-2 p-3 rounded-xl border border-[oklch(88%_0.01_175)] bg-white/70">
+                      <div className="text-[12px] font-semibold" style={{ color: TEXT_PRIMARY }}>Classes dont il est titulaire *</div>
+                      {selectedClassEntries.length === 0 ? (
+                        <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Sélectionnez d'abord au moins une classe dans « Classes occupées » ci-dessus.</p>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {selectedClassEntries.map(entry => {
+                            const hasId = entry.ids.length > 0
+                            const checked = effTitulaireClasses.includes(entry.name)
+                            return (
+                              <label
+                                key={entry.name}
+                                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-[12px] transition ${
+                                  checked ? 'border-[oklch(72%_0.15_65)]' : 'border-[oklch(90%_0.01_175)]'
+                                } ${hasId ? 'cursor-pointer hover:border-[oklch(80%_0.02_175)]' : 'opacity-50 cursor-not-allowed'}`}
+                                title={hasId ? undefined : 'Classe introuvable dans cette école'}
+                              >
+                                <input
+                                  type="checkbox"
+                                  disabled={!hasId}
+                                  checked={checked}
+                                  onChange={() => setTitulaireClasses(prev => prev.includes(entry.name) ? prev.filter(n => n !== entry.name) : [...prev, entry.name])}
+                                  className="accent-[oklch(55%_0.15_175)]"
+                                />
+                                <span style={{ color: checked ? GOLD : TEXT_PRIMARY }} className="truncate">{entry.name}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      )}
+                      <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Un professeur peut être titulaire de plusieurs classes — au moins une.</p>
+                    </div>
+                  )}
                 </div>
               )}
 

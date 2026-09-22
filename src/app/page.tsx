@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, useSyncExternalStore } from 'react'
 import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken, restoreSession,
 startSessionRestoreWatchdog, isDesktopApp, getActiveSchoolId } from '@/lib/store'
 import { startRealtimeSync } from '@/lib/realtime'
@@ -12,7 +12,7 @@ import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
 import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, DisciplineData, CommunicationData, HomeworkData } from '@/lib/types'
 import { ACCENT, ACCENT2, ACCENT_SOFT, SUCCESS, WARNING, DANGER, INFO, MUTED, BORDER, GOLD, GOLD_SOFT, GOLD_GLOW, DARK, DARK_ALT, IVORY, IVORY_WARM, TEXT_PRIMARY, TEXT_MUTED_LUXE, SUCCESS_SOFT, SUBSCRIPTION_TIERS, PROVINCES, FILTER_CHIPS, COVER_GRADIENTS, LOGO_COLORS, ENROLLMENT_DATA, SUBSCRIPTION_DATA } from '@/lib/constants'
 import { getInitials, formatDate, formatNumber, formatCurrency, getSchoolTypeLabel, getSubscriptionLabel, getSubscriptionPrice, getRoleLabel, getStatusPill, API_ROLE_MAP } from '@/lib/helpers'
-import { setCurrencyDisplay } from '@/lib/currency-display'
+import { setCurrencyDisplay, subscribeCurrency, getCurrencyVersion } from '@/lib/currency-display'
 import { EDUCATIONAL_SYSTEMS_LIST } from '@/lib/educational-systems'
 import StudentAvatar from '@/components/ui/StudentAvatar'
 import AppSelect from '@/components/ui/AppSelect';
@@ -41,6 +41,9 @@ import StudentsView from '@/components/views/StudentsView'
 import GradesView from '@/components/views/GradesView'
 import PaymentsView from '@/components/views/PaymentsView'
 import FinanceSituationView from '@/components/views/FinanceSituationView'
+import AttendanceView from '@/components/views/AttendanceView'
+import EventsView from '@/components/views/EventsView'
+import ReportsView from '@/components/views/ReportsView'
 import DisciplineView from '@/components/views/DisciplineView'
 import PersonnelView from '@/components/views/PersonnelView'
 import ProfileView from '@/components/views/ProfileView'
@@ -61,7 +64,7 @@ import {
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
    ChevronUp, ExternalLink, Check, Copy, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown,
-   User, Landmark, Palette, BellRing, HeartPulse, Database, Stethoscope, Volume2, VolumeX
+   User, Landmark, Palette, BellRing, HeartPulse, Database, Stethoscope, Volume2, VolumeX, CalendarCheck, CalendarDays
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -1861,6 +1864,16 @@ function LoginView() {
   const [waLoading, setWaLoading] = useState(false)
   const [schools, setSchools] = useState<{ id: string; name: string; shortName: string; city: string }[]>([])
   const [selectedSchoolId, setSelectedSchoolId] = useState('')
+  // ── Mot de passe oublié : procédure 3 étapes (téléphone → code WhatsApp/SMS
+  // → nouveau mot de passe). AVANT : le bouton était mort (aucun onClick).
+  const [showForgot, setShowForgot] = useState(false)
+  const [forgotStep, setForgotStep] = useState<'phone' | 'code' | 'reset'>('phone')
+  const [forgotPhone, setForgotPhone] = useState('')
+  const [forgotCode, setForgotCode] = useState('')
+  const [forgotNewPassword, setForgotNewPassword] = useState('')
+  const [forgotConfirm, setForgotConfirm] = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotChannel, setForgotChannel] = useState('')
   // ── Verrou progressif (compte à rebours affiché sur le bouton) ──────────
   const [lockRemaining, setLockRemaining] = useState(0)
   const lockIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -2053,7 +2066,7 @@ function LoginView() {
               <label className="flex items-center gap-2 cursor-pointer text-white/50">
                 <input type="checkbox" className="accent-[oklch(55%_0.15_175)] rounded" /> Se souvenir de moi
               </label>
-              <button type="button" className="font-medium hover:underline" style={{ color: 'oklch(72% 0.15 65 / 0.8)' }}>Mot de passe oublié ?</button>
+              <button type="button" onClick={() => { setShowForgot(true); setForgotStep('phone'); setForgotCode(''); setForgotNewPassword(''); setForgotConfirm(''); }} className="font-medium hover:underline" style={{ color: 'oklch(72% 0.15 65 / 0.8)' }}>Mot de passe oublié ?</button>
             </div>
             <button type="submit" disabled={loading || lockRemaining > 0} className="w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]" style={{ background: 'oklch(55% 0.15 175)', color: 'oklch(97% 0.005 175)', boxShadow: '0 4px 16px oklch(55% 0.15 175 / 0.25)' }}>
               {loading
@@ -2234,6 +2247,144 @@ function LoginView() {
           </div>
         </div>
       )}
+
+      {/* ── MODALE MOT DE PASSE OUBLIÉ (procédure 3 étapes) ─────────────── */}
+      {showForgot && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowForgot(false)}>
+          <div className="w-full max-w-md rounded-2xl p-6 shadow-2xl" style={{ background: DARK_ALT, border: '1px solid rgba(255,255,255,0.1)' }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Lock size={18} style={{ color: 'oklch(72% 0.15 65)' }} />
+                Réinitialiser le mot de passe
+              </h3>
+              <button onClick={() => setShowForgot(false)} className="text-white/40 hover:text-white/70 p-1"><X size={18} /></button>
+            </div>
+
+            {forgotStep === 'phone' && (
+              <div className="space-y-4">
+                <p className="text-sm text-white/60">Entrez votre numéro de téléphone : un code à 6 chiffres vous sera envoyé par WhatsApp (ou SMS).</p>
+                <input
+                  type="tel"
+                  value={forgotPhone}
+                  onChange={e => setForgotPhone(e.target.value)}
+                  placeholder="+243 000 000 000"
+                  className="w-full px-4 py-3.5 rounded-xl text-white outline-none focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)]"
+                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                />
+                <button
+                  onClick={async () => {
+                    if (!forgotPhone.trim()) { toast.error('Entrez votre numéro de téléphone'); return }
+                    setForgotLoading(true)
+                    try {
+                      const res = await fetch('/api/auth/forgot-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone: forgotPhone.trim() }),
+                      })
+                      const json = await res.json()
+                      if (res.ok) {
+                        const ch = json.data?.channel || 'WhatsApp'
+                        setForgotChannel(ch)
+                        setForgotStep('code')
+                        toast.success(`Code envoyé par ${ch}`)
+                        if (json.data?.devCode) toast.info(`Code (développement) : ${json.data.devCode}`)
+                      } else {
+                        toast.error(json.error || 'Numéro introuvable')
+                      }
+                    } catch { toast.error('Erreur réseau') }
+                    finally { setForgotLoading(false) }
+                  }}
+                  disabled={forgotLoading}
+                  className="w-full py-3.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition hover:opacity-90"
+                  style={{ background: SUCCESS }}
+                >
+                  {forgotLoading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send size={15} />}
+                  Envoyer le code
+                </button>
+              </div>
+            )}
+
+            {forgotStep === 'code' && (
+              <div className="space-y-4">
+                <p className="text-sm text-white/60">Entrez le code à 6 chiffres reçu par <strong className="text-white">{forgotChannel || 'WhatsApp'}</strong> au <strong className="text-white">{forgotPhone}</strong>. Le code est valable 15 minutes.</p>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={forgotCode}
+                  onChange={e => setForgotCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  className="w-full px-4 py-3.5 rounded-xl text-center text-2xl font-bold tracking-[0.5em] text-white outline-none focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)]"
+                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                />
+                <button
+                  onClick={async () => {
+                    if (forgotCode.length !== 6) { toast.error('Entrez le code à 6 chiffres'); return }
+                    setForgotStep('reset')
+                  }}
+                  className="w-full py-3.5 rounded-xl text-white font-semibold text-sm transition hover:opacity-90"
+                  style={{ background: SUCCESS }}
+                >
+                  Continuer
+                </button>
+                <button onClick={() => setForgotStep('phone')} className="w-full text-sm font-medium py-2 hover:underline text-[#f5a623]/80 hover:text-[#f5a623]">
+                  Changer de numéro
+                </button>
+              </div>
+            )}
+
+            {forgotStep === 'reset' && (
+              <div className="space-y-4">
+                <p className="text-sm text-white/60">Choisissez un nouveau mot de passe pour <strong className="text-white">{forgotPhone}</strong>.</p>
+                <input
+                  type="password"
+                  value={forgotNewPassword}
+                  onChange={e => setForgotNewPassword(e.target.value)}
+                  placeholder="Nouveau mot de passe (min. 6 caractères)"
+                  className="w-full px-4 py-3.5 rounded-xl text-white outline-none focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)]"
+                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                />
+                <input
+                  type="password"
+                  value={forgotConfirm}
+                  onChange={e => setForgotConfirm(e.target.value)}
+                  placeholder="Confirmer le mot de passe"
+                  className="w-full px-4 py-3.5 rounded-xl text-white outline-none focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)]"
+                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                />
+                <button
+                  onClick={async () => {
+                    if (forgotNewPassword.length < 6) { toast.error('Le mot de passe doit contenir au moins 6 caractères'); return }
+                    if (forgotNewPassword !== forgotConfirm) { toast.error('Les mots de passe ne correspondent pas'); return }
+                    setForgotLoading(true)
+                    try {
+                      const res = await fetch('/api/auth/reset-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone: forgotPhone.trim(), code: forgotCode, newPassword: forgotNewPassword }),
+                      })
+                      const json = await res.json()
+                      if (res.ok) {
+                        toast.success('Mot de passe réinitialisé ! Connectez-vous avec votre nouveau mot de passe.')
+                        setShowForgot(false)
+                        setPassword('')
+                      } else {
+                        toast.error(json.error || 'Code invalide ou expiré')
+                      }
+                    } catch { toast.error('Erreur réseau') }
+                    finally { setForgotLoading(false) }
+                  }}
+                  disabled={forgotLoading}
+                  className="w-full py-3.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition hover:opacity-90"
+                  style={{ background: SUCCESS }}
+                >
+                  {forgotLoading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle size={15} />}
+                  Réinitialiser le mot de passe
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -2270,6 +2421,9 @@ function Sidebar() {
       { icon: <DollarSign size={16} />, label: 'Tarifs', view: 'pricing' as ViewType },
       { icon: <Globe size={16} />, label: 'Contrôle plateforme', view: 'platform-control' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
+      { icon: <CalendarCheck size={16} />, label: 'Liste de présence', view: 'attendance' as ViewType },
+      { icon: <Calendar size={16} />, label: 'Événements', view: 'events' as ViewType },
+      { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
@@ -2291,12 +2445,15 @@ function Sidebar() {
       { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
       { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
+      { icon: <CalendarCheck size={16} />, label: 'Liste de présence', view: 'attendance' as ViewType },
       { icon: <Megaphone size={16} />, label: 'Convocations', view: 'convocation' },
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <HeartPulse size={16} />, label: 'Service Médical', view: 'medical' as ViewType },
       { icon: <Stethoscope size={16} />, label: 'Fiches Médicales', view: 'medical-records' as ViewType },
+      { icon: <Calendar size={16} />, label: 'Événements', view: 'events' as ViewType },
+      { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
       { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
@@ -2312,7 +2469,10 @@ function Sidebar() {
       // Compte secrétaire : ni Convocations, ni Enregistrer paiement, ni
       // Passage de classe (caisse et direction couvrent ces environnements).
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
-      { icon: <BarChart3 size={16} />, label: 'Situation financière', view: 'finance' as ViewType },
+      // Situation financière retirée du secrétaire (demande produit : la caisse
+      // et la direction couvrent l'analyse ; menu allégé).
+      { icon: <CalendarDays size={16} />, label: 'Événements', view: 'events' as ViewType },
+      { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
       { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
@@ -2327,6 +2487,7 @@ function Sidebar() {
       { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
       { icon: <AlertTriangle size={16} />, label: 'Dettes', view: 'debts' as ViewType },
       { icon: <BarChart3 size={16} />, label: 'Situation financière', view: 'finance' as ViewType },
+      { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
@@ -2351,6 +2512,7 @@ function Sidebar() {
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
 HEAD_TEACHER: [
@@ -2360,6 +2522,7 @@ HEAD_TEACHER: [
   { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
   { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
   { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+  { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
   { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
 ],
     MEDICAL: [
@@ -2368,6 +2531,7 @@ HEAD_TEACHER: [
       { icon: <Stethoscope size={16} />, label: 'Fiches Médicales', view: 'medical-records' as ViewType },
       { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
   }
@@ -2422,6 +2586,8 @@ HEAD_TEACHER: [
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
       { icon: <Megaphone size={16} />, label: 'Convocation', view: 'convocation' },
+      { icon: <Calendar size={16} />, label: 'Événements', view: 'events' as ViewType },
+      { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ]
@@ -2433,6 +2599,8 @@ HEAD_TEACHER: [
       { icon: <Ban size={16} />, label: 'Liste Noire', view: 'discipline', tab: 'BLACKLIST' as const },
       { icon: <AlertTriangle size={16} />, label: 'Liste Grise', view: 'discipline', tab: 'GREYLIST' as const },
       { icon: <Heart size={16} />, label: 'Liste Blanche', view: 'discipline', tab: 'WHITELIST' as const },
+      { icon: <CalendarCheck size={16} />, label: 'Liste de présence', view: 'attendance' as ViewType },
+      { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ]
@@ -2539,19 +2707,19 @@ function notifTypeToView(type: string, role?: string | null): ViewType {
 // ===== ROLE-BASED VIEW ACCESS =====
 const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   PARENT: ['dashboard', 'grades', 'bulletin', 'online-payment', 'payment-verification', 'discipline', 'homework', 'communications', 'school-reviews', 'profile', 'convocation'],
-  TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'communications', 'profile'],
-  HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'bulletin', 'communications', 'profile'],
-  SECRETARY: ['dashboard', 'students', 'classes', 'convocation', 'discipline', 'payments', 'finance', 'communications', 'payment-verification', 'class-passing', 'parent-qr', 'my-subscription', 'settings', 'profile'],
-  CASHIER: ['dashboard', 'payments', 'finance', 'payment-verification', 'debts', 'communications', 'profile'],
-  DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],
-  DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],
-  DIRECTION_SECONDAIRE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'settings', 'profile'],
-  DISCIPLINE_MATERNELLE: ['dashboard', 'discipline', 'communications', 'profile'],
-  DISCIPLINE_PRIMAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
-  DISCIPLINE_SECONDAIRE: ['dashboard', 'discipline', 'communications', 'profile'],
-  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'discipline', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'medical-records', 'my-subscription', 'parent-qr', 'parents', 'personalization', 'whatsapp-config', 'settings', 'profile'],
-  MEDICAL: ['dashboard', 'medical', 'medical-records', 'students', 'communications', 'profile'],
-  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'pricing', 'platform-control', 'discipline', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'medical', 'medical-records', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
+  TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'communications', 'reports', 'profile'],
+  HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'bulletin', 'communications', 'reports', 'profile'],
+  SECRETARY: ['dashboard', 'students', 'classes', 'convocation', 'discipline', 'payments', 'communications', 'payment-verification', 'class-passing', 'parent-qr', 'events', 'reports', 'my-subscription', 'settings', 'profile'],
+  CASHIER: ['dashboard', 'payments', 'finance', 'payment-verification', 'debts', 'communications', 'reports', 'profile'],
+  DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'events', 'reports', 'settings', 'profile'],
+  DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'events', 'reports', 'settings', 'profile'],
+  DIRECTION_SECONDAIRE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'events', 'reports', 'settings', 'profile'],
+  DISCIPLINE_MATERNELLE: ['dashboard', 'discipline', 'attendance', 'communications', 'reports', 'profile'],
+  DISCIPLINE_PRIMAIRE: ['dashboard', 'discipline', 'attendance', 'communications', 'reports', 'profile'],
+  DISCIPLINE_SECONDAIRE: ['dashboard', 'discipline', 'attendance', 'communications', 'reports', 'profile'],
+  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'discipline', 'attendance', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'medical-records', 'events', 'reports', 'my-subscription', 'parent-qr', 'parents', 'personalization', 'whatsapp-config', 'settings', 'profile'],
+  MEDICAL: ['dashboard', 'medical', 'medical-records', 'students', 'communications', 'reports', 'profile'],
+  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'pricing', 'platform-control', 'discipline', 'attendance', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'medical', 'medical-records', 'events', 'reports', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
 }
 
 const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment-verification', 'payment-config', 'my-subscription', 'settings', 'profile']
@@ -3669,6 +3837,9 @@ function MainContent() {
     case 'debts': return <DettesView onNavigate={(v) => setCurrentView(v as ViewType)} schoolId={getActiveSchoolId() || ''} />
     case 'payment-config': return <PaymentConfigView />
     case 'discipline': return <DisciplineView />
+    case 'attendance': return <AttendanceView />
+    case 'events': return <EventsView />
+    case 'reports': return <ReportsView />
     case 'communications': return <CommunicationsView />
     case 'homework': return <HomeworkView />
     case 'profile': return <ProfileView />
@@ -4536,6 +4707,15 @@ function PaymentConfigView() {
             useManualRates: json.data.config.useManualRates || false,
             manualRates: mrParsed,
           })
+          // PROPAGATION IMMÉDIATE : applique la config au module d'affichage
+          // (sinon le dashboard reste dans l'ancienne devise jusqu'au reload).
+          setCurrencyDisplay({
+            baseCurrency: json.data.config.baseCurrency || 'CDF',
+            displayCurrency: json.data.config.displayCurrency || json.data.config.baseCurrency || 'CDF',
+            rates: json.data.exchangeRates || {},
+            manualRates: Object.keys(mrParsed).length ? mrParsed : null,
+            useManualRates: json.data.config.useManualRates || false,
+          })
         }
       }
     } catch (e) { console.error(e) }
@@ -4650,6 +4830,16 @@ function PaymentConfigView() {
       const json = await res.json()
       if (json.data) {
         toast.success('Configuration de monnaie sauvegardée !')
+        // PROPAGATION IMMÉDIATE : la réponse POST contient la config enregistrée.
+        // On l'applique AUSSI avec les taux déjà chargés, puis loadCurrencyConfig()
+        // rafraîchit les taux — le dashboard bascule sans rechargement.
+        setCurrencyDisplay({
+          baseCurrency: json.data.baseCurrency || 'CDF',
+          displayCurrency: json.data.displayCurrency || json.data.baseCurrency || 'CDF',
+          rates: exchangeRates || {},
+          manualRates: currencyForm.manualRates && Object.keys(currencyForm.manualRates).length ? currencyForm.manualRates : null,
+          useManualRates: !!json.data.useManualRates,
+        })
         loadCurrencyConfig()
       } else {
         toast.error(json.error || 'Erreur')
@@ -6163,6 +6353,11 @@ function CommunicationsView() {
   const [totalUsers, setTotalUsers] = useState(0)
   const [expandedComm, setExpandedComm] = useState<string | null>(null)
   const canCreate = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  // Approbateurs DISTINCTS des créateurs : seuls le super admin plateforme et
+  // L'ADMIN DE L'ÉCOLE peuvent approuver/rejeter les demandes PENDING
+  // (directions + secrétaire). Avant : les boutons s'affichaient pour les
+  // créateurs mêmes que l'API refusait (403), et l'admin d'école ne voyait rien.
+  const canApprove = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN'].includes(userRole || '')
   const canSeeStats = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
   const isDirection = ['DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
   // Cycle imposé automatiquement selon la fonction de la direction (pas de choix)
@@ -6483,7 +6678,7 @@ function CommunicationsView() {
                       {c.status === 'PENDING' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[oklch(95%_0.04_25)] text-edu-warning">En attente</span>}
                       {c.status === 'REJECTED' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[oklch(95%_0.02_25)] text-edu-danger">Rejetée</span>}
                     </div>
-                    {canCreate && c.status === 'PENDING' && (
+                    {canApprove && c.status === 'PENDING' && (
                       <div className="flex gap-2 mt-2">
                         <button onClick={() => handleApprove(c.id, 'approve')} className="text-[10px] px-2 py-1 rounded-lg bg-edu-success/10 text-edu-success hover:bg-edu-success/20">
                           Approuver
@@ -8685,6 +8880,11 @@ export default function Home() {
   const { currentView, userRole, logout, setCurrentView, userData, setUserData } = useEduGestStore()
   const [subscriptionRequired, setSubscriptionRequired] = useState<{ tier: string; expired: boolean } | null>(null)
 
+  // Réactivité devise : re-rend l'app dès que la config monnaie change
+  // (chargement, bascule, sauvegarde depuis Config. Paiements) — tous les
+  // montants formatés via formatAmount se mettent à jour SANS rechargement.
+  useSyncExternalStore(subscribeCurrency, getCurrencyVersion, getCurrencyVersion)
+
   // Synchronisation temps réel : détecte les changements de la base de données
   // (paiements, élèves, notes…) et met à jour l'application automatiquement
   useEffect(() => {
@@ -8759,7 +8959,12 @@ export default function Home() {
       .then(r => r.json())
       .then(json => {
         const c = json?.data?.config
-        if (!c) return
+        if (!c) {
+          // Pas encore de config pour cette école : réinitialise proprement le
+          // module (sinon l'ancienne école « fuit » dans les montants affichés).
+          setCurrencyDisplay({ baseCurrency: 'CDF', displayCurrency: 'CDF', rates: {}, manualRates: null, useManualRates: false })
+          return
+        }
         let manual: Record<string, number> | null = null
         const mr = c.manualRates
         if (mr) {

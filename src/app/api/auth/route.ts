@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { createToken, getClientIp, getUserAgentFromRequest, checkRateLimit } from '@/lib/auth';
+import { normalizeClientIp } from '@/lib/geo';
 import { checkSubscription } from '@/lib/subscription';
 import { notify } from '@/lib/notify';
 import { repairPlatformAdminIntegrity } from '@/lib/role-repair';
@@ -237,7 +238,11 @@ export async function POST(request: NextRequest) {
       isActive: user.isActive,
     }, {
       userAgent: getUserAgentFromRequest(request),
-      ip: getClientIp(request),
+      // Normalisation : retire « ::ffff: » (Caddy/NAT) et garde la 1re IP du
+      // CSV x-forwarded-for — sinon la géoloc de session voit une IP LAN.
+      // NOTE : la normalisation devrait vivre dans getClientIp (auth.ts) —
+      // branchement à faire côté agent principal (voir worklog tâche 2-e).
+      ip: normalizeClientIp(getClientIp(request)),
     });
 
     // ── Rappel d'expiration d'abonnement (non-bloquant) ──────────────────

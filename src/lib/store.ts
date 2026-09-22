@@ -175,6 +175,9 @@ export type ViewType =
   | 'parent-qr'
   | 'parents'
   | 'personalization'
+  | 'attendance'
+  | 'events'
+  | 'reports'
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'

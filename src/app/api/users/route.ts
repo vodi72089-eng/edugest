@@ -8,6 +8,86 @@ function generateRandomPassword(length: number = 12): string {
   return crypto.randomBytes(length).toString('base64').slice(0, length);
 }
 
+/** « Maths, Français » → ['Maths', 'Français'] (trim + déduplication). */
+function splitCsvValues(value: unknown): string[] {
+  if (typeof value !== 'string') return [];
+  return [...new Set(value.split(',').map(s => s.trim()).filter(Boolean))];
+}
+
+/**
+ * Cours multiples × classes : pour chaque (classe, cours) — résout ou crée la
+ * Subject (unicité RÉELLE du schéma : @@unique([name, schoolYearId])) puis crée
+ * le TeacherAssignment (@@unique([teacherId, classId, subjectId]) → upsert).
+ * Une erreur d'assignation ne fait JAMAIS échouer la création/modification du
+ * prof : elle est transformée en warning retourné à l'appelant.
+ */
+async function syncTeacherAssignments(teacherId: string, schoolId: string, subjectName: string, classNames: string): Promise<string[]> {
+  const warnings: string[] = [];
+  const subjectNames = splitCsvValues(subjectName);
+  const classNamesList = splitCsvValues(classNames);
+  if (subjectNames.length === 0 || classNamesList.length === 0) return warnings;
+
+  // Année scolaire de référence : active sinon la plus récente (désambiguïse
+  // les classes homonymes d'années différentes).
+  const activeYear =
+    (await db.schoolYear.findFirst({ where: { schoolId, isActive: true }, select: { id: true } }))
+    || (await db.schoolYear.findFirst({ where: { schoolId }, orderBy: { createdAt: 'desc' }, select: { id: true } }));
+
+  for (const className of classNamesList) {
+    let yearClass: { id: string; schoolYearId: string } | null = null;
+    if (activeYear) {
+      yearClass = await db.class.findFirst({
+        where: { name: className, schoolId, schoolYearId: activeYear.id },
+        select: { id: true, schoolYearId: true },
+      });
+    }
+    const targetClass = yearClass || await db.class.findFirst({
+      where: { name: className, schoolId },
+      select: { id: true, schoolYearId: true },
+    });
+    if (!targetClass) {
+      warnings.push(`Classe « ${className} » introuvable — cours non assignés pour cette classe`);
+      continue;
+    }
+
+    for (const subjectLabel of subjectNames) {
+      try {
+        let subject = await db.subject.findFirst({
+          where: { name: subjectLabel, schoolYearId: targetClass.schoolYearId },
+          select: { id: true },
+        });
+        if (!subject) {
+          try {
+            subject = await db.subject.create({
+              data: { name: subjectLabel, schoolId, schoolYearId: targetClass.schoolYearId, classId: targetClass.id },
+              select: { id: true },
+            });
+          } catch {
+            // Création concurrente (contrainte name+schoolYearId) : relecture
+            subject = await db.subject.findFirst({
+              where: { name: subjectLabel, schoolYearId: targetClass.schoolYearId },
+              select: { id: true },
+            });
+          }
+        }
+        if (!subject) {
+          warnings.push(`Matière « ${subjectLabel} » : création impossible`);
+          continue;
+        }
+        await db.teacherAssignment.upsert({
+          where: { teacherId_classId_subjectId: { teacherId, classId: targetClass.id, subjectId: subject.id } },
+          update: {},
+          create: { teacherId, classId: targetClass.id, subjectId: subject.id },
+        });
+      } catch (assignmentError) {
+        console.error('syncTeacherAssignments error:', className, subjectLabel, assignmentError);
+        warnings.push(`Cours « ${subjectLabel} » / classe « ${className} » : assignation impossible`);
+      }
+    }
+  }
+  return warnings;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const authResult = await requirePermission(request, 'users:read');
@@ -77,8 +157,27 @@ export async function GET(request: NextRequest) {
       db.user.count({ where }),
     ]);
 
+    // ── Titularités : noms RÉELS des classes dont chaque membre est titulaire
+    //    (Class.headTeacherId → User.id), agrégés pour l'affichage liste.
+    //    Champ additif `titulaireClassNames: string[]` — ne casse aucun client.
+    const userIds = users.map(u => u.id);
+    const titulaireByUser = new Map<string, string[]>();
+    if (userIds.length > 0) {
+      const headClasses = await db.class.findMany({
+        where: { headTeacherId: { in: userIds } },
+        select: { name: true, headTeacherId: true },
+      });
+      for (const c of headClasses) {
+        if (!c.headTeacherId) continue;
+        const names = titulaireByUser.get(c.headTeacherId) || [];
+        if (!names.includes(c.name)) names.push(c.name);
+        titulaireByUser.set(c.headTeacherId, names);
+      }
+    }
+    const data = users.map(u => ({ ...u, titulaireClassNames: titulaireByUser.get(u.id) || [] }));
+
     return NextResponse.json({
-      data: users,
+      data,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {
@@ -94,7 +193,7 @@ export async function POST(request: NextRequest) {
     const { user } = authResult;
 
     const body = await request.json();
-    const { name, email, phone, password, role, schoolId, isActive, subjectName, classNames, isTitulaire } = body;
+    const { name, email, phone, password, role, schoolId, isActive, subjectName, classNames, isTitulaire, titulaireClassIds } = body;
 
     // L'admin PLATEFORME n'appartient à aucune école : schoolId est attendu
     // absent/null pour ce rôle — obligatoire pour tous les autres.
@@ -215,23 +314,42 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // If teacher is titulaire and classNames provided, link as head teacher for the first class
-    if (isTeacherRole && isTitulaire && classNames) {
-      const firstClassName = classNames.split(',').map(s => s.trim()).filter(Boolean)[0];
-      if (firstClassName) {
-        const targetClass = await db.class.findFirst({
-          where: { name: firstClassName, schoolId },
-        });
-        if (targetClass) {
-          await db.class.update({
-            where: { id: targetClass.id },
+    // ── Titularité multi-classes ────────────────────────────────────────────
+    // titulaireClassIds (nouveau) : chaque classe cochée reçoit headTeacherId =
+    // ce prof. Sans le champ → comportement historique (première classe des
+    // classNames) pour ne pas casser les appelants existants.
+    const warnings: string[] = [];
+    if (isTeacherRole && isTitulaire) {
+      if (Array.isArray(titulaireClassIds)) {
+        const ids = titulaireClassIds.filter((x: unknown): x is string => typeof x === 'string' && x.trim() !== '');
+        if (ids.length > 0) {
+          await db.class.updateMany({
+            where: { id: { in: ids }, schoolId: effectiveSchoolId || undefined },
             data: { headTeacherId: newUser.id },
           });
+        }
+      } else if (classNames) {
+        const firstClassName = String(classNames).split(',').map(s => s.trim()).filter(Boolean)[0];
+        if (firstClassName) {
+          const targetClass = await db.class.findFirst({
+            where: { name: firstClassName, schoolId: effectiveSchoolId || undefined },
+          });
+          if (targetClass) {
+            await db.class.update({
+              where: { id: targetClass.id },
+              data: { headTeacherId: newUser.id },
+            });
+          }
         }
       }
     }
 
-    return NextResponse.json({ data: newUser }, { status: 201 });
+    // ── Cours multiples × classes : crée les TeacherAssignments (non bloquant)
+    if (isTeacherRole && effectiveSchoolId && subjectName && classNames) {
+      warnings.push(...await syncTeacherAssignments(newUser.id, effectiveSchoolId, String(subjectName), String(classNames)));
+    }
+
+    return NextResponse.json({ data: newUser, warnings }, { status: 201 });
   } catch (error) {
     console.error('Error creating user:', error);
     return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
@@ -245,7 +363,7 @@ export async function PUT(request: NextRequest) {
     const { user } = authResult;
 
     const body = await request.json();
-    const { id, name, email, phone, role, isActive, password, subjectName, classNames, isTitulaire, schoolId } = body;
+    const { id, name, email, phone, role, isActive, password, subjectName, classNames, isTitulaire, titulaireClassIds, schoolId } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
@@ -379,32 +497,63 @@ export async function PUT(request: NextRequest) {
       },
     });
 
-    // If teacher is titulaire and classNames provided, link as head teacher for the first class
-    if (isTeacherRole && isTitulaire !== undefined && isTitulaire && (classNames !== undefined ? classNames : existing.classNames)) {
-      const effectiveClassNames = classNames !== undefined ? classNames : existing.classNames;
-      if (effectiveClassNames) {
-        const firstClassName = effectiveClassNames.split(',').map((s: string) => s.trim()).filter(Boolean)[0];
-        if (firstClassName) {
-          const targetClass = await db.class.findFirst({
-            where: { name: firstClassName, schoolId: existing.schoolId || undefined },
-          });
-          if (targetClass) {
-            await db.class.update({
-              where: { id: targetClass.id },
+    // ── Titularité multi-classes ────────────────────────────────────────────
+    const warnings: string[] = [];
+    if (isTeacherRole) {
+      if (isTitulaire === true) {
+        if (Array.isArray(titulaireClassIds)) {
+          const ids = titulaireClassIds.filter((x: unknown): x is string => typeof x === 'string' && x.trim() !== '');
+          if (ids.length > 0) {
+            await db.class.updateMany({
+              where: { id: { in: ids }, schoolId: existing.schoolId || undefined },
               data: { headTeacherId: updatedUser.id },
             });
           }
+          // Retire la titularité des classes précédemment détenues qui ne
+          // font plus partie de la sélection.
+          await db.class.updateMany({
+            where: { headTeacherId: updatedUser.id, id: { notIn: ids } },
+            data: { headTeacherId: null },
+          });
+        } else if (classNames !== undefined ? classNames : existing.classNames) {
+          // Rétrocompat (appelants sans titulaireClassIds) : première classe
+          // des classNames uniquement, sans retrait des autres titularités.
+          const effectiveClassNames = (classNames !== undefined ? classNames : existing.classNames) as string;
+          const firstClassName = effectiveClassNames.split(',').map((s: string) => s.trim()).filter(Boolean)[0];
+          if (firstClassName) {
+            const targetClass = await db.class.findFirst({
+              where: { name: firstClassName, schoolId: existing.schoolId || undefined },
+            });
+            if (targetClass) {
+              await db.class.update({
+                where: { id: targetClass.id },
+                data: { headTeacherId: updatedUser.id },
+              });
+            }
+          }
         }
+      } else if (isTitulaire === false) {
+        // If titulaire status removed, clear headTeacherId on classes where this user was head
+        await db.class.updateMany({
+          where: { headTeacherId: updatedUser.id },
+          data: { headTeacherId: null },
+        });
       }
-    } else if (isTeacherRole && isTitulaire === false) {
-      // If titulaire status removed, clear headTeacherId on classes where this user was head
+
+      // ── Cours multiples × classes : AJOUTE les nouveaux TeacherAssignments
+      // (non bloquant ; la gestion fine reste dans la modale « Assigner »).
+      if (existing.schoolId && subjectName && classNames) {
+        warnings.push(...await syncTeacherAssignments(updatedUser.id, existing.schoolId, String(subjectName), String(classNames)));
+      }
+    } else if (existing.role === 'TEACHER' || existing.role === 'HEAD_TEACHER' || existing.role === 'EPS') {
+      // Le compte quitte un rôle enseignant : libère ses titularités.
       await db.class.updateMany({
         where: { headTeacherId: id },
         data: { headTeacherId: null },
       });
     }
 
-    return NextResponse.json({ data: updatedUser });
+    return NextResponse.json({ data: updatedUser, warnings });
   } catch (error) {
     console.error('Error updating user:', error);
     return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });

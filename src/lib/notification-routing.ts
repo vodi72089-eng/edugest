@@ -25,14 +25,14 @@ import { viewToPath } from '@/lib/view-paths';
  *  repli `dashboard` du client (canAccessView). */
 const ROLE_VIEWS: Record<string, ReadonlySet<string>> = {
   PARENT: new Set(['dashboard', 'grades', 'bulletin', 'online-payment', 'payment-verification', 'discipline', 'homework', 'communications', 'convocation', 'school-reviews', 'profile']),
-  TEACHER: new Set(['dashboard', 'classes', 'grades', 'homework', 'communications', 'profile']),
-  HEAD_TEACHER: new Set(['dashboard', 'classes', 'grades', 'homework', 'bulletin', 'communications', 'profile']),
-  SECRETARY: new Set(['dashboard', 'students', 'classes', 'convocation', 'discipline', 'payments', 'finance', 'communications', 'payment-verification', 'class-passing', 'parent-qr', 'settings', 'profile']),
-  CASHIER: new Set(['dashboard', 'payments', 'finance', 'payment-verification', 'debts', 'communications', 'profile']),
-  DIRECTION: new Set(['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'settings', 'profile']),
-  DISCIPLINE: new Set(['dashboard', 'discipline', 'communications', 'profile']),
-  SCHOOL_ADMIN: new Set(['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'discipline', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'medical-records', 'parent-qr', 'parents', 'personalization', 'whatsapp-config', 'settings', 'profile']),
-  MEDICAL: new Set(['dashboard', 'medical', 'medical-records', 'students', 'communications', 'profile']),
+  TEACHER: new Set(['dashboard', 'classes', 'grades', 'homework', 'communications', 'reports', 'profile']),
+  HEAD_TEACHER: new Set(['dashboard', 'classes', 'grades', 'homework', 'bulletin', 'communications', 'reports', 'profile']),
+  SECRETARY: new Set(['dashboard', 'students', 'classes', 'convocation', 'discipline', 'payments', 'communications', 'payment-verification', 'class-passing', 'parent-qr', 'events', 'reports', 'settings', 'profile']),
+  CASHIER: new Set(['dashboard', 'payments', 'finance', 'payment-verification', 'debts', 'communications', 'reports', 'profile']),
+  DIRECTION: new Set(['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'events', 'reports', 'settings', 'profile']),
+  DISCIPLINE: new Set(['dashboard', 'discipline', 'attendance', 'communications', 'reports', 'profile']),
+  SCHOOL_ADMIN: new Set(['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'discipline', 'attendance', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'medical-records', 'events', 'reports', 'parent-qr', 'parents', 'personalization', 'whatsapp-config', 'settings', 'profile']),
+  MEDICAL: new Set(['dashboard', 'medical', 'medical-records', 'students', 'communications', 'reports', 'profile']),
   EPS: new Set(['dashboard', 'students', 'classes', 'grades', 'communications', 'profile']),
   ADMIN_FREEMIUM: new Set(['dashboard', 'students', 'classes', 'payments', 'payment-verification', 'payment-config', 'settings', 'profile']),
   // Le super admin plateforme peut tout ouvrir.

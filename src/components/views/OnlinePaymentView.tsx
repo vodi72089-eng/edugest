@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useEduGestStore, authFetch } from '@/lib/store'
+import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials, formatNumber } from '@/lib/helpers'
 import { CreditCard, Smartphone, CheckCircle, ArrowLeft, Loader2, Download, FileText, ArrowRightLeft } from 'lucide-react'
@@ -14,6 +14,9 @@ type PaymentStep = 'select' | 'confirm' | 'success'
 
 export default function OnlinePaymentView() {
   const { userData, pendingStudentFocus, setPendingStudentFocus } = useEduGestStore()
+  // École active : pour le super admin plateforme, l'école choisie dans la
+  // sidebar (sinon activeSchoolId est null → toutes les écoles mélangées).
+  const activeSchoolId = getActiveSchoolId() || userData?.schoolId || ''
   const [step, setStep] = useState<PaymentStep>('select')
   const [children, setChildren] = useState<StudentData[]>([])
   const [loading, setLoading] = useState(true)
@@ -116,7 +119,7 @@ export default function OnlinePaymentView() {
 
   // Fetch class fees + student payments + auto-select tranche when student selected
   useEffect(() => {
-    if (!selectedStudentId || !userData?.schoolId) {
+    if (!selectedStudentId || !activeSchoolId) {
       setClassFees([]); setAllPaid(false); setTranche(''); setAmount(''); setPayCurrency('CDF'); setPayConvertedAmount(''); setAmountConverted(''); setRemaining(null); setPaidSoFar(0); return
     }
     let cancelled = false
@@ -131,7 +134,7 @@ export default function OnlinePaymentView() {
         }
         if (!classId || cancelled) { setClassFees([]); setAllPaid(false); setTranche(''); setAmount(''); setRemaining(null); setPaidSoFar(0); return }
 
-        const feesRes = await authFetch(`/api/school-fees?schoolId=${userData.schoolId}&classId=${classId}`)
+        const feesRes = await authFetch(`/api/school-fees?schoolId=${activeSchoolId}&classId=${classId}`)
         const feesJson = await feesRes.json()
         const allFees: any[] = feesJson.data || []
 
@@ -174,17 +177,17 @@ export default function OnlinePaymentView() {
     }
     load()
     return () => { cancelled = true }
-  }, [selectedStudentId, selectedStudent?.classId, userData?.schoolId])
+  }, [selectedStudentId, selectedStudent?.classId, activeSchoolId])
 
   // Fetch school currency config
   useEffect(() => {
-    if (userData?.schoolId) {
-      authFetch(`/api/school-currency?schoolId=${userData.schoolId}`)
+    if (activeSchoolId) {
+      authFetch(`/api/school-currency?schoolId=${activeSchoolId}`)
         .then(r => r.json())
         .then(j => { if (j.data) setCurrencyConfig(j.data) })
         .catch(() => {})
       // Passerelles réellement configurées + actives (jamais de catalogue statique)
-      authFetch(`/api/payment-gateways?schoolId=${userData.schoolId}`)
+      authFetch(`/api/payment-gateways?schoolId=${activeSchoolId}`)
         .then(r => r.json())
         .then(j => {
           const configured: any[] = j.data?.configured || []
@@ -197,7 +200,7 @@ export default function OnlinePaymentView() {
         })
         .catch(() => setAvailableMethods(HOSTED_METHODS))
     }
-  }, [userData?.schoolId])
+  }, [activeSchoolId])
 
   // Fetch exchange rate when pay currency changes
   useEffect(() => {

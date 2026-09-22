@@ -43,6 +43,9 @@ export const VIEW_PATHS: Record<string, string> = {
   'parent-qr': '/parent-qr',
   parents: '/parents',
   personalization: '/personalization',
+  attendance: '/attendance',
+  events: '/events',
+  reports: '/reports',
 };
 
 /** Views accessible WITHOUT authentication (pre-auth screens + public landing). */

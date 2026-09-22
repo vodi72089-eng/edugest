@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { useEduGestStore, authFetch } from '@/lib/store'
+import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
 import type { StudentData, ClassData, GradeData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT, DANGER } from '@/lib/constants'
 import { getInitials, formatNumber, getStatusPill } from '@/lib/helpers'
@@ -59,6 +59,10 @@ export default function StudentsView() {
   const [editParentPassword, setEditParentPassword] = useState('')
   const [savingParentAccount, setSavingParentAccount] = useState(false)
   const { userData, highlightedId } = useEduGestStore()
+  // École active : pour le super admin plateforme, l'école choisie dans la
+  // sidebar (sinon activeSchoolId est null → toutes les écoles mélangées,
+  // ce qui donnait l'impression que « toutes les écoles ont les mêmes classes »).
+  const activeSchoolId = getActiveSchoolId() || userData?.schoolId || ''
   const [activeSchoolYear, setActiveSchoolYear] = useState('')
   const [archivedCount, setArchivedCount] = useState(0)
   const [archivedStudents, setArchivedStudents] = useState<any[]>([])
@@ -73,14 +77,14 @@ export default function StudentsView() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await authFetch(`/api/students?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
+        const res = await authFetch(`/api/students?limit=50${activeSchoolId ? `&schoolId=${activeSchoolId}` : ''}`)
         const json = await res.json()
         setStudents(json.data || [])
       } catch (e) { console.error(e) }
       finally { setLoading(false) }
     }
     load()
-  }, [userData?.schoolId])
+  }, [activeSchoolId])
 
   // Synchronisation temps réel : recharge les élèves dès qu'un changement
   // est détecté dans la base de données (autre session, autre utilisateur…)
@@ -90,27 +94,27 @@ export default function StudentsView() {
     if (dbPulse === 0) return
     async function reload() {
       try {
-        const res = await authFetch(`/api/students?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
+        const res = await authFetch(`/api/students?limit=50${activeSchoolId ? `&schoolId=${activeSchoolId}` : ''}`)
         const json = await res.json()
         setStudents(json.data || [])
       } catch (e) { console.error(e) }
     }
     reload()
-  }, [dbPulse, userData?.schoolId])
+  }, [dbPulse, activeSchoolId])
 
   useEffect(() => {
-    if (userData?.schoolId) {
-      authFetch(`/api/schools/${userData.schoolId}`).then(r => r.json()).then(j => {
+    if (activeSchoolId) {
+      authFetch(`/api/schools/${activeSchoolId}`).then(r => r.json()).then(j => {
         const years = j.data?.schoolYears || []
         const active = years.find((y: any) => y.isActive)
         if (active) setActiveSchoolYear(active.id)
       }).catch(() => {})
     }
-  }, [userData?.schoolId])
+  }, [activeSchoolId])
 
   useEffect(() => {
-    if (userData?.schoolId) {
-      authFetch(`/api/schools/${userData.schoolId}/archived-students`)
+    if (activeSchoolId) {
+      authFetch(`/api/schools/${activeSchoolId}/archived-students`)
         .then(res => res.json())
         .then(data => {
           setArchivedStudents(data.data || [])
@@ -118,11 +122,11 @@ export default function StudentsView() {
         })
         .catch(() => {})
     }
-  }, [userData?.schoolId])
+  }, [activeSchoolId])
 
   useEffect(() => {
     if (showAdd || editingStudent) {
-      authFetch(`/api/classes?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`)
+      authFetch(`/api/classes?limit=50${activeSchoolId ? `&schoolId=${activeSchoolId}` : ''}`)
         .then(r => r.json())
         .then(j => setClasses(j.data || []))
         .catch(() => {})
@@ -169,7 +173,7 @@ export default function StudentsView() {
       const body: Record<string, unknown> = {
         firstName: fd.get('firstName'), lastName: fd.get('lastName'),
         gender: addGender, dateOfBirth: fd.get('dob'),
-        classId: selectedClassId, schoolId: userData?.schoolId || 'demo',
+        classId: selectedClassId, schoolId: activeSchoolId || 'demo',
         schoolYearId: activeSchoolYear,
       }
       if (showParentSection && parentName) {
@@ -188,7 +192,7 @@ export default function StudentsView() {
         setShowAdd(false)
         setParentName(''); setParentEmail(''); setParentPhone(''); setParentPassword('')
         setSelectedClassId(''); setShowParentSection(false); setAddGender('M')
-        const json = await authFetch(`/api/students?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json())
+        const json = await authFetch(`/api/students?limit=50${activeSchoolId ? `&schoolId=${activeSchoolId}` : ''}`).then(r => r.json())
         setStudents(json.data || [])
       } else {
         toast.error('Erreur lors de l\'ajout')
@@ -231,7 +235,7 @@ export default function StudentsView() {
         toast.success(j.data?.message || 'Compte parent enregistré !')
         setEditParentPassword('')
         // Rafraîchit la liste pour afficher le parent lié
-        const json = await authFetch(`/api/students?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json())
+        const json = await authFetch(`/api/students?limit=50${activeSchoolId ? `&schoolId=${activeSchoolId}` : ''}`).then(r => r.json())
         setStudents(json.data || [])
       } else {
         toast.error(j.error || 'Erreur lors de l enregistrement du compte parent')
@@ -252,7 +256,7 @@ export default function StudentsView() {
       if (res.ok) {
         toast.success('Élève modifié avec succès!')
         setEditingStudent(null)
-        const json = await authFetch(`/api/students?limit=50${userData?.schoolId ? `&schoolId=${userData.schoolId}` : ''}`).then(r => r.json())
+        const json = await authFetch(`/api/students?limit=50${activeSchoolId ? `&schoolId=${activeSchoolId}` : ''}`).then(r => r.json())
         setStudents(json.data || [])
       } else {
         const j = await res.json()

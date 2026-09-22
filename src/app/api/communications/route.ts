@@ -40,7 +40,14 @@ export async function GET(request: NextRequest) {
     if (mine) where.senderId = user.id;
 
     // Filter by status - non-admin only see APPROVED
-    if (user.role !== 'SUPER_ADMIN_GLOBAL' && user.role !== 'ADMIN') {
+    // SCHOOL_ADMIN (admin de l'école) voit les PENDING de SON école : c'est lui
+    // l'approbateur (avec le super admin plateforme). Le rôle 'ADMIN' historique
+    // n'existe pas mais reste dans la condition par précaution.
+    if (user.role === 'SECRETARY') {
+      // Le secrétaire voit les communications approuvées + SES PROPRES demandes
+      // (suivi « en attente / approuvée / rejetée » de sa demande de permission).
+      where.OR = [{ status: 'APPROVED' }, { senderId: user.id }];
+    } else if (user.role !== 'SUPER_ADMIN_GLOBAL' && user.role !== 'SCHOOL_ADMIN' && user.role !== 'ADMIN') {
       where.status = 'APPROVED';
     }
 
@@ -135,6 +142,9 @@ export async function POST(request: NextRequest) {
     const senderRole = user.role;
 
     // Determine scope from sender role
+    // Demande de permission : DIRECTION_* (déjà) ET SECRÉTAIRE créent des
+    // communications PENDING — l'envoi réel part APRÈS approbation par
+    // l'admin de l'école (SCHOOL_ADMIN) ou le super admin plateforme.
     let scope: string | null = null;
     let status = 'APPROVED';
     if (user.role === 'DIRECTION_MATERNELLE') {
@@ -145,6 +155,8 @@ export async function POST(request: NextRequest) {
       status = 'PENDING';
     } else if (user.role === 'DIRECTION_SECONDAIRE') {
       scope = 'SECONDAIRE';
+      status = 'PENDING';
+    } else if (user.role === 'SECRETARY') {
       status = 'PENDING';
     }
 
