@@ -2111,3 +2111,18 @@ Stage Summary:
 - EduGest a été réellement "attaquée" via HexStrike AI : 1 faille critique IDOR financier fermée et prouvée, verify-otp durci, 21 défenses validées (brute force lockout, SQLi, XSS, traversal, mass-assignment, quotas…)
 - Le footer copyright est désormais collé au bas de la page avec scroll naturel — le bouton WhatsApp n'est plus masqué
 - App en version 0.2.2, 5 MCP actifs dont hexstrike, pentest réexécutable via scripts/hexstrike-pentest.py
+
+---
+Task ID: 2
+Agent: Main Agent (Z.ai Code)
+Task: Retirer les villes (Kinshasa · Dakar · Abidjan) des footers ; nouvelle règle : git pull systématique avant chaque session
+
+Work Log:
+- git pull origin main (nouveaux scripts hexstrike remontés) avant de commencer
+- 3 occurrences retirées : footer page connexion (page.tsx:2113 → « © 2026 EduGest »), footer page vérification document (→ « © 2026 EduGest »), bloc Contact landing (ligne villes supprimée, email+téléphone conservés)
+- PROVINCES dans constants.ts volontairement intact (filtre fonctionnel, pas du branding)
+- Vérifié en navigateur : landing + page connexion affichent « © 2026 EduGest », 0 erreur console
+- Commit 6e8f2e4 poussé sur main
+
+Stage Summary:
+- Footers nettoyés des villes ; règle établie : toujours git pull avant de commencer une session
