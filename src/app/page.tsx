@@ -68,8 +68,8 @@ import {
    TrendingUp, UserPlus, Calendar, ClipboardList,
   Info, Zap, Globe, Lock, Award, Ban, CircleDot, ListChecks,
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
-  UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
-   ChevronUp, ExternalLink, Check, Copy, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown,
+  UsersRound, BadgeDollarSign, Siren, Heart, HeartHandshake, Target, Briefcase,
+   ChevronUp, ExternalLink, Check, Copy, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown, DatabaseZap,
    User, Landmark, Palette, BellRing, HeartPulse, Database, Stethoscope, Volume2, VolumeX, CalendarCheck, CalendarDays,
    LifeBuoy, Headset, ScrollText, Bot, Newspaper
 } from 'lucide-react'
@@ -662,17 +662,17 @@ function HomeView() {
           {/* Stats cards with tilt */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-3xl px-4 relative z-20">
             {[
-              { value: platformStats.schools, suffix: '', label: 'Établissements', glow: 'oklch(72% 0.15 65 / 0.3)', tint: 'oklch(72% 0.15 65 / 0.13)', hue: '#f5a623', icon: School },
-              { value: platformStats.families, suffix: '', label: 'Familles', glow: 'oklch(72% 0.22 165 / 0.3)', tint: 'oklch(72% 0.22 165 / 0.13)', hue: '#34d399', icon: UsersRound },
-              { value: platformStats.students, suffix: '', label: 'Élèves', glow: 'oklch(72% 0.15 210 / 0.3)', tint: 'oklch(72% 0.15 210 / 0.13)', hue: '#38bdf8', icon: GraduationCap },
+              { value: platformStats.schools, suffix: '', label: 'Établissements', glow: 'oklch(72% 0.15 65 / 0.3)', tint: 'oklch(72% 0.15 65 / 0.13)', hue: '#f5a623', icon: Building2 },
+              { value: platformStats.families, suffix: '', label: 'Familles', glow: 'oklch(72% 0.22 165 / 0.3)', tint: 'oklch(72% 0.22 165 / 0.13)', hue: '#34d399', icon: HeartHandshake },
+              { value: platformStats.students, suffix: '', label: 'Élèves', glow: 'oklch(72% 0.15 210 / 0.3)', tint: 'oklch(72% 0.15 210 / 0.13)', hue: '#38bdf8', icon: BookOpen },
             ].map((stat) => (
               <GlowCard key={stat.label} glowColor={stat.glow}>
                 <div className="p-6 flex flex-col items-center justify-center group cursor-default">
                   <span
-                    className="w-12 h-12 mb-3 rounded-2xl flex items-center justify-center border border-white/10 group-hover:scale-110 group-hover:border-[#f5a623]/50 group-hover:shadow-[0_0_20px_rgba(245,166,35,0.25)] transition-all duration-500"
+                    className="w-14 h-14 mb-3 rounded-2xl flex items-center justify-center border border-white/10 group-hover:scale-110 group-hover:border-[#f5a623]/50 group-hover:shadow-[0_0_20px_rgba(245,166,35,0.25)] transition-all duration-500"
                     style={{ background: stat.tint }}
                   >
-                    <stat.icon size={24} strokeWidth={1.8} className="group-hover:text-[#f5a623] transition-colors duration-500" style={{ color: stat.hue }} aria-hidden="true" />
+                    <stat.icon size={20} strokeWidth={1.7} className="group-hover:text-[#f5a623] transition-colors duration-500" style={{ color: stat.hue }} aria-hidden="true" />
                   </span>
                   <span className="text-3xl font-black text-white tracking-tighter mb-1.5 group-hover:text-[#f5a623] transition-colors duration-500">
                     <AnimatedCounter target={stat.value} suffix={stat.suffix} duration={2.5} />
@@ -3452,12 +3452,42 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
 // ===== DASHBOARD LAYOUT =====
 // ===== POPUP IMPORT BASE DE DONNÉES (DANS L'APP, après connexion admin) =====
 // N'apparaît QUE pour les admins d'école (SCHOOL_ADMIN) dont les identifiants
-// ont déjà été validés — jamais sur la page de connexion.
+// ont déjà été validés — jamais sur la page de connexion. Ré-ouvrable à tout
+// moment (Paramètres) via l'événement global 'edugest:open-import-db'.
+
+// ── Composant logo du modal (badge dégradé + éclair DB + pastille d'upload) ──
+function ImportDbLogo() {
+  return (
+    <div className="relative w-10 h-10 shrink-0">
+      <div
+        className="w-10 h-10 rounded-2xl grid place-items-center text-white"
+        style={{ background: `linear-gradient(135deg, ${GOLD} 0%, #c47d0e 100%)`, boxShadow: '0 6px 16px rgba(245,166,35,0.4)' }}
+      >
+        <DatabaseZap size={19} strokeWidth={2} aria-hidden="true" />
+      </div>
+      <span
+        className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white border grid place-items-center shadow-sm"
+        style={{ borderColor: 'rgba(245,166,35,0.55)' }}
+      >
+        <Upload size={9} strokeWidth={3} style={{ color: GOLD }} aria-hidden="true" />
+      </span>
+    </div>
+  )
+}
+
 function ImportDbModal({ onClose }: { onClose: () => void }) {
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [result, setResult] = useState<{ students: number; classes: number; grades: number; teachers: number; subjects: number } | null>(null)
+  const [result, setResult] = useState<{ students: number; classes: number; grades: number; teachers: number; subjects: number; parents: number; schoolFees: number; duplicates: number } | null>(null)
+
+  // Pré-compile la route d'import dès l'ouverture du modal (en dev, la
+  // compilation à froid peut prendre ~15 s : sans ce préchauffage, la
+  // connexion pouvait être coupée avant la réponse → « Erreur réseau »).
+  // Un HEAD suffit : Next compile le module même s'il répond 405.
+  useEffect(() => {
+    fetch('/api/school/import-db', { method: 'HEAD' }).catch(() => {})
+  }, [])
 
   async function handleImport() {
     setError('')
@@ -3466,17 +3496,33 @@ function ImportDbModal({ onClose }: { onClose: () => void }) {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const res = await authFetch('/api/school/import-db', { method: 'POST', body: fd })
-      const j = await res.json()
-      if (!res.ok) {
-        setError(j.error || 'Erreur lors de l import')
+      // Garde-fou anti-blocage : 5 minutes max (grosses bases)
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 5 * 60 * 1000)
+      let res: Response
+      try {
+        res = await authFetch('/api/school/import-db', { method: 'POST', body: fd, signal: controller.signal })
+      } finally {
+        clearTimeout(timer)
+      }
+      let j: { error?: string; data?: { summary?: Record<string, number> } } | null = null
+      try { j = await res.json() } catch { /* réponse vide/tronquée (proxy) */ }
+      if (!res.ok || !j?.data) {
+        setError(j?.error || `Import interrompu (code ${res.status}). L'import ignore les doublons : vous pouvez réessayer sans risque.`)
         return
       }
-      const sm = j.data?.summary || {}
-      setResult({ students: sm.students || 0, classes: sm.classes || 0, grades: sm.grades || 0, teachers: sm.teachers || 0, subjects: sm.subjects || 0 })
+      const sm = j.data.summary || {}
+      setResult({
+        students: sm.students || 0, classes: sm.classes || 0, grades: sm.grades || 0,
+        teachers: sm.teachers || 0, subjects: sm.subjects || 0, parents: sm.parents || 0,
+        schoolFees: sm.schoolFees || 0, duplicates: sm.duplicates || 0,
+      })
       setFile(null)
-    } catch {
-      setError('Erreur réseau pendant l import')
+    } catch (e) {
+      const aborted = (e as { name?: string })?.name === 'AbortError'
+      setError(aborted
+        ? "L'import a pris trop de temps et a été annulé (5 min max). Aucune donnée perdue : relancez l'import, ce qui est déjà enregistré sera ignoré."
+        : "Connexion interrompue pendant l'import. Aucune donnée perdue — l'import ignore les doublons : réessayez simplement.")
     } finally {
       setLoading(false)
     }
@@ -3487,9 +3533,7 @@ function ImportDbModal({ onClose }: { onClose: () => void }) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: GOLD_SOFT }}>
-              <Database size={17} style={{ color: GOLD }} />
-            </div>
+            <ImportDbLogo />
             <div>
               <h3 className="font-bold text-[15px]" style={{ color: TEXT_PRIMARY }}>Importer votre base de données</h3>
               <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Identifiants vérifiés — espace administrateur</p>
@@ -3504,11 +3548,27 @@ function ImportDbModal({ onClose }: { onClose: () => void }) {
               <p className="font-semibold text-sm mb-1" style={{ color: TEXT_PRIMARY }}>Base importée avec succès !</p>
               <p className="text-[12px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
                 {result.students} élèves · {result.classes} classes · {result.subjects} matières · {result.grades} notes · {result.teachers} professeurs
+                {result.parents > 0 ? ` · ${result.parents} parents` : ''}
+                {result.schoolFees > 0 ? ` · ${result.schoolFees} frais` : ''}
               </p>
+              {result.duplicates > 0 && (
+                <p className="text-[11px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>
+                  {result.duplicates} doublon{result.duplicates > 1 ? 's' : ''} ignoré{result.duplicates > 1 ? 's' : ''} (déjà présent{result.duplicates > 1 ? 's' : ''})
+                </p>
+              )}
               <p className="text-[11px] mt-2" style={{ color: TEXT_MUTED_LUXE }}>Vos données sont maintenant celles de votre école.</p>
-              <button onClick={onClose} className="mt-3 px-5 py-2 rounded-xl text-[13px] font-semibold text-white transition" style={{ background: SUCCESS }}>
-                Terminer
-              </button>
+              <div className="flex gap-2.5 mt-3">
+                <button
+                  onClick={() => { setResult(null); setError(''); setFile(null) }}
+                  className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold border transition hover:bg-gray-50"
+                  style={{ borderColor: BORDER, color: TEXT_MUTED_LUXE }}
+                >
+                  Importer une autre base
+                </button>
+                <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-white transition" style={{ background: SUCCESS }}>
+                  Terminer
+                </button>
+              </div>
             </div>
           ) : (
             <>
@@ -3516,6 +3576,10 @@ function ImportDbModal({ onClose }: { onClose: () => void }) {
                 Vous êtes connecté en tant qu&apos;administrateur d&apos;école. Importez votre fichier de base de
                 données EduGest (<strong>.db</strong>) : élèves, classes, matières, notes et professeurs
                 deviennent directement la base de votre école.
+              </p>
+              <p className="text-[12px] leading-relaxed rounded-lg px-3 py-2" style={{ color: TEXT_MUTED_LUXE, background: IVORY }}>
+                💡 Vous pouvez importer <strong>plusieurs bases</strong> (autre année, fichier corrigé…) :
+                les doublons sont ignorés automatiquement, réimportez sans risque.
               </p>
               <label className="block cursor-pointer rounded-xl px-4 py-4 text-sm transition hover:bg-[oklch(72%_0.15_65_/_0.04)]" style={{ border: '1.5px dashed oklch(72% 0.15 65 / 0.5)' }}>
                 <input type="file" accept=".db,.sqlite,.sqlite3" className="hidden" onChange={e => setFile(e.target.files?.[0] || null)} />
@@ -3525,7 +3589,7 @@ function ImportDbModal({ onClose }: { onClose: () => void }) {
                 </span>
               </label>
               {error && (
-                <div className="rounded-xl px-4 py-3 text-[13px]" style={{ background: 'rgba(186,26,26,0.08)', border: '1px solid rgba(186,26,26,0.35)', color: '#b91c1c' }}>{error}</div>
+                <div className="rounded-xl px-4 py-3 text-[13px] leading-relaxed" style={{ background: 'rgba(186,26,26,0.08)', border: '1px solid rgba(186,26,26,0.35)', color: '#b91c1c' }}>{error}</div>
               )}
               <div className="flex gap-2.5 pt-1">
                 <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold border transition hover:bg-gray-50" style={{ borderColor: BORDER, color: TEXT_MUTED_LUXE }}>
@@ -3559,6 +3623,13 @@ function DashboardLayout() {
     } catch {}
     return false
   })
+  // Import d'autres bases de données à tout moment : les vues (ex. Paramètres)
+  // ouvrent ce modal via l'événement global 'edugest:open-import-db'.
+  useEffect(() => {
+    const openImportDb = () => setShowImportDb(true)
+    window.addEventListener('edugest:open-import-db', openImportDb)
+    return () => window.removeEventListener('edugest:open-import-db', openImportDb)
+  }, [])
   return (
     <div className={`min-h-screen grid grid-cols-1 ${sidebarVisible ? 'lg:grid-cols-[240px_1fr]' : ''}`} style={{ background: IVORY }}>
       {sidebarVisible && <Sidebar />}

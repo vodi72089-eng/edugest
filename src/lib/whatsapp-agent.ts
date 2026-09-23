@@ -189,7 +189,7 @@ export async function isWhatsAppConnected(): Promise<boolean> {
  * si elle est configurée et active — sinon passe par l'agent partagé EduGest (Baileys).
  * Chaque envoi est journalisé (quota mensuel + audit) via recordWhatsappMessage.
  */
-async function sendWhatsAppMessage(phone: string, message: string, schoolId?: string | null): Promise<boolean> {
+export async function sendWhatsAppMessage(phone: string, message: string, schoolId?: string | null): Promise<boolean> {
   // 1) API WhatsApp personnelle de l'école → messages illimités côté EduGest
   if (schoolId) {
     const config = await getSchoolWhatsappApiConfig(schoolId);

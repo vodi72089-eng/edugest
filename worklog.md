@@ -2272,3 +2272,69 @@ Stage Summary:
 - v0.3.0 : compte CORPORATE distinct (multi-écoles, schoolId null, espace agrégé), emails officiels @edugest.app branchés Resend (SIMULÉ en dev), documentation in-app, agent IA support (LLM backend), support client tickets (corporates+écoles), journal d'activité prêt pour agent Hermes (webhook HMAC — à activer en prod), passage d'école activable uniquement par l'admin plateforme (grant révocable + emails).
 - Comptes démo : corporate@edugest.app/corporate123 · support@edugest.app/support123
 - ⚠️ dev serveur instable (OOM ×3 pendant les vérifs — capacité sandbox) : redémarré avec NODE_OPTIONS --max-old-space-size=1800 ; prévoir monitoring en prod.
+Task ID: 5
+Agent: Main Agent (Z.ai Code)
+Task: Configurer le MCP Figma avec le token fourni par l'utilisateur
+
+Work Log:
+- Règle permanente respectée : git pull origin main → fast-forward (scripts/verify-postmerge.sh + worklog)
+- Token Figma validé via API officielle (GET /v1/me) → compte « ebrillam » (eluymas82@gmail.com) ✓
+- npm install -g figma-developer-mcp (Framelink) → /home/z/.npm-global/bin/figma-developer-mcp (pas de cold-start npx)
+- Handshake JSON-RPC testé : initialize + tools/list OK — « Figma MCP Server v0.13.2 », outils get_figma_data / download_figma_images
+- .mcp.json : entrée « figma » ajoutée (stdio, --figma-api-key, --stdio)
+- Protection du secret : git update-index --skip-worktree .mcp.json → le token n'est PAS poussé sur GitHub
+- Vérification navigateur : landing + footer skiper40 OK desktop/mobile, 0 erreur console
+
+Stage Summary:
+- MCP Figma opérationnel : l'utilisateur doit recharger/activer « figma » dans son panneau MCP puis peut demander get_figma_data sur un fileKey Figma
+- ⚠️ Le token figd_…MFn est stocké en clair dans .mcp.json local (hors git) ; à révoquer si divulgué ailleurs
+
+---
+Task ID: 6
+Agent: Main Agent (Z.ai Code)
+Task: Section stats — changer les icônes et corriger le badge collé aux icônes (retour utilisateur + capture)
+
+Work Log:
+- git pull (déjà à jour)
+- Diagnostic : badge 48px avec icône 24px → glyphes larges (School/UsersRound/GraduationCap) touchaient quasi les bords du fond teinté
+- Nouvelles icônes lucide-react : Building2 (Établissements), HeartHandshake (Familles), BookOpen (Élèves) — import HeartHandshake ajouté
+- Proportions corrigées : badge w-12→w-14 (56px), icône 24→20px, strokeWidth 1.8→1.7 → marge de respiration 12px→18px par côté (ratio 36 %)
+- Vérif navigateur : plan serré (zoom x2) → marges nettes, hover → glow/tilt GlowCard OK, mobile 390px → pile verticale OK, 0 erreur console, lint 68 = baseline inchangée
+
+Stage Summary:
+- Section stats : icônes plus élégantes + badges aérés (background ne touche plus le logo), desktop et mobile validés
+
+---
+Task ID: 7
+Agent: Main Agent (Z.ai Code)
+Task: Corriger « Erreur réseau pendant l'import » de base de données + import de plusieurs bases + nouveau logo du modal
+
+Work Log:
+- Diagnostic : dev.log → POST /api/school/import-db 200 en 15,5 s (compile à froid 15,1 s) — le proxy/client coupe la connexion avant la réponse → catch « Erreur réseau »
+- API import-db : pré-chargement anti-N+1 (1 requête/table au lieu d'1/ligne : students, users par téléphone, classes, subjects, grades, fees) ; fix Prisma `phone: { not: null }` invalide (champ non nullable)
+- Anti-doublons serveur : réimport/réessai sûr — élève déjà présent (même matricule+nom, ou prénom+nom+classe sans matricule) → mappé et compté dans summary.duplicates ; collision de matricule avec un nom différent → régénération conservée ; notes/frais dédupliqués par clé
+- Client ImportDbModal : pré-compile de la route au montage (HEAD silencieux), AbortController 5 min, res.json() protégé, messages d'erreur explicites (« Connexion interrompue… réessayez : les doublons sont ignorés »), encadré « plusieurs bases », résumé enrichi (parents, frais, doublons)
+- Bouton « Importer une autre base » après succès (reset du modal) ; nouveau composant ImportDbLogo (badge dégradé or + DatabaseZap + pastille Upload) remplaçant l'icône Database plate
+- Accès permanent : carte « Base de données de l'école » dans Paramètres (SCHOOL_ADMIN) → événement global 'edugest:open-import-db' écouté par DashboardLayout → rouvre le modal à tout moment
+- Tests : curl ×2 (import 3 élèves/2 classes/2 notes… puis réessai 0 créé + 8 doublons ignorés, 0 doublon réel en base) ; navigateur : login admin@lumiere.cd → modal auto (nouveau logo) → upload réel → succès + « 8 doublons ignorés » → « Importer une autre base » → Paramètres → carte → réouverture modal OK ; 0 erreur console ; lint 68 = baseline
+
+Stage Summary:
+- Import DB fiable : rapide (anti-N+1), réessayable sans doublon, messages clairs ; plusieurs bases importables à tout moment (modal réutilisable + carte Paramètres) ; nouveau logo du modal
+
+---
+Task ID: 8
+Agent: Main Agent (Z.ai Code)
+Task: Renommer SCHOOL_ADMIN → Propriétaire + système agentique d'automatisation des rapports (PDF détaillé au design EduGest, envoi programmé WhatsApp)
+
+Work Log:
+- git pull ; labels : getRoleLabel SCHOOL_ADMIN → « Propriétaire » + nouveau getRoleSealLabel (sceau UI + texte WhatsApp + PDF) ; sidebar affiche désormais « Propriétaire »
+- src/lib/report-data.ts : collecteur détaillé — paiements (élève, montant, horodatage à la seconde, n° de reçu, mode), communications (sujets), discipline (sanctions élève+description+points, points positifs élève+raison, convocations), présences par élève (« X jours d'absence/de retard »), classements classes (50 % présence + 30 % notes + 20 % discipline) et élèves (top 3 / 3 derniers, % estimé + conduite estimée) ; buildWhatsAppTextReport + nextLagosOccurrence (UTC+1)
+- src/lib/report-pdf.ts : générateur pdfkit au design EduGest (bandeau vert-noir/or, chips ivoire, tableaux zébrés, alertes rouges, sceau final) ; pdfkit chargé à l'exécution via import natif webpackIgnore (sa build ESM casse webpack) ; pieds de page tamponnés en fin via bufferedPageRange (pageAdded → récursion infinie)
+- GET /api/reports/pdf (admin, jours 1..31) → PDF A4 validé (2 pages, %PDF, horodatages à la seconde, sceau « Propriétaire »)
+- Automatisation : modèle Prisma ReportSchedule (intervalDays, hour/minute Lagos, recipients JSON, sendPdf, nextRunAt, lastStatus, runCount…) + School.reportSchedules ; API /api/reports/schedule (GET/POST/DELETE + action:'run') ; runSchedule → texte + PDF → sendWhatsAppMessage + sendWhatsAppDocument par destinataire, avance le planning avec rattrapage borné ; audit REPORT_SCHEDULE_RUN
+- Architecture : la couche instrumentation de Next ne supporte pas les modules Node (crypto/stream) → mini-service Bun dédié mini-services/report-scheduler (port 3002, bun:sqlite readonly — better-sqlite3 SIGILL sous Bun, scan 30 s) qui appelle POST /api/reports/scheduler-run (clé partagée x-scheduler-key) ; keepalive edugest-keepalive.sh ravive le service
+- UI ReportsView : bouton « Télécharger le PDF » (blob download), carte « Automatisation des rapports » (fréquence 1/2/3/7 jours, heure, destinataires, PDF joint, activer) + liste des programmes (Actif/En pause, prochain envoi, statut détaillé, Exécuter/Modifier/Pause/Supprimer)
+- Tests : PDF 200 validé ; programme créé (nextRunAt 07:00 UTC = 08:00 Lagos ✓) ; run immédiat → agent_offline attendu (runCount 1) ; échéance forcée → mini-service déclenche automatiquement (runCount 2, nextRunAt +1 jour exact) ; UI : Exécuter → 3 envois, 0 erreur console ; lint 68 = baseline
+
+Stage Summary:
+- Système agentique complet : le propriétaire programme ses rapports (chaque jour à 8h, tous les N jours…), l'agent EduGest envoie tout seul texte WhatsApp + PDF détaillé au design de l'app ; PDF téléchargeable à la demande ; SCHOOL_ADMIN renommé « Propriétaire » partout où il était affiché brut

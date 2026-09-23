@@ -5,7 +5,7 @@ import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
 import type { SchoolData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
-import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera, ImagePlus, Plus, Edit, GraduationCap, Monitor, Smartphone, LogOut, Tablet, Globe, Fingerprint, Palette } from 'lucide-react'
+import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera, ImagePlus, Plus, Edit, GraduationCap, Monitor, Smartphone, LogOut, Tablet, Globe, Fingerprint, Palette, HardDriveDownload } from 'lucide-react'
 import PersonalizationView from './PersonalizationView'
 import { toast } from 'sonner'
 import { detectDevice, formatDeviceTitle, formatDeviceSummary, isLoopbackIp } from '@/lib/detect-device'
@@ -363,6 +363,35 @@ function SettingsViewInner() {
         <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Paramètres de l&apos;école</h1>
       </div>
+
+      {/* Base de données : import / ré-import réservé aux administrateurs d'école.
+          Ouvre le même modal que celui affiché après la connexion, via l'événement
+          global 'edugest:open-import-db' (écouté par DashboardLayout). */}
+      {userRole === 'SCHOOL_ADMIN' && (
+        <div
+          className="rounded-2xl p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between border"
+          style={{ borderColor: 'rgba(245,166,35,0.35)', background: 'linear-gradient(135deg, rgba(245,166,35,0.08), rgba(245,166,35,0.02))' }}
+        >
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl grid place-items-center shrink-0" style={{ background: GOLD_SOFT }}>
+              <HardDriveDownload size={18} style={{ color: GOLD }} aria-hidden="true" />
+            </div>
+            <div>
+              <p className="font-bold text-[15px]" style={{ color: TEXT_PRIMARY }}>Base de données de l&apos;école</p>
+              <p className="text-[12.5px] leading-relaxed mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>
+                Importez vos fichiers (.db) : élèves, classes, matières, notes et professeurs.
+                Les doublons sont ignorés — réimportez sans risque, autant de fois que nécessaire.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('edugest:open-import-db'))}
+            className="edu-gold-cta px-5 py-2.5 rounded-xl text-[13px] font-semibold shrink-0 self-start sm:self-center"
+          >
+            Importer une base
+          </button>
+        </div>
+      )}
 
       <div className="flex gap-2 mb-6 flex-wrap">
         {!personalizationOnly && (

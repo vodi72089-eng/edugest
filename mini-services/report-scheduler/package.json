@@ -1,0 +1,10 @@
+{
+  "name": "edugest-report-scheduler",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mini-service planificateur : balaie les ReportSchedule échus et déclenche l'envoi des rapports via l'app EduGest (port 3000).",
+  "scripts": {
+    "dev": "bun --hot index.ts",
+    "start": "bun index.ts"
+  }
+}

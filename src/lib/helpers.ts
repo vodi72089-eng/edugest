@@ -48,7 +48,7 @@ export function getSubscriptionPrice(tier: string) {
 export function getRoleLabel(role: UserRole): string {
   const map: Record<UserRole, string> = {
     SUPER_ADMIN_GLOBAL: 'Super Admin',
-    SCHOOL_ADMIN: 'Admin École',
+    SCHOOL_ADMIN: 'Propriétaire',
     SECRETARY: 'Secrétaire',
     CASHIER: 'Caissier',
     DIRECTION_MATERNELLE: 'Dir. Maternelle',
@@ -68,7 +68,31 @@ export function getRoleLabel(role: UserRole): string {
   return map[role] || role
 }
 
-// Source unique de vérité pour convertir un rôle API en UserRole front.
+/**
+ * Libellé « scellé » d'un rôle API brut (rapports) : SCHOOL_ADMIN s'affiche
+ * désormais « Propriétaire » (demande utilisateur) au lieu du code brut.
+ */
+export function getRoleSealLabel(role: string): string {
+  const map: Record<string, string> = {
+    SUPER_ADMIN_GLOBAL: 'Super Admin',
+    SCHOOL_ADMIN: 'Propriétaire',
+    ADMIN_FREEMIUM: 'Propriétaire',
+    SECRETARY: 'Secrétaire',
+    CASHIER: 'Caissier',
+    DIRECTION_MATERNELLE: 'Dir. Maternelle',
+    DIRECTION_PRIMAIRE: 'Dir. Primaire',
+    DIRECTION_SECONDAIRE: 'Dir. Secondaire',
+    DISCIPLINE_MATERNELLE: 'Disc. Maternelle',
+    DISCIPLINE_PRIMAIRE: 'Disc. Primaire',
+    DISCIPLINE_SECONDAIRE: 'Disc. Secondaire',
+    TEACHER: 'Enseignant',
+    HEAD_TEACHER: 'Prof. Principal',
+    EPS: 'Prof. EPS',
+    MEDICAL: 'Service Médical',
+    PARENT: 'Parent',
+  }
+  return map[role] || role
+}
 // Tout nouveau rôle DOIT être ajouté ici — les 3 maps de page.tsx l'utilisent.
 export const API_ROLE_MAP: Record<string, UserRole> = {
   SUPER_ADMIN_GLOBAL: 'SUPER_ADMIN_GLOBAL',
