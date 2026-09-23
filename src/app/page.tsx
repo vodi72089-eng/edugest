@@ -62,7 +62,7 @@ import {
    TrendingUp, UserPlus, Calendar, ClipboardList,
   Info, Zap, Globe, Lock, Award, Ban, CircleDot, ListChecks,
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
-  UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
+  UsersRound, BadgeDollarSign, Siren, Heart, HeartHandshake, Target, Briefcase,
    ChevronUp, ExternalLink, Check, Copy, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown,
    User, Landmark, Palette, BellRing, HeartPulse, Database, Stethoscope, Volume2, VolumeX, CalendarCheck, CalendarDays
 } from 'lucide-react'
@@ -655,17 +655,17 @@ function HomeView() {
           {/* Stats cards with tilt */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-3xl px-4 relative z-20">
             {[
-              { value: platformStats.schools, suffix: '', label: 'Établissements', glow: 'oklch(72% 0.15 65 / 0.3)', tint: 'oklch(72% 0.15 65 / 0.13)', hue: '#f5a623', icon: School },
-              { value: platformStats.families, suffix: '', label: 'Familles', glow: 'oklch(72% 0.22 165 / 0.3)', tint: 'oklch(72% 0.22 165 / 0.13)', hue: '#34d399', icon: UsersRound },
-              { value: platformStats.students, suffix: '', label: 'Élèves', glow: 'oklch(72% 0.15 210 / 0.3)', tint: 'oklch(72% 0.15 210 / 0.13)', hue: '#38bdf8', icon: GraduationCap },
+              { value: platformStats.schools, suffix: '', label: 'Établissements', glow: 'oklch(72% 0.15 65 / 0.3)', tint: 'oklch(72% 0.15 65 / 0.13)', hue: '#f5a623', icon: Building2 },
+              { value: platformStats.families, suffix: '', label: 'Familles', glow: 'oklch(72% 0.22 165 / 0.3)', tint: 'oklch(72% 0.22 165 / 0.13)', hue: '#34d399', icon: HeartHandshake },
+              { value: platformStats.students, suffix: '', label: 'Élèves', glow: 'oklch(72% 0.15 210 / 0.3)', tint: 'oklch(72% 0.15 210 / 0.13)', hue: '#38bdf8', icon: BookOpen },
             ].map((stat) => (
               <GlowCard key={stat.label} glowColor={stat.glow}>
                 <div className="p-6 flex flex-col items-center justify-center group cursor-default">
                   <span
-                    className="w-12 h-12 mb-3 rounded-2xl flex items-center justify-center border border-white/10 group-hover:scale-110 group-hover:border-[#f5a623]/50 group-hover:shadow-[0_0_20px_rgba(245,166,35,0.25)] transition-all duration-500"
+                    className="w-14 h-14 mb-3 rounded-2xl flex items-center justify-center border border-white/10 group-hover:scale-110 group-hover:border-[#f5a623]/50 group-hover:shadow-[0_0_20px_rgba(245,166,35,0.25)] transition-all duration-500"
                     style={{ background: stat.tint }}
                   >
-                    <stat.icon size={24} strokeWidth={1.8} className="group-hover:text-[#f5a623] transition-colors duration-500" style={{ color: stat.hue }} aria-hidden="true" />
+                    <stat.icon size={20} strokeWidth={1.7} className="group-hover:text-[#f5a623] transition-colors duration-500" style={{ color: stat.hue }} aria-hidden="true" />
                   </span>
                   <span className="text-3xl font-black text-white tracking-tighter mb-1.5 group-hover:text-[#f5a623] transition-colors duration-500">
                     <AnimatedCounter target={stat.value} suffix={stat.suffix} duration={2.5} />

@@ -2216,3 +2216,18 @@ Work Log:
 Stage Summary:
 - MCP Figma opérationnel : l'utilisateur doit recharger/activer « figma » dans son panneau MCP puis peut demander get_figma_data sur un fileKey Figma
 - ⚠️ Le token figd_…MFn est stocké en clair dans .mcp.json local (hors git) ; à révoquer si divulgué ailleurs
+
+---
+Task ID: 6
+Agent: Main Agent (Z.ai Code)
+Task: Section stats — changer les icônes et corriger le badge collé aux icônes (retour utilisateur + capture)
+
+Work Log:
+- git pull (déjà à jour)
+- Diagnostic : badge 48px avec icône 24px → glyphes larges (School/UsersRound/GraduationCap) touchaient quasi les bords du fond teinté
+- Nouvelles icônes lucide-react : Building2 (Établissements), HeartHandshake (Familles), BookOpen (Élèves) — import HeartHandshake ajouté
+- Proportions corrigées : badge w-12→w-14 (56px), icône 24→20px, strokeWidth 1.8→1.7 → marge de respiration 12px→18px par côté (ratio 36 %)
+- Vérif navigateur : plan serré (zoom x2) → marges nettes, hover → glow/tilt GlowCard OK, mobile 390px → pile verticale OK, 0 erreur console, lint 68 = baseline inchangée
+
+Stage Summary:
+- Section stats : icônes plus élégantes + badges aérés (background ne touche plus le logo), desktop et mobile validés
