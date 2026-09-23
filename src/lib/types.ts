@@ -45,7 +45,7 @@ export interface DisciplineData {
   id: string; studentId: string; type: string; severity: string;
   title: string; description: string; points: number; listType: string;
   status: string; schoolId: string; createdAt: string;
-  student?: { id: string; firstName: string; lastName: string; matricule: string; photoUrl?: string };
+  student?: { id: string; firstName: string; lastName: string; matricule: string; photoUrl?: string; class?: { id: string; name: string; section?: string } };
 }
 
 export interface DisciplineKeywordData {

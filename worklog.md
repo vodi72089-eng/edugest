@@ -2198,3 +2198,29 @@ Work Log:
 
 Stage Summary:
 - Composant Skiper40 intégré au footer (premier composant Skiper UI du projet, extensible via npx shadcn add @skiper-ui/skiperXX)
+
+---
+Task ID: DISCIPLINE-LISTS-1
+Agent: Main Agent (Z.ai Code)
+Task: Fusion des onglets Liste Noire/Grise/Blanche en une page Discipline unique ; suppression de la grille « MES ENFANTS » (recherche seule) ; fix « tous les enfants en Liste Blanche même ceux en Liste Grise » ; compteurs par liste (parent = ses enfants, compte discipline = élèves) ; filtres classe / gravité / tri date.
+
+Work Log:
+- Sidebar (page.tsx) : PARENT + rôles DISCIPLINE_* — les 3 items Liste Noire/Grise/Blanche remplacés par un unique item « Discipline » (les listes restent des onglets internes de la page ; les StatCards du dashboard discipline pointent toujours vers le bon onglet).
+- DisciplineView.tsx :
+  - Suppression de la grille de cartes « MES ENFANTS » (visibleChildren + childDisciplineCounts supprimés) — seul le SearchAutocomplete « Rechercher un enfant » reste, visible même quand un enfant est sélectionné.
+  - FIX BUG liste blanche : la détection des élèves « sans incident » utilisait les records de l'onglet courant (fetch listType=WHITELIST) → un enfant avec sanctions grises ressortait « Aucune infraction » en Liste Blanche. Nouveau modèle « une seule liste par élève » (priorité Noire > Grise > Blanche, sans record = Blanche) calculé sur TOUTES les listes : allDisciplineRecords (parent, fetch parentId limit 200) / allSchoolRecords (staff, nouveau fetch schoolId limit 200).
+  - Compteurs par liste (badges sur onglets) : listCounts depuis le roster (myChildren parent / sectionStudents staff — fetch /api/students étendu à tous les rôles non-parent) × studentListMap. Parent : nb de SES enfants par liste ; discipline : nb d'élèves du périmètre (cycle).
+  - Filtres (AppSelect) : Classe (options du périmètre), Gravité (Grave/Moyen/Faible), Tri date (Plus récent d'abord / Plus ancien d'abord) + bouton « Réinitialiser les filtres » ; nouvelle colonne GRAVITÉ (badges couleur) dans le tableau ; colSpan 5→6.
+  - refreshAllSchoolRecords() appelé après sanction/édition/classification pour rafraîchir compteurs.
+  - Effet redondant disciplineTab→tab supprimé (vue démontée hors « discipline », le useState réinitialise au remontage) ; deps useMemo displayRecords corrigées (activeSchoolId au lieu de getActiveSchoolId()) — 2 erreurs lint réelles corrigées, total lint = 68 = baseline (68 avant comme après, vérifié par stash + purge cache eslint).
+- API /api/discipline : select student enrichi avec class {id,name,section} (GET/POST/PUT) pour le filtre classe ; types.ts DisciplineData.student.class ajouté.
+- Vérification navigateur (agent-browser) :
+  - Parent (parent@email.com) : sidebar 1 item « Discipline » ; recherche seule (plus de cartes) ; compteurs Noire 2 / Grise 1 / Blanche 8 (= ses 11 enfants : 004+006 noirs, 001 gris, 8 sans incident) ; Liste Blanche n'affiche PLUS Mutombo(001)/Ngandu(004)/Mwepu(006) — 8 lignes « Aucune infraction » uniquement ; recherche « kaz » → sélection Nzuzi Kazadi → bandeau « Discipline de » + bascule auto sur sa liste ; « Voir tous » réinitialise.
+  - DISCIPLINE_SECONDAIRE (disc.secondaire@lumiere.cd) : compteurs Noire 2 / Grise 3 / Blanche 10 (15 élèves du cycle : 2 noirs, 3 gris, 8 propres + 2 blancs) ; filtre classe 5eA → 1 seule ligne ; gravité Grave → 2 / Faible → 0 sur Liste Noire ; Moyen → Kalala seul sur Liste Grise ; tri asc = inverse exact du desc (Mutombo→Kalala→Mputu vs Mputu→Kalala→Mutombo) ; formulaire sanction s'ouvre (champs complets) ; flow dashboard→chip « Discipline » d'un enfant présélectionne l'enfant et bascule sur sa liste.
+  - Mobile 375px : filtres empilés, onglets scrollables, tableau scrollable ; console propre après reload (une « Failed to fetch » isolée due au Fast Refresh pendant l'édition).
+  - Screenshots : upload/screens/{parent-discipline-before-tab,parent-whitelist-8clean,parent-child-selected,parent-filters,discipline-filters-grise,discipline-officer-full,discipline-mobile}.png
+
+Stage Summary:
+- v0.2.4 : Discipline unifiée (1 entrée menu, 3 onglets internes avec compteurs), fix classification liste blanche, filtres classe/gravité/date pour parent ET comptes discipline.
+- Décision modèle : « une seule liste par élève » avec priorité Noire > Grise > Blanche (cohérent avec la sync des tables blacklist/greylist/whitelist côté API) ; « jamais sanctionné » = Liste Blanche.
+- Lint : 68 erreurs (baseline inchangée) ; tsc 0 erreur ; 2 erreurs latentes réelles corrigées au passage (deps useMemo + effet redondant).

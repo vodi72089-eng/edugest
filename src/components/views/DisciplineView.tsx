@@ -4,14 +4,17 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
 import type { DisciplineData, StudentData, UserRole } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT, DANGER, WARNING, SUCCESS, SUCCESS_SOFT } from '@/lib/constants'
-import { getInitials, formatDate } from '@/lib/helpers'
+import { formatDate } from '@/lib/helpers'
 import StudentAvatar from '@/components/ui/StudentAvatar'
-import { Shield, Megaphone, Users, Ban, AlertTriangle, Award, Send, Check, X, Edit, Brain } from 'lucide-react'
+import { Shield, Megaphone, Ban, AlertTriangle, Award, Send, Check, X, Edit, Brain } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete from './SearchAutocomplete'
 import AppSelect from '@/components/ui/AppSelect'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import { useRouter } from 'next/navigation'
+
+// Priorité de classification « une seule liste par élève » : Blanche < Grise < Noire
+const LIST_RANK: Record<string, number> = { WHITELIST: 1, GREYLIST: 2, BLACKLIST: 3 }
 
 export default function DisciplineView() {
   const { userRole, userData, highlightedId, pendingStudentFocus, setPendingStudentFocus } = useEduGestStore()
@@ -54,15 +57,20 @@ export default function DisciplineView() {
   const [childSearch, setChildSearch] = useState('')
   const [selectedChildSearchId, setSelectedChildSearchId] = useState<string | null>(null)
   const [allDisciplineRecords, setAllDisciplineRecords] = useState<DisciplineData[]>([])
+  const [allSchoolRecords, setAllSchoolRecords] = useState<DisciplineData[]>([])
+  const [classFilter, setClassFilter] = useState('')
+  const [severityFilter, setSeverityFilter] = useState('')
+  const [dateSort, setDateSort] = useState<'desc' | 'asc'>('desc')
   const isParent = userRole === 'PARENT'
 
   const disciplineRoles: UserRole[] = ['DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE']
   const isDisciplineRole = disciplineRoles.includes(userRole as UserRole)
   const [sectionStudents, setSectionStudents] = useState<StudentData[]>([])
 
-  useEffect(() => {
-    if (disciplineTab) setTab(disciplineTab)
-  }, [disciplineTab])
+  // NB : plus besoin de synchroniser disciplineTab → tab via effet : la vue
+  // est démontée quand on quitte « discipline » (rendu conditionnel), donc le
+  // useState ci-dessous réinitialise toujours l'onglet depuis le store au
+  // remontage (clic StatCard du dashboard discipline).
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [selectedStudentSearchId, setSelectedStudentSearchId] = useState<string | null>(null)
@@ -95,16 +103,18 @@ export default function DisciplineView() {
   }, [isParent, userData?.id])
 
   useEffect(() => {
-    if (isDisciplineRole && getActiveSchoolId()) {
+    if (!isParent && getActiveSchoolId()) {
       // Le scoping cycle est fait côté SERVEUR (/api/students impose la section
       // selon le rôle DISCIPLINE_* — plus aucun filtre client devinable par
       // regex : chaque compte ne reçoit QUE les élèves de SON cycle).
+      // Sert à la recherche, aux compteurs par liste et aux lignes « Aucune
+      // infraction » (élèves sans aucun enregistrement).
       authFetch(`/api/students?limit=200&schoolId=${getActiveSchoolId()}`)
         .then(r => r.json())
         .then(j => setSectionStudents(j.data || []))
         .catch(() => {})
     }
-  }, [isDisciplineRole, getActiveSchoolId()])
+  }, [isParent, getActiveSchoolId()])
 
   useEffect(() => {
     if (isDisciplineRole && getActiveSchoolId()) {
@@ -130,38 +140,55 @@ export default function DisciplineView() {
     }
   }, [isParent, userData?.id])
 
-  const childDisciplineCounts = useMemo(() => {
-    const counts: Record<string, { blacklist: number; greylist: number; whitelist: number; totalPoints: number }> = {}
-    for (const r of allDisciplineRecords) {
-      if (!r.student) continue
-      if (!counts[r.student.id]) counts[r.student.id] = { blacklist: 0, greylist: 0, whitelist: 0, totalPoints: 0 }
-      if (r.listType === 'BLACKLIST') counts[r.student.id].blacklist++
-      if (r.listType === 'GREYLIST') counts[r.student.id].greylist++
-      if (r.listType === 'WHITELIST') counts[r.student.id].whitelist++
-      counts[r.student.id].totalPoints += r.points
+  // Staff : TOUTS les records de l'école (toutes listes confondues) — sert aux
+  // compteurs par liste et à la détection des élèves sans aucun incident.
+  useEffect(() => {
+    if (!isParent && getActiveSchoolId()) {
+      authFetch(`/api/discipline?schoolId=${getActiveSchoolId()}&limit=200`)
+        .then(r => r.json())
+        .then(j => setAllSchoolRecords(j.data || []))
+        .catch(() => {})
     }
-    return counts
-  }, [allDisciplineRecords])
+  }, [isParent, getActiveSchoolId()])
 
-  const visibleChildren = useMemo(() => {
-    const filtered = myChildren.filter(c => {
-      const counts = childDisciplineCounts[c.id]
-      // Jamais sanctionne : aucun enregistrement -> Liste Blanche
-      if (!counts || (counts.blacklist === 0 && counts.greylist === 0 && counts.whitelist === 0)) {
-        return tab === 'WHITELIST'
+  // ── Classification « une seule liste par élève » ──────────────────────────
+  // Priorité : Noire > Grise > Blanche. Un élève sans AUCUN enregistrement est
+  // compté en Liste Blanche (jamais sanctionné). FIX BUG : avant, la détection
+  // ne regardait que les records de l'onglet courant — un enfant sanctionné en
+  // Liste Grise ressortait donc AUSSI « Aucune infraction » en Liste Blanche.
+  const studentListMap = useMemo(() => {
+    const roster = isParent ? myChildren : sectionStudents
+    const source = isParent ? allDisciplineRecords : allSchoolRecords
+    const map: Record<string, 'BLACKLIST' | 'GREYLIST' | 'WHITELIST'> = {}
+    for (const s of roster) map[s.id] = 'WHITELIST'
+    for (const r of source) {
+      if (!(r.studentId in map)) continue // hors périmètre (autre cycle pour le staff)
+      if ((LIST_RANK[r.listType] || 0) > LIST_RANK[map[r.studentId]]) {
+        map[r.studentId] = r.listType as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST'
       }
-      if (tab === 'BLACKLIST') return counts.blacklist > 0
-      if (tab === 'GREYLIST') return counts.greylist > 0
-      return counts.whitelist > 0
-    })
-    // Toujours garder l'enfant selectionne visible, meme si sa vraie liste
-    // n'est pas l'onglet courant (evite la carte qui disparait).
-    if (selectedChildId && !filtered.some(c => c.id === selectedChildId)) {
-      const selected = myChildren.find(c => c.id === selectedChildId)
-      if (selected) return [selected, ...filtered]
     }
-    return filtered
-  }, [myChildren, childDisciplineCounts, tab, selectedChildId])
+    return map
+  }, [isParent, myChildren, sectionStudents, allDisciplineRecords, allSchoolRecords])
+
+  // Compteurs par liste : parent = nombre de SES enfants ; compte discipline =
+  // nombre d'élèves du périmètre. Badges affichés sur les onglets.
+  const listCounts = useMemo(() => {
+    const counts = { BLACKLIST: 0, GREYLIST: 0, WHITELIST: 0 }
+    const roster = isParent ? myChildren : sectionStudents
+    for (const s of roster) counts[studentListMap[s.id] || 'WHITELIST']++
+    return counts
+  }, [isParent, myChildren, sectionStudents, studentListMap])
+
+  // Options de classes pour le filtre (issues du périmètre courant).
+  const classOptions = useMemo(() => {
+    const roster = isParent ? myChildren : sectionStudents
+    const names = new Set<string>()
+    for (const s of roster) if (s.class?.name) names.add(s.class.name)
+    return [
+      { value: '', label: 'Toutes les classes' },
+      ...Array.from(names).sort((a, b) => a.localeCompare(b, 'fr')).map(n => ({ value: n, label: n })),
+    ]
+  }, [isParent, myChildren, sectionStudents])
 
   const studentSuggestions = useMemo(() => {
     if (!isDisciplineRole) return []
@@ -209,23 +236,11 @@ export default function DisciplineView() {
           if (changed) return
         }
       }
-      // Enfant selectionne : basculer sur sa vraie liste au lieu de rester
-      // bloque sur Liste Grise (jamais sanctionne -> Liste Blanche).
-      if (selectedChildId) {
-        let blacklist = 0, greylist = 0, whitelist = 0
-        for (const r of allDisciplineRecords) {
-          if (r.student?.id !== selectedChildId) continue
-          if (r.listType === 'BLACKLIST') blacklist++
-          else if (r.listType === 'GREYLIST') greylist++
-          else if (r.listType === 'WHITELIST') whitelist++
-        }
-        const desired: 'BLACKLIST' | 'GREYLIST' | 'WHITELIST' =
-          blacklist + greylist + whitelist === 0 ? 'WHITELIST'
-          : tab === 'BLACKLIST' && blacklist > 0 ? 'BLACKLIST'
-          : tab === 'GREYLIST' && greylist > 0 ? 'GREYLIST'
-          : tab === 'WHITELIST' && whitelist > 0 ? 'WHITELIST'
-          : blacklist > 0 ? 'BLACKLIST' : greylist > 0 ? 'GREYLIST' : 'WHITELIST'
-        if (desired !== tab) { setTab(desired); return }
+      // Enfant sélectionné : basculer sur SA liste (classification unique,
+      // priorité Noire > Grise > Blanche ; jamais sanctionné → Blanche).
+      if (selectedChildId && studentListMap[selectedChildId] && studentListMap[selectedChildId] !== tab) {
+        setTab(studentListMap[selectedChildId])
+        return
       }
     }
     let cancelled = false
@@ -248,57 +263,53 @@ export default function DisciplineView() {
     }
     authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { if (!cancelled) { setRecords(j.data || []); setLoading(false); scrollToHighlight() } }).catch(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [tab, isParent, userData?.id, selectedChildId, isDisciplineRole, selectedStudentId, getActiveSchoolId(), allDisciplineRecords])
+  }, [tab, isParent, userData?.id, selectedChildId, isDisciplineRole, selectedStudentId, getActiveSchoolId(), allDisciplineRecords, studentListMap])
+
+  const activeSchoolId = getActiveSchoolId()
 
   const displayRecords = useMemo(() => {
-    if (tab !== 'WHITELIST') return records
-    // Rôle discipline : élèves sages de la section (sans enregistrement).
-    if (isDisciplineRole) {
-      const studentIdsWithRecords = new Set(records.map(r => r.studentId))
-      const cleanStudents = sectionStudents.filter(s => !studentIdsWithRecords.has(s.id))
-      const cleanRecords = cleanStudents.map(s => ({
-        id: `clean-${s.id}`,
-        studentId: s.id,
-        student: { id: s.id, firstName: s.firstName, lastName: s.lastName, matricule: s.matricule, photoUrl: s.photoUrl },
-        title: 'Aucune infraction',
-        description: '',
-        type: 'CLEAN',
-        severity: 'NONE',
-        points: 0,
-        listType: 'WHITELIST',
-        status: 'ACTIVE',
-        schoolId: s.schoolId,
-        createdAt: new Date().toISOString(),
-      }))
-      return [...records, ...cleanRecords]
+    const roster = isParent ? myChildren : sectionStudents
+    const allRecords = isParent ? allDisciplineRecords : allSchoolRecords
+    const selectedId = isParent ? selectedChildId : selectedStudentId
+
+    let base = records
+    if (tab === 'WHITELIST') {
+      // Liste Blanche = élèves sans AUCUN enregistrement (« Aucune infraction »)
+      // + les records positifs (Excellence, Mérite…). La détection se fait sur
+      // TOUTES les listes : un enfant sanctionné en Liste Grise/Noire ne doit
+      // JAMAIS ressortir en Liste Blanche.
+      const studentIdsWithRecords = new Set(allRecords.map(r => r.studentId))
+      const candidates = selectedId ? roster.filter(s => s.id === selectedId) : roster
+      const cleanRecords = candidates
+        .filter(s => !studentIdsWithRecords.has(s.id))
+        .map(s => ({
+          id: `clean-${s.id}`,
+          studentId: s.id,
+          student: { id: s.id, firstName: s.firstName, lastName: s.lastName, matricule: s.matricule, photoUrl: (s as any).photoUrl, class: (s as any).class },
+          title: 'Aucune infraction',
+          description: '',
+          type: 'CLEAN',
+          severity: 'NONE',
+          points: 0,
+          listType: 'WHITELIST',
+          status: 'ACTIVE',
+          schoolId: (s as any).schoolId || activeSchoolId || '',
+          createdAt: new Date().toISOString(),
+        }))
+      base = [...records, ...cleanRecords]
     }
-    // Parent : même logique avec SES enfants (jamais sanctionné = Liste Blanche,
-    // comme les cartes « MES ENFANTS »). Sans ça, l'onglet restait vide alors
-    // que les cartes affichent les enfants en liste blanche.
-    if (isParent) {
-      const studentIdsWithRecords = new Set(records.map(r => r.studentId))
-      const cleanChildren = myChildren.filter(s =>
-        !studentIdsWithRecords.has(s.id) &&
-        (!selectedChildId || s.id === selectedChildId)
-      )
-      const cleanRecords = cleanChildren.map(s => ({
-        id: `clean-${s.id}`,
-        studentId: s.id,
-        student: { id: s.id, firstName: s.firstName, lastName: s.lastName, matricule: s.matricule, photoUrl: (s as any).photoUrl },
-        title: 'Aucune infraction',
-        description: '',
-        type: 'CLEAN',
-        severity: 'NONE',
-        points: 0,
-        listType: 'WHITELIST',
-        status: 'ACTIVE',
-        schoolId: (s as any).schoolId || getActiveSchoolId() || '',
-        createdAt: new Date().toISOString(),
-      }))
-      return [...records, ...cleanRecords]
+
+    // ── Filtres : classe / gravité / tri par date ──────────────────────────
+    let out = base
+    if (classFilter) {
+      out = out.filter(r => (r.student?.class?.name || roster.find(s => s.id === r.studentId)?.class?.name) === classFilter)
     }
-    return records
-  }, [tab, records, sectionStudents, isDisciplineRole, isParent, myChildren, selectedChildId, getActiveSchoolId()])
+    if (severityFilter) out = out.filter(r => r.severity === severityFilter)
+    if (dateSort === 'asc') {
+      out = [...out].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    }
+    return out
+  }, [tab, records, isParent, myChildren, sectionStudents, selectedChildId, selectedStudentId, allDisciplineRecords, allSchoolRecords, classFilter, severityFilter, dateSort, activeSchoolId])
 
   const selectedChildName = selectedChildId ? myChildren.find(c => c.id === selectedChildId) : null
   const selectedStudentName = selectedStudentId ? sectionStudents.find(s => s.id === selectedStudentId) : null
@@ -307,6 +318,16 @@ export default function DisciplineView() {
   // appelés dans le même ordre). Sans accès, l'effet de redirection ci-dessus
   // envoie déjà vers /subscription-required.
   if (!hasAccess) return null
+
+  // Rafraîchit les records « toutes listes » (compteurs + détection élèves sans incident).
+  function refreshAllSchoolRecords() {
+    if (!isParent && getActiveSchoolId()) {
+      authFetch(`/api/discipline?schoolId=${getActiveSchoolId()}&limit=200`)
+        .then(r => r.json())
+        .then(j => setAllSchoolRecords(j.data || []))
+        .catch(() => {})
+    }
+  }
 
   async function handleAddSanction() {
     if (!selectedStudentId || !sanctionTitle || !sanctionDesc || !getActiveSchoolId()) {
@@ -341,6 +362,7 @@ export default function DisciplineView() {
         params.set('limit', '50')
         if (selectedStudentId) params.set('studentId', selectedStudentId)
         authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { setRecords(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+        refreshAllSchoolRecords()
       } else {
         toast.error('Erreur lors de l\'enregistrement')
       }
@@ -422,6 +444,7 @@ export default function DisciplineView() {
         }
         if (isDisciplineRole && selectedStudentId) params.set('studentId', selectedStudentId)
         authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { setRecords(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+        refreshAllSchoolRecords()
       } else {
         toast.error('Erreur lors de la modification')
       }
@@ -454,6 +477,7 @@ export default function DisciplineView() {
           else params.set('parentId', userData.id)
         }
         authFetch(`/api/discipline?${params}`).then(r => r.json()).then(j => { setRecords(j.data || []); setLoading(false) }).catch(() => setLoading(false))
+        refreshAllSchoolRecords()
       } else {
         toast.error(json.error || 'Erreur de classification')
       }
@@ -655,77 +679,19 @@ export default function DisciplineView() {
         </div>
       )}
 
-      {isParent && myChildren.length > 0 && !selectedChildId && (
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Users size={16} style={{ color: GOLD }} />
-            <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: GOLD }}>Mes enfants</h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-            {visibleChildren.length === 0 && (
-              <div className="col-span-full text-center py-6 text-sm" style={{ color: TEXT_MUTED_LUXE }}>Aucun enfant dans cette liste</div>
-            )}
-            {visibleChildren.map(child => {
-              const fullName = `${child.firstName} ${child.lastName}`
-              const initials = getInitials(fullName)
-              const counts = childDisciplineCounts[child.id] || { blacklist: 0, greylist: 0, whitelist: 0, totalPoints: 0 }
-              const isSelected = selectedChildId === child.id
-              return (
-                <button
-                  key={child.id}
-                  onClick={() => { setSelectedChildId(child.id); setSelectedChildSearchId(child.id); setChildSearch('') }}
-                  className={`text-left p-4 rounded-2xl border-2 transition-all duration-200 edu-card-lift ${
-                    isSelected ? 'border-[oklch(72%_0.15_65)] shadow-md' : 'border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65_/_0.4)]'
-                  }`}
-                  style={{ background: isSelected ? GOLD_SOFT : 'white' }}
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <StudentAvatar firstName={child.firstName} lastName={child.lastName} photoUrl={child.photoUrl} size={56} className="border-2" style={{ borderColor: ACCENT, background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
-                    <div className="min-w-0">
-                      <div className="font-semibold text-sm truncate" style={{ color: TEXT_PRIMARY }}>{fullName}</div>
-                      <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{child.matricule}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    {counts.blacklist > 0 && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: 'oklch(95% 0.04 25)', color: DANGER }}>
-                        <Ban size={9} /> {counts.blacklist}
-                      </span>
-                    )}
-                    {counts.greylist > 0 && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: 'oklch(95% 0.04 85)', color: WARNING }}>
-                        <AlertTriangle size={9} /> {counts.greylist}
-                      </span>
-                    )}
-                    {counts.whitelist > 0 && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: 'oklch(95% 0.04 145)', color: SUCCESS }}>
-                        <Award size={9} /> {counts.whitelist}
-                      </span>
-                    )}
-                    {counts.blacklist === 0 && counts.greylist === 0 && counts.whitelist === 0 && (
-                      <span className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>Aucun enregistrement</span>
-                    )}
-                    <span className="ml-auto text-[11px] font-bold" style={{ color: counts.totalPoints > 0 ? SUCCESS : counts.totalPoints < 0 ? DANGER : TEXT_MUTED_LUXE }}>
-                      {counts.totalPoints > 0 ? '+' : ''}{counts.totalPoints} pts
-                    </span>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-          <div className="max-w-xs">
-            <SearchAutocomplete
-              label="Rechercher un enfant"
-              placeholder="Tapez le nom de l'enfant..."
-              items={childSuggestions}
-              selectedId={selectedChildSearchId}
-              onSelect={(item) => { setSelectedChildSearchId(item.id); setSelectedChildId(item.id) }}
-              onClear={() => { setSelectedChildSearchId(null); setSelectedChildId(''); setChildSearch('') }}
-              searchQuery={childSearch}
-              onSearchChange={setChildSearch}
-              itemTypeName="enfant"
-            />
-          </div>
+      {isParent && myChildren.length > 0 && (
+        <div className="mb-6 max-w-xs">
+          <SearchAutocomplete
+            label="Rechercher un enfant"
+            placeholder="Tapez le nom de l'enfant..."
+            items={childSuggestions}
+            selectedId={selectedChildSearchId}
+            onSelect={(item) => { setSelectedChildSearchId(item.id); setSelectedChildId(item.id) }}
+            onClear={() => { setSelectedChildSearchId(null); setSelectedChildId(''); setChildSearch('') }}
+            searchQuery={childSearch}
+            onSearchChange={setChildSearch}
+            itemTypeName="enfant"
+          />
         </div>
       )}
 
@@ -779,21 +745,67 @@ export default function DisciplineView() {
         </div>
       )}
 
-      <div ref={tabBarRef} className="flex gap-0.5 border-b border-[oklch(90%_0.01_175)] mb-5">
+      {/* ── Filtres : classe · gravité · tri par date ─────────────────────── */}
+      <div className="flex flex-wrap items-center gap-2.5 mb-4">
+        <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Filtres :</span>
+        <div className="w-44">
+          <AppSelect value={classFilter} onChange={setClassFilter} options={classOptions} />
+        </div>
+        <div className="w-40">
+          <AppSelect
+            value={severityFilter}
+            onChange={setSeverityFilter}
+            options={[
+              { value: '', label: 'Toute gravité' },
+              { value: 'HIGH', label: 'Grave' },
+              { value: 'MEDIUM', label: 'Moyen' },
+              { value: 'LOW', label: 'Faible' },
+            ]}
+          />
+        </div>
+        <div className="w-52">
+          <AppSelect
+            value={dateSort}
+            onChange={(v) => setDateSort(v as 'desc' | 'asc')}
+            options={[
+              { value: 'desc', label: 'Plus récent d\u2019abord' },
+              { value: 'asc', label: 'Plus ancien d\u2019abord' },
+            ]}
+          />
+        </div>
+        {(classFilter || severityFilter) && (
+          <button
+            onClick={() => { setClassFilter(''); setSeverityFilter('') }}
+            className="text-[11px] font-medium hover:underline"
+            style={{ color: GOLD }}
+          >
+            Réinitialiser les filtres
+          </button>
+        )}
+      </div>
+
+      <div ref={tabBarRef} className="flex gap-0.5 border-b border-[oklch(90%_0.01_175)] mb-5 overflow-x-auto">
         {[
-          { key: 'BLACKLIST' as const, label: 'Liste Noire', icon: <Ban size={14} />, color: DANGER },
-          { key: 'GREYLIST' as const, label: 'Liste Grise', icon: <AlertTriangle size={14} />, color: WARNING },
-          { key: 'WHITELIST' as const, label: 'Liste Blanche', icon: <Award size={14} />, color: SUCCESS },
+          { key: 'BLACKLIST' as const, label: 'Liste Noire', icon: <Ban size={14} />, color: DANGER, count: listCounts.BLACKLIST },
+          { key: 'GREYLIST' as const, label: 'Liste Grise', icon: <AlertTriangle size={14} />, color: WARNING, count: listCounts.GREYLIST },
+          { key: 'WHITELIST' as const, label: 'Liste Blanche', icon: <Award size={14} />, color: SUCCESS, count: listCounts.WHITELIST },
         ].map(t => (
           <button
             key={t.key}
             onClick={() => { setTab(t.key); setLoading(true) }}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-[13.5px] font-medium border-b-2 -mb-px transition ${
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-[13.5px] font-medium border-b-2 -mb-px transition whitespace-nowrap ${
               tab === t.key ? 'border-current' : 'border-transparent hover:text-edu-fg'
             }`}
             style={tab === t.key ? { color: t.color, borderColor: t.color === WARNING ? GOLD : t.color } : { color: TEXT_MUTED_LUXE }}
           >
             {t.icon} {t.label}
+            {/* Compteur : nb d'enfants du parent / nb d'élèves du périmètre dans cette liste */}
+            <span
+              className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold"
+              style={tab === t.key ? { background: t.color === WARNING ? GOLD : t.color, color: 'white' } : { background: 'oklch(93% 0.008 175)', color: TEXT_MUTED_LUXE }}
+            >
+              {t.count}
+            </span>
           </button>
         ))}
       </div>
@@ -806,15 +818,16 @@ export default function DisciplineView() {
                 {(!isParent || !selectedChildId) && <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>}
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Motif</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Type</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Gravité</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Date</th>
                 <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Points</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
+                <tr><td colSpan={6} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</td></tr>
               ) : displayRecords.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun enregistrement</td></tr>
+                <tr><td colSpan={6} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun enregistrement</td></tr>
               ) : displayRecords.map(r => (
                 <tr ref={highlightedId === r.id ? highlightedRef : undefined} key={r.id} className={`hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0 ${highlightedId === r.id ? 'edu-highlight' : ''}`}>
                   {(!isParent || !selectedChildId) && (
@@ -834,6 +847,17 @@ export default function DisciplineView() {
                   )}
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{r.title}</td>
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_PRIMARY }}>{r.type}</td>
+                  <td className="px-4 py-3">
+                    {r.severity === 'HIGH' ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: 'oklch(95% 0.04 25)', color: DANGER }}>Grave</span>
+                    ) : r.severity === 'MEDIUM' ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: 'oklch(95% 0.04 85)', color: WARNING }}>Moyen</span>
+                    ) : r.severity === 'LOW' ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>Faible</span>
+                    ) : (
+                      <span className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(r.createdAt)}</td>
                   <td className="px-4 py-3">
                     {editingRecordId === r.id ? (

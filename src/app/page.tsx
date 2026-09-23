@@ -2556,9 +2556,9 @@ function Sidebar() {
       { icon: <Megaphone size={16} />, label: 'Convocations', view: 'convocation' },
       { icon: <CreditCard size={16} />, label: 'Payer en ligne', view: 'online-payment' as ViewType },
       { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
-      { icon: <Ban size={16} />, label: 'Liste Noire', view: 'discipline', tab: 'BLACKLIST' as const },
-      { icon: <AlertTriangle size={16} />, label: 'Liste Grise', view: 'discipline', tab: 'GREYLIST' as const },
-      { icon: <Heart size={16} />, label: 'Liste Blanche', view: 'discipline', tab: 'WHITELIST' as const },
+      // Les 3 listes (Noire/Grise/Blanche) sont désormais des onglets INTERNES
+      // de la page Discipline — une seule entrée de menu.
+      { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <Star size={16} />, label: 'Avis école', view: 'school-reviews' as ViewType },
@@ -2654,9 +2654,8 @@ HEAD_TEACHER: [
   if (disciplineRoles.includes(userRole as UserRole)) {
     menuItems = [
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
-      { icon: <Ban size={16} />, label: 'Liste Noire', view: 'discipline', tab: 'BLACKLIST' as const },
-      { icon: <AlertTriangle size={16} />, label: 'Liste Grise', view: 'discipline', tab: 'GREYLIST' as const },
-      { icon: <Heart size={16} />, label: 'Liste Blanche', view: 'discipline', tab: 'WHITELIST' as const },
+      // Les 3 listes sont des onglets internes de la page Discipline.
+      { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <CalendarCheck size={16} />, label: 'Liste de présence', view: 'attendance' as ViewType },
       { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
