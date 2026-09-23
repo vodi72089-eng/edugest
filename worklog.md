@@ -2061,3 +2061,24 @@ Stage Summary:
 - Le cycle complet d'abonnement est prouvé en conditions réelles : demande → notification → approbation → tier + dates en DB ; downgrade archive réellement les excédents, upgrade les restaure
 - 4 bugs corrigés (crash dashboard, 500 écoles authentifiées, tier change sans archivage, parents accessible FREEMIUM) + 2 failles de rôles (fallback SAG, EPS)
 - Rapport utilisateur : RAPPORT-TESTS-ABONNEMENTS.txt ; comptes de test listés dedans (mot de passe admin123)
+
+---
+Task ID: 1
+Agent: Main Agent (Z.ai Code)
+Task: Cloner le dépôt edugest (session sandbox neuve), restaurer l'environnement de dev complet, installer les MCP demandés (memory bank, playwright, semgrep, codev/codegraph), remettre l'app en service sur le port 3000 et pousser les modifications
+
+Work Log:
+- git clone https://github.com/vodi72089-eng/edugest.git avec token fourni (commits jusqu'à 7dc298c)
+- bun install (1593 paquets) + copie .env.example → .env + prisma generate + db push
+- Découverte : la variable d'env globale du sandbox DATABASE_URL=file:/home/z/my-project/db/custom.db écrase le .env → la DB de la racine contient déjà le schéma edugest (données présentes : 6 écoles, 20 users, 20 élèves) — conservée
+- Identification des MCP : memory-bank = memory-bank-mcp (déjà présent), playwright = @playwright/mcp (déjà présent), « spemgrep » = Semgrep (analyse sécurité) via uvx semgrep-mcp v0.9.0 (PyPI — corrige la note « semgrep non installable » de la session précédente), codev = codev-ai (CoDev Hub, npm -g) dont le composant MCP CodeGraph (@colbymchenry/codegraph-linux-x64) est ajouté en devDependency
+- codegraph init : index construit (333 fichiers, 3685 nœuds, 9526 arêtes)
+- .mcp.json mis à jour : serveurs semgrep (uvx semgrep-mcp) + codegraph (codegraph serve --mcp) ajoutés ; les 4 MCP testés au handshake JSON-RPC : codegraph 1.6.0 OK, playwright 1.64 OK, memory-bank OK (scan 484 fichiers), semgrep démarre OK
+- Problème sandbox : tout process enfant meurt entre 2 commandes (even setsid) SAUF via Bun.spawn detached → serveur lancé par edugest-keepalive.sh (boucle keep-alive, pkill stale + relance auto)
+- Fusion du dépôt dans /home/z/my-project (rsync, excl node_modules/upload/download) : le bootstrap .zscripts/dev.sh servira edugest au reboot ; edugest/ supprimé ; .codegraph/ gitigné
+- Vérification agent-browser : landing 200 avec annuaire 6 écoles, login admin@edugest.app/admin123 → /dashboard Super Admin (nav complète), vue Écoles → tableau avec les 6 écoles (flux API→UI OK), responsive iPhone 14 OK, 0 erreur console/serveur
+
+Stage Summary:
+- Le projet edugest est de nouveau pleinement servi sur le port 3000 (racine /home/z/my-project = dépôt git edugest) avec sa base de données et ses comptes de test
+- Les 4 MCP demandés sont installés et configurés dans .mcp.json : memory-bank, playwright, semgrep (uvx), codegraph (composant MCP de codev) + codev-ai installé globalement
+- edugest-keepalive.sh : serveur de dev persistant malgré les kills du sandbox (Bun.spawn detached)

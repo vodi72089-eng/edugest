@@ -105,3 +105,4 @@ whatsapp-auth/
 
 # Bases SQLite de test (résidus de résolution relative CLI — la vraie DB est db/custom.db)
 prisma/db/*.db
+.codegraph/

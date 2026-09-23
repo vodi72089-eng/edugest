@@ -23,6 +23,16 @@
       "command": "npx",
       "args": ["@playwright/mcp@latest"],
       "env": {}
+    },
+    "semgrep": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["semgrep-mcp"]
+    },
+    "codegraph": {
+      "type": "stdio",
+      "command": "./node_modules/@colbymchenry/codegraph-linux-x64/bin/codegraph",
+      "args": ["serve", "--mcp"]
     }
   }
 }
