@@ -2089,3 +2089,25 @@ Stage Summary:
 - Failles critiques fermées : IDOR multi-écoles, XSS SVG, contournement de quotas, fuite settings-approval
 - MCP demandés configurés dans .mcp.json (semgrep via venv Python isolé, codev via codevhub global)
 - App vérifiée de bout en bout dans le navigateur (landing, login 2 rôles, dashboard, APIs corrigées)
+
+---
+Task ID: HEXSTRIKE-PENTEST-1
+Agent: Main Agent (Z.ai Code)
+Task: Pentest offensif via HexStrike AI ("hacker l'app"), mise à jour de l'app, correction du footer copyright qui chevauche la page de connexion (scroll impossible)
+
+Work Log:
+- Installé HexStrike AI v6.0 : repo cloné (/home/z/hexstrike-ai), deps venv (flask, fastmcp, selenium, mitmproxy), serveur C2 sur port 8888 (156 endpoints), client MCP ajouté à .mcp.json (5e MCP : playwright, memory-bank, semgrep, codev, hexstrike)
+- Écrit scripts/hexstrike-pentest.py : 11 phases (recon headers, sweep non-auth 45 endpoints, creds faibles, brute force+lockout, tokens forgés, IDOR/privesc, SQLi/NoSQLi/XSS/SSTI, path traversal, abus OTP, mass assignment, payload 50 Ko), pacing 0.45s anti-OOM
+- Campagne exécutée : 21 PASS, 12 alertes triées ; le dev server a crashé OOM pendant le 1er run (sweep de 45 compiles) → relance + pacing
+- TRIAGE : 5 des 6 alertes IDOR parent = fausses (scellage parentId/audience vérifié dans le code) ; /api/schools public = annuaire sanitisé by design
+- FAILLE CRITIQUE F1 : /api/finance-overview accessible au PARENT (permission payments:read partagée) → toute la situation financière de l'école (élèves, montants, 250 paiements) ; CORRIGÉ par gate de rôles explicite (SUPER_ADMIN_GLOBAL/SCHOOL_ADMIN/CASHIER/DIRECTION_*) ; re-test : PARENT 403, SCHOOL_ADMIN 200
+- Durcissement F2 : rate limit IP 20/15min sur /api/auth/verify-otp ; re-test : 429 pile au 21e appel
+- F3 documenté : admin123 uniforme sur les comptes de démo (risque accepté démo, à changer en prod) ; F4 énumération téléphone bridée 3/min/IP (compromis UX) ; F5 XFO/HSTS = compromis sandbox (preview iframe), recommandation prod CSP frame-ancestors
+- FIX FOOTER (demande utilisateur, capture à l'appui) : page login passée de h-screen+overflow-hidden+scrollbar masquée à min-h-screen + <footer class="mt-auto"> + safe-area iOS ; vérifié agent-browser : 1920×953 footer bottom=953/953 bouton WhatsApp entier visible, 375×667 scroll naturel 917>667 sans chevauchement, login admin@lumiere.cd → dashboard OK (non-régression)
+- Sondes de re-test orchestrées VIA HexStrike /api/command (scripts/hexstrike-verify.py + -run.sh) : IDOR 403 ✓, headers 2/2 ✓, cible vivante 200 ✓
+- Mise à jour app : version 0.2.1→0.2.2 ; tsc 0 erreur ; lint sans erreur nouvelle ; rapport livré RAPPORT-HEXSTRIKE-PENTEST.txt (log brut HEXSTRIKE-PENTEST-RAW.txt)
+
+Stage Summary:
+- EduGest a été réellement "attaquée" via HexStrike AI : 1 faille critique IDOR financier fermée et prouvée, verify-otp durci, 21 défenses validées (brute force lockout, SQLi, XSS, traversal, mass-assignment, quotas…)
+- Le footer copyright est désormais collé au bas de la page avec scroll naturel — le bouton WhatsApp n'est plus masqué
+- App en version 0.2.2, 5 MCP actifs dont hexstrike, pentest réexécutable via scripts/hexstrike-pentest.py

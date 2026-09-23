@@ -16,6 +16,11 @@
     "codev": {
       "command": "/home/z/.npm-global/bin/codevhub",
       "args": ["serve"]
+    },
+    "hexstrike": {
+      "command": "/home/z/.venv/bin/python3",
+      "args": ["/home/z/hexstrike-ai/hexstrike_mcp.py", "--server-url", "http://127.0.0.1:8888"],
+      "env": {}
     }
   }
 }

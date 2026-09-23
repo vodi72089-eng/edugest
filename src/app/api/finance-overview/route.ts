@@ -19,6 +19,23 @@ export async function GET(request: NextRequest) {
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
 
+    // ── SÉCURITÉ (HexStrike/IDOR-CRITIQUE) : « payments:read » est aussi porté
+    // par le rôle PARENT (nécessaire pour voir les paiements de SES enfants via
+    // /api/payments, scellé par parentId). Sans gate de rôle explicite, un
+    // parent pouvait lire la situation financière CONSOLIDÉE de toute l'école
+    // (noms, matricules, montants payés/impayés, historique de 250 paiements).
+    // La vue est réservée à la direction et au personnel financier de l'école.
+    const FINANCE_OVERVIEW_ROLES = [
+      'SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'CASHIER',
+      'DIRECTION', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE',
+    ];
+    if (!FINANCE_OVERVIEW_ROLES.includes(user.role)) {
+      return NextResponse.json(
+        { error: 'Accès réservé à la direction et au personnel financier' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     let schoolId = searchParams.get('schoolId') || '';
     if (!schoolId && user.role !== 'SUPER_ADMIN_GLOBAL') {

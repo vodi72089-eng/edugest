@@ -1985,7 +1985,7 @@ function LoginView() {
 
 
   return (
-    <div className="h-screen flex flex-col relative overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+    <div className="min-h-screen flex flex-col relative" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
       {/* Gradient overlays */}
       <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-[#0a0f0d] via-[#0b1613]/50 to-transparent pointer-events-none z-10" />
       <div className="absolute top-0 right-0 w-[500px] h-[500px] opacity-15 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, oklch(72% 0.15 65 / 0.3), transparent 70%)' }} />
@@ -1998,9 +1998,10 @@ function LoginView() {
         </div>
       </nav>
 
-      {/* Main content: animated book + login card — jamais de scrollbar de page
-          (h-screen + overflow-hidden) ; défilement interne invisible si petit écran */}
-      <main className="relative z-20 flex-1 min-h-0 w-full flex flex-col items-center justify-center px-4 sm:px-6 py-2 gap-5 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {/* Main content: animated book + login card — défilement NATUREL de la page
+          (min-h-screen, pas de overflow-hidden) : le pied de page reste au bas de l'écran
+          quand le contenu est court et est poussé vers le bas quand il dépasse */}
+      <main className="relative z-20 flex-1 w-full flex flex-col items-center justify-center px-4 sm:px-6 py-6 gap-5">
         {/* Animated Book + Brand */}
         <div className="text-center flex flex-col items-center gap-3 shrink-0">
           <div className="edu-book mx-auto" style={{ transform: 'scale(0.9)' }}>
@@ -2107,10 +2108,10 @@ function LoginView() {
         </div>
       </main>
 
-      {/* Footer */}
-      <div className="relative z-20 text-center text-[13px] text-white/30 py-5">
+      {/* Footer — collé au bas de la page (mt-auto), respecte la zone sûre iOS */}
+      <footer className="relative z-20 mt-auto w-full text-center text-[13px] text-white/30 py-5" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
         © 2026 EduGest · Kinshasa · Dakar · Abidjan
-      </div>
+      </footer>
 
       {/* WhatsApp Login Modal */}
       {showWhatsappModal && (
