@@ -219,6 +219,8 @@ export interface UserData {
   classNames?: string | null
   isTitulaire?: boolean
   subscriptionTier?: string
+  // Téléphone de l'utilisateur (rapports programmés : destinataire par défaut)
+  phone?: string | null
 }
 
 interface EduGestStore {

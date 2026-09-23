@@ -327,7 +327,7 @@ export async function POST(request: NextRequest) {
               isActive: true,
               subjectName: cols.has('subjectName') && r.subjectName ? String(r.subjectName) : null,
             },
-            select: { id: true },
+            select: { id: true, role: true },
           });
           userByPhone.set(phone, { id: created.id, role: created.role ?? 'TEACHER' } as never);
           teacherMap.set(String(r.id), created.id);

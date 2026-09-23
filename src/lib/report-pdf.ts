@@ -10,6 +10,7 @@ import { fmtLagosDateTime } from '@/lib/report-data';
 // sa build ESM référence 'stream' et casse la compilation webpack si elle
 // est résolue statiquement. En Node, require('pdfkit') fonctionne tel quel.
 interface PdfKitDoc {
+  x: number;
   y: number;
   page: { height: number; margins: { top: number } };
   on(event: string, cb: (arg?: unknown) => void): void;
@@ -26,8 +27,8 @@ interface PdfKitDoc {
   strokeColor(color: string): PdfKitDoc;
   text(
     content: string,
-    x?: number,
-    y?: number,
+    x?: number | Record<string, unknown>,
+    y?: number | Record<string, unknown>,
     opts?: Record<string, unknown>,
   ): PdfKitDoc;
   heightOfString(content: string, opts?: Record<string, unknown>): number;
@@ -119,7 +120,7 @@ function renderReport(
       },
     });
     const chunks: Buffer[] = [];
-    doc.on('data', (c: Buffer) => chunks.push(c));
+    doc.on('data', (c: unknown) => chunks.push(c as Buffer));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 

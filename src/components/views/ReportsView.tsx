@@ -464,7 +464,7 @@ export default function ReportsView() {
             <div className="flex flex-wrap items-center gap-2 mt-3 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
               <span className="px-2 py-1 rounded-full inline-flex items-center gap-1" style={{ background: IVORY }}>
                 <UserCheck size={11} />
-                Rapport scellé sur votre rôle : <strong style={{ color: TEXT_PRIMARY }}>{getRoleSealLabel(report?.role || userRole)}</strong>
+                Rapport scellé sur votre rôle : <strong style={{ color: TEXT_PRIMARY }}>{getRoleSealLabel((report?.role || userRole) as string)}</strong>
               </span>
               {report?.cycle && (
                 <span className="px-2 py-1 rounded-full" style={{ background: GOLD_SOFT, color: GOLD }}>Cycle {report.cycle.toLowerCase()}</span>
