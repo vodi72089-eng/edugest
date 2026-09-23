@@ -7,6 +7,7 @@ import {
   getRoleCycle,
   classFilterForCycle,
 } from '@/lib/auth';
+import { getRoleSealLabel } from '@/lib/helpers';
 import {
   getWhatsAppLiveStatus,
   getSchoolWhatsAppNumber,
@@ -330,7 +331,7 @@ export async function POST(request: NextRequest) {
       `🏫 ${school.name}\n` +
       `📅 Période : ${fmtDate(fromStr)} → ${fmtDate(toStr)} (${days} jour${days > 1 ? 's' : ''})\n\n` +
       `${bodyText}\n` +
-      `_Rapport scellé sur le rôle : ${user.role}_\n` +
+      `_Rapport scellé sur le rôle : ${getRoleSealLabel(user.role)}_\n` +
       `_Généré par EduGest le ${fmtDate(isoDate(generatedAt))} à ${generatedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}_`;
 
     // ── Destinataires : administratifs de CETTE école ──────────────────────

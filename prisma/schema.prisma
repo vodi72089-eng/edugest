@@ -78,6 +78,7 @@ model School {
   platformEvents        PlatformEvent[]
   repechageExams        RepechageExam[]
   events                SchoolEvent[]
+  reportSchedules       ReportSchedule[]
 }
 
 model User {
@@ -973,4 +974,34 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+// ─── Automatisation des rapports (système agentique) ────────────────────────
+// Un administrateur programme l'envoi automatique du rapport d'activité de
+// SON école : tous les intervalDays jour(s) à hour:minute (fuseau Africa/Lagos),
+// en texte WhatsApp + PDF au design EduGest, vers les numéros destinataires.
+// Le planificateur (src/instrumentation.ts) balaie les nextRunAt échus.
+model ReportSchedule {
+  id            String    @id @default(cuid())
+  schoolId      String
+  createdBy     String    // userId du créateur
+  createdByName String    // dénormalisé pour l'audit/l'affichage
+  intervalDays  Int       @default(1) // 1 = quotidien, 2 = tous les 2 jours, 7 = hebdo
+  hour          Int       @default(8) // heure d'envoi (0-23, Africa/Lagos)
+  minute        Int       @default(0)
+  recipients    String    @default("[]") // JSON array de numéros WhatsApp
+  sendPdf       Boolean   @default(true) // joindre le PDF au texte
+  isActive      Boolean   @default(true)
+  lastRunAt     DateTime?
+  nextRunAt     DateTime? // prochain envoi programmé (UTC)
+  lastStatus    String?   // success | partial | failed | agent_offline
+  lastDetail    String?   // message lisible du dernier passage
+  runCount      Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  school        School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@index([isActive, nextRunAt])
 }

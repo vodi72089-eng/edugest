@@ -2248,3 +2248,21 @@ Work Log:
 
 Stage Summary:
 - Import DB fiable : rapide (anti-N+1), réessayable sans doublon, messages clairs ; plusieurs bases importables à tout moment (modal réutilisable + carte Paramètres) ; nouveau logo du modal
+
+---
+Task ID: 8
+Agent: Main Agent (Z.ai Code)
+Task: Renommer SCHOOL_ADMIN → Propriétaire + système agentique d'automatisation des rapports (PDF détaillé au design EduGest, envoi programmé WhatsApp)
+
+Work Log:
+- git pull ; labels : getRoleLabel SCHOOL_ADMIN → « Propriétaire » + nouveau getRoleSealLabel (sceau UI + texte WhatsApp + PDF) ; sidebar affiche désormais « Propriétaire »
+- src/lib/report-data.ts : collecteur détaillé — paiements (élève, montant, horodatage à la seconde, n° de reçu, mode), communications (sujets), discipline (sanctions élève+description+points, points positifs élève+raison, convocations), présences par élève (« X jours d'absence/de retard »), classements classes (50 % présence + 30 % notes + 20 % discipline) et élèves (top 3 / 3 derniers, % estimé + conduite estimée) ; buildWhatsAppTextReport + nextLagosOccurrence (UTC+1)
+- src/lib/report-pdf.ts : générateur pdfkit au design EduGest (bandeau vert-noir/or, chips ivoire, tableaux zébrés, alertes rouges, sceau final) ; pdfkit chargé à l'exécution via import natif webpackIgnore (sa build ESM casse webpack) ; pieds de page tamponnés en fin via bufferedPageRange (pageAdded → récursion infinie)
+- GET /api/reports/pdf (admin, jours 1..31) → PDF A4 validé (2 pages, %PDF, horodatages à la seconde, sceau « Propriétaire »)
+- Automatisation : modèle Prisma ReportSchedule (intervalDays, hour/minute Lagos, recipients JSON, sendPdf, nextRunAt, lastStatus, runCount…) + School.reportSchedules ; API /api/reports/schedule (GET/POST/DELETE + action:'run') ; runSchedule → texte + PDF → sendWhatsAppMessage + sendWhatsAppDocument par destinataire, avance le planning avec rattrapage borné ; audit REPORT_SCHEDULE_RUN
+- Architecture : la couche instrumentation de Next ne supporte pas les modules Node (crypto/stream) → mini-service Bun dédié mini-services/report-scheduler (port 3002, bun:sqlite readonly — better-sqlite3 SIGILL sous Bun, scan 30 s) qui appelle POST /api/reports/scheduler-run (clé partagée x-scheduler-key) ; keepalive edugest-keepalive.sh ravive le service
+- UI ReportsView : bouton « Télécharger le PDF » (blob download), carte « Automatisation des rapports » (fréquence 1/2/3/7 jours, heure, destinataires, PDF joint, activer) + liste des programmes (Actif/En pause, prochain envoi, statut détaillé, Exécuter/Modifier/Pause/Supprimer)
+- Tests : PDF 200 validé ; programme créé (nextRunAt 07:00 UTC = 08:00 Lagos ✓) ; run immédiat → agent_offline attendu (runCount 1) ; échéance forcée → mini-service déclenche automatiquement (runCount 2, nextRunAt +1 jour exact) ; UI : Exécuter → 3 envois, 0 erreur console ; lint 68 = baseline
+
+Stage Summary:
+- Système agentique complet : le propriétaire programme ses rapports (chaque jour à 8h, tous les N jours…), l'agent EduGest envoie tout seul texte WhatsApp + PDF détaillé au design de l'app ; PDF téléchargeable à la demande ; SCHOOL_ADMIN renommé « Propriétaire » partout où il était affiché brut

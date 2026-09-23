@@ -13,12 +13,14 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
+import { getRoleSealLabel } from '@/lib/helpers'
 import { GOLD, GOLD_SOFT, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, SUCCESS, SUCCESS_SOFT, DANGER, WARNING } from '@/lib/constants'
 import { formatAmount } from '@/lib/currency-display'
 import {
   FileText, Send, Copy, Users, Wallet, ShieldAlert, GraduationCap,
   Megaphone, CalendarDays, Trophy, Loader2, X, Share2, CheckCircle2,
-  UserCheck, AlertTriangle, ClipboardCheck,
+  UserCheck, AlertTriangle, ClipboardCheck, FileDown, Bot, Clock3, Play,
+  Trash2, Power, Plus,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -53,6 +55,40 @@ interface SendResult {
   recipientCount?: number
   agentConnected?: boolean
   warning?: string
+}
+
+interface ScheduleItem {
+  id: string
+  schoolId: string
+  intervalDays: number
+  freqLabel: string
+  hour: number
+  minute: number
+  timeLabel: string
+  recipients: string[]
+  sendPdf: boolean
+  isActive: boolean
+  lastRunAt: string | null
+  nextRunAt: string | null
+  lastStatus: string | null
+  lastDetail: string | null
+  runCount: number
+  createdBy: string
+  createdByName: string
+}
+
+const FREQ_OPTIONS = [
+  { days: 1, label: 'Chaque jour' },
+  { days: 2, label: 'Tous les 2 jours' },
+  { days: 3, label: 'Tous les 3 jours' },
+  { days: 7, label: 'Chaque semaine' },
+]
+
+const STATUS_META: Record<string, { label: string; bg: string; color: string }> = {
+  success: { label: 'Dernier envoi : réussi', bg: SUCCESS_SOFT, color: SUCCESS },
+  partial: { label: 'Dernier envoi : partiel', bg: GOLD_SOFT, color: GOLD },
+  failed: { label: 'Dernier envoi : échec', bg: 'oklch(95% 0.04 25)', color: DANGER },
+  agent_offline: { label: 'Agent WhatsApp hors ligne', bg: 'oklch(95% 0.04 65)', color: WARNING },
 }
 
 const PERIODS = [
@@ -103,9 +139,11 @@ function StatCard({ icon: Icon, label, value, bg, color }: {
 }
 
 export default function ReportsView() {
-  const { userRole } = useEduGestStore()
+  const { userRole, userData } = useEduGestStore()
   const isSAG = userRole === 'SUPER_ADMIN_GLOBAL'
   const isParent = userRole === 'PARENT'
+  // Automatisation agentique : réservée au propriétaire (SCHOOL_ADMIN) et au super admin
+  const canAutomate = userRole === 'SCHOOL_ADMIN' || isSAG
 
   const [days, setDays] = useState(7)
   const [report, setReport] = useState<ReportData | null>(null)
@@ -113,6 +151,19 @@ export default function ReportsView() {
   const [sending, setSending] = useState(false)
   const [shareText, setShareText] = useState<string | null>(null)
   const [lastWarning, setLastWarning] = useState<string | null>(null)
+  const [pdfLoading, setPdfLoading] = useState(false)
+
+  // ── Automatisation ──
+  const [schedules, setSchedules] = useState<ScheduleItem[]>([])
+  const [loadingSchedules, setLoadingSchedules] = useState(true)
+  const [savingSchedule, setSavingSchedule] = useState(false)
+  const [runningId, setRunningId] = useState<string | null>(null)
+  const [autoFreq, setAutoFreq] = useState(1)
+  const [autoTime, setAutoTime] = useState('08:00')
+  const [autoRecipients, setAutoRecipients] = useState('')
+  const [recipientsTouched, setRecipientsTouched] = useState(false)
+  const [autoPdf, setAutoPdf] = useState(true)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const schoolId = getActiveSchoolId()
   const activeSchoolId = useMemo(() => schoolId, [schoolId])
@@ -140,6 +191,158 @@ export default function ReportsView() {
     if (isSAG && !activeSchoolId) return
     load(days)
   }, [load, days, isSAG, activeSchoolId])
+
+  // ── Automatisation : chargement des programmes de l'école active ───────
+  // (aucun setState synchrone dans l'effet — règle react-hooks ; l'état de
+  // chargement initial est simplement `true`)
+  const loadSchedules = useCallback(() => {
+    if (!canAutomate) return
+    const params = new URLSearchParams()
+    if (activeSchoolId) params.set('schoolId', activeSchoolId)
+    authFetch(`/api/reports/schedule?${params}`)
+      .then(async res => {
+        const j = await res.json().catch(() => ({}))
+        if (res.ok) setSchedules(j.data || [])
+      })
+      .catch(() => {})
+      .finally(() => setLoadingSchedules(false))
+  }, [canAutomate, activeSchoolId])
+
+  useEffect(() => {
+    if (isSAG && !activeSchoolId) return
+    loadSchedules()
+  }, [loadSchedules, isSAG, activeSchoolId])
+
+  // Pré-remplissage sans effet : le téléphone du compte courant sert de
+  // valeur affichée tant que l'utilisateur n'a rien saisi.
+  const effectiveRecipients =
+    autoRecipients || (!recipientsTouched && schedules.length === 0 ? userData?.phone || '' : '')
+
+  function parseRecipientsInput(raw: string): string[] {
+    return raw.split(/[,;\/\s]+/).map(s => s.trim()).filter(s => s.length >= 6)
+  }
+
+  async function saveSchedule() {
+    const recipients = parseRecipientsInput(effectiveRecipients)
+    if (!recipients.length) { toast.error('Ajoutez au moins un numéro WhatsApp destinataire'); return }
+    const [hh, mm] = autoTime.split(':').map(x => Number.parseInt(x, 10))
+    setSavingSchedule(true)
+    try {
+      const res = await authFetch('/api/reports/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingId || undefined,
+          ...(activeSchoolId ? { schoolId: activeSchoolId } : {}),
+          intervalDays: autoFreq,
+          hour: Number.isFinite(hh) ? hh : 8,
+          minute: Number.isFinite(mm) ? mm : 0,
+          recipients,
+          sendPdf: autoPdf,
+          isActive: true,
+        }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(j.error || 'Erreur lors de l\'enregistrement'); return }
+      toast.success(editingId ? 'Automatisation mise à jour' : `Automatisation activée — ${j.data?.freqLabel || ''} à ${j.data?.timeLabel || ''}`)
+      setEditingId(null)
+      loadSchedules()
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setSavingSchedule(false)
+  }
+
+  async function toggleSchedule(s: ScheduleItem) {
+    try {
+      const res = await authFetch('/api/reports/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: s.id,
+          ...(activeSchoolId ? { schoolId: activeSchoolId } : {}),
+          intervalDays: s.intervalDays,
+          hour: s.hour,
+          minute: s.minute,
+          recipients: s.recipients,
+          sendPdf: s.sendPdf,
+          isActive: !s.isActive,
+        }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(j.error || 'Erreur'); return }
+      toast.success(!s.isActive ? 'Automatisation activée' : 'Automatisation mise en pause')
+      loadSchedules()
+    } catch { toast.error('Erreur de connexion') }
+  }
+
+  async function runNow(s: ScheduleItem) {
+    setRunningId(s.id)
+    try {
+      const res = await authFetch('/api/reports/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'run', id: s.id, ...(activeSchoolId ? { schoolId: activeSchoolId } : {}) }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(j.error || 'Erreur lors de l\'exécution'); return }
+      const run = j.data?.run || {}
+      if (run.status === 'success') toast.success(run.detail || 'Rapport envoyé !')
+      else if (run.status === 'partial') toast.warning(run.detail || 'Envoi partiel')
+      else toast.error(run.detail || 'Envoi non abouti')
+      loadSchedules()
+    } catch { toast.error('Erreur de connexion') }
+    setRunningId(null)
+  }
+
+  async function deleteSchedule(s: ScheduleItem) {
+    try {
+      const params = new URLSearchParams({ id: s.id })
+      const res = await authFetch(`/api/reports/schedule?${params}`, { method: 'DELETE' })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(j.error || 'Erreur'); return }
+      toast.success('Automatisation supprimée')
+      if (editingId === s.id) setEditingId(null)
+      loadSchedules()
+    } catch { toast.error('Erreur de connexion') }
+  }
+
+  function editSchedule(s: ScheduleItem) {
+    setEditingId(s.id)
+    setAutoFreq(s.intervalDays)
+    setAutoTime(s.timeLabel)
+    setAutoRecipients(s.recipients.join(', '))
+    setAutoPdf(s.sendPdf)
+    toast.info('Modification en cours — ajustez puis enregistrez')
+  }
+
+  async function downloadPdf() {
+    if (isSAG && !activeSchoolId) { toast.error('Sélectionnez d\'abord une école'); return }
+    setPdfLoading(true)
+    try {
+      const params = new URLSearchParams({ days: String(days) })
+      if (activeSchoolId) params.set('schoolId', activeSchoolId)
+      const res = await authFetch(`/api/reports/pdf?${params}`)
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        toast.error(j.error || 'Erreur lors de la génération du PDF')
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `rapport-edugest-${report?.period.to || new Date().toISOString().slice(0, 10)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      toast.success('PDF téléchargé')
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setPdfLoading(false)
+  }
 
   async function handleSend() {
     if (isSAG && !activeSchoolId) { toast.error('Sélectionnez d\'abord une école'); return }
@@ -249,7 +452,11 @@ export default function ReportsView() {
                   </button>
                 ))}
               </div>
-              <button onClick={handleSend} disabled={sending || loading} className="edu-gold-cta ml-auto px-4 py-2 rounded-xl text-[13px] font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+              <button onClick={downloadPdf} disabled={pdfLoading || loading} className="ml-auto px-4 py-2 rounded-xl text-[13px] font-semibold border inline-flex items-center gap-2 disabled:opacity-50 transition hover:bg-[oklch(72%_0.15_65_/_0.06)]" style={{ borderColor: 'rgba(245,166,35,0.5)', color: TEXT_PRIMARY }}>
+                {pdfLoading ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
+                Télécharger le PDF
+              </button>
+              <button onClick={handleSend} disabled={sending || loading} className="edu-gold-cta px-4 py-2 rounded-xl text-[13px] font-semibold inline-flex items-center gap-2 disabled:opacity-50">
                 {sending ? <div className="h-3.5 w-3.5 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Send size={13} />}
                 Envoyer sur WhatsApp
               </button>
@@ -257,7 +464,7 @@ export default function ReportsView() {
             <div className="flex flex-wrap items-center gap-2 mt-3 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
               <span className="px-2 py-1 rounded-full inline-flex items-center gap-1" style={{ background: IVORY }}>
                 <UserCheck size={11} />
-                Rapport scellé sur votre rôle : <strong style={{ color: TEXT_PRIMARY }}>{report?.role || userRole}</strong>
+                Rapport scellé sur votre rôle : <strong style={{ color: TEXT_PRIMARY }}>{getRoleSealLabel(report?.role || userRole)}</strong>
               </span>
               {report?.cycle && (
                 <span className="px-2 py-1 rounded-full" style={{ background: GOLD_SOFT, color: GOLD }}>Cycle {report.cycle.toLowerCase()}</span>
@@ -272,6 +479,137 @@ export default function ReportsView() {
               )}
             </div>
           </div>
+
+          {/* ── Automatisation agentique des rapports (propriétaire / super admin) ── */}
+          {canAutomate && (
+            <div className="bg-white border rounded-2xl p-5 shadow-sm mb-6" style={{ borderColor: 'rgba(245,166,35,0.45)' }}>
+              <div className="flex flex-wrap items-center gap-2.5 mb-1">
+                <div className="w-9 h-9 rounded-xl grid place-items-center text-white shrink-0" style={{ background: `linear-gradient(135deg, ${GOLD}, #c47d0e)`, boxShadow: '0 4px 10px rgba(245,166,35,0.35)' }}>
+                  <Bot size={17} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-[15px]" style={{ color: TEXT_PRIMARY }}>Automatisation des rapports</h3>
+                  <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
+                    L&apos;agent EduGest envoie le rapport tout seul : texte WhatsApp + PDF détaillé au design de l&apos;app, à l&apos;heure exacte choisie (heure locale).
+                  </p>
+                </div>
+              </div>
+
+              {/* Formulaire */}
+              <div className="mt-4 rounded-xl p-4 border border-[oklch(90%_0.01_175)]" style={{ background: IVORY }}>
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <Clock3 size={14} style={{ color: GOLD }} />
+                  <span className="text-[12px] font-semibold" style={{ color: TEXT_PRIMARY }}>Fréquence d&apos;envoi</span>
+                  <div className="flex flex-wrap gap-1.5 ml-auto">
+                    {FREQ_OPTIONS.map(f => (
+                      <button
+                        key={f.days}
+                        onClick={() => setAutoFreq(f.days)}
+                        className="px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition"
+                        style={autoFreq === f.days
+                          ? { background: GOLD, color: 'white', borderColor: GOLD }
+                          : { background: 'white', color: TEXT_MUTED_LUXE, borderColor: 'oklch(90% 0.01 175)' }}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-[130px_1fr_auto] gap-2.5 items-end">
+                  <div>
+                    <label className="text-[11px] font-semibold block mb-1" style={{ color: TEXT_MUTED_LUXE }}>Heure d&apos;envoi</label>
+                    <input
+                      type="time"
+                      value={autoTime}
+                      onChange={e => setAutoTime(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-[oklch(90%_0.01_175)] text-[13px] bg-white outline-none focus:border-[#f5a623]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold block mb-1" style={{ color: TEXT_MUTED_LUXE }}>
+                      Destinataires WhatsApp (numéros séparés par virgule ou espace)
+                    </label>
+                    <input
+                      type="text"
+                      value={effectiveRecipients}
+                      onChange={e => { setAutoRecipients(e.target.value); setRecipientsTouched(true) }}
+                      placeholder="+243 81 234 56 78, +243 99 888 77 66"
+                      className="w-full px-3 py-2 rounded-lg border border-[oklch(90%_0.01_175)] text-[13px] bg-white outline-none focus:border-[#f5a623]"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1.5 text-[12px] cursor-pointer select-none" style={{ color: TEXT_PRIMARY }}>
+                      <input type="checkbox" checked={autoPdf} onChange={e => setAutoPdf(e.target.checked)} className="accent-[#f5a623] w-4 h-4" />
+                      Joindre le PDF
+                    </label>
+                    <button onClick={saveSchedule} disabled={savingSchedule} className="edu-gold-cta px-4 py-2 rounded-xl text-[13px] font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 whitespace-nowrap">
+                      {savingSchedule ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                      {editingId ? 'Mettre à jour' : 'Activer'}
+                    </button>
+                    {editingId && (
+                      <button onClick={() => setEditingId(null)} className="px-3 py-2 rounded-xl text-[12px] font-semibold border" style={{ borderColor: 'oklch(90% 0.01 175)', color: TEXT_MUTED_LUXE }}>
+                        Annuler
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Liste des programmes */}
+              <div className="mt-3 space-y-2">
+                {loadingSchedules ? (
+                  <div className="text-center py-3 text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>
+                    <Loader2 size={14} className="inline animate-spin mr-1" /> Chargement des automatisations…
+                  </div>
+                ) : schedules.length === 0 ? (
+                  <p className="text-center text-[12px] py-2" style={{ color: TEXT_MUTED_LUXE }}>
+                    Aucune automatisation pour l&apos;instant — configurez la première ci-dessus.
+                  </p>
+                ) : (
+                  schedules.map(s => {
+                    const meta = s.lastStatus ? STATUS_META[s.lastStatus] : null
+                    return (
+                      <div key={s.id} className="rounded-xl border border-[oklch(90%_0.01_175)] px-4 py-3 flex flex-wrap items-center gap-3">
+                        <span className="px-2.5 py-1 rounded-full text-[11px] font-bold" style={{ background: s.isActive ? SUCCESS_SOFT : IVORY, color: s.isActive ? SUCCESS : TEXT_MUTED_LUXE }}>
+                          {s.isActive ? '● Actif' : '○ En pause'}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-semibold truncate" style={{ color: TEXT_PRIMARY }}>
+                            {s.freqLabel} à {s.timeLabel}{s.sendPdf ? ' · PDF joint' : ''}
+                          </p>
+                          <p className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>
+                            Vers : {s.recipients.join(', ')}
+                            {s.nextRunAt && s.isActive ? ` · Prochain envoi : ${new Date(s.nextRunAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ''}
+                            {s.runCount > 0 ? ` · ${s.runCount} envoi${s.runCount > 1 ? 's' : ''}` : ''}
+                          </p>
+                          {meta && (
+                            <p className="text-[10.5px] mt-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: meta.bg, color: meta.color }} title={s.lastDetail || ''}>
+                              <AlertTriangle size={9} /> {meta.label}{s.lastDetail ? ` — ${s.lastDetail}` : ''}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                          <button onClick={() => runNow(s)} disabled={runningId === s.id} title="Exécuter maintenant (test)" className="px-3 py-1.5 rounded-lg text-[12px] font-semibold border inline-flex items-center gap-1 disabled:opacity-50" style={{ borderColor: 'rgba(245,166,35,0.5)', color: TEXT_PRIMARY }}>
+                            {runningId === s.id ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />}
+                            Exécuter
+                          </button>
+                          <button onClick={() => toggleSchedule(s)} title={s.isActive ? 'Mettre en pause' : 'Activer'} className="px-2.5 py-1.5 rounded-lg text-[12px] font-semibold border" style={{ borderColor: 'oklch(90% 0.01 175)', color: TEXT_MUTED_LUXE }}>
+                            <Power size={12} />
+                          </button>
+                          <button onClick={() => editSchedule(s)} title="Modifier" className="px-2.5 py-1.5 rounded-lg text-[12px] font-semibold border" style={{ borderColor: 'oklch(90% 0.01 175)', color: TEXT_MUTED_LUXE }}>
+                            <ClipboardCheck size={12} />
+                          </button>
+                          <button onClick={() => deleteSchedule(s)} title="Supprimer" className="px-2.5 py-1.5 rounded-lg text-[12px] font-semibold border" style={{ borderColor: 'oklch(95% 0.04 25)', color: DANGER }}>
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+          )}
 
           {loading ? (
             <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-10 shadow-sm text-center text-sm" style={{ color: TEXT_MUTED_LUXE }}>

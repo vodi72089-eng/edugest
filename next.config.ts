@@ -13,7 +13,8 @@ const SPA_REWRITES = Object.values(VIEW_PATHS)
 const nextConfig: NextConfig = {
   output: "standalone",
   // better-sqlite3 est un module natif : ne pas le bundler (import de BDD)
-  serverExternalPackages: ["better-sqlite3"],
+  // pdfkit charge ses métriques de polices (.afm) depuis le FS : externe aussi
+  serverExternalPackages: ["better-sqlite3", "pdfkit"],
   // Le tracing nftw suit les lectures fs dynamiques (process.cwd() + chemin
   // variable) et embarquerait sinon tout le repo — dont desktop/dist* (les
   // exes + win-unpacked ≈ 1 Go, récursion qui remplit le disque et fait
