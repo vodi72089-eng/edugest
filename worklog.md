@@ -2126,3 +2126,19 @@ Work Log:
 
 Stage Summary:
 - Footers nettoyés des villes ; règle établie : toujours git pull avant de commencer une session
+
+---
+Task ID: 3
+Agent: Main Agent (Z.ai Code)
+Task: Remplacer les emojis des cartes de stats par des icônes de librairie + télécharger/réparer les MCP qui timeout
+
+Work Log:
+- git pull (déjà à jour) ; page.tsx : emojis 🏫/👨‍👩‍👧‍👦/🎓 remplacés par icônes lucide-react (School, UsersRound, GraduationCap — déjà importées) dans des badges rounded-2xl teintés (ambre/émeraude/bleu ciel assortis au glow), hover → or + scale
+- MCP téléchargés en binaires globaux (fini les cold-start npx >30s) : memory-bank-mcp, @playwright/mcp (playwright-mcp), shadcn (shadcn mcp), codegraph lié sur PATH (~/.npm-global/bin), semgrep-mcp + CLI semgrep 1.177.0 via uv tool
+- Diagnostic semgrep « Connection closed » : le serveur exige le CLI semgrep sur PATH au handshake → installé + PATH injecté dans .mcp.json
+- .mcp.json réécrit avec commandes globales rapides ; handshake testé : codegraph 1.6.0 ✅, Playwright 1.64 ✅, shadcn 1.0.0 ✅, MemoryBankMCP ✅, semgrep ✅
+- codevhub serve ≠ MCP (lanceur d'agent) → l'entrée « codedev » qui timeout doit être remplacée par codegraph ; vérifié navigateur : 3 SVG lucide rendus, 0 erreur ; lint 68 = baseline
+
+Stage Summary:
+- Section stats premium avec vraies icônes de librairie ; tous les MCP demandés tournent en binaire global (démarrage <1s)
+- Reste côté client utilisateur (auth/config locale) : figma + expo-mcp (tokens requis), github (SSE 400 = token/URL à corriger), desktop (config inconnue)
