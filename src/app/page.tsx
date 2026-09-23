@@ -1874,6 +1874,7 @@ function LoginView() {
   const [forgotConfirm, setForgotConfirm] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
   const [forgotChannel, setForgotChannel] = useState('')
+  const [forgotDevCode, setForgotDevCode] = useState('')
   // ── Verrou progressif (compte à rebours affiché sur le bouton) ──────────
   const [lockRemaining, setLockRemaining] = useState(0)
   const lockIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -2284,13 +2285,25 @@ function LoginView() {
                       })
                       const json = await res.json()
                       if (res.ok) {
-                        const ch = json.data?.channel || 'WhatsApp'
-                        setForgotChannel(ch)
-                        setForgotStep('code')
-                        toast.success(`Code envoyé par ${ch}`)
-                        if (json.data?.devCode) toast.info(`Code (développement) : ${json.data.devCode}`)
+                        const delivery = json.delivery as string
+                        if (delivery === 'none') {
+                          // Aucun compte avec ce numéro : message neutre, on
+                          // ne fait PAS semblant qu'un code a été envoyé.
+                          toast.info(json.message || 'Si un compte existe avec ce numéro, un code de réinitialisation a été envoyé.')
+                        } else if (delivery === 'dev') {
+                          setForgotChannel('développement')
+                          setForgotDevCode(json.devCode || '')
+                          setForgotStep('code')
+                          toast.info("Mode développement : utilisez le code de test affiché dans la fenêtre")
+                        } else {
+                          const ch = delivery === 'sms' ? 'SMS' : 'WhatsApp'
+                          setForgotChannel(ch)
+                          setForgotDevCode('')
+                          setForgotStep('code')
+                          toast.success(`Code envoyé par ${ch}`)
+                        }
                       } else {
-                        toast.error(json.error || 'Numéro introuvable')
+                        toast.error(json.error || 'Erreur lors de l\'envoi du code')
                       }
                     } catch { toast.error('Erreur réseau') }
                     finally { setForgotLoading(false) }
@@ -2307,10 +2320,29 @@ function LoginView() {
 
             {forgotStep === 'code' && (
               <div className="space-y-4">
-                <p className="text-sm text-white/60">Entrez le code à 6 chiffres reçu par <strong className="text-white">{forgotChannel || 'WhatsApp'}</strong> au <strong className="text-white">{forgotPhone}</strong>. Le code est valable 15 minutes.</p>
+                {forgotDevCode ? (
+                  <div className="rounded-xl p-3" style={{ background: 'rgba(245,166,35,0.08)', border: '1px solid rgba(245,166,35,0.35)' }}>
+                    <p className="text-[#f5a623] font-semibold text-sm flex items-center gap-2">
+                      <AlertTriangle size={14} />
+                      Mode développement — aucune API WhatsApp/SMS connectée
+                    </p>
+                    <p className="text-white/60 text-sm mt-1.5">
+                      Aucun message n'a été envoyé (le numéro n'est pas relié à WhatsApp). Votre code de test :{' '}
+                      <button
+                        type="button"
+                        onClick={() => setForgotCode(forgotDevCode)}
+                        className="font-bold text-white tracking-[0.3em] underline underline-offset-4 hover:text-[#f5a623]"
+                      >{forgotDevCode}</button>{' '}
+                      <span className="text-white/40">(cliquez pour remplir)</span>
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-white/60">Entrez le code à 6 chiffres reçu par <strong className="text-white">{forgotChannel || 'WhatsApp'}</strong> au <strong className="text-white">{forgotPhone}</strong>. Le code est valable 15 minutes.</p>
+                )}
                 <input
                   type="text"
                   maxLength={6}
+                  inputMode="numeric"
                   value={forgotCode}
                   onChange={e => setForgotCode(e.target.value.replace(/\D/g, ''))}
                   placeholder="000000"
@@ -2320,11 +2352,30 @@ function LoginView() {
                 <button
                   onClick={async () => {
                     if (forgotCode.length !== 6) { toast.error('Entrez le code à 6 chiffres'); return }
-                    setForgotStep('reset')
+                    setForgotLoading(true)
+                    try {
+                      // Vérification serveur réelle : avant ce fix, « Continuer »
+                      // passait à l'étape suivante sans vérifier, donc tous les
+                      // codes semblaient marcher.
+                      const res = await fetch('/api/auth/verify-reset-code', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone: forgotPhone.trim(), code: forgotCode }),
+                      })
+                      const json = await res.json()
+                      if (res.ok) {
+                        setForgotStep('reset')
+                      } else {
+                        toast.error(json.error || 'Code invalide ou expiré')
+                      }
+                    } catch { toast.error('Erreur réseau') }
+                    finally { setForgotLoading(false) }
                   }}
-                  className="w-full py-3.5 rounded-xl text-white font-semibold text-sm transition hover:opacity-90"
+                  disabled={forgotLoading}
+                  className="w-full py-3.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition hover:opacity-90"
                   style={{ background: SUCCESS }}
                 >
+                  {forgotLoading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle size={15} />}
                   Continuer
                 </button>
                 <button onClick={() => setForgotStep('phone')} className="w-full text-sm font-medium py-2 hover:underline text-[#f5a623]/80 hover:text-[#f5a623]">

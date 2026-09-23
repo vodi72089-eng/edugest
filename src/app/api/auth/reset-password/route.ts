@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
-import { verifyResetToken } from '@/lib/reset-tokens'
+import { verifyResetToken, normalizePhone } from '@/lib/reset-tokens'
 import { revokeAllUserSessionsExcept, getClientIp, checkRateLimit } from '@/lib/auth'
 
 // POST /api/auth/reset-password — Reset password with code
@@ -51,7 +51,9 @@ export async function POST(request: NextRequest) {
 
     // Par numéro : bloque le brute-force du code de reset d'un compte
     // ciblé (code 6 chiffres = 1M combinaisons, MAX_ATTEMPTS par token).
-    const trimmedPhone = String(phone).trim()
+    // Même normalisation que forgot-password, sinon un numéro tapé sans
+    // « + » ne retrouverait jamais son token.
+    const trimmedPhone = normalizePhone(String(phone))
     if (!checkRateLimit(`reset_phone_${trimmedPhone}`, 5, 15 * 60 * 1000)) {
       return NextResponse.json(
         { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
@@ -60,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the reset code
-    const result = verifyResetToken(trimmedPhone, String(code).trim())
+    const result = await verifyResetToken(trimmedPhone, String(code).trim())
     if (!result) {
       return NextResponse.json(
         { error: 'Code invalide ou expiré' },

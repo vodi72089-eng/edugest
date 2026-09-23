@@ -958,3 +958,19 @@ model SchoolEvent {
 
   @@index([schoolId, startAt])
 }
+
+// ─── Tokens de réinitialisation de mot de passe ───
+// Stockés en base (et non en mémoire) pour survivre aux redémarrages du
+// serveur : un parent qui demande un code doit pouvoir le saisir même si
+// l'instance a redémarré entre-temps. Un seul token actif par numéro.
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  userId    String
+  codeHash  String   // HMAC-SHA256 du code à 6 chiffres (jamais le code en clair)
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}

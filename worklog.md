@@ -2111,3 +2111,29 @@ Stage Summary:
 - EduGest a été réellement "attaquée" via HexStrike AI : 1 faille critique IDOR financier fermée et prouvée, verify-otp durci, 21 défenses validées (brute force lockout, SQLi, XSS, traversal, mass-assignment, quotas…)
 - Le footer copyright est désormais collé au bas de la page avec scroll naturel — le bouton WhatsApp n'est plus masqué
 - App en version 0.2.2, 5 MCP actifs dont hexstrike, pentest réexécutable via scripts/hexstrike-pentest.py
+
+---
+Task ID: OTP-FIX-1
+Agent: Z.ai Code (session principale)
+Task: Corriger la modale « Mot de passe oublié » — le système prétendait envoyer un code WhatsApp alors qu'aucune API n'est connectée, et tous les codes saisis étaient acceptés (passage à l'étape suivante sans vérification). Puis git push demandé par l'utilisateur.
+
+Work Log:
+- Diagnostic : (1) toast « Code envoyé par WhatsApp » affiché même pour un numéro inexistant ; (2) bouton « Continuer » de l'étape code = setForgotStep('reset') sans vérification serveur ; (3) frontend lisait json.data?.devCode alors que l'API renvoie devCode à la racine → code de test jamais affiché ; (4) numéro tapé sans « + » ne matchait jamais les comptes « +243... » en base ; (5) store des tokens en Map mémoire = tous les codes mouraient à chaque redémarrage du serveur (OOM-killer du sandbox, prouvé via dmesg).
+- src/lib/reset-tokens.ts : réécrit — tokens persistés en DB (nouveau modèle Prisma PasswordResetToken), code stocké en HMAC-SHA256 (jamais en clair), normalizePhone() ajouté, checkResetToken() (vérif sans consommation) + verifyResetToken() (consomme) désormais async.
+- prisma/schema.prisma : modèle PasswordResetToken (phone unique, userId, codeHash, expiresAt, attempts) + db:push.
+- src/app/api/auth/verify-reset-code/route.ts : NOUVEL endpoint (POST phone+code) — vérifie le code sans le consommer, rate limit IP 10/15min + phone 5/15min (mêmes compteurs que reset-password).
+- src/app/api/auth/forgot-password/route.ts : réponse honnête delivery: 'none' | 'whatsapp' | 'sms' | 'dev' ; numéro normalisé ; aucun compte → aucun token généré + message neutre ; prod sans canal → 503 explicite (plus de mensonge) ; dev → devCode renvoyé.
+- src/app/api/auth/reset-password/route.ts : normalizePhone appliqué (cohérence de la clé de token), verifyResetToken await.
+- src/app/page.tsx : modale 3 étapes corrigée — étape 1 gère delivery (none → message neutre sans avancer ; dev → bandeau + code cliquable pour remplir ; whatsapp/sms → toast succès réel) ; étape 2 « Continuer » appelle /api/auth/verify-reset-code AVANT de passer à l'étape 3 ; bandeau orange « Mode développement — aucune API WhatsApp/SMS connectée · Aucun message n'a été envoyé · Votre code de test : XXXXXX (cliquez pour remplir) ».
+- package.json : 0.2.2 → 0.2.3.
+- scripts/test-otp-fix.sh : cycle de validation tout-en-un (le sandbox tue next-server par OOM entre les commandes — pattern single-session).
+- Validation backend (7/7) : numéro inventé → delivery:none ; numéro sans + → normalisé delivery:dev + code ; mauvais code → 400 ; bon code → 200 ; reset → 200 ; usage unique → 400 ; login mdp réinitialisé → 200.
+- Validation navigateur (agent-browser, 6/6) : A numéro inventé reste étape 1 ; B bandeau dev + code 385405 affiché ; C mauvais code rejeté « Code invalide ou expiré » ; D clic sur le code → étape reset ; E « Mot de passe réinitialisé ! » ; F login +243810000021/admin123 → dashboard « Bonjour Papa Kazadi ».
+- Incidents maîtrisés : 3 OOM-kills next-server pendant les tests (dmesg: anon-rss 2,25 Go) → migration DB du store motivée par ces crashes ; serveur relancé via scripts single-session ; server.pid créé par daemon.sh.
+
+Stage Summary:
+- Le système ne ment plus : delivery explicite, bandeau « mode développement » quand aucune API n'est branchée, 503 en prod sans canal.
+- Tous les codes ne marchent plus : vérification serveur obligatoire à l'étape code + usage unique + MAX_ATTEMPTS=5 + rate limits.
+- Tokens persistés en DB (survivent aux redémarrages), jamais en clair (HMAC-SHA256).
+- Numéros acceptés avec ou sans « + » (normalizePhone).
+- v0.2.3 prête, tsc 0 erreur, lint : aucune erreur nouvelle (dette préexistante intacte).
