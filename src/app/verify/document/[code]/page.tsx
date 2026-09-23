@@ -202,7 +202,7 @@ export default async function VerifyDocumentPage({ params }: { params: Promise<{
       </main>
 
       <footer className="relative z-10 text-center text-white/25 text-[12px] py-5">
-        © 2026 EduGest · Kinshasa · Dakar · Abidjan
+        © 2026 EduGest
       </footer>
     </div>
   );

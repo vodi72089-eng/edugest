@@ -286,7 +286,7 @@ function Footer() {
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Contact</h4>
           <ul className="space-y-3 text-sm text-white/50">
-            <li>support@edugest.app</li><li>+243 81 234 56 78</li><li>Kinshasa · Dakar · Abidjan</li>
+            <li>support@edugest.app</li><li>+243 81 234 56 78</li>
           </ul>
         </div>
       </div>
@@ -2110,7 +2110,7 @@ function LoginView() {
 
       {/* Footer — collé au bas de la page (mt-auto), respecte la zone sûre iOS */}
       <footer className="relative z-20 mt-auto w-full text-center text-[13px] text-white/30 py-5" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
-        © 2026 EduGest · Kinshasa · Dakar · Abidjan
+        © 2026 EduGest
       </footer>
 
       {/* WhatsApp Login Modal */}
