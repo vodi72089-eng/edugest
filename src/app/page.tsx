@@ -4874,7 +4874,12 @@ function PaymentConfigView() {
   const [supportedCurrencies, setSupportedCurrencies] = useState<any[]>([])
 
   useEffect(() => {
-    if (!getActiveSchoolId()) return
+    if (!getActiveSchoolId()) {
+      // Vue plateforme (aucune école active) : résoudre immédiatement le
+      // chargement — sinon le skeleton reste affiché indéfiniment.
+      setLoading(false)
+      return
+    }
     loadGateways()
     loadCurrencyConfig()
     loadTransactions()
@@ -5146,6 +5151,25 @@ function PaymentConfigView() {
         <p className="text-gray-500 text-sm mt-1">Gérez les passerelles de paiement et les monnaies</p>
       </div>
 
+      {/* Vue plateforme : aucune école active — les passerelles se configurent par école */}
+      {!getActiveSchoolId() && (
+        <div className="text-center py-14 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl">
+          <div className="w-14 h-14 mx-auto mb-4 grid place-items-center rounded-2xl" style={{ background: GOLD_SOFT }}>
+            <CreditCard size={26} style={{ color: GOLD }} />
+          </div>
+          <h3 className="font-semibold text-[15px] mb-1.5" style={{ color: TEXT_PRIMARY }}>
+            Sélectionnez une école pour configurer les paiements
+          </h3>
+          <p className="text-[13px] max-w-md mx-auto" style={{ color: TEXT_MUTED_LUXE }}>
+            Vue plateforme active (données globales). Les passerelles de paiement
+            (Flutterwave, Orange Money, Bictorys, M-Pesa…) et les frais scolaires
+            se configurent école par école — choisissez une école dans la barre latérale.
+          </p>
+        </div>
+      )}
+
+      {/* Onglets + contenus : uniquement lorsqu'une école est active */}
+      {getActiveSchoolId() && (<>
       {/* Tabs */}
       <div className="flex gap-1 border-b">
         <button
@@ -5555,6 +5579,7 @@ function PaymentConfigView() {
           )}
         </div>
       )}
+      </>)}
 
       {/* Gateway Configuration Modal */}
       {showGatewayModal && (

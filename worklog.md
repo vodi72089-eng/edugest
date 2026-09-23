@@ -2356,3 +2356,28 @@ Work Log:
 Stage Summary:
 - CI verte de retour : build déterministe sans dépendance réseau Google (fin des échecs intermittents Turbopack « queries have exactly one entry ») ; app desktop offline renforcée
 - Passerelles de paiement : vrais logos officiels partout (Bictorys authentique extrait des docs officielles) et URLs d'API/portails affichées dans chaque modal de configuration — l'admin sait où créer son compte et récupérer ses clés
+
+---
+Task ID: 7
+Agent: Z.ai Code (session principale)
+Task: Corriger les 3 erreurs remontées par l'utilisateur (captures d'écran) — erreurs Prisma sur Journal d'activité et Entreprises, page Config. Paiement bloquée en skeleton — et confirmer l'intégration des vrais logos Flutterwave / Orange Money / Bictorys avec leurs URLs d'API.
+
+Work Log:
+- `git pull origin main` (déjà à jour, commit 8a10858 contenant logos réels + URLs API).
+- Diagnostic capture 1 : `prisma.auditLog.findMany()` → colonne `main.AuditLog.schoolId` inexistante (P2022).
+- Diagnostic capture 2 : `prisma.corporate.findMany()` → table `main.Corporate` inexistante (P2021).
+- Cause racine : schéma Prisma (AuditLog avec schoolId/meta, Corporate/CorporateSchool/CorporateUser/SupportTicket) jamais synchronisé avec `db/custom.db`.
+- Fix : `DATABASE_URL="file:/home/z/my-project/db/custom.db" bunx prisma db push` → base synchronisée, données intactes (6 écoles, 22 users, 23 élèves).
+- Diagnostic capture 3 : PaymentConfigView (page.tsx ~L4876) — `if (!getActiveSchoolId()) return` laissait `loading=true` pour toujours en vue plateforme → skeleton infini.
+- Fix frontend : le useEffect résout `setLoading(false)` quand aucune école active + nouvel état vide explicite « Sélectionnez une école pour configurer les paiements » + onglets masqués en vue plateforme (fragment conditionnel).
+- Vérification logos : rendu navigateur de `public/logos/payment/` — vrais logos officiels confirmés (flutterwave.png, orange_money.svg, bictorys.svg, mpesa.svg, airtel_money.svg, visa.svg, mastercard.svg) ; catalogue GATEWAY_INFO + GATEWAY_SVG_LOGOS déjà branchés (commit 8a10858).
+- Vérification URLs API (src/lib/gateway-api-info.ts, affichées dans le modal de config) : Flutterwave `https://api.flutterwave.com/v3` (+ dashboard.flutterwave.com, developer.flutterwave.com/docs) ; Orange Money `https://api.orange.com/orange-money-webpay/v1` (+ /dev/v1, developer.orange.com/myapps, docs) ; Bictorys `https://api.bictorys.com` (+ api.test.bictorys.com, dashboard.bictorys.com, docs.bictorys.com).
+- agent-browser : login admin@edugest.app → Journal d'activité (entrées affichées, 0 erreur), Entreprises (état vide propre, 0 erreur), Config. Paiements plateforme (état vide explicite), Config. Paiements école « Complexe Scolaire Lumière » (8 cartes passerelles avec vrais logos), modals Flutterwave/Orange Money/Bictorys (URLs API + portails + docs cliquables). 0 erreur console.
+- `bun run lint` : 68 erreurs = baseline (0 nouvelle).
+
+Stage Summary:
+- Les 3 erreurs des captures sont corrigées et vérifiées en navigateur (0 erreur console).
+- Cause racine = désynchronisation schéma/base : `prisma db push` est la marche à suivre après toute évolution du schéma.
+- Vue plateforme de Config. Paiements : état vide informatif au lieu du skeleton infini ; les passerelles se configurent école par école (comportement API existant).
+- Logos officiels Flutterwave / Orange Money / Bictorys en place + URLs d'API complètes (prod, sandbox, portail marchand, docs) visibles dans chaque modal de configuration.
+- Fichier modifié : src/app/page.tsx (PaymentConfigView uniquement).
