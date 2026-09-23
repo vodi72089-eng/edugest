@@ -1,26 +1,45 @@
 {
   "mcpServers": {
-    "playwright": {
-      "command": "npx",
-      "args": ["@playwright/mcp@latest"],
-      "env": {}
+    "afrotools": {
+      "type": "http",
+      "url": "https://mcp.afro.tools"
     },
     "memory-bank": {
+      "command": "memory-bank-mcp",
+      "args": ["serve", "--path", "/home/z/my-project"]
+    },
+    "firecrawl": {
       "command": "npx",
-      "args": ["memory-bank-mcp", "serve", "--path", "."]
+      "args": ["-y", "firecrawl-mcp"],
+      "env": {
+        "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}"
+      }
+    },
+    "task-master": {
+      "command": "npx",
+      "args": ["-y", "--package=task-master-ai", "task-master-ai"]
+    },
+    "playwright": {
+      "command": "playwright-mcp",
+      "args": [],
+      "env": {}
+    },
+    "shadcn": {
+      "command": "shadcn",
+      "args": ["mcp"]
     },
     "semgrep": {
-      "command": "/home/z/.semgrep-mcp-venv/bin/semgrep-mcp",
-      "args": ["--directory", "/home/z/my-project"]
+      "type": "stdio",
+      "command": "/home/z/.local/bin/semgrep-mcp",
+      "args": [],
+      "env": {
+        "PATH": "/home/z/.local/bin:/usr/local/bin:/usr/bin:/bin"
+      }
     },
-    "codev": {
-      "command": "/home/z/.npm-global/bin/codevhub",
-      "args": ["serve"]
-    },
-    "hexstrike": {
-      "command": "/home/z/.venv/bin/python3",
-      "args": ["/home/z/hexstrike-ai/hexstrike_mcp.py", "--server-url", "http://127.0.0.1:8888"],
-      "env": {}
+    "codegraph": {
+      "type": "stdio",
+      "command": "codegraph",
+      "args": ["serve", "--mcp"]
     }
   }
 }

@@ -286,7 +286,7 @@ function Footer() {
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Contact</h4>
           <ul className="space-y-3 text-sm text-white/50">
-            <li>support@edugest.app</li><li>+243 81 234 56 78</li><li>Kinshasa · Dakar · Abidjan</li>
+            <li>support@edugest.app</li><li>+243 81 234 56 78</li>
           </ul>
         </div>
       </div>
@@ -654,13 +654,18 @@ function HomeView() {
           {/* Stats cards with tilt */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-3xl px-4 relative z-20">
             {[
-              { value: platformStats.schools, suffix: '', label: 'Établissements', glow: 'oklch(72% 0.15 65 / 0.3)', icon: '🏫' },
-              { value: platformStats.families, suffix: '', label: 'Familles', glow: 'oklch(72% 0.22 165 / 0.3)', icon: '👨‍👩‍👧‍👦' },
-              { value: platformStats.students, suffix: '', label: 'Élèves', glow: 'oklch(72% 0.15 210 / 0.3)', icon: '🎓' },
+              { value: platformStats.schools, suffix: '', label: 'Établissements', glow: 'oklch(72% 0.15 65 / 0.3)', tint: 'oklch(72% 0.15 65 / 0.13)', hue: '#f5a623', icon: School },
+              { value: platformStats.families, suffix: '', label: 'Familles', glow: 'oklch(72% 0.22 165 / 0.3)', tint: 'oklch(72% 0.22 165 / 0.13)', hue: '#34d399', icon: UsersRound },
+              { value: platformStats.students, suffix: '', label: 'Élèves', glow: 'oklch(72% 0.15 210 / 0.3)', tint: 'oklch(72% 0.15 210 / 0.13)', hue: '#38bdf8', icon: GraduationCap },
             ].map((stat) => (
               <GlowCard key={stat.label} glowColor={stat.glow}>
                 <div className="p-6 flex flex-col items-center justify-center group cursor-default">
-                  <span className="text-2xl mb-2">{stat.icon}</span>
+                  <span
+                    className="w-12 h-12 mb-3 rounded-2xl flex items-center justify-center border border-white/10 group-hover:scale-110 group-hover:border-[#f5a623]/50 group-hover:shadow-[0_0_20px_rgba(245,166,35,0.25)] transition-all duration-500"
+                    style={{ background: stat.tint }}
+                  >
+                    <stat.icon size={24} strokeWidth={1.8} className="group-hover:text-[#f5a623] transition-colors duration-500" style={{ color: stat.hue }} aria-hidden="true" />
+                  </span>
                   <span className="text-3xl font-black text-white tracking-tighter mb-1.5 group-hover:text-[#f5a623] transition-colors duration-500">
                     <AnimatedCounter target={stat.value} suffix={stat.suffix} duration={2.5} />
                   </span>
@@ -2111,7 +2116,7 @@ function LoginView() {
 
       {/* Footer — collé au bas de la page (mt-auto), respecte la zone sûre iOS */}
       <footer className="relative z-20 mt-auto w-full text-center text-[13px] text-white/30 py-5" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
-        © 2026 EduGest · Kinshasa · Dakar · Abidjan
+        © 2026 EduGest
       </footer>
 
       {/* WhatsApp Login Modal */}
