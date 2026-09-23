@@ -2231,3 +2231,20 @@ Work Log:
 
 Stage Summary:
 - Section stats : icônes plus élégantes + badges aérés (background ne touche plus le logo), desktop et mobile validés
+
+---
+Task ID: 7
+Agent: Main Agent (Z.ai Code)
+Task: Corriger « Erreur réseau pendant l'import » de base de données + import de plusieurs bases + nouveau logo du modal
+
+Work Log:
+- Diagnostic : dev.log → POST /api/school/import-db 200 en 15,5 s (compile à froid 15,1 s) — le proxy/client coupe la connexion avant la réponse → catch « Erreur réseau »
+- API import-db : pré-chargement anti-N+1 (1 requête/table au lieu d'1/ligne : students, users par téléphone, classes, subjects, grades, fees) ; fix Prisma `phone: { not: null }` invalide (champ non nullable)
+- Anti-doublons serveur : réimport/réessai sûr — élève déjà présent (même matricule+nom, ou prénom+nom+classe sans matricule) → mappé et compté dans summary.duplicates ; collision de matricule avec un nom différent → régénération conservée ; notes/frais dédupliqués par clé
+- Client ImportDbModal : pré-compile de la route au montage (HEAD silencieux), AbortController 5 min, res.json() protégé, messages d'erreur explicites (« Connexion interrompue… réessayez : les doublons sont ignorés »), encadré « plusieurs bases », résumé enrichi (parents, frais, doublons)
+- Bouton « Importer une autre base » après succès (reset du modal) ; nouveau composant ImportDbLogo (badge dégradé or + DatabaseZap + pastille Upload) remplaçant l'icône Database plate
+- Accès permanent : carte « Base de données de l'école » dans Paramètres (SCHOOL_ADMIN) → événement global 'edugest:open-import-db' écouté par DashboardLayout → rouvre le modal à tout moment
+- Tests : curl ×2 (import 3 élèves/2 classes/2 notes… puis réessai 0 créé + 8 doublons ignorés, 0 doublon réel en base) ; navigateur : login admin@lumiere.cd → modal auto (nouveau logo) → upload réel → succès + « 8 doublons ignorés » → « Importer une autre base » → Paramètres → carte → réouverture modal OK ; 0 erreur console ; lint 68 = baseline
+
+Stage Summary:
+- Import DB fiable : rapide (anti-N+1), réessayable sans doublon, messages clairs ; plusieurs bases importables à tout moment (modal réutilisable + carte Paramètres) ; nouveau logo du modal

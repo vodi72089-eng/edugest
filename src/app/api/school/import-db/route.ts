@@ -148,9 +148,25 @@ export async function POST(request: NextRequest) {
 
     const summary = {
       schoolYears: 0, classes: 0, subjects: 0, teachers: 0, students: 0,
-      parents: 0, grades: 0, schoolFees: 0, skipped: 0,
+      parents: 0, grades: 0, schoolFees: 0, duplicates: 0, skipped: 0,
       errors: [] as string[],
     };
+
+    // ── Pré-chargement (anti N+1) ──────────────────────────────────────
+    // 1 requête par table au lieu d'1 requête par ligne : l'import reste
+    // rapide même avec des milliers de lignes, ce qui évite les coupures
+    // réseau côté client (timeout proxy) observées sur les gros fichiers.
+    const [existingStudents, existingUsers, existingClasses, existingSubjects] = await Promise.all([
+      db.student.findMany({ where: { schoolId, isArchived: false }, select: { id: true, matricule: true, firstName: true, lastName: true, classId: true } }),
+      db.user.findMany({ select: { id: true, phone: true, role: true } }),
+      db.class.findMany({ where: { schoolId }, select: { id: true, name: true, schoolYearId: true } }),
+      db.subject.findMany({ where: { schoolId }, select: { id: true, name: true, schoolYearId: true } }),
+    ]);
+    const studentByMatricule = new Map(existingStudents.map(s => [s.matricule, s]));
+    const studentByNameClass = new Map(existingStudents.map(s => [`${s.firstName.trim().toLowerCase()}|${s.lastName.trim().toLowerCase()}|${s.classId}`, s.id]));
+    const userByPhone = new Map(existingUsers.filter(u => u.phone).map(u => [u.phone as string, u]));
+    const classByKey = new Map(existingClasses.map(c => [`${c.name}|${c.schoolYearId}`, c.id]));
+    const subjectByKey = new Map(existingSubjects.map(s => [`${s.name}|${s.schoolYearId}`, s.id]));
 
     // ════════════════════════════════════════════════════════════════
     //  1) ANNÉES SCOLAIRES (mapping par label)
@@ -212,9 +228,10 @@ export async function POST(request: NextRequest) {
         const name = String(r.name || '').trim();
         if (!name) { summary.skipped++; continue; }
         const targetYearId = yearMap.get(String(r.schoolYearId)) || defaultYearId;
-        let target = await db.class.findFirst({ where: { name, schoolYearId: targetYearId, schoolId }, select: { id: true } });
-        if (!target) {
-          target = await db.class.create({
+        const classKey = `${name}|${targetYearId}`;
+        let targetId = classByKey.get(classKey) || null;
+        if (!targetId) {
+          const created = await db.class.create({
             data: {
               name,
               schoolId,
@@ -225,9 +242,11 @@ export async function POST(request: NextRequest) {
             },
             select: { id: true },
           });
+          targetId = created.id;
+          classByKey.set(classKey, targetId);
           summary.classes++;
         }
-        classMap.set(String(r.id), target.id);
+        classMap.set(String(r.id), targetId);
       }
     }
 
@@ -240,19 +259,18 @@ export async function POST(request: NextRequest) {
       const rows = source.prepare('SELECT * FROM Subject').all() as SqliteRow[];
       // NOTE : la contrainte d'unicité Prisma est (name, schoolYearId) — une
       // matière existe donc une fois par année scolaire, toutes classes confondues.
-      const seen = new Set<string>(); // clés "name|yearId" déjà traitées dans ce fichier
+      // Les lignes suivantes (autres classes) sont mappées sur la même cible :
+      // leurs notes restent ainsi rattachées au lieu d'être perdues.
       for (const r of rows) {
         const name = String(r.name || '').trim();
         const targetClassId = classMap.get(String(r.classId));
         if (!name || !targetClassId) { summary.skipped++; continue; }
         const targetYearId = yearMap.get(String(r.schoolYearId)) || defaultYearId;
         const key = `${name}|${targetYearId}`;
-        if (seen.has(key)) { summary.skipped++; continue; }
-        seen.add(key);
-        let target = await db.subject.findFirst({ where: { name, schoolYearId: targetYearId, schoolId }, select: { id: true } });
-        if (!target) {
+        let targetId = subjectByKey.get(key) || null;
+        if (!targetId) {
           try {
-            target = await db.subject.create({
+            const created = await db.subject.create({
               data: {
                 name,
                 schoolId,
@@ -263,14 +281,18 @@ export async function POST(request: NextRequest) {
               },
               select: { id: true },
             });
+            targetId = created.id;
+            subjectByKey.set(key, targetId);
             summary.subjects++;
           } catch {
             // Course concurrente ou contrainte : retenter la recherche
-            target = await db.subject.findFirst({ where: { name, schoolYearId: targetYearId, schoolId }, select: { id: true } });
-            if (!target) { summary.skipped++; continue; }
+            targetId = subjectByKey.get(key) || null;
+            if (!targetId) { summary.skipped++; continue; }
           }
+        } else {
+          summary.duplicates++;
         }
-        subjectMap.set(String(r.id), target.id);
+        subjectMap.set(String(r.id), targetId);
       }
     }
 
@@ -288,7 +310,7 @@ export async function POST(request: NextRequest) {
         const phone = r.phone ? String(r.phone).trim() : '';
         const name = r.name ? String(r.name).trim() : '';
         if (!phone || !name) { summary.skipped++; continue; }
-        const existing = await db.user.findUnique({ where: { phone } });
+        const existing = userByPhone.get(phone);
         if (existing) {
           teacherMap.set(String(r.id), existing.id);
           continue;
@@ -307,6 +329,7 @@ export async function POST(request: NextRequest) {
             },
             select: { id: true },
           });
+          userByPhone.set(phone, { id: created.id, role: created.role ?? 'TEACHER' } as never);
           teacherMap.set(String(r.id), created.id);
           summary.teachers++;
         } catch { summary.skipped++; }
@@ -349,22 +372,39 @@ export async function POST(request: NextRequest) {
         const targetClassId = classMap.get(String(r.classId));
         if (!firstName || !lastName || !targetClassId) { summary.skipped++; continue; }
 
+        // ── Anti-doublon : reprise après coupure réseau / réimport sans dupliquer ──
+        const sourceMatricule = r.matricule ? String(r.matricule).trim() : '';
+        const dedupKey = `${firstName.toLowerCase()}|${lastName.toLowerCase()}|${targetClassId}`;
+        const existingByMat = sourceMatricule ? studentByMatricule.get(sourceMatricule) : undefined;
+        const sameStudent = !!existingByMat
+          && existingByMat.firstName.trim().toLowerCase() === firstName.toLowerCase()
+          && existingByMat.lastName.trim().toLowerCase() === lastName.toLowerCase();
+
+        let targetStudentId: string | null = null;
+        let matricule = sourceMatricule;
+
+        if (sameStudent) {
+          // Déjà importé (même matricule + même nom) → on mappe sans recréer
+          targetStudentId = existingByMat!.id;
+        } else if (!sourceMatricule && studentByNameClass.has(dedupKey)) {
+          // Sans matricule : même prénom/nom/classe → déjà présent
+          targetStudentId = studentByNameClass.get(dedupKey)!;
+        } else if (existingByMat && !sameStudent) {
+          // Matricule pris par un AUTRE élève → régénération (comportement historique)
+          matricule = `${school.shortName}-IMP-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+        }
+
+        if (targetStudentId) {
+          summary.duplicates++;
+          studentMap.set(String(r.id), targetStudentId);
+          continue;
+        }
+
         // Quota forfait : au-delà de la limite, l'élève est ignoré
         if (studentSlots <= 0) {
           summary.skipped++;
           if (summary.errors.length < 5) summary.errors.push(`Élève ${firstName} ${lastName} ignoré : quota du forfait atteint (${tierLimits.maxStudents} élèves max).`);
           continue;
-        }
-
-        // Matricule unique (collision → régénération)
-        let matricule = r.matricule ? String(r.matricule) : '';
-        if (matricule) {
-          const exists = await db.student.findUnique({ where: { matricule }, select: { id: true } });
-          if (exists) {
-            matricule = `${school.shortName}-IMP-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
-          }
-        } else {
-          matricule = `${school.shortName}-IMP-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
         }
 
         // Compte parent : recréé si besoin (les parents ne sont généralement pas connectés)
@@ -373,10 +413,10 @@ export async function POST(request: NextRequest) {
         if (srcParentId && parentCache.has(srcParentId)) {
           const p = parentCache.get(srcParentId)!;
           if (p.phone) {
-            const existingParent = await db.user.findUnique({ where: { phone: p.phone } });
+            const existingParent = userByPhone.get(p.phone);
             if (existingParent && existingParent.role === 'PARENT') {
               targetParentId = existingParent.id;
-            } else {
+            } else if (!existingParent) {
               try {
                 const createdParent = await db.user.create({
                   data: {
@@ -390,6 +430,7 @@ export async function POST(request: NextRequest) {
                   },
                   select: { id: true },
                 });
+                userByPhone.set(p.phone, { id: createdParent.id, role: 'PARENT' } as never);
                 targetParentId = createdParent.id;
                 summary.parents++;
               } catch { /* parent ignoré */ }
@@ -397,6 +438,9 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        if (!matricule) {
+          matricule = `${school.shortName}-IMP-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+        }
         try {
           const created = await db.student.create({
             data: {
@@ -414,6 +458,8 @@ export async function POST(request: NextRequest) {
             },
             select: { id: true },
           });
+          studentByMatricule.set(matricule, { id: created.id, matricule, firstName, lastName, classId: targetClassId });
+          studentByNameClass.set(dedupKey, created.id);
           studentMap.set(String(r.id), created.id);
           summary.students++;
           studentSlots--;
@@ -425,8 +471,13 @@ export async function POST(request: NextRequest) {
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  6) NOTES
+    //  6) NOTES (anti-doublon par clé élève|matière|trimestre|année)
     // ════════════════════════════════════════════════════════════════
+    const gradeTargets = [...new Set(studentMap.values())];
+    const existingGrades = gradeTargets.length
+      ? await db.grade.findMany({ where: { studentId: { in: gradeTargets } }, select: { studentId: true, subjectId: true, trimester: true, schoolYearId: true } })
+      : [];
+    const gradeKeys = new Set(existingGrades.map(g => `${g.studentId}|${g.subjectId}|${g.trimester}|${g.schoolYearId}`));
     if (hasTable('Grade')) {
       const rows = source.prepare('SELECT * FROM Grade').all() as SqliteRow[];
       for (const r of rows) {
@@ -436,22 +487,22 @@ export async function POST(request: NextRequest) {
         if (!targetStudentId || !targetSubjectId || !targetClassId || r.score === null || r.score === undefined) { summary.skipped++; continue; }
         const trimester = String(r.trimester || 'T1');
         const targetYearId = yearMap.get(String(r.schoolYearId)) || defaultYearId;
+        const gradeKey = `${targetStudentId}|${targetSubjectId}|${trimester}|${targetYearId}`;
+        if (gradeKeys.has(gradeKey)) { summary.duplicates++; continue; }
         try {
-          const dup = await db.grade.findFirst({ where: { studentId: targetStudentId, subjectId: targetSubjectId, trimester, schoolYearId: targetYearId }, select: { id: true } });
-          if (!dup) {
-            await db.grade.create({
-              data: {
-                studentId: targetStudentId,
-                subjectId: targetSubjectId,
-                classId: targetClassId,
-                trimester,
-                score: Number(r.score),
-                comment: r.comment ? String(r.comment) : null,
-                schoolYearId: targetYearId,
-              },
-            });
-            summary.grades++;
-          }
+          await db.grade.create({
+            data: {
+              studentId: targetStudentId,
+              subjectId: targetSubjectId,
+              classId: targetClassId,
+              trimester,
+              score: Number(r.score),
+              comment: r.comment ? String(r.comment) : null,
+              schoolYearId: targetYearId,
+            },
+          });
+          gradeKeys.add(gradeKey);
+          summary.grades++;
         } catch { summary.skipped++; }
       }
     }
@@ -462,26 +513,28 @@ export async function POST(request: NextRequest) {
     if (hasTable('SchoolFee')) {
       const cols = tableColumns('SchoolFee');
       const rows = source.prepare('SELECT * FROM SchoolFee').all() as SqliteRow[];
+      const existingFees = await db.schoolFee.findMany({ where: { schoolId }, select: { classId: true, trimester: true, name: true } });
+      const feeKeys = new Set(existingFees.map(f => `${f.classId}|${f.trimester}|${f.name}`));
       for (const r of rows) {
         const targetClassId = classMap.get(String(r.classId));
         const name = String(r.name || '').trim();
         if (!targetClassId || !name) { summary.skipped++; continue; }
         const trimester = String(r.trimester || 'T1');
+        const feeKey = `${targetClassId}|${trimester}|${name}`;
+        if (feeKeys.has(feeKey)) { summary.duplicates++; continue; }
         try {
-          const dup = await db.schoolFee.findFirst({ where: { classId: targetClassId, trimester, name }, select: { id: true } });
-          if (!dup) {
-            await db.schoolFee.create({
-              data: {
-                name,
-                amount: Number(r.amount || 0),
-                currency: cols.has('currency') && r.currency ? String(r.currency) : 'CDF',
-                trimester,
-                classId: targetClassId,
-                schoolId,
-              },
-            });
-            summary.schoolFees++;
-          }
+          await db.schoolFee.create({
+            data: {
+              name,
+              amount: Number(r.amount || 0),
+              currency: cols.has('currency') && r.currency ? String(r.currency) : 'CDF',
+              trimester,
+              classId: targetClassId,
+              schoolId,
+            },
+          });
+          feeKeys.add(feeKey);
+          summary.schoolFees++;
         } catch { summary.skipped++; }
       }
     }
@@ -505,7 +558,7 @@ export async function POST(request: NextRequest) {
           action: 'DATABASE_IMPORT',
           entityType: 'School',
           entityId: schoolId,
-          details: `Import de la base « ${file.name} » : ${summary.students} élèves, ${summary.classes} classes, ${summary.grades} notes`,
+          details: `Import de la base « ${file.name} » : ${summary.students} élèves, ${summary.classes} classes, ${summary.grades} notes, ${summary.duplicates} doublons ignorés`,
         },
       });
     } catch { /* audit non bloquant */ }
