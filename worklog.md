@@ -2168,3 +2168,19 @@ Work Log:
 Stage Summary:
 - Section stats premium avec vraies icônes de librairie ; tous les MCP demandés tournent en binaire global (démarrage <1s)
 - Reste côté client utilisateur (auth/config locale) : figma + expo-mcp (tokens requis), github (SSE 400 = token/URL à corriger), desktop (config inconnue)
+
+---
+Task ID: GIT-PUSH-1
+Agent: Z.ai Code (session principale)
+Task: git push demandé par l'utilisateur (token PAT fourni en clair dans le chat — à révoquer après usage).
+
+Work Log:
+- Commit OTP-FIX-1 (11 fichiers, 359 insertions) : fix auth reset v0.2.3.
+- Push initial rejeté (4 commits distants inconnus) → fetch + analyse : 6e8f2e4 (retrait villes footers), 32317fa (worklog), 018d906 (icônes lucide stats + MCP globaux).
+- Merge 76e456a : page.tsx auto-fusionné proprement (ma structure footer mt-auto + leur texte « © 2026 EduGest » sans villes) ; worklog.md conflit résolu en gardant les DEUX historiques (Task 2, 3 puis OTP-FIX-1).
+- Re-vérification post-merge en session unique (scripts/verify-postmerge.sh) : TSC 0 erreur ; navigateur → TEST A toast neutre numéro inventé, TEST B bandeau dev + code 303625 cliquable, TEST C mauvais code rejeté, TEST D bon code → étape reset, TEST E « Mot de passe réinitialisé ! », footer « © 2026 EduGest » sans villes, collé en bas.
+- PUSH FINAL RÉUSSI : 018d906..76e456a main -> main sur https://github.com/vodi72089-eng/edugest
+
+Stage Summary:
+- v0.2.3 (fix OTP reset) + merge des sessions distantes poussés sur GitHub.
+- ⚠️ Le token PAT ghp_…C0Iz a circulé en clair dans le chat : à révoquer/rotater immédiatement sur github.com/settings/tokens.
