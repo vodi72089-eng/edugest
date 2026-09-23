@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
 import { Toaster } from "sonner";
+import SecurityProtection from "@/components/SecurityProtection";
 
 // Polices AUTO-HÉBERGÉES (src/fonts/, sous-ensemble latin, fichiers variables).
 // Pourquoi ? `next/font/google` télécharge les fontes depuis fonts.googleapis.com
@@ -61,6 +62,7 @@ export default function RootLayout({
       <body
         className={`${jakarta.variable} ${jetbrainsMono.variable} ${playfairDisplay.variable} antialiased bg-background text-foreground`}
       >
+        <SecurityProtection />
         {children}
         <Toaster position="top-right" richColors />
       </body>

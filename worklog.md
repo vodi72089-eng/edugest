@@ -2381,3 +2381,19 @@ Stage Summary:
 - Vue plateforme de Config. Paiements : état vide informatif au lieu du skeleton infini ; les passerelles se configurent école par école (comportement API existant).
 - Logos officiels Flutterwave / Orange Money / Bictorys en place + URLs d'API complètes (prod, sandbox, portail marchand, docs) visibles dans chaque modal de configuration.
 - Fichier modifié : src/app/page.tsx (PaymentConfigView uniquement).
+
+---
+Task ID: notif-config-fix
+Agent: Main Agent (Z.ai Code)
+Task: Corriger le problème de configuration des notifications (push Web)
+
+Work Log:
+- Sandbox encore réinitialisé → restauration GitHub (2 nouveaux commits distants intégrés : polices auto-hébergées, sync prisma) + re-création immédiate de src/components/SecurityProtection.tsx (version corrigée Ctrl+U bloqué partout sauf contentEditable) + réintégration layout.tsx (n'était pas encore pushée)
+- Diagnostic : /api/push/vapid → 503 « Notifications push non configurées sur le serveur » car VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY absentes du .env → toast d'erreur au clic « Activer » du panneau notifications ; public/manifest.webmanifest inexistant (404 à chaque page, référencé par layout metadata) ; sw.js et icônes OK
+- Fix 1 : clés VAPID générées (web-push generate-vapid-keys) et ajoutées au .env (+ VAPID_SUBJECT) ; documentées dans .env.example avec consigne de régénération en prod
+- Fix 2 : public/manifest.webmanifest créé (PWA standalone, theme #0e7a70, id/start_url/scope, icônes 192/512 any + maskable) ; icônes carrées générées depuis edugest-logo-mark.png via sharp (public/icons/icon-192.png, icon-512.png)
+- Vérifications : /api/push/vapid → 200 {publicKey} ; manifest → 200 application/manifest+json ; sw.js → 200 ; icônes → 200 ; navigateur : manifest <link rel=manifest> présent, SW /sw.js actif, panneau notifications → clic « Activer » → AUCUN toast d'erreur serveur (permission 'denied' = artefact headless, état UI « autorisez-les dans les paramètres » correctement affiché) ; POST /api/push/subscribe corps vide → 400 (validation OK) ; protection Ctrl+U/F12/clic droit re-vérifiée bloquée ; eslint+tsc 0 erreur
+- Dev server relancé (bun install 1593 paquets, prisma db push, seed auto 21 users / 6 écoles)
+
+Stage Summary:
+- Notifications push pleinement configurées : clés VAPID serveur + manifest PWA + icônes carrées → l'utilisateur peut cliquer « Activer » sans erreur ; en prod : régénérer les clés VAPID + les mettre dans les variables d'environnement du serveur ; non pushé (attendre validation utilisateur)
