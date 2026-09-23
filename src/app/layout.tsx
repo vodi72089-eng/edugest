@@ -1,26 +1,44 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, JetBrains_Mono, Playfair_Display } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
 import { Toaster } from "sonner";
 
-const jakarta = Plus_Jakarta_Sans({
+// Polices AUTO-HÉBERGÉES (src/fonts/, sous-ensemble latin, fichiers variables).
+// Pourquoi ? `next/font/google` télécharge les fontes depuis fonts.googleapis.com
+// à CHAQUE build — et Turbopack échoue alors de façon intermittente en CI avec
+// « next/font/google queries have exactly one entry » (Google renvoie des URLs
+// `kit=` différentes entre deux fetch). L'auto-hébergement rend le build
+// déterministe, reproductible hors ligne (app desktop) et sans dépendance réseau.
+const jakarta = localFont({
+  src: "../fonts/PlusJakartaSans-latin-var.woff2",
   variable: "--font-jakarta",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
+  weight: "200 800",
+  display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const jetbrainsMono = localFont({
+  src: "../fonts/JetBrainsMono-latin-var.woff2",
   variable: "--font-jetbrains",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: "100 800",
+  display: "swap",
 });
 
-const playfairDisplay = Playfair_Display({
+const playfairDisplay = localFont({
+  src: [
+    {
+      path: "../fonts/PlayfairDisplay-latin-var.woff2",
+      style: "normal",
+      weight: "400 900",
+    },
+    {
+      path: "../fonts/PlayfairDisplay-latin-italic-var.woff2",
+      style: "italic",
+      weight: "400 900",
+    },
+  ],
   variable: "--font-playfair",
-  subsets: ["latin"],
-  style: ["italic", "normal"],
-  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {

@@ -2338,3 +2338,21 @@ Work Log:
 
 Stage Summary:
 - Système agentique complet : le propriétaire programme ses rapports (chaque jour à 8h, tous les N jours…), l'agent EduGest envoie tout seul texte WhatsApp + PDF détaillé au design de l'app ; PDF téléchargeable à la demande ; SCHOOL_ADMIN renommé « Propriétaire » partout où il était affiché brut
+
+---
+Task ID: 9
+Agent: Main Agent (Z.ai Code)
+Task: Corriger l'échec CI/Build GitHub Actions (« next/font/google queries have exactly one entry ») + vrais logos Flutterwave / Orange Money / Bictorys + affichage des URLs d'API officielles dans le modal de configuration
+
+Work Log:
+- Diagnostic CI : logs GitHub Actions (runs 59-62) → échec « Build Next.js » avec 18 erreurs Turbopack « next/font/google queries have exactly one entry » sur jetbrains_mono dans layout.tsx — Google renvoie des URLs `kit=` différentes entre deux fetch pendant le build, l'import map Turbopack n'a plus exactement une entrée ; typecheck et lint eux passaient (client Prisma régénéré, 57 modèles OK)
+- Fix racine : polices AUTO-HÉBERGÉES — woff2 variables (latin) téléchargés depuis fonts.gstatic.com → src/fonts/ (PlusJakartaSans 200-800, JetBrainsMono 100-800, PlayfairDisplay 400-900 + italic) ; layout.tsx passe de next/font/google à next/font/local, mêmes variables CSS (--font-jakarta/--font-jetbrains/--font-playfair) → build déterministe, plus aucun appel réseau Google (idéal app desktop offline)
+- Vérification : build Turbopack isolé (copie hardlink /tmp/buildcheck, dev server intact) → « ✓ Compiled successfully », 8 woff2 dans .next/static/media ; avant fix : 18 erreurs
+- Vrais logos : bictorys.svg remplaçé (l'ancien était un « b » dessiné à la main) par le logo officiel Bictorys extrait de leurs docs officielles (files.readme.io) — wordmark « Bictorys » + « o » multicolore (6 arcs) + point rose, variante sombre #0F172A pour fond clair ; + bictorys-mark.svg (rond multicolore seul) ; Flutterwave (wave + wordmark, transparent) et Orange Money (flèches noire/orange + wordmark) confirmés officiels (OM identique à Wikimedia 4832 o)
+- Placement : chips logo élargies — cartes passerelles w-10 h-10 → h-11 w-[72px] px-1.5 (logos larges illisibles en carré), en-tête modal w-8 h-8 → h-9 w-14 px-1, chip méthode sélectionnée OnlinePaymentView h-6 w-10 → h-7 w-12
+- URLs d'API : nouvelle constante GATEWAY_API_INFO dans src/lib/gateway-api-info.ts (fichier client-safe SANS @/lib/db — payment-gateway.ts réexporte pour le serveur) : apiBase production + sandbox (valeurs réelles du code d'initiation : api.flutterwave.com/v3, api.orange.com/orange-money-webpay/{dev/}v1 + oauth/v3/token, api[.test].bictorys.com, api.safaricom.co.ke, openapi.airtel.africa), portail marchand (dashboard.flutterwave.com, developer.orange.com/myapps, dashboard.bictorys.com, developer.safaricom.co.ke, developers.airtel.africa), docs + keysHint pas-à-pas ; bloc « API & identifiants — où les obtenir » (liens externes dorés + explication) inséré dans le modal de configuration de chaque passerelle
+- Tests navigateur (admin@lumiere.cd → Config. Paiements → Passerelles) : 8 cartes avec vrais logos nets (Visa, Mastercard, Flutterwave, Bictorys, M-Pesa, Orange Money, Airtel, Manuel) ; modals Bictorys/Orange Money/Flutterwave vérifiés un à un (logo en-tête + bloc API complet, liens cliquables) ; landing page OK avec polices locales (Playfair italic incluse) ; mobile 375px OK ; 0 erreur console ; tsc 0 erreur ; lint 68 = baseline (< 109 CI)
+
+Stage Summary:
+- CI verte de retour : build déterministe sans dépendance réseau Google (fin des échecs intermittents Turbopack « queries have exactly one entry ») ; app desktop offline renforcée
+- Passerelles de paiement : vrais logos officiels partout (Bictorys authentique extrait des docs officielles) et URLs d'API/portails affichées dans chaque modal de configuration — l'admin sait où créer son compte et récupérer ses clés

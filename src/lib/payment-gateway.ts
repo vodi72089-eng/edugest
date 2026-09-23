@@ -157,6 +157,11 @@ export const GATEWAY_INFO: Record<GatewayType, {
   },
 };
 
+// URLs d'API officielles : voir src/lib/gateway-api-info.ts (client-safe,
+// réexportées ici pour usage serveur éventuel).
+export { GATEWAY_API_INFO } from './gateway-api-info';
+
+
 /**
  * Initier un paiement via la passerelle configurée
  * @param configSchoolId Lire les identifiants depuis une autre école

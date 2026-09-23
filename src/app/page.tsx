@@ -9,6 +9,7 @@ import { resolveNotifView, notifSoundLevel } from '@/lib/notification-routing'
 import { viewToPath, pathToView } from '@/lib/view-paths'
 import { toast } from 'sonner'
 import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
+import { GATEWAY_API_INFO } from '@/lib/gateway-api-info'
 import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, DisciplineData, CommunicationData, HomeworkData } from '@/lib/types'
 import { ACCENT, ACCENT2, ACCENT_SOFT, SUCCESS, WARNING, DANGER, INFO, MUTED, BORDER, GOLD, GOLD_SOFT, GOLD_GLOW, DARK, DARK_ALT, IVORY, IVORY_WARM, TEXT_PRIMARY, TEXT_MUTED_LUXE, SUCCESS_SOFT, SUBSCRIPTION_TIERS, PROVINCES, FILTER_CHIPS, COVER_GRADIENTS, LOGO_COLORS, ENROLLMENT_DATA, SUBSCRIPTION_DATA } from '@/lib/constants'
 import { getInitials, formatDate, formatNumber, formatCurrency, getSchoolTypeLabel, getSubscriptionLabel, getSubscriptionPrice, getRoleLabel, getStatusPill, API_ROLE_MAP } from '@/lib/helpers'
@@ -5198,9 +5199,9 @@ function PaymentConfigView() {
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
                       {svgLogo ? (
-                        <img src={svgLogo} alt={gw.displayName} className="w-10 h-10 rounded-xl object-contain bg-white border border-[oklch(92%_0.005_250)] shrink-0" />
+                        <img src={svgLogo} alt={gw.displayName} className="h-11 w-[72px] px-1.5 rounded-xl object-contain bg-white border border-[oklch(92%_0.005_250)] shrink-0" />
                       ) : (
-                        <span className="text-2xl">{gw.icon}</span>
+                        <span className="w-[72px] h-11 grid place-items-center rounded-xl bg-white border border-[oklch(92%_0.005_250)] shrink-0"><span className="text-2xl">{gw.icon}</span></span>
                       )}
                       <div>
                         <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>{gw.displayName}</h3>
@@ -5562,7 +5563,7 @@ function PaymentConfigView() {
             <div className="px-6 py-4 border-b border-[oklch(90%_0.01_175)] flex items-center justify-between sticky top-0 bg-white rounded-t-2xl">
               <div className="flex items-center gap-3">
                 {GATEWAY_SVG_LOGOS[showGatewayModal] ? (
-                  <img src={GATEWAY_SVG_LOGOS[showGatewayModal]} alt="" className="w-8 h-8 rounded-lg object-contain bg-white border border-[oklch(92%_0.005_250)] shrink-0" />
+                  <img src={GATEWAY_SVG_LOGOS[showGatewayModal]} alt="" className="h-9 w-14 px-1 rounded-lg object-contain bg-white border border-[oklch(92%_0.005_250)] shrink-0" />
                 ) : null}
                 <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>
                   Configuration - {availableGateways.find((g: any) => g.gatewayType === showGatewayModal)?.displayName}
@@ -5630,6 +5631,55 @@ function PaymentConfigView() {
                   </div>
                 </>
               )}
+
+              {/* URLs d'API officielles + portail où récupérer les clés */}
+              {(() => {
+                const apiInfo = GATEWAY_API_INFO[showGatewayModal]
+                if (!apiInfo || (!apiInfo.apiBase && !apiInfo.dashboardUrl && !apiInfo.keysHint)) return null
+                return (
+                  <div className="rounded-xl border border-[oklch(90%_0.01_175)] bg-[oklch(98%_0.005_250)] p-4 space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <Globe size={14} style={{ color: GOLD }} />
+                      <span className="text-[12px] font-bold" style={{ color: TEXT_PRIMARY }}>API &amp; identifiants — où les obtenir</span>
+                    </div>
+                    {apiInfo.apiBase && (
+                      <div className="flex items-center justify-between gap-2 text-[12px]">
+                        <span className="shrink-0" style={{ color: TEXT_MUTED_LUXE }}>API (production) :</span>
+                        <a href={apiInfo.apiBase} target="_blank" rel="noopener noreferrer" className="font-mono text-[11px] font-semibold flex items-center gap-1 hover:underline" style={{ color: GOLD }}>
+                          {apiInfo.apiBase}<ExternalLink size={11} />
+                        </a>
+                      </div>
+                    )}
+                    {apiInfo.sandboxBase && (
+                      <div className="flex items-center justify-between gap-2 text-[12px]">
+                        <span className="shrink-0" style={{ color: TEXT_MUTED_LUXE }}>API (mode test) :</span>
+                        <a href={apiInfo.sandboxBase} target="_blank" rel="noopener noreferrer" className="font-mono text-[11px] font-semibold flex items-center gap-1 hover:underline" style={{ color: GOLD }}>
+                          {apiInfo.sandboxBase}<ExternalLink size={11} />
+                        </a>
+                      </div>
+                    )}
+                    {apiInfo.dashboardUrl && (
+                      <div className="flex items-center justify-between gap-2 text-[12px]">
+                        <span className="shrink-0" style={{ color: TEXT_MUTED_LUXE }}>Portail marchand :</span>
+                        <a href={apiInfo.dashboardUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-[11px] font-semibold flex items-center gap-1 hover:underline" style={{ color: GOLD }}>
+                          {apiInfo.dashboardUrl.replace('https://', '')}<ExternalLink size={11} />
+                        </a>
+                      </div>
+                    )}
+                    {apiInfo.docsUrl && (
+                      <div className="flex items-center justify-between gap-2 text-[12px]">
+                        <span className="shrink-0" style={{ color: TEXT_MUTED_LUXE }}>Documentation :</span>
+                        <a href={apiInfo.docsUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-[11px] font-semibold flex items-center gap-1 hover:underline" style={{ color: GOLD }}>
+                          {apiInfo.docsUrl.replace('https://', '')}<ExternalLink size={11} />
+                        </a>
+                      </div>
+                    )}
+                    {apiInfo.keysHint && (
+                      <p className="text-[11px] leading-relaxed pt-1 border-t border-[oklch(92%_0.005_250)]" style={{ color: TEXT_MUTED_LUXE }}>{apiInfo.keysHint}</p>
+                    )}
+                  </div>
+                )
+              })()}
 
               <div className="pt-2 flex gap-3">
                 <button onClick={saveGatewayConfig} disabled={saving} className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition edu-gold-cta disabled:opacity-50">

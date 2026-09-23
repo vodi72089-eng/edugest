@@ -657,7 +657,7 @@ export default function OnlinePaymentView() {
                   const info = methodLabels[key]
                   return (
                     <div key={key} className="flex items-center gap-2.5 p-2 rounded-lg" style={{ background: paymentMethod === key ? 'oklch(97% 0.005 175)' : 'transparent' }}>
-                      <img src={info.svg} alt={info.label} className="h-6 w-10 rounded-md object-contain shrink-0 bg-white border border-[oklch(90%_0.01_175)] p-0.5" />
+                      <img src={info.svg} alt={info.label} className="h-7 w-12 rounded-md object-contain shrink-0 bg-white border border-[oklch(90%_0.01_175)] p-0.5" />
                       <span className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{info.label}</span>
                     </div>
                   )
