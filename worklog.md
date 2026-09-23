@@ -2184,3 +2184,17 @@ Work Log:
 Stage Summary:
 - v0.2.3 (fix OTP reset) + merge des sessions distantes poussés sur GitHub.
 - ⚠️ Le token PAT ghp_…C0Iz a circulé en clair dans le chat : à révoquer/rotater immédiatement sur github.com/settings/tokens.
+
+---
+Task ID: 4
+Agent: Main Agent (Z.ai Code)
+Task: Ajouter et utiliser le composant Skiper UI (npx shadcn add @skiper-ui/skiper40) dans la landing
+
+Work Log:
+- git pull (déjà à jour) ; npx shadcn@latest add @skiper-ui/skiper40 → src/components/ui/skiper-ui/skiper40.tsx (liens animés inspirés cursor.com : souligné balayant, flèche ↗, mix-blend)
+- skiper40.tsx : props onClick ajoutées à Link000 (next/link) et Link001 (a) + target intelligent (mailto sans _blank) — licence Skiper autorise la modification
+- page.tsx Footer : colonne Produit (Trouver une école, Tarifs, Connexion) et email support@edugest.app convertis en Link000/Link001 — souligné balayant or au hover, navigation SPA conservée via onClick+preventDefault
+- Tests navigateur : liens rendus en <a> réels, clic « Tarifs » → vue pricing OK, hover ok, 0 erreur console ; lint 68 = baseline inchangée
+
+Stage Summary:
+- Composant Skiper40 intégré au footer (premier composant Skiper UI du projet, extensible via npx shadcn add @skiper-ui/skiperXX)
