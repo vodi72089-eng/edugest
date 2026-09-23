@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Connexion — EduGest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:oklch(98% 0.003 220);
+  --surface:oklch(100% 0 0);
+  --fg:oklch(20% 0.02 250);
+  --muted:oklch(52% 0.015 250);
+  --border:oklch(92% 0.005 250);
+  --accent:oklch(55% 0.15 175);
+  --accent-soft:oklch(95% 0.04 175);
+  --success:oklch(60% 0.15 145);
+  --shadow-sm:0 1px 2px rgba(15,23,42,.04);
+  --shadow:0 4px 16px -4px rgba(15,23,42,.08);
+  --shadow-lg:0 24px 48px -16px rgba(15,23,42,.18);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font:15px/1.5 'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+input{font:inherit;color:inherit}
+
+.page{
+  min-height:100vh;
+  display:grid;grid-template-columns:1fr 1fr;
+}
+.brand-side{
+  background:linear-gradient(160deg,oklch(50% 0.13 175) 0%,oklch(35% 0.12 220) 100%);
+  color:#fff;padding:48px;
+  position:relative;overflow:hidden;
+  display:flex;flex-direction:column;justify-content:space-between;
+}
+.brand-side::before{
+  content:"";position:absolute;inset:0;
+  background-image:
+    radial-gradient(oklch(100% 0 0 / .08) 1px,transparent 1px);
+  background-size:32px 32px;
+  pointer-events:none;
+}
+.brand-side::after{
+  content:"";position:absolute;
+  width:480px;height:480px;border-radius:50%;
+  background:radial-gradient(oklch(75% 0.1 175 / .25),transparent 70%);
+  top:-100px;right:-100px;
+  pointer-events:none;
+}
+.brand-head{position:relative;display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}
+.brand-mark{
+  width:36px;height:36px;border-radius:9px;
+  background:rgba(255,255,255,.15);
+  border:1px solid rgba(255,255,255,.2);
+  display:grid;place-items:center;font-weight:800;font-size:16px;
+  backdrop-filter:blur(8px);
+}
+.brand-body{position:relative;max-width:460px}
+.brand-body h2{font-size:34px;font-weight:800;letter-spacing:-0.02em;line-height:1.15;margin-bottom:14px}
+.brand-body p{font-size:16px;opacity:.85;line-height:1.6}
+.brand-foot{position:relative;font-size:13px;opacity:.7}
+
+.form-side{
+  display:flex;align-items:center;justify-content:center;padding:48px;
+  background:var(--bg);
+}
+.form-wrap{width:100%;max-width:400px}
+.form-back{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:13px;color:var(--muted);
+  margin-bottom:24px;
+}
+.form-back:hover{color:var(--fg)}
+
+.form-head{margin-bottom:24px}
+.form-head h1{font-size:28px;font-weight:700;letter-spacing:-0.02em;margin-bottom:6px}
+.form-head p{color:var(--muted);font-size:14px}
+
+.tabs{
+  display:flex;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:11px;
+  padding:4px;
+  margin-bottom:24px;
+}
+.tab{
+  flex:1;padding:10px;border-radius:8px;
+  font-size:14px;font-weight:500;color:var(--muted);
+  text-align:center;transition:all .15s;
+}
+.tab:hover{color:var(--fg)}
+.tab.active{background:var(--accent);color:#fff;box-shadow:0 2px 8px oklch(55% 0.15 175 / .25)}
+
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.field label{font-size:13px;font-weight:500}
+.field input{
+  padding:11px 14px;
+  border:1px solid var(--border);
+  border-radius:9px;
+  font-size:14px;
+  background:var(--surface);
+  outline:0;
+  transition:border-color .15s,box-shadow .15s;
+}
+.field input:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px oklch(55% 0.15 175 / .12);
+}
+.field input::placeholder{color:oklch(70% 0.01 250)}
+.field-foot{display:flex;align-items:center;justify-content:space-between;font-size:13px}
+.field-foot a{color:var(--accent);font-weight:500}
+.field-foot a:hover{text-decoration:underline}
+.checkbox{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--muted)}
+.checkbox input{accent-color:var(--accent)}
+
+.btn{padding:11px 18px;border-radius:10px;font-weight:500;font-size:14px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid transparent;width:100%}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 2px 8px oklch(55% 0.15 175 / .25)}
+.btn-primary:hover{background:oklch(50% 0.15 175);transform:translateY(-1px);box-shadow:0 6px 16px oklch(55% 0.15 175 / .3)}
+.btn-wa{background:oklch(60% 0.15 145);color:#fff}
+.btn-wa:hover{background:oklch(55% 0.15 145)}
+
+.divider{
+  display:flex;align-items:center;gap:12px;
+  margin:20px 0;color:var(--muted);font-size:12px;
+  text-transform:uppercase;letter-spacing:.08em;
+}
+.divider::before,.divider::after{
+  content:"";flex:1;height:1px;background:var(--border);
+}
+
+.testimonial{
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:14px;
+  padding:18px;
+  margin-top:32px;
+  backdrop-filter:blur(8px);
+}
+.testimonial p{font-size:14px;line-height:1.55;margin-bottom:12px}
+.testimonial-foot{display:flex;align-items:center;gap:10px;font-size:12px;opacity:.85}
+.testimonial-avatar{
+  width:32px;height:32px;border-radius:50%;
+  background:linear-gradient(135deg,oklch(70% 0.15 65),oklch(55% 0.13 30));
+  display:grid;place-items:center;font-weight:600;font-size:12px;
+}
+
+.features{display:flex;flex-direction:column;gap:14px;margin-top:24px}
+.feature{display:flex;align-items:flex-start;gap:12px;color:#fff}
+.feature-icon{
+  width:32px;height:32px;border-radius:8px;
+  background:rgba(255,255,255,.12);
+  display:grid;place-items:center;flex-shrink:0;
+  border:1px solid rgba(255,255,255,.15);
+}
+.feature-text{font-size:13px;opacity:.9;line-height:1.5}
+.feature-text strong{display:block;font-weight:600;opacity:1;margin-bottom:1px}
+
+@media (max-width:880px){
+  .page{grid-template-columns:1fr}
+  .brand-side{display:none}
+  .form-side{padding:32px 24px}
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+  <aside class="brand-side">
+    <a class="brand-head" href="index.html">
+      <span class="brand-mark">E</span>
+      <span>EduGest</span>
+    </a>
+
+    <div class="brand-body">
+      <h2>Bienvenue sur la plateforme de gestion scolaire préférée en Afrique francophone.</h2>
+      <p>Notes, paiements, communications, bulletins — tout est centralisé pour vous faire gagner du temps.</p>
+
+      <div class="features">
+        <div class="feature">
+          <div class="feature-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+          </div>
+          <div class="feature-text"><strong>Multi-écoles</strong>Gérez plusieurs établissements depuis un seul compte</div>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+          </div>
+          <div class="feature-text"><strong>Notifications WhatsApp</strong>Alertes instantanées pour les parents</div>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <div class="feature-text"><strong>Paiement mobile</strong>Orange Money, M-Pesa, Airtel Money acceptés</div>
+        </div>
+      </div>
+
+      <div class="testimonial">
+        <p>« EduGest nous a fait gagner 12h par semaine sur la gestion des notes et paiements. Les parents adorent les notifications WhatsApp. »</p>
+        <div class="testimonial-foot">
+          <div class="testimonial-avatar">MK</div>
+          <div>Mme Kabongo · Directrice, Complexe Lumière</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="brand-foot">© 2026 EduGest · Kinshasa · Dakar · Abidjan</div>
+  </aside>
+
+  <main class="form-side">
+    <div class="form-wrap">
+      <a class="form-back" href="index.html">← Retour à l'accueil</a>
+
+      <div class="form-head">
+        <h1 id="formTitle">Connexion Parent</h1>
+        <p id="formSub">Accédez au suivi scolaire de vos enfants</p>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="parent" onclick="switchTab('parent')">Parent</button>
+        <button class="tab" data-tab="admin" onclick="switchTab('admin')">Administration</button>
+      </div>
+
+      <form onsubmit="event.preventDefault();login()">
+        <div class="field">
+          <label id="idLabel">Email ou numéro WhatsApp</label>
+          <input id="idInput" type="text" placeholder="ex. parent@email.com ou +243 81..." required>
+        </div>
+        <div class="field">
+          <label>Mot de passe</label>
+          <input type="password" placeholder="••••••••" required>
+        </div>
+        <div class="field-foot" style="margin-bottom:20px">
+          <label class="checkbox"><input type="checkbox"> Se souvenir de moi</label>
+          <a href="#">Mot de passe oublié ?</a>
+        </div>
+        <button type="submit" class="btn btn-primary">Se connecter</button>
+      </form>
+
+      <div class="divider">ou</div>
+
+      <button class="btn btn-wa" onclick="loginWa()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.7-.8-2-.9-.3-.1-.5-.1-.7.1-.2.3-.7.9-.9 1.1-.2.2-.3.2-.6.1-.3-.1-1.2-.5-2.3-1.4-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5-.1-.1-.7-1.6-.9-2.2-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3 4.8 4.2.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.5-.1 1.7-.7 1.9-1.4.2-.7.2-1.3.2-1.4-.1-.1-.3-.2-.6-.3zM12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.5 1.3 4.9L2 22l5.2-1.4c1.4.7 3 1.1 4.7 1.1 5.5 0 10-4.5 10-10S17.5 2 12 2zm0 18.1c-1.6 0-3.1-.4-4.4-1.2l-.3-.2-3.2.8.9-3.1-.2-.3C3.7 14.6 3.2 13.3 3.2 12 3.2 7.1 7.1 3.2 12 3.2s8.8 3.9 8.8 8.8c0 4.9-3.9 8.8-8.8 8.8z"/></svg>
+        Se connecter avec WhatsApp
+      </button>
+
+      <p style="text-align:center;font-size:13px;color:var(--muted);margin-top:24px">
+        Pas encore de compte ? <a href="14-pricing.html" style="color:var(--accent);font-weight:500">Découvrir les formules</a>
+      </p>
+    </div>
+  </main>
+</div>
+
+<script>
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelector(`[data-tab="${t}"]`).classList.add('active');
+  if(t==='parent'){
+    document.getElementById('formTitle').textContent='Connexion Parent';
+    document.getElementById('formSub').textContent='Accédez au suivi scolaire de vos enfants';
+    document.getElementById('idLabel').textContent='Email ou numéro WhatsApp';
+    document.getElementById('idInput').placeholder='ex. parent@email.com ou +243 81...';
+  } else {
+    document.getElementById('formTitle').textContent='Connexion Administration';
+    document.getElementById('formSub').textContent='Personnel de l\'école, direction, enseignants';
+    document.getElementById('idLabel').textContent='Email professionnel';
+    document.getElementById('idInput').placeholder='ex. direction@ecole.cd';
+  }
+}
+function login(){
+  const t=document.querySelector('.tab.active').dataset.tab;
+  if(t==='parent') location.href='11-parent-dashboard.html';
+  else location.href='06-secretary-dashboard.html';
+}
+function loginWa(){
+  const t=document.querySelector('.tab.active').dataset.tab;
+  if(t==='parent') location.href='11-parent-dashboard.html';
+  else location.href='04-super-admin-dashboard.html';
+}
+</script>
+</body>
+</html>

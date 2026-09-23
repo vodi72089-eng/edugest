@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ma classe — Complexe Lumière</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:oklch(98% 0.003 220);
+  --surface:oklch(100% 0 0);
+  --surface-2:oklch(96% 0.003 220);
+  --fg:oklch(20% 0.02 250);
+  --muted:oklch(52% 0.015 250);
+  --border:oklch(92% 0.005 250);
+  --accent:oklch(55% 0.15 175);
+  --accent-soft:oklch(95% 0.04 175);
+  --success:oklch(60% 0.15 145);
+  --warning:oklch(72% 0.15 65);
+  --danger:oklch(58% 0.20 25);
+  --info:oklch(60% 0.13 250);
+  --radius:12px;
+  --shadow:0 4px 16px -4px rgba(15,23,42,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font:14px/1.5 'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar-head{padding:18px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.brand-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,oklch(55% 0.15 175),oklch(45% 0.13 200));color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;box-shadow:0 2px 8px oklch(55% 0.15 175 / .25);flex-shrink:0}
+.brand-name{font-weight:700;font-size:15px}
+.brand-tag{font-size:11px;color:var(--muted);font-weight:500}
+.sidebar-school{padding:10px 16px;margin:8px 12px;background:var(--accent-soft);border-radius:8px;display:flex;align-items:center;gap:8px}
+.sidebar-school-logo{width:24px;height:24px;border-radius:5px;background:linear-gradient(135deg,oklch(55% 0.15 175),oklch(45% 0.13 200));color:#fff;font-weight:800;font-size:10px;display:grid;place-items:center;flex-shrink:0}
+.sidebar-school-name{font-size:12px;font-weight:600;line-height:1.2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-school-name small{display:block;font-size:10px;color:var(--muted);font-weight:500;margin-top:1px}
+.sidebar-section{padding:14px 20px 6px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.menu{display:flex;flex-direction:column;gap:2px;padding:0 12px}
+.menu-item{position:relative;display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--fg);transition:all .15s;cursor:pointer}
+.menu-item:hover{background:var(--surface-2)}
+.menu-item.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.menu-item.active::before{content:"";position:absolute;left:0;width:3px;height:20px;background:var(--accent);border-radius:0 2px 2px 0}
+.menu-item svg{width:16px;height:16px;flex-shrink:0;opacity:.7}
+.menu-item.active svg{opacity:1}
+.sidebar-foot{margin-top:auto;padding:12px;border-top:1px solid var(--border)}
+.profile-card{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:var(--surface-2)}
+.profile-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,oklch(72% 0.15 65),oklch(50% 0.16 30));display:grid;place-items:center;color:#fff;font-weight:600;font-size:13px;flex-shrink:0}
+.profile-name{font-size:13px;font-weight:600}
+.profile-role{font-size:11px;color:var(--muted)}
+.profile-out{margin-left:auto;color:var(--muted);width:16px;height:16px}
+
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20}
+.topbar-left{display:flex;align-items:center;gap:16px}
+.page-title{font-size:18px;font-weight:700;letter-spacing:-0.01em}
+.page-crumb{font-size:12px;color:var(--muted)}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.icon-btn{width:36px;height:36px;border-radius:9px;background:var(--surface-2);display:grid;place-items:center;color:var(--fg);position:relative;border:1px solid var(--border)}
+.icon-btn svg{width:16px;height:16px}
+.icon-btn .dot{position:absolute;top:7px;right:7px;width:8px;height:8px;border-radius:50%;background:var(--danger);border:2px solid var(--surface)}
+
+.content{padding:24px;flex:1;overflow-y:auto}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.page-head h1{font-size:24px;font-weight:700;letter-spacing:-0.02em}
+.page-head p{color:var(--muted);font-size:13px;margin-top:2px}
+
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:9px;font-weight:500;font-size:13.5px;border:1px solid transparent}
+.btn svg{width:14px;height:14px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-outline{background:var(--surface);color:var(--fg);border-color:var(--border)}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden}
+.stat::after{content:"";position:absolute;top:0;right:0;width:60px;height:60px;background:radial-gradient(closest-side,var(--c-soft,var(--accent-soft)),transparent);border-radius:0 0 0 60px}
+.stat-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.stat-label{font-size:12px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.stat-icon{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--c,var(--accent));background:var(--c-soft,var(--accent-soft))}
+.stat-icon svg{width:16px;height:16px}
+.stat-num{font-size:26px;font-weight:700;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.stat-delta{font-size:12px;color:var(--muted);margin-top:2px}
+
+.class-head{
+  background:linear-gradient(135deg,oklch(50% 0.13 175),oklch(35% 0.12 220));
+  color:#fff;
+  border-radius:14px;padding:20px 24px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;
+  margin-bottom:20px;position:relative;overflow:hidden;
+}
+.class-head::before{
+  content:"";position:absolute;inset:0;
+  background-image:radial-gradient(oklch(100% 0 0 / .1) 1px,transparent 1px);
+  background-size:24px 24px;pointer-events:none;
+}
+.class-info{position:relative}
+.class-name{font-size:24px;font-weight:800;letter-spacing:-0.02em}
+.class-meta{display:flex;gap:16px;font-size:13px;opacity:.85;margin-top:6px;flex-wrap:wrap}
+.class-meta-item{display:inline-flex;align-items:center;gap:4px}
+.class-actions{position:relative;display:flex;gap:8px;flex-wrap:wrap}
+.class-actions .btn{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(8px)}
+.class-actions .btn:hover{background:rgba(255,255,255,.25)}
+.class-actions .btn-primary-action{background:#fff;color:var(--accent)}
+.class-actions .btn-primary-action:hover{background:rgba(255,255,255,.9)}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0;overflow:hidden}
+.card-head{display:flex;align-items:baseline;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--border)}
+.card-title{font-size:15px;font-weight:600;letter-spacing:-0.005em}
+.card-sub{font-size:12px;color:var(--muted)}
+
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface-2)}
+td{padding:12px 16px;border-bottom:1px solid var(--border);font-size:13.5px;vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--surface-2)}
+.cell-flex{display:flex;align-items:center;gap:10px}
+.cell-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--c1,oklch(55% 0.15 175)),var(--c2,oklch(45% 0.13 200)));display:grid;place-items:center;color:#fff;font-weight:600;font-size:11px;flex-shrink:0}
+.cell-main{font-weight:500}
+.cell-sub{font-size:11px;color:var(--muted);margin-top:1px}
+.cell-mono{font-family:'JetBrains Mono',monospace;font-size:12.5px}
+.cell-actions{display:flex;gap:4px}
+.row-btn{padding:6px 12px;border:1px solid var(--border);background:var(--surface);border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;transition:all .15s}
+.row-btn:hover{background:var(--surface-2);border-color:oklch(85% 0.005 250)}
+
+.avg{display:inline-flex;align-items:center;gap:6px;font:600 14px/1 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
+.avg.high{color:var(--success)}
+.avg.mid{color:var(--warning)}
+.avg.low{color:var(--danger)}
+.avg-bar{width:60px;height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden}
+.avg-bar-fill{height:100%;border-radius:3px}
+
+.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font:500 11px/1.2 'Inter',sans-serif}
+.pill::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+.pill-ok{background:oklch(94% 0.05 145);color:oklch(40% 0.13 145)}
+.pill-warn{background:oklch(94% 0.06 65);color:oklch(45% 0.13 65)}
+
+@media (max-width:1100px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:-100%;z-index:100;transition:left .25s;width:240px}
+  .sidebar.open{left:0}
+  .content{padding:16px}
+  .stats{grid-template-columns:1fr 1fr}
+  table{min-width:780px}
+  .table-wrap{overflow-x:auto}
+  .class-head{padding:16px}
+  .class-name{font-size:20px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <div class="brand-mark">E</div>
+      <div><div class="brand-name">EduGest</div><div class="brand-tag">Enseignant</div></div>
+    </div>
+    <div class="sidebar-school">
+      <div class="sidebar-school-logo">CL</div>
+      <div class="sidebar-school-name">Complexe Lumière<small>Kinshasa</small></div>
+    </div>
+    <div class="sidebar-section">Pédagogie</div>
+    <nav class="menu">
+      <a class="menu-item active" href="20-teacher-class.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+        Ma classe
+      </a>
+      <a class="menu-item" href="08-teacher-grades.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Saisie des notes
+      </a>
+      <a class="menu-item" href="19-teacher-homework.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        Devoirs
+      </a>
+    </nav>
+    <div class="sidebar-section">Configuration</div>
+    <nav class="menu">
+      <a class="menu-item" href="18-profile.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Mon profil
+      </a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="profile-card">
+        <div class="profile-avatar">PM</div>
+        <div><div class="profile-name">Prof. Mwepu</div><div class="profile-role">Mathématiques · Titulaire 3e A</div></div>
+        <svg class="profile-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div>
+          <div class="page-title">Ma classe · 3e A</div>
+          <div class="page-crumb">Titulaire · 24 élèves · Mathématiques</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button class="icon-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg>
+          <span class="dot"></span>
+        </button>
+        <div style="width:1px;height:24px;background:var(--border);margin:0 4px"></div>
+        <div class="profile-avatar" style="width:32px;height:32px;font-size:12px;background:linear-gradient(135deg,oklch(72% 0.15 65),oklch(50% 0.16 30))">PM</div>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="class-head">
+        <div class="class-info">
+          <div class="class-name">3e A · Mathématiques</div>
+          <div class="class-meta">
+            <span class="class-meta-item">👥 24 élèves (14G · 10F)</span>
+            <span class="class-meta-item">📚 4h/semaine</span>
+            <span class="class-meta-item">📅 Trimestre 2 en cours</span>
+            <span class="class-meta-item">🏫 Salle 12</span>
+          </div>
+        </div>
+        <div class="class-actions">
+          <button class="btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Exporter CSV
+          </button>
+          <button class="btn btn-primary-action" onclick="alert('Génération de tous les bulletins lancée.\n24 PDF en cours de création...')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Générer tous les bulletins
+          </button>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="stat-head"><div class="stat-label">Effectif</div><div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div></div><div class="stat-num">24</div><div class="stat-delta">14G · 10F</div></div>
+        <div class="stat" style="--c:var(--success);--c-soft:oklch(95% 0.05 145)"><div class="stat-head"><div class="stat-label">Moyenne classe</div><div class="stat-icon" style="--c:var(--success);--c-soft:oklch(95% 0.05 145)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div></div><div class="stat-num">13.2<span style="font-size:14px;color:var(--muted);font-weight:500">/20</span></div><div class="stat-delta">+1.4 vs T1</div></div>
+        <div class="stat" style="--c:oklch(60% 0.15 65);--c-soft:oklch(95% 0.06 65)"><div class="stat-head"><div class="stat-label">Devoirs rendus</div><div class="stat-icon" style="--c:oklch(60% 0.15 65);--c-soft:oklch(95% 0.06 65)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></div></div><div class="stat-num">22<span style="font-size:14px;color:var(--muted);font-weight:500">/24</span></div><div class="stat-delta">92% de remise</div></div>
+        <div class="stat" style="--c:oklch(58% 0.20 25);--c-soft:oklch(95% 0.05 25)"><div class="stat-head"><div class="stat-label">En difficulté</div><div class="stat-icon" style="--c:oklch(58% 0.20 25);--c-soft:oklch(95% 0.05 25)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></div></div><div class="stat-num">3</div><div class="stat-delta">Moyenne &lt; 10</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Vue d'ensemble · 3e A</div>
+            <div class="card-sub">Notes moyennes, cotes reçues, accès aux bulletins individuels</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select style="border:1px solid var(--border);background:var(--surface);padding:6px 12px;border-radius:8px;font-size:12.5px">
+              <option>Trimestre 2</option><option>Trimestre 1</option><option>Année</option>
+            </select>
+            <input type="text" placeholder="Rechercher un élève..." style="border:1px solid var(--border);background:var(--surface);padding:7px 12px;border-radius:8px;font-size:12.5px;width:200px">
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Élève</th><th>Moyenne Maths</th><th>Cotes reçues</th><th>Devoirs</th><th>Statut</th><th></th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td><div class="cell-flex"><div class="cell-avatar" style="--c1:oklch(55% 0.15 175);--c2:oklch(45% 0.13 200)">MK</div><div><div class="cell-main">Mukendi Kalonji</div><div class="cell-sub">CLU-2026-0184</div></div></div></td>
+                <td>
+                  <div class="avg high">16.8<span class="avg-bar"><span class="avg-bar-fill" style="width:84%;background:var(--success)"></span></span></div>
+                </td>
+                <td class="cell-mono">17 · 15 · 18</td>
+                <td class="cell-mono">6 / 6</td>
+                <td><span class="pill pill-ok">Excellent</span></td>
+                <td><div class="cell-actions"><button class="row-btn" onclick="alert('Bulletin généré pour Mukendi Kalonji')">📄 Bulletin</button><button class="row-btn">👁 Détails</button></div></td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td><div class="cell-flex"><div class="cell-avatar" style="--c1:oklch(60% 0.13 250);--c2:oklch(45% 0.15 280)">NT</div><div><div class="cell-main">Ndaya Tshala</div><div class="cell-sub">CLU-2026-0183</div></div></div></td>
+                <td>
+                  <div class="avg high">14.5<span class="avg-bar"><span class="avg-bar-fill" style="width:72%;background:var(--success)"></span></span></div>
+                </td>
+                <td class="cell-mono">14 · 16 · 13</td>
+                <td class="cell-mono">6 / 6</td>
+                <td><span class="pill pill-ok">Bon</span></td>
+                <td><div class="cell-actions"><button class="row-btn">📄 Bulletin</button><button class="row-btn">👁 Détails</button></div></td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td><div class="cell-flex"><div class="cell-avatar" style="--c1:oklch(58% 0.15 145);--c2:oklch(40% 0.15 175)">IM</div><div><div class="cell-main">Ilunga Mukenge</div><div class="cell-sub">CLU-2026-0181</div></div></div></td>
+                <td>
+                  <div class="avg high">15.2<span class="avg-bar"><span class="avg-bar-fill" style="width:76%;background:var(--success)"></span></span></div>
+                </td>
+                <td class="cell-mono">16 · 14 · 15</td>
+                <td class="cell-mono">5 / 6</td>
+                <td><span class="pill pill-ok">Bon</span></td>
+                <td><div class="cell-actions"><button class="row-btn">📄 Bulletin</button><button class="row-btn">👁 Détails</button></div></td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td><div class="cell-flex"><div class="cell-avatar" style="--c1:oklch(60% 0.15 65);--c2:oklch(50% 0.16 30)">EM</div><div><div class="cell-main">Eyenga Mbuyi</div><div class="cell-sub">CLU-2026-0179</div></div></div></td>
+                <td>
+                  <div class="avg mid">12.0<span class="avg-bar"><span class="avg-bar-fill" style="width:60%;background:var(--warning)"></span></span></div>
+                </td>
+                <td class="cell-mono">13 · 11 · 12</td>
+                <td class="cell-mono">6 / 6</td>
+                <td><span class="pill pill-warn">À surveiller</span></td>
+                <td><div class="cell-actions"><button class="row-btn">📄 Bulletin</button><button class="row-btn">👁 Détails</button></div></td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td><div class="cell-flex"><div class="cell-avatar" style="--c1:oklch(55% 0.20 25);--c2:oklch(45% 0.18 0)">KM</div><div><div class="cell-main">Kabasu Mayulu</div><div class="cell-sub">CLU-2026-0178</div></div></div></td>
+                <td>
+                  <div class="avg low">8.3<span class="avg-bar"><span class="avg-bar-fill" style="width:42%;background:var(--danger)"></span></span></div>
+                </td>
+                <td class="cell-mono">7 · 9 · 9</td>
+                <td class="cell-mono">4 / 6</td>
+                <td><span class="pill pill-warn">En difficulté</span></td>
+                <td><div class="cell-actions"><button class="row-btn">📄 Bulletin</button><button class="row-btn">👁 Détails</button></div></td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td><div class="cell-flex"><div class="cell-avatar" style="--c1:oklch(60% 0.15 295);--c2:oklch(45% 0.15 320)">LL</div><div><div class="cell-main">Lubala Lumumba</div><div class="cell-sub">CLU-2026-0177</div></div></div></td>
+                <td>
+                  <div class="avg high">13.8<span class="avg-bar"><span class="avg-bar-fill" style="width:69%;background:var(--success)"></span></span></div>
+                </td>
+                <td class="cell-mono">14 · 13 · 14</td>
+                <td class="cell-mono">6 / 6</td>
+                <td><span class="pill pill-ok">Bon</span></td>
+                <td><div class="cell-actions"><button class="row-btn">📄 Bulletin</button><button class="row-btn">👁 Détails</button></div></td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td><div class="cell-flex"><div class="cell-avatar" style="--c1:oklch(60% 0.15 175);--c2:oklch(40% 0.13 200)">MB</div><div><div class="cell-main">Mukendi Beya</div><div class="cell-sub">CLU-2026-0176</div></div></div></td>
+                <td>
+                  <div class="avg low">7.5<span class="avg-bar"><span class="avg-bar-fill" style="width:38%;background:var(--danger)"></span></span></div>
+                </td>
+                <td class="cell-mono">8 · 7 · 8</td>
+                <td class="cell-mono">3 / 6</td>
+                <td><span class="pill pill-warn">En difficulté</span></td>
+                <td><div class="cell-actions"><button class="row-btn">📄 Bulletin</button><button class="row-btn">👁 Détails</button></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

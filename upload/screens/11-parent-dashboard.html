@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dashboard Parent — EduGest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:oklch(98% 0.003 220);
+  --surface:oklch(100% 0 0);
+  --surface-2:oklch(96% 0.003 220);
+  --fg:oklch(20% 0.02 250);
+  --muted:oklch(52% 0.015 250);
+  --border:oklch(92% 0.005 250);
+  --accent:oklch(55% 0.15 175);
+  --accent-soft:oklch(95% 0.04 175);
+  --success:oklch(60% 0.15 145);
+  --warning:oklch(72% 0.15 65);
+  --danger:oklch(58% 0.20 25);
+  --info:oklch(60% 0.13 250);
+  --radius:12px;
+  --shadow:0 4px 16px -4px rgba(15,23,42,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font:14px/1.5 'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar-head{padding:18px 20px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.brand-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,oklch(55% 0.15 175),oklch(45% 0.13 200));color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;box-shadow:0 2px 8px oklch(55% 0.15 175 / .25);flex-shrink:0}
+.brand-name{font-weight:700;font-size:15px}
+.brand-tag{font-size:11px;color:var(--muted);font-weight:500}
+.sidebar-school{padding:10px 16px;margin:8px 12px;background:var(--accent-soft);border-radius:8px;display:flex;align-items:center;gap:8px}
+.sidebar-school-logo{width:24px;height:24px;border-radius:5px;background:linear-gradient(135deg,oklch(55% 0.15 175),oklch(45% 0.13 200));color:#fff;font-weight:800;font-size:10px;display:grid;place-items:center;flex-shrink:0}
+.sidebar-school-name{font-size:12px;font-weight:600;line-height:1.2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar-school-name small{display:block;font-size:10px;color:var(--muted);font-weight:500;margin-top:1px}
+.sidebar-section{padding:14px 20px 6px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.menu{display:flex;flex-direction:column;gap:2px;padding:0 12px}
+.menu-item{position:relative;display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--fg);transition:all .15s;cursor:pointer}
+.menu-item:hover{background:var(--surface-2)}
+.menu-item.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.menu-item.active::before{content:"";position:absolute;left:0;width:3px;height:20px;background:var(--accent);border-radius:0 2px 2px 0}
+.menu-item svg{width:16px;height:16px;flex-shrink:0;opacity:.7}
+.menu-item.active svg{opacity:1}
+.sidebar-foot{margin-top:auto;padding:12px;border-top:1px solid var(--border)}
+.profile-card{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:var(--surface-2)}
+.profile-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,oklch(58% 0.20 25),oklch(45% 0.18 0));display:grid;place-items:center;color:#fff;font-weight:600;font-size:13px;flex-shrink:0}
+.profile-name{font-size:13px;font-weight:600}
+.profile-role{font-size:11px;color:var(--muted)}
+.profile-out{margin-left:auto;color:var(--muted);width:16px;height:16px}
+
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20}
+.topbar-left{display:flex;align-items:center;gap:16px}
+.page-title{font-size:18px;font-weight:700;letter-spacing:-0.01em}
+.page-crumb{font-size:12px;color:var(--muted)}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.icon-btn{width:36px;height:36px;border-radius:9px;background:var(--surface-2);display:grid;place-items:center;color:var(--fg);position:relative;border:1px solid var(--border)}
+.icon-btn svg{width:16px;height:16px}
+.icon-btn .dot{position:absolute;top:7px;right:7px;width:8px;height:8px;border-radius:50%;background:var(--danger);border:2px solid var(--surface)}
+
+.content{padding:24px;flex:1;overflow-y:auto}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.page-head h1{font-size:24px;font-weight:700;letter-spacing:-0.02em}
+.page-head p{color:var(--muted);font-size:13px;margin-top:2px}
+
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:9px;font-weight:500;font-size:13.5px;border:1px solid transparent}
+.btn svg{width:14px;height:14px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-outline{background:var(--surface);color:var(--fg);border-color:var(--border)}
+
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden}
+.kpi::after{content:"";position:absolute;top:0;right:0;width:60px;height:60px;background:radial-gradient(closest-side,var(--c-soft,var(--accent-soft)),transparent);border-radius:0 0 0 60px}
+.kpi-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.kpi-label{font-size:12px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.kpi-icon{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--c,var(--accent));background:var(--c-soft,var(--accent-soft))}
+.kpi-icon svg{width:16px;height:16px}
+.kpi-num{font-size:30px;font-weight:700;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;line-height:1}
+.kpi-foot{font-size:12px;color:var(--muted);margin-top:4px}
+
+.row2{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;margin-bottom:20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.card-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px}
+.card-title{font-size:15px;font-weight:600;letter-spacing:-0.005em}
+.card-sub{font-size:12px;color:var(--muted)}
+.see-all{font-size:12px;color:var(--accent);font-weight:500}
+
+.children{display:flex;flex-direction:column;gap:12px}
+.child{
+  display:flex;align-items:center;gap:14px;
+  padding:16px;border:1px solid var(--border);border-radius:12px;
+  background:var(--surface);
+  transition:all .15s;
+}
+.child:hover{border-color:oklch(80% 0.04 175);box-shadow:var(--shadow)}
+.child-avatar{
+  width:64px;height:64px;border-radius:50%;
+  background:linear-gradient(135deg,var(--c1,oklch(55% 0.15 175)),var(--c2,oklch(45% 0.13 200)));
+  display:grid;place-items:center;color:#fff;font-weight:700;font-size:20px;flex-shrink:0;
+  position:relative;
+}
+.child-status{
+  position:absolute;bottom:0;right:0;
+  width:18px;height:18px;border-radius:50%;
+  background:var(--success);border:3px solid var(--surface);
+}
+.child-info{flex:1;min-width:0}
+.child-name{font-size:15px;font-weight:600;letter-spacing:-0.005em}
+.child-meta{font-size:12.5px;color:var(--muted);margin-top:2px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.child-avg{display:flex;align-items:baseline;gap:4px}
+.child-avg strong{font:700 24px/1 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;color:var(--success)}
+.child-avg span{font-size:12px;color:var(--muted);font-weight:500}
+.child-actions{display:flex;gap:6px;flex-wrap:wrap}
+.cta-chip{
+  padding:6px 11px;border:1px solid var(--border);background:var(--surface);
+  border-radius:8px;font-size:12px;font-weight:500;
+  display:inline-flex;align-items:center;gap:5px;
+  transition:all .15s;
+  color:var(--fg);
+}
+.cta-chip:hover{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.cta-chip svg{width:12px;height:12px}
+
+.notif-list{display:flex;flex-direction:column;gap:0}
+.notif{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-top:1px solid var(--border)}
+.notif:first-child{border-top:0;padding-top:0}
+.notif-icon{
+  width:36px;height:36px;border-radius:9px;
+  background:var(--c-soft,var(--accent-soft));color:var(--c,var(--accent));
+  display:grid;place-items:center;flex-shrink:0;
+}
+.notif-icon svg{width:14px;height:14px}
+.notif-text{flex:1;min-width:0}
+.notif-title{font-size:13.5px;font-weight:500;line-height:1.4}
+.notif-time{font-size:11.5px;color:var(--muted);margin-top:2px}
+.notif.unread .notif-title{font-weight:600}
+.notif.unread::before{content:"";width:6px;height:6px;background:var(--accent);border-radius:50%;flex-shrink:0;margin-top:6px}
+
+@media (max-width:1100px){
+  .kpis{grid-template-columns:1fr 1fr 1fr}
+  .row2{grid-template-columns:1fr}
+}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:-100%;z-index:100;transition:left .25s;width:240px}
+  .sidebar.open{left:0}
+  .content{padding:16px}
+  .kpis{grid-template-columns:1fr 1fr}
+  .child{flex-wrap:wrap}
+  .child-actions{width:100%}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <div class="brand-mark">E</div>
+      <div><div class="brand-name">EduGest</div><div class="brand-tag">Espace parent</div></div>
+    </div>
+    <div class="sidebar-school">
+      <div class="sidebar-school-logo">CL</div>
+      <div class="sidebar-school-name">Complexe Lumière<small>Kinshasa</small></div>
+    </div>
+    <div class="sidebar-section">Suivi</div>
+    <nav class="menu">
+      <a class="menu-item active" href="11-parent-dashboard.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Mes enfants
+      </a>
+      <a class="menu-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Notes
+      </a>
+      <a class="menu-item" href="12-parent-bulletin.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Bulletins
+      </a>
+      <a class="menu-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        Paiements
+      </a>
+      <a class="menu-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+        Discipline
+      </a>
+      <a class="menu-item" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        Devoirs
+      </a>
+    </nav>
+    <div class="sidebar-section">Configuration</div>
+    <nav class="menu">
+      <a class="menu-item" href="18-profile.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Mon profil
+      </a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="profile-card">
+        <div class="profile-avatar">MK</div>
+        <div><div class="profile-name">Maman Kalonji</div><div class="profile-role">Parent</div></div>
+        <svg class="profile-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div>
+          <div class="page-title">Bonjour Maman 👋</div>
+          <div class="page-crumb">Complexe Lumière · 2 enfants inscrits</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button class="icon-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg>
+          <span class="dot"></span>
+        </button>
+        <div style="width:1px;height:24px;background:var(--border);margin:0 4px"></div>
+        <div class="profile-avatar" style="width:32px;height:32px;font-size:12px;background:linear-gradient(135deg,oklch(58% 0.20 25),oklch(45% 0.18 0))">MK</div>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <h1>Suivi de vos enfants</h1>
+          <p>Notes, paiements, devoirs et discipline · Tout au même endroit</p>
+        </div>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi"><div class="kpi-head"><div class="kpi-label">Mes enfants</div><div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div></div><div class="kpi-num">2</div><div class="kpi-foot">Mukendi · Ndaya</div></div>
+        <div class="kpi" style="--c:var(--warning);--c-soft:oklch(95% 0.06 65)"><div class="kpi-head"><div class="kpi-label">Notifications</div><div class="kpi-icon" style="--c:var(--warning);--c-soft:oklch(95% 0.06 65)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg></div></div><div class="kpi-num">5</div><div class="kpi-foot">3 non lues</div></div>
+        <div class="kpi" style="--c:var(--danger);--c-soft:oklch(95% 0.05 25)"><div class="kpi-head"><div class="kpi-label">Devoirs à rendre</div><div class="kpi-icon" style="--c:var(--danger);--c-soft:oklch(95% 0.05 25)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></div></div><div class="kpi-num">3</div><div class="kpi-foot">Cette semaine</div></div>
+      </div>
+
+      <div class="row2">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Vos enfants</div>
+              <div class="card-sub">Cliquez sur une action pour voir le détail</div>
+            </div>
+          </div>
+          <div class="children">
+            <div class="child">
+              <div class="child-avatar" style="--c1:oklch(55% 0.15 175);--c2:oklch(45% 0.13 200)">
+                MK
+                <div class="child-status"></div>
+              </div>
+              <div class="child-info">
+                <div class="child-name">Mukendi Kalonji</div>
+                <div class="child-meta">
+                  <span>3e A · Collège</span>
+                  <span>·</span>
+                  <span>15 ans</span>
+                  <span>·</span>
+                  <span>CLU-2026-0184</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+                  <div class="child-avg"><strong>16.2</strong><span>/20</span></div>
+                  <span style="font-size:11.5px;color:var(--success);font-weight:600;background:oklch(94% 0.05 145);padding:3px 8px;border-radius:999px">↑ +0.8 ce T</span>
+                </div>
+              </div>
+              <div class="child-actions">
+                <a class="cta-chip" href="#">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  Notes
+                </a>
+                <a class="cta-chip" href="12-parent-bulletin.html">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
+                  Bulletin
+                </a>
+                <a class="cta-chip" href="#">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                  Paiements
+                </a>
+                <a class="cta-chip" href="#">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                  Discipline
+                </a>
+              </div>
+            </div>
+
+            <div class="child">
+              <div class="child-avatar" style="--c1:oklch(60% 0.13 250);--c2:oklch(45% 0.15 280)">
+                NT
+                <div class="child-status"></div>
+              </div>
+              <div class="child-info">
+                <div class="child-name">Ndaya Tshala</div>
+                <div class="child-meta">
+                  <span>6e B · Collège</span>
+                  <span>·</span>
+                  <span>13 ans</span>
+                  <span>·</span>
+                  <span>CLU-2026-0183</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+                  <div class="child-avg"><strong>14.5</strong><span>/20</span></div>
+                  <span style="font-size:11.5px;color:var(--success);font-weight:600;background:oklch(94% 0.05 145);padding:3px 8px;border-radius:999px">↑ +1.2 ce T</span>
+                </div>
+              </div>
+              <div class="child-actions">
+                <a class="cta-chip" href="#">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  Notes
+                </a>
+                <a class="cta-chip" href="12-parent-bulletin.html">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
+                  Bulletin
+                </a>
+                <a class="cta-chip" href="#">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                  Paiements
+                </a>
+                <a class="cta-chip" href="#">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                  Discipline
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Notifications récentes</div>
+              <div class="card-sub">5 messages dont 3 non lus</div>
+            </div>
+            <a class="see-all" href="#">Tout marquer comme lu</a>
+          </div>
+          <div class="notif-list">
+            <div class="notif unread">
+              <div class="notif-icon" style="--c:var(--accent);--c-soft:var(--accent-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></div>
+              <div class="notif-text">
+                <div class="notif-title">Nouveau devoir de Mathématiques pour Mukendi · à rendre le 28/05</div>
+                <div class="notif-time">Il y a 2 heures · Prof. Mwepu</div>
+              </div>
+            </div>
+            <div class="notif unread">
+              <div class="notif-icon" style="--c:var(--success);--c-soft:oklch(95% 0.05 145)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="notif-text">
+                <div class="notif-title">Note de Mathématiques publiée : 18/20 pour Mukendi 👏</div>
+                <div class="notif-time">Hier · Évaluation n°3</div>
+              </div>
+            </div>
+            <div class="notif unread">
+              <div class="notif-icon" style="--c:var(--warning);--c-soft:oklch(95% 0.06 65)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
+              <div class="notif-text">
+                <div class="notif-title">Rappel : Paiement T2 de 250$ attendu avant le 30/05</div>
+                <div class="notif-time">Il y a 1 jour · Secrétariat</div>
+              </div>
+            </div>
+            <div class="notif">
+              <div class="notif-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+              <div class="notif-text">
+                <div class="notif-title">Réunion parents-professeurs le 5 juin à 16h. Présence souhaitée.</div>
+                <div class="notif-time">Il y a 3 jours · Direction</div>
+              </div>
+            </div>
+            <div class="notif">
+              <div class="notif-icon" style="--c:oklch(60% 0.15 65);--c-soft:oklch(95% 0.06 65)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="notif-text">
+                <div class="notif-title">Bulletin T1 disponible pour Ndaya · téléchargeable en PDF</div>
+                <div class="notif-time">Il y a 5 jours · Secrétariat</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

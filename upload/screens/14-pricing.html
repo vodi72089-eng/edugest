@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tarifs — EduGest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:oklch(98% 0.003 220);
+  --surface:oklch(100% 0 0);
+  --surface-2:oklch(96% 0.003 220);
+  --fg:oklch(20% 0.02 250);
+  --muted:oklch(52% 0.015 250);
+  --border:oklch(92% 0.005 250);
+  --accent:oklch(55% 0.15 175);
+  --accent-2:oklch(45% 0.13 200);
+  --accent-soft:oklch(95% 0.04 175);
+  --success:oklch(60% 0.15 145);
+  --warning:oklch(72% 0.15 65);
+  --amber:oklch(72% 0.15 65);
+  --danger:oklch(58% 0.20 25);
+  --info:oklch(60% 0.13 250);
+  --radius:12px;
+  --shadow:0 4px 16px -4px rgba(15,23,42,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font:14px/1.5 'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+
+.public{min-height:100vh;background:
+  radial-gradient(ellipse 80% 50% at 50% -10%, oklch(95% 0.05 175), transparent 70%),
+  var(--bg);
+}
+
+.nav{position:sticky;top:0;z-index:30;background:oklch(100% 0 0 / .85);backdrop-filter:saturate(180%) blur(12px);border-bottom:1px solid oklch(92% 0.005 250 / .6)}
+.nav-inner{max-width:1200px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.nav-brand{display:flex;align-items:center;gap:10px}
+.brand-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,oklch(55% 0.15 175),oklch(45% 0.13 200));color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;box-shadow:0 2px 8px oklch(55% 0.15 175 / .25);flex-shrink:0}
+.brand-name{font-weight:700;font-size:15px}
+.nav-links{display:flex;gap:8px}
+.nav-links a{padding:8px 14px;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--muted);transition:all .15s}
+.nav-links a:hover{color:var(--fg);background:var(--surface-2)}
+.nav-links a.active{color:var(--accent);background:var(--accent-soft);font-weight:600}
+.nav-cta{display:flex;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:9px;font-weight:600;font-size:13.5px;border:1px solid transparent;transition:all .15s;cursor:pointer}
+.btn svg{width:14px;height:14px}
+.btn-ghost{color:var(--fg)}
+.btn-ghost:hover{background:var(--surface-2)}
+.btn-outline{background:var(--surface);color:var(--fg);border-color:var(--border)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:oklch(48% 0.16 175)}
+
+.hero{max-width:1200px;margin:0 auto;padding:64px 24px 32px;text-align:center}
+.hero h1{font-size:48px;font-weight:800;letter-spacing:-0.03em;line-height:1.1;max-width:780px;margin:0 auto}
+.hero h1 .grad{background:linear-gradient(135deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{font-size:17px;color:var(--muted);max-width:620px;margin:18px auto 0;line-height:1.55}
+
+.billing-toggle{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:4px;margin-top:32px;position:relative}
+.billing-toggle button{padding:9px 22px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--muted);transition:all .2s;position:relative;z-index:1}
+.billing-toggle button.active{background:var(--accent);color:#fff;box-shadow:0 2px 8px oklch(55% 0.15 175 / .25)}
+.save-badge{position:absolute;top:-10px;right:-10px;background:var(--amber);color:#fff;font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700}
+
+.plans{max-width:1200px;margin:48px auto 0;padding:0 24px;display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:stretch}
+.plan{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:30px 26px;
+  display:flex;flex-direction:column;gap:14px;
+  position:relative;
+  transition:all .2s;
+}
+.plan:hover{transform:translateY(-2px);box-shadow:0 12px 32px -8px rgba(15,23,42,.12)}
+.plan.featured{border:2px solid var(--accent);box-shadow:0 12px 32px -8px oklch(55% 0.15 175 / .25);transform:scale(1.02)}
+.plan.featured:hover{transform:scale(1.02) translateY(-2px)}
+.featured-ribbon{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:11px;font-weight:700;padding:5px 14px;border-radius:999px;letter-spacing:.04em;text-transform:uppercase;box-shadow:0 4px 12px oklch(55% 0.15 175 / .35)}
+.plan-icon{width:44px;height:44px;border-radius:11px;display:grid;place-items:center;background:var(--surface-2);color:var(--accent)}
+.plan-icon svg{width:22px;height:22px}
+.plan.featured .plan-icon{background:var(--accent-soft)}
+.plan-name{font-size:20px;font-weight:700;letter-spacing:-0.01em}
+.plan-desc{font-size:13.5px;color:var(--muted);line-height:1.5;margin-top:-4px}
+.plan-price{display:flex;align-items:baseline;gap:6px;margin-top:8px}
+.plan-price .amt{font-size:42px;font-weight:800;letter-spacing:-0.03em;font-family:'JetBrains Mono',monospace;line-height:1}
+.plan-price .cur{font-size:18px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.plan-price .per{font-size:14px;color:var(--muted);font-weight:500}
+.plan-price.free{color:var(--success)}
+.plan-period{font-size:12.5px;color:var(--muted);margin-top:-4px}
+
+.plan-cta{margin-top:8px;padding:12px;border-radius:10px;font-weight:600;font-size:14px;text-align:center;display:block;cursor:pointer;transition:all .15s;border:1px solid var(--border);color:var(--fg);background:var(--surface)}
+.plan-cta:hover{border-color:var(--accent);color:var(--accent)}
+.plan.featured .plan-cta{background:var(--accent);color:#fff;border-color:var(--accent)}
+.plan.featured .plan-cta:hover{background:oklch(48% 0.16 175)}
+
+.plan-features{list-style:none;display:flex;flex-direction:column;gap:10px;padding-top:18px;border-top:1px solid var(--border);margin-top:4px}
+.plan-features li{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;line-height:1.4}
+.plan-features li svg{width:16px;height:16px;color:var(--success);flex-shrink:0;margin-top:2px}
+.plan-features li.muted{color:var(--muted)}
+.plan-features li.muted svg{color:var(--muted);opacity:.5}
+.plan-features li strong{font-weight:600}
+
+.compare{max-width:1200px;margin:72px auto 0;padding:0 24px}
+.compare-head{text-align:center;margin-bottom:32px}
+.compare-head h2{font-size:30px;font-weight:800;letter-spacing:-0.02em}
+.compare-head p{color:var(--muted);font-size:14.5px;margin-top:6px}
+
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th,td{padding:14px 18px;text-align:left;font-size:13.5px;border-bottom:1px solid var(--border)}
+thead th{background:var(--surface-2);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--surface-2)}
+td:first-child{font-weight:500}
+td.center{text-align:center}
+.check{color:var(--success);font-weight:700}
+.dash{color:var(--muted);opacity:.5}
+.popular{background:oklch(95% 0.04 175);color:var(--accent);padding:1px 7px;border-radius:5px;font-size:11px;font-weight:600;margin-left:6px}
+
+.faq{max-width:780px;margin:72px auto 0;padding:0 24px}
+.faq-head{text-align:center;margin-bottom:32px}
+.faq-head h2{font-size:30px;font-weight:800;letter-spacing:-0.02em}
+.faq-head p{color:var(--muted);font-size:14.5px;margin-top:6px}
+.faq-item{border-bottom:1px solid var(--border);padding:18px 0}
+.faq-item:first-of-type{border-top:1px solid var(--border)}
+.faq-q{display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-weight:600;font-size:15.5px;gap:16px}
+.faq-q svg{width:18px;height:18px;color:var(--muted);transition:transform .2s;flex-shrink:0}
+.faq-a{margin-top:10px;color:var(--muted);font-size:14px;line-height:1.6}
+
+.cta-banner{max-width:1200px;margin:72px auto 0;padding:0 24px}
+.cta-inner{background:linear-gradient(135deg,oklch(40% 0.13 175),oklch(30% 0.12 200));border-radius:18px;padding:48px 40px;display:grid;grid-template-columns:1.4fr 1fr;gap:32px;align-items:center;position:relative;overflow:hidden}
+.cta-inner::before{content:"";position:absolute;top:-50%;right:-20%;width:60%;height:200%;background:radial-gradient(ellipse at center, oklch(60% 0.15 175 / .3), transparent 60%)}
+.cta-text{position:relative;z-index:1}
+.cta-text h2{color:#fff;font-size:30px;font-weight:800;letter-spacing:-0.02em;line-height:1.15}
+.cta-text p{color:oklch(85% 0.04 175);font-size:15px;margin-top:10px;line-height:1.5}
+.cta-action{position:relative;z-index:1;display:flex;flex-direction:column;gap:10px}
+.cta-action .btn{justify-content:center;padding:14px}
+.cta-action .btn-primary{background:#fff;color:oklch(40% 0.13 175);font-weight:700}
+.cta-action .btn-primary:hover{background:oklch(96% 0.02 175)}
+.cta-action .btn-outline{background:transparent;color:#fff;border-color:oklch(60% 0.04 175 / .4)}
+
+.foot{background:oklch(15% 0.02 250);color:oklch(70% 0.02 250);padding:36px 24px 24px;margin-top:72px}
+.foot-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px}
+.foot-brand{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.foot-brand .brand-mark{background:linear-gradient(135deg,oklch(60% 0.15 175),oklch(45% 0.13 200))}
+.foot-brand .brand-name{color:#fff}
+.foot-tag{font-size:13px;line-height:1.5;max-width:300px}
+.foot-col h4{color:#fff;font-size:13px;font-weight:600;margin-bottom:14px}
+.foot-col a{display:block;font-size:13px;padding:4px 0;color:oklch(70% 0.02 250);transition:color .15s}
+.foot-col a:hover{color:#fff}
+.foot-bottom{max-width:1200px;margin:32px auto 0;padding-top:20px;border-top:1px solid oklch(28% 0.02 250);font-size:12.5px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+
+@media (max-width:900px){
+  .plans{grid-template-columns:1fr}
+  .plan.featured{transform:none}
+  .plan.featured:hover{transform:translateY(-2px)}
+  .cta-inner{grid-template-columns:1fr;padding:32px 24px}
+  .hero h1{font-size:36px}
+  .foot-inner{grid-template-columns:1fr 1fr}
+}
+@media (max-width:560px){
+  .hero{padding:40px 16px 24px}
+  .hero h1{font-size:28px}
+  .nav-links{display:none}
+  .foot-inner{grid-template-columns:1fr}
+  .table-wrap{overflow-x:auto}
+  table{min-width:600px}
+}
+</style>
+</head>
+<body>
+<div class="public">
+  <nav class="nav">
+    <div class="nav-inner">
+      <div class="nav-brand">
+        <div class="brand-mark">E</div>
+        <div class="brand-name">EduGest</div>
+      </div>
+      <div class="nav-links">
+        <a href="01-public-home.html">Accueil</a>
+        <a href="02-school-public.html">Écoles</a>
+        <a href="14-pricing.html" class="active">Tarifs</a>
+        <a href="#">Ressources</a>
+        <a href="#">Contact</a>
+      </div>
+      <div class="nav-cta">
+        <a href="03-login.html" class="btn btn-ghost">Se connecter</a>
+        <a href="03-login.html" class="btn btn-primary">Essai gratuit</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <h1>Des tarifs <span class="grad">transparents</span><br>pour chaque école</h1>
+    <p>De la petite école primaire au grand réseau national, EduGest s'adapte à votre structure. Sans frais cachés, sans engagement long.</p>
+    <div class="billing-toggle">
+      <button class="active">Mensuel</button>
+      <button>Annuel <span class="save-badge">−20%</span></button>
+    </div>
+  </header>
+
+  <section class="plans">
+    <article class="plan">
+      <div class="plan-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+      <div>
+        <div class="plan-name">Freemium</div>
+        <div class="plan-desc">Pour les très petites écoles qui découvrent EduGest.</div>
+      </div>
+      <div>
+        <div class="plan-price free"><span class="cur">$</span><span class="amt">0</span><span class="per">/mois</span></div>
+        <div class="plan-period">Gratuit à vie · Jusqu'à 50 élèves</div>
+      </div>
+      <a class="plan-cta">Commencer gratuitement</a>
+      <ul class="plan-features">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>50 élèves maximum</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>3 classes</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>Gestion des notes</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>Bulletins PDF</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>App parents basique</li>
+        <li class="muted"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>Support communautaire</li>
+        <li class="muted"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>WhatsApp intégré</li>
+        <li class="muted"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Paiements mobile money</li>
+      </ul>
+    </article>
+
+    <article class="plan featured">
+      <span class="featured-ribbon">Plus populaire</span>
+      <div class="plan-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+      <div>
+        <div class="plan-name">Standard</div>
+        <div class="plan-desc">Pour les écoles primaires et secondaires établies.</div>
+      </div>
+      <div>
+        <div class="plan-price"><span class="cur">$</span><span class="amt">149</span><span class="per">/mois</span></div>
+        <div class="plan-period">ou $1430/an · Jusqu'à 500 élèves</div>
+      </div>
+      <a class="plan-cta">Démarrer mon essai gratuit</a>
+      <ul class="plan-features">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg><strong>500 élèves</strong> · 20 classes</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>Gestion des notes avancée</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>Bulletins & certificats PDF</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg><strong>App parents complète</strong></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg><strong>WhatsApp intégré</strong></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>Paiements Orange Money / M-Pesa</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>Communications & convocations</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>Support email 7j/7</li>
+      </ul>
+    </article>
+
+    <article class="plan">
+      <div class="plan-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+      <div>
+        <div class="plan-name">Enterprise</div>
+        <div class="plan-desc">Pour les grands réseaux et écoles internationales.</div>
+      </div>
+      <div>
+        <div class="plan-price"><span class="cur">$</span><span class="amt">499</span><span class="per">/mois</span></div>
+        <div class="plan-period">ou $4790/an · Élèves illimités</div>
+      </div>
+      <a class="plan-cta">Demander une démo</a>
+      <ul class="plan-features">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg><strong>Élèves illimités</strong> · multi-sites</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>Tout du plan Standard</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>Multi-sites & multi-langues</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>API & intégrations personnalisées</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>Tableau de bord direction</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>Analyses & exports avancés</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>Support dédié 24/7</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>Formation sur site incluse</li>
+      </ul>
+    </article>
+  </section>
+
+  <section class="compare">
+    <div class="compare-head">
+      <h2>Comparaison détaillée</h2>
+      <p>Toutes les fonctionnalités en un coup d'œil</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Fonctionnalité</th>
+            <th class="center">Freemium</th>
+            <th class="center">Standard <span class="popular">Populaire</span></th>
+            <th class="center">Enterprise</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Nombre d'élèves</td><td class="center">50</td><td class="center">500</td><td class="center check">Illimité</td></tr>
+          <tr><td>Classes</td><td class="center">3</td><td class="center">20</td><td class="center check">Illimité</td></tr>
+          <tr><td>Comptes professeurs</td><td class="center">5</td><td class="center">30</td><td class="center check">Illimité</td></tr>
+          <tr><td>Saisie des notes</td><td class="center check">✓</td><td class="center check">✓</td><td class="center check">✓</td></tr>
+          <tr><td>Bulletins PDF</td><td class="center check">✓</td><td class="center check">✓</td><td class="center check">✓</td></tr>
+          <tr><td>App parents</td><td class="center">Basique</td><td class="center check">Complète</td><td class="center check">Complète</td></tr>
+          <tr><td>Notifications WhatsApp</td><td class="center dash">—</td><td class="center check">✓</td><td class="center check">✓</td></tr>
+          <tr><td>Paiements mobile money</td><td class="center dash">—</td><td class="center check">✓</td><td class="center check">✓</td></tr>
+          <tr><td>Communications de masse</td><td class="center dash">—</td><td class="center check">✓</td><td class="center check">✓</td></tr>
+          <tr><td>Convoctions parents</td><td class="center dash">—</td><td class="center check">✓</td><td class="center check">✓</td></tr>
+          <tr><td>Liste noire & discipline</td><td class="center dash">—</td><td class="center check">✓</td><td class="center check">✓</td></tr>
+          <tr><td>Multi-sites</td><td class="center dash">—</td><td class="center dash">—</td><td class="center check">✓</td></tr>
+          <tr><td>API & intégrations</td><td class="center dash">—</td><td class="center">REST basique</td><td class="center check">Avancée</td></tr>
+          <tr><td>Support</td><td class="center">Communauté</td><td class="center">Email 7j/7</td><td class="center check">24/7 + dédié</td></tr>
+          <tr><td>Formation sur site</td><td class="center dash">—</td><td class="center">En option</td><td class="center check">Incluse</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="faq">
+    <div class="faq-head">
+      <h2>Questions fréquentes</h2>
+      <p>Tout ce que vous devez savoir avant de commencer</p>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Y a-t-il une période d'essai gratuite ?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+      <div class="faq-a">Oui, tous les plans payants bénéficient de <strong>30 jours d'essai gratuit</strong>, sans carte bancaire requise. Vous pouvez annuler à tout moment depuis votre espace.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Comment fonctionne le paiement en mobile money ?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+      <div class="faq-a">EduGest s'intègre nativement avec <strong>Orange Money, M-Pesa, Airtel Money et Moov Money</strong>. Les parents paient les frais de scolarité depuis l'app, et vous êtes notifié en temps réel. Les transactions sont sécurisées par les opérateurs.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Puis-je migrer mes données depuis une autre plateforme ?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+      <div class="faq-a">Absolument. Notre équipe vous accompagne dans la <strong>migration gratuite</strong> de vos élèves, notes, et historiques depuis Excel, Access, ou tout autre logiciel. La migration se fait en moins de 48h.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Les données de mon école sont-elles sécurisées ?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+      <div class="faq-a">Oui. EduGest est <strong>conforme RGPD</strong> et héberge les données sur des serveurs sécurisés en France et en Afrique. Les sauvegardes sont automatiques et quotidiennes. Aucune donnée n'est partagée avec des tiers.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Puis-je changer de plan à tout moment ?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+      <div class="faq-a">Oui, vous pouvez upgrader ou downgrader votre plan à tout moment. Le <strong>prorata</strong> est calculé automatiquement sur votre prochaine facture. Aucun frais de changement.</div>
+    </div>
+  </section>
+
+  <section class="cta-banner">
+    <div class="cta-inner">
+      <div class="cta-text">
+        <h2>Prêt à transformer la gestion de votre école ?</h2>
+        <p>Rejoignez les 248 écoles qui font confiance à EduGest. Démarrez votre essai gratuit de 30 jours, sans engagement.</p>
+      </div>
+      <div class="cta-action">
+        <a href="03-login.html" class="btn btn-primary">Démarrer 30 jours gratuits</a>
+        <a href="#" class="btn btn-outline">Parler à un conseiller</a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <div class="foot-inner">
+      <div>
+        <div class="foot-brand">
+          <div class="brand-mark">E</div>
+          <div class="brand-name">EduGest</div>
+        </div>
+        <div class="foot-tag">La plateforme de gestion scolaire #1 en Afrique francophone. Pensée par des éducateurs, pour des éducateurs.</div>
+      </div>
+      <div class="foot-col">
+        <h4>Produit</h4>
+        <a href="14-pricing.html">Tarifs</a>
+        <a href="01-public-home.html">Annuaire</a>
+        <a href="#">Témoignages</a>
+        <a href="#">Nouveautés</a>
+      </div>
+      <div class="foot-col">
+        <h4>Entreprise</h4>
+        <a href="#">À propos</a>
+        <a href="#">Carrières</a>
+        <a href="#">Presse</a>
+        <a href="#">Partenaires</a>
+      </div>
+      <div class="foot-col">
+        <h4>Support</h4>
+        <a href="#">Centre d'aide</a>
+        <a href="#">Documentation</a>
+        <a href="#">Contact</a>
+        <a href="#">Status</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <div>© 2026 EduGest. Tous droits réservés.</div>
+      <div>Conditions · Confidentialité · Cookies</div>
+    </div>
+  </footer>
+</div>
+</body>
+</html>
