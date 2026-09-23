@@ -1,0 +1,89 @@
+import { db } from '@/lib/db';
+import { notifyEvent } from '@/lib/notification-service';
+import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission, verifySchoolAccess, sanitizeError } from '@/lib/auth';
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const authResult = await requirePermission(request, 'convocations:update');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+    const { id: convocationId } = await params;
+
+    const body = await request.json();
+    const { response, message } = body;
+
+    if (!response || !['PRESENT', 'ABSENT', 'CUSTOM'].includes(response)) {
+      return NextResponse.json(
+        { error: 'Réponse invalide. Doit être PRESENT, ABSENT ou CUSTOM' },
+        { status: 400 }
+      );
+    }
+
+    if (response === 'CUSTOM' && !message?.trim()) {
+      return NextResponse.json(
+        { error: 'Un message est requis pour une réponse personnalisée' },
+        { status: 400 }
+      );
+    }
+
+    const convocation = await db.convocation.findUnique({
+      where: { id: convocationId },
+      include: { student: { select: { schoolId: true, parentId: true, firstName: true, lastName: true } } },
+    });
+
+    if (!convocation) {
+      return NextResponse.json({ error: 'Convocation non trouvée' }, { status: 404 });
+    }
+
+    if (!verifySchoolAccess(user, convocation.schoolId)) {
+      return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
+    }
+
+    // ── SÉCURITÉ (IDOR P1) : un PARENT ne peut répondre qu'aux convocations
+    // de SES enfants (avant : n'importe quel parent de l'école répondait
+    // PRESENT/ABSENT pour l'enfant d'un autre).
+    if (user.role === 'PARENT' && convocation.student.parentId !== user.id) {
+      return NextResponse.json({ error: 'Cette convocation ne concerne pas votre enfant' }, { status: 403 });
+    }
+
+    const updatedConvocation = await db.convocation.update({
+      where: { id: convocationId },
+      data: {
+        parentResponse: response,
+        parentResponseMessage: response === 'CUSTOM' ? message?.trim() : null,
+        parentResponseAt: new Date(),
+        status: 'RESPONDED',
+      },
+      include: {
+        student: { select: { id: true, firstName: true, lastName: true, matricule: true, parentId: true, photoUrl: true } },
+      },
+    });
+
+    // ── Notifications réponse convocation (resolver centralisé) ──────────────
+    // Destinataires : DIRECTION_<cycle> + DISCIPLINE_<cycle> + SCHOOL_ADMIN
+    // + SECRETARY de l'école (scellés au cycle de l'élève) — routage par rôle :
+    // les DISCIPLINE_* ouvrent leur vue « discipline ».
+    try {
+      const responseLabel = response === 'PRESENT' ? 'Présent' : response === 'ABSENT' ? 'Absent' : 'Autre réponse';
+      await notifyEvent(
+        { type: 'CONVOCATION_RESPONSE', schoolId: convocation.schoolId, studentId: updatedConvocation.student.id, actorId: user.id },
+        {
+          title: 'Réponse à la convocation',
+          message: `${convocation.student.firstName} ${convocation.student.lastName} - ${responseLabel}${response === 'CUSTOM' ? `: ${message}` : ''}`,
+          relatedId: convocationId,
+        }
+      );
+    } catch (notifError) {
+      console.error('[Convocation] Notification failed:', notifError);
+    }
+
+    return NextResponse.json({ data: updatedConvocation });
+  } catch (error) {
+    console.error('Error responding to convocation:', error);
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
+  }
+}

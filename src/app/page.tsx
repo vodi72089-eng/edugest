@@ -1,0 +1,9094 @@
+'use client'
+
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, useSyncExternalStore } from 'react'
+import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken, restoreSession,
+startSessionRestoreWatchdog, isDesktopApp, getActiveSchoolId } from '@/lib/store'
+import { startRealtimeSync } from '@/lib/realtime'
+import { playNotificationSound, unlockNotificationAudio, isNotificationSoundEnabled, setNotificationSoundEnabled, getNotificationSoundVolume, setNotificationSoundVolume, getNotificationSoundType, setNotificationSoundType, NotificationSoundType } from '@/lib/notification-sound'
+import { resolveNotifView, notifSoundLevel } from '@/lib/notification-routing'
+import { viewToPath, pathToView } from '@/lib/view-paths'
+import { toast } from 'sonner'
+import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
+import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, DisciplineData, CommunicationData, HomeworkData } from '@/lib/types'
+import { ACCENT, ACCENT2, ACCENT_SOFT, SUCCESS, WARNING, DANGER, INFO, MUTED, BORDER, GOLD, GOLD_SOFT, GOLD_GLOW, DARK, DARK_ALT, IVORY, IVORY_WARM, TEXT_PRIMARY, TEXT_MUTED_LUXE, SUCCESS_SOFT, SUBSCRIPTION_TIERS, PROVINCES, FILTER_CHIPS, COVER_GRADIENTS, LOGO_COLORS, ENROLLMENT_DATA, SUBSCRIPTION_DATA } from '@/lib/constants'
+import { getInitials, formatDate, formatNumber, formatCurrency, getSchoolTypeLabel, getSubscriptionLabel, getSubscriptionPrice, getRoleLabel, getStatusPill, API_ROLE_MAP } from '@/lib/helpers'
+import { setCurrencyDisplay, subscribeCurrency, getCurrencyVersion } from '@/lib/currency-display'
+import { EDUCATIONAL_SYSTEMS_LIST } from '@/lib/educational-systems'
+import StudentAvatar from '@/components/ui/StudentAvatar'
+import AppSelect from '@/components/ui/AppSelect';
+import BrandLogo from '@/components/BrandLogo'
+import { FlagIcon } from '@/components/FlagIcon'
+import dynamic from 'next/dynamic'
+const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
+import { AnimatedCounter, ScrollReveal, StaggerContainer, StaggerItem, GlowCard, MagneticButton, AuroraBackground, BlurText, GradientText } from '@/components/animated'
+import UpdateBanner from '@/components/UpdateBanner'
+import SuperAdminDashboard from '@/components/dashboards/SuperAdminDashboard'
+import SchoolAdminDashboard from '@/components/dashboards/SchoolAdminDashboard'
+import SecretaryDashboard from '@/components/dashboards/SecretaryDashboard'
+import CashierDashboard from '@/components/dashboards/CashierDashboard'
+import ParentDashboard from '@/components/dashboards/ParentDashboard'
+import TeacherDashboard from '@/components/dashboards/TeacherDashboard'
+import HeadTeacherDashboard from '@/components/dashboards/HeadTeacherDashboard'
+import DisciplineDashboardView from '@/components/dashboards/DisciplineDashboard'
+import MedicalDashboard from '@/components/dashboards/MedicalDashboard'
+import MedicalView from '@/components/views/MedicalView'
+import MedicalRecordsView from '@/components/views/MedicalRecordsView'
+import ParentQrView from '@/components/views/ParentQrView'
+import ParentsView from '@/components/views/ParentsView'
+import PersonalizationView from '@/components/views/PersonalizationView'
+import { getTierLimits } from '@/lib/subscription'
+import StudentsView from '@/components/views/StudentsView'
+import GradesView from '@/components/views/GradesView'
+import PaymentsView from '@/components/views/PaymentsView'
+import FinanceSituationView from '@/components/views/FinanceSituationView'
+import AttendanceView from '@/components/views/AttendanceView'
+import EventsView from '@/components/views/EventsView'
+import ReportsView from '@/components/views/ReportsView'
+import DisciplineView from '@/components/views/DisciplineView'
+import PersonnelView from '@/components/views/PersonnelView'
+import ProfileView from '@/components/views/ProfileView'
+import SettingsView from '@/components/views/SettingsView'
+import OnlinePaymentView from '@/components/views/OnlinePaymentView'
+import DettesView from '@/components/views/DettesView'
+import SchoolsManagementView from '@/components/views/SchoolsManagementView'
+import SystemParcoursExplorer from '@/components/views/SystemParcoursExplorer'
+import PlatformControlView from '@/components/views/PlatformControlView'
+import {
+  Search, Bell, Settings, Plus, ChevronRight, Users, GraduationCap,
+  DollarSign, MessageSquare, BookOpen, Shield, LogOut, Menu, X,
+  MapPin, Star, School, Phone, Mail, Eye, Edit, MoreVertical,
+  ArrowLeft, CheckCircle, AlertTriangle, Clock, Send, FileText,
+  BarChart3, CreditCard, UserCircle, ChevronDown, Filter,
+   TrendingUp, UserPlus, Calendar, ClipboardList,
+  Info, Zap, Globe, Lock, Award, Ban, CircleDot, ListChecks,
+  LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
+  UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
+   ChevronUp, ExternalLink, Check, Copy, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown,
+   User, Landmark, Palette, BellRing, HeartPulse, Database, Stethoscope, Volume2, VolumeX, CalendarCheck, CalendarDays
+} from 'lucide-react'
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, PieChart, Pie, Cell
+} from 'recharts'
+import { useFeatureAccess } from '@/hooks/useFeatureAccess'
+import { useRouter } from 'next/navigation'
+
+// ===== Types (imported from @/lib/types) =====
+// ===== CONSTANTS (imported from @/lib/constants) =====
+// ===== HELPERS (imported from @/lib/helpers) =====
+
+// ===== SEARCH AUTOCOMPLETE COMPONENT =====
+interface AutocompleteItem {
+  id: string
+  label: string
+  sublabel?: string
+  photoUrl?: string
+}
+
+function SearchAutocomplete({
+  label,
+  placeholder,
+  items,
+  selectedId,
+  onSelect,
+  onClear,
+  searchQuery,
+  onSearchChange,
+  loading = false,
+  emptyMessage = 'Aucun résultat',
+  itemTypeName = 'résultat',
+  foundWord = 'trouvé',
+  className = '',
+}: {
+  label?: string
+  placeholder?: string
+  items: AutocompleteItem[]
+  selectedId: string | null
+  onSelect: (item: AutocompleteItem) => void
+  onClear: () => void
+  searchQuery: string
+  onSearchChange: (value: string) => void
+  loading?: boolean
+  emptyMessage?: string
+  itemTypeName?: string
+  foundWord?: string
+  className?: string
+}) {
+  const [showDropdown, setShowDropdown] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const selectedItem = selectedId ? items.find(i => i.id === selectedId) : null
+  const displayValue = selectedItem ? selectedItem.label : searchQuery
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleSelect = (item: AutocompleteItem) => {
+    onSelect(item)
+    setShowDropdown(false)
+  }
+
+  const handleClear = () => {
+    onClear()
+    setShowDropdown(false)
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onSearchChange(e.target.value)
+    setShowDropdown(true)
+  }
+
+  return (
+    <div className={`relative ${className}`} ref={containerRef}>
+      {label && (
+        <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>{label}</label>
+      )}
+      <div className="flex items-center gap-2 bg-white border border-[oklch(90%_0.01_175)] rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-[oklch(72%_0.15_65_/_0.3)] focus-within:border-[oklch(72%_0.15_65_/_0.5)] transition">
+        <Search size={14} style={{ color: TEXT_MUTED_LUXE }} />
+        <input
+          placeholder={placeholder || 'Rechercher...'}
+          value={displayValue}
+          onChange={handleInputChange}
+          onFocus={() => { if (items.length > 0 || searchQuery.length >= 2) setShowDropdown(true) }}
+          className="flex-1 border-0 bg-transparent outline-none text-sm"
+        />
+        {(selectedId || searchQuery) && (
+          <button onClick={handleClear} className="text-[oklch(45%_0.18_25)] hover:text-[oklch(35%_0.20_25)] shrink-0">
+            <X size={14} />
+          </button>
+        )}
+      </div>
+      {/* Selected item chip */}
+      {selectedId && selectedItem && (
+        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium max-w-full" style={{ background: GOLD_SOFT, color: GOLD }}>
+          <StudentAvatar firstName={selectedItem.label.split(' ')[0] || ''} lastName={selectedItem.label.split(' ').slice(1).join(' ') || ''} photoUrl={selectedItem.photoUrl} size={24} className="text-white font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
+          <span className="truncate min-w-0">{selectedItem.label}</span>
+          {selectedItem.sublabel && <span className="text-[10px] opacity-70 shrink-0">({selectedItem.sublabel})</span>}
+        </div>
+      )}
+      {/* Autocomplete dropdown */}
+      {showDropdown && (
+        <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-[oklch(90%_0.01_175)] rounded-xl shadow-xl max-h-56 overflow-y-auto">
+          {loading ? (
+            <div className="px-4 py-4 text-center text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
+              <div className="h-5 w-5 border-2 border-[oklch(90%_0.01_175)] border-t-[oklch(72%_0.15_65)] rounded-full animate-spin mx-auto mb-2" />
+              Recherche...
+            </div>
+          ) : items.length === 0 ? (
+            <div className="px-4 py-4 text-center text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
+              {searchQuery.length < 2 ? 'Tapez au moins 2 caractères...' : emptyMessage}
+            </div>
+          ) : (
+            <>
+              <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider border-b border-[oklch(92%_0.005_250)]" style={{ color: TEXT_MUTED_LUXE }}>
+                {items.length} {itemTypeName}{items.length > 1 ? 's' : ''} {foundWord}{items.length > 1 ? 's' : ''}
+              </div>
+              {items.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => handleSelect(item)}
+                  className="w-full text-left px-3 py-2.5 hover:bg-[oklch(97%_0.02_65)] transition flex items-center gap-3 border-b border-[oklch(94%_0.005_250)] last:border-0 cursor-pointer group"
+                >
+                  <StudentAvatar firstName={item.label.split(' ')[0] || ''} lastName={item.label.split(' ').slice(1).join(' ') || ''} photoUrl={item.photoUrl} size={32} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-semibold group-hover:text-[oklch(55%_0.15_65)] transition" style={{ color: TEXT_PRIMARY }}>{item.label}</div>
+                    {item.sublabel && <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{item.sublabel}</div>}
+                  </div>
+                  <ChevronRight size={14} className="text-[oklch(80%_0.01_175)] group-hover:text-[oklch(72%_0.15_65)] transition shrink-0" />
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ===== BRAND Mark ===== (délègue au logo officiel centralisé — symbole seul,
+// lisible sur fond sombre ; le logo complet est affiché via BrandLogoPlate)
+function BrandMark({ height = 36, className = '' }: { height?: number; className?: string }) {
+  return <BrandLogo height={height} variant="mark" className={className} />
+}
+
+// ===== PUBLIC HEADER =====
+function PublicHeader({ dark = false }: { dark?: boolean }) {
+  const { setCurrentView } = useEduGestStore()
+  const [mobileMenu, setMobileMenu] = useState(false)
+  const textColor = dark ? 'text-white/90' : 'text-edu-fg'
+  const mutedColor = dark ? 'text-white/60' : 'text-edu-muted'
+  const hoverColor = dark ? 'hover:text-white' : 'hover:text-edu-fg'
+  const mobileBg = dark ? 'bg-[oklch(15%_0.02_250)]/95' : 'bg-white'
+  const borderColor = dark ? 'border-white/10' : 'border-edu-border'
+
+  return (
+    <header className={`sticky top-0 z-50 ${dark ? 'bg-transparent' : 'bg-white/85 backdrop-blur-xl border-b border-edu-border'}`}>
+      <div className="container-premium h-16 flex items-center justify-between">
+        <button onClick={() => setCurrentView('home')} className="flex items-center gap-2 font-bold text-base">
+          <BrandLogo height={36} variant="full" />
+        </button>
+        <nav className="hidden sm:flex items-center gap-1">
+          <button onClick={() => setCurrentView('home')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Écoles</button>
+          <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Fonctionnalités</button>
+          <button onClick={() => setCurrentView('pricing')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Tarifs</button>
+          <button onClick={() => setCurrentView('login')} className="ml-3 edu-gold-cta px-5 py-2 rounded-xl text-sm font-semibold">Se connecter</button>
+        </nav>
+        <button className={`sm:hidden p-2 ${textColor}`} onClick={() => setMobileMenu(!mobileMenu)}>
+          {mobileMenu ? <X size={20} /> : <Menu size={20} />}
+        </button>
+      </div>
+      {mobileMenu && (
+        <div className={`sm:hidden border-t ${borderColor} ${mobileBg} backdrop-blur-xl p-4 flex flex-col gap-2`}>
+          <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Écoles</button>
+          <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Fonctionnalités</button>
+          <button onClick={() => { setCurrentView('pricing'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Tarifs</button>
+          <button onClick={() => { setCurrentView('login'); setMobileMenu(false) }} className="edu-gold-cta px-4 py-2 rounded-xl text-sm font-semibold text-center">Se connecter</button>
+        </div>
+      )}
+    </header>
+  )
+}
+
+// ===== FOOTER =====
+function Footer() {
+  const { setCurrentView } = useEduGestStore()
+  return (
+    <ScrollReveal direction="up">
+    <footer style={{ background: DARK }} className="mt-auto text-white">
+      <div className="container-premium py-16 sm:py-20 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
+        <div>
+          <div className="mb-4"><BrandMark height={40} /></div>
+          <p className="text-sm text-white/50 leading-relaxed max-w-[280px]">
+            La plateforme de gestion scolaire multi-écoles qui simplifie la vie des directions, enseignants et parents en Afrique francophone.
+          </p>
+        </div>
+        <div>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Produit</h4>
+          <ul className="space-y-3">
+            <li><button onClick={() => setCurrentView('home')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Trouver une école<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
+            <li><button onClick={() => setCurrentView('pricing')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Tarifs<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
+            <li><button onClick={() => setCurrentView('login')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Connexion<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
+          </ul>
+        </div>
+        <div>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Rôles</h4>
+          <ul className="space-y-3 text-sm text-white/70">
+            <li>Super Admin</li><li>Secrétaire</li><li>Parent</li><li>Enseignant</li>
+          </ul>
+        </div>
+        <div>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Contact</h4>
+          <ul className="space-y-3 text-sm text-white/50">
+            <li>support@edugest.app</li><li>+243 81 234 56 78</li><li>Kinshasa · Dakar · Abidjan</li>
+          </ul>
+        </div>
+      </div>
+      <div className="container-premium pt-6 border-t border-white/10 flex flex-col sm:flex-row justify-between text-xs text-white/40 pb-8">
+        <span>© 2026 EduGest · Tous droits réservés</span>
+        <span className="mt-2 sm:mt-0">Conditions · Confidentialité · Cookies</span>
+      </div>
+    </footer>
+    </ScrollReveal>
+  )
+}
+
+// ===== MAP COMPONENT =====
+function SchoolsOverviewMap({ schools }: { schools: SchoolData[] }) {
+  const [mounted, setMounted] = useState(false)
+  const [leafletLoaded, setLeafletLoaded] = useState(false)
+  const [L, setL] = useState<typeof import('leaflet') | null>(null)
+  const [RL, setRL] = useState<typeof import('react-leaflet') | null>(null)
+
+  useEffect(() => { setMounted(true) }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+    async function loadLeaflet() {
+      try {
+        const leaflet = await import('leaflet')
+        const reactLeaflet = await import('react-leaflet')
+        // Fix default marker icons
+        delete (leaflet.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl
+        leaflet.Icon.Default.mergeOptions({
+          iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+          iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+          shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        })
+        setL(() => leaflet)
+        setRL(() => reactLeaflet)
+        setLeafletLoaded(true)
+      } catch (e) {
+        console.error('Failed to load leaflet', e)
+      }
+    }
+    loadLeaflet()
+  }, [mounted])
+
+  if (!mounted || !leafletLoaded || !RL || !L) {
+    return <div className="h-[400px] bg-edu-surface2 animate-pulse rounded-xl" />
+  }
+
+  const { MapContainer, TileLayer, Marker, Popup } = RL
+  const schoolsWithCoords = schools.filter(s => s.latitude && s.longitude)
+
+  return (
+    <MapContainer center={[-4.3, 15.3]} zoom={5} style={{ height: 400, borderRadius: 12 }} className="z-0">
+      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap" />
+      {schoolsWithCoords.map(s => (
+        <Marker key={s.id} position={[s.latitude!, s.longitude!]}>
+          <Popup>
+            <strong>{s.name}</strong><br />{s.city} · {s.country}
+          </Popup>
+        </Marker>
+      ))}
+    </MapContainer>
+  )
+}
+
+// ===== HOME VIEW =====
+function HomeView() {
+  const { setCurrentView, setSelectedSchoolId } = useEduGestStore()
+  const [schools, setSchools] = useState<SchoolData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [province, setProvince] = useState('Toutes provinces')
+  const [activeFilter, setActiveFilter] = useState('all')
+  const [showMap, setShowMap] = useState(false)
+  const [activeSystemId, setActiveSystemId] = useState<string | null>(null)
+  const [typewriterLine1, setTypewriterLine1] = useState('')
+  const [typewriterLine2, setTypewriterLine2] = useState('')
+  const [typewriterActiveLine, setTypewriterActiveLine] = useState<1 | 2 | null>(1)
+  // Compteurs réels de la plateforme (jamais de chiffres marketing en dur)
+  const [platformStats, setPlatformStats] = useState({ schools: 0, students: 0, families: 0 })
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        // Le seed ne concerne que les visiteurs anonymes (DB vide) ;
+        // inutile — et bruyant (401) — pour une session déjà authentifiée.
+        if (typeof window === 'undefined' || !localStorage.getItem('edugest_token')) {
+          await fetch('/api/seed')
+        }
+        const res = await fetch('/api/schools?limit=20')
+        const json = await res.json()
+        setSchools(json.data || [])
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setLoading(false)
+      }
+      try {
+        const statsRes = await fetch('/api/public/stats')
+        const statsJson = await statsRes.json()
+        if (statsJson.data) setPlatformStats({
+          schools: statsJson.data.schools ?? 0,
+          students: statsJson.data.students ?? 0,
+          families: statsJson.data.families ?? 0,
+        })
+      } catch (e) {
+        console.error(e)
+      }
+    }
+    loadData()
+  }, [])
+
+  // Typewriter animation
+  useEffect(() => {
+    const title1 = "Rejoignez"
+    const title2 = "l'excellence éducative"
+    let charIndex = 0
+    let currentLine = 1
+    let timeoutId: ReturnType<typeof setTimeout>
+
+    function type() {
+      if (currentLine === 1) {
+        if (charIndex < title1.length) {
+          setTypewriterLine1(title1.substring(0, charIndex + 1))
+          setTypewriterActiveLine(1)
+          charIndex++
+          timeoutId = setTimeout(type, 80 + Math.random() * 60)
+        } else {
+          currentLine = 2
+          charIndex = 0
+          setTypewriterActiveLine(2)
+          timeoutId = setTimeout(type, 400)
+        }
+      } else {
+        if (charIndex < title2.length) {
+          setTypewriterLine2(title2.substring(0, charIndex + 1))
+          setTypewriterActiveLine(2)
+          charIndex++
+          timeoutId = setTimeout(type, 80 + Math.random() * 60)
+        } else {
+          // Typing complete — keep cursor briefly then hide
+          setTypewriterActiveLine(2)
+          setTimeout(() => setTypewriterActiveLine(null), 1500)
+        }
+      }
+    }
+
+    timeoutId = setTimeout(type, 800)
+    return () => clearTimeout(timeoutId)
+  }, [])
+
+  // Floating parallax icons
+  useEffect(() => {
+    const container = document.getElementById('stitch-parallax-container')
+    if (!container) return
+
+    const educationIcons = [
+      '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>',
+      '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
+      '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>',
+      '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>',
+      '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"></path><path d="M3 22h18"></path><path d="M14 22a7 7 0 1 0 0-14h-1"></path><path d="M9 14h2"></path><path d="M9 12a2 2 0 1 1-4 0V7a2 2 0 1 1 4 0v5Z"></path><path d="M12 7V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4"></path></svg>',
+    ]
+
+    const elements: { el: HTMLDivElement; x: number; y: number; originX: number; originY: number; vx: number; vy: number; depth: number; scale: number; rotation: number; rotationSpeed: number; phase: number }[] = []
+    const numIcons = 20
+    let mouseX = window.innerWidth / 2
+    let mouseY = window.innerHeight / 2
+    let targetMouseX = mouseX
+    let targetMouseY = mouseY
+    let animFrameId: number
+
+    for (let i = 0; i < numIcons; i++) {
+      const el = document.createElement('div')
+      el.style.position = 'absolute'
+      el.style.pointerEvents = 'none'
+      el.style.userSelect = 'none'
+      el.style.zIndex = '1'
+      el.style.willChange = 'transform'
+      el.innerHTML = educationIcons[i % educationIcons.length]
+
+      const startX = Math.random() * window.innerWidth
+      const startY = Math.random() * (window.innerHeight * 0.9)
+      const depth = 0.02 + Math.random() * 0.1
+      const sizeScale = 0.7 + Math.random() * 1.3
+
+      const colorRoll = Math.random()
+      if (colorRoll > 0.85) el.style.color = '#f5a623'
+      else if (colorRoll > 0.70) el.style.color = '#10b981'
+      else el.style.color = 'rgba(255,255,255,0.25)'
+
+      el.style.opacity = (0.05 + Math.random() * 0.15).toString()
+
+      container.appendChild(el)
+      elements.push({
+        el, x: startX, y: startY, originX: startX, originY: startY,
+        vx: 0, vy: 0, depth, scale: sizeScale,
+        rotation: Math.random() * 360,
+        rotationSpeed: (Math.random() - 0.5) * 0.3,
+        phase: Math.random() * Math.PI * 2,
+      })
+    }
+
+    // Fade icons in
+    setTimeout(() => {
+      elements.forEach(item => {
+        const baseOp = parseFloat(item.el.style.opacity)
+        item.el.style.opacity = (baseOp * 1.5).toString()
+      })
+    }, 500)
+
+    const handleMouseMove = (e: MouseEvent) => {
+      targetMouseX = e.clientX
+      targetMouseY = e.clientY
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+
+    function lerp(start: number, end: number, amt: number) {
+      return (1 - amt) * start + amt * end
+    }
+
+    function update() {
+      mouseX = lerp(mouseX, targetMouseX, 0.08)
+      mouseY = lerp(mouseY, targetMouseY, 0.08)
+      const time = Date.now() * 0.001
+
+      elements.forEach(item => {
+        const dx = targetMouseX - (item.x + (targetMouseX - window.innerWidth / 2) * item.depth)
+        const dy = targetMouseY - (item.y + (targetMouseY - window.innerHeight / 2) * item.depth)
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        const mouseRange = 400
+        const attractionStrength = 0.08
+
+        if (dist < mouseRange) {
+          const force = (1 - dist / mouseRange) * attractionStrength
+          item.vx += dx * force * 0.2
+          item.vy += dy * force * 0.2
+        }
+
+        item.vx += (item.originX - item.x) * 0.01
+        item.vy += (item.originY - item.y) * 0.01
+        item.vx *= 0.92
+        item.vy *= 0.92
+        item.x += item.vx
+        item.y += item.vy
+
+        const driftX = Math.sin(time + item.phase) * 0.6
+        const driftY = Math.cos(time + item.phase * 0.7) * 0.6
+        const px = (mouseX - window.innerWidth / 2) * item.depth
+        const py = (mouseY - window.innerHeight / 2) * item.depth
+        item.rotation += item.rotationSpeed
+
+        item.el.style.transform = `translate3d(${item.x + px + driftX}px, ${item.y + py + driftY}px, 0) rotate(${item.rotation}deg) scale(${item.scale})`
+      })
+
+      animFrameId = requestAnimationFrame(update)
+    }
+    update()
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      cancelAnimationFrame(animFrameId)
+      // Clean up icons
+      while (container.firstChild) container.removeChild(container.firstChild)
+    }
+  }, [])
+
+  const filteredSchools = schools.filter(s => {
+    if (search && !s.name.toLowerCase().includes(search.toLowerCase()) && !s.city.toLowerCase().includes(search.toLowerCase())) return false
+    if (province !== 'Toutes provinces' && s.province !== province) return false
+    if (activeFilter !== 'all') {
+      if (['MATERNELLE', 'PRIMAIRE', 'SECONDAIRE'].includes(activeFilter) && s.schoolType !== activeFilter && s.schoolType !== 'MIXTE') return false
+      if (activeFilter === 'MIXTE' && s.schoolType !== 'MIXTE') return false
+      if (activeFilter === 'PRIVEE' && s.schoolCategory !== 'PRIVEE') return false
+      if (activeFilter === 'PUBLIQUE' && s.schoolCategory !== 'PUBLIQUE') return false
+    }
+    return true
+  })
+
+  const chipCounts: Record<string, number> = {
+    all: schools.length,
+    MATERNELLE: schools.filter(s => s.schoolType === 'MATERNELLE' || s.schoolType === 'MIXTE').length,
+    PRIMAIRE: schools.filter(s => s.schoolType === 'PRIMAIRE' || s.schoolType === 'MIXTE').length,
+    SECONDAIRE: schools.filter(s => s.schoolType === 'SECONDAIRE' || s.schoolType === 'MIXTE').length,
+    MIXTE: schools.filter(s => s.schoolType === 'MIXTE').length,
+    PRIVEE: schools.filter(s => s.schoolCategory === 'PRIVEE').length,
+    PUBLIQUE: schools.filter(s => s.schoolCategory === 'PUBLIQUE').length,
+  }
+
+  const FEATURES = [
+    { icon: <GraduationCap size={24} />, title: 'Gestion Scolaire Intégrale', desc: 'Notes, bulletins, emploi du temps — tout en un seul endroit' },
+    { icon: <MessageSquare size={24} />, title: 'Communication Instantanée', desc: 'WhatsApp, SMS, notifications push pour rester connecté' },
+    { icon: <CreditCard size={24} />, title: 'Paiements Simplifiés', desc: 'Mobile Money, virement, espèces — encaissez facilement' },
+    { icon: <Building2 size={24} />, title: 'Multi-Écoles', desc: 'Gérez plusieurs établissements depuis un tableau de bord unique' },
+    { icon: <Shield size={24} />, title: 'Sécurité & Conformité', desc: 'Données protégées, conformes aux normes africaines' },
+    { icon: <BarChart3 size={24} />, title: 'Analytique Avancée', desc: 'Tableaux de bord et rapports en temps réel' },
+  ]
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      {/* ===== HERO SECTION — Institutional Excellence ===== */}
+      <section className="relative w-full min-h-[700px] sm:min-h-[900px] flex flex-col overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+        <AuroraBackground>
+        {/* Parallax floating icons container */}
+        <div id="stitch-parallax-container" className="absolute inset-0 pointer-events-none overflow-hidden z-0" />
+
+        {/* Gradient overlay at bottom */}
+        <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-[#0a0f0d] via-[#0b1613]/50 to-transparent pointer-events-none z-10" />
+
+        {/* Floating nav */}
+        <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-5 sm:py-6 w-full">
+          <button onClick={() => setCurrentView('home')} className="flex items-center shrink-0 min-w-max">
+            <BrandMark height={56} className="brightness-110 hover:scale-105 transition-all duration-300" />
+          </button>
+          <div className="hidden md:flex items-center gap-12">
+            <button onClick={() => setCurrentView('home')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Écoles</button>
+            <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Fonctionnalités</button>
+            <button onClick={() => setCurrentView('pricing')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Tarifs</button>
+          </div>
+          <button onClick={() => setCurrentView('login')} className="bg-[#f5a623] hover:bg-[#ffb643] hover:shadow-[0_0_30px_rgba(245,166,35,0.4)] text-[#0a0f0d] px-8 sm:px-10 py-3 sm:py-3.5 rounded-full font-extrabold text-sm transition-all shadow-[0_10px_30px_rgba(245,166,35,0.2)] active:scale-95 cursor-pointer">
+            Se connecter
+          </button>
+        </nav>
+
+        {/* Main hero content */}
+        <main className="relative z-10 flex flex-col items-center justify-center flex-grow px-4 text-center mt-[-40px]">
+          {/* Typewriter title */}
+          <div className="mb-10 sm:mb-14 flex flex-col items-center relative">
+            <h1 className="text-5xl sm:text-6xl md:text-[6.5rem] font-black text-white leading-[1.05] tracking-tighter mb-6 sm:mb-8 relative inline-block mx-auto select-none" style={{ minHeight: '140px' }}>
+              <span id="typewriter-line-1" className="inline-block relative">{typewriterLine1}{typewriterActiveLine === 1 && <span className="animate-pulse">|</span>}</span>
+              <br />
+              <span className="italic font-playfair inline-block relative" style={{ color: '#f5a623', textShadow: '0 0 25px rgba(245, 166, 35, 0.5), 0 0 50px rgba(245, 166, 35, 0.2)' }}>{typewriterLine2}{typewriterActiveLine === 2 && <span className="animate-pulse">|</span>}</span>
+            </h1>
+            <p className="text-gray-300 text-base sm:text-lg md:text-xl max-w-2xl mx-auto font-medium leading-relaxed opacity-80">
+              <BlurText text="La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants pour un avenir meilleur." delay={60} stepDuration={0.4} />
+            </p>
+          </div>
+
+          {/* Glass morphism search bar */}
+          <div className="w-full max-w-4xl mb-16 sm:mb-24 relative z-20">
+            <div className="p-2 rounded-2xl flex flex-col md:flex-row items-center gap-3 shadow-2xl border-white/10" style={{ background: 'rgba(26, 37, 32, 0.4)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)' }}>
+              <div className="flex items-center flex-grow w-full px-4 sm:px-6 gap-4">
+                <Search size={20} className="text-gray-400 shrink-0" />
+                <input
+                  type="text" placeholder="Rechercher une école par nom..."
+                  value={search} onChange={e => setSearch(e.target.value)}
+                  className="w-full bg-transparent border-none text-white py-4 text-base sm:text-lg font-medium placeholder-gray-500 tracking-tight outline-none"
+                />
+              </div>
+              <div className="hidden md:block h-10 w-px bg-white/10 mx-1" />
+              <div className="flex items-center w-full md:w-auto gap-3 px-2 md:px-0">
+                <div className="relative flex-grow md:flex-grow-0">
+                  <AppSelect dark value={province} onChange={setProvince} options={PROVINCES} className="w-full md:w-48" />
+                </div>
+                <button className="w-full md:w-auto bg-[#f5a623] text-[#0a0f0d] px-10 py-4 rounded-xl font-extrabold text-sm uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)] whitespace-nowrap cursor-pointer">
+                  Rechercher
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats cards with tilt */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-3xl px-4 relative z-20">
+            {[
+              { value: platformStats.schools, suffix: '', label: 'Établissements', glow: 'oklch(72% 0.15 65 / 0.3)', icon: '🏫' },
+              { value: platformStats.families, suffix: '', label: 'Familles', glow: 'oklch(72% 0.22 165 / 0.3)', icon: '👨‍👩‍👧‍👦' },
+              { value: platformStats.students, suffix: '', label: 'Élèves', glow: 'oklch(72% 0.15 210 / 0.3)', icon: '🎓' },
+            ].map((stat) => (
+              <GlowCard key={stat.label} glowColor={stat.glow}>
+                <div className="p-6 flex flex-col items-center justify-center group cursor-default">
+                  <span className="text-2xl mb-2">{stat.icon}</span>
+                  <span className="text-3xl font-black text-white tracking-tighter mb-1.5 group-hover:text-[#f5a623] transition-colors duration-500">
+                    <AnimatedCounter target={stat.value} suffix={stat.suffix} duration={2.5} />
+                  </span>
+                  <span className="text-[9px] text-gray-400 uppercase tracking-[0.3em] font-extrabold group-hover:text-white transition-colors duration-500">{stat.label}</span>
+                </div>
+              </GlowCard>
+            ))}
+          </div>
+        </main>
+        </AuroraBackground>
+      </section>
+
+      {/* ===== TRUST SIGNALS BAR ===== */}
+      <section style={{ background: IVORY }} className="border-y border-[oklch(88%_0.01_175)]">
+        <div className="container-premium py-4 text-center">
+          <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{platformStats.schools.toLocaleString('fr-FR')}</strong> Établissement{platformStats.schools > 1 ? 's' : ''} &nbsp;•&nbsp;{' '}
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{platformStats.families.toLocaleString('fr-FR')}</strong> Familles &nbsp;•&nbsp;{' '}
+            <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{platformStats.students.toLocaleString('fr-FR')}</strong> Élèves
+          </p>
+        </div>
+      </section>
+
+      {/* ===== SEARCH / FILTER SECTION ===== */}
+      <section className="edu-ivory-texture flex-1">
+        {/* Filter chips */}
+        <div className="container-premium pt-8 pb-3 flex items-center gap-2 flex-wrap">
+          {FILTER_CHIPS.map(chip => (
+            <button
+              key={chip.key}
+              onClick={() => setActiveFilter(chip.key)}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition cursor-pointer border ${
+                activeFilter === chip.key
+                  ? 'text-white border-transparent shadow-md'
+                  : 'bg-white border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm'
+              }`}
+              style={activeFilter === chip.key ? { background: ACCENT } : undefined}
+            >
+              {chip.label}
+              <span className={`text-[11px] font-medium px-1.5 py-px rounded-full ${
+                activeFilter === chip.key ? 'bg-white/20 text-white' : 'bg-[oklch(90%_0.005_250)] text-edu-muted'
+              }`}>{chipCounts[chip.key] ?? 0}</span>
+            </button>
+          ))}
+          <div className="ml-auto hidden sm:block text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
+            Affichage {filteredSchools.length > 0 ? '1' : '0'}—{Math.min(12, filteredSchools.length)} sur {filteredSchools.length}
+          </div>
+          <button
+            onClick={() => setShowMap(!showMap)}
+            className="edu-glass-light ml-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition hover:shadow-md"
+          >
+            <MapPin size={14} /> {showMap ? 'Masquer carte' : 'Voir carte'}
+          </button>
+        </div>
+
+        {/* Map */}
+        {showMap && (
+          <div className="container-premium mb-6">
+            <div className="rounded-2xl overflow-hidden shadow-lg">
+              <SchoolsOverviewMap schools={filteredSchools} />
+            </div>
+          </div>
+        )}
+
+        {/* School Cards */}
+        <div className="container-premium pb-16">
+          <div className="flex items-baseline justify-between mb-5">
+            <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
+              <strong className="font-semibold" style={{ color: TEXT_PRIMARY }}>{filteredSchools.length} écoles</strong> correspondent à votre recherche
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden animate-pulse">
+                  <div className="h-[120px] bg-[oklch(94%_0.005_175)]" />
+                  <div className="p-6 sm:p-10 pt-10 space-y-3"><div className="h-4 bg-[oklch(94%_0.005_175)] rounded w-3/4" /><div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-1/2" /></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+              {filteredSchools.map((school, idx) => (
+                <ScrollReveal key={school.id} direction="up" delay={idx * 0.08}>
+                <button
+                  onClick={() => { setSelectedSchoolId(school.id); setCurrentView('school-detail') }}
+                  className="block w-full text-left bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden edu-card-lift group"
+                >
+                  <div className={`h-[120px] relative bg-gradient-to-br ${COVER_GRADIENTS[idx % COVER_GRADIENTS.length]} flex items-end p-4`}>
+                    {/* Mesh gradient overlay */}
+                    <div className="absolute inset-0 opacity-20" style={{ background: 'radial-gradient(ellipse at top right, oklch(72% 0.15 65 / 0.3), transparent 60%)' }} />
+                    <span className="absolute top-3 right-3 edu-glass px-3 py-1 rounded-full text-[11px] font-medium text-white">
+                      {getSchoolTypeLabel(school.schoolType, school.schoolCategory, school.schoolLevel)}
+                    </span>
+                    {school.logo ? (
+                      <img src={school.logo} alt={school.shortName} className={`w-12 h-12 rounded-xl object-cover shadow-md relative top-6 bg-white`} />
+                    ) : (
+                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${COVER_GRADIENTS[idx % COVER_GRADIENTS.length]} grid place-items-center font-extrabold text-base text-white shadow-md relative top-6 ring-2 ring-white/20`}>
+                        {school.shortName.substring(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-6 sm:p-10 pt-10">
+                    <div className="text-base font-semibold tracking-tight mb-1" style={{ color: TEXT_PRIMARY }}>{school.name}</div>
+                    <div className="text-[13px] flex items-center gap-1 mb-4" style={{ color: TEXT_MUTED_LUXE }}>
+                      <MapPin size={12} /> {school.city} · {school.province}
+                    </div>
+                    <div className="flex gap-4 py-3 border-t border-b border-[oklch(88%_0.01_175)] mb-4">
+                      <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students ?? school.studentCount ?? 0)}</strong>élèves
+                      </div>
+                      <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</strong>classes
+                      </div>
+                      <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                        <strong className="block text-[15px] font-semibold tabular-nums mb-0.5" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</strong>fondée
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 text-[13px] font-medium">
+                        <Star size={14} style={{ color: GOLD }} className="fill-current" />
+                        <span style={{ color: TEXT_PRIMARY }}>{school.averageRating?.toFixed(1) || '—'}</span>
+                        <span className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>· {school.totalReviews} avis</span>
+                      </div>
+                      <span className="edu-gold-cta text-[13px] font-semibold px-4 py-2 rounded-xl">
+                        Voir l&apos;école →
+                      </span>
+                    </div>
+                  </div>
+                </button>
+                </ScrollReveal>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ===== SYSTÈMES SCOLAIRES ===== */}
+      <section id="systems-section" className="edu-ivory-texture py-16 sm:py-20 border-t border-[oklch(88%_0.01_175)]">
+        <div className="container-premium">
+          <div className="text-center mb-10">
+            <div className="edu-ornament mb-4"><span style={{ color: GOLD }}>►</span></div>
+            <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
+              Les <GradientText className="inline-block" colors={['#f5a623', '#e8962d', '#d4860f']}>systèmes scolaires</GradientText> intégrés
+            </h2>
+            <p className="text-base max-w-[560px] mx-auto" style={{ color: TEXT_MUTED_LUXE }}>
+              Cliquez sur un système pour découvrir ses parcours officiels : classes, options/filières populaires et horaires types.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
+            {EDUCATIONAL_SYSTEMS_LIST.map(sys => {
+              const isActive = activeSystemId === sys.id
+              return (
+                <button
+                  key={sys.id}
+                  onClick={() => setActiveSystemId(isActive ? null : sys.id)}
+                  className={`text-left bg-white border rounded-2xl p-5 transition-all edu-card-lift ${isActive ? 'border-[oklch(72%_0.15_65)] shadow-md ring-2 ring-[oklch(72%_0.15_65_/_0.2)]' : 'border-[oklch(88%_0.01_175)] hover:shadow-md'}`}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-8 rounded-lg overflow-hidden shadow-sm shrink-0">
+                      <FlagIcon countryCode={sys.countryCode} className="w-full h-full" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold truncate" style={{ color: TEXT_PRIMARY }}>{sys.shortLabel}</div>
+                      <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{sys.country}</div>
+                    </div>
+                  </div>
+                  <div className="text-[12px] leading-relaxed line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{sys.sampleClasses}</div>
+                  <div className="mt-3 text-[12px] font-semibold flex items-center gap-1" style={{ color: GOLD }}>
+                    {isActive ? 'Masquer' : 'Voir les parcours'} <ChevronDown size={13} className={`transition-transform ${isActive ? 'rotate-180' : ''}`} />
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+          {activeSystemId && (
+            <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl shadow-sm overflow-hidden">
+              <SystemParcoursExplorer systemId={activeSystemId} />
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ===== FEATURES SHOWCASE ===== */}
+      <section id="features-section" style={{ background: IVORY }} className="py-16 sm:py-[120px]">
+        <div className="container-premium text-center">
+          {/* Ornament divider */}
+          <div className="edu-ornament mb-4">
+            <span style={{ color: GOLD }}>►</span>
+          </div>
+          <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
+            Pourquoi choisir <GradientText className="inline-block" colors={['#f5a623', '#e8962d', '#d4860f']}>EduGest</GradientText>
+          </h2>
+          <p className="text-base max-w-[500px] mx-auto mb-12" style={{ color: TEXT_MUTED_LUXE }}>
+            Une plateforme conçue pour les réalités africaines, avec les outils qu&apos;il vous faut.
+          </p>
+
+            <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8" staggerDelay={0.1}>
+            {FEATURES.map((feature, idx) => (
+              <StaggerItem key={idx}>
+              <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl p-8 text-left edu-card-lift group">
+                <div className="edu-icon-gradient w-12 h-12 rounded-xl mb-5 group-hover:scale-110 transition-transform duration-300">
+                  {feature.icon}
+                </div>
+                <h3 className="text-[17px] sm:text-[21px] font-bold mb-2" style={{ color: TEXT_PRIMARY }}>{feature.title}</h3>
+                <p className="text-sm leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>{feature.desc}</p>
+              </div>
+              </StaggerItem>
+            ))}
+            </StaggerContainer>
+        </div>
+      </section>
+
+      <Footer />
+    </div>
+  )
+}
+
+
+function SchoolDetailView() {
+  const { setCurrentView, selectedSchoolId } = useEduGestStore()
+  const [school, setSchool] = useState<SchoolData | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!selectedSchoolId) {
+      // No school selected (e.g. stale restored view) — self-heal to home
+      // instead of spinning forever.
+      setLoading(false)
+      setCurrentView('login')
+      return
+    }
+    async function load() {
+      try {
+        const res = await fetch(`/api/schools/${selectedSchoolId}`)
+        const json = await res.json()
+        setSchool(json.data || json)
+      } catch (e) { console.error(e) }
+      finally { setLoading(false) }
+    }
+    load()
+  }, [selectedSchoolId])
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center" style={{ background: IVORY }}><div className="animate-spin h-8 w-8 border-4 border-edu-accent border-t-transparent rounded-full" /></div>
+
+  if (!school) return (
+    <div className="min-h-screen flex flex-col" style={{ background: IVORY }}>
+      <PublicHeader />
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center">
+          <p style={{ color: TEXT_MUTED_LUXE }} className="mb-4">École non trouvée</p>
+          <button onClick={() => setCurrentView('login')} className="font-medium" style={{ color: GOLD }}>← Retour à l&apos;accueil</button>
+        </div>
+      </div>
+      <Footer />
+    </div>
+  )
+
+  return (
+    <div className="min-h-screen flex flex-col" style={{ background: IVORY }}>
+      <PublicHeader />
+      <div className="container-premium py-8 flex-1">
+        <button onClick={() => setCurrentView('login')} className="inline-flex items-center gap-1.5 text-sm mb-6 transition hover:opacity-80" style={{ color: TEXT_MUTED_LUXE }}>
+          <ArrowLeft size={14} /> Retour aux écoles
+        </button>
+
+        <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
+          <div className={`h-48 bg-gradient-to-br ${COVER_GRADIENTS[0]} relative`}>
+            {/* Darker overlay for hero */}
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, oklch(15% 0.02 250 / 0.3), oklch(15% 0.02 250 / 0.5))' }} />
+            <span className="absolute top-4 right-4 edu-glass px-3 py-1 rounded-full text-xs font-medium text-white">
+              {getSchoolTypeLabel(school.schoolType, school.schoolCategory, school.schoolLevel)}
+            </span>
+          </div>
+          <div className="px-6 sm:px-10 pb-10 -mt-12 relative">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[oklch(55%_0.15_175)] to-[oklch(45%_0.13_200)] grid place-items-center text-2xl font-extrabold text-white shadow-lg ring-4 ring-white">
+              {school.logo ? (
+                <img src={school.logo} alt={school.shortName} className="w-full h-full rounded-2xl object-cover" />
+              ) : (
+                school.shortName.substring(0, 2).toUpperCase()
+              )}
+            </div>
+            <h1 className="text-[21px] sm:text-[29px] font-bold mt-4 tracking-tight" style={{ color: TEXT_PRIMARY }}>{school.name}</h1>
+            <div className="flex items-center gap-2 text-sm mt-2" style={{ color: TEXT_MUTED_LUXE }}>
+              <MapPin size={14} /> {school.address}, {school.city} · {school.province}, {school.country}
+            </div>
+            <div className="flex items-center gap-4 mt-3 text-sm flex-wrap">
+              <span className="flex items-center gap-1"><Star size={14} style={{ color: GOLD }} className="fill-current" /> <strong style={{ color: TEXT_PRIMARY }}>{school.averageRating?.toFixed(1)}</strong> <span style={{ color: TEXT_MUTED_LUXE }}>({school.totalReviews} avis)</span></span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>·</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>{school._count?.students ?? school.studentCount ?? 0} élèves</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>·</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>{school._count?.classes || school.classCount} classes</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>·</span>
+              <span style={{ color: TEXT_MUTED_LUXE }}>Fondée en {school.establishmentYear}</span>
+            </div>
+
+            {school.description && (
+              <div className="mt-8">
+                <h3 className="font-semibold mb-2" style={{ color: TEXT_PRIMARY }}>À propos</h3>
+                <p className="text-sm leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>{school.description}</p>
+              </div>
+            )}
+
+            <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
+                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{formatNumber(school._count?.students ?? school.studentCount ?? 0)}</div>
+                <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Élèves</div>
+              </div>
+              <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
+                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{school._count?.classes || school.classCount}</div>
+                <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Classes</div>
+              </div>
+              <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
+                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{school.establishmentYear || '—'}</div>
+                <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Fondée</div>
+              </div>
+              <div className="rounded-xl p-5 text-center" style={{ background: IVORY }}>
+                <div className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>{getSubscriptionLabel(school.subscriptionTier)}</div>
+                <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Abonnement</div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <div className="flex items-center gap-2 text-sm" style={{ color: TEXT_MUTED_LUXE }}><Mail size={14} /> {school.email}</div>
+              <div className="flex items-center gap-2 text-sm" style={{ color: TEXT_MUTED_LUXE }}><Phone size={14} /> {school.phone}</div>
+            </div>
+
+            {school.latitude && school.longitude && (
+              <div className="mt-8">
+                <h3 className="font-semibold mb-3" style={{ color: TEXT_PRIMARY }}>Localisation</h3>
+                <div className="rounded-2xl overflow-hidden shadow-sm"><SchoolsOverviewMap schools={[school]} /></div>
+              </div>
+            )}
+
+            <div className="mt-8">
+              <button onClick={() => setCurrentView('login')} className="edu-gold-cta px-8 py-3.5 rounded-xl font-semibold text-sm">
+                Contacter cette école
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <Footer />
+    </div>
+  )
+}
+
+// ===== PRICING VIEW =====
+// ===== PRICING PLAN TYPE =====
+interface PricingPlanData {
+  id: string; tier: string; name: string; price: number; originalPrice: number | null;
+  period: string; description: string; features: string; color: string;
+  isPopular: boolean; isActive: boolean; sortOrder: number;
+  updatedAt: string; createdAt: string;
+}
+
+function PricingView() {
+  const { setCurrentView, userRole } = useEduGestStore()
+  const [plans, setPlans] = useState<PricingPlanData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editingPlan, setEditingPlan] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<{ price: string; originalPrice: string; name: string; description: string; features: string; period: string }>({ price: '', originalPrice: '', name: '', description: '', features: '', period: '' })
+  const [saving, setSaving] = useState(false)
+
+  const isAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
+
+  useEffect(() => {
+    async function loadPlans() {
+      try {
+        const res = await fetch('/api/pricing')
+        const json = await res.json()
+        setPlans(json.data || [])
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadPlans()
+  }, [])
+
+  function formatPrice(price: number) {
+    if (price === -1) return 'Sur mesure'
+    return price.toLocaleString('fr-FR') + '$'
+  }
+
+  function startEdit(plan: PricingPlanData) {
+    setEditingPlan(plan.id)
+    setEditForm({
+      price: plan.price === -1 ? '' : String(plan.price),
+      originalPrice: plan.originalPrice != null ? String(plan.originalPrice) : '',
+      name: plan.name,
+      description: plan.description,
+      features: plan.features,
+      period: plan.period,
+    })
+  }
+
+  async function saveEdit(planId: string) {
+    setSaving(true)
+    try {
+      const priceVal = editForm.price === '' ? -1 : parseInt(editForm.price, 10)
+      const originalPriceVal = editForm.originalPrice === '' ? null : parseInt(editForm.originalPrice, 10)
+      const res = await authFetch('/api/pricing', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: planId,
+          price: priceVal,
+          originalPrice: originalPriceVal,
+          name: editForm.name,
+          description: editForm.description,
+          features: editForm.features,
+          period: editForm.period,
+        }),
+      })
+      const json = await res.json()
+      if (json.data) {
+        setPlans(prev => prev.map(p => p.id === planId ? json.data : p))
+        toast.success(`Prix de ${editForm.name} mis à jour !`)
+      } else {
+        toast.error('Erreur lors de la mise à jour')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setSaving(false)
+      setEditingPlan(null)
+    }
+  }
+
+  async function resetPrices() {
+    if (!confirm('Réinitialiser tous les prix aux valeurs par défaut ?')) return
+    try {
+      const res = await authFetch('/api/pricing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset' }),
+      })
+      const json = await res.json()
+      setPlans(json.data || [])
+      toast.success('Prix réinitialisés !')
+    } catch {
+      toast.error('Erreur lors de la réinitialisation')
+    }
+  }
+
+  const tierColors: Record<string, string> = {
+    FREEMIUM: MUTED, ESSENTIEL: INFO, STANDARD: ACCENT,
+    PREMIUM: WARNING, ENTERPRISE: SUCCESS, CORPORATE: DANGER,
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col" style={{ background: IVORY }}>
+      <PublicHeader />
+      <div className="container-premium py-16 sm:py-[120px] flex-1">
+        <div className="text-center mb-12">
+          <div className="edu-ornament mb-4">
+            <span style={{ color: GOLD }}>►</span>
+          </div>
+          <h1 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
+            Tarifs <span style={{ color: GOLD }}>transparents</span>
+          </h1>
+          <p className="max-w-[500px] mx-auto" style={{ color: TEXT_MUTED_LUXE }}>Choisissez la formule adaptée à votre établissement. Évoluez à tout moment.</p>
+          {isAdmin && (
+            <button onClick={resetPrices} className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm transition" style={{ color: TEXT_MUTED_LUXE }}>
+              <RotateCcw size={14} /> Réinitialiser les prix
+            </button>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl p-8 sm:p-10 animate-pulse">
+                <div className="h-5 bg-[oklch(94%_0.005_175)] rounded w-1/2 mb-3" />
+                <div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-3/4 mb-5" />
+                <div className="h-8 bg-[oklch(94%_0.005_175)] rounded w-1/3 mb-6" />
+                <div className="space-y-3"><div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-full" /><div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-4/5" /><div className="h-3 bg-[oklch(94%_0.005_175)] rounded w-3/5" /></div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            {plans.map(plan => {
+              const color = plan.color || tierColors[plan.tier] || MUTED
+              const featureList = plan.features ? plan.features.split(',').map(f => f.trim()) : []
+              const isCustom = plan.price === -1
+              const hasDiscount = plan.originalPrice != null && plan.originalPrice > plan.price && plan.price >= 0
+              const discountPct = hasDiscount ? Math.round((1 - plan.price / plan.originalPrice!) * 100) : 0
+              const isEditing = editingPlan === plan.id
+
+              return (
+                <div key={plan.id} className={`bg-white border rounded-2xl p-8 sm:p-10 relative edu-card-lift ${
+                  plan.isPopular
+                    ? 'border-[oklch(72%_0.15_65)] shadow-[0_0_24px_oklch(72%_0.15_65_/_0.12)]'
+                    : 'border-[oklch(88%_0.01_175)]'
+                }`}>
+                  {plan.isPopular && (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 edu-gold-cta px-4 py-1 rounded-full text-xs font-semibold">Populaire</span>
+                  )}
+                  {hasDiscount && !isEditing && (
+                    <span className="absolute -top-3 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold">-{discountPct}%</span>
+                  )}
+
+                  {isEditing ? (
+                    /* ===== EDIT MODE ===== */
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Nom du plan</label>
+                        <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Prix ($/mois) — laisser vide pour « Sur mesure »</label>
+                        <input type="number" value={editForm.price} onChange={e => setEditForm(f => ({ ...f, price: e.target.value }))} placeholder="Ex: 250" className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Prix original barré (optionnel, pour réduction)</label>
+                        <input type="number" value={editForm.originalPrice} onChange={e => setEditForm(f => ({ ...f, originalPrice: e.target.value }))} placeholder="Ex: 350" className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Période</label>
+                        <input value={editForm.period} onChange={e => setEditForm(f => ({ ...f, period: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Description</label>
+                        <input value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>Fonctionnalités (séparées par virgules)</label>
+                        <textarea value={editForm.features} onChange={e => setEditForm(f => ({ ...f, features: e.target.value }))} rows={3} className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)] resize-none" style={{ color: TEXT_PRIMARY }} />
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={() => saveEdit(plan.id)} disabled={saving} className="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50" style={{ background: GOLD, color: DARK }}>
+                          {saving ? <div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> : <><Check size={14} /> Enregistrer</>}
+                        </button>
+                        <button onClick={() => setEditingPlan(null)} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(88%_0.01_175)] hover:bg-gray-50 transition" style={{ color: TEXT_MUTED_LUXE }}>
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* ===== DISPLAY MODE ===== */
+                    <>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{plan.name}</h3>
+                          <p className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>{plan.description}</p>
+                        </div>
+                        {isAdmin && (
+                          <button onClick={() => startEdit(plan)} className="shrink-0 ml-2 p-2 rounded-lg border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm transition group" title="Modifier le prix">
+                            <Edit size={14} style={{ color: TEXT_MUTED_LUXE }} className="group-hover:text-[oklch(72%_0.15_65)]" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="my-5">
+                        {hasDiscount && (
+                          <span className="text-base line-through mr-2" style={{ color: TEXT_MUTED_LUXE }}>{formatPrice(plan.originalPrice!)}</span>
+                        )}
+                        <span className="text-3xl font-extrabold" style={{ color: hasDiscount ? DANGER : TEXT_PRIMARY }}>{formatPrice(plan.price)}</span>
+                        <span className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{plan.period}</span>
+                      </div>
+                      <ul className="space-y-3 mb-6">
+                        {featureList.map(f => (
+                          <li key={f} className="flex items-start gap-2 text-sm" style={{ color: TEXT_PRIMARY }}>
+                            <CheckCircle size={14} style={{ color }} className="shrink-0 mt-[3px]" />
+                            {/* min-w-0 + break-words : un long segment sans espace
+                                (ex. « (Direction/Secrétaire/Caisse/Discipline) »)
+                                passe à la ligne au lieu de déborder de la carte. */}
+                            <span className="min-w-0 break-words">{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <button
+                        onClick={() => setCurrentView('create-school')}
+                        className={`w-full py-3 rounded-xl text-sm font-semibold transition ${
+                          plan.isPopular
+                            ? 'edu-gold-cta'
+                            : 'border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm'
+                        }`}
+                        style={plan.isPopular ? undefined : { color: TEXT_PRIMARY }}
+                      >
+                        {isCustom ? 'Nous contacter' : 'Commencer'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+      <Footer />
+    </div>
+  )
+}
+
+// ===== CREATE SCHOOL VIEW =====
+function CreateSchoolView() {
+  const { setCurrentView, login } = useEduGestStore()
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
+  const [loading, setLoading] = useState(false)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [showAdminPassword, setShowAdminPassword] = useState(false)
+  const [createdUserId, setCreatedUserId] = useState<string | null>(null)
+  const [otpCode, setOtpCode] = useState('')
+  const [otpChannel, setOtpChannel] = useState<'whatsapp' | 'email'>('whatsapp')
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [otpError, setOtpError] = useState('')
+  const [otpSent, setOtpSent] = useState(false)
+  const [form, setForm] = useState({
+    name: '', shortName: '', email: '', phone: '', address: '', city: '',
+    province: 'Kinshasa', country: 'RD Congo', description: '', schoolType: 'MIXTE',
+    schoolCategory: 'PRIVEE', schoolLevel: '', educationalSystem: 'RDC', maxStudents: '200', establishmentYear: '', mission: '',
+    subscriptionTier: 'FREEMIUM',
+    adminName: '', adminEmail: '', adminPhone: '', adminPassword: '',
+    latitude: null as number | null, longitude: null as number | null,
+    logo: '',
+  })
+
+  const updateForm = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }))
+  const [eduSysSearch, setEduSysSearch] = useState('')
+  const [eduSysOpen, setEduSysOpen] = useState(false)
+  const eduSysRef = useRef<HTMLDivElement>(null)
+  const eduSysFiltered = useMemo(() => {
+    if (!eduSysSearch) return EDUCATIONAL_SYSTEMS_LIST
+    const q = eduSysSearch.toLowerCase()
+    return EDUCATIONAL_SYSTEMS_LIST.filter(s => s.name.toLowerCase().includes(q) || s.shortLabel.toLowerCase().includes(q) || s.country.toLowerCase().includes(q))
+  }, [eduSysSearch])
+
+  // Close edu system dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (eduSysRef.current && !eduSysRef.current.contains(e.target as Node)) setEduSysOpen(false)
+    }
+    if (eduSysOpen) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [eduSysOpen])
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLogoUploading(true)
+    try {
+      // Client-side preview
+      const reader = new FileReader()
+      reader.onload = (ev) => setLogoPreview(ev.target?.result as string)
+      reader.readAsDataURL(file)
+      // Server upload
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('category', 'schools')
+      const res = await authFetch('/api/upload', { method: 'POST', body: formData })
+      const json = await res.json()
+      if (json.url) updateForm('logo', json.url)
+    } catch (err) {
+      console.error('Logo upload error', err)
+    } finally {
+      setLogoUploading(false)
+    }
+  }
+
+  async function handleSubmit() {
+    if (!form.name || !form.shortName || !form.email || !form.phone || !form.city || !form.province || !form.country) {
+      toast.error('Veuillez remplir tous les champs obligatoires')
+      return
+    }
+    if (step === 1) { setStep(2); return }
+    if (step === 2) {
+      if (!form.adminName || !form.adminEmail) {
+        toast.error('Veuillez remplir les informations du compte administrateur')
+        return
+      }
+    }
+    setLoading(true)
+    try {
+      const res = await fetch('/api/schools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          maxStudents: parseInt(form.maxStudents) || 200,
+          schoolLevel: form.schoolLevel || null,
+          establishmentYear: form.establishmentYear ? parseInt(form.establishmentYear) : null,
+          latitude: form.latitude, longitude: form.longitude,
+          logo: form.logo || null,
+        }),
+      })
+      const json = await res.json()
+      if (json.data?.school) {
+        // OTP disabled: auto-login directly
+        const loginRes = await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: form.adminEmail, password: form.adminPassword || 'admin123' }),
+        })
+        const loginJson = await loginRes.json()
+        if (loginJson.data) {
+          const apiUser = loginJson.data
+          const role = API_ROLE_MAP[apiUser.role] || 'SCHOOL_ADMIN' // onboarding = admin d'école (jamais SAG)
+          login(role, {
+            id: apiUser.id, name: apiUser.name, role,
+            schoolId: apiUser.schoolId, schoolName: json.data.school.name,
+            schoolLogo: json.data.school.logo || null,
+            initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
+            profileImageUrl: null,
+            subscriptionTier: json.data.school.subscriptionTier || 'FREEMIUM',
+          }, loginJson.data.token)
+          toast.success('École créée avec succès ! Bienvenue !')
+        } else {
+          toast.success('École créée ! Connectez-vous avec vos identifiants.')
+          setCurrentView('login')
+        }
+      } else {
+        toast.error(json.error || 'Erreur lors de la création')
+      }
+    } catch (e) {
+      toast.error('Erreur réseau')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // OTP Verification screen
+  if (step === 3) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+        <div className="max-w-md w-full">
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 rounded-full mx-auto mb-6 grid place-items-center" style={{ background: 'oklch(60% 0.15 145)' }}>
+              <ShieldCheck size={40} className="text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-3">Vérifiez votre compte</h1>
+            <p className="text-white/60 text-sm">Un code à 6 chiffres a été envoyé via {otpChannel === 'whatsapp' ? 'WhatsApp' : 'Email'}. Entrez-le ci-dessous.</p>
+          </div>
+
+          {/* Channel selector */}
+          <div className="flex gap-3 mb-6">
+            <button
+              onClick={() => { setOtpChannel('whatsapp'); setOtpCode(''); setOtpError('') }}
+              className={`flex-1 p-3 rounded-xl border text-sm font-medium transition ${otpChannel === 'whatsapp' ? 'border-[#25d366]/50 bg-[#25d366]/10 text-[#25d366]' : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20'}`}
+            >
+              📱 WhatsApp
+            </button>
+            <button
+              onClick={() => { setOtpChannel('email'); setOtpCode(''); setOtpError('') }}
+              className={`flex-1 p-3 rounded-xl border text-sm font-medium transition ${otpChannel === 'email' ? 'border-[#f5a623]/50 bg-[#f5a623]/10 text-[#f5a623]' : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20'}`}
+            >
+              ✉️ Email
+            </button>
+          </div>
+
+          {/* OTP Input */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-6">
+            <label className="text-xs font-medium text-white/60 mb-3 block">Code de vérification</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={otpCode}
+              onChange={e => { setOtpCode(e.target.value.replace(/\D/g, '')); setOtpError('') }}
+              placeholder="000000"
+              className="w-full bg-transparent border-b-2 border-white/20 text-center text-3xl font-mono font-bold text-[#f5a623] tracking-[0.5em] outline-none focus:border-[#f5a623] transition py-3"
+              autoFocus
+            />
+            {otpError && (
+              <p className="text-red-400 text-xs mt-3 text-center">{otpError}</p>
+            )}
+          </div>
+
+          {/* Verify button */}
+          <button
+            onClick={async () => {
+              if (otpCode.length !== 6) { setOtpError('Entrez un code à 6 chiffres'); return }
+              setOtpLoading(true); setOtpError('')
+              try {
+                const res = await fetch('/api/auth/verify-otp', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId: createdUserId, code: otpCode, channel: otpChannel }),
+                })
+                const json = await res.json()
+                if (json.data?.verified) {
+                  // Auto-login after verification
+                  const loginRes = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: form.adminEmail, password: form.adminPassword || 'admin123' }),
+                  })
+                  const loginJson = await loginRes.json()
+                  if (loginJson.data) {
+                    const apiUser = loginJson.data
+                    const role = API_ROLE_MAP[apiUser.role] || 'SCHOOL_ADMIN' // onboarding = admin d'école (jamais SAG)
+                    login(role, {
+                      id: apiUser.id, name: apiUser.name, role,
+                      schoolId: apiUser.schoolId, schoolName: form.name,
+                      schoolLogo: form.logo || null,
+                      initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
+                      profileImageUrl: null,
+                      subscriptionTier: 'FREEMIUM',
+                    }, loginJson.data.token)
+                    toast.success('Compte vérifié et connecté !')
+                    setStep(4)
+                  } else {
+                    toast.success('Compte vérifié ! Connectez-vous.')
+                    setCurrentView('login')
+                  }
+                } else {
+                  setOtpError(json.error || 'Erreur de vérification')
+                }
+              } catch { setOtpError('Erreur réseau') }
+              finally { setOtpLoading(false) }
+            }}
+            disabled={otpLoading || otpCode.length !== 6}
+            className="w-full bg-[#f5a623] hover:bg-[#ffb643] text-[#0a0f0d] px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)] disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {otpLoading ? <><div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> Vérification...</> : 'Vérifier le compte'}
+          </button>
+
+          {/* Resend */}
+          <div className="text-center mt-4">
+            <button
+              onClick={async () => {
+                setOtpLoading(true); setOtpError('')
+                try {
+                  const res = await fetch('/api/auth/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: createdUserId, channel: otpChannel }),
+                  })
+                  const json = await res.json()
+                  if (json.data) toast.success('Nouveau code envoyé !')
+                  else toast.error(json.error || 'Erreur envoi')
+                } catch { toast.error('Erreur réseau') }
+                finally { setOtpLoading(false) }
+              }}
+              className="text-white/40 hover:text-white/70 text-xs font-medium transition"
+            >
+              Renvoyer le code
+            </button>
+          </div>
+
+          {/* Skip for now */}
+          <div className="text-center mt-6">
+            <button
+              onClick={() => setCurrentView('login')}
+              className="text-white/30 hover:text-white/50 text-xs transition"
+            >
+              Passer et se connecter plus tard
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Success screen
+  if (step === 4) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+        <div className="max-w-md w-full text-center">
+          <div className="w-20 h-20 rounded-full mx-auto mb-6 grid place-items-center" style={{ background: 'oklch(60% 0.15 145)' }}>
+            <CheckCircle size={40} className="text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-3">École crée avec succès !</h1>
+          <p className="text-white/60 mb-8">Votre école <strong className="text-[#f5a623]">{form.name}</strong> est prête. Vous êtes maintenant connecté en tant qu&apos;administrateur.</p>
+          <button onClick={() => setCurrentView('dashboard')} className="bg-[#f5a623] hover:bg-[#ffb643] text-[#0a0f0d] px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)]">
+            Accéder au tableau de bord
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+      {/* Nav */}
+      <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 py-5">
+        <button onClick={() => setCurrentView('login')} className="flex items-center"><BrandMark height={48} className="brightness-110" /></button>
+        <button onClick={() => setCurrentView('login')} className="text-white/50 hover:text-white text-sm font-medium transition flex items-center gap-2">
+          <ArrowLeft size={16} /> Retour
+        </button>
+      </nav>
+
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-8">
+        <div className="w-full max-w-2xl">
+          {/* Step indicator */}
+          <div className="flex items-center gap-3 mb-8">
+            {[
+              { n: 1, label: 'Informations' },
+              { n: 2, label: 'Compte admin' },
+              { n: 3, label: 'Vérification' },
+            ].map(s => (
+              <div key={s.n} className="flex items-center gap-2">
+                <div className={`w-8 h-8 rounded-full grid place-items-center text-xs font-bold transition ${step >= s.n ? 'bg-[#f5a623] text-[#0a0f0d]' : 'bg-white/10 text-white/40'}`}>{s.n}</div>
+                <span className={`text-xs font-medium ${step >= s.n ? 'text-white' : 'text-white/40'}`}>{s.label}</span>
+                {s.n < 3 && <div className={`w-12 h-px ${step > s.n ? 'bg-[#f5a623]' : 'bg-white/10'}`} />}
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-2xl p-6 sm:p-8" style={{ background: 'rgba(26, 37, 32, 0.4)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)' }}>
+            {step === 1 && (
+              <>
+                <h2 className="text-xl font-bold text-white mb-1">Créer votre école</h2>
+                <p className="text-white/50 text-sm mb-6">Renseignez les informations de votre établissement</p>
+
+                {/* Auto-geolocation map */}
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MapPin size={14} className="text-[#f5a623]" />
+                    <label className="text-xs font-medium text-white/60">Localisation automatique</label>
+                    <span className="text-[10px] text-[#f5a623]/70">• Cliquez sur la carte ou activez la géolocalisation</span>
+                  </div>
+                  <div className="rounded-xl overflow-hidden border border-white/10">
+                    <SchoolMap
+                      latitude={form.latitude}
+                      longitude={form.longitude}
+                      onLocationChange={(lat, lng, address) => {
+                        setForm(prev => ({
+                          ...prev,
+                          latitude: lat,
+                          longitude: lng,
+                          ...(address ? {
+                            address: address.address || prev.address,
+                            city: address.city || prev.city,
+                            province: address.province || prev.province,
+                            country: address.country || prev.country,
+                          } : {}),
+                        }))
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Nom de l&apos;école *</label>
+                    <input value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Ex: Complexe Scolaire Lumière" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Sigle *</label>
+                    <input value={form.shortName} onChange={e => updateForm('shortName', e.target.value)} placeholder="Ex: CSL" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Email *</label>
+                    <input type="email" value={form.email} onChange={e => updateForm('email', e.target.value)} placeholder="contact@ecole.cd" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Téléphone *</label>
+                    <input value={form.phone} onChange={e => updateForm('phone', e.target.value)} placeholder="+243 81 234 56 78" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Adresse</label>
+                    <input value={form.address} onChange={e => updateForm('address', e.target.value)} placeholder="Auto-remplie par la carte" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Ville *</label>
+                    <input value={form.city} onChange={e => updateForm('city', e.target.value)} placeholder="Auto-remplie par la carte" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Province *</label>
+                    <input value={form.province} onChange={e => updateForm('province', e.target.value)} placeholder="Auto-remplie par la carte" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Pays *</label>
+                    <input value={form.country} onChange={e => updateForm('country', e.target.value)} placeholder="Auto-remplie par la carte" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Logo de l&apos;école</label>
+                    <div className="flex items-center gap-3">
+                      <label className="w-14 h-14 rounded-xl border-2 border-dashed border-white/20 hover:border-[#f5a623]/50 flex items-center justify-center cursor-pointer transition group overflow-hidden shrink-0">
+                        {logoPreview ? (
+                          <img src={logoPreview} alt="Logo" className="w-full h-full object-cover rounded-xl" />
+                        ) : logoUploading ? (
+                          <div className="h-4 w-4 border-2 border-white/30 border-t-[#f5a623] rounded-full animate-spin" />
+                        ) : (
+                          <div className="text-center text-white/30 group-hover:text-white/50 transition">
+                            <ImagePlus size={18} />
+                          </div>
+                        )}
+                        <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                      </label>
+                      <span className="text-[10px] text-white/30">JPG, PNG<br />max 5MB</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Type</label>
+                    <div className="flex gap-2">
+                      {[
+                        { value: 'MIXTE', label: 'Mixte', icon: <Users size={18} /> },
+                        { value: 'FILLES', label: 'Filles', icon: <User size={18} /> },
+                        { value: 'GARCONS', label: 'Garçons', icon: <UserCircle size={18} /> },
+                      ].map(opt => (
+                        <button key={opt.value} type="button" onClick={() => updateForm('schoolType', opt.value)}
+                          className={`flex-1 py-3 rounded-xl border text-sm font-medium transition-all ${form.schoolType === opt.value ? 'border-[#f5a623] bg-[#f5a623]/10 text-[#f5a623]' : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70'}`}>
+                          <span className="block mb-0.5">{opt.icon}</span>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Catégorie</label>
+                    <div className="flex gap-2">
+                      {[
+                        { value: 'PRIVEE', label: 'Privée', icon: <Building2 size={18} /> },
+                        { value: 'PUBLIQUE', label: 'Publique', icon: <Landmark size={18} /> },
+                      ].map(opt => (
+                        <button key={opt.value} type="button" onClick={() => updateForm('schoolCategory', opt.value)}
+                          className={`flex-1 py-3 rounded-xl border text-sm font-medium transition-all ${form.schoolCategory === opt.value ? 'border-[#f5a623] bg-[#f5a623]/10 text-[#f5a623]' : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70'}`}>
+                          <span className="block mb-0.5">{opt.icon}</span>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Niveau scolaire</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {[
+                        { value: 'MATERNELLE', label: 'Maternelle', icon: <Palette size={18} /> },
+                        { value: 'PRIMAIRE', label: 'Primaire', icon: <BookOpen size={18} /> },
+                        { value: 'SECONDAIRE', label: 'Secondaire', icon: <GraduationCap size={18} /> },
+                        { value: 'POLYVALENTE', label: 'Polyvalente', icon: <Building2 size={18} /> },
+                      ].map(opt => (
+                        <button key={opt.value} type="button" onClick={() => updateForm('schoolLevel', form.schoolLevel === opt.value ? '' : opt.value)}
+                          className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all ${form.schoolLevel === opt.value ? 'border-[#f5a623] bg-[#f5a623]/10 text-[#f5a623]' : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70'}`}>
+                          <span className="mr-1.5">{opt.icon}</span>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2 relative" ref={eduSysRef}>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Système éducatif</label>
+                    {/* Selected chip */}
+                    {form.educationalSystem && !eduSysOpen && (
+                      <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl mb-1.5" style={{ background: 'rgba(245,166,35,0.1)', border: '1px solid rgba(245,166,35,0.25)' }}>
+                        <div className="w-8 h-5 rounded overflow-hidden">
+                          <FlagIcon countryCode={EDUCATIONAL_SYSTEMS_LIST.find(s => s.id === form.educationalSystem)?.countryCode || ''} className="w-full h-full" />
+                        </div>
+                        <span className="text-sm font-medium text-[#f5a623]">{EDUCATIONAL_SYSTEMS_LIST.find(s => s.id === form.educationalSystem)?.name}</span>
+                        <button type="button" onClick={() => { updateForm('educationalSystem', ''); setEduSysSearch(''); setEduSysOpen(true) }} className="ml-auto text-white/40 hover:text-white/70 transition">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
+                    {/* Search input */}
+                    <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus-within:border-[#f5a623]/50 focus-within:ring-[3px] focus-within:ring-[rgba(245,166,35,0.15)] transition">
+                      <Search size={16} className="text-white/40 shrink-0" />
+                      <input
+                        type="text"
+                        value={eduSysSearch}
+                        onFocus={() => setEduSysOpen(true)}
+                        onChange={e => { setEduSysSearch(e.target.value); setEduSysOpen(true) }}
+                        placeholder={form.educationalSystem ? '' : 'Rechercher un système éducatif...'}
+                        className="flex-1 bg-transparent border-none text-white text-sm outline-none placeholder-white/30"
+                      />
+                      {eduSysSearch && (
+                        <button type="button" onClick={() => { setEduSysSearch(''); setEduSysOpen(true) }} className="text-white/40 hover:text-white/70 transition">
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                    {/* Dropdown */}
+                    {eduSysOpen && (
+                      <div className="absolute z-40 top-full left-0 right-0 mt-1 rounded-xl overflow-hidden shadow-2xl" style={{ background: 'rgba(26,37,32,0.95)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest border-b border-white/10" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                          {eduSysFiltered.length} Système{eduSysFiltered.length > 1 ? 's' : ''} trouvé{eduSysFiltered.length > 1 ? 's' : ''}
+                        </div>
+                        {eduSysFiltered.length === 0 ? (
+                          <div className="px-4 py-6 text-center text-sm text-white/40">Aucun résultat</div>
+                        ) : (
+                          eduSysFiltered.map(sys => {
+                            const isSelected = form.educationalSystem === sys.id
+                            return (
+                              <button
+                                key={sys.id}
+                                type="button"
+                                onClick={() => { updateForm('educationalSystem', sys.id); setEduSysSearch(''); setEduSysOpen(false) }}
+                                className={`w-full text-left px-4 py-3 flex items-center gap-3 transition border-b border-white/5 last:border-0 cursor-pointer group
+                                  ${isSelected ? 'bg-[rgba(245,166,35,0.12)]' : 'hover:bg-white/[0.06]'}`}
+                              >
+                                <div className="w-10 h-7 rounded overflow-hidden shrink-0">
+                                  <FlagIcon countryCode={sys.countryCode} className="w-full h-full" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-semibold text-white group-hover:text-[#f5a623] transition truncate">{sys.name}</div>
+                                  <div className="text-[11px] text-white/40 truncate">{sys.description}</div>
+                                </div>
+                                {isSelected ? (
+                                  <Check size={16} className="text-[#f5a623] shrink-0" />
+                                ) : (
+                                  <ChevronRight size={14} className="text-white/20 group-hover:text-white/40 transition shrink-0" />
+                                )}
+                              </button>
+                            )
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Capacité max</label>
+                    <input type="number" value={form.maxStudents} onChange={e => updateForm('maxStudents', e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Description</label>
+                    <textarea value={form.description} onChange={e => updateForm('description', e.target.value)} rows={3} placeholder="Décrivez votre école..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition resize-none" />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {step === 2 && (
+              <>
+                <h2 className="text-xl font-bold text-white mb-1">Compte administrateur</h2>
+                <p className="text-white/50 text-sm mb-6">Créez votre compte pour gérer l&apos;école</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Nom complet *</label>
+                    <input value={form.adminName} onChange={e => updateForm('adminName', e.target.value)} placeholder="Jean Mukendi" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Email *</label>
+                    <input type="email" value={form.adminEmail} onChange={e => updateForm('adminEmail', e.target.value)} placeholder="admin@ecole.cd" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Téléphone</label>
+                    <input value={form.adminPhone} onChange={e => updateForm('adminPhone', e.target.value)} placeholder="+243 81 234 56 78" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Mot de passe</label>
+                    <div className="relative">
+                      <input type={showAdminPassword ? 'text' : 'password'} value={form.adminPassword} onChange={e => updateForm('adminPassword', e.target.value)} placeholder="Laissez vide pour le mot de passe par défaut" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-11 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                      <button type="button" onClick={() => setShowAdminPassword(!showAdminPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition p-1">
+                        {showAdminPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Subscription tier selector */}
+                <div className="mt-6">
+                  <label className="text-xs font-medium text-white/60 mb-3 block">Formule d&apos;abonnement</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {SUBSCRIPTION_TIERS.slice(0, 5).map(tier => (
+                      <button
+                        key={tier}
+                        type="button"
+                        onClick={() => updateForm('subscriptionTier', tier)}
+                        className={`p-3 rounded-xl border text-left transition ${form.subscriptionTier === tier ? 'border-[#f5a623]/50 bg-[#f5a623]/10' : 'border-white/10 bg-white/5 hover:border-white/20'}`}
+                      >
+                        <div className="text-sm font-bold text-white">{getSubscriptionLabel(tier)}</div>
+                        <div className="text-xs text-white/40 mt-0.5">{getSubscriptionPrice(tier)}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center justify-between mt-8">
+              {step > 1 && (
+                <button onClick={() => setStep((step - 1) as 1 | 2)} className="text-white/50 hover:text-white text-sm font-medium transition flex items-center gap-2">
+                  <ArrowLeft size={16} /> Retour
+                </button>
+              )}
+              <div className="flex-1" />
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="bg-[#f5a623] hover:bg-[#ffb643] text-[#0a0f0d] px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)] disabled:opacity-50 flex items-center gap-2"
+              >
+                {loading ? <><div className="h-4 w-4 border-2 border-[#0a0f0d] border-t-transparent rounded-full animate-spin" /> Création...</> : step === 1 ? 'Suivant' : 'Créer l\'école'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  )
+}
+
+// ===== LOGIN VIEW =====
+function LoginView() {
+  const { setCurrentView, login } = useEduGestStore()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showWhatsappModal, setShowWhatsappModal] = useState(false)
+  const [waPhone, setWaPhone] = useState('')
+  const [waCode, setWaCode] = useState('')
+  const [waStep, setWaStep] = useState<'phone' | 'code'>('phone')
+  const [waLoading, setWaLoading] = useState(false)
+  const [schools, setSchools] = useState<{ id: string; name: string; shortName: string; city: string }[]>([])
+  const [selectedSchoolId, setSelectedSchoolId] = useState('')
+  // ── Mot de passe oublié : procédure 3 étapes (téléphone → code WhatsApp/SMS
+  // → nouveau mot de passe). AVANT : le bouton était mort (aucun onClick).
+  const [showForgot, setShowForgot] = useState(false)
+  const [forgotStep, setForgotStep] = useState<'phone' | 'code' | 'reset'>('phone')
+  const [forgotPhone, setForgotPhone] = useState('')
+  const [forgotCode, setForgotCode] = useState('')
+  const [forgotNewPassword, setForgotNewPassword] = useState('')
+  const [forgotConfirm, setForgotConfirm] = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotChannel, setForgotChannel] = useState('')
+  // ── Verrou progressif (compte à rebours affiché sur le bouton) ──────────
+  const [lockRemaining, setLockRemaining] = useState(0)
+  const lockIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const startLockCountdown = useCallback((seconds: number) => {
+    if (!seconds || seconds <= 0) return
+    setLockRemaining(seconds)
+    if (lockIntervalRef.current) clearInterval(lockIntervalRef.current)
+    lockIntervalRef.current = setInterval(() => {
+      setLockRemaining(prev => {
+        if (prev <= 1) {
+          if (lockIntervalRef.current) { clearInterval(lockIntervalRef.current); lockIntervalRef.current = null }
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }, [])
+
+  useEffect(() => {
+    return () => { if (lockIntervalRef.current) clearInterval(lockIntervalRef.current) }
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/schools?limit=50').then(r => r.json()).then(j => setSchools(j.data || [])).catch(() => {})
+  }, [])
+
+  // Connexion unifiée : aucun indice sur le type de compte en cas d'erreur
+  // (évite de révéler qu'un email appartient à un compte admin/parent)
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    // Trim : un espace collé par copier-coller rendait les identifiants « incorrects »
+    const cleanEmail = email.trim()
+    const cleanPassword = password.trim()
+    if (!cleanEmail || !cleanPassword) return
+    // Verrou actif : aucun appel réseau, le bouton est déjà désactivé
+    if (lockRemaining > 0) return
+    setLoading(true)
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, password: cleanPassword }),
+      })
+      const json = await res.json()
+      if (json.data) {
+        const apiUser = json.data
+        const role = mapApiRole(apiUser.role)
+        if (!role) {
+          // Message générique identique à un échec d'identifiants : pas de fuite d'information
+          toast.error('Email ou mot de passe incorrect')
+          return
+        }
+        login(role, {
+            id: apiUser.id,
+            name: apiUser.name,
+            role,
+            schoolId: apiUser.schoolId ?? null,
+            schoolName: apiUser.school?.name || (role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'EduGest'),
+            schoolLogo: apiUser.school?.logo || null,
+            initials: getInitials(apiUser.name),
+            profileImageUrl: apiUser.profileImageUrl || null,
+            subjectName: apiUser.subjectName || null,
+            classNames: apiUser.classNames || null,
+            isTitulaire: apiUser.isTitulaire || false,
+            // Le compte plateforme n'a pas de forfait : undefined (jamais FREEMIUM,
+            // qui déclencherait les menus/gardes freemium sur le super admin).
+            subscriptionTier: role === 'SUPER_ADMIN_GLOBAL' ? undefined : (apiUser.school?.subscriptionTier || 'FREEMIUM'),
+          }, json.data.token)
+        // Popup import base de données : admin créateur uniquement — DANS l'app,
+        // identifiants déjà validés (jamais sur la page de connexion).
+        if (role === 'SCHOOL_ADMIN') {
+          try { sessionStorage.setItem('edugest_show_import_db', '1') } catch {}
+        }
+        toast.success(`Bienvenue, ${apiUser.name}!`)
+        return
+      }
+      if (json.error) {
+        if (json.error === 'Invalid credentials') {
+          toast.error('Email ou mot de passe incorrect')
+        } else {
+          toast.error(json.error)
+        }
+        // Verrou progressif : 401 (verrou déclenché par ce échec) ou 429 (déjà verrouillé)
+        const lockSeconds = Number(json.retryAfterSeconds || json.lockSeconds || 0)
+        if ((res.status === 429 || json.lockSeconds) && lockSeconds > 0) {
+          startLockCountdown(lockSeconds)
+        }
+      } else {
+        toast.error('Erreur de connexion au serveur')
+      }
+    } catch (e) {
+      toast.error('Erreur réseau. Vérifiez votre connexion.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function mapApiRole(role: string): UserRole | null {
+    // Alias legacy conservés ici (comportement historique du login)
+    const map: Record<string, UserRole> = {
+      ...API_ROLE_MAP,
+      DIRECTION: 'DIRECTION_PRIMAIRE',
+      DISCIPLINE: 'DISCIPLINE_PRIMAIRE',
+    }
+    return map[role] || null
+  }
+
+
+
+  return (
+    <div className="h-screen flex flex-col relative overflow-hidden" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+      {/* Gradient overlays */}
+      <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-[#0a0f0d] via-[#0b1613]/50 to-transparent pointer-events-none z-10" />
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] opacity-15 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, oklch(72% 0.15 65 / 0.3), transparent 70%)' }} />
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] opacity-10 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, oklch(60% 0.15 145 / 0.2), transparent 70%)' }} />
+
+      {/* Top nav bar */}
+      <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-4 w-full shrink-0">
+        <div className="flex items-center shrink-0 min-w-max">
+          <BrandMark height={40} className="brightness-110" />
+        </div>
+      </nav>
+
+      {/* Main content: animated book + login card — jamais de scrollbar de page
+          (h-screen + overflow-hidden) ; défilement interne invisible si petit écran */}
+      <main className="relative z-20 flex-1 min-h-0 w-full flex flex-col items-center justify-center px-4 sm:px-6 py-2 gap-5 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* Animated Book + Brand */}
+        <div className="text-center flex flex-col items-center gap-3 shrink-0">
+          <div className="edu-book mx-auto" style={{ transform: 'scale(0.9)' }}>
+            <div className="edu-book__pg-shadow"></div>
+            <div className="edu-book__pg"></div>
+            <div className="edu-book__pg edu-book__pg--2"></div>
+            <div className="edu-book__pg edu-book__pg--3"></div>
+            <div className="edu-book__pg edu-book__pg--4"></div>
+            <div className="edu-book__pg edu-book__pg--5"></div>
+          </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-1">
+              Edu<span style={{ color: 'oklch(72% 0.15 65)', textShadow: '0 0 20px oklch(72% 0.15 65 / 0.4)' }}>Gest</span>
+            </h1>
+            <p className="text-white/50 text-sm font-medium">
+              La plateforme de gestion scolaire
+            </p>
+          </div>
+        </div>
+
+        {/* Glass morphism login card */}
+        <div className="w-full max-w-[440px] rounded-2xl p-5 sm:p-6 shrink-0" style={{ background: 'rgba(26, 37, 32, 0.55)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5), 0 0 80px oklch(55% 0.15 175 / 0.05)' }}>
+          <div className="mb-5">
+            <h2 className="text-xl font-bold text-white tracking-tight mb-1">
+              Connexion
+            </h2>
+            <p className="text-sm text-white/50">
+              Parents, personnel de l&apos;école, direction et enseignants
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-medium text-white/70">Email ou numéro WhatsApp</label>
+              <input
+                type="text" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="ex. parent@email.com ou +243 81..."
+                className="w-full px-4 py-3.5 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)] focus:border-[oklch(55%_0.15_175_/_0.5)]"
+                style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[13px] font-medium text-white/70">Mot de passe</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-4 py-3.5 pr-11 rounded-xl text-sm text-white outline-none transition focus:ring-[3px] focus:ring-[oklch(55%_0.15_175_/_0.2)] focus:border-[oklch(55%_0.15_175_/_0.5)]"
+                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition p-1"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-[13px]">
+              <label className="flex items-center gap-2 cursor-pointer text-white/50">
+                <input type="checkbox" className="accent-[oklch(55%_0.15_175)] rounded" /> Se souvenir de moi
+              </label>
+              <button type="button" onClick={() => { setShowForgot(true); setForgotStep('phone'); setForgotCode(''); setForgotNewPassword(''); setForgotConfirm(''); }} className="font-medium hover:underline" style={{ color: 'oklch(72% 0.15 65 / 0.8)' }}>Mot de passe oublié ?</button>
+            </div>
+            <button type="submit" disabled={loading || lockRemaining > 0} className="w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]" style={{ background: 'oklch(55% 0.15 175)', color: 'oklch(97% 0.005 175)', boxShadow: '0 4px 16px oklch(55% 0.15 175 / 0.25)' }}>
+              {loading
+                ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                : lockRemaining > 0
+                  ? `Réessayez dans ${String(Math.floor(lockRemaining / 60)).padStart(2, '0')}:${String(lockRemaining % 60).padStart(2, '0')}`
+                  : 'Se connecter'}
+            </button>
+            {lockRemaining > 0 && (
+              <p className="text-xs text-center" style={{ color: 'oklch(72% 0.15 65)' }}>
+                Trop de tentatives. Le bouton sera réactivé automatiquement.
+              </p>
+            )}
+          </form>
+
+          <div className="flex items-center gap-3 my-5 text-xs uppercase tracking-wider text-white/40">
+            <div className="flex-1 h-px bg-white/10" /> ou <div className="flex-1 h-px bg-white/10" />
+          </div>
+
+          <button
+            onClick={() => { setShowWhatsappModal(true); setWaStep('phone'); setWaPhone(''); setWaCode('') }}
+            className="w-full py-3.5 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 transition hover:opacity-90 hover:shadow-lg"
+            style={{ background: 'oklch(60% 0.15 145)', boxShadow: '0 4px 12px oklch(60% 0.15 145 / 0.2)' }}
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> Se connecter avec WhatsApp
+          </button>
+
+          <p className="text-center text-[13px] mt-5 text-white/50">
+            Pas encore de compte ? <button onClick={() => setCurrentView('create-school')} className="font-medium hover:underline" style={{ color: 'oklch(72% 0.15 65 / 0.8)' }}>Créer mon école</button>
+          </p>
+        </div>
+
+        {/* Trust indicators below form */}
+        <div className="flex items-center gap-6 sm:gap-8 text-white/30 text-xs font-medium">
+          <div className="flex items-center gap-1.5"><Shield size={14} /> Sécurisé</div>
+          <div className="flex items-center gap-1.5"><Globe size={14} /> Afrique</div>
+          <div className="flex items-center gap-1.5"><Award size={14} /> Certifié</div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <div className="relative z-20 text-center text-[13px] text-white/30 py-5">
+        © 2026 EduGest · Kinshasa · Dakar · Abidjan
+      </div>
+
+      {/* WhatsApp Login Modal */}
+      {showWhatsappModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowWhatsappModal(false)}>
+          <div className="rounded-2xl p-6 w-full max-w-sm shadow-2xl" style={{ background: 'rgba(26, 37, 32, 0.9)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.1)' }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl grid place-items-center" style={{ background: SUCCESS }}>
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="white">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">WhatsApp</h2>
+                  <p className="text-xs text-white/50">Connexion sécurisée</p>
+                </div>
+              </div>
+              <button onClick={() => setShowWhatsappModal(false)} className="text-white/50 hover:text-white transition"><X size={18} /></button>
+            </div>
+
+            {waStep === 'phone' ? (
+              <div className="space-y-4">
+                <p className="text-sm text-white/60">Entrez votre numéro WhatsApp pour recevoir un code de vérification.</p>
+                <div>
+                  <label className="text-[13px] font-medium text-white/70">Numéro WhatsApp</label>
+                  <div className="flex items-center gap-2 mt-1 px-3 py-3 rounded-xl focus-within:ring-[3px] focus-within:ring-[rgba(245,166,35,0.2)] focus-within:border-[rgba(245,166,35,0.5)]" style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                    <Phone size={16} className="text-white/40" />
+                    <input
+                      type="tel"
+                      placeholder="+243 81 234 56 78"
+                      value={waPhone}
+                      onChange={e => setWaPhone(e.target.value)}
+                      className="flex-1 border-0 outline-none text-sm bg-transparent text-white placeholder-white/30"
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    if (!waPhone) { toast.error('Veuillez entrer votre numéro'); return }
+                    setWaLoading(true)
+                    try {
+                      const res = await fetch('/api/auth/whatsapp', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone: waPhone, action: 'send' }),
+                      })
+                      if (res.ok) {
+                        setWaStep('code')
+                        toast.success('Code de vérification envoyé!')
+                      } else {
+                        const json = await res.json()
+                        toast.error(json.error || 'Erreur lors de l\'envoi du code')
+                      }
+                    } catch { toast.error('Erreur réseau') }
+                    finally { setWaLoading(false) }
+                  }}
+                  disabled={waLoading}
+                  className="w-full py-3.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition hover:opacity-90"
+                  style={{ background: SUCCESS }}
+                >
+                  {waLoading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send size={16} />}
+                  Envoyer le code
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-white/60">Entrez le code à 6 chiffres envoyé au <strong className="text-white">{waPhone}</strong></p>
+                <div>
+                  <label className="text-[13px] font-medium text-white/70">Code de vérification</label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="000000"
+                    value={waCode}
+                    onChange={e => setWaCode(e.target.value.replace(/\D/g, ''))}
+                    className="w-full mt-1 px-4 py-3.5 rounded-xl text-center text-2xl font-bold tracking-[0.5em] outline-none focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)] text-white"
+                    style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                  />
+                </div>
+                <button
+                  onClick={async () => {
+                    if (waCode.length !== 6) { toast.error('Veuillez entrer le code à 6 chiffres'); return }
+                    setWaLoading(true)
+                    try {
+                      const res = await fetch('/api/auth/whatsapp', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone: waPhone, code: waCode, action: 'verify' }),
+                      })
+                      const json = await res.json()
+                      if (res.ok && json.data) {
+                        const apiUser = json.data
+                        const role = mapApiRole(apiUser.role)
+                        if (role) {
+                          login(role, {
+                            id: apiUser.id,
+                            name: apiUser.name,
+                            role,
+                            schoolId: apiUser.schoolId ?? null,
+                            schoolName: apiUser.school?.name || (role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'EduGest'),
+                            schoolLogo: apiUser.school?.logo || null,
+                            initials: getInitials(apiUser.name),
+                            profileImageUrl: apiUser.profileImageUrl || null,
+                            subscriptionTier: role === 'SUPER_ADMIN_GLOBAL' ? undefined : (apiUser.school?.subscriptionTier || 'FREEMIUM'),
+                          }, json.data.token)
+                          // Popup import base de données : admin créateur uniquement
+                          if (role === 'SCHOOL_ADMIN') {
+                            try { sessionStorage.setItem('edugest_show_import_db', '1') } catch {}
+                          }
+                          toast.success(`Bienvenue, ${apiUser.name}!`)
+                          setShowWhatsappModal(false)
+                          return
+                        }
+                      }
+                      toast.error(json.error || 'Code invalide')
+                    } catch { toast.error('Erreur réseau') }
+                    finally { setWaLoading(false) }
+                  }}
+                  disabled={waLoading}
+                  className="w-full py-3.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition hover:opacity-90"
+                  style={{ background: SUCCESS }}
+                >
+                  {waLoading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle size={16} />}
+                  Vérifier
+                </button>
+                <button
+                  onClick={() => setWaStep('phone')}
+                  className="w-full text-sm font-medium py-2 hover:underline text-[#f5a623]/80 hover:text-[#f5a623]"
+                >
+                  Changer de numéro
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── MODALE MOT DE PASSE OUBLIÉ (procédure 3 étapes) ─────────────── */}
+      {showForgot && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowForgot(false)}>
+          <div className="w-full max-w-md rounded-2xl p-6 shadow-2xl" style={{ background: DARK_ALT, border: '1px solid rgba(255,255,255,0.1)' }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Lock size={18} style={{ color: 'oklch(72% 0.15 65)' }} />
+                Réinitialiser le mot de passe
+              </h3>
+              <button onClick={() => setShowForgot(false)} className="text-white/40 hover:text-white/70 p-1"><X size={18} /></button>
+            </div>
+
+            {forgotStep === 'phone' && (
+              <div className="space-y-4">
+                <p className="text-sm text-white/60">Entrez votre numéro de téléphone : un code à 6 chiffres vous sera envoyé par WhatsApp (ou SMS).</p>
+                <input
+                  type="tel"
+                  value={forgotPhone}
+                  onChange={e => setForgotPhone(e.target.value)}
+                  placeholder="+243 000 000 000"
+                  className="w-full px-4 py-3.5 rounded-xl text-white outline-none focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)]"
+                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                />
+                <button
+                  onClick={async () => {
+                    if (!forgotPhone.trim()) { toast.error('Entrez votre numéro de téléphone'); return }
+                    setForgotLoading(true)
+                    try {
+                      const res = await fetch('/api/auth/forgot-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone: forgotPhone.trim() }),
+                      })
+                      const json = await res.json()
+                      if (res.ok) {
+                        const ch = json.data?.channel || 'WhatsApp'
+                        setForgotChannel(ch)
+                        setForgotStep('code')
+                        toast.success(`Code envoyé par ${ch}`)
+                        if (json.data?.devCode) toast.info(`Code (développement) : ${json.data.devCode}`)
+                      } else {
+                        toast.error(json.error || 'Numéro introuvable')
+                      }
+                    } catch { toast.error('Erreur réseau') }
+                    finally { setForgotLoading(false) }
+                  }}
+                  disabled={forgotLoading}
+                  className="w-full py-3.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition hover:opacity-90"
+                  style={{ background: SUCCESS }}
+                >
+                  {forgotLoading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send size={15} />}
+                  Envoyer le code
+                </button>
+              </div>
+            )}
+
+            {forgotStep === 'code' && (
+              <div className="space-y-4">
+                <p className="text-sm text-white/60">Entrez le code à 6 chiffres reçu par <strong className="text-white">{forgotChannel || 'WhatsApp'}</strong> au <strong className="text-white">{forgotPhone}</strong>. Le code est valable 15 minutes.</p>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={forgotCode}
+                  onChange={e => setForgotCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  className="w-full px-4 py-3.5 rounded-xl text-center text-2xl font-bold tracking-[0.5em] text-white outline-none focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)]"
+                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                />
+                <button
+                  onClick={async () => {
+                    if (forgotCode.length !== 6) { toast.error('Entrez le code à 6 chiffres'); return }
+                    setForgotStep('reset')
+                  }}
+                  className="w-full py-3.5 rounded-xl text-white font-semibold text-sm transition hover:opacity-90"
+                  style={{ background: SUCCESS }}
+                >
+                  Continuer
+                </button>
+                <button onClick={() => setForgotStep('phone')} className="w-full text-sm font-medium py-2 hover:underline text-[#f5a623]/80 hover:text-[#f5a623]">
+                  Changer de numéro
+                </button>
+              </div>
+            )}
+
+            {forgotStep === 'reset' && (
+              <div className="space-y-4">
+                <p className="text-sm text-white/60">Choisissez un nouveau mot de passe pour <strong className="text-white">{forgotPhone}</strong>.</p>
+                <input
+                  type="password"
+                  value={forgotNewPassword}
+                  onChange={e => setForgotNewPassword(e.target.value)}
+                  placeholder="Nouveau mot de passe (min. 6 caractères)"
+                  className="w-full px-4 py-3.5 rounded-xl text-white outline-none focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)]"
+                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                />
+                <input
+                  type="password"
+                  value={forgotConfirm}
+                  onChange={e => setForgotConfirm(e.target.value)}
+                  placeholder="Confirmer le mot de passe"
+                  className="w-full px-4 py-3.5 rounded-xl text-white outline-none focus:ring-[3px] focus:ring-[rgba(245,166,35,0.2)]"
+                  style={{ background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                />
+                <button
+                  onClick={async () => {
+                    if (forgotNewPassword.length < 6) { toast.error('Le mot de passe doit contenir au moins 6 caractères'); return }
+                    if (forgotNewPassword !== forgotConfirm) { toast.error('Les mots de passe ne correspondent pas'); return }
+                    setForgotLoading(true)
+                    try {
+                      const res = await fetch('/api/auth/reset-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone: forgotPhone.trim(), code: forgotCode, newPassword: forgotNewPassword }),
+                      })
+                      const json = await res.json()
+                      if (res.ok) {
+                        toast.success('Mot de passe réinitialisé ! Connectez-vous avec votre nouveau mot de passe.')
+                        setShowForgot(false)
+                        setPassword('')
+                      } else {
+                        toast.error(json.error || 'Code invalide ou expiré')
+                      }
+                    } catch { toast.error('Erreur réseau') }
+                    finally { setForgotLoading(false) }
+                  }}
+                  disabled={forgotLoading}
+                  className="w-full py-3.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition hover:opacity-90"
+                  style={{ background: SUCCESS }}
+                >
+                  {forgotLoading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle size={15} />}
+                  Réinitialiser le mot de passe
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ===== SIDEBAR =====
+function Sidebar() {
+  const { userRole, userData, currentView, setCurrentView, logout, sidebarOpen, setSidebarOpen, setDisciplineTab, activeSchoolId, setActiveSchoolId } = useEduGestStore()
+
+  // Admin plateforme : sélecteur d'« école active » — l'admin plateforme
+  // n'est rattaché à aucune école ; il choisit ici le contexte scolaire
+  // dans lequel il parcourt les vues (élèves, paiements, discipline…).
+  // Recherche locale (même UX que la recherche d'élèves) : les écoles sont
+  // déjà chargées (limit 100), le filtrage nom/ville est instantané.
+  const isPlatformAdminSidebar = userRole === 'SUPER_ADMIN_GLOBAL'
+  const [contextSchools, setContextSchools] = useState<Array<{ id: string; name: string; shortName: string; city?: string }>>([])
+  const [schoolQuery, setSchoolQuery] = useState('')
+  useEffect(() => {
+    if (!isPlatformAdminSidebar) return
+    authFetch('/api/schools?limit=100').then(r => r.json()).then(j => setContextSchools(j.data || [])).catch(() => {})
+  }, [isPlatformAdminSidebar])
+
+  type MenuItem = { icon: React.ReactNode; label: string; view: ViewType; badge?: number; tab?: 'BLACKLIST' | 'GREYLIST' | 'WHITELIST' }
+  const menus: Record<string, MenuItem[]> = {
+    SUPER_ADMIN_GLOBAL: [
+      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
+      { icon: <Building2 size={16} />, label: 'Écoles', view: 'schools' },
+      { icon: <UsersRound size={16} />, label: 'Personnel', view: 'personnel' as ViewType },
+      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
+      { icon: <School size={16} />, label: 'Classes', view: 'classes' },
+      { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
+      { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
+      { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
+      { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
+      { icon: <DollarSign size={16} />, label: 'Tarifs', view: 'pricing' as ViewType },
+      { icon: <Globe size={16} />, label: 'Contrôle plateforme', view: 'platform-control' as ViewType },
+      { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
+      { icon: <CalendarCheck size={16} />, label: 'Liste de présence', view: 'attendance' as ViewType },
+      { icon: <Calendar size={16} />, label: 'Événements', view: 'events' as ViewType },
+      { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
+      { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
+      { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
+      { icon: <HeartPulse size={16} />, label: 'Service Médical', view: 'medical' as ViewType },
+      { icon: <Stethoscope size={16} />, label: 'Fiches Médicales', view: 'medical-records' as ViewType },
+      { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
+      { icon: <Users size={16} />, label: 'Gestion des Parents', view: 'parents' as ViewType },
+      { icon: <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>, label: 'Connexion WhatsApp', view: 'whatsapp-config' as ViewType },
+      { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
+      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+    ],
+    SCHOOL_ADMIN: [
+      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
+      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
+      { icon: <School size={16} />, label: 'Classes', view: 'classes' },
+      { icon: <UsersRound size={16} />, label: 'Personnel', view: 'personnel' as ViewType },
+      { icon: <CreditCard size={16} />, label: 'Paiements', view: 'payments' },
+      { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
+      { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
+      { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
+      { icon: <CalendarCheck size={16} />, label: 'Liste de présence', view: 'attendance' as ViewType },
+      { icon: <Megaphone size={16} />, label: 'Convocations', view: 'convocation' },
+      { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
+      { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
+      { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
+      { icon: <HeartPulse size={16} />, label: 'Service Médical', view: 'medical' as ViewType },
+      { icon: <Stethoscope size={16} />, label: 'Fiches Médicales', view: 'medical-records' as ViewType },
+      { icon: <Calendar size={16} />, label: 'Événements', view: 'events' as ViewType },
+      { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
+      { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
+      { icon: <Users size={16} />, label: 'Gestion des Parents', view: 'parents' as ViewType },
+      { icon: <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>, label: 'Connexion WhatsApp', view: 'whatsapp-config' as ViewType },
+      { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
+      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+    ],
+    SECRETARY: [
+      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
+      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
+      { icon: <BookOpen size={16} />, label: 'Classes', view: 'classes' as ViewType },
+      // Compte secrétaire : ni Convocations, ni Enregistrer paiement, ni
+      // Passage de classe (caisse et direction couvrent ces environnements).
+      { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
+      // Situation financière retirée du secrétaire (demande produit : la caisse
+      // et la direction couvrent l'analyse ; menu allégé).
+      { icon: <CalendarDays size={16} />, label: 'Événements', view: 'events' as ViewType },
+      { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
+      { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
+      // « Paramètres » retiré pour le secrétaire : ce compte n'a plus AUCUN
+      // accès aux paramètres de l'école (décision produit, gardé aussi côté API).
+      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+    ],
+    CASHIER: [
+      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
+      // La caisse ne voit QUE son environnement financier — aucune vue discipline.
+      { icon: <CreditCard size={16} />, label: 'Enregistrer paiement', view: 'payments' },
+      { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
+      { icon: <AlertTriangle size={16} />, label: 'Dettes', view: 'debts' as ViewType },
+      { icon: <BarChart3 size={16} />, label: 'Situation financière', view: 'finance' as ViewType },
+      { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+    ],
+    PARENT: [
+      { icon: <Users size={16} />, label: 'Mes enfants', view: 'dashboard' },
+      { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
+      { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
+      { icon: <Megaphone size={16} />, label: 'Convocations', view: 'convocation' },
+      { icon: <CreditCard size={16} />, label: 'Payer en ligne', view: 'online-payment' as ViewType },
+      { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
+      { icon: <Ban size={16} />, label: 'Liste Noire', view: 'discipline', tab: 'BLACKLIST' as const },
+      { icon: <AlertTriangle size={16} />, label: 'Liste Grise', view: 'discipline', tab: 'GREYLIST' as const },
+      { icon: <Heart size={16} />, label: 'Liste Blanche', view: 'discipline', tab: 'WHITELIST' as const },
+      { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <Star size={16} />, label: 'Avis école', view: 'school-reviews' as ViewType },
+      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+    ],
+    TEACHER: [
+      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
+      { icon: <School size={16} />, label: 'Mes Classes', view: 'classes' },
+      { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
+      { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
+      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+    ],
+HEAD_TEACHER: [
+  { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
+  { icon: <School size={16} />, label: 'Ma Classe', view: 'classes' },
+  { icon: <BookOpen size={16} />, label: 'Notes reçues', view: 'grades' },
+  { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
+  { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
+  { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+  { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
+  { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+],
+    MEDICAL: [
+      { icon: <LayoutDashboard size={16} />, label: 'Dashboard Médical', view: 'dashboard' },
+      { icon: <HeartPulse size={16} />, label: 'Santé & Infirmerie', view: 'medical' as ViewType },
+      { icon: <Stethoscope size={16} />, label: 'Fiches Médicales', view: 'medical-records' as ViewType },
+      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
+      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+    ],
+  }
+
+  // Direction roles
+  const directionRoles: UserRole[] = ['DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE']
+  const disciplineRoles: UserRole[] = ['DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE']
+
+  let menuItems: MenuItem[] = menus[userRole || ''] || menus.SECRETARY
+
+  // Restriction demandée pour les parents sur l'offre Essentiel & Freemium : masquage des notes et bulletins
+  const canParentsViewGrades = getTierLimits(userData?.subscriptionTier || 'FREEMIUM').reportCardsToParents
+  if (userRole === 'PARENT' && !canParentsViewGrades) {
+    menuItems = menuItems.filter(item => item.view !== 'grades' && item.view !== 'bulletin')
+  }
+
+  // Fiches médicales : onglet réservé aux écoles dont l'abonnement supporte
+  // le module médical (PREMIUM et plus) — admin, service médical et super admin.
+  const canMedicalRecords = getTierLimits(userData?.subscriptionTier || 'FREEMIUM').medicalAccess
+  if (!canMedicalRecords && userRole !== 'SUPER_ADMIN_GLOBAL') {
+    menuItems = menuItems.filter(item => item.view !== 'medical-records')
+  }
+
+  // FREEMIUM restrictions: DIRECTION_* et SECRETARY (admin freemium) voient un menu restreint
+  // (pas de Passage de classe, Communications ni Paramètres en FREEMIUM — passage à un forfait supérieur requis)
+  // ⚠️ SUPER_ADMIN_GLOBAL JAMAIS concerné : c'est le compte PLATEFORME, sans forfait d'école.
+  // Son profil ne porte pas de tier (schoolId null) — le forcer dans le menu FREEMIUM
+  // masquait « Écoles » et rendait les demandes d'upgrade inaccessibles (bug signalé).
+  const isFreemium = userData?.subscriptionTier === 'FREEMIUM' && userRole !== 'SUPER_ADMIN_GLOBAL'
+  // FREEMIUM : menu restreint — « Mon Abonnement » réservé à l'ADMIN CRÉATEUR
+  // (SCHOOL_ADMIN). Le secrétaire ne le voit JAMAIS (aucun forfait).
+  if (isFreemium && (directionRoles.includes(userRole as UserRole) || userRole === 'SECRETARY' || userRole === 'SCHOOL_ADMIN')) {
+    menuItems = [
+      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
+      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
+      { icon: <BookOpen size={16} />, label: 'Classes', view: 'classes' as ViewType },
+      { icon: <CreditCard size={16} />, label: 'Enregistrer paiement', view: 'payments' },
+      { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
+      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+    ]
+    if (userRole === 'SCHOOL_ADMIN') {
+      menuItems.push({ icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType })
+    }
+  } else if (directionRoles.includes(userRole as UserRole)) {
+    // Menu direction : « Paramètres » retiré — une direction ne gère pas les
+    // paramètres de l'école ; son cycle est imposé par son rôle (pas de choix).
+    // La direction VOIT la discipline (listes) en lecture/gestion.
+    menuItems = [
+      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
+      { icon: <Users size={16} />, label: 'Élèves', view: 'students' },
+      { icon: <School size={16} />, label: 'Classes', view: 'classes' },
+      { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
+      { icon: <CheckCircle size={16} />, label: 'Vérification', view: 'payment-verification' as ViewType },
+      { icon: <Megaphone size={16} />, label: 'Convocation', view: 'convocation' },
+      { icon: <Calendar size={16} />, label: 'Événements', view: 'events' as ViewType },
+      { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+    ]
+  }
+
+  if (disciplineRoles.includes(userRole as UserRole)) {
+    menuItems = [
+      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
+      { icon: <Ban size={16} />, label: 'Liste Noire', view: 'discipline', tab: 'BLACKLIST' as const },
+      { icon: <AlertTriangle size={16} />, label: 'Liste Grise', view: 'discipline', tab: 'GREYLIST' as const },
+      { icon: <Heart size={16} />, label: 'Liste Blanche', view: 'discipline', tab: 'WHITELIST' as const },
+      { icon: <CalendarCheck size={16} />, label: 'Liste de présence', view: 'attendance' as ViewType },
+      { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
+      { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
+      { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
+    ]
+  }
+
+  return (
+    <>
+      {/* Mobile overlay */}
+      {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+      <aside className={`fixed lg:sticky top-0 left-0 z-50 lg:z-auto h-screen w-[240px] flex flex-col transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} style={{ background: DARK, boxShadow: '4px 0 24px oklch(10% 0.02 250 / 0.3)' }}>
+        <div className="p-[18px] flex items-center gap-2.5 border-b border-white/10">
+          {userData?.schoolLogo ? (
+            <img src={userData.schoolLogo} alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
+          ) : (
+            <BrandMark height={32} />
+          )}
+          <div className="text-[11px] text-white/50 font-medium">{userRole === 'SUPER_ADMIN_GLOBAL' ? 'Super Admin' : (userData?.subscriptionTier === 'FREEMIUM' ? 'Admin Freemium' : getRoleLabel(userRole!))}</div>
+        </div>
+
+        {isPlatformAdminSidebar && (
+          <div className="px-4 pt-3 pb-1">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-white/40 mb-1.5">École active</div>
+            <SearchAutocomplete
+              placeholder="Rechercher une école…"
+              items={(() => {
+                const q = schoolQuery.trim().toLowerCase()
+                const all = q
+                  ? contextSchools.filter(s => `${s.name} ${s.shortName} ${s.city || ''}`.toLowerCase().includes(q))
+                  : contextSchools
+                return all.map(s => ({ id: s.id, label: s.name, sublabel: [s.shortName, s.city].filter(Boolean).join(' · ') }))
+              })()}
+              selectedId={activeSchoolId || null}
+              onSelect={(item) => { setActiveSchoolId(item.id); setSchoolQuery('') }}
+              onClear={() => { setActiveSchoolId(null); setSchoolQuery('') }}
+              searchQuery={schoolQuery}
+              onSearchChange={setSchoolQuery}
+              emptyMessage="Aucune école ne correspond"
+              itemTypeName="école"
+              foundWord="trouvée"
+            />
+            <div className="mt-1.5 text-[10px] leading-snug text-white/40">
+              {activeSchoolId
+                ? 'Les vues affichent les données de cette école.'
+                : 'Aucune — vue plateforme (données globales).' }
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto custom-scrollbar py-2">
+          <div className="px-5 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-white/40">Navigation</div>
+          <nav className="flex flex-col gap-0.5 px-3">
+            {menuItems.map(item => (
+              <button
+                key={item.label}
+                onClick={() => { if (item.tab) setDisciplineTab(item.tab); setCurrentView(item.view); setSidebarOpen(false) }}
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13.5px] font-medium transition-all duration-200 ${
+                  currentView === item.view
+                    ? 'text-[oklch(72%_0.15_65)] font-semibold'
+                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                }`}
+                style={currentView === item.view ? { background: 'oklch(72% 0.15 65 / 0.10)', borderLeft: '3px solid oklch(72% 0.15 65)', boxShadow: 'inset 0 0 20px oklch(72% 0.15 65 / 0.05)' } : { borderLeft: '3px solid transparent' }}
+              >
+                <span className={currentView === item.view ? 'text-[oklch(72%_0.15_65)]' : ''}>{item.icon}</span>
+                {item.label}
+                {item.badge && <span className="ml-auto bg-[oklch(72%_0.15_65)] text-[oklch(15%_0.02_250)] text-[10px] px-1.5 py-px rounded-full font-semibold">{item.badge}</span>}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className="p-3 border-t border-white/10">
+          <div className="flex items-center gap-2.5 p-2.5 rounded-xl edu-glass">
+            {userData?.profileImageUrl ? (
+              <img src={userData.profileImageUrl} alt="Avatar" className="w-9 h-9 rounded-full object-cover shrink-0 border border-white/20" />
+            ) : (
+              <div className="w-9 h-9 rounded-full grid place-items-center text-white font-semibold text-[13px] shrink-0" style={{ background: `linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))` }}>
+                {userData?.initials || '??'}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold truncate text-white/90">{userData?.name || 'Utilisateur'}</div>
+              <div className="text-[11px] text-white/50 truncate">
+                {userRole === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : (userData?.schoolName || '')}
+              </div>
+            </div>
+            <button onClick={logout} className="text-white/40 hover:text-[oklch(58%_0.20_25)] transition shrink-0"><LogOut size={16} /></button>
+          </div>
+        </div>
+      </aside>
+    </>
+  )
+}
+
+// ===== NOTIFICATION TYPE → VIEW MAPPING =====
+// Délégue au module centralisé notification-routing.ts : le même type
+// n'ouvre PAS la même vue selon le rôle (ex. un paiement → « payments »
+// pour la caisse mais « payment-verification » pour un parent ; une
+// convocation → « discipline » pour un compte DISCIPLINE_*). Garantit
+// qu'une notification n'ouvre jamais une vue inexistante pour le rôle.
+function notifTypeToView(type: string, role?: string | null): ViewType {
+  return resolveNotifView(type, role || null) as ViewType
+}
+
+// ===== ROLE-BASED VIEW ACCESS =====
+const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
+  PARENT: ['dashboard', 'grades', 'bulletin', 'online-payment', 'payment-verification', 'discipline', 'homework', 'communications', 'school-reviews', 'profile', 'convocation'],
+  TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'communications', 'reports', 'profile'],
+  HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'bulletin', 'communications', 'reports', 'profile'],
+  SECRETARY: ['dashboard', 'students', 'classes', 'convocation', 'discipline', 'payments', 'communications', 'payment-verification', 'class-passing', 'parent-qr', 'events', 'reports', 'my-subscription', 'settings', 'profile'],
+  CASHIER: ['dashboard', 'payments', 'finance', 'payment-verification', 'debts', 'communications', 'reports', 'profile'],
+  DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'events', 'reports', 'settings', 'profile'],
+  DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'events', 'reports', 'settings', 'profile'],
+  DIRECTION_SECONDAIRE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'events', 'reports', 'settings', 'profile'],
+  DISCIPLINE_MATERNELLE: ['dashboard', 'discipline', 'attendance', 'communications', 'reports', 'profile'],
+  DISCIPLINE_PRIMAIRE: ['dashboard', 'discipline', 'attendance', 'communications', 'reports', 'profile'],
+  DISCIPLINE_SECONDAIRE: ['dashboard', 'discipline', 'attendance', 'communications', 'reports', 'profile'],
+  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'discipline', 'attendance', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'medical-records', 'events', 'reports', 'my-subscription', 'parent-qr', 'parents', 'personalization', 'whatsapp-config', 'settings', 'profile'],
+  MEDICAL: ['dashboard', 'medical', 'medical-records', 'students', 'communications', 'reports', 'profile'],
+  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'pricing', 'platform-control', 'discipline', 'attendance', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'medical', 'medical-records', 'events', 'reports', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
+}
+
+const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment-verification', 'payment-config', 'my-subscription', 'settings', 'profile']
+
+function canAccessView(role: string | null, view: ViewType, subscriptionTier?: string): boolean {
+  if (!role) return false
+  // SUPER_ADMIN_GLOBAL = compte PLATEFORME : son profil n'a PAS de forfait d'école
+  // (schoolId null → tier undefined côté serveur). AUCUN gating d'abonnement ne
+  // doit s'appliquer à lui — sinon le fallback « FREEMIUM » du client bloquait la
+  // vue Écoles (file des demandes d'upgrade) et rebasculait chaque notification
+  // d'upgrade sur le dashboard. Le contrôle de RÔLE (VIEWS_BY_ROLE) reste actif.
+  if (role === 'SUPER_ADMIN_GLOBAL') return (VIEWS_BY_ROLE[role] || []).includes(view)
+  // SÉCURITÉ ABONNEMENT : le secrétaire ne doit JAMAIS voir « Mon Abonnement »,
+  // quelle que soit l'école ou le forfait (exclu du comptage freemium par ailleurs).
+  if (role === 'SECRETARY' && view === 'my-subscription') return false
+  // FREEMIUM : vues restreintes — « Mon Abonnement » réservé à l'admin créateur
+  // (le SUPER_ADMIN_GLOBAL est déjà retourné plus haut : jamais gated par un tier)
+  if (subscriptionTier === 'FREEMIUM' && (role.startsWith('DIRECTION') || role === 'SECRETARY' || role === 'SCHOOL_ADMIN')) {
+    if (view === 'my-subscription' && role !== 'SCHOOL_ADMIN') return false
+    return FREEMIUM_VIEWS.includes(view)
+  }
+  // Gestion des Parents (ESSENTIEL+, aligné sur l'API requireFeature('parents'))
+  // et Personnalisation (branding : PREMIUM+, feature custom_branding)
+  if (view === 'parents' && role === 'SCHOOL_ADMIN') {
+    return ['ESSENTIEL', 'STANDARD', 'PREMIUM', 'ENTERPRISE', 'CORPORATE'].includes(subscriptionTier || 'FREEMIUM')
+  }
+  if (view === 'personalization' && role === 'SCHOOL_ADMIN') {
+    return ['PREMIUM', 'ENTERPRISE', 'CORPORATE'].includes(subscriptionTier || 'FREEMIUM')
+  }
+  // Fiches médicales : module médical — offres PREMIUM et plus uniquement
+  // (admin école + service médical ; le super admin passe toujours)
+  if (view === 'medical-records' && role !== 'SUPER_ADMIN_GLOBAL') {
+    if (role !== 'SCHOOL_ADMIN' && role !== 'MEDICAL') return false
+    return getTierLimits(subscriptionTier || 'FREEMIUM').medicalAccess
+  }
+  // Parents on Essentiel / Freemium : pas d'accès aux notes et bulletins
+  if (role === 'PARENT' && (view === 'grades' || view === 'bulletin')) {
+    const limits = getTierLimits(subscriptionTier || 'FREEMIUM')
+    if (!limits.reportCardsToParents) return false
+  }
+  const allowed = VIEWS_BY_ROLE[role]
+  if (!allowed) return false
+  return allowed.includes(view)
+}
+
+// ===== WEB PUSH : conversion clé VAPID base64url -> Uint8Array =====
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(new ArrayBuffer(rawData.length));
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+// ===== TOPBAR =====
+function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; onToggleSidebar: () => void }) {
+  const { currentView, sidebarOpen, setSidebarOpen, setCurrentView, userData, userRole, setHighlightedId } = useEduGestStore()
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0)
+  const [pendingCommsCount, setPendingCommsCount] = useState(0)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [notifCycleIndex, setNotifCycleIndex] = useState(0)
+  const notifPanelRef = useRef<HTMLDivElement>(null)
+  const [pushStatus, setPushStatus] = useState<'unsupported' | 'default' | 'granted' | 'denied' | 'subscribed'>('default')
+  const [pushLoading, setPushLoading] = useState(false)
+  const [notifSoundOn, setNotifSoundOn] = useState(true)
+  // IDs déjà vus (lastSeenNotificationIds) : évite le « ding » au premier
+  // chargement et ne sonne QUE pour les vraies nouveautés — jamais deux fois
+  // pour la même notification, jamais à chaque poll inutile.
+  const seenNotifIdsRef = useRef<Set<string> | null>(null)
+  // Préférences son du compte courant (volume + type) — persistées par utilisateur.
+  const [soundVolume, setSoundVolume] = useState(60)
+  const [soundType, setSoundType] = useState<NotificationSoundType>('DEFAULT')
+  useEffect(() => {
+    setNotifSoundOn(isNotificationSoundEnabled(userData?.id || null))
+    setSoundVolume(getNotificationSoundVolume(userData?.id || null))
+    setSoundType(getNotificationSoundType(userData?.id || null))
+  }, [userData?.id])
+
+  // Politique autoplay des navigateurs : l'audio est bloqué jusqu'au premier
+  // geste utilisateur. On déverrouille donc le son de notification au PREMIER
+  // geste n'importe où dans l'app (clic ou touche) — pas seulement au clic sur
+  // la cloche — pour que les notifications suivantes sonnent réellement.
+  useEffect(() => {
+    const unlock = () => unlockNotificationAudio()
+    // Premier geste n'importe où (souris, clavier, tactile) : déverrouille
+    // l'AudioContext pour que les notifications suivantes sonnent.
+    document.addEventListener('pointerdown', unlock, { once: true })
+    document.addEventListener('keydown', unlock, { once: true })
+    document.addEventListener('touchstart', unlock, { once: true })
+    // Filet de sécurité : si le contexte s'est re-suspendu (mise en veille,
+    // changement d'onglet prolongé), tout clic suivant le re-déverrouille.
+    document.addEventListener('click', unlock)
+    return () => {
+      document.removeEventListener('pointerdown', unlock)
+      document.removeEventListener('keydown', unlock)
+      document.removeEventListener('touchstart', unlock)
+      document.removeEventListener('click', unlock)
+    }
+  }, [])
+
+  const adminRoles = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'SECRETARY']
+  const showPendingComms = adminRoles.includes(userRole || '')
+
+  const totalUnread = unreadNotifCount
+
+  const unreadNotifications = notifications.filter(n => !n.isRead)
+
+  useEffect(() => {
+    if (!userData?.id) return;
+    const load = () => authFetch('/api/notifications?limit=20').then(r => r.json()).then(j => {
+      const list = j.data || [];
+      setNotifications(list);
+      setUnreadNotifCount(j.unreadCount || 0);
+      // Son + notification native UNIQUEMENT pour de NOUVELLES notifications
+      // non lues (jamais parce qu'une notification existe déjà au poll).
+      const unreadIds = new Set<string>(list.filter((n: any) => !n.isRead).map((n: any) => n.id));
+      if (seenNotifIdsRef.current === null) {
+        seenNotifIdsRef.current = unreadIds; // premier chargement : on mémorise sans sonner
+      } else {
+        const fresh = list.filter((n: any) => !n.isRead && !seenNotifIdsRef.current!.has(n.id));
+        seenNotifIdsRef.current = unreadIds;
+        if (fresh.length > 0) {
+          // Priorité métier → type de son (ALERT pour convocation/appro/médical).
+          const level = notifSoundLevel(fresh[0].type);
+          playNotificationSound({ userId: userData.id, type: level === 'HIGH' ? 'ALERT' : undefined });
+          showDesktopNotification(fresh[0]);
+        }
+      }
+    }).catch(() => {});
+    load();
+    // Cadence métier (30 s) — INDÉPENDANTE du timer de mise à jour de l'exe
+    // (60 s, côté processus principal Electron) : deux systèmes séparés.
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
+  }, [userData?.id]);
+
+  // ── NOTIFICATION NATIVE WINDOWS (application de bureau) ─────────────────
+  // L'exe affiche un toast système (Electron Notification) quand une
+  // notification importante arrive pendant que la fenêtre n'est PAS au
+  // premier plan (minimisée / en arrière-plan). Au clic : focus + navigation
+  // vers la vue correspondant AU RÔLE. Le son natif dépend des réglages
+  // Windows : l'app complète toujours avec SON son in-app (cohérence).
+  const showDesktopNotification = (notif: any) => {
+    try {
+      const bridge = (window as any).__edugest?.notifications;
+      if (!bridge?.show) return; // navigateur web : rien (Web Push gère)
+      if (document.hasFocus()) return; // premier plan : le son in-app suffit
+      bridge.show({
+        title: notif.title || 'EduGest',
+        body: notif.message || '',
+        tag: notif.id,
+        url: viewToPath(notifTypeToView(notif.type, userRole)),
+        notificationId: notif.id,
+        notifType: notif.type,
+      });
+    } catch { /* jamais bloquant */ }
+  };
+
+  // Clic sur la notification native → focus + ouverture de la bonne page,
+  // puis marquage lu (le main process renvoie l'URL + l'id).
+  useEffect(() => {
+    const bridge = (window as any).__edugest?.notifications;
+    if (!bridge?.onNavigate) return;
+    const off = bridge.onNavigate((payload: any) => {
+      try {
+        const viewFromUrl = pathToView(payload?.url || '/');
+        let target: ViewType = 'dashboard';
+        if (viewFromUrl && canAccessView(userRole, viewFromUrl as ViewType, userData?.subscriptionTier)) {
+          target = viewFromUrl as ViewType;
+        } else {
+          target = notifTypeToView(payload?.notifType || '', userRole);
+        }
+        setHighlightedId(payload?.relatedId || null);
+        setCurrentView(target);
+        if (payload?.notificationId) markAsRead(payload.notificationId);
+        setTimeout(() => setHighlightedId(null), 5000);
+      } catch { /* silencieux */ }
+    });
+    return off;
+  }, [userRole, userData?.subscriptionTier]);
+
+  // ===== WEB PUSH : enregistrement du service worker + auto-abonnement =====
+  // App desktop (Electron) : pas de Web Push navigateur (pushManager
+  // incompatible) — les notifications passent par la cloche in-app.
+  useEffect(() => {
+    if (!userData?.id) return;
+    if (isDesktopApp()) { setPushStatus('unsupported'); return; }
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || typeof Notification === 'undefined') {
+      setPushStatus('unsupported');
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const reg = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.ready;
+        if (cancelled) return;
+        const perm = Notification.permission;
+        if (perm !== 'granted') { setPushStatus(perm === 'denied' ? 'denied' : 'default'); return; }
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) { setPushStatus('subscribed'); return; }
+        // Permission déjà accordée mais pas encore d'abonnement -> abonnement silencieux
+        setPushStatus('granted');
+        await enablePush(reg);
+      } catch {
+        if (!cancelled) setPushStatus('default');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userData?.id]);
+
+  const enablePush = useCallback(async (registration?: ServiceWorkerRegistration) => {
+    if (pushLoading) return;
+    try {
+      setPushLoading(true);
+      if (typeof Notification === 'undefined' || !('serviceWorker' in navigator)) { setPushStatus('unsupported'); return; }
+      const reg = registration || await navigator.serviceWorker.ready;
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { setPushStatus(perm === 'denied' ? 'denied' : 'default'); return; }
+      const keyRes = await authFetch('/api/push/vapid');
+      if (!keyRes.ok) { toast.error('Notifications non configurées sur le serveur'); setPushStatus('granted'); return; }
+      const { publicKey } = await keyRes.json();
+      if (!publicKey) { toast.error('Clé push indisponible'); return; }
+      const existing = await reg.pushManager.getSubscription();
+      const sub = existing || await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+      const subJson = sub.toJSON();
+      const res = await authFetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
+      });
+      if (!res.ok) throw new Error('Enregistrement impossible');
+      setPushStatus('subscribed');
+      toast.success('Notifications push activées 🔔');
+    } catch (e: any) {
+      toast.error(e?.message || 'Impossible d\u2019activer les notifications');
+      setPushStatus(Notification.permission === 'granted' ? 'granted' : 'default');
+    } finally {
+      setPushLoading(false);
+    }
+  }, [pushLoading]);
+
+  useEffect(() => {
+    if (!userData?.id || !showPendingComms) return;
+    const loadComms = () => {
+      const schoolParam = getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''
+      authFetch(`/api/communications?limit=100${schoolParam}`).then(r => r.json()).then(j => {
+        const data = j.data || []
+        setPendingCommsCount(data.filter((c: any) => c.status === 'PENDING').length)
+      }).catch(() => {})
+    }
+    loadComms()
+    const interval = setInterval(loadComms, 30000)
+    return () => clearInterval(interval)
+  }, [userData?.id, getActiveSchoolId() ?? null, showPendingComms])
+
+  useEffect(() => {
+    if (!showNotifications) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notifPanelRef.current && !notifPanelRef.current.contains(e.target as Node)) {
+        setShowNotifications(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showNotifications])
+
+  // Marquage lu : le frontend attend le RÉSULTAT SERVEUR avant de modifier
+  // l'état local — en cas de 403/500 la notification reste NON LUE.
+  const markAsRead = async (notifId: string) => {
+    try {
+      const res = await authFetch('/api/notifications', { method: 'PATCH', body: JSON.stringify({ notificationId: notifId }) })
+      if (!res.ok) throw new Error('Erreur serveur')
+      setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, isRead: true } : n))
+      setUnreadNotifCount(prev => Math.max(0, prev - 1))
+    } catch {
+      toast.error('Impossible de marquer la notification comme lue — réessayez')
+    }
+  }
+
+  // « Tout lire » : UNE SEULE implémentation (PATCH /api/notifications/read-all,
+  // permission notifications:read). État local modifié SEULEMENT en cas de 200.
+  const markAllAsRead = async () => {
+    try {
+      const res = await authFetch('/api/notifications/read-all', { method: 'PATCH' })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Erreur')
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+      setUnreadNotifCount(0)
+    } catch {
+      toast.error('Impossible de tout marquer comme lu — réessayez')
+    }
+  }
+
+  const handleBellClick = () => {
+    unlockNotificationAudio(); // autorise le son (politique autoplay) pour les prochains polls
+    setShowNotifications(!showNotifications)
+  }
+
+  const toggleNotifSound = () => {
+    const next = !notifSoundOn;
+    setNotifSoundOn(next);
+    setNotificationSoundEnabled(next, userData?.id || null);
+    if (next) { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null }); } // aperçu immédiat
+  }
+
+  const handleNotifItemClick = (notif: any) => {
+    let targetView = notifTypeToView(notif.type, userRole)
+    if (!canAccessView(userRole, targetView, userData?.subscriptionTier)) targetView = 'dashboard'
+    setHighlightedId(notif.relatedId || null)
+    setCurrentView(targetView)
+    setShowNotifications(false)
+    if (!notif.isRead) markAsRead(notif.id)
+    setTimeout(() => setHighlightedId(null), 5000)
+  }
+
+  // ── Demandes d'approbation depuis les notifications ────────────────────
+  // QR code du secrétaire, suppression / création de classe… : l'admin de
+  // l'école et le super admin global peuvent ACCEPTER ou REFUSER directement
+  // depuis la notification — le PATCH /api/settings-approval exécute l'action
+  // côté serveur (création réelle du QR / de la classe, suppression effective).
+  const isApprovalApprover = userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SCHOOL_ADMIN'
+  const [approvingNotifId, setApprovingNotifId] = useState<string | null>(null)
+  const handleApprovalDecision = async (notif: any, decision: 'APPROVED' | 'REJECTED') => {
+    if (!notif?.relatedId || approvingNotifId) return
+    setApprovingNotifId(notif.id)
+    // Deux familles d'approbation → deux endpoints serveur :
+    //  - SUBSCRIPTION_UPGRADE_REQUEST → PATCH /api/subscription/request/[id]
+    //    (réservé SUPER_ADMIN_GLOBAL : applique réellement la nouvelle formule)
+    //  - tout le reste (QR, création/suppression de classe…) →
+    //    PATCH /api/settings-approval
+    const isUpgrade = notif.type === 'SUBSCRIPTION_UPGRADE_REQUEST'
+    const approvalUrl = isUpgrade ? `/api/subscription/request/${notif.relatedId}` : '/api/settings-approval'
+    try {
+      const res = await authFetch(approvalUrl, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: notif.relatedId, status: decision }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Erreur')
+      toast.success(decision === 'APPROVED'
+        ? (isUpgrade ? 'Upgrade approuvé — abonnement de l\'école mis à jour' : 'Demande approuvée et appliquée')
+        : 'Demande rejetée')
+      // La demande est traitée : la notification est marquée lue et quitte la
+      // liste localement — au prochain poll elle reviendra SANS boutons
+      // (canDecide exige une notification non lue).
+      if (!notif.isRead) markAsRead(notif.id)
+      setNotifications(prev => prev.filter(n => n.id !== notif.id))
+      if (!notif.isRead) setUnreadNotifCount(c => Math.max(0, c - 1))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setApprovingNotifId(null)
+    }
+  }
+
+  const notifIcon = (type: string) => {
+    if (type === 'APPROVAL_REQUESTED') return <Star size={14} />
+    if (type === 'APPROVAL_DECIDED') return <Check size={14} />
+    if (type === 'SUBSCRIPTION_UPGRADE_REQUEST') return <CreditCard size={14} />
+    if (type.includes('COMMUNICATION')) return <MessageSquare size={14} />
+    if (type.includes('PAYMENT')) return <DollarSign size={14} />
+    if (type.includes('GRADE') || type.includes('BULLETIN')) return <FileText size={14} />
+    if (type.includes('STUDENT')) return <GraduationCap size={14} />
+    if (type.includes('DISCIPLINE')) return <Shield size={14} />
+    if (type.includes('HOMEWORK')) return <FileText size={14} />
+    if (type.includes('CLASS')) return <Users size={14} />
+    return <Bell size={14} />
+  }
+
+  const notifIconBg = (type: string) => {
+    if (type === 'APPROVAL_REQUESTED') return { bg: `linear-gradient(135deg, ${GOLD}, ${WARNING})`, color: '#fff' }
+    if (type === 'APPROVAL_DECIDED') return { bg: `linear-gradient(135deg, ${SUCCESS}, ${ACCENT})`, color: '#fff' }
+    if (type === 'SUBSCRIPTION_UPGRADE_REQUEST') return { bg: `linear-gradient(135deg, ${GOLD}, ${WARNING})`, color: '#fff' }
+    if (type.includes('COMMUNICATION')) return { bg: `linear-gradient(135deg, ${ACCENT}, ${ACCENT2})`, color: '#fff' }
+    if (type.includes('PAYMENT')) return { bg: `linear-gradient(135deg, ${GOLD}, ${GOLD_SOFT})`, color: '#fff' }
+    if (type.includes('APPROVED')) return { bg: `linear-gradient(135deg, ${SUCCESS}, ${ACCENT})`, color: '#fff' }
+    if (type.includes('REJECTED')) return { bg: `linear-gradient(135deg, ${DANGER}, ${WARNING})`, color: '#fff' }
+    return { bg: IVORY, color: TEXT_PRIMARY }
+  }
+
+  const timeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return "à l'instant"
+    if (mins < 60) return `${mins}min`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}h`
+    return `${Math.floor(hrs / 24)}j`
+  }
+
+  const viewTitles: Record<string, string> = {
+    dashboard: 'Dashboard', students: 'Élèves', classes: 'Classes', grades: 'Notes',
+    payments: 'Paiements', discipline: 'Discipline', communications: 'Communications',
+    homework: 'Devoirs', profile: 'Mon profil', pricing: 'Tarifs', 'class-passing': 'Passage de classe',
+    bulletin: 'Bulletins', convocation: 'Convocation', schools: 'Écoles',
+    'admin-analytics': 'Statistiques', 'whatsapp-config': 'Connexion WhatsApp',
+    'platform-control': 'Contrôle plateforme',
+    personnel: 'Personnel', settings: 'Paramètres', 'school-reviews': 'Avis',
+    'payment-verification': 'Vérification', 'payment-config': 'Config. Paiement',
+    'online-payment': 'Payer en ligne',
+    'medical-records': 'Fiches médicales',
+    'debts': 'Dettes',
+    'finance': 'Situation financière',
+  }
+
+  return (
+    <header className="sticky top-0 z-20 h-16 flex items-center justify-between px-4 sm:px-6" style={{ background: 'rgba(252, 251, 249, 0.85)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '1px solid oklch(90% 0.005 175 / 0.5)' }}>
+      <div className="flex items-center gap-4">
+        <button className="lg:hidden p-2 rounded-xl hover:bg-white/80 transition-all duration-200" onClick={() => setSidebarOpen(!sidebarOpen)}>
+          {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
+        </button>
+        <button
+          onClick={onToggleSidebar}
+          className="hidden lg:flex p-2 rounded-xl hover:bg-white/80 transition-all duration-200 items-center gap-1.5"
+          title={sidebarVisible ? 'Masquer le menu' : 'Afficher le menu'}
+        >
+          {sidebarVisible ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+        </button>
+        <div>
+          <div className="text-lg font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>{viewTitles[currentView] || 'Dashboard'}</div>
+          <div className="text-xs hidden sm:block font-medium" style={{ color: TEXT_MUTED_LUXE }}>EduGest · {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 relative" ref={notifPanelRef}>
+        <button
+          onClick={handleBellClick}
+          className="relative p-2 rounded-lg hover:bg-white/60 transition"
+          title={unreadNotifications.length > 0 ? 'Cliquez pour voir la prochaine notification' : 'Notifications'}
+        >
+          <Bell size={18} style={{ color: TEXT_MUTED_LUXE }} />
+          {totalUnread > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-[oklch(60%_0.25_25)] text-white text-[10px] font-bold px-1 rounded-full animate-pulse">
+              {totalUnread > 99 ? '99+' : totalUnread}
+            </span>
+          )}
+        </button>
+
+        {showNotifications && (
+          <>
+          <div className="fixed inset-0 z-30" style={{ background: 'rgba(0,0,0,0.15)' }} onClick={() => setShowNotifications(false)} />
+          <div className="absolute right-0 top-full mt-2 w-[360px] max-h-[480px] rounded-2xl shadow-2xl border overflow-hidden z-40" style={{ background: '#fff', borderColor: `oklch(88% 0.01 175)` }}>
+            <div className="px-4 py-3 flex items-center justify-between border-b" style={{ borderColor: `oklch(88% 0.01 175)` }}>
+              <div className="flex items-center gap-2">
+                <Bell size={15} style={{ color: TEXT_PRIMARY }} />
+                <span className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>Notifications</span>
+                {unreadNotifications.length > 0 && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: ACCENT, color: '#fff' }}>{unreadNotifications.length}</span>
+                )}
+              </div>
+              {unreadNotifications.length > 0 && (
+                <button
+                  onClick={markAllAsRead}
+                  className="text-[11px] font-medium hover:underline"
+                  style={{ color: ACCENT }}
+                >Tout lire</button>
+              )}
+              <button
+                onClick={toggleNotifSound}
+                className="p-1.5 rounded-lg hover:bg-white/60 transition"
+                title={notifSoundOn ? 'Couper le son des notifications' : 'Activer le son des notifications'}
+              >
+                {notifSoundOn
+                  ? <Volume2 size={15} style={{ color: TEXT_PRIMARY }} />
+                  : <VolumeX size={15} style={{ color: TEXT_MUTED_LUXE }} />}
+              </button>
+            </div>
+            {(pushStatus === 'default' || pushStatus === 'granted') && (
+              <div className="px-4 py-2.5 flex items-center justify-between gap-2 border-b" style={{ borderColor: `oklch(92% 0.005 250)`, background: GOLD_SOFT }}>
+                <div className="flex items-center gap-2 text-[11px] font-medium leading-tight" style={{ color: TEXT_PRIMARY }}>
+                  <BellRing size={13} style={{ color: GOLD }} className="shrink-0" />
+                  <span>Être alerté(e) même quand l&apos;app est fermée</span>
+                </div>
+                <button
+                  onClick={() => enablePush()}
+                  disabled={pushLoading}
+                  className="text-[11px] font-bold px-3 py-1.5 rounded-lg edu-gold-cta shrink-0 disabled:opacity-60"
+                >
+                  {pushLoading ? '...' : 'Activer'}
+                </button>
+              </div>
+            )}
+            {pushStatus === 'denied' && (
+              <div className="px-4 py-2 flex items-center gap-2 border-b text-[10px]" style={{ borderColor: `oklch(92% 0.005 250)`, color: TEXT_MUTED_LUXE }}>
+                <BellRing size={11} className="shrink-0 opacity-50" />
+                <span>Notifications bloquées — autorisez-les dans les paramètres du navigateur</span>
+              </div>
+            )}
+            {/* ── Réglages du son (persistés par utilisateur) ─────────────────── */}
+            <div className="px-4 py-2.5 border-b flex items-center gap-2 flex-wrap" style={{ borderColor: `oklch(92% 0.005 250)`, background: IVORY_WARM }}>
+              <span className="text-[10px] font-semibold" style={{ color: TEXT_MUTED_LUXE }}>Son</span>
+              <input
+                type="range" min={0} max={100} step={5} value={soundVolume}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10)
+                  setSoundVolume(v)
+                  setNotificationSoundVolume(v, userData?.id || null)
+                }}
+                onMouseUp={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume }) }}
+                onTouchEnd={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume }) }}
+                className="w-20 h-1 accent-current"
+                style={{ accentColor: GOLD }}
+                title={`Volume : ${soundVolume}%`}
+                aria-label="Volume du son de notification"
+              />
+              <span className="text-[10px] w-8" style={{ color: TEXT_MUTED_LUXE }}>{soundVolume}%</span>
+              <select
+                value={soundType}
+                onChange={(e) => {
+                  const t = e.target.value as NotificationSoundType
+                  setSoundType(t)
+                  setNotificationSoundType(t, userData?.id || null)
+                  unlockNotificationAudio()
+                  playNotificationSound({ userId: userData?.id || null, type: t })
+                }}
+                className="text-[10px] rounded-lg px-1.5 py-1 border bg-white"
+                style={{ borderColor: BORDER, color: TEXT_PRIMARY }}
+                title="Type de son"
+                aria-label="Type de son de notification"
+              >
+                <option value="DEFAULT">Standard</option>
+                <option value="SOFT">Doux</option>
+                <option value="ALERT">Alerte</option>
+              </select>
+              <button
+                onClick={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume, type: soundType }) }}
+                className="text-[10px] font-semibold px-2 py-1 rounded-lg"
+                style={{ background: GOLD_SOFT, color: TEXT_PRIMARY }}
+                title="Écouter le son"
+              >Tester</button>
+            </div>
+            <div className="overflow-y-auto" style={{ maxHeight: '420px' }}>
+              {notifications.length === 0 ? (
+                <div className="px-4 py-8 text-center" style={{ color: TEXT_MUTED_LUXE }}>
+                  <Bell size={24} className="mx-auto mb-2 opacity-30" />
+                  <div className="text-sm">Aucune notification</div>
+                </div>
+              ) : (
+                notifications.map((notif) => {
+                  const iconStyle = notifIconBg(notif.type)
+                  // Approuver/Rejeter dans la cloche : QR & création/suppression
+                  // de classe (admin école + super admin) ET demande d'upgrade
+                  // d'abonnement (super admin UNIQUEMENT — le PATCH côté serveur
+                  // l'exige).
+                  const isUpgradeRequest = notif.type === 'SUBSCRIPTION_UPGRADE_REQUEST'
+                  const canDecide = isApprovalApprover && notif.relatedId && !notif.isRead && (
+                    notif.type === 'APPROVAL_REQUESTED' ||
+                    (isUpgradeRequest && userRole === 'SUPER_ADMIN_GLOBAL')
+                  )
+                  return (
+                    <div
+                      key={notif.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleNotifItemClick(notif)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleNotifItemClick(notif) } }}
+                      className="w-full text-left px-4 py-3 flex gap-3 hover:bg-[oklch(97%_0.005_175)] transition border-b cursor-pointer"
+                      style={{ borderColor: `oklch(92% 0.005 250)`, opacity: notif.isRead ? 0.6 : 1 }}
+                    >
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: iconStyle.bg, color: iconStyle.color }}>
+                        {notifIcon(notif.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] font-semibold truncate" style={{ color: TEXT_PRIMARY }}>{notif.title}</span>
+                          {!notif.isRead && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: ACCENT }} />}
+                        </div>
+                        <div className="text-[11px] leading-snug mt-0.5 line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{notif.message}</div>
+                        {canDecide && (
+                          <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => handleApprovalDecision(notif, 'APPROVED')}
+                              disabled={approvingNotifId === notif.id}
+                              className="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white disabled:opacity-50"
+                              style={{ background: SUCCESS }}
+                            >
+                              {approvingNotifId === notif.id ? '…' : '✓'} Approuver
+                            </button>
+                            <button
+                              onClick={() => handleApprovalDecision(notif, 'REJECTED')}
+                              disabled={approvingNotifId === notif.id}
+                              className="px-3 py-1.5 rounded-lg text-[11px] font-semibold border disabled:opacity-50"
+                              style={{ color: DANGER, borderColor: DANGER + '40' }}
+                            >
+                              ✕ Rejeter
+                            </button>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>{timeAgo(notif.createdAt)}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium" style={{ background: IVORY, color: TEXT_MUTED_LUXE }}>
+                            {viewTitles[notifTypeToView(notif.type, userRole)] || notif.type}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+          </>
+        )}
+      </div>
+    </header>
+  )
+}
+
+// ===== DASHBOARD LAYOUT =====
+// ===== POPUP IMPORT BASE DE DONNÉES (DANS L'APP, après connexion admin) =====
+// N'apparaît QUE pour les admins d'école (SCHOOL_ADMIN) dont les identifiants
+// ont déjà été validés — jamais sur la page de connexion.
+function ImportDbModal({ onClose }: { onClose: () => void }) {
+  const [file, setFile] = useState<File | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [result, setResult] = useState<{ students: number; classes: number; grades: number; teachers: number; subjects: number } | null>(null)
+
+  async function handleImport() {
+    setError('')
+    if (!file) { setError('Choisissez votre fichier de base de données (.db)'); return }
+    setLoading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await authFetch('/api/school/import-db', { method: 'POST', body: fd })
+      const j = await res.json()
+      if (!res.ok) {
+        setError(j.error || 'Erreur lors de l import')
+        return
+      }
+      const sm = j.data?.summary || {}
+      setResult({ students: sm.students || 0, classes: sm.classes || 0, grades: sm.grades || 0, teachers: sm.teachers || 0, subjects: sm.subjects || 0 })
+      setFile(null)
+    } catch {
+      setError('Erreur réseau pendant l import')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl grid place-items-center" style={{ background: GOLD_SOFT }}>
+              <Database size={17} style={{ color: GOLD }} />
+            </div>
+            <div>
+              <h3 className="font-bold text-[15px]" style={{ color: TEXT_PRIMARY }}>Importer votre base de données</h3>
+              <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Identifiants vérifiés — espace administrateur</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-gray-100 transition" aria-label="Fermer"><X size={16} className="text-gray-500" /></button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          {result ? (
+            <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(60, 145, 100, 0.12)', border: '1px solid rgba(60, 145, 100, 0.35)' }}>
+              <CheckCircle size={30} className="mx-auto mb-2" style={{ color: SUCCESS }} />
+              <p className="font-semibold text-sm mb-1" style={{ color: TEXT_PRIMARY }}>Base importée avec succès !</p>
+              <p className="text-[12px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
+                {result.students} élèves · {result.classes} classes · {result.subjects} matières · {result.grades} notes · {result.teachers} professeurs
+              </p>
+              <p className="text-[11px] mt-2" style={{ color: TEXT_MUTED_LUXE }}>Vos données sont maintenant celles de votre école.</p>
+              <button onClick={onClose} className="mt-3 px-5 py-2 rounded-xl text-[13px] font-semibold text-white transition" style={{ background: SUCCESS }}>
+                Terminer
+              </button>
+            </div>
+          ) : (
+            <>
+              <p className="text-[13px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
+                Vous êtes connecté en tant qu&apos;administrateur d&apos;école. Importez votre fichier de base de
+                données EduGest (<strong>.db</strong>) : élèves, classes, matières, notes et professeurs
+                deviennent directement la base de votre école.
+              </p>
+              <label className="block cursor-pointer rounded-xl px-4 py-4 text-sm transition hover:bg-[oklch(72%_0.15_65_/_0.04)]" style={{ border: '1.5px dashed oklch(72% 0.15 65 / 0.5)' }}>
+                <input type="file" accept=".db,.sqlite,.sqlite3" className="hidden" onChange={e => setFile(e.target.files?.[0] || null)} />
+                <span className="flex items-center gap-2.5 font-medium" style={{ color: TEXT_PRIMARY }}>
+                  <Upload size={16} style={{ color: GOLD }} />
+                  {file ? file.name : 'Choisir le fichier .db de votre école'}
+                </span>
+              </label>
+              {error && (
+                <div className="rounded-xl px-4 py-3 text-[13px]" style={{ background: 'rgba(186,26,26,0.08)', border: '1px solid rgba(186,26,26,0.35)', color: '#b91c1c' }}>{error}</div>
+              )}
+              <div className="flex gap-2.5 pt-1">
+                <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold border transition hover:bg-gray-50" style={{ borderColor: BORDER, color: TEXT_MUTED_LUXE }}>
+                  Plus tard
+                </button>
+                <button onClick={handleImport} disabled={loading} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-white transition disabled:opacity-50" style={{ background: GOLD }}>
+                  {loading ? 'Import en cours…' : 'Importer maintenant'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DashboardLayout() {
+  const [sidebarVisible, setSidebarVisible] = useState(true)
+  // Popup d'import : affichée une fois, juste après la connexion d'un admin
+  // d'école (les identifiants ont été validés par l'API d'authentification).
+  // Lazy init : consomme le flag posé à la connexion (client uniquement —
+  // ce composant n'est rendu qu'après login, donc pas de risque d'hydratation).
+  const [showImportDb, setShowImportDb] = useState(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      if (sessionStorage.getItem('edugest_show_import_db') === '1') {
+        sessionStorage.removeItem('edugest_show_import_db')
+        return true
+      }
+    } catch {}
+    return false
+  })
+  return (
+    <div className={`min-h-screen grid grid-cols-1 ${sidebarVisible ? 'lg:grid-cols-[240px_1fr]' : ''}`} style={{ background: IVORY }}>
+      {sidebarVisible && <Sidebar />}
+      <div className="flex flex-col min-w-0">
+        <Topbar sidebarVisible={sidebarVisible} onToggleSidebar={() => setSidebarVisible(v => !v)} />
+        <main className="flex-1 p-6 sm:p-8 overflow-y-auto">
+          <MainContent />
+        </main>
+      </div>
+      {showImportDb && <ImportDbModal onClose={() => setShowImportDb(false)} />}
+    </div>
+  )
+}
+
+// ===== MAIN CONTENT ROUTER =====
+// ===== WHATSAPP CONFIG VIEW =====
+function WhatsAppConfigView() {
+  const { userRole } = useEduGestStore()
+  const isSuperAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
+  // Onglets : « Connexion » (agent Baileys) et « API WhatsApp & Quotas »
+  // (déplacé depuis Config. Paiements — demande utilisateur)
+  const [waTab, setWaTab] = useState<'connexion' | 'api'>('connexion')
+  const [whatsappStatus, setWhatsappStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected')
+  const [connectionMode, setConnectionModeState] = useState<'qr' | 'phone' | null>(null)
+  const [qrCode, setQrCode] = useState<string | null>(null)
+  const [pairCode, setPairCode] = useState<string | null>(null)
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [starting, setStarting] = useState(false)
+  const [requestingPair, setRequestingPair] = useState(false)
+  const [pairProgress, setPairProgress] = useState<string[]>([])
+  const boundRef = useRef(false)
+  // Ref synchronisée avec connectionMode : le polling checkStatus est enregistré
+  // une seule fois (useEffect []), une closure classique lirait une valeur périmée
+  // et le QR ne s'afficherait jamais.
+  const connectionModeRef = useRef<'qr' | 'phone' | null>(null)
+  function setConnectionMode(mode: 'qr' | 'phone' | null) {
+    connectionModeRef.current = mode
+    setConnectionModeState(mode)
+    if (mode !== 'qr') setQrCode(null)
+  }
+
+  useEffect(() => {
+    // Le statut temps-réel de l'agent est réservé au super administrateur
+    // (l'API /api/whatsapp-status applique requireRole SUPER_ADMIN_GLOBAL)
+    if (!isSuperAdmin) { setLoading(false); return }
+    checkStatus()
+    const interval = setInterval(checkStatus, 2000)
+    return () => clearInterval(interval)
+  }, [])
+
+  async function checkStatus() {
+    try {
+      const res = await authFetch('/api/whatsapp-status')
+      if (res.ok) {
+        const json = await res.json()
+        setWhatsappStatus(json.data?.status || 'disconnected')
+        if (connectionModeRef.current === 'qr') {
+          const incoming = json.data?.qr || null
+          setQrCode(prev => (prev !== incoming ? incoming : prev))
+        }
+        // La génération d'un code peut prendre plus longtemps que la requête
+        // initiale. Le mini-service le conserve dans /status : le relire ici
+        // évite qu'un code valide soit perdu si le navigateur a expiré avant la
+        // réponse de /pair.
+        if (json.data?.pairingCode) {
+          setConnectionMode('phone')
+          setPairCode(json.data.pairingCode)
+          setPairProgress(['Code généré !'])
+        }
+        if (json.data?.status === 'connected') {
+          setPairCode(null); setPairProgress([])
+          // Liaison automatique de l'agent WhatsApp au numéro de l'école
+          // (persiste le numéro réellement connecté pour les notifications)
+          if (!boundRef.current) {
+            boundRef.current = true
+            authFetch('/api/whatsapp-config/connect', { method: 'POST' })
+              .then(r => (r.ok ? r.json() : null))
+              .then(j => { if (j?.message) toast.success(j.message) })
+              .catch(() => {})
+          }
+        } else if (json.data?.status === 'disconnected') {
+          boundRef.current = false
+        }
+      }
+    } catch {}
+    finally { setLoading(false) }
+  }
+
+  async function handleStartQR() {
+    setConnectionMode('qr')
+    setStarting(true)
+    setPairCode(null)
+    try {
+      await authFetch('/api/whatsapp-status', { method: 'POST' })
+    } catch { toast.error('Erreur lors du démarrage') }
+    finally { setStarting(false) }
+  }
+
+  async function handleStartPhone() {
+    const cleanedPhone = phoneNumber.trim().replace(/[^0-9]/g, '')
+    if (!cleanedPhone || cleanedPhone.length < 7) { toast.error('Entrez un numéro valide (min. 7 chiffres, format international)'); return }
+    setConnectionMode('phone')
+    setRequestingPair(true)
+    setPairProgress([])
+    setPairCode(null)
+    const steps = [
+      'Démarrage du client WhatsApp (natsu-baileys-v10)...',
+      'Chargement de WhatsApp Web...',
+      'Génération du code de parrainage...',
+    ]
+    steps.forEach((s, i) => setTimeout(() => setPairProgress(p => [...p, s]), i * 3000))
+
+    const controller = new AbortController()
+    // Le serveur peut effectuer jusqu'à cinq essais avec backoff. On lui laisse
+    // le temps de terminer, puis le polling de statut récupère aussi le code.
+    const timeoutId = setTimeout(() => controller.abort(), 190000)
+    try {
+      const res = await authFetch('/api/whatsapp-status', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'pair', phone: cleanedPhone }),
+        signal: controller.signal,
+      })
+      const json = await res.json()
+      if (json.data?.ok && json.data?.pairingCode) {
+        setPairCode(json.data.pairingCode)
+        setPairProgress(p => [...p, 'Code généré !'])
+        toast.success('Code de parrainage généré !')
+      } else {
+        toast.error(json.data?.error || json.error || 'Impossible de générer le code')
+        setPairProgress([])
+      }
+    } catch (e: any) {
+      if (e.name === 'AbortError') toast.error('La génération prend plus de temps que prévu. Le code s’affichera dès qu’il sera prêt.')
+      else toast.error('Erreur de connexion au serveur WhatsApp')
+      setPairProgress([])
+    } finally { clearTimeout(timeoutId); setRequestingPair(false) }
+  }
+
+  async function handleDisconnect() {
+    try {
+      const res = await authFetch('/api/whatsapp-status', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'logout' }),
+      })
+      const json = await res.json()
+      if (json.data?.ok) {
+        toast.success('Déconnecté')
+        setWhatsappStatus('disconnected')
+        setQrCode(null)
+        setPairCode(null)
+        setConnectionMode(null)
+        setPairProgress([])
+      }
+    } catch { toast.error('Erreur lors de la déconnexion') }
+  }
+
+  const statusColors: Record<string, { bg: string; text: string; dot: string; label: string }> = {
+    connected: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', label: 'Connecté' },
+    connecting: { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500', label: connectionMode === 'phone' ? 'Préparation du code...' : connectionMode === 'qr' ? 'En attente du scan...' : 'En cours...' },
+    disconnected: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500', label: 'Déconnecté' },
+  }
+  const st = statusColors[whatsappStatus]
+
+  const GOLD_COLOR = 'oklch(72% 0.15 65)'
+  const TEAL_COLOR = 'oklch(55% 0.15 175)'
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Connexion WhatsApp</h1>
+      </div>
+
+      {!isSuperAdmin ? (
+        // Admins d'école : uniquement la gestion « API WhatsApp & Quotas » —
+        // la connexion de l'agent (QR / code) est réservée au super administrateur
+        <WhatsAppApiQuotasSection />
+      ) : (
+        <>
+          {/* Onglets : Connexion | API WhatsApp & Quotas */}
+          <div className="flex gap-1 border-b mb-6 overflow-x-auto" style={{ borderColor: 'oklch(90% 0.01 175)' }}>
+            <button
+              onClick={() => setWaTab('connexion')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+                waTab === 'connexion' ? 'border-[oklch(72%_0.15_65)] text-[oklch(72%_0.15_65)]' : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Connexion
+            </button>
+            <button
+              onClick={() => setWaTab('api')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition flex items-center gap-2 whitespace-nowrap ${
+                waTab === 'api' ? 'border-[oklch(72%_0.15_65)] text-[oklch(72%_0.15_65)]' : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <MessageSquare size={15} />
+              API WhatsApp &amp; Quotas
+            </button>
+          </div>
+
+          {waTab === 'connexion' ? (
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl max-w-lg shadow-sm overflow-hidden">
+        <div className="h-28 relative" style={{ background: `linear-gradient(135deg, ${TEAL_COLOR}, ${GOLD_COLOR})` }}>
+          <div className="absolute bottom-4 left-6 flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl grid place-items-center bg-white/20 backdrop-blur-sm">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            </div>
+            <div className="text-white">
+              <div className="font-bold text-lg">WhatsApp Bot</div>
+              <div className="text-white/70 text-sm">Agent de l'école : OTP + notifications parents</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="h-6 w-6 border-4 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <>
+              <div className={`flex items-center gap-3 p-3 rounded-xl ${st.bg}`}>
+                <div className={`w-2.5 h-2.5 rounded-full ${st.dot} ${whatsappStatus === 'connecting' ? 'animate-pulse' : ''}`} />
+                <span className={`text-sm font-semibold ${st.text}`}>{st.label}</span>
+              </div>
+
+              {/* Le QR / code de parrainage est TOUJOURS généré par le serveur
+                  web EduGest (mini-service WhatsApp) : la session vit sur le
+                  serveur et reste active même si l'exe desktop est fermé. */}
+              <div className="rounded-xl bg-[oklch(97%_0.02_175)] border border-[oklch(88%_0.01_175)] p-3 flex items-start gap-2">
+                <ShieldCheck size={16} className="shrink-0 mt-0.5" style={{ color: TEAL_COLOR }} />
+                <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                  Le QR / code est généré par <b style={{ color: TEXT_PRIMARY }}>le serveur EduGest</b> (application web).
+                  La connexion reste active en permanence — même si l'application desktop (exe) est fermée.
+                  Pour reconnecter le numéro, faites-le toujours depuis <b style={{ color: TEXT_PRIMARY }}>le site EduGest</b>.
+                </p>
+              </div>
+
+              {whatsappStatus === 'connected' && (
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 grid place-items-center">
+                    <CheckCircle size={32} className="text-emerald-600" />
+                  </div>
+                  <p className="text-sm font-semibold text-emerald-700">WhatsApp est connecté !</p>
+                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Les codes OTP et les notifications (communications, convocations, devoirs, bulletins, paiements) partiront via ce numéro, au nom de l'école.</p>
+                  <button onClick={handleDisconnect} className="w-full py-3 rounded-xl font-semibold text-sm border border-red-200 text-red-600 hover:bg-red-50 transition">Déconnecter</button>
+                </div>
+              )}
+
+              {whatsappStatus === 'connecting' && connectionMode === 'qr' && qrCode && (
+                <div className="text-center space-y-3">
+                  <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Scannez ce QR code avec WhatsApp sur votre téléphone :</p>
+                  <div className="inline-block p-4 bg-white border-2 border-[oklch(88%_0.01_175)] rounded-2xl shadow-inner">
+                    <img src={qrCode} alt="QR Code WhatsApp" className="w-56 h-56" />
+                  </div>
+                  <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>WhatsApp &rarr; Paramètres &rarr; Appareils connectés &rarr; Connecter un appareil</p>
+                  <button onClick={() => { setConnectionMode(null); setQrCode(null) }} className="text-xs underline" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+                </div>
+              )}
+
+              {whatsappStatus !== 'connected' && connectionMode === 'phone' && (
+                <div className="space-y-3">
+                  {pairProgress.map((step, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm" style={{ color: TEXT_PRIMARY }}>
+                      <div className="h-4 w-4 border-2 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin shrink-0" />
+                      {step}
+                    </div>
+                  ))}
+                  {pairCode && (
+                    <div className="space-y-3 pt-2">
+                      <div className="text-center space-y-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: TEXT_MUTED_LUXE }}>Votre code de parrainage</p>
+                        <div className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl border-2" style={{ borderColor: 'oklch(72% 0.15 65)', background: 'linear-gradient(135deg, oklch(97% 0.02 175), oklch(97% 0.04 65))' }}>
+                          <span className="text-3xl font-mono font-bold tracking-[0.25em] select-all" style={{ color: TEXT_PRIMARY }}>{pairCode}</span>
+                          <button
+                            onClick={() => { navigator.clipboard?.writeText(pairCode).then(() => toast.success('Code copié !')).catch(() => toast.error('Copie impossible')) }}
+                            className="p-2 rounded-lg hover:bg-white/60 transition shrink-0"
+                            title="Copier le code"
+                            aria-label="Copier le code de parrainage"
+                          >
+                            <Copy size={18} style={{ color: GOLD }} />
+                          </button>
+                        </div>
+                        {phoneNumber && (
+                          <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Numéro : <span className="font-mono font-semibold" style={{ color: TEXT_PRIMARY }}>+{phoneNumber.replace(/[^0-9]/g, '')}</span></p>
+                        )}
+                      </div>
+                      <div className="rounded-xl bg-[oklch(97% 0.02_175)] border border-[oklch(88% 0.01_175)] p-3 space-y-2">
+                        <p className="text-xs font-semibold" style={{ color: TEXT_PRIMARY }}>Sur votre téléphone WhatsApp :</p>
+                        <ol className="text-xs space-y-1.5 list-decimal list-inside" style={{ color: TEXT_MUTED_LUXE }}>
+                          <li>Ouvrez <b>Paramètres</b> &rarr; <b>Appareils connectés</b></li>
+                          <li>Touchez <b>Connecter un appareil</b></li>
+                          <li>Choisissez <b>Connecter avec un numéro de téléphone</b></li>
+                          <li>Saisissez le code ci-dessus</li>
+                        </ol>
+                        <p className="text-[11px] italic" style={{ color: TEXT_MUTED_LUXE }}>⏱ Le code expire après quelques minutes. En attente de la validation...</p>
+                      </div>
+                      <div className="flex items-center justify-center gap-2 text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                        <div className="h-3 w-3 border-2 border-[oklch(72% 0.15_65)] border-t-transparent rounded-full animate-spin" />
+                        En attente que vous saisissiez le code sur votre téléphone...
+                      </div>
+                      {whatsappStatus === 'disconnected' && (
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
+                          <p className="text-xs text-amber-700">⚠️ La connexion a été fermée — le code a probablement expiré.</p>
+                          <button onClick={handleStartPhone} disabled={requestingPair} className="w-full py-2.5 rounded-xl text-white font-semibold text-sm disabled:opacity-50 transition hover:opacity-90" style={{ background: `linear-gradient(135deg, ${TEAL_COLOR}, ${GOLD_COLOR})` }}>
+                            {requestingPair ? 'Génération...' : 'Générer un nouveau code'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {!pairCode && (
+                    <div className="flex items-center gap-3 pt-1">
+                      {!requestingPair && (
+                        <button onClick={handleStartPhone} className="text-xs font-semibold underline" style={{ color: GOLD }}>Réessayer</button>
+                      )}
+                      <button onClick={() => { setConnectionMode(null); setRequestingPair(false); setPairProgress([]) }} className="text-xs underline" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(!connectionMode && whatsappStatus !== 'connected') && (
+                <div className="space-y-4">
+                  {whatsappStatus !== 'disconnected' && (
+                    <button onClick={handleDisconnect} className="w-full py-2.5 rounded-xl font-semibold text-sm border border-red-200 text-red-600 hover:bg-red-50 transition">
+                      Déconnecter / Recommencer
+                    </button>
+                  )}
+
+                  <div>
+                    <label className="text-xs font-medium mb-1.5 block" style={{ color: TEXT_MUTED_LUXE }}>Numéro de téléphone</label>
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={e => setPhoneNumber(e.target.value)}
+                      placeholder="+243 8XX XXX XXX"
+                      className="w-full px-3 py-2.5 border border-[oklch(88%_0.01_175)] rounded-lg text-sm outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-2 focus:ring-[oklch(95%_0.05_65)]"
+                      style={{ color: TEXT_PRIMARY }}
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleStartPhone}
+                    disabled={requestingPair || !phoneNumber.trim()}
+                    className="w-full py-3 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition hover:opacity-90"
+                    style={{ background: `linear-gradient(135deg, ${TEAL_COLOR}, ${GOLD_COLOR})` }}
+                  >
+                    {requestingPair ? (
+                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Hash size={16} />
+                    )}
+                    {requestingPair ? 'Génération du code...' : 'Option 1 : Obtenir le code de parrainage'}
+                  </button>
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-[oklch(88%_0.01_175)]" />
+                    </div>
+                    <div className="relative flex justify-center text-xs">
+                      <span className="px-2 bg-white" style={{ color: TEXT_MUTED_LUXE }}>ou</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleStartQR}
+                    disabled={starting}
+                    className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition border border-[oklch(88%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm"
+                    style={{ color: TEXT_PRIMARY }}
+                  >
+                    {starting ? (
+                      <div className="h-4 w-4 border-2 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <QrCode size={16} />
+                    )}
+                    {starting ? 'Démarrage...' : 'Option 2 : Scanner le QR Code'}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+          ) : (
+            <WhatsAppApiQuotasSection />
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function MainContent() {
+  const { currentView, userRole, userData, setCurrentView } = useEduGestStore()
+
+  switch (currentView) {
+    case 'dashboard': return <RoleDashboard />
+    case 'students': return <StudentsView />
+    case 'classes': return <ClassesView />
+    case 'grades': return <GradesView />
+    case 'payments': return <PaymentsView />
+    case 'finance': return <FinanceSituationView />
+    case 'payment-verification': return <PaymentVerificationView />
+    case 'online-payment': return <OnlinePaymentView />
+    case 'debts': return <DettesView onNavigate={(v) => setCurrentView(v as ViewType)} schoolId={getActiveSchoolId() || ''} />
+    case 'payment-config': return <PaymentConfigView />
+    case 'discipline': return <DisciplineView />
+    case 'attendance': return <AttendanceView />
+    case 'events': return <EventsView />
+    case 'reports': return <ReportsView />
+    case 'communications': return <CommunicationsView />
+    case 'homework': return <HomeworkView />
+    case 'profile': return <ProfileView />
+    case 'class-passing': return <ClassPassingView />
+    case 'platform-control': return <PlatformControlView />
+    case 'bulletin': return <BulletinView />
+    case 'convocation': return <ConvocationView />
+    case 'schools': return <SchoolsManagementView />
+    case 'personnel': return <PersonnelView />
+    case 'pricing': return <PricingDashboard />
+    case 'whatsapp-config': return <WhatsAppConfigView />
+    case 'settings': return <SettingsView />
+    case 'school-reviews': return <SchoolReviewsView />
+    case 'my-subscription': return <SubscriptionUpgradeView />
+    case 'medical': return <MedicalView />
+    case 'medical-records': return <MedicalRecordsView />
+    case 'parent-qr': return <ParentQrView />
+    case 'parents': return <ParentsView />
+    case 'personalization': return <PersonalizationView />
+    default: return <RoleDashboard />
+  }
+}
+
+// ===== ROLE-BASED DASHBOARD =====
+function RoleDashboard() {
+  const { userRole } = useEduGestStore()
+  switch (userRole) {
+    case 'SUPER_ADMIN_GLOBAL': return <SuperAdminDashboard />
+    case 'SCHOOL_ADMIN': return <SchoolAdminDashboard />
+    case 'MEDICAL': return <MedicalDashboard />
+    case 'SECRETARY': return <SecretaryDashboard />
+    case 'CASHIER': return <CashierDashboard />
+    case 'PARENT': return <ParentDashboard />
+    case 'TEACHER': return <TeacherDashboard />
+    case 'HEAD_TEACHER': return <HeadTeacherDashboard />
+    default:
+      if (userRole?.startsWith('DIRECTION')) return <DirectionDashboard />
+      if (userRole?.startsWith('DISCIPLINE')) return <DisciplineDashboardView />
+      return <SecretaryDashboard />
+  }
+}
+
+// ===== STAT CARD =====
+function StatCard({ label, value, delta, icon, color }: {
+  label: string; value: string; delta?: string; icon: React.ReactNode; color: string
+}) {
+  return (
+    <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 relative overflow-hidden shadow-sm hover:shadow-md transition" style={{ borderLeft: `4px solid ${color}` }}>
+      <div className="absolute top-0 right-0 w-[60px] h-[60px] rounded-bl-[60px] opacity-50" style={{ background: `radial-gradient(closest-side, ${color}22, transparent)` }} />
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="text-xs font-medium uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>{label}</div>
+        <div className="w-10 h-10 rounded-full grid place-items-center" style={{ color: 'white', background: `linear-gradient(135deg, ${color}, oklch(72% 0.15 65))` }}>{icon}</div>
+      </div>
+      <div className="text-[28px] font-bold tracking-tight tabular-nums" style={{ color: TEXT_PRIMARY }}>{value}</div>
+      {delta && <div className="text-xs mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{delta}</div>}
+    </div>
+  )
+}
+
+// ===== SUPER ADMIN DASHBOARD =====
+interface AdminAnalytics {
+  overview: {
+    totalSchools: number; totalStudents: number; totalUsers: number; totalRevenue: number;
+    overdue: { amount: number; count: number }; partial: { owed: number; count: number };
+    pending: { amount: number; count: number }; totalDebt: number;
+  }
+  schoolsWithMostStudents: { id: string; name: string; shortName: string; city: string; country: string; subscriptionTier: string; studentCount: number; classCount: number; _count: { students: number; users: number } }[]
+  schoolsWithFewestStudents: { id: string; name: string; shortName: string; city: string; country: string; subscriptionTier: string; studentCount: number; classCount: number; _count: { students: number; users: number } }[]
+  schoolsByCity: { city: string; _count: { id: number }; _sum: { studentCount: number | null } }[]
+  subscriptionDistribution: { subscriptionTier: string; _count: { id: number } }[]
+  debtStats: { schoolId: string; schoolName: string; schoolShortName: string; city: string; studentCount: number; debtCount: number; totalOwed: number; totalAmount: number; totalPaid: number }[]
+  paidStats: { schoolId: string; schoolName: string; schoolShortName: string; city: string; studentCount: number; paidCount: number; totalPaid: number }[]
+  blacklistStats: { schoolId: string; schoolName: string; schoolShortName: string; city: string; blacklistCount: number }[]
+  blacklistEntries: { id: string; reason: string; addedAt: string; schoolId: string; student: { firstName: string; lastName: string; matricule: string } | null }[]
+  greylistEntries: { id: string; reason: string; addedAt: string; schoolId: string; student: { firstName: string; lastName: string; matricule: string } | null }[]
+  revenueBySchool: { schoolId: string; schoolName: string; schoolShortName: string; city: string; revenue: number; paymentCount: number }[]
+  recentPayments: { id: string; amount: number; paidAmount: number; status: string; createdAt: string; student: { firstName: string; lastName: string; matricule: string } | null; school: { name: string; shortName: string; city: string } | null }[]
+  recentDiscipline: { id: string; type: string; title: string; severity: string; createdAt: string; schoolId: string; student: { firstName: string; lastName: string; matricule: string } | null }[]
+  recentStudents: { id: string; firstName: string; lastName: string; matricule: string; createdAt: string; school: { name: string; shortName: string; city: string } | null; class: { name: string } | null }[]
+}
+
+// SuperAdminDashboard imported from @/components/dashboards/SuperAdminDashboard
+
+// SecretaryDashboard imported from @/components/dashboards/SecretaryDashboard
+
+// CashierDashboard imported from @/components/dashboards/CashierDashboard
+
+// ParentDashboard imported from @/components/dashboards/ParentDashboard
+
+// TeacherDashboard imported from @/components/dashboards/TeacherDashboard
+
+// HeadTeacherDashboard imported from @/components/dashboards/HeadTeacherDashboard
+
+// ===== DIRECTION DASHBOARD =====
+function DirectionDashboard() {
+  const { userRole } = useEduGestStore()
+  return <SecretaryDashboard role={userRole || undefined} />
+}
+
+// DisciplineDashboardView imported from @/components/dashboards/DisciplineDashboard
+
+// StudentsView imported from @/components/views/StudentsView
+
+// ===== CLASSES VIEW =====
+function ClassesView() {
+  const [classes, setClasses] = useState<ClassData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [classSearch, setClassSearch] = useState('')
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null)
+  const { userData, userRole, highlightedId } = useEduGestStore()
+  const [showAddClass, setShowAddClass] = useState(false)
+  const [newClassName, setNewClassName] = useState('')
+  // Cycle par défaut = celui de la direction (modifiable librement)
+  const directionCycle = userRole === 'DIRECTION_MATERNELLE' ? 'MATERNELLE'
+    : userRole === 'DIRECTION_PRIMAIRE' ? 'PRIMAIRE'
+    : userRole === 'DIRECTION_SECONDAIRE' ? 'SECONDAIRE' : null
+  const [newClassSection, setNewClassSection] = useState(directionCycle || 'PRIMAIRE')
+  const [newClassCapacity, setNewClassCapacity] = useState('40')
+  const [addingClass, setAddingClass] = useState(false)
+  const [deletingClassId, setDeletingClassId] = useState<string | null>(null)
+  const [viewingClassId, setViewingClassId] = useState<string | null>(null)
+  const [viewingClassName, setViewingClassName] = useState('')
+  const [classStudents, setClassStudents] = useState<StudentData[]>([])
+  const [loadingStudents, setLoadingStudents] = useState(false)
+  const [activeSchoolYear, setActiveSchoolYear] = useState<string>('')
+  const canManage = userRole === 'SUPER_ADMIN_GLOBAL' || (userRole && userRole.startsWith('DIRECTION'))
+  const isTeacherView = userRole === 'TEACHER' || userRole === 'HEAD_TEACHER'
+  const highlightedRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (highlightedId && highlightedRef.current) {
+      highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlightedId])
+
+  useEffect(() => {
+    authFetch(`/api/classes?limit=50${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}`).then(r => r.json()).then(j => {
+      let allClasses: ClassData[] = j.data || []
+      if (userRole === 'HEAD_TEACHER' && userData?.id) {
+        allClasses = allClasses.filter(c => (c as any).headTeacherId === userData.id)
+        if (allClasses.length === 1) {
+          setSelectedClassId(allClasses[0].id)
+          handleViewClass(allClasses[0].id, allClasses[0].name)
+        }
+      }
+      // Classe titulaire TOUJOURS en première position pour les enseignants
+      if (isTeacherView && userData?.id) {
+        allClasses = [...allClasses].sort((a, b) => {
+          const aTit = (a as any).headTeacherId === userData.id ? 0 : 1
+          const bTit = (b as any).headTeacherId === userData.id ? 0 : 1
+          return aTit - bTit
+        })
+      }
+      setClasses(allClasses); setLoading(false)
+    }).catch(() => setLoading(false))
+    // Fetch active school year
+    if (getActiveSchoolId()) {
+      authFetch(`/api/schools/${getActiveSchoolId()}`).then(r => r.json()).then(j => {
+        const years = j.data?.schoolYears || []
+        const active = years.find((y: any) => y.isActive)
+        if (active) setActiveSchoolYear(active.id)
+      }).catch(() => {})
+    }
+  }, [getActiveSchoolId()])
+
+  // Class search autocomplete - computed from local data
+  const classSuggestions = useMemo(() => {
+    if (classSearch.length < 1) return classes.map(c => ({ id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves · Cap. ${c.capacity}${c.section ? ` · ${c.section}` : ''}` }))
+    return classes.filter(c => c.name.toLowerCase().includes(classSearch.toLowerCase()) || (c.section || '').toLowerCase().includes(classSearch.toLowerCase())).map(c => ({
+      id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves · Cap. ${c.capacity}${c.section ? ` · ${c.section}` : ''}`
+    }))
+  }, [classSearch, classes])
+
+  const filteredClasses = selectedClassId
+    ? classes.filter(c => c.id === selectedClassId)
+    : classSearch.length >= 2
+      ? classes.filter(c => c.name.toLowerCase().includes(classSearch.toLowerCase()) || (c.section || '').toLowerCase().includes(classSearch.toLowerCase()))
+      : classes
+
+  async function handleAddClass() {
+    if (!newClassName.trim()) { toast.error('Le nom est requis'); return }
+    // ── Une direction ne crée PAS directement : accord de l'admin requis ──
+    // (section imposée = son cycle, l'admin crée la classe à l'approbation)
+    if (userRole && userRole.startsWith('DIRECTION')) {
+      setAddingClass(true)
+      try {
+        const res = await authFetch('/api/settings-approval', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            changeType: 'class_create',
+            changeData: {
+              name: newClassName.trim(),
+              capacity: parseInt(newClassCapacity) || 40,
+              schoolYearId: activeSchoolYear,
+            },
+          }),
+        })
+        const j = await res.json().catch(() => ({}))
+        if (res.ok) {
+          toast.success('Demande envoyée à l\'admin de l\'école — la classe sera créée après son accord')
+          setShowAddClass(false)
+          setNewClassName('')
+        } else {
+          toast.error(j.error || 'Erreur lors de l\'envoi de la demande')
+        }
+      } catch { toast.error('Erreur réseau') }
+      finally { setAddingClass(false) }
+      return
+    }
+    setAddingClass(true)
+    try {
+      const res = await authFetch('/api/classes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newClassName.trim(),
+          section: directionCycle || newClassSection,
+          capacity: parseInt(newClassCapacity) || 40,
+          schoolId: getActiveSchoolId() ?? null,
+          schoolYearId: activeSchoolYear,
+        }),
+      })
+      if (res.ok) {
+        toast.success('Classe créée avec succès!')
+        setShowAddClass(false)
+        setNewClassName('')
+        const j = await authFetch(`/api/classes?limit=50${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}`).then(r => r.json())
+        setClasses(j.data || [])
+      } else {
+        const j = await res.json()
+        toast.error(j.error || 'Erreur lors de la création')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setAddingClass(false) }
+  }
+
+  async function handleDeleteClass(classId: string, className: string) {
+    // ── Une direction ne supprime PAS directement : accord de l'admin requis ──
+    if (userRole && userRole.startsWith('DIRECTION')) {
+      if (!confirm(`Demander l'accord de l'admin de l'école pour supprimer la classe "${className}" ?`)) return
+      setDeletingClassId(classId)
+      try {
+        const res = await authFetch('/api/settings-approval', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            changeType: 'class_delete',
+            changeData: { classId, className },
+          }),
+        })
+        const j = await res.json().catch(() => ({}))
+        if (res.ok) {
+          toast.success('Demande envoyée à l\'admin de l\'école — la classe sera supprimée après son accord')
+        } else {
+          toast.error(j.error || 'Erreur lors de l\'envoi de la demande')
+        }
+      } catch { toast.error('Erreur réseau') }
+      finally { setDeletingClassId(null) }
+      return
+    }
+    if (!confirm(`Supprimer la classe "${className}" ? Cette action est irréversible.`)) return
+    setDeletingClassId(classId)
+    try {
+      const res = await authFetch(`/api/classes/${classId}`, { method: 'DELETE' })
+      if (res.ok) {
+        toast.success('Classe supprimée!')
+        setClasses(prev => prev.filter(c => c.id !== classId))
+      } else {
+        const j = await res.json()
+        if (j.requiresApproval) {
+          toast.error('La suppression requiert l\'accord de l\'admin de l\'école')
+        } else {
+          toast.error(j.error || 'Erreur lors de la suppression')
+        }
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setDeletingClassId(null) }
+  }
+
+  async function handleViewClass(classId: string, className: string) {
+    setViewingClassId(classId)
+    setViewingClassName(className)
+    setLoadingStudents(true)
+    try {
+      const res = await authFetch(`/api/students?classId=${classId}&limit=50`)
+      const json = await res.json()
+      setClassStudents(json.data || [])
+    } catch { setClassStudents([]) }
+    finally { setLoadingStudents(false) }
+  }
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Classes</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(filteredClasses.length)} classes</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {canManage && (
+            <button onClick={() => setShowAddClass(true)} className="edu-gold-cta whitespace-nowrap shrink-0 px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2">
+              <Plus size={14} /> Créer une classe
+            </button>
+          )}
+          <SearchAutocomplete
+            placeholder="Tapez le nom de la classe..."
+            items={classSuggestions}
+            selectedId={selectedClassId}
+            onSelect={(item) => setSelectedClassId(item.id)}
+            onClear={() => { setSelectedClassId(null); setClassSearch('') }}
+            searchQuery={classSearch}
+            onSearchChange={setClassSearch}
+            itemTypeName="classe"
+            className="w-full max-w-sm"
+          />
+        </div>
+      </div>
+      {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : filteredClasses.length === 0 ? (
+        <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucune classe trouvée</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredClasses.map(c => (
+            <div ref={highlightedId === c.id ? highlightedRef : undefined} key={c.id} className={`bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift cursor-pointer ${highlightedId === c.id ? 'edu-highlight' : ''}`} onClick={() => handleViewClass(c.id, c.name)}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <h3 className="text-lg font-bold truncate" style={{ color: TEXT_PRIMARY }}>{c.name}</h3>
+                  {/* Badge Titulaire : la classe dont le prof est titulaire */}
+                  {isTeacherView && (c as any).headTeacherId === userData?.id && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ color: GOLD, background: GOLD_SOFT, border: `1px solid ${GOLD}` }}>TITULAIRE</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs px-2 py-1 rounded-full" style={{ color: GOLD, background: GOLD_SOFT }}>{c.level || c.section || ''}</span>
+                  {canManage && (
+                    <button
+                      onClick={() => handleDeleteClass(c.id, c.name)}
+                      disabled={deletingClassId === c.id}
+                      className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_175)] transition disabled:opacity-50"
+                      style={{ color: DANGER }}
+                      title="Supprimer"
+                    >
+                      {deletingClassId === c.id ? <div className="h-3 w-3 border border-[oklch(58%_0.15_25)] border-t-transparent rounded-full animate-spin" /> : <Trash2 size={13} />}
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-sm" style={{ color: TEXT_MUTED_LUXE }}>
+                <span>{c._count?.students || 0} {(c._count?.students || 0) === 1 ? 'élève' : 'élèves'}</span>
+                <span>Capacité: {c.capacity}</span>
+              </div>
+              <div className="mt-3 h-2 bg-[oklch(92%_0.005_175)] rounded-full overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${Math.min(100, ((c._count?.students || 0) / c.capacity) * 100)}%`, background: (c._count?.students || 0) / c.capacity > 0.9 ? `linear-gradient(90deg, ${DANGER}, oklch(58% 0.15 45))` : `linear-gradient(90deg, ${ACCENT}, oklch(72% 0.15 65))` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showAddClass && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowAddClass(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Créer une classe</h3>
+              <button onClick={() => setShowAddClass(false)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-gray-100 transition"><X size={16} className="text-gray-500" /></button>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom de la classe *</label>
+                <input value={newClassName} onChange={e => setNewClassName(e.target.value)} placeholder="Ex: 6ème A" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Section</label>
+                {/* Cycle imposé pour une direction : automatique selon sa fonction */}
+                {directionCycle ? (
+                  <div className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_PRIMARY }}>
+                    {directionCycle === 'MATERNELLE' ? 'Maternelle' : directionCycle === 'PRIMAIRE' ? 'Primaire' : 'Secondaire'} <span className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>(automatique selon votre fonction)</span>
+                  </div>
+                ) : (
+                  <AppSelect value={newClassSection} onChange={setNewClassSection} options={[{ value: 'MATERNELLE', label: 'Maternelle' }, { value: 'PRIMAIRE', label: 'Primaire' }, { value: 'SECONDAIRE', label: 'Secondaire' }]} className="w-full" />
+                )}
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Capacité</label>
+                <input type="number" value={newClassCapacity} onChange={e => setNewClassCapacity(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setShowAddClass(false)} className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)]" style={{ color: TEXT_PRIMARY }}>Annuler</button>
+              <button onClick={handleAddClass} disabled={addingClass} className="edu-gold-cta px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+                {addingClass ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
+                Créer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewingClassId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setViewingClassId(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-[oklch(90%_0.01_175)] flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>Élèves de {viewingClassName}</h3>
+                <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{classStudents.length} élève{classStudents.length !== 1 ? 's' : ''}</p>
+              </div>
+              <button onClick={() => setViewingClassId(null)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.005_175)] transition">
+                <X size={16} style={{ color: TEXT_MUTED_LUXE }} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {loadingStudents ? (
+                <div className="text-center py-12" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div>
+              ) : classStudents.length === 0 ? (
+                <div className="text-center py-12" style={{ color: TEXT_MUTED_LUXE }}>Aucun élève dans cette classe</div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr style={{ background: IVORY }}>
+                      <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-5 py-3" style={{ color: GOLD }}>Élève</th>
+                      <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-5 py-3" style={{ color: GOLD }}>Matricule</th>
+                      <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-5 py-3" style={{ color: GOLD }}>Parent</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {classStudents.map(s => (
+                      <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <StudentAvatar firstName={s.firstName} lastName={s.lastName} photoUrl={s.photoUrl} size={32} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
+                            <div>
+                              <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
+                              <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.gender === 'M' ? 'Garçon' : 'Fille'}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 text-[13px] font-mono" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</td>
+                        <td className="px-5 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.parent?.name || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// GradesView imported from @/components/views/GradesView
+
+// PaymentsView imported from @/components/views/PaymentsView
+
+// ===== PAYMENT CONFIGURATION VIEW =====
+// Logos officiels des passerelles (canonique : GATEWAY_INFO.logo dans
+// src/lib/payment-gateway.ts, servis depuis /public/logos/payment).
+const GATEWAY_SVG_LOGOS: Record<string, string> = {
+  VISA: '/logos/payment/visa.svg',
+  MASTERCARD: '/logos/payment/mastercard.svg',
+  FLUTTERWAVE: '/logos/payment/flutterwave.png',
+  BICTORYS: '/logos/payment/bictorys.svg',
+  MPESA: '/logos/payment/mpesa.svg',
+  ORANGE_MONEY: '/logos/payment/orange_money.svg',
+  AIRTEL_MONEY: '/logos/payment/airtel_money.svg',
+  MANUAL: '/logos/payment/cash.svg',
+}
+
+// ===== SECTION API WHATSAPP & QUOTAS =====
+// Anciennement onglet « WhatsApp API & Quotas » de Config. Paiements —
+// désormais intégrée dans la vue « Connexion WhatsApp » (demande utilisateur).
+function WhatsAppApiQuotasSection() {
+  const { userData, setCurrentView } = useEduGestStore()
+  const [waConfig, setWaConfig] = useState<any>(null)
+  const [waForm, setWaForm] = useState<any>({
+    customEnabled: false,
+    apiType: 'META_CLOUD',
+    metaToken: '',
+    metaPhoneId: '',
+    metaWabaId: '',
+    customEndpoint: '',
+  })
+  const [testPhone, setTestPhone] = useState('')
+  const [testingWa, setTestingWa] = useState(false)
+  const [savingWa, setSavingWa] = useState(false)
+
+  useEffect(() => {
+    if (!getActiveSchoolId()) return
+    loadWaConfig()
+  }, [getActiveSchoolId()])
+
+  async function loadWaConfig() {
+    try {
+      const res = await authFetch(`/api/whatsapp-config/custom?schoolId=${getActiveSchoolId() || ''}`)
+      const json = await res.json()
+      if (json.data) {
+        setWaConfig(json.data)
+        setWaForm({
+          customEnabled: !!json.data.customEnabled,
+          apiType: json.data.apiType || 'META_CLOUD',
+          metaToken: '',
+          metaPhoneId: json.data.metaPhoneId || '',
+          metaWabaId: json.data.metaWabaId || '',
+          customEndpoint: json.data.customEndpoint || '',
+        })
+      }
+    } catch (e) { console.error('[WhatsAppApi] loadWaConfig:', e) }
+  }
+
+  async function saveWaConfig(e: React.FormEvent) {
+    e.preventDefault()
+    setSavingWa(true)
+    try {
+      const res = await authFetch('/api/whatsapp-config/custom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schoolId: getActiveSchoolId() ?? null,
+          ...waForm,
+        }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success(json.message || 'Configuration WhatsApp mise à jour !')
+        loadWaConfig()
+      } else {
+        toast.error(json.error || 'Erreur de sauvegarde')
+      }
+    } catch (e) {
+      toast.error('Erreur réseau')
+    } finally {
+      setSavingWa(false)
+    }
+  }
+
+  async function handleTestWa() {
+    if (!testPhone.trim()) {
+      toast.error('Veuillez renseigner un numéro pour le test.')
+      return
+    }
+    setTestingWa(true)
+    try {
+      const res = await authFetch('/api/whatsapp-config/custom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schoolId: getActiveSchoolId() ?? null,
+          action: 'test',
+          testPhone,
+          customEnabled: waForm.customEnabled,
+          metaToken: waForm.metaToken,
+          metaPhoneId: waForm.metaPhoneId,
+        }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success(json.message || 'Message test transmis avec succès !')
+      } else {
+        toast.error(json.error || 'Échec du test')
+      }
+    } catch (e) {
+      toast.error('Erreur réseau lors du test')
+    } finally {
+      setTestingWa(false)
+    }
+  }
+
+  return (
+        <div className="space-y-6">
+          {/* Suivi des Quotas en Temps Réel */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <MessageSquare className="text-emerald-600" size={18} />
+                  Suivi des Messages WhatsApp en Temps Réel
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Consommation mensuelle pour l'école <strong>{waConfig?.schoolName || userData?.schoolName}</strong> (Forfait : <span className="font-semibold text-amber-600">{waConfig?.tier}</span>)
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                  waConfig?.customEnabled
+                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                    : (waConfig?.percentUsed || 0) > 80
+                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                }`}>
+                  {waConfig?.customEnabled ? 'Propre API Active' : `${waConfig?.remaining} msg(s) restants`}
+                </span>
+                <button
+                  onClick={loadWaConfig}
+                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600"
+                  title="Rafraîchir"
+                >
+                  <RefreshCw size={14} />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-semibold text-slate-700">
+                <span>Consommation du mois</span>
+                <span>
+                  {waConfig?.customEnabled
+                    ? 'Illimité (Non bridé par EduGest)'
+                    : `${waConfig?.used || 0} / ${waConfig?.monthlyLimit >= 999999 ? 'Illimité' : waConfig?.monthlyLimit} messages`}
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    waConfig?.customEnabled
+                      ? 'bg-purple-500'
+                      : (waConfig?.percentUsed || 0) > 85
+                      ? 'bg-rose-500'
+                      : (waConfig?.percentUsed || 0) > 65
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-500'
+                  }`}
+                  style={{ width: waConfig?.customEnabled ? '100%' : `${waConfig?.percentUsed || 0}%` }}
+                />
+              </div>
+            </div>
+
+            {waConfig?.customEnabled ? (
+              <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900">
+                🎉 <strong>Mode Propre API activé</strong> : Vos envois transitent directement par vos identifiants Meta Cloud API ou passerelle dédiée. <strong>Aucune limitation de volume ou blocage n'est appliqué par EduGest.</strong>
+              </div>
+            ) : (waConfig?.percentUsed || 0) > 80 ? (
+              <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 flex items-center justify-between">
+                <div>
+                  ⚠️ <strong>Attention</strong> : Vous approchez de la limite mensuelle de votre forfait ({waConfig?.used} / {waConfig?.monthlyLimit}).
+                </div>
+                <button
+                  onClick={() => setCurrentView('my-subscription')}
+                  className="px-3 py-1 bg-rose-600 text-white rounded-lg font-bold text-xs hover:bg-rose-500"
+                >
+                  Surclasser le forfait
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 mt-3">
+                Le compteur est réinitialisé automatiquement au début de chaque cycle mensuel.
+              </p>
+            )}
+          </div>
+
+          {/* Configuration Propre API WhatsApp (BYO) */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <Zap className="text-amber-500" size={18} />
+              Connecter votre propre API WhatsApp (BYO)
+            </h3>
+            <p className="text-xs text-slate-500 mb-5">
+              Si vous disposez d'un compte WhatsApp Business API (Meta Cloud API) ou d'un serveur dédié, renseignez vos identifiants ci-dessous. EduGest lèvera toutes les restrictions de volume.
+            </p>
+
+            <form onSubmit={saveWaConfig} className="space-y-4">
+              <div className="flex items-center gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="customWaSwitch"
+                  checked={waForm.customEnabled}
+                  onChange={(e) => setWaForm({ ...waForm, customEnabled: e.target.checked })}
+                  className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
+                />
+                <label htmlFor="customWaSwitch" className="text-sm font-bold text-slate-800 cursor-pointer">
+                  Activer ma propre API WhatsApp (Supprimer la limite de messages EduGest)
+                </label>
+              </div>
+
+              {waForm.customEnabled && (
+                <div className="space-y-4 pt-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        Type de connecteur API
+                      </label>
+                      <AppSelect
+                        value={waForm.apiType}
+                        onChange={(val) => setWaForm({ ...waForm, apiType: val })}
+                        options={[
+                          { value: 'META_CLOUD', label: 'Meta Cloud API (Officielle WhatsApp Business)' },
+                          { value: 'BAILEYS_DEDICATED', label: 'Serveur Passerelle Dédié (Webhook)' },
+                        ]}
+                        className="w-full"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        Phone Number ID (Meta)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ex: 1098237498234"
+                        value={waForm.metaPhoneId}
+                        onChange={(e) => setWaForm({ ...waForm, metaPhoneId: e.target.value })}
+                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        WhatsApp Business Account ID (WABA ID)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ex: 8237498234723"
+                        value={waForm.metaWabaId}
+                        onChange={(e) => setWaForm({ ...waForm, metaWabaId: e.target.value })}
+                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        Token d'accès Permanent Meta (System User Token)
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="EAABw..."
+                        value={waForm.metaToken}
+                        onChange={(e) => setWaForm({ ...waForm, metaToken: e.target.value })}
+                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {waForm.apiType === 'BAILEYS_DEDICATED' && (
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">
+                        URL de la passerelle dédiée (Endpoint)
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="https://wa.monecole.com/send"
+                        value={waForm.customEndpoint}
+                        onChange={(e) => setWaForm({ ...waForm, customEndpoint: e.target.value })}
+                        className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-amber-500 font-mono"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                <button
+                  type="submit"
+                  disabled={savingWa}
+                  className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md transition disabled:opacity-50"
+                >
+                  {savingWa ? 'Enregistrement...' : 'Enregistrer la configuration WhatsApp'}
+                </button>
+              </div>
+            </form>
+
+            {/* Test de Transmission */}
+            <div className="mt-6 pt-5 border-t border-slate-200">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Send size={13} className="text-emerald-600" />
+                Tester la connexion WhatsApp
+              </h4>
+              <p className="text-xs text-slate-500 mb-3">
+                Envoyez un message d'essai pour vérifier que votre passerelle ou vos identifiants Meta fonctionnent en direct.
+              </p>
+              <div className="flex gap-2 max-w-md">
+                <input
+                  type="tel"
+                  placeholder="+243..."
+                  value={testPhone}
+                  onChange={(e) => setTestPhone(e.target.value)}
+                  className="flex-1 text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-emerald-500 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={handleTestWa}
+                  disabled={testingWa}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                >
+                  {testingWa ? 'Envoi...' : 'Tester'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+  )
+}
+
+function PaymentConfigView() {
+  const { userData, setCurrentView } = useEduGestStore()
+  const [activeTab, setActiveTab] = useState<'gateways' | 'currency' | 'transactions' | 'fees'>('gateways')
+  const [gateways, setGateways] = useState<any[]>([])
+  const [availableGateways, setAvailableGateways] = useState<any[]>([])
+  const [currencyConfig, setCurrencyConfig] = useState<any>(null)
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({})
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [schoolFees, setSchoolFees] = useState<any[]>([])
+  const [classes, setClasses] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [showGatewayModal, setShowGatewayModal] = useState<string | null>(null)
+  const [showFeeModal, setShowFeeModal] = useState(false)
+  const [editingFee, setEditingFee] = useState<any>(null)
+  const [feeForm, setFeeForm] = useState({ name: '', amount: '', trimester: 'T1', classId: '' })
+  const [gatewayForm, setGatewayForm] = useState<any>({})
+  const [currencyForm, setCurrencyForm] = useState<any>({
+    baseCurrency: 'CDF',
+    displayCurrency: 'CDF',
+    enabledCurrencies: ['CDF', 'USD'],
+    useManualRates: false,
+    manualRates: {},
+  })
+  const [convertForm, setConvertForm] = useState({ amount: 100, from: 'CDF', to: 'USD' })
+  const [convertResult, setConvertResult] = useState<any>(null)
+  const [supportedCurrencies, setSupportedCurrencies] = useState<any[]>([])
+
+  useEffect(() => {
+    if (!getActiveSchoolId()) return
+    loadGateways()
+    loadCurrencyConfig()
+    loadTransactions()
+    loadSchoolFees()
+    loadClasses()
+  }, [getActiveSchoolId()])
+
+  async function loadGateways() {
+    try {
+      const res = await authFetch(`/api/payment-gateways${getActiveSchoolId() ? `?schoolId=${getActiveSchoolId()}` : ''}`)
+      const json = await res.json()
+      if (json.data) {
+        setAvailableGateways(json.data.catalog || [])
+        setGateways(json.data.configured || [])
+      }
+    } catch (e) { console.error('[PaymentConfig] loadGateways:', e) }
+    finally { setLoading(false) }
+  }
+
+  async function loadCurrencyConfig() {
+    try {
+      const res = await authFetch(`/api/currency${getActiveSchoolId() ? `?schoolId=${getActiveSchoolId()}` : ''}`)
+      const json = await res.json()
+      if (json.data) {
+        setCurrencyConfig(json.data.config)
+        setExchangeRates(json.data.exchangeRates || {})
+        setSupportedCurrencies(json.data.supportedCurrencies || [])
+        if (json.data.config) {
+          const mrRaw = json.data.config.manualRates
+          let mrParsed: Record<string, number> = {}
+          if (mrRaw) {
+            if (typeof mrRaw === 'string') { try { mrParsed = JSON.parse(mrRaw) } catch { mrParsed = {} } }
+            else if (typeof mrRaw === 'object') mrParsed = mrRaw
+          }
+          setCurrencyForm({
+            baseCurrency: json.data.config.baseCurrency || 'USD',
+            displayCurrency: json.data.config.displayCurrency || 'USD',
+            enabledCurrencies: (json.data.config.enabledCurrencies || 'USD,EUR,CDF').split(','),
+            useManualRates: json.data.config.useManualRates || false,
+            manualRates: mrParsed,
+          })
+          // PROPAGATION IMMÉDIATE : applique la config au module d'affichage
+          // (sinon le dashboard reste dans l'ancienne devise jusqu'au reload).
+          setCurrencyDisplay({
+            baseCurrency: json.data.config.baseCurrency || 'CDF',
+            displayCurrency: json.data.config.displayCurrency || json.data.config.baseCurrency || 'CDF',
+            rates: json.data.exchangeRates || {},
+            manualRates: Object.keys(mrParsed).length ? mrParsed : null,
+            useManualRates: json.data.config.useManualRates || false,
+          })
+        }
+      }
+    } catch (e) { console.error(e) }
+  }
+
+  async function loadTransactions() {
+    try {
+      const params = new URLSearchParams({ limit: '10' })
+      const schoolId = getActiveSchoolId(); if (schoolId) params.set('schoolId', schoolId)
+      const res = await authFetch(`/api/payment-transactions?${params.toString()}`)
+      const json = await res.json()
+      if (json.data) setTransactions(json.data.transactions || json.data)
+    } catch (e) { console.error(e) }
+  }
+
+  async function loadSchoolFees() {
+    try {
+      const res = await authFetch(`/api/school-fees?schoolId=${getActiveSchoolId() || ''}`)
+      const json = await res.json()
+      if (json.data) setSchoolFees(json.data)
+    } catch (e) { console.error(e) }
+  }
+
+  async function loadClasses() {
+    try {
+      const res = await authFetch(`/api/classes?schoolId=${getActiveSchoolId() || ''}`)
+      const json = await res.json()
+      if (json.data) setClasses(json.data)
+    } catch (e) { console.error(e) }
+  }
+
+  async function saveSchoolFee() {
+    if (!feeForm.name || !feeForm.amount || !feeForm.classId) {
+      toast.error('Remplissez tous les champs')
+      return
+    }
+    setSaving(true)
+    try {
+      const url = editingFee ? `/api/school-fees/${editingFee.id}` : '/api/school-fees'
+      const method = editingFee ? 'PUT' : 'POST'
+      const res = await authFetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...feeForm, schoolId: getActiveSchoolId() || undefined }),
+      })
+      const json = await res.json()
+      if (json.data) {
+        toast.success(editingFee ? 'Frais modifié !' : 'Frais ajouté !')
+        setShowFeeModal(false)
+        setEditingFee(null)
+        setFeeForm({ name: '', amount: '', trimester: 'T1', classId: '' })
+        loadSchoolFees()
+      } else {
+        toast.error(json.error || 'Erreur')
+      }
+    } catch (e) { toast.error('Erreur réseau') }
+    finally { setSaving(false) }
+  }
+
+  async function deleteSchoolFee(feeId: string) {
+    if (!confirm('Supprimer ce frais ?')) return
+    try {
+      const res = await authFetch(`/api/school-fees/${feeId}`, { method: 'DELETE' })
+      if (res.ok) {
+        toast.success('Frais supprimé !')
+        loadSchoolFees()
+      }
+    } catch (e) { toast.error('Erreur') }
+  }
+
+  function openFeeEditor(fee?: any) {
+    if (fee) {
+      setEditingFee(fee)
+      setFeeForm({ name: fee.name, amount: fee.amount.toString(), trimester: fee.trimester, classId: fee.classId })
+    } else {
+      setEditingFee(null)
+      setFeeForm({ name: '', amount: '', trimester: 'T1', classId: '' })
+    }
+    setShowFeeModal(true)
+  }
+
+  async function refreshRates() {
+    try {
+      const res = await authFetch(`/api/currency/exchange-rates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ baseCurrency: currencyForm.baseCurrency }),
+      })
+      const json = await res.json()
+      if (json.data) {
+        setExchangeRates(json.data.rates || {})
+        toast.success('Taux de change mis à jour !')
+        loadCurrencyConfig()
+      }
+    } catch (e) { toast.error('Erreur lors de la mise à jour') }
+  }
+
+  async function saveCurrencyConfig() {
+    setSaving(true)
+    try {
+      const res = await authFetch(`/api/currency`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schoolId: getActiveSchoolId() ?? null,
+          ...currencyForm,
+          // L'API /api/currency exige un tableau et un objet (elle sérialise elle-même)
+          enabledCurrencies: currencyForm.enabledCurrencies,
+          manualRates: currencyForm.manualRates,
+        }),
+      })
+      const json = await res.json()
+      if (json.data) {
+        toast.success('Configuration de monnaie sauvegardée !')
+        // PROPAGATION IMMÉDIATE : la réponse POST contient la config enregistrée.
+        // On l'applique AUSSI avec les taux déjà chargés, puis loadCurrencyConfig()
+        // rafraîchit les taux — le dashboard bascule sans rechargement.
+        setCurrencyDisplay({
+          baseCurrency: json.data.baseCurrency || 'CDF',
+          displayCurrency: json.data.displayCurrency || json.data.baseCurrency || 'CDF',
+          rates: exchangeRates || {},
+          manualRates: currencyForm.manualRates && Object.keys(currencyForm.manualRates).length ? currencyForm.manualRates : null,
+          useManualRates: !!json.data.useManualRates,
+        })
+        loadCurrencyConfig()
+      } else {
+        toast.error(json.error || 'Erreur')
+      }
+    } catch (e) { toast.error('Erreur réseau') }
+    finally { setSaving(false) }
+  }
+
+  async function saveGatewayConfig() {
+    setSaving(true)
+    try {
+      const res = await authFetch(`/api/payment-gateways`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schoolId: getActiveSchoolId() ?? null,
+          ...gatewayForm,
+        }),
+      })
+      const json = await res.json()
+      if (json.data) {
+        toast.success('Passerelle configurée avec succès !')
+        setShowGatewayModal(null)
+        loadGateways()
+      } else {
+        toast.error(json.error || 'Erreur')
+      }
+    } catch (e) { toast.error('Erreur réseau') }
+    finally { setSaving(false) }
+  }
+
+  async function toggleGateway(gateway: any) {
+    try {
+      const res = await authFetch(`/api/payment-gateways/${gateway.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !gateway.isActive }),
+      })
+      if (res.ok) {
+        toast.success(gateway.isActive ? 'Passerelle désactivée' : 'Passerelle activée')
+        loadGateways()
+      }
+    } catch (e) { toast.error('Erreur') }
+  }
+
+  async function convertCurrency() {
+    try {
+      const res = await authFetch(`/api/currency/convert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(convertForm),
+      })
+      const json = await res.json()
+      if (json.data) setConvertResult(json.data)
+      else toast.error(json.error || 'Erreur')
+    } catch (e) { toast.error('Erreur réseau') }
+  }
+
+  function openGatewayEditor(gatewayType: string, existing?: any) {
+    setGatewayForm({
+      schoolId: getActiveSchoolId() ?? null,
+      gatewayType,
+      isActive: existing?.isActive ?? false,
+      isTestMode: existing?.isTestMode ?? true,
+      merchantId: existing?.merchantId || '',
+      apiKey: existing?.apiKey || '',
+      secretKey: existing?.secretKey || '',
+      publicKey: existing?.publicKey || '',
+      webhookSecret: existing?.webhookSecret || '',
+      phoneNumber: existing?.phoneNumber || '',
+      accountEmail: existing?.accountEmail || '',
+      currency: existing?.currency || 'USD',
+      feePercent: existing?.feePercent || 0,
+    })
+    setShowGatewayModal(gatewayType)
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="h-32 bg-gray-200 rounded"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Configuration des Paiements</h1>
+        <p className="text-gray-500 text-sm mt-1">Gérez les passerelles de paiement et les monnaies</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b">
+        <button
+          onClick={() => setActiveTab('gateways')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
+            activeTab === 'gateways' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Passerelles de Paiement
+        </button>
+        <button
+          onClick={() => setActiveTab('fees')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
+            activeTab === 'fees' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Frais Scolaires
+        </button>
+        <button
+          onClick={() => setActiveTab('currency')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
+            activeTab === 'currency' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Monnaies & Taux de Change
+        </button>
+        <button
+          onClick={() => setActiveTab('transactions')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
+            activeTab === 'transactions' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Transactions
+        </button>
+      </div>
+
+      {/* Gateways Tab */}
+      {activeTab === 'gateways' && (
+        <div className="space-y-4">
+          {availableGateways.length === 0 && !loading && (
+            <div className="text-center py-8 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl">
+              <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Aucune passerelle disponible</p>
+            </div>
+          )}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {availableGateways.map((gw: any) => {
+              const configured = gateways.find((g: any) => g.gatewayType === gw.gatewayType)
+              const svgLogo = GATEWAY_SVG_LOGOS[gw.gatewayType]
+              return (
+                <div key={gw.gatewayType} className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      {svgLogo ? (
+                        <img src={svgLogo} alt={gw.displayName} className="w-10 h-10 rounded-xl object-contain bg-white border border-[oklch(92%_0.005_250)] shrink-0" />
+                      ) : (
+                        <span className="text-2xl">{gw.icon}</span>
+                      )}
+                      <div>
+                        <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>{gw.displayName}</h3>
+                        {configured ? (
+                          <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${configured.isActive ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>
+                            {configured.isActive ? 'Actif' : 'Inactif'}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]">
+                            Non configuré
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[12px] mb-3" style={{ color: TEXT_MUTED_LUXE }}>{gw.description}</p>
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {gw.supportedCurrencies.slice(0, 4).map((c: string) => (
+                      <span key={c} className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ background: GOLD_SOFT, color: GOLD }}>{c}</span>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => openGatewayEditor(gw.gatewayType, configured)}
+                      className="flex-1 text-[12px] py-2 px-3 rounded-xl font-semibold transition edu-gold-cta"
+                    >
+                      {configured ? 'Configurer' : 'Activer'}
+                    </button>
+                    {configured && (
+                      <button
+                        onClick={() => toggleGateway(configured)}
+                        className={`text-[12px] py-2 px-3 rounded-xl font-semibold transition ${
+                          configured.isActive ? 'bg-[oklch(95%_0.04_25)] text-[oklch(55%_0.18_25)] hover:bg-[oklch(93%_0.04_25)]' : 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)] hover:bg-[oklch(92%_0.05_145)]'
+                        }`}
+                      >
+                        {configured.isActive ? 'Désactiver' : 'Activer'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* School Fees Tab */}
+      {activeTab === 'fees' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>Frais Scolaires</h3>
+              <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Gérez les frais par classe et par trimestre</p>
+            </div>
+            <button onClick={() => openFeeEditor()} className="bg-[#f5a623] hover:bg-[#ffb643] text-[#0a0f0d] px-4 py-2 rounded-xl text-xs font-bold transition">
+              + Ajouter un frais
+            </button>
+          </div>
+
+          {schoolFees.length === 0 ? (
+            <div className="text-center py-12 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl">
+              <CreditCard size={32} className="mx-auto mb-3 text-gray-300" />
+              <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Aucun frais configuré</p>
+              <button onClick={() => openFeeEditor()} className="mt-3 text-xs text-[#f5a623] font-medium hover:underline">Ajouter le premier frais</button>
+            </div>
+          ) : (
+            <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[oklch(90%_0.01_175)]">
+                    <th className="text-left px-4 py-3 font-semibold text-xs" style={{ color: TEXT_PRIMARY }}>Nom</th>
+                    <th className="text-left px-4 py-3 font-semibold text-xs" style={{ color: TEXT_PRIMARY }}>Classe</th>
+                    <th className="text-left px-4 py-3 font-semibold text-xs" style={{ color: TEXT_PRIMARY }}>Trimestre</th>
+                    <th className="text-right px-4 py-3 font-semibold text-xs" style={{ color: TEXT_PRIMARY }}>Montant</th>
+                    <th className="text-right px-4 py-3 font-semibold text-xs" style={{ color: TEXT_PRIMARY }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {schoolFees.map((fee: any) => (
+                    <tr key={fee.id} className="border-b border-[oklch(90%_0.01_175)] last:border-0 hover:bg-[oklch(97%_0.005_175)]">
+                      <td className="px-4 py-3 font-medium text-xs" style={{ color: TEXT_PRIMARY }}>{fee.name}</td>
+                      <td className="px-4 py-3 text-xs" style={{ color: TEXT_MUTED_LUXE }}>{fee.class?.name || '-'}</td>
+                      <td className="px-4 py-3">
+                        <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ background: GOLD_SOFT, color: GOLD }}>{fee.trimester}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-xs" style={{ color: TEXT_PRIMARY }}>{fee.amount?.toLocaleString()} $</td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex gap-1 justify-end">
+                          <button onClick={() => openFeeEditor(fee)} className="p-1.5 rounded-lg hover:bg-[oklch(95%_0.03_250)] transition" title="Modifier">
+                            <Edit size={14} className="text-gray-400" />
+                          </button>
+                          <button onClick={() => deleteSchoolFee(fee.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition" title="Supprimer">
+                            <Trash2 size={14} className="text-red-400" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Fee Modal */}
+          {showFeeModal && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowFeeModal(false)}>
+              <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+                <h3 className="text-lg font-bold mb-4" style={{ color: TEXT_PRIMARY }}>{editingFee ? 'Modifier le frais' : 'Ajouter un frais'}</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Nom du frais *</label>
+                    <input value={feeForm.name} onChange={e => setFeeForm({ ...feeForm, name: e.target.value })} placeholder="Ex: Minerval, Inscription..." className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#f5a623]" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Montant ($) *</label>
+                    <input type="number" value={feeForm.amount} onChange={e => setFeeForm({ ...feeForm, amount: e.target.value })} placeholder="0" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#f5a623]" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Classe *</label>
+                    <AppSelect value={feeForm.classId} onChange={(val) => setFeeForm({ ...feeForm, classId: val })} options={[{ value: '', label: 'Sélectionner une classe' }, ...classes.map((c: any) => ({ value: c.id, label: c.name }))]} placeholder="Sélectionner une classe" className="w-full" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Trimestre *</label>
+                    <AppSelect value={feeForm.trimester} onChange={(val) => setFeeForm({ ...feeForm, trimester: val })} options={['T1', 'T2', 'T3']} className="w-full" />
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button onClick={() => setShowFeeModal(false)} className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium hover:bg-gray-50 transition">Annuler</button>
+                  <button onClick={saveSchoolFee} disabled={saving} className="flex-1 py-2 rounded-xl bg-[#f5a623] text-[#0a0f0d] text-sm font-bold hover:bg-[#ffb643] transition disabled:opacity-50">
+                    {saving ? 'Enregistrement...' : editingFee ? 'Modifier' : 'Ajouter'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Currency Tab */}
+      {activeTab === 'currency' && (
+        <div className="space-y-6">
+          {/* Currency Configuration */}
+          <div className="border rounded-xl p-5 bg-white">
+            <h3 className="font-semibold mb-4">Configuration des monnaies</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Monnaie de base</label>
+                <AppSelect
+                  value={currencyForm.baseCurrency}
+                  onChange={(val) => setCurrencyForm({ ...currencyForm, baseCurrency: val })}
+                  options={supportedCurrencies.map((c: any) => ({ value: c.code, label: `${c.code} - ${c.name}` }))}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Monnaie d&apos;affichage</label>
+                <AppSelect
+                  value={currencyForm.displayCurrency}
+                  onChange={(val) => setCurrencyForm({ ...currencyForm, displayCurrency: val })}
+                  options={supportedCurrencies.map((c: any) => ({ value: c.code, label: `${c.code} - ${c.name}` }))}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className="block text-xs font-medium text-gray-600 mb-2">Monnaies acceptées</label>
+              <div className="flex flex-wrap gap-2">
+                {supportedCurrencies.map((c: any) => (
+                  <button
+                    key={c.code}
+                    onClick={() => {
+                      const enabled = currencyForm.enabledCurrencies.includes(c.code)
+                      setCurrencyForm({
+                        ...currencyForm,
+                        enabledCurrencies: enabled
+                          ? currencyForm.enabledCurrencies.filter((x: string) => x !== c.code)
+                          : [...currencyForm.enabledCurrencies, c.code],
+                      })
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                      currencyForm.enabledCurrencies.includes(c.code)
+                        ? 'bg-[#f5a623] text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {c.symbol} {c.code}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="manualRates"
+                checked={currencyForm.useManualRates}
+                onChange={(e) => setCurrencyForm({ ...currencyForm, useManualRates: e.target.checked })}
+                className="rounded"
+              />
+              <label htmlFor="manualRates" className="text-sm text-gray-600">
+                Utiliser des taux manuels (au lieu des taux automatiques)
+              </label>
+            </div>
+            <button
+              onClick={saveCurrencyConfig}
+              disabled={saving}
+              className="mt-5 px-5 py-2 bg-[#f5a623] text-white rounded-lg text-sm font-medium hover:bg-[#ffb643] transition disabled:opacity-50"
+            >
+              {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+            </button>
+          </div>
+
+          {/* Exchange Rates */}
+          <div className="border rounded-xl p-5 bg-white">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-semibold">Taux de change en temps réel</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Source: APIs open source (Frankfurter/BCE, ExchangeRate.host, Open ER API)
+                </p>
+              </div>
+              <button
+                onClick={refreshRates}
+                className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100 transition flex items-center gap-2"
+              >
+                <RefreshCw size={14} /> Actualiser
+              </button>
+            </div>
+            {currencyConfig?.lastRateUpdate && (
+              <p className="text-xs text-gray-400 mb-3">
+                Dernière mise à jour: {new Date(currencyConfig.lastRateUpdate).toLocaleString('fr-FR')}
+              </p>
+            )}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {Object.entries(exchangeRates).slice(0, 12).map(([currency, rate]) => (
+                <div key={currency} className="border rounded-lg p-3 bg-gray-50">
+                  <div className="text-xs text-gray-500">{currency}/ {currencyForm.baseCurrency}</div>
+                  <div className="text-lg font-bold text-gray-900">{Number(rate).toFixed(4)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Currency Converter */}
+          <div className="border rounded-xl p-5 bg-white">
+            <h3 className="font-semibold mb-4">Convertisseur de monnaies</h3>
+            <div className="grid md:grid-cols-4 gap-3 items-end">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Montant</label>
+                <input
+                  type="number"
+                  value={convertForm.amount}
+                  onChange={(e) => setConvertForm({ ...convertForm, amount: Number(e.target.value) })}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">De</label>
+                <AppSelect
+                  value={convertForm.from}
+                  onChange={(val) => setConvertForm({ ...convertForm, from: val })}
+                  options={supportedCurrencies.map((c: any) => c.code)}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Vers</label>
+                <AppSelect
+                  value={convertForm.to}
+                  onChange={(val) => setConvertForm({ ...convertForm, to: val })}
+                  options={supportedCurrencies.map((c: any) => c.code)}
+                  className="w-full"
+                />
+              </div>
+              <button
+                onClick={convertCurrency}
+                className="px-4 py-2 bg-[#f5a623] text-white rounded-lg text-sm font-medium hover:bg-[#ffb643] transition"
+              >
+                Convertir
+              </button>
+            </div>
+            {convertResult && (
+              <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="text-sm text-gray-600">
+                  {convertForm.amount} {convertForm.from} = 
+                </div>
+                <div className="text-2xl font-bold text-green-700">
+                  {convertResult.convertedAmount.toFixed(2)} {convertForm.to}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Taux: 1 {convertForm.from} = {convertResult.rate.toFixed(4)} {convertForm.to} (Source: {convertResult.source})
+            </div>
+          </div>
+        )}
+          </div>
+        </div>
+      )}
+
+      {/* Transactions Tab */}
+      {activeTab === 'transactions' && (
+        <div className="border rounded-xl bg-white overflow-hidden">
+          <div className="p-4 border-b">
+            <h3 className="font-semibold">Transactions récentes</h3>
+          </div>
+          {transactions.length === 0 ? (
+            <div className="p-8 text-center text-gray-500 text-sm">
+              Aucune transaction enregistrée
+            </div>
+          ) : (
+            <div className="overflow-x-auto max-h-96 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="text-left p-3 font-medium text-xs text-gray-600">RÉFÉRENCE</th>
+                    <th className="text-left p-3 font-medium text-xs text-gray-600">PASSERELLE</th>
+                    <th className="text-right p-3 font-medium text-xs text-gray-600">MONTANT</th>
+                    <th className="text-center p-3 font-medium text-xs text-gray-600">STATUT</th>
+                    <th className="text-left p-3 font-medium text-xs text-gray-600">DATE</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((tx: any) => (
+                    <tr key={tx.id} className="border-t hover:bg-gray-50">
+                      <td className="p-3 font-mono text-xs">{tx.reference}</td>
+                      <td className="p-3 text-xs">{tx.gatewayType}</td>
+                      <td className="p-3 text-right">
+                        {tx.amount.toFixed(2)} {tx.currency}
+                        {tx.convertedAmount && tx.currency !== tx.baseCurrency && (
+                          <div className="text-xs text-gray-400">
+                            ≈ {tx.convertedAmount.toFixed(2)} {tx.baseCurrency}
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                          tx.status === 'SUCCESS' ? 'bg-green-100 text-green-700' :
+                          tx.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
+                          tx.status === 'FAILED' ? 'bg-red-100 text-red-700' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {tx.status}
+                        </span>
+                      </td>
+                      <td className="p-3 text-xs text-gray-500">
+                        {new Date(tx.initiatedAt).toLocaleString('fr-FR')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Gateway Configuration Modal */}
+      {showGatewayModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowGatewayModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-[oklch(90%_0.01_175)] flex items-center justify-between sticky top-0 bg-white rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                {GATEWAY_SVG_LOGOS[showGatewayModal] ? (
+                  <img src={GATEWAY_SVG_LOGOS[showGatewayModal]} alt="" className="w-8 h-8 rounded-lg object-contain bg-white border border-[oklch(92%_0.005_250)] shrink-0" />
+                ) : null}
+                <h3 className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>
+                  Configuration - {availableGateways.find((g: any) => g.gatewayType === showGatewayModal)?.displayName}
+                </h3>
+              </div>
+              <button onClick={() => setShowGatewayModal(null)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.005_175)] transition">
+                <X size={16} style={{ color: TEXT_MUTED_LUXE }} />
+              </button>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={gatewayForm.isActive} onChange={(e) => setGatewayForm({ ...gatewayForm, isActive: e.target.checked })} className="w-4 h-4 rounded accent-[oklch(72%_0.15_65)]" />
+                  <span className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Activer</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={gatewayForm.isTestMode} onChange={(e) => setGatewayForm({ ...gatewayForm, isTestMode: e.target.checked })} className="w-4 h-4 rounded accent-[oklch(72%_0.15_65)]" />
+                  <span className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Mode test</span>
+                </label>
+              </div>
+
+              {showGatewayModal !== 'MANUAL' && (
+                <>
+                  <div>
+                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>
+                      {showGatewayModal === 'MPESA' ? 'Business ShortCode' : showGatewayModal === 'ORANGE_MONEY' ? 'Client ID' : showGatewayModal === 'AIRTEL_MONEY' ? 'Client ID' : 'Merchant ID'}
+                    </label>
+                    <input type="text" value={gatewayForm.merchantId || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, merchantId: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder={showGatewayModal === 'MPESA' ? 'ex: 174379' : showGatewayModal === 'ORANGE_MONEY' || showGatewayModal === 'AIRTEL_MONEY' ? 'Identifiant OAuth (client_id)' : 'Identifiant marchand'} style={{ color: TEXT_PRIMARY }} />
+                    <p className="text-[10px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>
+                      {showGatewayModal === 'MPESA' ? 'Code court du compte Lipa Na M-Pesa (jusqu\'à 7 chiffres)' : showGatewayModal === 'ORANGE_MONEY' ? 'Client ID de votre application Orange Money' : showGatewayModal === 'AIRTEL_MONEY' ? 'Client ID de votre compte Airtel Money Open API' : 'Identifiant fourni par la passerelle'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>
+                      {showGatewayModal === 'MPESA' ? 'Consumer Key' : showGatewayModal === 'ORANGE_MONEY' ? 'Merchant Key' : showGatewayModal === 'AIRTEL_MONEY' ? 'API Key' : 'API Key'}
+                    </label>
+                    <input type="password" value={gatewayForm.apiKey || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, apiKey: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder={showGatewayModal === 'MPESA' ? 'Consumer Key de l\'app Safaricom' : showGatewayModal === 'ORANGE_MONEY' ? 'Clé marchand du compte' : 'Clé API'} style={{ color: TEXT_PRIMARY }} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>
+                      {showGatewayModal === 'MPESA' ? 'Consumer Secret' : showGatewayModal === 'ORANGE_MONEY' ? 'Client Secret' : showGatewayModal === 'AIRTEL_MONEY' ? 'Client Secret' : 'Secret Key'}
+                    </label>
+                    <input type="password" value={gatewayForm.secretKey || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, secretKey: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder={showGatewayModal === 'MPESA' ? 'Consumer Secret de l\'app Safaricom' : 'Secret OAuth'} style={{ color: TEXT_PRIMARY }} />
+                  </div>
+                  {showGatewayModal === 'MPESA' && (
+                    <div>
+                      <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Passkey (Lipa Na M-Pesa)</label>
+                      <input type="password" value={gatewayForm.publicKey || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, publicKey: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder="Passkey du till/paybill" style={{ color: TEXT_PRIMARY }} />
+                      <p className="text-[10px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>Requis en mode live pour le STK Push (fourni par Safaricom avec votre ShortCode)</p>
+                    </div>
+                  )}
+                  {(showGatewayModal === 'MPESA' || showGatewayModal === 'ORANGE_MONEY' || showGatewayModal === 'AIRTEL_MONEY') && (
+                    <div>
+                      <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Numéro de téléphone du marchand</label>
+                      <input type="text" value={gatewayForm.phoneNumber || ''} onChange={(e) => setGatewayForm({ ...gatewayForm, phoneNumber: e.target.value })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" placeholder="+243..." style={{ color: TEXT_PRIMARY }} />
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Monnaie</label>
+                    <AppSelect value={gatewayForm.currency} onChange={(val) => setGatewayForm({ ...gatewayForm, currency: val })} options={(availableGateways.find((g: any) => g.gatewayType === showGatewayModal)?.supportedCurrencies || []).map((c: string) => c)} style={{ color: TEXT_PRIMARY }} className="w-full" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Frais de transaction (%)</label>
+                    <input type="number" step="0.1" value={gatewayForm.feePercent || 0} onChange={(e) => setGatewayForm({ ...gatewayForm, feePercent: Number(e.target.value) })} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} />
+                  </div>
+                </>
+              )}
+
+              <div className="pt-2 flex gap-3">
+                <button onClick={saveGatewayConfig} disabled={saving} className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition edu-gold-cta disabled:opacity-50">
+                  {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+                </button>
+                <button onClick={() => setShowGatewayModal(null)} className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition" style={{ color: TEXT_PRIMARY }}>
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ===== PAYMENT VERIFICATION VIEW =====
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: TEXT_MUTED_LUXE }}>{label}</span>
+      <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{value || '—'}</span>
+    </div>
+  )
+}
+
+function PaymentVerificationView() {
+  const { userData, userRole } = useEduGestStore()
+  const isParent = userRole === 'PARENT'
+
+  const [payments, setPayments] = useState<PaymentData[]>([])
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null)
+  const [receiptLoading, setReceiptLoading] = useState(false)
+  // Parent-specific: search by receipt number
+  const [receiptSearch, setReceiptSearch] = useState('')
+  const [searchResult, setSearchResult] = useState<PaymentData | null>(null)
+  const [searching, setSearching] = useState(false)
+
+  // Staff: receipt ID search
+  const [staffReceiptSearch, setStaffReceiptSearch] = useState('')
+  const [staffSearchResult, setStaffSearchResult] = useState<PaymentData | null>(null)
+  const [staffSearching, setStaffSearching] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  // Universal document search (reçu, bulletin, note, fiche médicale)
+  const [universalResult, setUniversalResult] = useState<any | null>(null)
+
+  async function handleViewReceipt(paymentId: string) {
+    setReceiptLoading(true)
+    try {
+      const res = await authFetch(`/api/payments/receipt/${paymentId}`)
+      if (!res.ok) throw new Error()
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      setReceiptUrl(url)
+    } catch {
+      toast.error('Erreur lors du chargement du reçu')
+    }
+    finally { setReceiptLoading(false) }
+  }
+
+  async function handleParentReceiptSearch() {
+    if (!receiptSearch.trim()) { toast.error('Entrez un code de document (REC-, BUL-, NOT-, DIS-, FSA-, REG-)'); return }
+    setSearching(true)
+    setSearchResult(null)
+    setUniversalResult(null)
+    try {
+      // 1) Vérification universelle : code lisible (REC/BUL/NOT/DIS/FSA/REG) ou id
+      try {
+        const uniRes = await authFetch(`/api/verify/document?code=${encodeURIComponent(receiptSearch.trim())}`)
+        if (uniRes.ok) {
+          const uniJson = await uniRes.json()
+          if (uniJson.found) {
+            if (uniJson.type === 'RECEIPT') {
+              setSearchResult(uniJson.data as PaymentData)
+            } else {
+              setUniversalResult(uniJson)
+            }
+            return
+          }
+        }
+      } catch { /* fallback vers recherche reçus enfants */ }
+      if (userData?.id) {
+        const childrenRes = await authFetch(`/api/students?parentId=${userData.id}&limit=20`)
+        const childrenJson = await childrenRes.json()
+        const children: { id: string }[] = childrenJson.data || []
+
+        let found: PaymentData | null = null
+        for (const child of children) {
+          const pRes = await authFetch(`/api/payments?studentId=${child.id}&limit=50`)
+          const pJson = await pRes.json()
+          const childPayments: PaymentData[] = pJson.data || []
+          const q = receiptSearch.trim().toLowerCase()
+          const qNoHyphens = q.replace(/-/g, '')
+          const match = childPayments.find(p =>
+            (p.receiptNumber && p.receiptNumber.toLowerCase() === q) ||
+            (p.referenceNumber && p.referenceNumber.toLowerCase() === q) ||
+            p.id.toLowerCase() === q ||
+            p.id.toLowerCase().replace(/-/g, '') === qNoHyphens ||
+            p.id.slice(-8).toLowerCase() === q.slice(-8) ||
+            q.includes(p.id.toLowerCase()) || q.includes(p.id.slice(-8).toLowerCase()) ||
+            p.id.toLowerCase().includes(q) || p.id.slice(-8).toLowerCase().includes(q) ||
+            (p.receiptNumber && (q.includes(p.receiptNumber.toLowerCase()) || p.receiptNumber.toLowerCase().includes(q))) ||
+            (p.referenceNumber && (q.includes(p.referenceNumber.toLowerCase()) || p.referenceNumber.toLowerCase().includes(q)))
+          )
+          if (match) { found = match; break }
+        }
+        setSearchResult(found)
+        if (!found) {
+          toast.error('Aucun reçu trouvé avec ce numéro. Vérifiez le numéro et réessayez.')
+        }
+      }
+    } catch {
+      toast.error('Erreur lors de la recherche')
+    }
+    finally { setSearching(false) }
+  }
+
+  async function handleParentScanReceipt() {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*,.pdf'
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      setSearching(true)
+      const rawName = file.name.replace(/\.[^.]+$/, '')
+      const reader = new FileReader()
+      reader.onload = async () => {
+        try {
+          const bytes = new Uint8Array(reader.result as ArrayBuffer)
+          const text = new TextDecoder('latin1').decode(bytes)
+          const idMatch = text.match(/EDUGEST-ID:([a-z0-9-]+)/i)
+          if (idMatch) {
+            const docId = idMatch[1]
+            setReceiptSearch(docId)
+            toast.success('ID extrait du fichier. Recherche...')
+            try {
+              const uniRes = await authFetch(`/api/verify/document?code=${encodeURIComponent(docId)}`)
+              if (uniRes.ok) {
+                const uniJson = await uniRes.json()
+                if (uniJson.found) {
+                  if (uniJson.type === 'RECEIPT') setSearchResult(uniJson.data as PaymentData)
+                  else setUniversalResult(uniJson)
+                  setSearching(false)
+                  return
+                }
+              }
+            } catch { /* fall through */ }
+          }
+        } catch { /* ignore parse errors */ }
+        const cleanedName = rawName.replace(/^recu[-_]?/i, '').replace(/^receipt[-_]?/i, '').replace(/^facture[-_]?/i, '')
+        setReceiptSearch(cleanedName)
+        toast.success('Fichier importé. Recherche du document...')
+        setTimeout(async () => {
+          try {
+            const uniRes = await authFetch(`/api/verify/document?code=${encodeURIComponent(cleanedName)}`)
+            if (uniRes.ok) {
+              const uniJson = await uniRes.json()
+              if (uniJson.found) {
+                if (uniJson.type === 'RECEIPT') setSearchResult(uniJson.data as PaymentData)
+                else setUniversalResult(uniJson)
+                return
+              }
+            }
+          } catch { /* continue */ }
+          if (!userData?.id) { setSearching(false); return }
+          try {
+            const childrenRes = await authFetch(`/api/students?parentId=${userData.id}&limit=20`)
+            const childrenJson = await childrenRes.json()
+            const children: { id: string }[] = childrenJson.data || []
+            let found: PaymentData | null = null
+            for (const child of children) {
+              const pRes = await authFetch(`/api/payments?studentId=${child.id}&limit=50`)
+              const pJson = await pRes.json()
+              const childPayments: PaymentData[] = pJson.data || []
+              const searchLower = cleanedName.toLowerCase()
+              const rawLower = rawName.toLowerCase()
+              const searchNoHyphens = searchLower.replace(/-/g, '')
+              const match = childPayments.find(p => {
+                if (p.receiptNumber && (p.receiptNumber.toLowerCase() === searchLower || p.receiptNumber.toLowerCase() === rawLower)) return true
+                if (p.referenceNumber && (p.referenceNumber.toLowerCase() === searchLower || p.referenceNumber.toLowerCase() === rawLower)) return true
+                if (p.id.toLowerCase() === rawLower || p.id.toLowerCase() === searchLower) return true
+                if (p.id.toLowerCase().replace(/-/g, '') === searchNoHyphens) return true
+                if (p.id.slice(-8).toLowerCase() === searchLower.slice(-8) || p.id.slice(-8).toLowerCase() === rawLower.slice(-8)) return true
+                if (rawLower.includes(p.id.toLowerCase()) || rawLower.includes(p.id.slice(-8).toLowerCase())) return true
+                if (searchLower.includes(p.id.toLowerCase()) || searchLower.includes(p.id.slice(-8).toLowerCase())) return true
+                if (p.receiptNumber && (rawLower.includes(p.receiptNumber.toLowerCase()) || searchLower.includes(p.receiptNumber.toLowerCase()))) return true
+                if (p.referenceNumber && (rawLower.includes(p.referenceNumber.toLowerCase()) || searchLower.includes(p.referenceNumber.toLowerCase()))) return true
+                return false
+              })
+              if (match) { found = match; break }
+            }
+            setSearchResult(found || null)
+            if (!found && !universalResult) toast.error('Aucun document trouvé pour ce fichier')
+          } catch { toast.error('Erreur lors de la recherche') }
+          finally { setSearching(false) }
+        }, 300)
+      }
+      reader.readAsArrayBuffer(file)
+    }
+    input.click()
+  }
+
+  // ===== PARENT VIEW =====
+  if (isParent) {
+    return (
+      <div>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Vérification</h1>
+        </div>
+
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl grid place-items-center" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+              <CheckCircle size={20} className="text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Vérifier un document</h3>
+              <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Code unique : reçu (REC-), bulletin (BUL-), note (NOT-), fiche médicale (DIS-, FSA-, REG-) — ou importez un PDF</p>
+            </div>
+          </div>
+
+          <div className="flex gap-3 mb-4">
+            <input
+              placeholder="Ex: REC-M1A2B3C4, BUL-26-0001, DIS-26-0002..."
+              value={receiptSearch}
+              onChange={e => setReceiptSearch(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleParentReceiptSearch()}
+              className="flex-1 px-4 py-3 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]"
+            />
+            <button
+              onClick={handleParentReceiptSearch}
+              disabled={searching}
+              className="edu-gold-cta px-6 py-3 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50"
+            >
+              {searching ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Search size={14} />}
+              Vérifier
+            </button>
+            <button
+              onClick={handleParentScanReceipt}
+              disabled={searching}
+              className="px-4 py-3 rounded-xl text-sm font-semibold inline-flex items-center gap-2 border border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm transition disabled:opacity-50"
+              style={{ color: TEXT_PRIMARY }}
+            >
+              {searching ? <div className="h-4 w-4 border-2 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" /> : <Upload size={14} />}
+              Importer
+            </button>
+          </div>
+
+          {/* Universal Document Result (bulletin, note, fiche médicale) */}
+          {universalResult && universalResult.found && (
+            <div className="border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden mt-4">
+              <div className="px-5 py-4 flex items-center gap-3" style={{ background: 'oklch(96% 0.03 145)' }}>
+                <div className="w-10 h-10 rounded-full grid place-items-center" style={{ background: SUCCESS }}>
+                  <CheckCircle size={20} className="text-white" />
+                </div>
+                <div>
+                  <div className="font-semibold" style={{ color: SUCCESS }}>Document vérifié ✓</div>
+                  <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                    {universalResult.type === 'MEDICAL_DOCUMENT'
+                      ? 'Document médical officiel'
+                      : universalResult.type === 'BULLETIN'
+                        ? 'Bulletin scolaire officiel'
+                        : 'Note officielle'}
+                    {' · '}{universalResult.data?.school?.name || universalResult.data?.student?.class?.name || '—'}
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setUniversalResult(null); setReceiptSearch('') }}
+                  className="ml-auto p-2 rounded-lg hover:bg-[oklch(95%_0.01_175)]"
+                  title="Fermer"
+                >
+                  <X size={16} style={{ color: TEXT_MUTED_LUXE }} />
+                </button>
+              </div>
+              <div className="p-5 space-y-3">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg font-mono text-sm font-bold" style={{ background: 'oklch(95% 0.03 75)', color: 'oklch(45% 0.1 70)' }}>
+                  <Hash size={13} /> {universalResult.data.docCode || universalResult.data.id}
+                </div>
+                <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                  {universalResult.type === 'MEDICAL_DOCUMENT' && (
+                    <>
+                      <Detail label="Type" value={universalResult.data.docType === 'DISPENSE_MEDICALE' ? 'Dispense médicale' : universalResult.data.docType === 'FICHE_SANTE' ? 'Fiche de santé' : 'Registre de santé'} />
+                      <Detail label="Titre" value={universalResult.data.title} />
+                      {universalResult.data.student && (
+                        <Detail label="Élève" value={`${universalResult.data.student.lastName} ${universalResult.data.student.firstName} · ${universalResult.data.student.matricule || ''} ${universalResult.data.student.class?.name ? '· ' + universalResult.data.student.class.name : ''}`} />
+                      )}
+                      <Detail label="Créé par" value={universalResult.data.createdBy || '—'} />
+                      <Detail label="Date" value={new Date(universalResult.data.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} />
+                      <div>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await authFetch(`/api/medical/documents/${universalResult.data.id}/pdf`)
+                              if (!res.ok) throw new Error()
+                              const blob = await res.blob()
+                              const url = URL.createObjectURL(blob)
+                              const a = document.createElement('a')
+                              a.href = url
+                              a.download = `${(universalResult.data.docCode || 'document').toLowerCase()}.pdf`
+                              document.body.appendChild(a)
+                              a.click()
+                              document.body.removeChild(a)
+                              URL.revokeObjectURL(url)
+                            } catch { toast.error('Erreur lors du téléchargement du PDF') }
+                          }}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white"
+                          style={{ background: 'oklch(45% 0.12 145)' }}
+                        >
+                          <Download size={13} /> Télécharger le PDF
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {universalResult.type === 'BULLETIN' && (
+                    <>
+                      <Detail label="Élève" value={`${universalResult.data.student.lastName} ${universalResult.data.student.firstName} · ${universalResult.data.student.matricule || ''}`} />
+                      <Detail label="Classe" value={universalResult.data.student.class?.name || '—'} />
+                      <Detail label="Trimestre" value={universalResult.data.trimester} />
+                      <Detail label="Moyenne" value={universalResult.data.average != null ? `${Number(universalResult.data.average).toFixed(2)}/20` : '—'} />
+                      <Detail label="Décision" value={universalResult.data.decision || '—'} />
+                      <Detail label="Généré le" value={universalResult.data.generatedAt ? new Date(universalResult.data.generatedAt).toLocaleDateString('fr-FR') : '—'} />
+                    </>
+                  )}
+                  {universalResult.type === 'GRADE' && (
+                    <>
+                      <Detail label="Élève" value={`${universalResult.data.student.lastName} ${universalResult.data.student.firstName} · ${universalResult.data.student.matricule || ''}`} />
+                      <Detail label="Matière" value={universalResult.data.subject?.name || '—'} />
+                      <Detail label="Note" value={`${universalResult.data.score}/20`} />
+                      <Detail label="Trimestre" value={universalResult.data.trimester} />
+                      {universalResult.data.comment && <Detail label="Commentaire" value={universalResult.data.comment} />}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {searchResult && (
+            <div className="border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden mt-4">
+              {/* Receipt Found Banner */}
+              <div className="px-5 py-4 flex items-center gap-3" style={{ background: `${SUCCESS}10` }}>
+                <div className="w-10 h-10 rounded-full grid place-items-center" style={{ background: SUCCESS }}>
+                  <CheckCircle size={20} className="text-white" />
+                </div>
+                <div>
+                  <div className="font-semibold" style={{ color: SUCCESS }}>Reçu vérifié ✓</div>
+                  <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Ce reçu est authentique et a été enregistré dans le système</div>
+                </div>
+              </div>
+
+              {/* Receipt Details */}
+              <div className="p-5 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>N° du reçu</div>
+                    <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{searchResult.receiptNumber || `REC-${searchResult.id.slice(-8).toUpperCase()}`}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Élève</div>
+                    <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>
+                      {searchResult.student ? `${searchResult.student.firstName} ${searchResult.student.lastName}` : '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Montant total</div>
+                    <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{formatNumber(searchResult.amount)} CDF</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Montant payé</div>
+                    <div className="text-sm font-semibold" style={{ color: SUCCESS }}>{formatNumber(searchResult.paidAmount)} CDF</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Trimestre</div>
+                    <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{searchResult.trimester}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Statut</div>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill(searchResult.status)}`}>
+                      {searchResult.status === 'PAID' ? '✓ Payé' : searchResult.status === 'PARTIAL' ? '◯ Partiel' : searchResult.status === 'OVERDUE' ? '⚠ En retard' : '◯ En attente'}
+                    </span>
+                  </div>
+                  {searchResult.verifiedBy && (
+                    <>
+                      <div>
+                        <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Vérifié par</div>
+                        <div className="text-sm font-semibold" style={{ color: SUCCESS }}>{String(searchResult.verifiedBy)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Date de vérification</div>
+                        <div className="text-sm" style={{ color: TEXT_PRIMARY }}>
+                          {searchResult.verifiedAt ? new Date(String(searchResult.verifiedAt)).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {searchResult.verificationNote && (
+                  <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-3">
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Note du vérificateur</div>
+                    <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{String(searchResult.verificationNote)}</div>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => handleViewReceipt(searchResult.id)}
+                    disabled={receiptLoading}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                    style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}
+                  >
+                    {receiptLoading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FileText size={14} />}
+                    Voir le reçu PDF
+                  </button>
+                  <button
+                    onClick={() => { downloadReceiptFile(searchResult.id) }}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition"
+                    style={{ color: TEXT_PRIMARY }}
+                  >
+                    <Download size={14} /> Télécharger
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Receipt PDF Viewer Modal */}
+        {receiptUrl && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => { URL.revokeObjectURL(receiptUrl); setReceiptUrl(null) }}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl grid place-items-center text-white" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
+                    <FileText size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900">Reçu de Paiement</h2>
+                    <p className="text-xs text-gray-500">Reçu vérifié</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a href={receiptUrl} download className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
+                    <Download size={14} /> Télécharger
+                  </a>
+                  <button onClick={() => { URL.revokeObjectURL(receiptUrl); setReceiptUrl(null) }} className="w-9 h-9 rounded-lg grid place-items-center hover:bg-gray-100 transition">
+                    <X size={18} className="text-gray-500" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-hidden rounded-b-2xl">
+                <iframe src={receiptUrl} className="w-full h-[70vh] border-0" title="Reçu PDF" />
+              </div>
+            </div>
+        </div>
+      )}
+
+    </div>
+  )
+}
+
+  // ===== STAFF VIEW (Admin, Cashier, Secretary) =====
+  async function downloadReceiptFile(paymentId: string) {
+    try {
+      const res = await authFetch(`/api/payments/receipt/${paymentId}`)
+      if (!res.ok) throw new Error()
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const payment = payments.find(p => p.id === paymentId)
+      a.download = `recu-${payment?.receiptNumber || paymentId.slice(-8)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Erreur lors du téléchargement du reçu')
+    }
+  }
+
+  async function handleStaffReceiptSearch() {
+    if (!staffReceiptSearch.trim()) { toast.error('Entrez un code de document (REC-, BUL-, NOT-, DIS-, FSA-, REG-)'); return }
+    setStaffSearching(true)
+    setStaffSearchResult(null)
+    setUniversalResult(null)
+    try {
+      const q = staffReceiptSearch.trim().toLowerCase()
+      // 1) Vérification universelle : code lisible (REC/BUL/NOT/DIS/FSA/REG) ou id
+      try {
+        const uniRes = await authFetch(`/api/verify/document?code=${encodeURIComponent(staffReceiptSearch.trim())}`)
+        if (uniRes.ok) {
+          const uniJson = await uniRes.json()
+          if (uniJson.found) {
+            if (uniJson.type === 'RECEIPT') {
+              setStaffSearchResult(uniJson.data as PaymentData)
+            } else {
+              setUniversalResult(uniJson)
+            }
+            return
+          }
+        }
+      } catch { /* continue with legacy search */ }
+      // 2) Recherche historique côté API paiements
+      const isIdQuery = /^[a-z0-9]{20,}$/i.test(q.replace(/-/g, ''))
+      if (isIdQuery) {
+        try {
+          const verifyRes = await authFetch(`/api/payments/verify-receipt?id=${encodeURIComponent(staffReceiptSearch.trim())}&schoolId=${getActiveSchoolId() || ''}`)
+          if (verifyRes.ok) {
+            const verifyJson = await verifyRes.json()
+            if (verifyJson.data) { setStaffSearchResult(verifyJson.data); return }
+          }
+        } catch { /* fall through to local search */ }
+      }
+      const res = await authFetch(`/api/payments?schoolId=${getActiveSchoolId() || ''}&limit=500`)
+      const json = await res.json()
+      const allPayments: PaymentData[] = json.data || []
+      const qNoHyphens = q.replace(/-/g, '')
+      const match = allPayments.find(p => {
+        if (p.receiptNumber && p.receiptNumber.toLowerCase() === q) return true
+        if (p.referenceNumber && p.referenceNumber.toLowerCase() === q) return true
+        if (p.id.toLowerCase() === q) return true
+        if (p.id.toLowerCase().replace(/-/g, '') === qNoHyphens) return true
+        if (p.id.slice(-8).toLowerCase() === q.slice(-8)) return true
+        if (q.includes(p.id.toLowerCase()) || q.includes(p.id.slice(-8).toLowerCase())) return true
+        if (p.id.toLowerCase().includes(q) || p.id.slice(-8).toLowerCase().includes(q)) return true
+        if (p.receiptNumber && (q.includes(p.receiptNumber.toLowerCase()) || p.receiptNumber.toLowerCase().includes(q))) return true
+        if (p.referenceNumber && (q.includes(p.referenceNumber.toLowerCase()) || p.referenceNumber.toLowerCase().includes(q))) return true
+        return false
+      })
+      setStaffSearchResult(match || null)
+      if (!match) toast.error('Aucun reçu trouvé avec ce numéro')
+    } catch {
+      toast.error('Erreur lors de la recherche')
+    }
+    finally { setStaffSearching(false) }
+  }
+
+  async function handleScanReceipt() {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*,.pdf'
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      setScanning(true)
+      const rawName = file.name.replace(/\.[^.]+$/, '')
+      // Try to read embedded EDUGEST-ID from PDF
+      const reader = new FileReader()
+      reader.onload = async () => {
+        try {
+          const bytes = new Uint8Array(reader.result as ArrayBuffer)
+          const text = new TextDecoder('latin1').decode(bytes)
+          const idMatch = text.match(/EDUGEST-ID:([a-z0-9-]+)/i)
+          if (idMatch) {
+            const paymentId = idMatch[1]
+            setStaffReceiptSearch(paymentId)
+            toast.success('ID extrait du fichier. Recherche...')
+            // Search directly by ID (vérification universelle d'abord)
+            try {
+              const uniRes = await authFetch(`/api/verify/document?code=${encodeURIComponent(paymentId)}`)
+              if (uniRes.ok) {
+                const uniJson = await uniRes.json()
+                if (uniJson.found) {
+                  if (uniJson.type === 'RECEIPT') {
+                    setStaffSearchResult(uniJson.data as PaymentData)
+                  } else {
+                    setUniversalResult(uniJson)
+                  }
+                  setScanning(false)
+                  return
+                }
+              }
+            } catch { /* fall through */ }
+            try {
+              const verifyRes = await authFetch(`/api/payments/verify-receipt?id=${encodeURIComponent(paymentId)}&schoolId=${getActiveSchoolId() || ''}`)
+              if (verifyRes.ok) {
+                const verifyJson = await verifyRes.json()
+                if (verifyJson.data) {
+                  setStaffSearchResult(verifyJson.data)
+                  setScanning(false)
+                  return
+                }
+              }
+            } catch { /* fall through */ }
+          }
+        } catch { /* ignore parse errors */ }
+        // Fallback: use filename-based search
+        const cleanedName = rawName.replace(/^recu[-_]?/i, '').replace(/^receipt[-_]?/i, '').replace(/^facture[-_]?/i, '')
+        setStaffReceiptSearch(cleanedName)
+        toast.success('Fichier importé. Recherche du reçu...')
+        setTimeout(() => {
+          setScanning(false)
+          setStaffReceiptSearch(cleanedName)
+          setStaffSearching(true)
+          authFetch(`/api/payments?schoolId=${getActiveSchoolId() || ''}&limit=500`)
+            .then(r => r.json())
+            .then(json => {
+              const allPayments: PaymentData[] = json.data || []
+              const searchLower = cleanedName.toLowerCase()
+              const rawLower = rawName.toLowerCase()
+              const searchNoHyphens = searchLower.replace(/-/g, '')
+              const match = allPayments.find(p => {
+                if (p.receiptNumber && (p.receiptNumber.toLowerCase() === searchLower || p.receiptNumber.toLowerCase() === rawLower)) return true
+                if (p.referenceNumber && (p.referenceNumber.toLowerCase() === searchLower || p.referenceNumber.toLowerCase() === rawLower)) return true
+                if (p.id.toLowerCase() === rawLower || p.id.toLowerCase() === searchLower) return true
+                if (p.id.toLowerCase().replace(/-/g, '') === searchNoHyphens) return true
+                if (p.id.slice(-8).toLowerCase() === searchLower.slice(-8) || p.id.slice(-8).toLowerCase() === rawLower.slice(-8)) return true
+                if (rawLower.includes(p.id.toLowerCase()) || rawLower.includes(p.id.slice(-8).toLowerCase())) return true
+                if (searchLower.includes(p.id.toLowerCase()) || searchLower.includes(p.id.slice(-8).toLowerCase())) return true
+                if (p.receiptNumber && (rawLower.includes(p.receiptNumber.toLowerCase()) || searchLower.includes(p.receiptNumber.toLowerCase()))) return true
+                if (p.referenceNumber && (rawLower.includes(p.referenceNumber.toLowerCase()) || searchLower.includes(p.referenceNumber.toLowerCase()))) return true
+                return false
+              })
+              setStaffSearchResult(match || null)
+              if (!match) toast.error('Aucun reçu trouvé pour ce fichier')
+            })
+            .catch(() => toast.error('Erreur lors de la recherche'))
+            .finally(() => setStaffSearching(false))
+        }, 500)
+      }
+      reader.readAsArrayBuffer(file)
+    }
+    input.click()
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Vérification</h1>
+      </div>
+
+      {/* Search Card */}
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm mb-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl grid place-items-center" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+            <CheckCircle size={20} className="text-white" />
+          </div>
+          <div>
+            <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Vérifier un document</h3>
+            <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Code unique : reçu (REC-), bulletin (BUL-), note (NOT-), fiche médicale (DIS-, FSA-, REG-) — ou importez un PDF</p>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <input
+            placeholder="Ex: REC-M1A2B3C4, BUL-26-0001, DIS-26-0002..."
+            value={staffReceiptSearch}
+            onChange={e => setStaffReceiptSearch(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleStaffReceiptSearch()}
+            className="flex-1 px-4 py-3 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]"
+            style={{ color: TEXT_PRIMARY }}
+          />
+          <button
+            onClick={handleStaffReceiptSearch}
+            disabled={staffSearching}
+            className="edu-gold-cta px-6 py-3 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50"
+          >
+            {staffSearching ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Search size={14} />}
+            Vérifier
+          </button>
+          <button
+            onClick={handleScanReceipt}
+            disabled={scanning}
+            className="px-4 py-3 rounded-xl text-sm font-semibold inline-flex items-center gap-2 border border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-sm transition disabled:opacity-50"
+            style={{ color: TEXT_PRIMARY }}
+          >
+            {scanning ? <div className="h-4 w-4 border-2 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" /> : <Upload size={14} />}
+            Importer
+          </button>
+        </div>
+      </div>
+
+      {/* Universal Document Result (bulletin, note, fiche médicale) */}
+      {universalResult && universalResult.found && (
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm mb-6">
+          <div className="px-5 py-4 flex items-center gap-3" style={{ background: 'oklch(96% 0.03 145)' }}>
+            <div className="w-10 h-10 rounded-full grid place-items-center" style={{ background: SUCCESS }}>
+              <CheckCircle size={20} className="text-white" />
+            </div>
+            <div>
+              <div className="font-semibold" style={{ color: SUCCESS }}>Document vérifié ✓</div>
+              <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                {universalResult.type === 'MEDICAL_DOCUMENT'
+                  ? 'Document médical officiel'
+                  : universalResult.type === 'BULLETIN'
+                    ? 'Bulletin scolaire officiel'
+                    : 'Note officielle'}
+                {' · '}{universalResult.data?.school?.name || '—'}
+              </div>
+            </div>
+            <button
+              onClick={() => { setUniversalResult(null); setStaffReceiptSearch('') }}
+              className="ml-auto p-2 rounded-lg hover:bg-[oklch(95%_0.01_175)]"
+              title="Fermer"
+            >
+              <X size={16} style={{ color: TEXT_MUTED_LUXE }} />
+            </button>
+          </div>
+          <div className="p-5 space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg font-mono text-sm font-bold" style={{ background: 'oklch(95% 0.03 75)', color: 'oklch(45% 0.1 70)' }}>
+              <Hash size={13} /> {universalResult.data.docCode || universalResult.data.id}
+            </div>
+            <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+              {universalResult.type === 'MEDICAL_DOCUMENT' && (
+                <>
+                  <Detail label="Type" value={universalResult.data.docType === 'DISPENSE_MEDICALE' ? 'Dispense médicale' : universalResult.data.docType === 'FICHE_SANTE' ? 'Fiche de santé' : 'Registre de santé'} />
+                  <Detail label="Titre" value={universalResult.data.title} />
+                  {universalResult.data.student && (
+                    <Detail label="Élève" value={`${universalResult.data.student.lastName} ${universalResult.data.student.firstName} · ${universalResult.data.student.matricule || ''} ${universalResult.data.student.class?.name ? '· ' + universalResult.data.student.class.name : ''}`} />
+                  )}
+                  <Detail label="Créé par" value={universalResult.data.createdBy || '—'} />
+                  <Detail label="Date" value={new Date(universalResult.data.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} />
+                  <div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await authFetch(`/api/medical/documents/${universalResult.data.id}/pdf`)
+                          if (!res.ok) throw new Error()
+                          const blob = await res.blob()
+                          const url = URL.createObjectURL(blob)
+                          const a = document.createElement('a')
+                          a.href = url
+                          a.download = `${(universalResult.data.docCode || 'document').toLowerCase()}.pdf`
+                          document.body.appendChild(a)
+                          a.click()
+                          document.body.removeChild(a)
+                          URL.revokeObjectURL(url)
+                        } catch { toast.error('Erreur lors du téléchargement du PDF') }
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white"
+                      style={{ background: 'oklch(45% 0.12 145)' }}
+                    >
+                      <Download size={13} /> Télécharger le PDF
+                    </button>
+                  </div>
+                </>
+              )}
+              {universalResult.type === 'BULLETIN' && (
+                <>
+                  <Detail label="Élève" value={`${universalResult.data.student.lastName} ${universalResult.data.student.firstName} · ${universalResult.data.student.matricule || ''}`} />
+                  <Detail label="Classe" value={universalResult.data.student.class?.name || '—'} />
+                  <Detail label="Trimestre" value={universalResult.data.trimester} />
+                  <Detail label="Moyenne" value={universalResult.data.average != null ? `${Number(universalResult.data.average).toFixed(2)}/20` : '—'} />
+                  <Detail label="Décision" value={universalResult.data.decision || '—'} />
+                  <Detail label="Généré le" value={universalResult.data.generatedAt ? new Date(universalResult.data.generatedAt).toLocaleDateString('fr-FR') : '—'} />
+                </>
+              )}
+              {universalResult.type === 'GRADE' && (
+                <>
+                  <Detail label="Élève" value={`${universalResult.data.student.lastName} ${universalResult.data.student.firstName} · ${universalResult.data.student.matricule || ''}`} />
+                  <Detail label="Matière" value={universalResult.data.subject?.name || '—'} />
+                  <Detail label="Note" value={`${universalResult.data.score}/20`} />
+                  <Detail label="Trimestre" value={universalResult.data.trimester} />
+                  {universalResult.data.comment && <Detail label="Commentaire" value={universalResult.data.comment} />}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Search Result */}
+      {staffSearchResult && (
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
+          <div className="px-5 py-4 flex items-center gap-3" style={{ background: `${SUCCESS}10` }}>
+            <div className="w-10 h-10 rounded-full grid place-items-center" style={{ background: SUCCESS }}>
+              <CheckCircle size={20} className="text-white" />
+            </div>
+            <div>
+              <div className="font-semibold" style={{ color: SUCCESS }}>Reçu trouvé</div>
+              <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>{staffSearchResult.receiptNumber || `REC-${staffSearchResult.id.slice(-8).toUpperCase()}`}</div>
+            </div>
+            <div className="ml-auto">
+              {staffSearchResult.status === 'PAID' && !staffSearchResult.verifiedBy && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: `${WARNING}15`, color: WARNING }}>Non vérifié</span>
+              )}
+              {staffSearchResult.verifiedBy && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: `${SUCCESS}15`, color: SUCCESS }}>Vérifié</span>
+              )}
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Élève</div>
+                <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>
+                  {staffSearchResult.student ? `${staffSearchResult.student.firstName} ${staffSearchResult.student.lastName}` : '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Matricule</div>
+                <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{staffSearchResult.student?.matricule || '—'}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Trimestre</div>
+                <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{staffSearchResult.trimester}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Montant total</div>
+                <div className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>{formatNumber(staffSearchResult.amount)} CDF</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Montant payé</div>
+                <div className="text-sm font-semibold" style={{ color: SUCCESS }}>{formatNumber(staffSearchResult.paidAmount)} CDF</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Reste à payer</div>
+                <div className="text-sm font-semibold" style={{ color: staffSearchResult.amount - staffSearchResult.paidAmount > 0 ? DANGER : SUCCESS }}>
+                  {formatNumber(staffSearchResult.amount - staffSearchResult.paidAmount)} CDF
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Mode de paiement</div>
+                <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{staffSearchResult.paymentMethod || '—'}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Statut</div>
+                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${getStatusPill(staffSearchResult.status)}`}>
+                  {staffSearchResult.status === 'PAID' ? '✓ Payé' : staffSearchResult.status === 'PARTIAL' ? '◯ Partiel' : staffSearchResult.status === 'REJECTED' ? '✗ Rejeté' : '◯ En attente'}
+                </span>
+              </div>
+              {staffSearchResult.verifiedBy && (
+                <>
+                  <div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Vérifié par</div>
+                    <div className="text-sm font-semibold" style={{ color: SUCCESS }}>{String(staffSearchResult.verifiedBy)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Date de vérification</div>
+                    <div className="text-sm" style={{ color: TEXT_PRIMARY }}>
+                      {staffSearchResult.verifiedAt ? new Date(String(staffSearchResult.verifiedAt)).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {staffSearchResult.verificationNote && (
+              <div className="bg-[oklch(97%_0.005_175)] rounded-xl p-3">
+                <div className="text-xs font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Note du vérificateur</div>
+                <div className="text-sm" style={{ color: TEXT_PRIMARY }}>{String(staffSearchResult.verificationNote)}</div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-3 pt-2">
+              <button
+                onClick={() => handleViewReceipt(staffSearchResult.id)}
+                disabled={receiptLoading}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}
+              >
+                {receiptLoading ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FileText size={14} />}
+                Voir le reçu PDF
+              </button>
+              <button
+                onClick={() => downloadReceiptFile(staffSearchResult.id)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition"
+                style={{ color: TEXT_PRIMARY }}
+              >
+                <Download size={14} /> Télécharger
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt PDF Viewer Modal */}
+      {receiptUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => { URL.revokeObjectURL(receiptUrl); setReceiptUrl(null) }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl grid place-items-center text-white" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Reçu de Paiement</h2>
+                  <p className="text-xs text-gray-500">Vérification du reçu</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a href={receiptUrl} download className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
+                  <Download size={14} /> Télécharger
+                </a>
+                <button onClick={() => { URL.revokeObjectURL(receiptUrl); setReceiptUrl(null) }} className="w-9 h-9 rounded-lg grid place-items-center hover:bg-gray-100 transition">
+                  <X size={18} className="text-gray-500" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden rounded-b-2xl">
+              <iframe src={receiptUrl} className="w-full h-[70vh] border-0" title="Reçu PDF" />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// DisciplineView imported from @/components/views/DisciplineView
+
+// ===== COMMUNICATIONS VIEW =====
+function CommunicationsView() {
+  const { hasAccess, requiredTier } = useFeatureAccess('communications')
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!hasAccess) {
+      router.push(`/subscription-required?feature=communications&requiredTier=${requiredTier}`)
+    }
+  }, [hasAccess, requiredTier, router])
+
+  const [comms, setComms] = useState<CommunicationData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [type, setType] = useState('ANNOUNCEMENT')
+  const [targetType, setTargetType] = useState('ALL')
+  const [title, setTitle] = useState('')
+  const [content, setContent] = useState('')
+  const [whatsapp, setWhatsapp] = useState(true)
+  const [app, setApp] = useState(true)
+  const [scope, setScope] = useState('')
+  const { userData, userRole, highlightedId } = useEduGestStore()
+  const [totalUsers, setTotalUsers] = useState(0)
+  const [expandedComm, setExpandedComm] = useState<string | null>(null)
+  const canCreate = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  // Approbateurs DISTINCTS des créateurs : seuls le super admin plateforme et
+  // L'ADMIN DE L'ÉCOLE peuvent approuver/rejeter les demandes PENDING
+  // (directions + secrétaire). Avant : les boutons s'affichaient pour les
+  // créateurs mêmes que l'API refusait (403), et l'admin d'école ne voyait rien.
+  const canApprove = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN'].includes(userRole || '')
+  const canSeeStats = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const isDirection = ['DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  // Cycle imposé automatiquement selon la fonction de la direction (pas de choix)
+  const directionScope = userRole === 'DIRECTION_MATERNELLE' ? 'MATERNELLE'
+    : userRole === 'DIRECTION_PRIMAIRE' ? 'PRIMAIRE'
+    : userRole === 'DIRECTION_SECONDAIRE' ? 'SECONDAIRE' : ''
+  useEffect(() => { if (directionScope) setScope(directionScope) }, [directionScope])
+  const pendingCount = comms.filter(c => c.status === 'PENDING').length
+  const highlightedRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (highlightedId && highlightedRef.current) {
+      highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlightedId])
+
+  // ── Config API (Resend) — super administrateur uniquement ──────────────
+  // L'utilisateur configure ici la clé API Resend pour l'envoi des emails
+  // (codes de vérification, notifications). Stockée côté serveur.
+  const isPlatformAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
+  const [showApiConfig, setShowApiConfig] = useState(false)
+  const [emailCfg, setEmailCfg] = useState<any>(null)
+  const [emailForm, setEmailForm] = useState({ enabled: false, fromEmail: '', fromName: '', apiKey: '' })
+  const [testEmail, setTestEmail] = useState('')
+  const [savingEmailCfg, setSavingEmailCfg] = useState(false)
+  const [testingEmail, setTestingEmail] = useState(false)
+
+  useEffect(() => {
+    if (!isPlatformAdmin) return
+    authFetch('/api/email-config').then(r => r.json()).then(j => {
+      if (j.data) {
+        setEmailCfg(j.data)
+        setEmailForm({
+          enabled: !!j.data.enabled,
+          fromEmail: j.data.fromEmail || '',
+          fromName: j.data.fromName || '',
+          apiKey: '',
+        })
+      }
+    }).catch(() => {})
+  }, [isPlatformAdmin])
+
+  async function saveEmailCfg() {
+    setSavingEmailCfg(true)
+    try {
+      const res = await authFetch('/api/email-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save', ...emailForm }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success(json.message || 'Configuration enregistrée')
+        setEmailCfg(json.data)
+        setEmailForm(f => ({ ...f, apiKey: '' }))
+      } else {
+        toast.error(json.error || 'Erreur de sauvegarde')
+      }
+    } catch { toast.error('Erreur réseau') } finally { setSavingEmailCfg(false) }
+  }
+
+  async function handleTestEmail() {
+    if (!testEmail.trim()) { toast.error('Entrez une adresse email de test'); return }
+    setTestingEmail(true)
+    try {
+      const res = await authFetch('/api/email-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'test', testEmail }),
+      })
+      const json = await res.json()
+      if (res.ok) toast.success(json.message || 'Email de test envoyé')
+      else toast.error(json.error || 'Échec du test')
+    } catch { toast.error('Erreur réseau') } finally { setTestingEmail(false) }
+  }
+
+  if (!hasAccess) return null
+
+  useEffect(() => {
+    const superAdminRoles = ['SUPER_ADMIN_GLOBAL', 'ADMIN']
+    const mineParam = superAdminRoles.includes(userRole as string) ? '&mine=true' : ''
+    authFetch(`/api/communications?limit=20${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}${mineParam}`).then(r => r.json()).then(j => {
+      const data = j.data || []
+      setComms(data)
+      setTotalUsers(j.totalUsers || 0)
+      setLoading(false)
+      if (userData?.id && !canCreate) {
+        data.forEach((c: CommunicationData) => {
+          authFetch(`/api/communications/${c.id}/read`, { method: 'POST' }).catch(() => {})
+        })
+      }
+    }).catch(() => setLoading(false))
+  }, [getActiveSchoolId() ?? null, userData?.id, canCreate])
+
+  async function handleSend() {
+    if (!title || !content) return toast.error('Titre et contenu requis')
+    try {
+      const res = await authFetch('/api/communications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senderId: userData?.id || 'demo', senderRole: userData?.role || 'SECRETARY',
+          schoolId: getActiveSchoolId() || 'demo', type, title, content, targetType,
+          sentToApp: app, sentToWhatsapp: whatsapp, scope: scope || undefined,
+        }),
+      })
+      if (res.ok) {
+        const created = await res.json().catch(() => ({} as any))
+        if (created?.warning) toast.warning(created.warning, { duration: 6000 })
+        else toast.success('Communication envoyée!')
+        setTitle(''); setContent('')
+        const json = await (await authFetch(`/api/communications?limit=20${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}`)).json()
+        setComms(json.data || [])
+        setTotalUsers(json.totalUsers || 0)
+      }
+    } catch { toast.error('Erreur lors de l\'envoi') }
+  }
+
+  async function handleApprove(id: string, action: 'approve' | 'reject') {
+    try {
+      const res = await authFetch(`/api/communications/${id}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      if (res.ok) {
+        toast.success(action === 'approve' ? 'Communication approuvée !' : 'Communication rejetée')
+        const json = await (await authFetch(`/api/communications?limit=20${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}`)).json()
+        setComms(json.data || [])
+        setTotalUsers(json.totalUsers || 0)
+      }
+    } catch { toast.error('Erreur') }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Communications</h1>
+        {canCreate && pendingCount > 0 && (
+          <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-edu-warning/20 text-edu-warning">
+            {pendingCount} en attente
+          </span>
+        )}
+      </div>
+
+      {/* ── Config API (Resend) — super administrateur uniquement ── */}
+      {isPlatformAdmin && (
+        <div className="mb-6">
+          <button
+            onClick={() => setShowApiConfig(v => !v)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition hover:shadow-sm"
+            style={{ borderColor: 'oklch(90% 0.01 175)', color: TEXT_PRIMARY, background: 'white' }}
+          >
+            <Zap size={15} style={{ color: GOLD }} />
+            Config API
+            {emailCfg?.configured ? (
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${emailCfg?.enabled ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>
+                {emailCfg?.enabled ? 'Resend actif' : 'Configuré (inactif)'}
+              </span>
+            ) : (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]">Non configuré</span>
+            )}
+            {showApiConfig ? <ChevronUp size={14} style={{ color: TEXT_MUTED_LUXE }} /> : <ChevronDown size={14} style={{ color: TEXT_MUTED_LUXE }} />}
+          </button>
+
+          {showApiConfig && (
+            <div className="mt-3 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm space-y-4">
+              <div>
+                <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+                  <Mail size={15} style={{ color: GOLD }} />
+                  Configuration de l&apos;API email Resend
+                </h3>
+                <p className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>
+                  Les emails EduGest (codes de vérification de compte, notifications) seront envoyés via Resend.
+                  Obtenez votre clé API sur <span className="font-semibold">resend.com</span> puis validez votre domaine expéditeur.
+                </p>
+              </div>
+
+              <label className="flex items-center gap-3 p-3.5 rounded-xl cursor-pointer" style={{ background: 'oklch(97% 0.02 175)', border: '1px solid oklch(90% 0.01 175)' }}>
+                <input
+                  type="checkbox"
+                  checked={emailForm.enabled}
+                  onChange={e => setEmailForm(f => ({ ...f, enabled: e.target.checked }))}
+                  className="w-4 h-4 rounded accent-[oklch(72%_0.15_65)]"
+                />
+                <span className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>
+                  Activer l&apos;envoi d&apos;emails via Resend
+                </span>
+              </label>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>
+                    Clé API Resend {emailCfg?.configured && <span className="text-[10px] font-normal">(actuelle : <span className="font-mono">{emailCfg.apiKeyMasked}</span> — laisser vide pour conserver)</span>}
+                  </label>
+                  <input
+                    type="password"
+                    value={emailForm.apiKey}
+                    onChange={e => setEmailForm(f => ({ ...f, apiKey: e.target.value }))}
+                    placeholder="re_123456789..."
+                    className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] font-mono"
+                    style={{ color: TEXT_PRIMARY }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Adresse expéditeur (from)</label>
+                  <input
+                    type="email"
+                    value={emailForm.fromEmail}
+                    onChange={e => setEmailForm(f => ({ ...f, fromEmail: e.target.value }))}
+                    placeholder="noreply@votre-ecole.cd"
+                    className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+                    style={{ color: TEXT_PRIMARY }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom de l&apos;expéditeur</label>
+                  <input
+                    type="text"
+                    value={emailForm.fromName}
+                    onChange={e => setEmailForm(f => ({ ...f, fromName: e.target.value }))}
+                    placeholder="EduGest"
+                    className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+                    style={{ color: TEXT_PRIMARY }}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={saveEmailCfg}
+                    disabled={savingEmailCfg}
+                    className="px-5 py-2.5 rounded-xl text-white font-semibold text-sm flex items-center gap-2 disabled:opacity-50 transition hover:opacity-90 w-full md:w-auto"
+                    style={{ background: `linear-gradient(135deg, oklch(55% 0.15 175), oklch(72% 0.15 65))` }}
+                  >
+                    {savingEmailCfg ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save size={15} />}
+                    {savingEmailCfg ? 'Enregistrement...' : 'Enregistrer la configuration'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-[oklch(90%_0.01_175)]">
+                <h4 className="text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: TEXT_PRIMARY }}>
+                  <Send size={12} style={{ color: 'oklch(55% 0.15 175)' }} />
+                  Tester l&apos;envoi d&apos;email
+                </h4>
+                <div className="flex gap-2 max-w-md">
+                  <input
+                    type="email"
+                    value={testEmail}
+                    onChange={e => setTestEmail(e.target.value)}
+                    placeholder="vous@exemple.com"
+                    className="flex-1 px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+                    style={{ color: TEXT_PRIMARY }}
+                  />
+                  <button
+                    onClick={handleTestEmail}
+                    disabled={testingEmail}
+                    className="px-4 py-2.5 rounded-xl text-white font-semibold text-sm disabled:opacity-50 transition shrink-0"
+                    style={{ background: 'oklch(55% 0.15 175)' }}
+                  >
+                    {testingEmail ? 'Envoi...' : 'Envoyer le test'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className={`grid grid-cols-1 gap-6 ${canCreate ? 'lg:grid-cols-[1fr_1fr]' : ''}`}>
+        {/* Compose */}
+        {canCreate && (
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+          <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Nouvelle communication</h3>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <AppSelect value={type} onChange={setType} options={[{ value: 'ANNOUNCEMENT', label: 'Annonce' }, { value: 'NOTIFICATION', label: 'Notification' }, { value: 'EVENT', label: 'Événement' }, { value: 'ALERT', label: 'Alerte' }]} />
+              <AppSelect value={targetType} onChange={setTargetType} options={isDirection ? [{ value: 'PARENTS', label: 'Parents' }, { value: 'CLASS', label: 'Classe' }] : [{ value: 'ALL', label: 'Tout le monde' }, { value: 'PARENTS', label: 'Parents' }, { value: 'STAFF', label: 'Personnel' }, { value: 'CLASS', label: 'Classe' }]} />
+            </div>
+            {isDirection && (
+              <div className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_PRIMARY }}>
+                Cycle : {directionScope === 'MATERNELLE' ? 'Maternelle' : directionScope === 'PRIMAIRE' ? 'Primaire' : 'Secondaire'} <span className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>(automatique selon votre fonction)</span>
+              </div>
+            )}
+            <input placeholder="Titre" value={title} onChange={e => setTitle(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)]" />
+            <textarea placeholder="Contenu du message..." value={content} onChange={e => setContent(e.target.value)} rows={4} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)] resize-none" />
+            <div className="flex items-center gap-4 text-sm" style={{ color: TEXT_PRIMARY }}>
+              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={whatsapp} onChange={e => setWhatsapp(e.target.checked)} className="accent-[oklch(72%_0.15_65)]" /> WhatsApp</label>
+              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={app} onChange={e => setApp(e.target.checked)} className="accent-[oklch(72%_0.15_65)]" /> App</label>
+            </div>
+            <button onClick={handleSend} className="edu-gold-cta w-full py-2.5 rounded-xl font-semibold text-sm inline-flex items-center justify-center gap-2">
+              <Send size={14} /> Envoyer
+            </button>
+          </div>
+        </div>
+        )}
+
+        {/* History */}
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+          <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Historique</h3>
+          <div className="space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar">
+            {loading ? <div className="text-center py-4" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> :
+              comms.map(c => {
+                const readCount = c.reads?.length || 0
+                const readRate = totalUsers > 0 ? Math.round(readCount / totalUsers * 100) : 0
+                const isExpanded = expandedComm === c.id
+                return (
+                  <div ref={highlightedId === c.id ? highlightedRef : undefined} key={c.id} className={`p-3 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition ${highlightedId === c.id ? 'edu-highlight' : ''}`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-sm" style={{ color: TEXT_PRIMARY }}>{c.title}</span>
+                      <span className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(c.sentAt)}</span>
+                    </div>
+                    <p className="text-xs line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{c.content}</p>
+                    <div className="flex items-center gap-2 mt-2 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
+                      <span className={`px-1.5 py-0.5 rounded ${c.type === 'ANNOUNCEMENT' ? 'bg-[oklch(95%_0.04_175)] text-edu-accent' : 'bg-[oklch(95%_0.005_175)]'}`}>{c.type}</span>
+                      {c.sentToWhatsapp && <span className="text-edu-success">WhatsApp</span>}
+                      {c.sentToApp && <span className="text-edu-info">App</span>}
+                      <span className="px-1.5 py-0.5 rounded" style={{ background: `${ACCENT}15`, color: ACCENT }}>{c.senderRole}</span>
+                      {c.status === 'PENDING' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[oklch(95%_0.04_25)] text-edu-warning">En attente</span>}
+                      {c.status === 'REJECTED' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[oklch(95%_0.02_25)] text-edu-danger">Rejetée</span>}
+                    </div>
+                    {canApprove && c.status === 'PENDING' && (
+                      <div className="flex gap-2 mt-2">
+                        <button onClick={() => handleApprove(c.id, 'approve')} className="text-[10px] px-2 py-1 rounded-lg bg-edu-success/10 text-edu-success hover:bg-edu-success/20">
+                          Approuver
+                        </button>
+                        <button onClick={() => handleApprove(c.id, 'reject')} className="text-[10px] px-2 py-1 rounded-lg bg-edu-danger/10 text-edu-danger hover:bg-edu-danger/20">
+                          Rejeter
+                        </button>
+                      </div>
+                    )}
+                    {/* Read stats - only for admin/direction roles */}
+                    {canSeeStats && (
+                    <div className="mt-2 pt-2 border-t border-[oklch(93%_0.01_175)]">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ background: readRate >= 80 ? SUCCESS : readRate >= 50 ? WARNING : DANGER }} />
+                          <span className="text-xs font-medium" style={{ color: TEXT_PRIMARY }}>{readCount}/{totalUsers} lu{readCount > 1 ? 's' : ''}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: readRate >= 80 ? `${SUCCESS}15` : readRate >= 50 ? `${WARNING}15` : `${DANGER}15`, color: readRate >= 80 ? SUCCESS : readRate >= 50 ? WARNING : DANGER }}>{readRate}%</span>
+                        </div>
+                        <button onClick={() => {
+                          const newExpanded = isExpanded ? null : c.id
+                          setExpandedComm(newExpanded)
+                        }} className="text-[10px] px-2 py-0.5 rounded-lg hover:bg-[oklch(95%_0.01_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>
+                          {isExpanded ? 'Masquer' : 'Détails'}
+                        </button>
+                      </div>
+                      {isExpanded && (
+                        <div className="mt-2 space-y-1">
+                          {c.reads && c.reads.length > 0 ? (
+                            c.reads.map(r => (
+                              <div key={r.id} className="flex items-center justify-between text-[11px] py-1 px-2 rounded-lg bg-[oklch(97%_0.005_175)]">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold" style={{ background: `${ACCENT}20`, color: ACCENT }}>{r.user?.name?.charAt(0) || '?'}</div>
+                                  <span style={{ color: TEXT_PRIMARY }}>{r.user?.name || 'Inconnu'}</span>
+                                  <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: `${INFO}15`, color: INFO }}>{r.user?.role}</span>
+                                </div>
+                                <span style={{ color: TEXT_MUTED_LUXE }}>{r.readAt ? new Date(r.readAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-[11px] py-2 text-center" style={{ color: TEXT_MUTED_LUXE }}>Aucune lecture pour le moment</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    )}
+                  </div>
+                )
+              })
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ===== HOMEWORK VIEW =====
+function HomeworkView() {
+  const { userData, userRole, highlightedId } = useEduGestStore()
+  const [homework, setHomework] = useState<HomeworkData[]>([])
+  const [parentChildren, setParentChildren] = useState<StudentData[]>([])
+  const [loading, setLoading] = useState(true)
+  const isTeacher = userRole === 'TEACHER' || userRole === 'HEAD_TEACHER'
+  const isParent = userRole === 'PARENT'
+  const canCreate = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const canSeeStats = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const [totalUsers, setTotalUsers] = useState(0)
+  const [expandedHomework, setExpandedHomework] = useState<string | null>(null)
+  const [showForm, setShowForm] = useState(false)
+  const [hwTitle, setHwTitle] = useState('')
+  const [hwDesc, setHwDesc] = useState('')
+  const [hwSubject, setHwSubject] = useState('')
+  const [hwClassId, setHwClassId] = useState('')
+  const [hwDueDate, setHwDueDate] = useState('')
+  const [classes, setClasses] = useState<{ id: string; name: string; level?: string }[]>([])
+  const [submitting, setSubmitting] = useState(false)
+  const [hwAttachment, setHwAttachment] = useState<File | null>(null)
+  const [hwAttachmentUploading, setHwAttachmentUploading] = useState(false)
+  const [hwAttachmentUrl, setHwAttachmentUrl] = useState<string | null>(null)
+  const [teacherAssignments, setTeacherAssignments] = useState<{ classId: string; subjectId: string; class: { name: string }; subject: { name: string } }[]>([])
+  const [schoolData, setSchoolData] = useState<{ name: string; logo?: string | null } | null>(null)
+  const [previewAttachment, setPreviewAttachment] = useState<string | null>(null)
+  const highlightedRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (highlightedId && highlightedRef.current) {
+      highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlightedId])
+
+  useEffect(() => {
+    if (isParent && getActiveSchoolId()) {
+      authFetch(`/api/schools/${getActiveSchoolId()}`).then(r => r.json()).then(j => { if (j.data) setSchoolData(j.data) }).catch(() => {})
+    }
+  }, [isParent, getActiveSchoolId()])
+
+  // Auto-fill subject from teacher's assignments
+  useEffect(() => {
+    if (isTeacher && userData?.id) {
+      authFetch(`/api/teacher-assignments?teacherId=${userData.id}`).then(r => r.json()).then(j => {
+        const assignments = j.data || []
+        setTeacherAssignments(assignments)
+        if (assignments.length === 1 && !hwSubject) {
+          setHwSubject(assignments[0].subject.name)
+        }
+        if (assignments.length > 0 && !hwClassId) {
+          setHwClassId(assignments[0].classId)
+        }
+      }).catch(() => {})
+    }
+  }, [isTeacher, userData?.id])
+
+  useEffect(() => {
+    if (isParent && userData?.id) {
+      authFetch(`/api/students?parentId=${userData.id}&limit=20`).then(r => r.json()).then(j => setParentChildren(j.data || [])).catch(() => {})
+    }
+  }, [isParent, userData?.id])
+
+  useEffect(() => {
+    if (isParent && userData?.id) {
+      authFetch(`/api/homework?parentId=${userData.id}&limit=30`).then(r => r.json()).then(j => { setHomework(j.data || []); setTotalUsers(j.totalUsers || 0); setLoading(false) }).catch(() => setLoading(false))
+    } else if (getActiveSchoolId()) {
+      authFetch(`/api/homework?schoolId=${getActiveSchoolId()}&limit=30`).then(r => r.json()).then(j => { setHomework(j.data || []); setTotalUsers(j.totalUsers || 0); setLoading(false) }).catch(() => setLoading(false))
+    } else {
+      authFetch('/api/homework?limit=30').then(r => r.json()).then(j => { setHomework(j.data || []); setTotalUsers(j.totalUsers || 0); setLoading(false) }).catch(() => setLoading(false))
+    }
+  }, [isParent, userData?.id, getActiveSchoolId()])
+
+  useEffect(() => {
+    if (isTeacher && getActiveSchoolId()) {
+      authFetch(`/api/classes?limit=50&schoolId=${getActiveSchoolId()}`).then(r => r.json()).then(j => {
+        const allClasses = j.data || []
+        if (teacherAssignments.length > 0) {
+          const assignedClassIds = [...new Set(teacherAssignments.map(a => a.classId))]
+          const mine = allClasses.filter((c: any) => assignedClassIds.includes(c.id))
+          // Classe titulaire TOUJOURS en première position
+          mine.sort((a: any, b: any) => {
+            const aTit = a.headTeacherId === userData?.id ? 0 : 1
+            const bTit = b.headTeacherId === userData?.id ? 0 : 1
+            return aTit - bTit
+          })
+          setClasses(mine)
+        } else {
+          // Sécurité : sans affectation d'enseignement, AUCUNE classe proposée
+          // (le serveur refuserait de toute façon — un prof n'envoie des
+          // devoirs qu'à SES classes, la sélection est toujours côté serveur)
+          setClasses([])
+        }
+      }).catch(() => {})
+    }
+  }, [isTeacher, getActiveSchoolId() ?? null, teacherAssignments])
+
+  async function handleHomeworkFileUpload(file: File) {
+    const allowed = ['text/plain', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+    if (!allowed.includes(file.type)) { toast.error('Format non supporté. Utilisez TXT, PDF ou Word.'); return }
+    if (file.size > 10 * 1024 * 1024) { toast.error('Fichier trop volumineux (max 10 Mo)'); return }
+    setHwAttachmentUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('category', 'homework')
+      const res = await authFetch('/api/upload', { method: 'POST', body: formData })
+      if (res.ok) {
+        const j = await res.json()
+        setHwAttachmentUrl(j.url || j.data?.url || null)
+        toast.success('Fichier joint avec succès')
+      } else {
+        toast.error('Erreur lors de l\'upload')
+      }
+    } catch { toast.error('Erreur réseau lors de l\'upload') }
+    finally { setHwAttachmentUploading(false) }
+  }
+
+  async function handleAddHomework() {
+    if (!hwTitle || !hwSubject || !hwClassId || !hwDueDate || !getActiveSchoolId()) {
+      toast.error('Veuillez remplir tous les champs obligatoires')
+      return
+    }
+    setSubmitting(true)
+    try {
+      const res = await authFetch('/api/homework', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: hwTitle,
+          description: hwDesc,
+          subjectName: hwSubject,
+          classId: hwClassId,
+          teacherName: userData?.name || 'Professeur',
+          teacherId: userData?.id,
+          isTitulaire: userData?.isTitulaire || false,
+          dueDate: hwDueDate,
+          schoolId: getActiveSchoolId(),
+          attachmentUrl: hwAttachmentUrl || null,
+        }),
+      })
+      if (res.ok) {
+        toast.success('Devoir ajouté avec succès !')
+        setShowForm(false)
+        setHwTitle(''); setHwDesc(''); setHwClassId(''); setHwDueDate('')
+        // Don't reset hwSubject - keep it for the teacher
+        // Refresh
+        authFetch(`/api/homework?schoolId=${getActiveSchoolId()}&limit=30`).then(r => r.json()).then(j => setHomework(j.data || [])).catch(() => {})
+      } else {
+        toast.error('Erreur lors de l\'ajout')
+      }
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setSubmitting(false)
+  }
+
+  return (
+    <div>
+      {/* School Logo Header for Parents */}
+      {isParent && schoolData && (
+        <div className="flex items-center gap-3 mb-6 p-4 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl shadow-sm">
+          {schoolData.logo ? (
+            <img src={schoolData.logo} alt="Logo" className="w-12 h-12 rounded-xl object-cover border-2 border-white shadow-md" />
+          ) : (
+            <div className="w-12 h-12 rounded-xl grid place-items-center text-white text-lg font-bold border-2 border-white shadow-md" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+              {schoolData.name?.substring(0, 2).toUpperCase() || 'EG'}
+            </div>
+          )}
+          <div>
+            <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{schoolData.name || 'EduGest'}</h2>
+            <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Devoirs assignés</p>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Devoirs</h1>
+        </div>
+        {isTeacher && (
+          <button onClick={() => setShowForm(!showForm)} className="edu-gold-cta px-4 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-2">
+            <Plus size={14} /> Nouveau devoir
+          </button>
+        )}
+      </div>
+
+      {/* Add Homework Form */}
+      {isTeacher && showForm && (
+        <div className="bg-white border-2 border-[oklch(72%_0.15_65_/_0.3)] rounded-2xl p-6 shadow-md mb-6">
+          <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+            <PenTool size={16} style={{ color: GOLD }} /> Nouveau devoir
+            {(userData?.isTitulaire) && (
+              <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: GOLD_SOFT, color: GOLD }}>Titulaire</span>
+            )}
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Titre *</label>
+              <input value={hwTitle} onChange={e => setHwTitle(e.target.value)} placeholder="Ex: Exercices de calcul" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Matière *</label>
+              <input value={hwSubject} onChange={e => setHwSubject(e.target.value)} placeholder="Ex: Mathématiques" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
+              <AppSelect value={hwClassId} onChange={setHwClassId} options={[{ value: '', label: 'Sélectionner une classe' }, ...(() => {
+                // Filter classes by teacher's classNames assignment (if available)
+                const myClassNames = (userData?.classNames || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+                const filtered = myClassNames.length > 0
+                  ? classes.filter(c => myClassNames.includes(c.name))
+                  : classes;
+                return filtered.map(c => ({ value: c.id, label: c.name }));
+              })()]} placeholder="Sélectionner une classe" className="w-full" />
+              {userData?.classNames && (
+                <p className="text-[11px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>
+                  Classes assignées: {userData.classNames}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Date limite *</label>
+              <input type="date" value={hwDueDate} onChange={e => setHwDueDate(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Description</label>
+              <textarea value={hwDesc} onChange={e => setHwDesc(e.target.value)} rows={3} placeholder="Instructions pour le devoir..." className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Fichier joint (optionnel)</label>
+              <div className="flex items-center gap-3">
+                <label className="flex-1 flex items-center gap-2 px-3 py-2.5 border border-dashed border-[oklch(90%_0.01_175)] rounded-xl text-sm cursor-pointer hover:border-[oklch(72%_0.15_65)] transition" style={{ color: TEXT_MUTED_LUXE }}>
+                  <Upload size={14} />
+                  {hwAttachment ? hwAttachment.name : 'Choisir un fichier (TXT, PDF, Word)'}
+                  <input type="file" accept=".txt,.pdf,.doc,.docx" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { setHwAttachment(f); handleHomeworkFileUpload(f) } }} />
+                </label>
+                {hwAttachmentUploading && <div className="h-4 w-4 border-2 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" />}
+                {hwAttachmentUrl && !hwAttachmentUploading && <Check size={14} style={{ color: SUCCESS }} />}
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3 mt-4">
+            <button onClick={handleAddHomework} disabled={submitting || !hwTitle || !hwSubject || !hwClassId || !hwDueDate} className="edu-gold-cta px-6 py-2.5 rounded-xl font-semibold text-sm inline-flex items-center gap-2 disabled:opacity-50">
+              {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={14} />}
+              Ajouter le devoir
+            </button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : homework.length === 0 ? (
+        <div className="text-center py-8">
+          <PenTool size={32} className="mx-auto mb-3" style={{ color: TEXT_MUTED_LUXE }} />
+          <p className="font-medium" style={{ color: TEXT_PRIMARY }}>Aucun devoir</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {homework.map(h => {
+            const reads = h.reads || []
+            const readCount = reads.length
+            const readPercentage = totalUsers > 0 ? Math.round((readCount / totalUsers) * 100) : 0
+            const isExpanded = expandedHomework === h.id
+            return (
+              <div ref={highlightedId === h.id ? highlightedRef : undefined} key={h.id} className={`bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm edu-card-lift ${highlightedId === h.id ? 'edu-highlight' : ''}`}>
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>{h.title}</h3>
+                  <span className="text-xs px-2 py-1 rounded-full shrink-0" style={{ color: GOLD, background: GOLD_SOFT }}>{h.subjectName}</span>
+                </div>
+                <p className="text-sm mb-3 line-clamp-2" style={{ color: TEXT_MUTED_LUXE }}>{h.description}</p>
+                {(h as any).attachmentUrl && (
+                  <button onClick={() => setPreviewAttachment((h as any).attachmentUrl)} className="inline-flex items-center gap-1.5 text-xs font-medium mb-3 px-2.5 py-1.5 rounded-lg transition hover:opacity-80" style={{ background: `${ACCENT}15`, color: ACCENT }}>
+                    <FileText size={12} /> Voir la pièce jointe
+                  </button>
+                )}
+                <div className="flex items-center justify-between text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1" style={{ color: GOLD }}><Calendar size={12} /> Échéance: {formatDate(h.dueDate)}</span>
+                    {h.class?.name && <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium" style={{ background: IVORY, color: TEXT_MUTED_LUXE }}>{h.class.name}</span>}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium" style={{ color: TEXT_PRIMARY }}>{h.teacherName}</span>
+                    {h.isTitulaire && (
+                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: GOLD_SOFT, color: GOLD }}>Titulaire</span>
+                    )}
+                  </div>
+                </div>
+                {/* For parents: show course + teacher + titulaire prominently */}
+                {isParent && (
+                  <div className="mt-3 pt-3 border-t border-[oklch(90%_0.01_175)]">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>
+                        <BookOpen size={10} /> {h.subjectName}
+                      </span>
+                      <span className="text-[11px] font-medium" style={{ color: TEXT_PRIMARY }}>
+                        Par {h.teacherName}
+                      </span>
+                      {h.isTitulaire && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold" style={{ background: 'oklch(94% 0.05 145)', color: SUCCESS }}>
+                          <Award size={10} /> Titulaire
+                        </span>
+                      )}
+                    </div>
+                    {(() => {
+                      const concerned = parentChildren.filter(c => c.classId && c.classId === h.classId)
+                      if (concerned.length === 0) return null
+                      return (
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <span className="text-[11px] font-medium" style={{ color: TEXT_MUTED_LUXE }}>Pour :</span>
+                          {concerned.map(child => (
+                            <span key={child.id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold" style={{ background: GOLD_SOFT, color: TEXT_PRIMARY }}>
+                              <StudentAvatar firstName={child.firstName} lastName={child.lastName} photoUrl={child.photoUrl} size={18} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
+                              {child.firstName} {child.lastName}
+                            </span>
+                          ))}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+                {/* Read stats - only for admin/direction roles */}
+                {canSeeStats && (
+                  <div className="mt-3 pt-3 border-t border-[oklch(90%_0.01_175)]">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ background: readPercentage >= 80 ? SUCCESS : readPercentage >= 50 ? WARNING : DANGER }} />
+                        <span className="text-xs font-medium" style={{ color: TEXT_PRIMARY }}>{readCount}/{totalUsers} lu</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: readPercentage >= 80 ? `${SUCCESS}15` : readPercentage >= 50 ? `${WARNING}15` : `${DANGER}15`, color: readPercentage >= 80 ? SUCCESS : readPercentage >= 50 ? WARNING : DANGER }}>{readPercentage}%</span>
+                      </div>
+                      <button onClick={() => setExpandedHomework(isExpanded ? null : h.id)} className="text-[10px] px-2 py-0.5 rounded-lg hover:bg-[oklch(95%_0.01_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>
+                        {isExpanded ? 'Masquer' : 'Détails'}
+                      </button>
+                    </div>
+                    {isExpanded && (
+                      <div className="mt-2 space-y-1">
+                        {reads.length > 0 ? (
+                          reads.map(r => (
+                            <div key={r.id} className="flex items-center justify-between text-[11px] py-1 px-2 rounded-lg bg-[oklch(97%_0.005_175)]">
+                              <div className="flex items-center gap-2">
+                                <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold" style={{ background: `${ACCENT}20`, color: ACCENT }}>{r.user?.name?.charAt(0) || '?'}</div>
+                                <span style={{ color: TEXT_PRIMARY }}>{r.user?.name || 'Inconnu'}</span>
+                                <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: `${INFO}15`, color: INFO }}>{r.user?.role}</span>
+                              </div>
+                              <span style={{ color: TEXT_MUTED_LUXE }}>{r.readAt ? new Date(r.readAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-[11px] py-2 text-center" style={{ color: TEXT_MUTED_LUXE }}>Aucune lecture pour le moment</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Attachment Preview Modal */}
+      {previewAttachment && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setPreviewAttachment(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-[oklch(90%_0.01_175)]" style={{ background: `linear-gradient(135deg, ${ACCENT}08, ${GOLD}08)` }}>
+              {schoolData?.logo ? (
+                <img src={schoolData.logo} alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-sm" />
+              ) : (
+                <div className="w-10 h-10 rounded-xl grid place-items-center text-white text-sm font-bold shadow-sm" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                  {schoolData?.name?.substring(0, 2).toUpperCase() || 'EG'}
+                </div>
+              )}
+              <div className="flex-1">
+                <h3 className="font-bold text-sm" style={{ color: TEXT_PRIMARY }}>{schoolData?.name || 'EduGest'}</h3>
+                <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Pièce jointe du devoir</p>
+              </div>
+              <button onClick={() => setPreviewAttachment(null)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[oklch(95%_0.01_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto">
+              {previewAttachment.endsWith('.pdf') ? (
+                <iframe src={previewAttachment} className="w-full h-[70vh] border-0" title="Aperçu du fichier" />
+              ) : (
+                <div className="p-8 text-center">
+                  <FileText size={48} className="mx-auto mb-4" style={{ color: TEXT_MUTED_LUXE }} />
+                  <p className="font-medium mb-2" style={{ color: TEXT_PRIMARY }}>Aperçu non disponible pour ce format</p>
+                  <a href={previewAttachment} download className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: ACCENT }}>
+                    <FileText size={14} /> Télécharger le fichier
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ProfileView imported from @/components/views/ProfileView
+
+// ===== CLASS PASSING VIEW (v2 : délibération notes + discipline & repêchage) =====
+interface PassingStudent {
+  id: string
+  matricule: string
+  firstName: string
+  lastName: string
+  photoUrl?: string | null
+  class: { id: string; name: string; section?: string } | null
+  annualAverage: number | null
+  trimesterAverages: { T1?: number | null; T2?: number | null; T3?: number | null }
+  failingSubjects: { subjectId: string; name: string; score: number }[]
+  disciplinePoints: number
+  sanctionCount: number
+  hasCriticalSanctions: boolean
+  riskScore: number
+  riskLevel: 'CRITIQUE' | 'ELEVE' | 'MODERE' | 'FAIBLE'
+  decision: string
+  qualification: { category: string; badgeLabel: string; reason: string }
+}
+
+interface PassingVisibility {
+  visible: boolean
+  openDate: string | null
+  officialDate: string | null
+  daysRemaining: number | null
+  message: string
+  source: string
+}
+
+interface RepechageExamData {
+  id: string
+  studentId: string
+  student: { id: string; firstName: string; lastName: string; matricule?: string; photoUrl?: string; class?: { name?: string } | null }
+  subjects: { subjectId?: string; name: string; score?: number }[]
+  examDate?: string | null
+  status: string
+  sentViaApp?: boolean
+  sentViaWhatsapp?: boolean
+  createdByName?: string
+  createdAt: string
+}
+
+const RISK_BADGE: Record<string, { label: string; color: string }> = {
+  CRITIQUE: { label: 'Critique', color: DANGER },
+  ELEVE: { label: 'Élevé', color: WARNING },
+  MODERE: { label: 'Modéré', color: INFO },
+  FAIBLE: { label: 'Faible', color: SUCCESS },
+}
+
+function ClassPassingView() {
+  const { userData, userRole } = useEduGestStore()
+  const router = useRouter()
+  const allowedRoles = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN']
+  // Passage de classe : réservé aux admins abonnés au forfait Professionnel (PREMIUM) et plus
+  const tier = userData?.subscriptionTier || 'FREEMIUM'
+  const isSuperAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
+  const tierOk = isSuperAdmin || ['PREMIUM', 'ENTERPRISE', 'CORPORATE'].includes(tier)
+  const canAccess = tierOk && allowedRoles.includes(userRole || '')
+  const [tab, setTab] = useState<'deliberation' | 'repechage'>('deliberation')
+  const [students, setStudents] = useState<PassingStudent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [visibility, setVisibility] = useState<PassingVisibility | null>(null)
+  const [stats, setStats] = useState<Record<string, number>>({})
+  const [listSearch, setListSearch] = useState('')
+  const [decisions, setDecisions] = useState<Record<string, string>>({})
+  const [savingId, setSavingId] = useState<string | null>(null)
+  // Repêchage
+  const [repStudent, setRepStudent] = useState<PassingStudent | null>(null)
+  const [repSearch, setRepSearch] = useState('')
+  const [repSelected, setRepSelected] = useState<string[]>([])
+  const [repDate, setRepDate] = useState('')
+  const [repNote, setRepNote] = useState('')
+  const [repSending, setRepSending] = useState(false)
+  const [repHistory, setRepHistory] = useState<RepechageExamData[]>([])
+  const [repHistoryLoading, setRepHistoryLoading] = useState(false)
+
+  useEffect(() => {
+    if (!tierOk) {
+      router.push(`/subscription-required?feature=${encodeURIComponent('passage de classe')}&requiredTier=PREMIUM`)
+    }
+  }, [tierOk, router])
+
+  const loadClassPassing = useCallback(async () => {
+    if (!getActiveSchoolId()) return
+    setLoading(true)
+    try {
+      const res = await authFetch(`/api/class-passing?schoolId=${getActiveSchoolId()}`)
+      const j = await res.json()
+      if (res.ok) {
+        setStudents(j.data || [])
+        setVisibility(j.visibility || null)
+        setStats(j.stats || {})
+        const existing: Record<string, string> = {}
+        for (const s of (j.data || [])) {
+          if (s.decision && s.decision !== 'PENDING') existing[s.id] = s.decision
+        }
+        setDecisions(prev => ({ ...existing, ...prev }))
+      } else {
+        toast.error(j.error || 'Erreur de chargement')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setLoading(false) }
+  }, [getActiveSchoolId()])
+
+  useEffect(() => { loadClassPassing() }, [loadClassPassing])
+
+  const loadRepHistory = useCallback(async () => {
+    if (!getActiveSchoolId()) return
+    setRepHistoryLoading(true)
+    try {
+      const res = await authFetch(`/api/class-passing/repechage?schoolId=${getActiveSchoolId()}`)
+      const j = await res.json()
+      if (res.ok) setRepHistory(j.data || [])
+    } catch { /* silencieux */ }
+    finally { setRepHistoryLoading(false) }
+  }, [getActiveSchoolId()])
+
+  useEffect(() => { if (tab === 'repechage') loadRepHistory() }, [tab, loadRepHistory])
+
+  // Recherche repêchage : filtre local sur les élèves chargés (notes + discipline déjà calculées)
+  const repSuggestions: AutocompleteItem[] = repSearch.length >= 2
+    ? students
+        .filter(s => `${s.firstName} ${s.lastName}`.toLowerCase().includes(repSearch.toLowerCase()) || s.matricule.toLowerCase().includes(repSearch.toLowerCase()))
+        .slice(0, 8)
+        .map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: `${s.matricule} · ${s.class?.name || ''} · ${s.failingSubjects.length} matière(s) < 10`, photoUrl: s.photoUrl ?? undefined }))
+    : []
+
+  const selectRepStudent = (id: string) => {
+    const s = students.find(x => x.id === id) || null
+    setRepStudent(s)
+    setRepSelected(s ? s.failingSubjects.map(f => f.subjectId) : [])
+    setRepSearch('')
+  }
+
+  const sendRepechage = async () => {
+    if (!repStudent) { toast.error('Sélectionnez un élève'); return }
+    if (repSelected.length === 0) { toast.error('Cochez au moins une matière à repêcher'); return }
+    setRepSending(true)
+    try {
+      const subjects = repStudent.failingSubjects.filter(f => repSelected.includes(f.subjectId))
+      const res = await authFetch('/api/class-passing/repechage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: repStudent.id,
+          schoolId: getActiveSchoolId() ?? null,
+          subjects,
+          examDate: repDate || undefined,
+          note: repNote || undefined,
+          sendWhatsApp: true,
+        }),
+      })
+      const j = await res.json()
+      if (res.ok) {
+        const n = j.notifications || {}
+        toast.success(`Examens de repêchage envoyés — App : ${n.appSent || 0} notif(s), WhatsApp : ${n.whatsappSent || 0} message(s)`)
+        setRepStudent(null); setRepSelected([]); setRepDate(''); setRepNote('')
+        loadRepHistory()
+      } else {
+        toast.error(j.error || 'Erreur lors de l\'envoi')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setRepSending(false) }
+  }
+
+  const startRepFromRow = (s: PassingStudent) => {
+    setTab('repechage')
+    setRepStudent(s)
+    setRepSelected(s.failingSubjects.map(f => f.subjectId))
+    setRepSearch('')
+  }
+
+  const filteredList = listSearch.length >= 2
+    ? students.filter(s => `${s.firstName} ${s.lastName}`.toLowerCase().includes(listSearch.toLowerCase()) || s.matricule.toLowerCase().includes(listSearch.toLowerCase()))
+    : students
+
+  const riskColor = (level: string) => RISK_BADGE[level] || RISK_BADGE.FAIBLE
+
+  return (
+    <div>
+      {!canAccess ? (
+        <div className="text-center py-12 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl">
+          <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Vous n&apos;avez pas accès à cette page</p>
+        </div>
+      ) : (
+      <>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Passage de classe</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>
+            Fin d&apos;année — délibération basée sur les plus mauvaises notes et la discipline · {formatNumber(students.length)} élèves évalués
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setTab('deliberation')} className={`px-4 py-2 rounded-xl text-sm font-medium transition border ${tab === 'deliberation' ? 'text-white border-transparent shadow-sm' : 'bg-white border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)]'}`} style={tab === 'deliberation' ? { background: ACCENT } : { color: TEXT_PRIMARY }}>
+            <ListChecks size={14} className="inline mr-1.5 -mt-0.5" /> Délibération
+          </button>
+          <button onClick={() => setTab('repechage')} className={`px-4 py-2 rounded-xl text-sm font-medium transition border ${tab === 'repechage' ? 'text-white border-transparent shadow-sm' : 'bg-white border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)]'}`} style={tab === 'repechage' ? { background: ACCENT } : { color: TEXT_PRIMARY }}>
+            <RotateCcw size={14} className="inline mr-1.5 -mt-0.5" /> Repêchage {repHistory.length > 0 && <span className="ml-1 px-1.5 py-px rounded-full text-[10px] font-bold" style={{ background: GOLD, color: '#1a1a1a' }}>{repHistory.length}</span>}
+          </button>
+        </div>
+      </div>
+
+      {/* Bandeau de visibilité contrôlé par l'admin global de la plateforme */}
+      {visibility && !visibility.visible && (
+        <div className="mb-6 rounded-2xl border p-5 flex items-start gap-3" style={{ background: GOLD_SOFT, borderColor: 'oklch(85%_0.08_85)' }}>
+          <Lock size={18} style={{ color: GOLD }} className="mt-0.5 shrink-0" />
+          <div>
+            <div className="text-sm font-bold mb-0.5" style={{ color: TEXT_PRIMARY }}>Interface verrouillée — ouverture programmée</div>
+            <div className="text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
+              {visibility.openDate && visibility.officialDate
+                ? `Disponible à partir du ${new Date(visibility.openDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} · Date officielle : ${new Date(visibility.officialDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                : visibility.message}
+              {visibility.daysRemaining != null && visibility.daysRemaining > 0 ? ` · Dans ${visibility.daysRemaining} jour(s)` : ''}
+            </div>
+          </div>
+        </div>
+      )}
+      {visibility && visibility.visible && visibility.source === 'PLATFORM_EVENT' && (
+        <div className="mb-6 rounded-2xl border p-4 flex items-center gap-3" style={{ background: SUCCESS_SOFT, borderColor: 'oklch(88%_0.06_145)' }}>
+          <CheckCircle size={16} style={{ color: SUCCESS }} className="shrink-0" />
+          <div className="text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>
+            Période de passage de classe ouverte{visibility.officialDate ? ` — date officielle : ${new Date(visibility.officialDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
+          </div>
+        </div>
+      )}
+
+      {tab === 'deliberation' && (
+      <>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4">
+          <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: TEXT_MUTED_LUXE }}>Évalués</div>
+          <div className="text-xl font-bold tabular-nums" style={{ color: TEXT_PRIMARY }}>{formatNumber(stats.totalStudents ?? students.length)}</div>
+        </div>
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4">
+          <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: TEXT_MUTED_LUXE }}>À risque</div>
+          <div className="text-xl font-bold tabular-nums" style={{ color: DANGER }}>{formatNumber(stats.atRiskCount ?? 0)}</div>
+        </div>
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4">
+          <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: TEXT_MUTED_LUXE }}>Délibération</div>
+          <div className="text-xl font-bold tabular-nums" style={{ color: WARNING }}>{formatNumber(stats.deliberationTotal ?? 0)}</div>
+        </div>
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4">
+          <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: TEXT_MUTED_LUXE }}>Échec (&lt; 10/20)</div>
+          <div className="text-xl font-bold tabular-nums" style={{ color: GOLD }}>{formatNumber(stats.repechageCount ?? 0)}</div>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative flex-1 max-w-sm">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: TEXT_MUTED_LUXE }} />
+          <input
+            value={listSearch}
+            onChange={e => setListSearch(e.target.value)}
+            placeholder="Rechercher un élève (nom ou matricule)..."
+            className="w-full pl-9 pr-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+            style={{ color: TEXT_PRIMARY }}
+          />
+        </div>
+        <span className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>Classés des plus faibles aux meilleurs</span>
+      </div>
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm">
+        <div className="overflow-x-auto max-h-[560px] overflow-y-auto custom-scrollbar">
+          <table className="w-full">
+            <thead className="sticky top-0 z-10">
+              <tr style={{ background: IVORY }}>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Élève</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Classe</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Moyenne</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3 hidden md:table-cell" style={{ color: GOLD }}>Matières en échec</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3 hidden lg:table-cell" style={{ color: GOLD }}>Discipline</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Risque</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Décision</th>
+                <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-4 py-3" style={{ color: GOLD }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={8} className="text-center py-10" style={{ color: TEXT_MUTED_LUXE }}>Chargement des évaluations...</td></tr>
+              ) : visibility && !visibility.visible && !isSuperAdmin ? (
+                <tr><td colSpan={8} className="text-center py-10" style={{ color: TEXT_MUTED_LUXE }}>Période non ouverte — les délibérations apparaissent à la date programmée par la plateforme.</td></tr>
+              ) : filteredList.length === 0 ? (
+                <tr><td colSpan={8} className="text-center py-10" style={{ color: TEXT_MUTED_LUXE }}>Aucun élève évalué</td></tr>
+              ) : filteredList.map(s => {
+                const rb = riskColor(s.riskLevel)
+                return (
+                <tr key={s.id} className="hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <StudentAvatar firstName={s.firstName} lastName={s.lastName} photoUrl={s.photoUrl} size={32} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
+                      <div>
+                        <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{s.firstName} {s.lastName}</div>
+                        <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.class?.name || '—'}</td>
+                  <td className="px-4 py-3">
+                    {s.annualAverage != null ? (
+                      <div>
+                        <div className={`text-[14px] font-bold tabular-nums ${s.annualAverage < 10 ? 'animate-pulse' : ''}`} style={{ color: s.annualAverage < 10 ? DANGER : s.annualAverage < 12 ? WARNING : SUCCESS }}>{s.annualAverage.toFixed(2)}/20</div>
+                        <div className="text-[10px] tabular-nums" style={{ color: TEXT_MUTED_LUXE }}>
+                          T1 {s.trimesterAverages?.T1 != null ? s.trimesterAverages.T1.toFixed(1) : '—'} · T2 {s.trimesterAverages?.T2 != null ? s.trimesterAverages.T2.toFixed(1) : '—'} · T3 {s.trimesterAverages?.T3 != null ? s.trimesterAverages.T3.toFixed(1) : '—'}
+                        </div>
+                      </div>
+                    ) : <span className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>Aucune note</span>}
+                  </td>
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    {s.failingSubjects.length > 0 ? (
+                      <div title={s.failingSubjects.map(f => `${f.name} (${f.score.toFixed(1)}/20)`).join(', ')}>
+                        <span className="text-[12px] font-semibold" style={{ color: DANGER }}>{s.failingSubjects.length} matière(s)</span>
+                        <div className="text-[10px] truncate max-w-[160px]" style={{ color: TEXT_MUTED_LUXE }}>{s.failingSubjects.slice(0, 3).map(f => f.name).join(', ')}{s.failingSubjects.length > 3 ? '…' : ''}</div>
+                      </div>
+                    ) : <span className="text-[12px]" style={{ color: SUCCESS }}>—</span>}
+                  </td>
+                  <td className="px-4 py-3 hidden lg:table-cell">
+                    <div className="text-[12px] font-semibold tabular-nums" style={{ color: s.disciplinePoints <= -10 ? DANGER : s.disciplinePoints < 0 ? WARNING : SUCCESS }}>{s.disciplinePoints} pts</div>
+                    <div className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>{s.sanctionCount} sanction(s){s.hasCriticalSanctions ? ' · critique' : ''}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold text-white" style={{ background: rb.color }}>{rb.label}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <AppSelect value={decisions[s.id] || 'PENDING'} onChange={(val) => setDecisions(prev => ({ ...prev, [s.id]: val }))} options={[{ value: 'PENDING', label: 'En attente' }, { value: 'PASSED', label: 'Passage' }, { value: 'REPEAT', label: 'Redouble' }, { value: 'RATTRAPAGE', label: 'Rattrapage' }]} className="w-36" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <button onClick={async () => {
+                        const decision = decisions[s.id]
+                        if (!decision || decision === 'PENDING') { toast.error('Sélectionnez une décision'); return }
+                        setSavingId(s.id)
+                        try {
+                          const res = await authFetch('/api/report-cards', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentId: s.id, decision, trimester: 'T3', schoolId: getActiveSchoolId() }) })
+                          if (res.ok) toast.success('Décision enregistrée — admins & parents notifiés')
+                          else toast.error('Erreur lors de l\'enregistrement')
+                        } catch { toast.error('Erreur réseau') }
+                        finally { setSavingId(null) }
+                      }} disabled={savingId === s.id} className="text-sm font-medium hover:underline disabled:opacity-50" style={{ color: GOLD }}>
+                        {savingId === s.id ? '...' : 'Valider'}
+                      </button>
+                      {(s.riskLevel === 'CRITIQUE' || s.riskLevel === 'ELEVE' || s.failingSubjects.length > 0) && (
+                        <button onClick={() => startRepFromRow(s)} title="Envoyer aux examens de repêchage" className="inline-flex items-center gap-1 text-[12px] font-medium px-2 py-1 rounded-lg border border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)] transition" style={{ color: TEXT_PRIMARY }}>
+                          <RotateCcw size={11} /> Repêcher
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      </>
+      )}
+
+      {tab === 'repechage' && (
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+        {/* Formulaire d'envoi */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-6 rounded-full" style={{ background: GOLD }} />
+              <h2 className="text-base font-bold" style={{ color: TEXT_PRIMARY }}>Examens de repêchage</h2>
+            </div>
+            <p className="text-[12px] mb-4 -ml-0" style={{ color: TEXT_MUTED_LUXE }}>
+              Tapez le nom de l&apos;élève : ses matières en échec (&lt; 10/20) s&apos;affichent. Cochez les matières à repêcher — les examens seront envoyés aux parents via l&apos;application et WhatsApp.
+            </p>
+            <SearchAutocomplete
+              placeholder="Tapez le nom de l'élève..."
+              items={repSuggestions}
+              selectedId={repStudent?.id || null}
+              onSelect={(item) => selectRepStudent(item.id)}
+              onClear={() => { setRepStudent(null); setRepSelected([]) }}
+              searchQuery={repSearch}
+              onSearchChange={setRepSearch}
+              loading={false}
+              itemTypeName="élève"
+              className="w-full"
+            />
+            {repStudent && (
+              <div className="mt-4 space-y-4">
+                <div className="flex items-center gap-2.5 p-3 rounded-xl" style={{ background: IVORY }}>
+                  <StudentAvatar firstName={repStudent.firstName} lastName={repStudent.lastName} photoUrl={repStudent.photoUrl} size={36} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-semibold" style={{ color: TEXT_PRIMARY }}>{repStudent.firstName} {repStudent.lastName}</div>
+                    <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{repStudent.class?.name || '—'} · Moy. {repStudent.annualAverage != null ? `${repStudent.annualAverage.toFixed(2)}/20` : '—'}</div>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[12px] font-semibold mb-2" style={{ color: TEXT_PRIMARY }}>Matières à repêcher ({repSelected.length}/{repStudent.failingSubjects.length})</div>
+                  {repStudent.failingSubjects.length === 0 ? (
+                    <div className="text-[12px] p-3 rounded-xl" style={{ color: SUCCESS, background: SUCCESS_SOFT }}>Aucune matière en échec pour cet élève</div>
+                  ) : (
+                    <div className="space-y-1.5 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
+                      {repStudent.failingSubjects.map(f => (
+                        <label key={f.subjectId} className="flex items-center gap-2.5 p-2.5 rounded-xl border border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)] cursor-pointer transition">
+                          <input type="checkbox" checked={repSelected.includes(f.subjectId)} onChange={e => setRepSelected(prev => e.target.checked ? [...prev, f.subjectId] : prev.filter(x => x !== f.subjectId))} className="accent-[oklch(72%_0.15_65)] w-4 h-4" />
+                          <span className="text-[13px] flex-1" style={{ color: TEXT_PRIMARY }}>{f.name}</span>
+                          <span className="text-[12px] font-bold tabular-nums" style={{ color: DANGER }}>{f.score.toFixed(1)}/20</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Date de l&apos;examen</label>
+                    <input type="date" value={repDate} onChange={e => setRepDate(e.target.value)} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Note (optionnel)</label>
+                    <input value={repNote} onChange={e => setRepNote(e.target.value)} placeholder="Salle, consignes..." className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} />
+                  </div>
+                </div>
+                <button onClick={sendRepechage} disabled={repSending || repSelected.length === 0} className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 text-white transition disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                  {repSending ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send size={15} />}
+                  Créer & envoyer (App + WhatsApp)
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        {/* Historique */}
+        <div className="lg:col-span-3">
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-6 rounded-full" style={{ background: GOLD }} />
+                <h2 className="text-base font-bold" style={{ color: TEXT_PRIMARY }}>Examens envoyés</h2>
+              </div>
+              <button onClick={loadRepHistory} className="text-[12px] font-medium hover:underline flex items-center gap-1" style={{ color: GOLD }}>
+                <RefreshCw size={12} className={repHistoryLoading ? 'animate-spin' : ''} /> Actualiser
+              </button>
+            </div>
+            <div className="space-y-3 max-h-[560px] overflow-y-auto custom-scrollbar pr-1">
+              {repHistoryLoading && repHistory.length === 0 ? (
+                <div className="text-center py-10 text-sm" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div>
+              ) : repHistory.length === 0 ? (
+                <div className="text-center py-10">
+                  <RotateCcw size={28} className="mx-auto mb-2 opacity-30" style={{ color: TEXT_MUTED_LUXE }} />
+                  <div className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Aucun examen de repêchage envoyé</div>
+                </div>
+              ) : repHistory.map(r => (
+                <div key={r.id} className="p-4 rounded-xl border border-[oklch(90%_0.01_175)] hover:shadow-sm transition">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <StudentAvatar firstName={r.student.firstName} lastName={r.student.lastName} photoUrl={r.student.photoUrl} size={32} className="text-white font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
+                      <div className="min-w-0">
+                        <div className="text-[13px] font-semibold truncate" style={{ color: TEXT_PRIMARY }}>{r.student.firstName} {r.student.lastName}</div>
+                        <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{r.student.class?.name || '—'} · {r.student.matricule || ''}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {r.sentViaApp && <span title="Envoyé via l'application" className="w-6 h-6 grid place-items-center rounded-full" style={{ background: SUCCESS_SOFT, color: SUCCESS }}><CheckCircle size={13} /></span>}
+                      {r.sentViaWhatsapp && <span title="Envoyé via WhatsApp" className="w-6 h-6 grid place-items-center rounded-full" style={{ background: 'oklch(94%_0.06_145)', color: 'oklch(45%_0.13_145)' }}><MessageCircle size={13} /></span>}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {(r.subjects || []).map((sub, i) => (
+                      <span key={i} className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ background: IVORY, color: TEXT_PRIMARY }}>{sub.name}{sub.score != null ? ` · ${sub.score.toFixed(1)}/20` : ''}</span>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
+                    <span>{r.examDate ? `Examen : ${new Date(r.examDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}` : 'Date à confirmer'}</span>
+                    <span>Par {r.createdByName || '—'} · {new Date(r.createdAt).toLocaleDateString('fr-FR')}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      )}
+      </>
+      )}
+    </div>
+  )
+}
+
+// ===== BULLETIN VIEW =====
+// Notifications de bulletin deja resolues (anti-boucle : une seule resolution par eleve).
+const resolvedBulletinNotifs = new Set<string>()
+function BulletinView() {
+  const { userData, userRole, highlightedId, pendingStudentFocus, setPendingStudentFocus } = useEduGestStore()
+  const [grades, setGrades] = useState<GradeData[]>([])
+  const [classes, setClasses] = useState<ClassData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [studentSearch, setStudentSearch] = useState('')
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
+  const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false)
+  const [selectedTrimester, setSelectedTrimester] = useState('T1')
+  const [selectedClassId, setSelectedClassId] = useState<string>('all')
+  const isParent = userRole === 'PARENT'
+  const highlightedRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (highlightedId && highlightedRef.current) {
+      highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlightedId])
+
+  useEffect(() => {
+    const params = new URLSearchParams({ limit: '200', trimester: selectedTrimester })
+    if (isParent && userData?.id) {
+      params.set('parentId', userData.id)
+      if (selectedStudentId) { params.delete('parentId'); params.set('studentId', selectedStudentId) }
+    } else {
+      const schoolId = getActiveSchoolId(); if (schoolId) params.set('schoolId', schoolId)
+    }
+    authFetch(`/api/grades?${params}`).then(r => r.json()).then(j => {
+      const list = j.data || []
+      setGrades(list); setLoading(false)
+      // Clic notification : surlignage pose avant le chargement -> scroll retry,
+      // et preselection eleve + trimestre (BULLETIN_UPDATED porte l'ID eleve).
+      const hid = useEduGestStore.getState().highlightedId
+      if (!hid) return
+      if (list.some((g: GradeData) => g.studentId === hid)) {
+        if (hid !== selectedStudentId) setSelectedStudentId(hid)
+        setTimeout(() => highlightedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200)
+      } else if (!resolvedBulletinNotifs.has(hid)) {
+        resolvedBulletinNotifs.add(hid)
+        setTimeout(() => resolvedBulletinNotifs.delete(hid), 15000)
+        const scope = isParent && userData?.id ? `parentId=${userData.id}` : getActiveSchoolId() ? `schoolId=${getActiveSchoolId()}` : ''
+        authFetch(`/api/grades?${scope}&limit=200`).then(r => r.json()).then(j2 => {
+          const found = (j2.data || []).find((g: GradeData) => g.studentId === hid)
+          if (found) {
+            if (found.trimester && found.trimester !== selectedTrimester) setSelectedTrimester(found.trimester)
+            setSelectedStudentId(hid)
+          }
+        }).catch(() => {})
+      }
+    }).catch(() => setLoading(false))
+  }, [selectedTrimester, getActiveSchoolId() ?? null, userData?.id, isParent, selectedStudentId])
+
+  useEffect(() => {
+    const params = new URLSearchParams()
+    const schoolId = getActiveSchoolId(); if (schoolId) params.set('schoolId', schoolId)
+    authFetch(`/api/classes?${params}`).then(r => r.json()).then(j => setClasses(j.data || [])).catch(() => {})
+  }, [getActiveSchoolId()])
+
+  // Enfant ciblé depuis le dashboard parent (puce « Bulletin ») : présélection directe
+  useEffect(() => {
+    const focus = pendingStudentFocus
+    if (!focus) return
+    setPendingStudentFocus(null)
+    setSelectedStudentId(focus.id)
+    setStudentSuggestions([{ id: focus.id, label: `${focus.firstName} ${focus.lastName}`, sublabel: focus.matricule, photoUrl: focus.photoUrl }])
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [pendingStudentFocus, setPendingStudentFocus])
+
+  useEffect(() => {
+    if (studentSearch.length < 2) return
+    const timer = setTimeout(() => {
+      setStudentSearchLoading(true)
+      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&limit=8${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}`)
+        .then(r => r.json())
+        .then(j => {
+          setStudentSuggestions((j.data || []).map((s: StudentData) => ({
+            id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule, photoUrl: s.photoUrl
+          })))
+          setStudentSearchLoading(false)
+        })
+        .catch(() => setStudentSearchLoading(false))
+    }, 300)
+    return () => { clearTimeout(timer); setStudentSearchLoading(false) }
+  }, [studentSearch, getActiveSchoolId()])
+
+  const classMap = useMemo(() => Object.fromEntries(classes.map(c => [c.id, c])), [classes])
+
+  const studentGrades = useMemo(() => {
+    const map: Record<string, { student: GradeData['student']; grades: GradeData[]; classId: string }> = {}
+    for (const g of grades) {
+      if (!map[g.studentId]) map[g.studentId] = { student: g.student, grades: [], classId: g.classId }
+      map[g.studentId].grades.push(g)
+    }
+    return map
+  }, [grades])
+
+  const filtered = useMemo(() => {
+    let entries = Object.entries(studentGrades)
+    if (selectedStudentId) entries = entries.filter(([id]) => id === selectedStudentId)
+    else if (studentSearch.length >= 2) entries = entries.filter(([_, d]) => `${d.student?.firstName} ${d.student?.lastName}`.toLowerCase().includes(studentSearch.toLowerCase()))
+    if (selectedClassId !== 'all') entries = entries.filter(([_, d]) => d.classId === selectedClassId)
+    return entries
+  }, [studentGrades, selectedStudentId, studentSearch, selectedClassId])
+
+  const byClass = useMemo(() => {
+    const groups: Record<string, { classId: string; className: string; students: { id: string; student: GradeData['student']; grades: GradeData[]; avg: number }[] }> = {}
+    for (const [id, data] of filtered) {
+      const cid = data.classId
+      if (!groups[cid]) groups[cid] = { classId: cid, className: classMap[cid]?.name || 'Classe inconnue', students: [] }
+      const avg = data.grades.length > 0 ? data.grades.reduce((s, g) => s + g.score * (g.subject?.coefficient || 1), 0) / data.grades.reduce((s, g) => s + (g.subject?.coefficient || 1), 0) : 0
+      groups[cid].students.push({ id, student: data.student, grades: data.grades, avg })
+    }
+    for (const g of Object.values(groups)) g.students.sort((a, b) => b.avg - a.avg)
+    return Object.values(groups).sort((a, b) => a.className.localeCompare(b.className, 'fr'))
+  }, [filtered, classMap])
+
+  const totalStudents = byClass.reduce((s, c) => s + c.students.length, 0)
+
+  const handleDownload = async (id: string, lastName?: string) => {
+    try {
+      const res = await authFetch(`/api/bulletins/${id}?trimester=${selectedTrimester}${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}`)
+      if (!res.ok) { toast.error('Erreur lors du téléchargement'); return }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = `bulletin-${lastName || 'eleve'}-${selectedTrimester}.pdf`
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
+      toast.success('Bulletin téléchargé !')
+    } catch { toast.error('Erreur réseau') }
+  }
+
+  const [waSendingId, setWaSendingId] = useState<string | null>(null)
+  const handleSendWhatsApp = async (id: string, lastName?: string) => {
+    if (waSendingId) return
+    setWaSendingId(id)
+    try {
+      const res = await authFetch(`/api/bulletins/${id}/whatsapp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trimester: selectedTrimester, schoolId: getActiveSchoolId() || undefined }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data?.sent) {
+        toast.success(`Bulletin envoyé sur WhatsApp (${json.data.phone})`)
+      } else {
+        toast.error(json.error || "Échec de l'envoi WhatsApp")
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setWaSendingId(null) }
+  }
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Bulletins</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>{formatNumber(totalStudents)} bulletin{totalStudents > 1 ? 's' : ''} · {byClass.length} classe{byClass.length > 1 ? 's' : ''}</p>
+        </div>
+        <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 py-2 -my-1" style={{ background: IVORY }}>
+          <AppSelect value={selectedTrimester} onChange={(val) => { setSelectedTrimester(val); setLoading(true) }} options={[{ value: 'T1', label: 'Trimestre 1' }, { value: 'T2', label: 'Trimestre 2' }, { value: 'T3', label: 'Trimestre 3' }]} />
+          <AppSelect value={selectedClassId} onChange={setSelectedClassId} options={[{ value: 'all', label: 'Toutes les classes' }, ...classes.map(c => ({ value: c.id, label: c.name }))]} />
+          <SearchAutocomplete
+            placeholder="Tapez le nom de l'élève..."
+            items={studentSuggestions}
+            selectedId={selectedStudentId}
+            onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
+            onClear={() => { setSelectedStudentId(null); setStudentSearch('') }}
+            searchQuery={studentSearch}
+            onSearchChange={setStudentSearch}
+            loading={studentSearchLoading}
+            itemTypeName="élève"
+            className="w-full max-w-xs"
+          />
+        </div>
+      </div>
+      {loading ? <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div> : byClass.length === 0 ? (
+        <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun bulletin trouvé</div>
+      ) : (
+        <div className="space-y-6">
+          {byClass.map(group => {
+            const classAvg = group.students.length > 0 ? group.students.reduce((s, st) => s + st.avg, 0) / group.students.length : 0
+            const passCount = group.students.filter(st => st.avg >= 10).length
+            const passRate = group.students.length > 0 ? Math.round(passCount / group.students.length * 100) : 0
+            return (
+              <div key={group.classId} className="rounded-2xl border border-[oklch(90%_0.01_175)] bg-white shadow-sm overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-[oklch(93%_0.01_175)] flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${GOLD}15, ${ACCENT}15)` }}>
+                      <GraduationCap size={18} style={{ color: GOLD }} />
+                    </div>
+                    <div>
+                      <div className="font-bold" style={{ color: TEXT_PRIMARY }}>{group.className}</div>
+                      <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{group.students.length} élève{group.students.length > 1 ? 's' : ''}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs">
+                    <div className="text-center">
+                      <div className="font-bold text-sm" style={{ color: classAvg >= 10 ? GOLD : DANGER }}>{((classAvg / 20) * 100).toFixed(1)}%</div>
+                      <div style={{ color: TEXT_MUTED_LUXE }}>Moy. classe</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-bold text-sm" style={{ color: SUCCESS }}>{passRate}%</div>
+                      <div style={{ color: TEXT_MUTED_LUXE }}>Taux réussite</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-5">
+                  {group.students.map((st, idx) => {
+                    // Bulletin complet : moyenne pondérée /20, pourcentage réel
+                    // (moyenne/20 × 100) et position explicite dans la classe.
+                    const percentage = (st.avg / 20) * 100
+                    const position = idx + 1
+                    const totalInClass = group.students.length
+                    const isTitulaireClass = (classMap[group.classId] as any)?.headTeacherId === userData?.id
+                    return (
+                    <div ref={highlightedId === st.id ? highlightedRef : undefined} key={st.id} className={`rounded-xl border p-4 hover:shadow-md transition-all ${highlightedId === st.id ? 'edu-highlight' : ''}`} style={{ borderColor: isTitulaireClass ? `${GOLD}55` : 'oklch(92% 0.01 175)', background: idx === 0 && st.avg >= 10 ? `linear-gradient(135deg, ${GOLD}06, ${GOLD}03)` : undefined }}>
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: position === 1 && st.avg >= 10 ? `linear-gradient(135deg, ${GOLD}, ${ACCENT})` : '#f3f4f6', color: position === 1 && st.avg >= 10 ? '#fff' : TEXT_MUTED_LUXE }}>
+                            {position}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-sm" style={{ color: TEXT_PRIMARY }}>{st.student?.firstName} {st.student?.lastName}</div>
+                            <div className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>{st.student?.matricule}</div>
+                          </div>
+                        </div>
+                        {isTitulaireClass && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: GOLD, background: GOLD_SOFT }}>COMPLET</span>
+                        )}
+                      </div>
+                      {/* Toutes les notes — bulletin complet (zone défilante) */}
+                      <div className="space-y-1 text-[11px] mb-3 max-h-40 overflow-y-auto pr-1 edu-scroll">
+                        {st.grades.map(g => (
+                          <div key={g.id} className="flex justify-between">
+                            <span style={{ color: TEXT_MUTED_LUXE }}>{g.subject?.name}</span>
+                            <span className="font-medium" style={{ color: g.score >= 10 ? GOLD : DANGER }}>{g.score.toFixed(1)}/20</span>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Récapitulatif bas de bulletin : moyenne, pourcentage, position */}
+                      <div className="rounded-lg px-3 py-2 mb-3 text-[11px] space-y-1" style={{ background: IVORY }}>
+                        <div className="flex justify-between">
+                          <span style={{ color: TEXT_MUTED_LUXE }}>Moyenne</span>
+                          <span className="font-bold" style={{ color: st.avg >= 10 ? GOLD : DANGER }}>{st.avg.toFixed(2)}/20</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span style={{ color: TEXT_MUTED_LUXE }}>Pourcentage</span>
+                          <span className="font-bold" style={{ color: percentage >= 50 ? SUCCESS : DANGER }}>{percentage.toFixed(1)}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span style={{ color: TEXT_MUTED_LUXE }}>Position</span>
+                          <span className="font-bold" style={{ color: TEXT_PRIMARY }}>{position}<sup>{position === 1 ? 'er' : 'e'}</sup> / {totalInClass}</span>
+                        </div>
+                      </div>
+                      <button onClick={() => handleDownload(st.id, st.student?.lastName)} className="w-full py-1.5 rounded-lg text-xs font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] hover:shadow-sm transition inline-flex items-center justify-center gap-1.5" style={{ color: TEXT_PRIMARY }}>
+                        <FileText size={12} /> Voir bulletin
+                      </button>
+                      {!isParent && (
+                        <button onClick={() => handleSendWhatsApp(st.id, st.student?.lastName)} disabled={waSendingId === st.id} className="w-full py-1.5 mt-2 rounded-lg text-xs font-medium border border-[oklch(70%_0.12_175)]/40 bg-[oklch(97%_0.02_175)] hover:bg-[oklch(94%_0.04_175)] hover:shadow-sm transition disabled:opacity-60 inline-flex items-center justify-center gap-1.5" style={{ color: 'oklch(45%_0.1_175)' }}>
+                          {waSendingId === st.id ? <div className="h-3 w-3 border-2 border-[oklch(45%_0.1_175)] border-t-transparent rounded-full animate-spin" /> : <Send size={12} />} Envoyer sur WhatsApp
+                        </button>
+                      )}
+                    </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ===== CONVOCATION VIEW =====
+function ConvocationView() {
+  const { hasAccess, requiredTier } = useFeatureAccess('convocations')
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!hasAccess) {
+      router.push(`/subscription-required?feature=convocations&requiredTier=${requiredTier}`)
+    }
+  }, [hasAccess, requiredTier, router])
+
+  const { userData, userRole, highlightedId } = useEduGestStore()
+  const isParent = userRole === 'PARENT'
+  const canCreate = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE'].includes(userRole || '')
+  const [studentSearch, setStudentSearch] = useState('')
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
+  const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false)
+  const [motif, setMotif] = useState('')
+  const [date, setDate] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [convocations, setConvocations] = useState<any[]>([])
+  const [loadingConvocations, setLoadingConvocations] = useState(true)
+  const [totalUsers, setTotalUsers] = useState(0)
+
+  if (!hasAccess) return null
+  const [expandedConvocation, setExpandedConvocation] = useState<string | null>(null)
+  const [responseModal, setResponseModal] = useState<{ convocationId: string; motif: string } | null>(null)
+  const [responseType, setResponseType] = useState<'PRESENT' | 'ABSENT' | 'CUSTOM'>('PRESENT')
+  const [responseMessage, setResponseMessage] = useState('')
+  const [responding, setResponding] = useState(false)
+  const [rescheduleModal, setRescheduleModal] = useState<{ convocationId: string; currentDate: string } | null>(null)
+  const [rescheduleDate, setRescheduleDate] = useState('')
+  const [rescheduling, setRescheduling] = useState(false)
+  const highlightedRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (highlightedId && highlightedRef.current) {
+      highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlightedId])
+
+  // Student search autocomplete
+  useEffect(() => {
+    if (studentSearch.length < 2) return
+    const timer = setTimeout(() => {
+      setStudentSearchLoading(true)
+      authFetch(`/api/students?search=${encodeURIComponent(studentSearch)}&schoolId=${getActiveSchoolId() || ''}&limit=8`)
+        .then(r => r.json())
+        .then(j => {
+          setStudentSuggestions((j.data || []).map((s: StudentData) => ({
+            id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule, photoUrl: s.photoUrl
+          })))
+          setStudentSearchLoading(false)
+        })
+        .catch(() => setStudentSearchLoading(false))
+    }, 300)
+    return () => { clearTimeout(timer); setStudentSearchLoading(false) }
+  }, [studentSearch, getActiveSchoolId()])
+
+  // Load existing convocations
+  useEffect(() => {
+    if (getActiveSchoolId()) {
+      authFetch(`/api/convocations?schoolId=${getActiveSchoolId()}&limit=30`)
+        .then(r => r.json())
+        .then(j => { setConvocations(j.data || []); setTotalUsers(j.totalUsers || 0); setLoadingConvocations(false) })
+        .catch(() => setLoadingConvocations(false))
+    } else if (isParent && userData?.id) {
+      authFetch(`/api/convocations?limit=30`)
+        .then(r => r.json())
+        .then(j => { setConvocations(j.data || []); setTotalUsers(j.totalUsers || 0); setLoadingConvocations(false) })
+        .catch(() => setLoadingConvocations(false))
+    } else {
+      queueMicrotask(() => setLoadingConvocations(false))
+    }
+  }, [getActiveSchoolId() ?? null, isParent, userData?.id])
+
+  async function handleSendConvocation() {
+    if (!selectedStudentId) { toast.error('Veuillez sélectionner un élève'); return }
+    if (!motif) { toast.error('Veuillez entrer le motif'); return }
+    if (!date) { toast.error('Veuillez entrer la date'); return }
+    if (!getActiveSchoolId()) { toast.error('Erreur: école non trouvée'); return }
+    setSubmitting(true)
+    try {
+      let parentId = null
+      try {
+        const studentRes = await authFetch(`/api/students/${selectedStudentId}`)
+        const studentData = await studentRes.json()
+        parentId = studentData.data?.parentId || null
+      } catch { /* continue without parentId */ }
+
+      const res = await authFetch('/api/convocations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: selectedStudentId,
+          parentId,
+          motif,
+          date,
+          schoolId: getActiveSchoolId(),
+          createdBy: userData?.id ?? '',
+        }),
+      })
+      if (res.ok) {
+        toast.success('Convocation envoyée avec succès !')
+        setMotif('')
+        setDate('')
+        setSelectedStudentId(null)
+        setStudentSearch('')
+        const listRes = await authFetch(`/api/convocations?schoolId=${getActiveSchoolId()}&limit=30`)
+        const listJson = await listRes.json()
+        setConvocations(listJson.data || [])
+        setTotalUsers(listJson.totalUsers || 0)
+      } else {
+        const json = await res.json()
+        toast.error(json.error || 'Erreur lors de l\'envoi')
+      }
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setSubmitting(false)
+  }
+
+  async function handleRespond(convocationId: string) {
+    setResponding(true)
+    try {
+      const res = await authFetch(`/api/convocations/${convocationId}/respond`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ response: responseType, message: responseType === 'CUSTOM' ? responseMessage : undefined }),
+      })
+      if (res.ok) {
+        toast.success('Réponse enregistrée !')
+        setResponseModal(null)
+        setResponseMessage('')
+        // Refresh convocations
+        const listRes = await authFetch(`/api/convocations?limit=30`)
+        const listJson = await listRes.json()
+        setConvocations(listJson.data || [])
+      } else {
+        const json = await res.json()
+        toast.error(json.error || 'Erreur lors de la réponse')
+      }
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setResponding(false)
+  }
+
+  async function handleReschedule(convocationId: string) {
+    if (!rescheduleDate) { toast.error('Veuillez sélectionner une date'); return }
+    setRescheduling(true)
+    try {
+      const res = await authFetch(`/api/convocations/${convocationId}/reschedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newDate: rescheduleDate }),
+      })
+      if (res.ok) {
+        toast.success('Convocation reportée !')
+        setRescheduleModal(null)
+        setRescheduleDate('')
+        const listRes = await authFetch(`/api/convocations?schoolId=${getActiveSchoolId() || ''}&limit=30`)
+        const listJson = await listRes.json()
+        setConvocations(listJson.data || [])
+      } else {
+        const json = await res.json()
+        toast.error(json.error || 'Erreur lors du report')
+      }
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setRescheduling(false)
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Convocations</h1>
+      </div>
+
+      {/* Response Modal */}
+      {responseModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Répondre à la convocation</h3>
+            <p className="text-sm mb-4" style={{ color: TEXT_MUTED_LUXE }}>{responseModal.motif}</p>
+            <div className="space-y-2 mb-4">
+              <button onClick={() => setResponseType('PRESENT')} className={`w-full p-3 rounded-xl border text-left text-sm font-medium transition ${responseType === 'PRESENT' ? 'border-edu-success bg-edu-success/10 text-edu-success' : 'border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]'}`} style={{ color: responseType === 'PRESENT' ? undefined : TEXT_PRIMARY }}>
+                <CheckCircle size={16} className="inline mr-2" /> Présent
+              </button>
+              <button onClick={() => setResponseType('ABSENT')} className={`w-full p-3 rounded-xl border text-left text-sm font-medium transition ${responseType === 'ABSENT' ? 'border-edu-danger bg-edu-danger/10 text-edu-danger' : 'border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]'}`} style={{ color: responseType === 'ABSENT' ? undefined : TEXT_PRIMARY }}>
+                <X size={16} className="inline mr-2" /> Absent
+              </button>
+              <button onClick={() => setResponseType('CUSTOM')} className={`w-full p-3 rounded-xl border text-left text-sm font-medium transition ${responseType === 'CUSTOM' ? 'border-edu-info bg-edu-info/10 text-edu-info' : 'border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]'}`} style={{ color: responseType === 'CUSTOM' ? undefined : TEXT_PRIMARY }}>
+                <MessageCircle size={16} className="inline mr-2" /> Autre réponse
+              </button>
+            </div>
+            {responseType === 'CUSTOM' && (
+              <textarea value={responseMessage} onChange={e => setResponseMessage(e.target.value)} placeholder="Votre message..." rows={3} className="w-full px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none mb-4" />
+            )}
+            <div className="flex gap-3">
+              <button onClick={() => handleRespond(responseModal.convocationId)} disabled={responding || (responseType === 'CUSTOM' && !responseMessage.trim())} className="flex-1 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: GOLD, color: '#fff' }}>
+                {responding ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send size={14} />} Envoyer
+              </button>
+              <button onClick={() => { setResponseModal(null); setResponseMessage('') }} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {rescheduleModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Reporter la convocation</h3>
+            <div className="mb-4">
+              <label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Nouvelle date</label>
+              <input type="date" value={rescheduleDate} onChange={e => setRescheduleDate(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => handleReschedule(rescheduleModal.convocationId)} disabled={rescheduling || !rescheduleDate} className="flex-1 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: GOLD, color: '#fff' }}>
+                {rescheduling ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Calendar size={14} />} Reporter
+              </button>
+              <button onClick={() => { setRescheduleModal(null); setRescheduleDate('') }} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isParent ? (
+        /* Parent View */
+        <div className="space-y-4">
+          {loadingConvocations ? (
+            <div className="text-center py-8 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div>
+          ) : convocations.length === 0 ? (
+            <div className="text-center py-12 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl">
+              <Megaphone size={32} className="mx-auto mb-3 opacity-30" style={{ color: TEXT_MUTED_LUXE }} />
+              <p className="font-medium" style={{ color: TEXT_PRIMARY }}>Aucune convocation</p>
+            </div>
+          ) : (
+            convocations.map(c => {
+              const reads = c.reads || []
+              const hasResponded = !!c.parentResponse
+              const isRescheduled = !!c.rescheduledTo
+              return (
+                <div ref={highlightedId === c.id ? highlightedRef : undefined} key={c.id} className={`bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm ${highlightedId === c.id ? 'edu-highlight' : ''}`}>
+                  <div className="flex items-start gap-4">
+                    <StudentAvatar firstName={c.student.firstName} lastName={c.student.lastName} photoUrl={c.student.photoUrl} size={48} className="text-white font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${WARNING}, ${GOLD})` }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>{c.student.firstName} {c.student.lastName}</h3>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: `${INFO}15`, color: INFO }}>{c.student.matricule}</span>
+                      </div>
+                      <p className="text-sm mb-2" style={{ color: TEXT_MUTED_LUXE }}>{c.motif}</p>
+                      <div className="flex items-center gap-3 text-xs" style={{ color: TEXT_MUTED_LUXE }}>
+                        <span className="flex items-center gap-1"><Calendar size={12} /> {formatDate(isRescheduled ? c.rescheduledTo : c.date)}</span>
+                        {isRescheduled && <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: `${WARNING}15`, color: WARNING }}>Reportée</span>}
+                      </div>
+                      {hasResponded && (
+                        <div className="mt-3 p-3 rounded-xl" style={{ background: c.parentResponse === 'PRESENT' ? 'rgba(34,197,94,0.1)' : c.parentResponse === 'ABSENT' ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)' }}>
+                          <div className="flex items-center gap-2 text-sm font-medium" style={{ color: c.parentResponse === 'PRESENT' ? SUCCESS : c.parentResponse === 'ABSENT' ? DANGER : INFO }}>
+                            {c.parentResponse === 'PRESENT' ? <CheckCircle size={14} /> : c.parentResponse === 'ABSENT' ? <X size={14} /> : <MessageCircle size={14} />}
+                            {c.parentResponse === 'PRESENT' ? 'Présent confirmé' : c.parentResponse === 'ABSENT' ? 'Absent signalé' : 'Autre réponse'}
+                          </div>
+                          {c.parentResponseMessage && <p className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>{c.parentResponseMessage}</p>}
+                        </div>
+                      )}
+                      {!hasResponded && (
+                        <button onClick={() => setResponseModal({ convocationId: c.id, motif: c.motif })} className="mt-3 px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-2" style={{ background: GOLD, color: '#fff' }}>
+                          <Send size={12} /> Répondre
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      ) : !canCreate ? (
+        <div className="text-center py-12 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl">
+          <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Vous n&apos;avez pas accès à cette page</p>
+        </div>
+      ) : (
+        /* Admin/Direction View */
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+            <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Nouvelle convocation</h3>
+            <div className="space-y-3">
+              <SearchAutocomplete
+                label="Élève concerné"
+                placeholder="Tapez le nom de l'élève..."
+                items={studentSuggestions}
+                selectedId={selectedStudentId}
+                onSelect={(item) => { setSelectedStudentId(item.id); setStudentSearch('') }}
+                onClear={() => { setSelectedStudentId(null); setStudentSearch('') }}
+                searchQuery={studentSearch}
+                onSearchChange={setStudentSearch}
+                loading={studentSearchLoading}
+                itemTypeName="élève"
+              />
+              <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Motif</label><textarea placeholder="Motif de la convocation..." value={motif} onChange={e => setMotif(e.target.value)} rows={3} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" /></div>
+              <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
+              <button onClick={handleSendConvocation} disabled={submitting || !selectedStudentId || !motif || !date} className="edu-gold-cta w-full py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50">
+                {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Send size={14} />} Envoyer la convocation
+              </button>
+            </div>
+          </div>
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+            <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Convocations existantes</h3>
+            {loadingConvocations ? (
+              <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div>
+            ) : convocations.length === 0 ? (
+              <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>
+                <Megaphone size={32} className="mx-auto mb-3 opacity-30" />
+                <p className="text-sm">Aucune convocation</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {convocations.map(c => {
+                  const reads = c.reads || []
+                  const readCount = reads.length
+                  const readPercentage = totalUsers > 0 ? Math.round((readCount / totalUsers) * 100) : 0
+                  const isExpanded = expandedConvocation === c.id
+                  const hasResponded = !!c.parentResponse
+                  const isRescheduled = !!c.rescheduledTo
+                  return (
+                    <div ref={highlightedId === c.id ? highlightedRef : undefined} key={c.id} className={`p-3 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition ${highlightedId === c.id ? 'edu-highlight' : ''}`}>
+                      <div className="flex items-center gap-3">
+                        <StudentAvatar firstName={c.student.firstName} lastName={c.student.lastName} photoUrl={c.student.photoUrl} size={36} className="text-white font-semibold" style={{ background: `linear-gradient(135deg, ${WARNING}, ${GOLD})` }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{c.student.firstName} {c.student.lastName}</div>
+                          <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{c.motif}</div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          {hasResponded ? (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${c.parentResponse === 'PRESENT' ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : c.parentResponse === 'ABSENT' ? 'bg-[oklch(94%_0.06_25)] text-[oklch(45%_0.13_25)]' : 'bg-[oklch(94%_0.08_250)] text-[oklch(45%_0.15_250)]'}`}>{c.parentResponse === 'PRESENT' ? 'Présent' : c.parentResponse === 'ABSENT' ? 'Absent' : 'Réponse'}</span>
+                          ) : (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${c.status === 'PENDING' ? 'bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]' : c.status === 'CONFIRMED' ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' : c.status === 'RESPONDED' ? 'bg-[oklch(94%_0.08_250)] text-[oklch(45%_0.15_250)]' : 'bg-[oklch(94%_0.005_250)] text-[oklch(52%_0.015_250)]'}`}>{c.status === 'PENDING' ? 'En attente' : c.status === 'CONFIRMED' ? 'Confirmée' : c.status === 'RESPONDED' ? 'Répondu' : c.status}</span>
+                          )}
+                          <div className="text-[10px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(isRescheduled ? c.rescheduledTo : c.date)}</div>
+                        </div>
+                      </div>
+                      {/* Response status */}
+                      {hasResponded && (
+                        <div className="mt-2 p-2 rounded-lg text-[11px]" style={{ background: c.parentResponse === 'PRESENT' ? 'rgba(34,197,94,0.1)' : c.parentResponse === 'ABSENT' ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)' }}>
+                          <span className="font-medium" style={{ color: c.parentResponse === 'PRESENT' ? SUCCESS : c.parentResponse === 'ABSENT' ? DANGER : INFO }}>
+                            {c.parentResponse === 'PRESENT' ? 'Présent' : c.parentResponse === 'ABSENT' ? 'Absent' : 'Autre réponse'}
+                          </span>
+                          {c.parentResponseMessage && <span style={{ color: TEXT_MUTED_LUXE }}> - {c.parentResponseMessage}</span>}
+                        </div>
+                      )}
+                      {!hasResponded && (
+                        <div className="mt-2 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>En attente de réponse</div>
+                      )}
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-2 mt-2">
+                        <button onClick={() => setRescheduleModal({ convocationId: c.id, currentDate: c.date })} className="text-[10px] px-2 py-1 rounded-lg border border-[oklch(90%_0.01_175)] hover:bg-[oklch(95%_0.01_175)] transition inline-flex items-center gap-1" style={{ color: TEXT_MUTED_LUXE }}>
+                          <Calendar size={10} /> Reporter
+                        </button>
+                        <button onClick={() => setExpandedConvocation(isExpanded ? null : c.id)} className="text-[10px] px-2 py-0.5 rounded-lg hover:bg-[oklch(95%_0.01_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>
+                          {isExpanded ? 'Masquer' : 'Détails'}
+                        </button>
+                      </div>
+                      {/* Expanded details */}
+                      {isExpanded && (
+                        <div className="mt-2 pt-2 border-t border-[oklch(93%_0.01_175)] space-y-2">
+                          {/* Read stats */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full" style={{ background: readPercentage >= 80 ? SUCCESS : readPercentage >= 50 ? WARNING : DANGER }} />
+                              <span className="text-[11px] font-medium" style={{ color: TEXT_PRIMARY }}>{readCount}/{totalUsers} lu{readCount > 1 ? 's' : ''}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: readPercentage >= 80 ? `${SUCCESS}15` : readPercentage >= 50 ? `${WARNING}15` : `${DANGER}15`, color: readPercentage >= 80 ? SUCCESS : readPercentage >= 50 ? WARNING : DANGER }}>{readPercentage}%</span>
+                            </div>
+                          </div>
+                          {/* Read list */}
+                          {reads.length > 0 && (
+                            <div className="space-y-1">
+                              {reads.map(r => (
+                                <div key={r.id} className="flex items-center justify-between text-[11px] py-1 px-2 rounded-lg bg-[oklch(97%_0.005_175)]">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold" style={{ background: `${ACCENT}20`, color: ACCENT }}>{r.user?.name?.charAt(0) || '?'}</div>
+                                    <span style={{ color: TEXT_PRIMARY }}>{r.user?.name || 'Inconnu'}</span>
+                                    <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: `${INFO}15`, color: INFO }}>{r.user?.role}</span>
+                                  </div>
+                                  <span style={{ color: TEXT_MUTED_LUXE }}>{r.readAt ? new Date(r.readAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {reads.length === 0 && (
+                            <div className="text-[11px] py-2 text-center" style={{ color: TEXT_MUTED_LUXE }}>Aucune lecture pour le moment</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// PersonnelView imported from @/components/views/PersonnelView
+
+// SchoolsManagementView imported from @/components/views/SchoolsManagementView
+
+// ===== SETTINGS VIEW (Admin - School Settings) =====
+// SettingsView imported from @/components/views/SettingsView
+
+// ===== SCHOOL REVIEWS VIEW (Parent) =====
+function SchoolReviewsView() {
+  const { userData } = useEduGestStore()
+  const [school, setSchool] = useState<SchoolData | null>(null)
+  const [comments, setComments] = useState<{ id: string; authorName: string; rating: number; comment: string; createdAt: string }[]>([])
+  const [loading, setLoading] = useState(true)
+  const [rating, setRating] = useState(0)
+  const [hoverRating, setHoverRating] = useState(0)
+  const [comment, setComment] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (getActiveSchoolId()) {
+      authFetch(`/api/schools/${getActiveSchoolId()}`)
+        .then(r => r.json())
+        .then(j => { if (j.data) setSchool(j.data); setLoading(false) })
+        .catch(() => setLoading(false))
+      authFetch(`/api/school-comments?schoolId=${getActiveSchoolId()}`)
+        .then(r => r.json())
+        .then(j => setComments(j.data || []))
+        .catch(() => {})
+    }
+  }, [getActiveSchoolId()])
+
+  async function handleSubmitReview() {
+    if (!getActiveSchoolId() || rating === 0 || !comment.trim()) {
+      toast.error('Veuillez donner une note et un commentaire')
+      return
+    }
+    setSubmitting(true)
+    try {
+      const res = await authFetch('/api/school-comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schoolId: getActiveSchoolId(),
+          authorName: userData?.name || 'Parent',
+          authorEmail: (userData as any)?.email || '',
+          rating,
+          comment: comment.trim(),
+        }),
+      })
+      if (res.ok) {
+        toast.success('Votre avis a été soumis ! Il sera visible après approbation.')
+        setRating(0)
+        setComment('')
+      } else {
+        toast.error('Erreur lors de l\'envoi')
+      }
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setSubmitting(false)
+  }
+
+  if (loading) return <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div>
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Avis sur l&apos;école</h1>
+      </div>
+
+      {/* School Header Card */}
+      {school && (
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl overflow-hidden shadow-sm mb-6">
+          <div className="relative h-32" style={{ background: school.coverImage ? `url(${school.coverImage}) center/cover` : `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+            <div className="absolute bottom-4 left-5 flex items-center gap-3">
+              {school.logo ? (
+                <img src={school.logo} alt="Logo" className="w-14 h-14 rounded-xl object-cover border-3 border-white shadow-md" />
+              ) : (
+                <div className="w-14 h-14 rounded-xl grid place-items-center text-white text-lg font-bold border-3 border-white shadow-md" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                  {getInitials(school.name)}
+                </div>
+              )}
+              <div>
+                <h2 className="text-white text-lg font-bold drop-shadow">{school.name}</h2>
+                <p className="text-white/80 text-sm">{school.city}, {school.province}</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-5 flex items-center gap-6">
+            <div className="text-center">
+              <div className="text-3xl font-bold" style={{ color: GOLD }}>{school.averageRating || 0}</div>
+              <div className="flex items-center gap-0.5 justify-center mt-1">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star key={i} size={14} fill={i < Math.round(school.averageRating || 0) ? GOLD : 'none'} style={{ color: i < Math.round(school.averageRating || 0) ? GOLD : 'oklch(85%_0.01_175)' }} />
+                ))}
+              </div>
+              <div className="text-[11px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>{school.totalReviews || 0} avis</div>
+            </div>
+            <div className="flex-1 space-y-1.5">
+              {[5, 4, 3, 2, 1].map(star => {
+                const count = comments.filter(c => c.rating === star).length
+                const pct = comments.length > 0 ? (count / comments.length) * 100 : 0
+                return (
+                  <div key={star} className="flex items-center gap-2 text-xs">
+                    <span className="w-3 text-right" style={{ color: TEXT_MUTED_LUXE }}>{star}</span>
+                    <Star size={10} fill={GOLD} style={{ color: GOLD }} />
+                    <div className="flex-1 h-2 rounded-full bg-[oklch(95%_0.01_175)]">
+                      <div className="h-2 rounded-full transition-all" style={{ width: `${pct}%`, background: GOLD }} />
+                    </div>
+                    <span className="w-6 text-right" style={{ color: TEXT_MUTED_LUXE }}>{count}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Write a review */}
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+          <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+            <MessageCircle size={16} style={{ color: GOLD }} /> Donner votre avis
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-medium mb-2 block" style={{ color: TEXT_MUTED_LUXE }}>Votre note *</label>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <button
+                    key={i}
+                    onMouseEnter={() => setHoverRating(i + 1)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    onClick={() => setRating(i + 1)}
+                    className="transition-transform hover:scale-110"
+                  >
+                    <Star
+                      size={28}
+                      fill={(hoverRating || rating) > i ? GOLD : 'none'}
+                      style={{ color: (hoverRating || rating) > i ? GOLD : 'oklch(85%_0.01_175)', cursor: 'pointer' }}
+                    />
+                  </button>
+                ))}
+                {rating > 0 && <span className="ml-2 text-sm font-semibold" style={{ color: GOLD }}>{rating}/5</span>}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Votre commentaire *</label>
+              <textarea
+                value={comment}
+                onChange={e => setComment(e.target.value)}
+                rows={4}
+                placeholder="Partagez votre expérience avec cette école..."
+                className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none"
+              />
+            </div>
+            <button
+              onClick={handleSubmitReview}
+              disabled={submitting || rating === 0 || !comment.trim()}
+              className="edu-gold-cta w-full py-2.5 rounded-xl font-semibold text-sm inline-flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Send size={14} />}
+              Soumettre mon avis
+            </button>
+            <p className="text-[11px] text-center" style={{ color: TEXT_MUTED_LUXE }}>Votre avis sera visible après approbation par l&apos;administration</p>
+          </div>
+        </div>
+
+        {/* Existing reviews */}
+        <div className="lg:col-span-2">
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+            <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Avis des parents ({comments.length})</h3>
+            {comments.length === 0 ? (
+              <div className="text-center py-8">
+                <MessageCircle size={32} className="mx-auto mb-3" style={{ color: TEXT_MUTED_LUXE }} />
+                <p className="font-medium" style={{ color: TEXT_PRIMARY }}>Aucun avis pour le moment</p>
+                <p className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>Soyez le premier à donner votre avis !</p>
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar">
+                {comments.map(c => (
+                  <div key={c.id} className="p-4 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-9 h-9 rounded-full grid place-items-center text-white text-xs font-bold" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                          {getInitials(c.authorName)}
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{c.authorName}</div>
+                          <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(c.createdAt)}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star key={i} size={12} fill={i < c.rating ? GOLD : 'none'} style={{ color: i < c.rating ? GOLD : 'oklch(85%_0.01_175)' }} />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>{c.comment}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ===== SUBSCRIPTION UPGRADE VIEW =====
+function SubscriptionUpgradeView() {
+  const { userData, setCurrentView } = useEduGestStore()
+  const [requests, setRequests] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [requesting, setRequesting] = useState<string | null>(null)
+  const [selectedTier, setSelectedTier] = useState<string | null>(null)
+  const [modalMode, setModalMode] = useState<'request' | 'pay'>('request')
+  const [activeGateways, setActiveGateways] = useState<any[]>([])
+  const [selectedGateway, setSelectedGateway] = useState<string>('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [paying, setPaying] = useState(false)
+  const [notes, setNotes] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const currentTier = userData?.subscriptionTier || 'FREEMIUM'
+  // Ordre hiérarchique réel des formules (SUBSCRIPTION_TIERS est un ordre d'affichage, pas de prix)
+  const TIER_ORDER = ['FREEMIUM', 'ESSENTIEL', 'STANDARD', 'PREMIUM', 'ENTERPRISE', 'CORPORATE']
+  const currentTierIndex = TIER_ORDER.indexOf(currentTier)
+
+  const tiers = [
+    { id: 'FREEMIUM', name: 'Freemium', price: 0, color: MUTED, features: ['Élèves', 'Classes', 'Notes', 'Paiements'] },
+    { id: 'ESSENTIEL', name: 'Essentiel', price: 100, color: INFO, features: ['Élèves', 'Classes', 'Notes', 'Parents', 'Paiements', 'Devoirs', 'Discipline'] },
+    { id: 'STANDARD', name: 'Standard', price: 250, color: ACCENT, features: ['Tout Essentiel', 'Bulletins', 'Communications', 'Convocations'] },
+    { id: 'PREMIUM', name: 'Professionnel', price: 500, color: WARNING, features: ['Tout Standard', 'Analytics', 'Multi-années'] },
+    { id: 'ENTERPRISE', name: 'Enterprise', price: 1000, color: SUCCESS, features: ['Tout Premium', 'API', 'Support prioritaire', 'Branding custom'] },
+    { id: 'CORPORATE', name: 'Corporate', price: 0, color: DANGER, features: ['Tout Enterprise', 'Prix sur mesure'] },
+  ]
+
+  useEffect(() => {
+    authFetch('/api/subscription/request').then(r => r.json()).then(j => {
+      setRequests(j.data || [])
+      setLoading(false)
+    }).catch(() => setLoading(false))
+    // Vérifier si un agrégateur de paiement est VRAIMENT connecté (actif + clés renseignées)
+    authFetch('/api/payment-gateways').then(r => r.json()).then(j => {
+      const configured = j.data?.configured || []
+      const connected = configured.filter((g: any) => g.isActive && g.hasCredentials)
+      setActiveGateways(connected)
+      if (connected.length > 0) setSelectedGateway(connected[0].gatewayType)
+    }).catch(() => {})
+  }, [])
+
+  async function handleRequest(tier: string) {
+    if (!confirm(`Demander un upgrade vers ${tier} ?`)) return
+    setSubmitting(true)
+    try {
+      const res = await authFetch('/api/subscription/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestedTier: tier, notes: notes || null }),
+      })
+      const j = await res.json()
+      if (res.ok) {
+        toast.success('Demande envoyée ! L\'administrateur sera notifié.')
+        setRequests(prev => [j.data, ...prev])
+        setSelectedTier(null)
+        setNotes('')
+      } else {
+        toast.error(j.error || 'Erreur lors de l\'envoi')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setSubmitting(false) }
+  }
+
+  async function handlePay() {
+    const tier = tiers.find(t => t.id === selectedTier)
+    if (!tier || !selectedGateway) { toast.error('Choisissez un moyen de paiement'); return }
+    setPaying(true)
+    try {
+      const res = await authFetch('/api/payment-gateways/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schoolId: getActiveSchoolId() ?? null,
+          gatewayType: selectedGateway,
+          amount: tier.price,
+          description: `Abonnement ${tier.name} - ${userData?.schoolName || 'EduGest'}`,
+          customerPhone: customerPhone || undefined,
+        }),
+      })
+      const j = await res.json()
+      if (res.ok || res.status === 202) {
+        toast.success(j.message || 'Paiement initié avec succès !')
+        // Tracer la demande pour l'admin (le paiement en ligne est vérifié via webhook)
+        const ref = j.data?.reference || j.data?.transactionId || j.data?.transaction?.id || ''
+        authFetch('/api/subscription/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requestedTier: selectedTier, notes: `Paiement en ligne via ${selectedGateway}${ref ? ` — réf: ${ref}` : ''}` }),
+        }).catch(() => {})
+        setSelectedTier(null)
+        setCustomerPhone('')
+        const r2 = await authFetch('/api/subscription/request').then(r => r.json()).catch(() => null)
+        if (r2) setRequests(r2.data || [])
+      } else {
+        toast.error(j.error || 'Erreur lors du paiement')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setPaying(false) }
+  }
+
+  const pendingRequest = requests.find(r => r.status === 'PENDING')
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Mon Abonnement</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Formule actuelle : <strong>{getSubscriptionLabel(currentTier)}</strong></p>
+        </div>
+      </div>
+
+      {/* Current plan highlight */}
+      <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 mb-8 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium mb-1" style={{ color: TEXT_MUTED_LUXE }}>Votre formule</div>
+            <div className="text-2xl font-bold" style={{ color: GOLD }}>{getSubscriptionLabel(currentTier)}</div>
+            <div className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>{getSubscriptionPrice(currentTier)}</div>
+          </div>
+          <div className="w-16 h-16 rounded-2xl grid place-items-center" style={{ background: GOLD_SOFT }}>
+            <Crown size={28} style={{ color: GOLD }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Upgrade prompt */}
+      {currentTier !== 'CORPORATE' && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Changer de formule</h2>
+          <p className="text-sm mb-4" style={{ color: TEXT_MUTED_LUXE }}>
+            Sélectionnez la formule souhaitée et envoyez une demande à l&apos;administrateur de la plateforme.
+          </p>
+        </div>
+      )}
+
+      {/* Plans grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
+        {tiers.map((tier, i) => {
+          const isCurrent = tier.id === currentTier
+          const isUpgradable = TIER_ORDER.indexOf(tier.id) > currentTierIndex
+          const isDowngrade = TIER_ORDER.indexOf(tier.id) < currentTierIndex
+          const hasPending = !!pendingRequest
+          // « Demande en cours... » ne s'affiche QUE sur le forfait réellement
+          // demandé (avant : tous les forfaits montraient le même label).
+          const pendingForThisTier = !!pendingRequest && pendingRequest.requestedTier === tier.id
+          const pendingForOtherTier = !!pendingRequest && pendingRequest.requestedTier !== tier.id
+
+          return (
+            <div
+              key={tier.id}
+              className={`relative bg-white border rounded-2xl p-5 transition-all ${
+                isCurrent ? 'border-[oklch(72%_0.15_65)] shadow-md ring-2 ring-[oklch(72%_0.15_65_/_0.15)]' :
+                isUpgradable ? 'border-[oklch(90%_0.01_175)] hover:border-[oklch(72%_0.15_65)] hover:shadow-md cursor-pointer' :
+                'border-[oklch(90%_0.01_175)] opacity-50'
+              }`}
+            >
+              {isCurrent && (
+                <div className="absolute -top-3 left-4 px-3 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: GOLD }}>
+                  ACTUELLE
+                </div>
+              )}
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>{tier.name}</h3>
+                <div className="w-8 h-8 rounded-lg grid place-items-center" style={{ background: `${tier.color}15` }}>
+                  <Crown size={16} style={{ color: tier.color }} />
+                </div>
+              </div>
+              <div className="mb-3">
+                <span className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>
+                  {tier.price === 0 ? (tier.id === 'FREEMIUM' ? 'Gratuit' : 'Sur mesure') : `${tier.price}$`}
+                </span>
+                {tier.price > 0 && <span className="text-sm ml-1" style={{ color: TEXT_MUTED_LUXE }}>/mois</span>}
+              </div>
+              <ul className="space-y-1.5 mb-4">
+                {tier.features.map(f => (
+                  <li key={f} className="flex items-center gap-2 text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>
+                    <Check size={12} style={{ color: SUCCESS }} /> {f}
+                  </li>
+                ))}
+              </ul>
+              {isCurrent ? (
+                <div className="w-full py-2.5 rounded-xl text-center text-sm font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>
+                  Formule actuelle
+                </div>
+              ) : isUpgradable ? (
+                activeGateways.length > 0 && tier.price > 0 ? (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setSelectedTier(tier.id); setModalMode('pay') }}
+                      disabled={hasPending || submitting}
+                      className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-white transition disabled:opacity-50"
+                      style={{ background: tier.color }}
+                      title={pendingForOtherTier ? 'Une demande est déjà en attente' : 'Payer maintenant en ligne'}
+                    >
+                      Payer en ligne
+                    </button>
+                    <button
+                      onClick={() => { setSelectedTier(tier.id); setModalMode('request') }}
+                      disabled={hasPending || submitting}
+                      className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition disabled:opacity-50 border"
+                      style={{ borderColor: tier.color, color: tier.color }}
+                      title={pendingForOtherTier ? 'Une demande est déjà en attente' : "Envoyer une demande à l'administrateur"}
+                    >
+                      Demander
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setSelectedTier(tier.id); setModalMode('request') }}
+                    disabled={hasPending || submitting}
+                    className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:opacity-50"
+                    style={{ background: tier.color }}
+                    title={pendingForOtherTier ? 'Une demande est déjà en attente' : undefined}
+                  >
+                    {pendingForThisTier ? 'Demande en cours...' : 'Demander'}
+                  </button>
+                )
+              ) : isDowngrade ? (
+                <div className="w-full py-2.5 rounded-xl text-center text-sm font-medium border border-[oklch(90%_0.01_175)]" style={{ color: TEXT_MUTED_LUXE }}>
+                  Inférieure à votre formule
+                </div>
+              ) : null}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Request modal */}
+      {selectedTier && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setSelectedTier(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>{modalMode === 'pay' ? 'Payer en ligne' : 'Demander un upgrade'}</h3>
+              <button onClick={() => setSelectedTier(null)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-gray-100 transition"><X size={16} className="text-gray-500" /></button>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div className="p-4 rounded-xl" style={{ background: GOLD_SOFT }}>
+                <div className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>
+                  {getSubscriptionLabel(currentTier)} → <strong>{getSubscriptionLabel(selectedTier)}</strong>
+                </div>
+                <div className="text-sm mt-1" style={{ color: TEXT_MUTED_LUXE }}>
+                  {getSubscriptionPrice(selectedTier)}
+                </div>
+              </div>
+
+              {modalMode === 'pay' ? (
+                <>
+                  <div>
+                    <label className="text-xs font-medium mb-2 block" style={{ color: TEXT_MUTED_LUXE }}>Moyen de paiement</label>
+                    <div className="space-y-2">
+                      {activeGateways.map((g: any) => (
+                        <button
+                          key={g.gatewayType}
+                          type="button"
+                          onClick={() => setSelectedGateway(g.gatewayType)}
+                          className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-medium transition ${
+                            selectedGateway === g.gatewayType ? 'border-[oklch(72%_0.15_65)] bg-[oklch(72%_0.15_65_/_0.06)]' : 'border-[oklch(90%_0.01_175)] hover:border-[oklch(80%_0.01_175)]'
+                          }`}
+                          style={{ color: TEXT_PRIMARY }}
+                        >
+                          <span>{g.displayName || g.name || g.gatewayType}</span>
+                          {selectedGateway === g.gatewayType && <Check size={14} style={{ color: GOLD }} />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Téléphone (ex: +243 81...)</label>
+                    <input
+                      type="tel"
+                      value={customerPhone}
+                      onChange={e => setCustomerPhone(e.target.value)}
+                      placeholder="+243 81 234 5678"
+                      className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+                      style={{ color: TEXT_PRIMARY }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Notes (optionnel)</label>
+                  <textarea
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    placeholder="Précisez votre besoin..."
+                    className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none"
+                    rows={3}
+                    style={{ color: TEXT_PRIMARY }}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setSelectedTier(null)} className="px-5 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)]" style={{ color: TEXT_PRIMARY }}>Annuler</button>
+              {modalMode === 'pay' ? (
+                <button
+                  onClick={handlePay}
+                  disabled={paying || !selectedGateway}
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-2 disabled:opacity-50"
+                  style={{ background: GOLD }}
+                >
+                  {paying ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CreditCard size={14} />}
+                  Payer {(() => { const t = tiers.find(x => x.id === selectedTier); return t && t.price > 0 ? `${t.price}$` : '' })()}
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleRequest(selectedTier)}
+                  disabled={submitting}
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-2 disabled:opacity-50"
+                  style={{ background: GOLD }}
+                >
+                  {submitting ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Send size={14} />}
+                  Envoyer la demande
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Previous requests */}
+      {requests.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Demandes précédentes</h2>
+          <div className="space-y-3">
+            {requests.map(r => (
+              <div key={r.id} className="bg-white border border-[oklch(90%_0.01_175)] rounded-xl p-4 flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>
+                    {r.currentTier} → {r.requestedTier}
+                  </div>
+                  <div className="text-[11px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>
+                    Demandé le {new Date(r.createdAt).toLocaleDateString('fr-FR')} par {r.requestedByName}
+                  </div>
+                </div>
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                  r.status === 'APPROVED' ? 'bg-[oklch(94%_0.05_145)] text-[oklch(40%_0.13_145)]' :
+                  r.status === 'REJECTED' ? 'bg-[oklch(94%_0.05_25)] text-[oklch(45%_0.18_25)]' :
+                  'bg-[oklch(94%_0.06_65)] text-[oklch(45%_0.13_65)]'
+                }`}>
+                  {r.status === 'PENDING' ? 'En attente' : r.status === 'APPROVED' ? 'Approuvée' : 'Refusée'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ===== PRICING DASHBOARD (for sidebar) =====
+function PricingDashboard() {
+  return <PricingView />
+}
+
+// ===== MAIN HOME COMPONENT =====
+export default function Home() {
+  const { currentView, userRole, logout, setCurrentView, userData, setUserData } = useEduGestStore()
+  const [subscriptionRequired, setSubscriptionRequired] = useState<{ tier: string; expired: boolean } | null>(null)
+
+  // Réactivité devise : re-rend l'app dès que la config monnaie change
+  // (chargement, bascule, sauvegarde depuis Config. Paiements) — tous les
+  // montants formatés via formatAmount se mettent à jour SANS rechargement.
+  useSyncExternalStore(subscribeCurrency, getCurrencyVersion, getCurrencyVersion)
+
+  // Synchronisation temps réel : détecte les changements de la base de données
+  // (paiements, élèves, notes…) et met à jour l'application automatiquement
+  useEffect(() => {
+    if (userRole) startRealtimeSync()
+  }, [userRole])
+
+  // Restore session from localStorage before first paint (avoids hydration
+  // mismatch + évite tout flash de la landing dans l'app desktop qui démarre
+  // directement sur le login).
+  const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+  useIsomorphicLayoutEffect(() => {
+    restoreSession()
+    // App desktop (Electron) : prévient main.js que l'interface est peinte
+    // pour afficher la fenêtre (jamais de fenêtre vide). Sans effet sur le web.
+    try { (window as any).__edugest?.ready?.() } catch {}
+  }, [])
+
+  // Watchdog : si l'hydratation échoue (chunk perdu sous charge / réseau
+  // instable), restoreSession() ne s'exécute jamais et l'utilisateur connecté
+  // voit la landing déconnectée — on retente ~10 s tant que la session
+  // stockée n'est pas appliquée (opération idempotente).
+  useEffect(() => {
+    return startSessionRestoreWatchdog()
+  }, [])
+
+  // Fetch subscription tier if missing from existing sessions
+  useEffect(() => {
+    if (userData && !userData.subscriptionTier && userData.schoolId) {
+      authFetch(`/api/schools/${userData.schoolId}`)
+        .then(r => r.json())
+        .then(json => {
+          if (json.data?.subscriptionTier) {
+            setUserData({ ...userData, subscriptionTier: json.data.subscriptionTier })
+          }
+        })
+        .catch(() => {})
+    }
+  }, [getActiveSchoolId()])
+
+  // Resynchronisation du profil au démarrage : la session stockée en
+  // localStorage peut être périmée (rattachement école d'un SUPER_ADMIN_GLOBAL
+  // révoqué côté serveur, changement d'école, etc.). Le serveur fait foi.
+  const profileResynced = useRef(false)
+  useEffect(() => {
+    if (!userData || profileResynced.current) return
+    profileResynced.current = true
+    authFetch('/api/profile')
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => {
+        const p = j?.data
+        if (!p) return
+        const current = useEduGestStore.getState().userData
+        if (!current || current.id !== p.id) return // session changée entre-temps
+        const patch: Partial<UserData> = {
+          schoolId: p.schoolId ?? null,
+          schoolName: p.school?.name || (current.role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'EduGest'),
+          schoolLogo: p.school?.logo ?? null,
+          profileImageUrl: p.profileImageUrl ?? null,
+        }
+        if (p.school?.subscriptionTier) patch.subscriptionTier = p.school.subscriptionTier
+        if (p.name) patch.name = p.name
+        setUserData({ ...current, ...patch })
+      })
+      .catch(() => {})
+  }, [!!userData])
+
+  // Devise d'affichage globale : charge la config monnaie de l'école
+  // (base + affichage + taux) pour convertir tous les montants affichés.
+  useEffect(() => {
+    if (!getActiveSchoolId()) return
+    authFetch(`/api/currency?schoolId=${getActiveSchoolId()}`)
+      .then(r => r.json())
+      .then(json => {
+        const c = json?.data?.config
+        if (!c) {
+          // Pas encore de config pour cette école : réinitialise proprement le
+          // module (sinon l'ancienne école « fuit » dans les montants affichés).
+          setCurrencyDisplay({ baseCurrency: 'CDF', displayCurrency: 'CDF', rates: {}, manualRates: null, useManualRates: false })
+          return
+        }
+        let manual: Record<string, number> | null = null
+        const mr = c.manualRates
+        if (mr) {
+          if (typeof mr === 'string') { try { manual = JSON.parse(mr) } catch { manual = null } }
+          else if (typeof mr === 'object') manual = mr
+        }
+        setCurrencyDisplay({
+          baseCurrency: c.baseCurrency || 'CDF',
+          displayCurrency: c.displayCurrency || c.baseCurrency || 'CDF',
+          rates: json?.data?.exchangeRates || {},
+          manualRates: manual,
+          useManualRates: !!c.useManualRates,
+        })
+      })
+      .catch(() => {})
+  }, [getActiveSchoolId()])
+
+  // Report device fingerprint once when authenticated (best-effort)
+  useEffect(() => {
+    if (userRole) {
+      reportDeviceFingerprint()
+    }
+  }, [userRole])
+
+  // Handle 401 unauthorized events from authFetch
+  useEffect(() => {
+    const handler = () => {
+      logout()
+      setCurrentView('login')
+    }
+    window.addEventListener('auth:unauthorized', handler)
+    return () => window.removeEventListener('auth:unauthorized', handler)
+  }, [logout, setCurrentView])
+
+  // Handle subscription required events from authFetch
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      setSubscriptionRequired({ tier: detail.tier, expired: detail.expired })
+    }
+    window.addEventListener('subscription:required', handler)
+    return () => window.removeEventListener('subscription:required', handler)
+  }, [])
+
+  // Subscription wall
+  if (subscriptionRequired && userRole) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'linear-gradient(160deg, #0a0f0d 0%, #0b1613 40%, #0d1f1a 100%)' }}>
+        <div className="max-w-md w-full text-center">
+          <div className="w-20 h-20 rounded-full mx-auto mb-6 grid place-items-center" style={{ background: 'oklch(60% 0.15 145)' }}>
+            <Lock size={40} className="text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-3">
+            {subscriptionRequired.expired ? 'Abonnement expiré' : 'Abonnement requis'}
+          </h1>
+          <p className="text-white/60 mb-4 text-sm">
+            {subscriptionRequired.expired
+              ? `Votre formule ${subscriptionRequired.tier} a expiré. Renouvelez pour continuer.`
+              : `Cette fonctionnalité nécessite un abonnement payant. Formule actuelle : ${subscriptionRequired.tier}`
+            }
+          </p>
+          <p className="text-white/40 text-xs mb-8">
+            Contactez l&apos;administrateur de la plateforme pour souscrire.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => { setSubscriptionRequired(null); setCurrentView('my-subscription') }}
+              className="bg-[#f5a623] hover:bg-[#ffb643] text-[#0a0f0d] px-6 py-3 rounded-xl font-bold text-sm transition-all"
+            >
+              Voir les formules
+            </button>
+            <button
+              onClick={() => setSubscriptionRequired(null)}
+              className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-medium text-sm transition-all"
+            >
+              Continuer
+            </button>
+            <button
+              onClick={() => { setSubscriptionRequired(null); logout(); setCurrentView('login') }}
+              className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-medium text-sm transition-all"
+            >
+              Se déconnecter
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!userRole) {
+    let view: React.ReactNode
+    switch (currentView) {
+      case 'home': view = <HomeView />; break
+      case 'login': view = <LoginView />; break
+      case 'create-school': view = <CreateSchoolView />; break
+      case 'pricing': view = <PricingView />; break
+      case 'school-detail': view = <SchoolDetailView />; break
+      // Landing restaurée à la demande : « Gestion Scolaire Intégrale » est de
+      // retour sur la page d'accueil publique (connexion toujours unifiée sur /login)
+      default: view = <LoginView />; break
+    }
+    return <>{view}<UpdateBanner /></>
+  }
+
+  return <><DashboardLayout /><UpdateBanner /></>
+}

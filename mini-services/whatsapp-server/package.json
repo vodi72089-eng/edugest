@@ -1,0 +1,16 @@
+{
+  "name": "whatsapp-server",
+  "version": "1.0.0",
+  "description": "EduGest WhatsApp server — natsu-baileys-v10 (pairing code + anti-logout)",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "bun patch.mjs && bun --hot index.ts",
+    "start": "bun patch.mjs && bun index.ts",
+    "patch": "bun patch.mjs"
+  },
+  "dependencies": {
+    "@trashcore/baileys": "4.2.2",
+    "@hapi/boom": "^10.0.1",
+    "qrcode": "^1.5.4"
+  }
+}

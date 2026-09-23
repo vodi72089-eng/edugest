@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"],
+      "env": {}
+    },
+    "memory-bank": {
+      "command": "npx",
+      "args": ["memory-bank-mcp", "serve", "--path", "."]
+    },
+    "semgrep": {
+      "command": "/home/z/.semgrep-mcp-venv/bin/semgrep-mcp",
+      "args": ["--directory", "/home/z/my-project"]
+    },
+    "codev": {
+      "command": "/home/z/.npm-global/bin/codevhub",
+      "args": ["serve"]
+    }
+  }
+}

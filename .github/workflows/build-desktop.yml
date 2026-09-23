@@ -1,0 +1,121 @@
+name: Build Desktop (Windows exe) → Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Generate Prisma client (moteur Windows)
+        run: bunx prisma generate
+
+      - name: Create embedded template database
+        shell: bash
+        run: |
+          # NB : Prisma résout les chemins SQLite relatifs PAR RAPPORT au
+          # dossier du schema (prisma/) — d'où "../db/".
+          mkdir -p db
+          export DATABASE_URL="file:../db/desktop-template.db"
+          bunx prisma db push --accept-data-loss --skip-generate
+          ls -la db/
+
+      - name: Build Next.js (standalone)
+        shell: bash
+        env:
+          DATABASE_URL: file:../db/desktop-template.db
+        run: |
+          set -e
+          bunx next build
+          cp -r .next/static .next/standalone/.next/
+          cp -r public .next/standalone/
+
+      - name: Build Windows executables (electron-builder)
+        shell: bash
+        run: |
+          cd desktop
+          npm install
+          npx electron-builder --win --publish never
+
+      - name: Verify update metadata (latest.yml)
+        shell: bash
+        run: |
+          ls -la desktop/dist/
+          test -f desktop/dist/latest.yml || { echo "ERREUR : latest.yml absent — la détection de mise à jour in-app serait cassée"; exit 1; }
+
+      - name: Read desktop version
+        id: version
+        shell: bash
+        run: echo "version=$(node -p "require('./desktop/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # ─── L'exe est publié DIRECTEMENT dans une Release GitHub ───
+      - name: Publish exe to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: EduGest Desktop v${{ steps.version.outputs.version }}
+          body: |
+            ## 🖥️ EduGest Desktop — application de bureau Windows
+
+            **Téléchargez et installez :**
+            - **`EduGest-Setup-${{ steps.version.outputs.version }}.exe`** — installateur Windows (recommandé, démarrage rapide)
+            - **`EduGest-Portable-${{ steps.version.outputs.version }}.exe`** — version portable (décompression à chaque lancement, plus lente)
+
+            ## Inclus dans cette version
+
+            - ✅ **Logo officiel EduGest partout** : écran de démarrage, page de connexion, icône de l'app, favicon, reçus et bulletins PDF
+            - ✅ **Démarrage éclair** : splash instantané avec le vrai logo + étapes de chargement en temps réel (base → serveur → interface)
+            - ✅ **Localisation automatique de l'école** : détection GPS puis par IP (fonctionne dans l'app desktop) + bouton « Me localiser » réparé
+            - ✅ Application **100 % hors ligne** — base de données SQLite locale connectée (`%APPDATA%\EduGest\edugest.db`)
+            - ✅ **« Trouver mon école »** à la connexion + import de la base de données de l'école (`.db`) en popup après connexion
+            - ✅ **QR codes parents** avec durée de vie paramétrable (1 h → 1 an) — le parent scanne, retrouve son enfant et crée son compte
+            - ✅ **Bulletins & reçus** au design premium (gianelli) avec **QR code unique** — le scan confirme que le document est **officiel**
+            - ✅ Secrétaire : accès « Mon Abonnement » masqué, non comptée dans le forfait
+            - ✅ Admin freemium : changement de formule fonctionnel
+            - ✅ Connexion unifiée (parents, personnel, direction) — sans indice de rôle
+
+            ## Notes
+
+            - ✅ **Mise à jour intégrée** : l'application installée propose la nouvelle version toute seule (bannière dans l'app), sans quitter EduGest — les données sont conservées.
+            - La désinstallation ne supprime **pas** les données (`%APPDATA%\EduGest\`).
+            - L'administrateur peut importer/mettre à jour sa base à tout moment depuis l'app.
+            - Au tout premier lancement, l'ouverture peut prendre quelques instants (analyse antivirus Windows) — le splash affiche la progression.
+          # latest.yml + blockmap : INDISPENSABLES à la détection de MAJ par
+          # electron-updater (version installée). Sans eux, la bannière in-app
+          # n'apparaît jamais sur les installations NSIS.
+          files: |
+            desktop/dist/*.exe
+            desktop/dist/latest.yml
+            desktop/dist/*.blockmap
+          draft: false
+          prerelease: false
+          make_latest: true
+          allowUpdates: true
+          replaces_artifacts: true
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: EduGest-Windows
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/latest.yml
+            desktop/dist/*.blockmap
+          if-no-files-found: error

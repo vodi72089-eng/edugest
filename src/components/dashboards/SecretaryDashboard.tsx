@@ -1,0 +1,120 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useEduGestStore, authFetch, ViewType } from '@/lib/store'
+import { Users, School, AlertTriangle, Clock, BarChart3, UserPlus,
+MessageSquare, Megaphone } from 'lucide-react'
+import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts'
+import { ACCENT, SUCCESS, WARNING, DANGER, INFO, GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE } from '@/lib/constants'
+import { formatNumber } from '@/lib/helpers'
+import StatCard from './StatCard'
+
+export default function SecretaryDashboard({ role }: { role?: string } = {}) {
+  const { setCurrentView, userData } = useEduGestStore()
+  const [stats, setStats] = useState<Record<string, unknown> | null>(null)
+  const [loading, setLoading] = useState(true)
+  const isDirection = role?.startsWith('DIRECTION') || false
+  // Cycle imposé par le rôle — l'API /api/stats scelle aussi ce filtre côté serveur
+  const directionCycle = role === 'DIRECTION_MATERNELLE' ? 'Maternelle'
+    : role === 'DIRECTION_PRIMAIRE' ? 'Primaire'
+    : role === 'DIRECTION_SECONDAIRE' ? 'Secondaire' : null
+
+  useEffect(() => {
+    function fetchStats() {
+      if (userData?.schoolId) {
+        authFetch(`/api/stats?schoolId=${userData.schoolId}`).then(r => r.json()).then(j => { setStats(j.data); setLoading(false) }).catch(() => setLoading(false))
+      } else {
+        setTimeout(() => setLoading(false), 0)
+      }
+    }
+    fetchStats()
+    const interval = setInterval(fetchStats, 30000)
+    return () => clearInterval(interval)
+  }, [userData?.schoolId])
+
+  const totalStudents = (stats?.students as Record<string, number>)?.total || 0
+  const totalClasses = (stats?.classes as Record<string, unknown>)?.total as number || 0
+  const classDist = (stats?.classes as Record<string, unknown>)?.distribution as { name: string; _count: { students: number } }[] | undefined
+  const barData = classDist?.map(c => ({ name: c.name, élèves: c._count.students })) || []
+  const disciplineStats = stats?.discipline as { total: number; blacklist: number; greylist: number; whitelist: number } | undefined
+  const paymentStats = stats?.payments as { total: number; paid: number; pending: number; partial: number; overdue: number; expectedAmount: number; collectedAmount: number; collectionRate: number } | undefined
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Bonjour {userData?.name || 'Secrétaire'}</h1>
+          </div>
+          <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>
+            {userData?.schoolName || 'Gestion scolaire'}
+            {directionCycle && (
+              <span className="inline-flex items-center ml-2 px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ color: GOLD, background: `linear-gradient(135deg, ${GOLD}15, ${ACCENT}10)`, border: `1px solid ${GOLD}55` }}>
+                Cycle {directionCycle}
+              </span>
+            )}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
+        <StatCard label="Total élèves" value={formatNumber(totalStudents)} icon={<Users size={16} />} color={ACCENT} onClick={() => setCurrentView('students')} />
+        <StatCard label="Classes actives" value={String(totalClasses)} icon={<School size={16} />} color={INFO} onClick={() => setCurrentView('classes')} />
+        <StatCard label="Avertissements" value={String(disciplineStats?.greylist || 0)} icon={<AlertTriangle size={16} />} color={WARNING} onClick={() => setCurrentView('discipline')} />
+        {!isDirection && <StatCard label="Impayés" value={String(paymentStats?.overdue || 0)} icon={<Clock size={16} />} color={DANGER} onClick={() => setCurrentView('payments')} />}
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-6 mb-6">
+        <div className="bg-white rounded-2xl p-6 overflow-hidden relative" style={{ boxShadow: '0 1px 3px oklch(20% 0.02 250 / 0.04), 0 8px 24px oklch(20% 0.02 250 / 0.04)' }}>
+          <div className="absolute top-0 right-0 w-[120px] h-[120px] rounded-bl-[120px] opacity-30" style={{ background: `radial-gradient(closest-side, ${ACCENT}12, transparent)` }} />
+          <div className="mb-5 relative">
+            <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Élèves par classe</div>
+            <div className="text-xs mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>Année scolaire en cours</div>
+          </div>
+          {barData.length > 0 ? (
+            <div className="h-[240px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={barData}>
+                  <CartesianGrid strokeDasharray="2 4" stroke="oklch(90% 0.01 175)" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12, fill: TEXT_MUTED_LUXE }} axisLine={false} tickLine={false} />
+                  <Tooltip />
+                  <Bar dataKey="élèves" fill={ACCENT} radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-[240px] flex items-center justify-center" style={{ color: TEXT_MUTED_LUXE }}>
+              <div className="text-center">
+                <BarChart3 size={32} className="mx-auto mb-2 opacity-30" />
+                <p className="text-sm">Aucune donnée de classe disponible</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 overflow-hidden relative" style={{ boxShadow: '0 1px 3px oklch(20% 0.02 250 / 0.04), 0 8px 24px oklch(20% 0.02 250 / 0.04)' }}>
+          <div className="absolute bottom-0 right-0 w-[80px] h-[80px] rounded-tl-[80px] opacity-20" style={{ background: `radial-gradient(closest-side, ${GOLD}15, transparent)` }} />
+          <div className="mb-5 relative">
+            <div className="text-[15px] font-semibold" style={{ color: TEXT_PRIMARY }}>Actions rapides</div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { icon: <UserPlus size={20} />, label: 'Ajouter élève', view: 'students' as ViewType, color: ACCENT },
+              { icon: <MessageSquare size={20} />, label: 'Communication', view: 'communications' as ViewType, color: INFO },
+              // Convocation : direction uniquement (retiré du compte secrétaire).
+              // Paiement : géré par la caisse (retiré du compte secrétaire).
+              ...(isDirection ? [{ icon: <Megaphone size={20} />, label: 'Convocation', view: 'convocation' as ViewType, color: WARNING }] : []),
+            ].map(a => (
+              <button key={a.label} onClick={() => setCurrentView(a.view)} className="group flex flex-col items-center gap-2.5 p-4 rounded-2xl border border-[oklch(92%_0.005_250)] hover:border-[oklch(72%_0.15_65_/_0.3)] transition-all duration-300 hover:-translate-y-0.5" style={{ boxShadow: '0 1px 2px oklch(20% 0.02 250 / 0.03)' }}>
+                <div className="w-11 h-11 rounded-xl grid place-items-center transition-all duration-300 group-hover:scale-110 group-hover:rotate-3" style={{ color: 'white', background: `linear-gradient(135deg, ${a.color}, oklch(72% 0.15 65))`, boxShadow: `0 4px 12px ${a.color}25` }}>{a.icon}</div>
+                <span className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{a.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,253 @@
+import { db } from '@/lib/db';
+import { notifyEvent } from '@/lib/notification-service';
+import { requirePermission, verifySchoolAccess, sanitizeError } from '@/lib/auth';
+import { NextRequest, NextResponse } from 'next/server';
+
+// POST /api/payments/verify — Verify/validate a payment record
+export async function POST(request: NextRequest) {
+  try {
+    const authResult = await requirePermission(request, 'payments:verify');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
+    const body = await request.json();
+    const { paymentId, verificationNote, action } = body;
+
+    if (!paymentId) {
+      return NextResponse.json(
+        { error: 'Champ requis manquant: paymentId' },
+        { status: 400 }
+      );
+    }
+
+    const existing = await db.paymentRecord.findUnique({
+      where: { id: paymentId },
+      include: {
+        school: {
+          select: { name: true, shortName: true },
+        },
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Paiement non trouvé' },
+        { status: 404 }
+      );
+    }
+
+    // Verify school access
+    if (!verifySchoolAccess(user, existing.schoolId)) {
+      return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });
+    }
+
+    // Derive verifierName from the authenticated user's name
+    const verifierName = user.name;
+
+    // Get student info
+    const student = await db.student.findUnique({
+      where: { id: existing.studentId },
+      select: { firstName: true, lastName: true, matricule: true, photoUrl: true },
+    });
+
+    if (action === 'approve') {
+      // Garde d'honnêteté : on n'approuve (PAID) que si le montant encaissé
+      // couvre le dû. Sinon : ajustez paidAmount d'abord (PUT), ou rejetez.
+      if (Number(existing.paidAmount) + 0.01 < Number(existing.amount)) {
+        return NextResponse.json(
+          { error: `Montant encaissé insuffisant (${existing.paidAmount}/${existing.amount}) — ajustez le montant payé ou rejetez` },
+          { status: 409 }
+        );
+      }
+      const payment = await db.paymentRecord.update({
+        where: { id: paymentId },
+        data: {
+          status: 'PAID',
+          paidAt: existing.paidAt || new Date(),
+          verifiedBy: verifierName,
+          verifiedAt: new Date(),
+          verificationNote: verificationNote || null,
+        },
+      });
+
+      // ── Notifications : Parent + CASHIER + SCHOOL_ADMIN (resolver) ────────
+      try {
+        const studentData = await db.student.findUnique({ where: { id: payment.studentId }, select: { firstName: true, lastName: true } });
+        const schoolData = await db.school.findUnique({ where: { id: payment.schoolId }, select: { name: true } });
+
+        await notifyEvent(
+          { type: 'PAYMENT_APPROVED', schoolId: payment.schoolId, studentId: payment.studentId, actorId: user.id },
+          {
+            title: 'Paiement approuvé',
+            message: `Paiement de ${studentData ? `${studentData.firstName} ${studentData.lastName}` : 'l\'élève'} — ${Number(payment.amount).toLocaleString('fr-FR')} CDF confirmé`,
+            parentMessage: `Votre paiement de ${Number(payment.amount).toLocaleString('fr-FR')} CDF a été confirmé`,
+            relatedId: payment.id,
+          }
+        );
+
+        // WhatsApp au parent (contenu riche géré par l'agent WhatsApp)
+        const parentData = await db.student.findUnique({ where: { id: payment.studentId }, select: { parentId: true } });
+        if (parentData?.parentId) {
+          const parent = await db.user.findUnique({ where: { id: parentData.parentId }, select: { phone: true } });
+          if (parent?.phone) {
+            const { notifyPaymentApproved } = await import('@/lib/whatsapp-agent');
+            notifyPaymentApproved(parent.phone, `${studentData?.firstName || ''} ${studentData?.lastName || ''}`.trim(), Number(payment.amount), payment.trimester, schoolData?.name || '', payment.schoolId);
+          }
+        }
+      } catch { /* notification failed, non-critical */ }
+
+      return NextResponse.json({
+        data: {
+          ...payment,
+          student: student || null,
+          action: 'approved',
+        },
+        message: 'Paiement vérifié et approuvé avec succès',
+      });
+    }
+
+    if (action === 'reject') {
+      const payment = await db.paymentRecord.update({
+        where: { id: paymentId },
+        data: {
+          status: 'REJECTED',
+          verifiedBy: verifierName,
+          verifiedAt: new Date(),
+          verificationNote: verificationNote || 'Paiement rejeté',
+        },
+      });
+
+      // ── Notifications : Parent + CASHIER + SCHOOL_ADMIN (resolver) ────────
+      try {
+        const studentData = await db.student.findUnique({ where: { id: payment.studentId }, select: { firstName: true, lastName: true } });
+        const schoolData = await db.school.findUnique({ where: { id: payment.schoolId }, select: { name: true } });
+
+        await notifyEvent(
+          { type: 'PAYMENT_REJECTED', schoolId: payment.schoolId, studentId: payment.studentId, actorId: user.id },
+          {
+            title: 'Paiement rejeté',
+            message: `Paiement de ${studentData ? `${studentData.firstName} ${studentData.lastName}` : 'l\'élève'} — ${Number(payment.amount).toLocaleString('fr-FR')} CDF rejeté`,
+            parentMessage: `Votre paiement de ${Number(payment.amount).toLocaleString('fr-FR')} CDF a été rejeté`,
+            relatedId: payment.id,
+          }
+        );
+
+        // WhatsApp au parent
+        const parentData = await db.student.findUnique({ where: { id: payment.studentId }, select: { parentId: true } });
+        if (parentData?.parentId) {
+          const parent = await db.user.findUnique({ where: { id: parentData.parentId }, select: { phone: true } });
+          if (parent?.phone) {
+            const { notifyPaymentRejected } = await import('@/lib/whatsapp-agent');
+            notifyPaymentRejected(parent.phone, `${studentData?.firstName || ''} ${studentData?.lastName || ''}`.trim(), Number(payment.amount), payment.trimester, schoolData?.name || '', payment.schoolId, verificationNote || 'Paiement rejeté');
+          }
+        }
+      } catch { /* notification failed, non-critical */ }
+
+      return NextResponse.json({
+        data: {
+          ...payment,
+          student: student || null,
+          action: 'rejected',
+        },
+        message: 'Paiement rejeté',
+      });
+    }
+
+    // Default: just mark as verified (without changing status)
+    const payment = await db.paymentRecord.update({
+      where: { id: paymentId },
+      data: {
+        verifiedBy: verifierName,
+        verifiedAt: new Date(),
+        verificationNote: verificationNote || null,
+      },
+    });
+
+    return NextResponse.json({
+      data: {
+        ...payment,
+        student: student || null,
+        action: 'verified',
+      },
+      message: 'Paiement marqué comme vérifié',
+    });
+  } catch (error) {
+    console.error('Error verifying payment:', error);
+    return NextResponse.json(
+      { error: sanitizeError(error) },
+      { status: 500 }
+    );
+  }
+}
+
+// GET /api/payments/verify?schoolId=X — Get unverified payments for a school
+export async function GET(request: NextRequest) {
+  try {
+    const authResult = await requirePermission(request, 'payments:verify');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
+    const { searchParams } = new URL(request.url);
+    const schoolId = searchParams.get('schoolId') || '';
+    const status = searchParams.get('status') || 'all';
+
+    if (!schoolId) {
+      return NextResponse.json(
+        { error: 'schoolId est requis' },
+        { status: 400 }
+      );
+    }
+
+    // Verify school access
+    if (!verifySchoolAccess(user, schoolId)) {
+      return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });
+    }
+
+    const where: Record<string, unknown> = { schoolId };
+
+    // Filter by verification status
+    if (status === 'unverified') {
+      where.verifiedBy = null;
+    } else if (status === 'verified') {
+      where.verifiedBy = { not: null };
+    }
+
+    const payments = await db.paymentRecord.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    // Enrich with student data
+    const studentIds = [...new Set(payments.map(p => p.studentId))];
+    const students = await db.student.findMany({
+      where: { id: { in: studentIds } },
+      select: { id: true, firstName: true, lastName: true, matricule: true, photoUrl: true },
+    });
+    const studentMap = Object.fromEntries(students.map(s => [s.id, s]));
+
+    const enrichedPayments = payments.map(p => ({
+      ...p,
+      student: studentMap[p.studentId] || null,
+      isVerified: !!p.verifiedBy,
+    }));
+
+    const totalUnverified = enrichedPayments.filter(p => !p.isVerified).length;
+    const totalVerified = enrichedPayments.filter(p => p.isVerified).length;
+
+    return NextResponse.json({
+      data: enrichedPayments,
+      summary: {
+        total: enrichedPayments.length,
+        verified: totalVerified,
+        unverified: totalUnverified,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching verification data:', error);
+    return NextResponse.json(
+      { error: sanitizeError(error) },
+      { status: 500 }
+    );
+  }
+}

@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Typecheck + Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: bunx prisma generate
+
+      # Le build Next.js ne masque PLUS les erreurs TypeScript
+      # (typescript.ignoreBuildErrors: false dans next.config.ts)
+      - name: Typecheck (tsc --noEmit)
+        run: bunx tsc --noEmit
+
+      - name: Lint (baseline 109 — échec uniquement si régression)
+        run: |
+          bunx eslint . --format json --output-file /tmp/lint.json || true
+          node -e "
+            const r = require('/tmp/lint.json');
+            const errors = r.reduce((a, f) => a + (f.errorCount || 0), 0);
+            const warnings = r.reduce((a, f) => a + (f.warningCount || 0), 0);
+            const BASELINE = 109; // dette technique documentée (worklog) — ne JAMAIS augmenter
+            console.log('eslint: ' + errors + ' erreurs, ' + warnings + ' avertissements (baseline: ' + BASELINE + ')');
+            if (errors + warnings > BASELINE) {
+              console.error('RÉGRESSION lint : ' + (errors + warnings) + ' > baseline ' + BASELINE);
+              process.exit(1);
+            }
+          "
+
+  build-and-security:
+    name: Build + Tests sécurité (RBAC / multi-tenant / IDOR)
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: bunx prisma generate
+
+      - name: Setup local SQLite database
+        env:
+          # Chemin ABSOLU : la résolution des chemins SQLite relatifs diffère
+          # entre CLI (prisma/), dev (prisma/) et standalone (.next/standalone/)
+          # — absolu = un seul et même fichier pour db push, build et serveur.
+          DATABASE_URL: file:${{ github.workspace }}/db/custom.db
+        run: bunx prisma db push --skip-generate
+
+      - name: Build Next.js (échoue si TypeScript invalide)
+        env:
+          DATABASE_URL: file:${{ github.workspace }}/db/custom.db
+        run: bunx next build
+
+      - name: Start server
+        env:
+          DATABASE_URL: file:${{ github.workspace }}/db/custom.db
+          SUBSCRIPTION_WEBHOOK_SECRET: test-secret
+          # Active la voie webhook abonnement (sinon fail-closed 503 ; le test
+          # « sans signature » attend alors 401, pas 503).
+          PLATFORM_WEBHOOK_SECRET: test-secret
+          NODE_ENV: production
+        run: |
+          cp -r .next/static .next/standalone/.next/ || true
+          cp -r public .next/standalone/ || true
+          # Log serveur capturé : les routes masquent les erreurs en production
+          # (« Une erreur interne ») — sans cette capture, un 500 est indéchiffrable.
+          node .next/standalone/server.js > server.log 2>&1 &
+          echo $! > server.pid
+          # Warm-up : attendre que le serveur réponde (GET public)
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000/api/schools > /dev/null; then break; fi
+            sleep 2
+          done
+
+      - name: Seed minimal (super admin)
+        env:
+          DATABASE_URL: file:${{ github.workspace }}/db/custom.db
+        run: |
+          # Seed déterministe (le /api/seed HTTP est interdit en production et
+          # la résolution SQLite y est ambiguë) — idempotent.
+          node scripts/security-tests/seed-sag.mjs
+          # Diagnostic : où vit réellement la base du serveur ?
+          ls -la "$GITHUB_WORKSPACE/db/" .next/standalone/db/ 2>/dev/null || true
+
+      - name: Run security tests (auth, rôles, multi-tenant, IDOR, abonnement)
+        env:
+          SUBSCRIPTION_WEBHOOK_SECRET: test-secret
+        run: |
+          if ! node scripts/security-tests/run-security-tests.mjs http://localhost:3000; then
+            echo "─────────────── SERVER LOG (stack des erreurs) ───────────────"
+            tail -n 120 server.log
+            exit 1
+          fi
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f server.pid ]; then kill $(cat server.pid) || true; fi

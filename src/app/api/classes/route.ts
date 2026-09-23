@@ -1,0 +1,180 @@
+import { db } from '@/lib/db';
+import { notifyEvent } from '@/lib/notification-service';
+import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, classFilterForCycle } from '@/lib/auth';
+
+export async function GET(request: NextRequest) {
+  try {
+    const authResult = await requirePermission(request, 'classes:read');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
+    const { searchParams } = new URL(request.url);
+    let schoolId = searchParams.get('schoolId') || '';
+    if (!schoolId && user.role !== 'SUPER_ADMIN_GLOBAL') {
+      schoolId = user.schoolId || '';
+    }
+    if (!schoolId) {
+      return NextResponse.json({ error: 'School ID required' }, { status: 403 });
+    }
+    const schoolYearId = searchParams.get('schoolYearId') || '';
+    const page = safeParseInt(searchParams.get('page'), 1, 1, 1000);
+    const limit = safeParseInt(searchParams.get('limit'), 50, 1, 200);
+
+    // Verify school access if schoolId is provided
+    if (schoolId && !verifySchoolAccess(user, schoolId)) {
+      return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
+    }
+
+    const where: Record<string, unknown> = {};
+
+    if (schoolId) {
+      where.schoolId = schoolId;
+    }
+
+    if (schoolYearId) {
+      where.schoolYearId = schoolYearId;
+    }
+
+    // ── Cycle scoping serveur ─────────────────────────────────────────────
+    // Un rôle cyclé (DIRECTION_*, DISCIPLINE_*) ne voit QUE les classes de
+    // son cycle, quelle que soit l'URL demandée (le paramètre éventuel est
+    // ignoré — pas de contournement).
+    const roleCycle = getRoleCycle(user.role);
+    if (roleCycle) {
+      // Filtre tolérant : section du cycle OU (maternelle) nom de classe M1/M2/PS/MS/GS…
+      Object.assign(where, classFilterForCycle(roleCycle));
+    }
+
+    const [classes, total] = await Promise.all([
+      db.class.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: [{ level: 'asc' }, { name: 'asc' }],
+        include: {
+          _count: { select: { students: true, subjects: true } },
+          school: { select: { id: true, name: true, shortName: true } },
+          schoolYear: { select: { id: true, label: true } },
+        },
+      }),
+      db.class.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      data: classes,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error('Error listing classes:', error);
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const subCheck = await requireActiveSubscription(request);
+    if ('error' in subCheck) return subCheck.error;
+
+    const authResult = await requirePermission(request, 'classes:create');
+    if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
+
+    // Only SECRETARY, SCHOOL_ADMIN, and DIRECTION roles can create classes
+    const allowedRoles = ['SECRETARY', 'SCHOOL_ADMIN', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
+    if (!allowedRoles.includes(user.role) && user.role !== 'SUPER_ADMIN_GLOBAL') {
+      return NextResponse.json({ error: 'Seuls les secrétaires, administrateurs et la direction peuvent créer des classes' }, { status: 403 });
+    }
+
+    const body = await request.json();
+    let { name, section, level, capacity, schoolId, schoolYearId, headTeacherId } = body;
+
+    // Une DIRECTION_* ne crée JAMAIS directement : elle passe par une demande
+    // d'approbation (changeType 'class_create' sur /api/settings-approval) —
+    // l'UI lui présente ce flux ; l'API refuse net pour éviter tout contournement.
+    const creatorCycle = getRoleCycle(user.role);
+    if (creatorCycle && user.role.startsWith('DIRECTION')) {
+      return NextResponse.json(
+        { error: 'La création d\u2019une classe requiert l\u2019accord de l\u2019admin de l\u2019école.', requiresApproval: true },
+        { status: 403 }
+      );
+    }
+
+    // (Garde-fou historique : section imposée si un rôle cyclé atteignait ce point)
+    if (creatorCycle) section = creatorCycle;
+
+    if (!name || !schoolId || !schoolYearId) {
+      return NextResponse.json(
+        { error: 'Missing required fields: name, schoolId, schoolYearId' },
+        { status: 400 }
+      );
+    }
+
+    // Verify school access
+    if (!verifySchoolAccess(user, schoolId)) {
+      return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
+    }
+
+    // Check for duplicate class name in the same school year
+    const existing = await db.class.findUnique({
+      where: {
+        name_schoolYearId: {
+          name,
+          schoolYearId,
+        },
+      },
+    });
+
+    if (existing) {
+      return NextResponse.json(
+        { error: `Class "${name}" already exists for this school year` },
+        { status: 409 }
+      );
+    }
+
+    const cls = await db.class.create({
+      data: {
+        name,
+        section: section || null,
+        level: level || null,
+        capacity: capacity || 40,
+        schoolId,
+        schoolYearId,
+        headTeacherId: headTeacherId || null,
+      },
+      include: {
+        school: { select: { id: true, name: true } },
+        schoolYear: { select: { id: true, label: true } },
+      },
+    });
+
+    // Update school class count
+    await db.school.update({
+      where: { id: schoolId },
+      data: { classCount: { increment: 1 } },
+    });
+
+    // ── Notifications (resolver centralisé) : SECRETARY + SCHOOL_ADMIN
+    //    + DIRECTION_<cycle> — scellé au cycle de la classe. ─────────────────
+    try {
+      await notifyEvent(
+        { type: 'CLASS_CREATED', schoolId, classId: cls.id, actorId: user.id, section },
+        {
+          title: 'Nouvelle classe créée',
+          message: `Classe "${name}" - ${section || ''} ${level || ''} - Capacité: ${capacity || 40}`,
+          relatedId: cls.id,
+        }
+      );
+    } catch { /* notification failed, non-critical */ }
+
+    return NextResponse.json({ data: cls }, { status: 201 });
+  } catch (error) {
+    console.error('Error creating class:', error);
+    return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
+  }
+}

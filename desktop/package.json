@@ -1,0 +1,96 @@
+{
+  "name": "edugest-desktop",
+  "version": "1.4.7",
+  "description": "EduGest — La plateforme de gestion scolaire (application de bureau)",
+  "main": "main.js",
+  "author": "EduGest",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win",
+    "dist:all": "electron-builder --win --linux"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "cd.edugest.desktop",
+    "productName": "EduGest",
+    "copyright": "Copyright © 2026 EduGest",
+    "directories": {
+      "output": "dist",
+      "buildResources": "."
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "icon.png",
+      "splash-logo.png"
+    ],
+    "extraResources": [
+      {
+        "from": "../.next/standalone",
+        "to": "app"
+      },
+      {
+        "from": "../db/desktop-template.db",
+        "to": "template.db"
+      },
+      {
+        "from": "../public",
+        "to": "app/public"
+      },
+      {
+        "from": "wa-server",
+        "to": "wa-server"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icon.png",
+      "signAndEditExecutable": true
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "EduGest-Setup-${version}.exe",
+      "shortcutName": "EduGest",
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "installerHeaderIcon": "icon.ico",
+      "include": "installer.nsh"
+    },
+    "portable": {
+      "artifactName": "EduGest-Portable-${version}.exe"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "vodi72089-eng",
+        "repo": "edugest"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  }
+}

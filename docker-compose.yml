@@ -1,0 +1,28 @@
+services:
+  edugest:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./prisma/db:/app/prisma/db
+      - ./.sessions:/app/.sessions
+      - ./upload:/app/upload
+    environment:
+      - DATABASE_URL=file:./db/custom.db
+      - NODE_ENV=production
+      # L'app Next.js parle au serveur WhatsApp via le réseau Docker interne
+      - WHATSAPP_SERVER_URL=http://whatsapp:3001
+      - WHATSAPP_API_KEY=${WHATSAPP_API_KEY:-edugest-wa-dev-key}
+    depends_on:
+      - whatsapp
+    restart: unless-stopped
+
+  # Mini-service Baileys (pairing code + envoi WhatsApp) — session persistante
+  whatsapp:
+    build: ./mini-services/whatsapp-server
+    environment:
+      - WHATSAPP_API_KEY=${WHATSAPP_API_KEY:-edugest-wa-dev-key}
+      - WHATSAPP_AUTH_DIR=/data/whatsapp-auth
+    volumes:
+      - ./whatsapp-auth:/data/whatsapp-auth
+    restart: unless-stopped
