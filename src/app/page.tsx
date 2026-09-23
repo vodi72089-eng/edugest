@@ -66,6 +66,7 @@ import {
    ChevronUp, ExternalLink, Check, Copy, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown,
    User, Landmark, Palette, BellRing, HeartPulse, Database, Stethoscope, Volume2, VolumeX, CalendarCheck, CalendarDays
 } from 'lucide-react'
+import { Link000, Link001 } from '@/components/ui/skiper-ui/skiper40'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell
@@ -272,9 +273,9 @@ function Footer() {
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Produit</h4>
           <ul className="space-y-3">
-            <li><button onClick={() => setCurrentView('home')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Trouver une école<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
-            <li><button onClick={() => setCurrentView('pricing')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Tarifs<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
-            <li><button onClick={() => setCurrentView('login')} className="text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition relative group">Connexion<span className="absolute bottom-0 left-0 w-0 h-px bg-[oklch(72%_0.15_65)] group-hover:w-full transition-all duration-300" /></button></li>
+            <li><Link000 href="#" onClick={(e) => { e.preventDefault(); setCurrentView('home') }} className="w-fit text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition-colors">Trouver une école</Link000></li>
+            <li><Link000 href="#" onClick={(e) => { e.preventDefault(); setCurrentView('pricing') }} className="w-fit text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition-colors">Tarifs</Link000></li>
+            <li><Link001 href="#" onClick={(e) => { e.preventDefault(); setCurrentView('login') }} className="w-fit text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition-colors">Connexion</Link001></li>
           </ul>
         </div>
         <div>
@@ -286,7 +287,7 @@ function Footer() {
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Contact</h4>
           <ul className="space-y-3 text-sm text-white/50">
-            <li>support@edugest.app</li><li>+243 81 234 56 78</li>
+            <li><Link001 href="mailto:support@edugest.app" className="hover:text-[oklch(72%_0.15_65)] transition-colors">support@edugest.app</Link001></li><li>+243 81 234 56 78</li>
           </ul>
         </div>
       </div>
