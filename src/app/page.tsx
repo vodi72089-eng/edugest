@@ -51,6 +51,12 @@ import SettingsView from '@/components/views/SettingsView'
 import OnlinePaymentView from '@/components/views/OnlinePaymentView'
 import DettesView from '@/components/views/DettesView'
 import SchoolsManagementView from '@/components/views/SchoolsManagementView'
+import CorporateSpaceView from '@/components/views/CorporateSpaceView'
+import SupportView from '@/components/views/SupportView'
+import DocumentationView from '@/components/views/DocumentationView'
+import CorporatesAdminView from '@/components/views/CorporatesAdminView'
+import PlatformEmailsView from '@/components/views/PlatformEmailsView'
+import LogsView from '@/components/views/LogsView'
 import SystemParcoursExplorer from '@/components/views/SystemParcoursExplorer'
 import PlatformControlView from '@/components/views/PlatformControlView'
 import {
@@ -64,7 +70,8 @@ import {
   LayoutDashboard, Building2, Wallet, Megaphone, PenTool, Archive,
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
    ChevronUp, ExternalLink, Check, Copy, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown,
-   User, Landmark, Palette, BellRing, HeartPulse, Database, Stethoscope, Volume2, VolumeX, CalendarCheck, CalendarDays
+   User, Landmark, Palette, BellRing, HeartPulse, Database, Stethoscope, Volume2, VolumeX, CalendarCheck, CalendarDays,
+   LifeBuoy, Headset, ScrollText, Bot, Newspaper
 } from 'lucide-react'
 import { Link000, Link001 } from '@/components/ui/skiper-ui/skiper40'
 import {
@@ -2478,6 +2485,9 @@ function Sidebar() {
       { icon: <CreditCard size={16} />, label: 'Config. Paiements', view: 'payment-config' as ViewType },
       { icon: <DollarSign size={16} />, label: 'Tarifs', view: 'pricing' as ViewType },
       { icon: <Globe size={16} />, label: 'Contrôle plateforme', view: 'platform-control' as ViewType },
+      { icon: <Building2 size={16} />, label: 'Entreprises', view: 'corporates' as ViewType },
+      { icon: <Mail size={16} />, label: 'Emails plateforme', view: 'platform-emails' as ViewType },
+      { icon: <ScrollText size={16} />, label: 'Journal d\u2019activité', view: 'activity-logs' as ViewType },
       { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <CalendarCheck size={16} />, label: 'Liste de présence', view: 'attendance' as ViewType },
       { icon: <Calendar size={16} />, label: 'Événements', view: 'events' as ViewType },
@@ -2598,7 +2608,33 @@ HEAD_TEACHER: [
   const directionRoles: UserRole[] = ['DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE']
   const disciplineRoles: UserRole[] = ['DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE']
 
+  // ── Comptes HORS école (structurellement différents) ──
+  // Corporate : le client voit TOUTES ses écoles agrégées (pas de dashboard école).
+  menus.CORPORATE_ADMIN = [
+    { icon: <Building2 size={16} />, label: 'Espace Corporate', view: 'corporate' as ViewType },
+  ]
+  // Support client EduGest : file de tickets + agent IA (accomplit les tâches avec les corporates).
+  menus.SUPPORT_AGENT = [
+    { icon: <Headset size={16} />, label: 'Support client', view: 'support' },
+  ]
+
   let menuItems: MenuItem[] = menus[userRole || ''] || menus.SECRETARY
+
+  // Support + Documentation : communs à TOUS les comptes (insérés avant « Mon profil »)
+  const COMMON_MENU_ITEMS: MenuItem[] = [
+    { icon: <LifeBuoy size={16} />, label: 'Support', view: 'support' },
+    { icon: <BookOpen size={16} />, label: 'Documentation', view: 'docs' as ViewType },
+  ]
+  {
+    const withoutCommon = menuItems.filter(i => i.view !== 'support' && i.view !== 'docs')
+    const profileIdx = withoutCommon.findIndex(i => i.view === 'profile')
+    const insertAt = profileIdx >= 0 ? profileIdx : withoutCommon.length
+    menuItems = [
+      ...withoutCommon.slice(0, insertAt),
+      ...COMMON_MENU_ITEMS,
+      ...withoutCommon.slice(insertAt),
+    ]
+  }
 
   // Restriction demandée pour les parents sur l'offre Essentiel & Freemium : masquage des notes et bulletins
   const canParentsViewGrades = getTierLimits(userData?.subscriptionTier || 'FREEMIUM').reportCardsToParents
@@ -2777,12 +2813,28 @@ const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'discipline', 'attendance', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'medical-records', 'events', 'reports', 'my-subscription', 'parent-qr', 'parents', 'personalization', 'whatsapp-config', 'settings', 'profile'],
   MEDICAL: ['dashboard', 'medical', 'medical-records', 'students', 'communications', 'reports', 'profile'],
   SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'pricing', 'platform-control', 'discipline', 'attendance', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'medical', 'medical-records', 'events', 'reports', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
+  // Comptes hors école : corporate (multi-écoles) + support client EduGest
+  CORPORATE_ADMIN: ['corporate', 'support', 'docs', 'profile'],
+  SUPPORT_AGENT: ['support', 'docs', 'profile'],
 }
+
+// Vues communes à TOUS les rôles : Support + Documentation
+for (const roleKey of Object.keys(VIEWS_BY_ROLE) as (keyof typeof VIEWS_BY_ROLE)[]) {
+  const list = VIEWS_BY_ROLE[roleKey]
+  for (const commonView of ['support', 'docs'] as ViewType[]) {
+    if (!list.includes(commonView)) list.push(commonView)
+  }
+}
+// Administration plateforme : gestion des entreprises clientes, emails officiels, journal d'activité
+VIEWS_BY_ROLE.SUPER_ADMIN_GLOBAL.push('corporates', 'platform-emails', 'activity-logs')
 
 const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment-verification', 'payment-config', 'my-subscription', 'settings', 'profile']
 
 function canAccessView(role: string | null, view: ViewType, subscriptionTier?: string): boolean {
   if (!role) return false
+  // Comptes HORS école (corporate / support) : pas de forfait, accès par rôle
+  // uniquement — aucune des gardes d'abonnement ci-dessous ne doit s'appliquer.
+  if (role === 'CORPORATE_ADMIN' || role === 'SUPPORT_AGENT') return (VIEWS_BY_ROLE[role] || []).includes(view)
   // SUPER_ADMIN_GLOBAL = compte PLATEFORME : son profil n'a PAS de forfait d'école
   // (schoolId null → tier undefined côté serveur). AUCUN gating d'abonnement ne
   // doit s'appliquer à lui — sinon le fallback « FREEMIUM » du client bloquait la
@@ -3187,6 +3239,12 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     'medical-records': 'Fiches médicales',
     'debts': 'Dettes',
     'finance': 'Situation financière',
+    'corporate': 'Espace Corporate',
+    'corporates': 'Entreprises',
+    'support': 'Support client',
+    'docs': 'Documentation',
+    'platform-emails': 'Emails plateforme',
+    'activity-logs': 'Journal d’activité',
   }
 
   return (
@@ -3918,6 +3976,12 @@ function MainContent() {
     case 'profile': return <ProfileView />
     case 'class-passing': return <ClassPassingView />
     case 'platform-control': return <PlatformControlView />
+    case 'corporate': return <CorporateSpaceView />
+    case 'corporates': return <CorporatesAdminView />
+    case 'support': return <SupportView />
+    case 'docs': return <DocumentationView />
+    case 'platform-emails': return <PlatformEmailsView />
+    case 'activity-logs': return <LogsView />
     case 'bulletin': return <BulletinView />
     case 'convocation': return <ConvocationView />
     case 'schools': return <SchoolsManagementView />
@@ -7284,6 +7348,9 @@ function ClassPassingView() {
   const [repSending, setRepSending] = useState(false)
   const [repHistory, setRepHistory] = useState<RepechageExamData[]>([])
   const [repHistoryLoading, setRepHistoryLoading] = useState(false)
+  // Passage d'école verrouillé : l'admin plateforme n'a pas encore envoyé
+  // l'activation à cette école (grant CLASS_PASSING manquant/révoké).
+  const [grantLocked, setGrantLocked] = useState(false)
 
   useEffect(() => {
     if (!tierOk) {
@@ -7301,11 +7368,14 @@ function ClassPassingView() {
         setStudents(j.data || [])
         setVisibility(j.visibility || null)
         setStats(j.stats || {})
+        setGrantLocked(false)
         const existing: Record<string, string> = {}
         for (const s of (j.data || [])) {
           if (s.decision && s.decision !== 'PENDING') existing[s.id] = s.decision
         }
         setDecisions(prev => ({ ...existing, ...prev }))
+      } else if (j.grantRequired) {
+        setGrantLocked(true)
       } else {
         toast.error(j.error || 'Erreur de chargement')
       }
@@ -7392,6 +7462,19 @@ function ClassPassingView() {
       {!canAccess ? (
         <div className="text-center py-12 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl">
           <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Vous n&apos;avez pas accès à cette page</p>
+        </div>
+      ) : (
+      <>
+      {grantLocked ? (
+        <div className="rounded-2xl border p-10 text-center" style={{ borderColor: 'oklch(90%_0.01_175)', background: 'white' }}>
+          <div className="w-14 h-14 rounded-2xl mx-auto mb-4 grid place-items-center" style={{ background: GOLD_SOFT }}>
+            <Lock size={24} style={{ color: GOLD }} />
+          </div>
+          <h2 className="text-lg font-bold mb-2" style={{ color: TEXT_PRIMARY }}>Passage de classe pas encore activé</h2>
+          <p className="text-sm max-w-md mx-auto" style={{ color: TEXT_MUTED_LUXE }}>
+            Le passage d&apos;école n&apos;est disponible que lorsque l&apos;administrateur de la plateforme vous l&apos;envoie.
+            Votre forfait le permet — l&apos;activation vous parviendra avec une notification et un email de contact@edugest.app.
+          </p>
         </div>
       ) : (
       <>
@@ -7685,6 +7768,8 @@ function ClassPassingView() {
           </div>
         </div>
       </div>
+      )}
+      </>
       )}
       </>
       )}

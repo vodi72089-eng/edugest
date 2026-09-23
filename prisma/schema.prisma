@@ -51,6 +51,9 @@ model School {
   communications    Communication[]
   paymentRecords    PaymentRecord[]
   homeworks         Homework[]
+  corporateSchools  CorporateSchool[]
+  supportTickets    SupportTicket[]
+  featureGrants     FeatureGrant[]
   attendanceRecords AttendanceRecord[]
   schoolFees        SchoolFee[]
   notifications     Notification[]
@@ -117,6 +120,10 @@ model User {
   infirmaryVisitsRecorded InfirmaryVisit[] @relation("RecordedVisits")
   medicalDocumentsCreated MedicalDocument[] @relation("MedicalDocumentsCreated")
   events                SchoolEvent[] @relation("EventCreator")
+  corporateMemberships  CorporateUser[]
+  ticketsCreated        SupportTicket[] @relation("TicketCreator")
+  ticketsAssigned       SupportTicket[] @relation("TicketAssignee")
+  ticketMessages        TicketMessage[] @relation("TicketMessages")
 }
 
 model Student {
@@ -557,7 +564,12 @@ model AuditLog {
   entityType String
   entityId   String?
   details    String?
+  schoolId   String?
+  meta       String?  // JSON sérialisé (payload Hermes)
   createdAt  DateTime @default(now())
+
+  @@index([action])
+  @@index([createdAt])
 }
 
 model GlobalApiConfig {
@@ -973,4 +985,135 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+// ─── Comptes CORPORATE (clients multi-écoles) ───
+// Un client corporate (opérateur scolaire, groupe scolaire, ministère, ONG…)
+// peut posséder PLUSIEURS écoles. Le compte est structurellement différent
+// d'un compte école : schoolId = null sur l'utilisateur, rattachement via
+// CorporateSchool. Géré uniquement par le SUPER_ADMIN_GLOBAL.
+model Corporate {
+  id           String   @id @default(cuid())
+  name         String
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+  city         String?
+  notes        String?
+  status       String   @default("ACTIVE") // ACTIVE | SUSPENDED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  schools  CorporateSchool[]
+  users    CorporateUser[]
+  tickets  SupportTicket[]
+
+  @@index([name])
+}
+
+model CorporateSchool {
+  id          String   @id @default(cuid())
+  corporateId String
+  schoolId    String
+  assignedAt  DateTime @default(now())
+
+  corporate Corporate @relation(fields: [corporateId], references: [id], onDelete: Cascade)
+  school    School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([corporateId, schoolId])
+  @@index([schoolId])
+}
+
+model CorporateUser {
+  id          String   @id @default(cuid())
+  corporateId String
+  userId      String   @unique
+  role        String   @default("CORPORATE_ADMIN") // CORPORATE_ADMIN | CORPORATE_VIEWER
+  createdAt   DateTime @default(now())
+
+  corporate Corporate @relation(fields: [corporateId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([corporateId, userId])
+}
+
+// ─── Support client (tickets) ───
+// Le support accompagne les clients (corporates + écoles). Un ticket peut être
+// créé par tout utilisateur connecté ; traité par SUPPORT_AGENT / SAG.
+model SupportTicket {
+  id             String   @id @default(cuid())
+  ref            String   @unique
+  subject        String
+  category       String   @default("GENERAL") // GENERAL | TECHNIQUE | FACTURATION | ONBOARDING | DONNEES
+  priority       String   @default("NORMAL")  // LOW | NORMAL | HIGH | URGENT
+  status         String   @default("OPEN")    // OPEN | IN_PROGRESS | RESOLVED | CLOSED
+  createdById    String
+  corporateId    String?
+  schoolId       String?
+  assigneeId     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  createdBy    User          @relation("TicketCreator", fields: [createdById], references: [id])
+  corporate    Corporate?    @relation(fields: [corporateId], references: [id])
+  school       School?       @relation(fields: [schoolId], references: [id])
+  assignee     User?         @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  messages     TicketMessage[]
+
+  @@index([status, priority])
+  @@index([createdById])
+}
+
+model TicketMessage {
+  id         String   @id @default(cuid())
+  ticketId   String
+  userId     String
+  authorRole String   @default("CLIENT") // CLIENT | SUPPORT | AGENT (IA)
+  body       String
+  createdAt  DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User          @relation("TicketMessages", fields: [userId], references: [id])
+
+  @@index([ticketId])
+}
+
+// ─── Boîte d'envoi des emails plateforme (« nos emails ») ───
+// Tout email transactionnel de la plateforme passe par sendPlatformEmail()
+// qui journalise ici l'envoi (Resend quand configuré, SIMULÉ sinon en dev).
+model EmailMessage {
+  id        String   @id @default(cuid())
+  toEmail   String
+  subject   String
+  template  String?  // WELCOME | HANDOVER_GRANT | TICKET_REPLY | TEST | GENERIC
+  fromKey   String   @default("noreply") // noreply | support | contact
+  status    String   @default("QUEUED")  // QUEUED | SENT | FAILED | SIMULATED
+  provider  String   @default("resend")
+  error     String?
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ─── Dons de fonctionnalités (« passage d'école » envoyé par l'admin) ───
+// Le passage de classe n'est disponible pour une école QUE lorsque le
+// SUPER_ADMIN_GLOBAL lui envoie l'activation (bouton dédié). Sans grant
+// actif, la vue et l'API sont verrouillées, quel que soit le forfait.
+model FeatureGrant {
+  id              String   @id @default(cuid())
+  feature         String   // CLASS_PASSING | BULLETINS | …
+  schoolId        String
+  grantedByUserId String
+  grantedByName   String?
+  note            String?
+  activeUntil     DateTime?
+  revoked         Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([feature, schoolId])
+  @@index([schoolId])
 }

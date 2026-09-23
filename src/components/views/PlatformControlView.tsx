@@ -677,6 +677,178 @@ export default function PlatformControlView() {
           </div>
         )}
       </section>
+
+      {/* Passage d'école : activations envoyées manuellement par la plateforme */}
+      <PassageGrantsSection />
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Passage d'école — activations envoyées par la plateforme (FeatureGrant)
+// Le passage n'est disponible pour une école QUE lorsque l'admin plateforme
+// lui envoie l'activation ici (POST /api/feature-grants), révocable à tout moment.
+// ---------------------------------------------------------------------------
+
+interface FeatureGrantItem {
+  id: string
+  feature: string
+  note: string | null
+  revoked: boolean
+  activeUntil: string | null
+  createdAt: string
+  grantedByName: string | null
+  school: { id: string; name: string; shortName: string; subscriptionTier: string }
+  active: boolean
+}
+
+function PassageGrantsSection() {
+  const [schools, setSchools] = useState<SchoolOption[]>([])
+  const [grants, setGrants] = useState<FeatureGrantItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [busySchool, setBusySchool] = useState('')
+  const [search, setSearch] = useState('')
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [schoolsRes, grantsRes] = await Promise.all([
+        authFetch('/api/schools?limit=200'),
+        authFetch('/api/feature-grants'),
+      ])
+      const sj = await schoolsRes.json()
+      const gj = await grantsRes.json()
+      if (schoolsRes.ok) setSchools(sj.data || [])
+      if (grantsRes.ok) setGrants(gj.data || [])
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  async function sendGrant(schoolId: string, schoolName: string) {
+    setBusySchool(schoolId)
+    try {
+      const res = await authFetch('/api/feature-grants', { method: 'POST', body: JSON.stringify({ feature: 'CLASS_PASSING', schoolId, note: 'Envoyé depuis le contrôle plateforme' }) })
+      const j = await res.json()
+      if (res.ok) { toast.success(`Passage de classe envoyé à « ${schoolName} » — admins notifiés par email`); await load() }
+      else toast.error(j.error || 'Envoi impossible')
+    } catch { toast.error('Erreur réseau') } finally { setBusySchool('') }
+  }
+
+  async function revokeGrant(id: string) {
+    setBusySchool(id)
+    try {
+      const res = await authFetch('/api/feature-grants', { method: 'PATCH', body: JSON.stringify({ id, revoked: true }) })
+      const j = await res.json()
+      if (res.ok) { toast.success('Activation révoquée — la vue est de nouveau verrouillée'); await load() }
+      else toast.error(j.error || 'Révocation impossible')
+    } catch { toast.error('Erreur réseau') } finally { setBusySchool('') }
+  }
+
+  const grantBySchool = useMemo(() => {
+    const map: Record<string, FeatureGrantItem> = {}
+    for (const g of grants) {
+      if (!g.school) continue
+      const prev = map[g.school.id]
+      if (!prev || (!prev.active && g.active)) map[g.school.id] = g
+    }
+    return map
+  }, [grants])
+
+  const filteredSchools = schools.filter(s =>
+    !search.trim() || s.name.toLowerCase().includes(search.toLowerCase()) || (s.shortName || '').toLowerCase().includes(search.toLowerCase())
+  )
+
+  return (
+    <section className="mt-8">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 className="text-lg font-extrabold flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+            <Send size={17} style={{ color: GOLD }} /> Passage d&apos;école — activations
+          </h2>
+          <p className="text-xs mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>
+            Le passage de classe n&apos;est disponible pour une école que lorsque vous lui envoyez l&apos;activation. Révocable à tout moment.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher une école…"
+            className="px-3.5 py-2 rounded-xl text-sm outline-none border focus:border-[oklch(72%_0.15_65)] transition w-full sm:w-56"
+            style={{ borderColor: BORDER, color: TEXT_PRIMARY }}
+          />
+          <button onClick={load} className="p-2 rounded-xl bg-white border hover:border-[oklch(72%_0.15_65)] transition" style={{ borderColor: BORDER }} aria-label="Rafraîchir">
+            <RefreshCw size={14} style={{ color: TEXT_MUTED_LUXE }} />
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="h-24 rounded-2xl animate-pulse" style={{ background: IVORY }} />
+      ) : filteredSchools.length === 0 ? (
+        <div className="bg-white border rounded-2xl p-6 text-center" style={{ borderColor: BORDER }}>
+          <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Aucune école trouvée</p>
+        </div>
+      ) : (
+        <div className="bg-white border rounded-2xl divide-y overflow-hidden" style={{ borderColor: BORDER }}>
+          <div className="max-h-[420px] overflow-y-auto divide-y" style={{ borderColor: BORDER }}>
+            {filteredSchools.map((s) => {
+              const g = grantBySchool[s.id]
+              return (
+                <div key={s.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                  <span className="grid place-items-center w-9 h-9 rounded-xl shrink-0 text-xs font-extrabold" style={{ background: IVORY, color: GOLD }}>
+                    {(s.shortName || s.name).slice(0, 2).toUpperCase()}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold truncate" style={{ color: TEXT_PRIMARY }}>{s.name}</p>
+                    <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
+                      {g?.active
+                        ? `Activé le ${new Date(g.createdAt).toLocaleDateString('fr-FR')} par ${g.grantedByName || 'la plateforme'}${g.activeUntil ? ` · jusqu'au ${new Date(g.activeUntil).toLocaleDateString('fr-FR')}` : ''}`
+                        : g && !g.active
+                          ? 'Activation révoquée ou expirée'
+                          : 'Pas encore activé — vue verrouillée'}
+                    </p>
+                  </div>
+                  <span
+                    className="px-2.5 py-1 rounded-full text-[10px] font-bold shrink-0"
+                    style={g?.active
+                      ? { background: 'oklch(95% 0.04 145)', color: SUCCESS }
+                      : g
+                        ? { background: 'oklch(95% 0.02 25)', color: DANGER }
+                        : { background: IVORY, color: TEXT_MUTED_LUXE }}
+                  >
+                    {g?.active ? 'ACTIF' : g ? 'RÉVOQUÉ' : 'NON ACTIVÉ'}
+                  </span>
+                  {g?.active ? (
+                    <button
+                      onClick={() => revokeGrant(g.id)}
+                      disabled={busySchool === g.id}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold transition disabled:opacity-50 shrink-0"
+                      style={{ background: 'oklch(95% 0.02 25)', color: DANGER }}
+                    >
+                      {busySchool === g.id ? '…' : 'Révoquer'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => sendGrant(s.id, s.name)}
+                      disabled={busySchool === s.id}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold transition disabled:opacity-50 shrink-0"
+                      style={{ background: GOLD, color: '#0a0f0d' }}
+                    >
+                      {busySchool === s.id ? 'Envoi…' : 'Envoyer l\u2019activation'}
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </section>
   )
 }

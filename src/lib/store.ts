@@ -178,6 +178,12 @@ export type ViewType =
   | 'attendance'
   | 'events'
   | 'reports'
+  | 'corporate'
+  | 'corporates'
+  | 'support'
+  | 'docs'
+  | 'platform-emails'
+  | 'activity-logs'
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'
@@ -195,6 +201,8 @@ export type UserRole =
   | 'EPS'
   | 'PARENT'
   | 'MEDICAL'
+  | 'CORPORATE_ADMIN'
+  | 'SUPPORT_AGENT'
 
 export interface UserData {
   id: string
@@ -422,15 +430,23 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
 
   login: (role, data, token?: string) => {
     if (token) setAuthToken(token);
-    const sessionData = { view: 'dashboard', role, userData: data, sidebar: false };
+    // Vue d'entrée selon le rôle : le compte corporate arrive dans SON espace
+    // (multi-écoles), le support dans sa file de tickets — pas de dashboard école
+    // qui n'a aucun sens pour ces comptes hors établissement (schoolId null).
+    const DEFAULT_VIEW_BY_ROLE: Partial<Record<UserRole, ViewType>> = {
+      CORPORATE_ADMIN: 'corporate',
+      SUPPORT_AGENT: 'support',
+    };
+    const startView = DEFAULT_VIEW_BY_ROLE[role] || 'dashboard';
+    const sessionData = { view: startView, role, userData: data, sidebar: false } as never;
     set({
       userRole: role,
       userData: data,
-      currentView: 'dashboard',
+      currentView: startView,
       sidebarOpen: false,
     });
     saveSession(sessionData);
-    syncUrl('dashboard', 'replace');
+    syncUrl(startView, 'replace');
   },
 
   logout: () => {

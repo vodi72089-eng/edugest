@@ -62,6 +62,8 @@ export function getRoleLabel(role: UserRole): string {
     EPS: 'Prof. EPS',
     MEDICAL: 'Service Médical',
     PARENT: 'Parent',
+    CORPORATE_ADMIN: 'Client Corporate',
+    SUPPORT_AGENT: 'Support EduGest',
   }
   return map[role] || role
 }
@@ -87,6 +89,9 @@ export const API_ROLE_MAP: Record<string, UserRole> = {
   PARENT: 'PARENT',
   MEDICAL: 'MEDICAL',
   EPS: 'EPS',
+  // Comptes hors école (client multi-écoles + support EduGest)
+  CORPORATE_ADMIN: 'CORPORATE_ADMIN',
+  SUPPORT_AGENT: 'SUPPORT_AGENT',
 }
 
 export function getEffectiveStatus(amount: number, paidAmount: number, storedStatus: string): string {

@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { requireRole, verifySchoolAccess, sanitizeError } from '@/lib/auth'
 import { resolveEventVisibility } from '@/lib/platform-events'
 import { getSchoolTier } from '@/lib/subscription'
+import { hasFeatureGrant } from '@/lib/platform-email'
 import { notify } from '@/lib/notify'
 import { notifyRepechage } from '@/lib/whatsapp-agent'
 import { notifyPassingUpdateToAdmins } from '@/lib/passing-notify'
@@ -61,6 +62,13 @@ export async function GET(request: NextRequest) {
             tierRequired: 'PREMIUM',
             currentTier: tier,
           },
+          { status: 403 }
+        )
+      }
+      // Gate activation : passage d'école envoyé par l'admin plateforme uniquement
+      if (!(await hasFeatureGrant('CLASS_PASSING', schoolId))) {
+        return NextResponse.json(
+          { error: "Le repêchage n'est pas encore activé pour votre école — l'administrateur de la plateforme vous l'enverra.", grantRequired: true, feature: 'CLASS_PASSING' },
           { status: 403 }
         )
       }
@@ -212,6 +220,13 @@ export async function POST(request: NextRequest) {
             tierRequired: 'PREMIUM',
             currentTier: tier,
           },
+          { status: 403 }
+        )
+      }
+      // Gate activation : passage d'école envoyé par l'admin plateforme uniquement
+      if (!(await hasFeatureGrant('CLASS_PASSING', student.schoolId))) {
+        return NextResponse.json(
+          { error: "Le repêchage n'est pas encore activé pour votre école — l'administrateur de la plateforme vous l'enverra.", grantRequired: true, feature: 'CLASS_PASSING' },
           { status: 403 }
         )
       }

@@ -697,6 +697,24 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'schools:read',
     'payment-gateways:manage', 'currency:manage', 'transactions:read',
     'notifications:read',
+    // Support EduGest : l'admin d'école peut ouvrir des tickets et discuter
+    // avec le support client / l'agent IA.
+    'support:read', 'support:create',
+  ],
+  // ── Compte CORPORATE (client multi-écoles) : hors école (schoolId null),
+  // voit SES écoles agrégées. Différent d'un compte école par conception. ──
+  CORPORATE_ADMIN: [
+    'corporate:read', 'corporate-schools:read',
+    'support:read', 'support:create', // tickets + agent IA
+    'stats:read', 'profile:read', 'profile:update', 'notifications:read',
+  ],
+  // ── Support client EduGest : accomplit les tâches avec les corporates
+  // (tickets, réponses, relances) + lecture du journal d'activité. ──
+  SUPPORT_AGENT: [
+    'support:read', 'support:create', 'support:handle', // file complète + réponses + statuts
+    'corporate:read', 'corporate-schools:read', // contexte client pour traiter les demandes
+    'logs:read',
+    'profile:read', 'profile:update',
   ],
 };
 
@@ -839,6 +857,8 @@ export const ROLE_LEVELS: Record<string, number> = {
   DIRECTION_MATERNELLE: 70,
   DIRECTION_PRIMAIRE: 70,
   DIRECTION_SECONDAIRE: 70,
+  CORPORATE_ADMIN: 45,
+  SUPPORT_AGENT: 30,
   SECRETARY: 40,
   DISCIPLINE: 38,
   DISCIPLINE_MATERNELLE: 38,

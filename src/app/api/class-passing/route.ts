@@ -3,6 +3,7 @@ import { requireRole, verifySchoolAccess, sanitizeError } from '@/lib/auth'
 import { getClassPassingTimeline, qualifyStudentForClassPassing, StudentDisciplineCategory } from '@/lib/class-passing'
 import { resolveEventVisibility } from '@/lib/platform-events'
 import { getSchoolTier } from '@/lib/subscription'
+import { hasFeatureGrant } from '@/lib/platform-email'
 import { NextRequest, NextResponse } from 'next/server'
 
 // Passage de classe : administrateurs d'école (SCHOOL_ADMIN) + super admin plateforme
@@ -46,6 +47,18 @@ export async function GET(request: NextRequest) {
             featureRequired: 'passage de classe',
             tierRequired: 'PREMIUM',
             currentTier: tier,
+          },
+          { status: 403 }
+        )
+      }
+      // ── Gate activation : le passage d'école n'est disponible QUE lorsque
+      // l'admin de la plateforme l'envoie à l'école (FeatureGrant) ──
+      if (!(await hasFeatureGrant('CLASS_PASSING', schoolId))) {
+        return NextResponse.json(
+          {
+            error: "Le passage de classe n'est pas encore activé pour votre école — l'administrateur de la plateforme vous l'enverra.",
+            grantRequired: true,
+            feature: 'CLASS_PASSING',
           },
           { status: 403 }
         )

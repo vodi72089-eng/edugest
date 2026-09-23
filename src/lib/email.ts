@@ -54,7 +54,8 @@ export function invalidateEmailConfigCache() {
 export async function sendEmailViaResend(
   to: string,
   subject: string,
-  html: string
+  html: string,
+  fromOverride?: string // adresse expéditeur spécifique (ex: support@edugest.app) — sinon la config Resend
 ): Promise<EmailResult> {
   const cfg = await getEmailApiConfig();
   if (!cfg?.apiKey) {
@@ -77,7 +78,9 @@ export async function sendEmailViaResend(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: cfg.fromName ? `${cfg.fromName} <${cfg.fromEmail}>` : cfg.fromEmail,
+        from: fromOverride
+          ? (cfg.fromName ? `${cfg.fromName} <${fromOverride}>` : fromOverride)
+          : (cfg.fromName ? `${cfg.fromName} <${cfg.fromEmail}>` : cfg.fromEmail),
         to: [to],
         subject,
         html,
