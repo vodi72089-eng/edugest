@@ -2198,3 +2198,21 @@ Work Log:
 
 Stage Summary:
 - Composant Skiper40 intégré au footer (premier composant Skiper UI du projet, extensible via npx shadcn add @skiper-ui/skiperXX)
+
+---
+Task ID: 5
+Agent: Main Agent (Z.ai Code)
+Task: Configurer le MCP Figma avec le token fourni par l'utilisateur
+
+Work Log:
+- Règle permanente respectée : git pull origin main → fast-forward (scripts/verify-postmerge.sh + worklog)
+- Token Figma validé via API officielle (GET /v1/me) → compte « ebrillam » (eluymas82@gmail.com) ✓
+- npm install -g figma-developer-mcp (Framelink) → /home/z/.npm-global/bin/figma-developer-mcp (pas de cold-start npx)
+- Handshake JSON-RPC testé : initialize + tools/list OK — « Figma MCP Server v0.13.2 », outils get_figma_data / download_figma_images
+- .mcp.json : entrée « figma » ajoutée (stdio, --figma-api-key, --stdio)
+- Protection du secret : git update-index --skip-worktree .mcp.json → le token n'est PAS poussé sur GitHub
+- Vérification navigateur : landing + footer skiper40 OK desktop/mobile, 0 erreur console
+
+Stage Summary:
+- MCP Figma opérationnel : l'utilisateur doit recharger/activer « figma » dans son panneau MCP puis peut demander get_figma_data sur un fileKey Figma
+- ⚠️ Le token figd_…MFn est stocké en clair dans .mcp.json local (hors git) ; à révoquer si divulgué ailleurs
