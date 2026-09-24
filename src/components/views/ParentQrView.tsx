@@ -33,6 +33,12 @@ function formatDateFr(iso: string): string {
 
 export default function ParentQrView() {
   const { userData, userRole } = useEduGestStore()
+  // École de contexte : super admin → école choisie dans la sidebar (ÉCOLE ACTIVE),
+  // autres rôles → leur propre école. Sans école, l'API exige un schoolId et
+  // répond 400 → liste vide. On bloque donc l'UI avec un message explicite.
+  const activeSchoolId = useEduGestStore((s) => s.activeSchoolId)
+  const contextSchoolId = userRole === 'SUPER_ADMIN_GLOBAL' ? (activeSchoolId || '') : (userData?.schoolId || '')
+  const isSuperAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
   // Le secrétaire ne crée PAS de QR code directement : sa demande est soumise
   // à l'approbation de l'admin général (admin de l'école).
   const isSecretary = userRole === 'SECRETARY'
@@ -49,7 +55,9 @@ export default function ParentQrView() {
   const loadCodes = useCallback(async () => {
     setLoading(true)
     try {
-      const r = await authFetch('/api/school-qr-codes')
+      if (!contextSchoolId) { setCodes([]); return }
+      const qs = isSuperAdmin ? `?schoolId=${encodeURIComponent(contextSchoolId)}` : ''
+      const r = await authFetch(`/api/school-qr-codes${qs}`)
       const j = await r.json()
       setCodes(j.data || [])
       if (userRole === 'SECRETARY') {
@@ -59,7 +67,7 @@ export default function ParentQrView() {
       }
     } catch { toast.error('Erreur de chargement des QR codes') }
     finally { setLoading(false) }
-  }, [userRole])
+  }, [userRole, contextSchoolId, isSuperAdmin])
 
   useEffect(() => { loadCodes() }, [loadCodes])
 
@@ -92,7 +100,7 @@ export default function ParentQrView() {
       const r = await authFetch('/api/school-qr-codes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label: label || null, durationHours: d.hours }),
+        body: JSON.stringify({ label: label || null, durationHours: d.hours, ...(isSuperAdmin ? { schoolId: contextSchoolId } : {}) }),
       })
       const j = await r.json()
       if (!r.ok) {
@@ -168,10 +176,16 @@ export default function ParentQrView() {
             Générez un QR code d&apos;inscription : les parents le scannent, retrouvent leur enfant et créent leur compte. Vous choisissez la durée de vie.
           </p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold">
+        <button onClick={() => setShowCreate(true)} disabled={!contextSchoolId} className="edu-gold-cta inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50" title={!contextSchoolId ? "Sélectionnez d'abord une école (ÉCOLE ACTIVE)" : undefined}>
           <Plus size={14} /> {isSecretary ? 'Demander un QR code' : 'Générer un QR code'}
         </button>
       </div>
+
+      {!contextSchoolId && (
+        <div className="mb-5 rounded-2xl border border-dashed p-5 text-center text-[13px]" style={{ borderColor: `${GOLD}66`, color: TEXT_MUTED_LUXE }}>
+          Sélectionnez une école dans la barre latérale (<strong>ÉCOLE ACTIVE</strong>) pour afficher et générer ses QR codes parents. En vue plateforme (aucune école), il n&apos;y a aucun QR à lister.
+        </div>
+      )}
 
       {/* Demandes en attente (secrétaire) */}
       {isSecretary && qrRequests.length > 0 && (
