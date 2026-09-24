@@ -50,7 +50,7 @@ const SECTIONS: DocSection[] = [
       {
         kind: 'list',
         items: [
-          'Admin École — gestion complète de l’établissement.',
+          'Propriétaire — gestion complète de l’établissement.',
           'Secrétaire — inscriptions, dossiers élèves, documents.',
           'Caisse — encaissements, reçus et suivi des paiements.',
           'Direction Maternelle / Primaire / Secondaire — suivi pédagogique par section.',

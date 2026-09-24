@@ -93,6 +93,8 @@ const NOTIF_BASE_VIEW: Record<string, string> = {
   // Demande d'upgrade d'abonnement : réservée au super admin plateforme,
   // traitable depuis la vue Écoles (boutons Approuver/Rejeter + file dédiée).
   SUBSCRIPTION_UPGRADE_REQUEST: 'schools',
+  // Rapport d'activité programmé généré (WhatsApp envoyé ou PDF dispo in-app)
+  REPORT_READY: 'reports',
 };
 
 /** Surcharges PAR RÔLE : le même événement n'ouvre pas la même vue selon
@@ -125,6 +127,8 @@ const NOTIF_VIEW_BY_ROLE: Record<string, Record<string, string>> = {
   SUBSCRIPTION_UPGRADE_REQUEST: { SUPER_ADMIN_GLOBAL: 'schools' },
   // ── Passage de classe : staff de l'école ─────────────────────────────────
   CLASS_PASSING: { SECRETARY: 'class-passing', SCHOOL_ADMIN: 'class-passing', SUPER_ADMIN_GLOBAL: 'class-passing' },
+  // ── Rapport programmé prêt : le PDF détaillé s'ouvre dans Rapports ───────
+  REPORT_READY: { SCHOOL_ADMIN: 'reports' },
 };
 
 /**

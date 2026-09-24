@@ -20,8 +20,8 @@
       "args": ["-y", "--package=task-master-ai", "task-master-ai"]
     },
     "playwright": {
-      "command": "playwright-mcp",
-      "args": [],
+      "command": "npx",
+      "args": ["@playwright/mcp@latest", "--browser", "chromium"],
       "env": {}
     },
     "shadcn": {

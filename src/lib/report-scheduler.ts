@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { notify } from '@/lib/notify';
 import {
   collectDetailedReport,
   buildWhatsAppTextReport,
@@ -42,8 +43,24 @@ function parseRecipients(json: string): string[] {
   }
 }
 
+// Anti double-exécution (instrumentation in-process + route scheduler-run +
+// mini-service externe peuvent théoriquement déclencher le même id).
+const runningScheduleIds = new Set<string>();
+
 /** Exécute un programme : génère + envoie, puis met à jour son état. */
 export async function runSchedule(schedule: ScheduleLike): Promise<{ status: string; detail: string }> {
+  if (runningScheduleIds.has(schedule.id)) {
+    return { status: 'running', detail: 'Exécution déjà en cours pour ce programme.' };
+  }
+  runningScheduleIds.add(schedule.id);
+  try {
+    return await runScheduleInner(schedule);
+  } finally {
+    runningScheduleIds.delete(schedule.id);
+  }
+}
+
+async function runScheduleInner(schedule: ScheduleLike): Promise<{ status: string; detail: string }> {
   const days = Math.max(1, Math.min(31, schedule.intervalDays || 1));
   let status = 'failed';
   let detail = 'Erreur inconnue';
@@ -133,6 +150,39 @@ export async function runSchedule(schedule: ScheduleLike): Promise<{ status: str
         },
       });
     } catch { /* audit non bloquant */ }
+
+    // ── Réception IN-APP : notification aux admins de l'école ────────────
+    // Le rapport est toujours consultable dans « Rapports » (PDF détaillé),
+    // même si l'agent WhatsApp est hors ligne ou qu'un envoi a échoué.
+    try {
+      const admins = await db.user.findMany({
+        where: {
+          schoolId: schedule.schoolId,
+          isActive: true,
+          role: { in: ['SCHOOL_ADMIN', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'] },
+        },
+        select: { id: true },
+      });
+      const [y, m, d] = data.period.to.split('-');
+      const periodFr = `${d}/${m}/${y}` + (data.period.days > 1 ? ` (${data.period.days} jours)` : '');
+      const statusFr =
+        status === 'success' ? 'envoyé sur WhatsApp (texte + PDF)' :
+        status === 'partial' ? 'envoyé partiellement sur WhatsApp' :
+        status === 'agent_offline' ? 'généré — agent WhatsApp hors ligne, PDF disponible dans l\'app' :
+        'généré — envoi WhatsApp en échec, PDF disponible dans l\'app';
+      for (const a of admins) {
+        await notify({
+          data: {
+            type: 'REPORT_READY',
+            title: `📊 Rapport d'activité — ${periodFr}`,
+            message: `${data.school.name} : ${statusFr}. Ouvrez « Rapports » pour consulter le PDF détaillé.`,
+            userId: a.id,
+            schoolId: schedule.schoolId,
+            linkTo: 'reports',
+          },
+        });
+      }
+    } catch { /* notification non bloquante */ }
   } catch (e) {
     console.error('[Scheduler] runSchedule erreur :', e);
     detail = `Erreur de génération : ${(e as Error)?.message || 'inconnue'}`;
@@ -171,4 +221,37 @@ function periodTitleOf(days: number): string {
   if (days === 1) return 'Rapport quotidien';
   if (days === 7) return 'Rapport hebdomadaire';
   return `Rapport — ${days} jours`;
+}
+
+// ─── Planificateur in-process (src/instrumentation.ts) ──────────────────────
+// Option serveur 24/7 : à chaque démarrage de l'instance Next, une passe
+// balaye les ReportSchedule actifs dont nextRunAt est échu (toutes les 60 s).
+// Fonctionne en dev, en standalone (prod) et dans l'exe desktop — aucun
+// processus externe requis. Le mini-service port 3002 reste un redondant
+// optionnel ; le verrou runningScheduleIds empêche tout double envoi.
+const SCHEDULER_GLOBAL_KEY = '__edugestReportSchedulerStarted';
+
+export function startInProcessScheduler(intervalMs = 60_000): void {
+  const g = globalThis as unknown as Record<string, unknown>;
+  if (g[SCHEDULER_GLOBAL_KEY]) return;
+  g[SCHEDULER_GLOBAL_KEY] = true;
+  const tick = () => { void sweepDueSchedules(); };
+  setTimeout(tick, 10_000); // première passe peu après le boot
+  setInterval(tick, intervalMs);
+  console.log(`[Scheduler] Planificateur in-process démarré (balayage toutes les ${intervalMs / 1000} s)`);
+}
+
+async function sweepDueSchedules(): Promise<void> {
+  try {
+    const due = await db.reportSchedule.findMany({
+      where: { isActive: true, nextRunAt: { not: null, lte: new Date() } },
+    });
+    for (const s of due) {
+      if (runningScheduleIds.has(s.id)) continue;
+      console.log(`[Scheduler] Programme échu ${s.id} (${s.intervalDays}j à ${s.hour}h${String(s.minute).padStart(2, '0')}) — exécution in-process`);
+      await runSchedule(s);
+    }
+  } catch (e) {
+    console.error('[Scheduler] Balayage échoué :', e);
+  }
 }

@@ -145,5 +145,10 @@
     "protobufjs",
     "tree-sitter-bash",
     "unrs-resolver"
-  ]
+  ],
+  "allowScripts": {
+    "@playwright/test": true,
+    "playwright": true,
+    "playwright-core": true
+  }
 }

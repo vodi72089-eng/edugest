@@ -126,7 +126,7 @@ export default function PersonnelView() {
   }, [showAddModal, editingUser, isTeacherForm, effectiveSchoolId])
 
   const ROLES = [
-    { value: 'SCHOOL_ADMIN', label: 'Admin École', color: 'oklch(55% 0.13 80)' },
+    { value: 'SCHOOL_ADMIN', label: 'Propriétaire', color: 'oklch(55% 0.13 80)' },
     { value: 'SECRETARY', label: 'Secrétaire', color: 'oklch(60% 0.13 250)' },
     { value: 'CASHIER', label: 'Caissier', color: 'oklch(72% 0.15 65)' },
     { value: 'TEACHER', label: 'Enseignant', color: 'oklch(60% 0.15 145)' },
