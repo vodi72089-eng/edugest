@@ -175,6 +175,11 @@ export async function sendSmsViaProvider(to: string, message: string): Promise<S
       } else {
         const rawText = (json && Object.keys(json).length) ? '' : rawBody.trim();
         errMsg = recipient?.status || json?.errorMessage || rawText || `HTTP ${res.status}`;
+        // Piste évidente : en sandbox, l'username DOIT être « sandbox » —
+        // sinon l'authentification échoue même avec une clé valide.
+        if (!ok && /auth/i.test(errMsg) && (cfg.africastalking.username || '').trim().toLowerCase() !== 'sandbox') {
+          errMsg += ' — en mode sandbox, le nom d\u2019utilisateur doit \u00eatre exactement \u00ab sandbox \u00bb';
+        }
       }
     } else if (cfg.provider === 'vonage') {
       const res = await fetch('https://rest.nexmo.com/sms/json', {

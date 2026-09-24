@@ -2446,3 +2446,22 @@ Work Log:
 
 Stage Summary:
 - Tous les logos de l'app dérivent désormais de l'emblème officiel unique ; aucun code à modifier pour les décliner (noms conservés)
+
+---
+Task ID: sms-sandbox-username-fix
+Agent: Z.ai Code (main)
+Task: « regarde » (capture HTTP 415 sur test SMS) — diagnostic + anti-erreur username sandbox Africa's Talking
+
+Work Log:
+- Diagnostic : sms.ts (form-urlencoded) et la route /api/sms-config sont CORRECTS sur le serveur ; curl direct vers api.africastalking.com → 401 « The supplied authentication is invalid » (jamais 415) ; le serveur ne peut plus produire « HTTP 415 » → la capture datait d'avant le correctif (onglet ancien)
+- Test end-to-end réel via API (login admin → save config → action=test) : l'app renvoie désormais la VRAIE erreur fournisseur (« The supplied authentication is invalid » avec une clé factice)
+- Vrai problème utilisateur identifié : username = « EDUGEST » au lieu de « sandbox » (obligatoire en sandbox AT, même avec une clé valide)
+- PlatformApiConfigSection.tsx : username pré-rempli « sandbox » au chargement si vide + au changement de fournisseur ; avertissement live orange sous le champ si username ≠ sandbox ; note « le SENDER ID peut rester vide »
+- src/lib/sms.ts : si erreur auth AT et username ≠ sandbox → message enrichi « … — en mode sandbox, le nom d'utilisateur doit être exactement « sandbox » »
+- Nettoyage : clé factice de test supprimée en DB (GlobalApiConfig.SMS_CONFIG, apiKey vide, enabled=false) pour repartir sur un état honnête
+- Fix préexistant au passage : feature-grants/route.ts exportait FEATURE_KEYS (export non-handler interdit par la validation de types Next) → const locale ; tsc repasse à 0 erreur
+- Vérifié agent-browser : champ pré-rempli « sandbox », avertissement apparaît avec « EDUGEST » et disparaît avec « sandbox », capture ux-shots/sms-field-warning.png ; tsc 0 erreur ; eslint 0 erreur sur les 3 fichiers
+
+Stage Summary:
+- Le « HTTP 415 » ne peut plus se produire (correctif déjà actif) ; l'erreur username sandbox est maintenant impossible à rater (pré-remplissage + avertissement live + message serveur enrichi)
+- Reste côté utilisateur : créer la clé sandbox sur africastalking.com (username=sandbox), enregistrer son numéro dans le simulateur SMS, coller la clé, cocher Activer puis « Envoyer »

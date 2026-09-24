@@ -332,6 +332,9 @@ function SmsConfigCard() {
                 fields[p][f.key] = f.secret ? '' : (j.data.fields?.[p]?.[f.key] || '')
               }
             }
+            // Anti-erreur : en sandbox Africa's Talking, l'username DOIT être
+            // « sandbox » — on pré-remplit pour éviter le refus d'authentification.
+            if (!fields.africastalking.username.trim()) fields.africastalking.username = 'sandbox'
             return { enabled: !!j.data.enabled, provider: j.data.provider || prev.provider, fields }
           })
           setLoaded(true)
@@ -452,15 +455,26 @@ function SmsConfigCard() {
           </label>
           <AppSelect
             value={form.provider}
-            onChange={(val) => setForm((f) => ({ ...f, provider: val as SmsProviderKey }))}
+            onChange={(val) =>
+              setForm((f) => ({
+                ...f,
+                provider: val as SmsProviderKey,
+                // Passage à Africa's Talking : pré-remplit « sandbox » si vide
+                fields:
+                  val === 'africastalking' && !f.fields.africastalking.username.trim()
+                    ? { ...f.fields, africastalking: { ...f.fields.africastalking, username: 'sandbox' } }
+                    : f.fields,
+              }))
+            }
             options={SMS_PROVIDERS}
             disabled={!loaded}
           />
           {form.provider === 'africastalking' && (
             <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
               Sandbox Africa&apos;s Talking : le nom d&apos;utilisateur doit être exactement{' '}
-              <span className="font-mono font-bold">sandbox</span>, et votre numéro de test doit être
-              ajouté au simulateur sandbox (africastalking.com → Sandbox → SMS Simulator) pour recevoir les SMS.
+              <span className="font-mono font-bold">sandbox</span> (déjà rempli ci-dessous), le SENDER ID
+              peut rester vide, et votre numéro de test doit être ajouté au simulateur
+              (africastalking.com → Sandbox → SMS Simulator) pour recevoir les SMS.
             </p>
           )}
         </div>
@@ -484,6 +498,13 @@ function SmsConfigCard() {
                 autoComplete={f.secret ? 'new-password' : 'off'}
                 className={`${inputClass} ${f.secret ? 'font-mono' : ''}`}
               />
+              {form.provider === 'africastalking' && f.key === 'username' &&
+                (form.fields.africastalking.username || '').trim().toLowerCase() !== 'sandbox' && (
+                  <p className="mt-1 text-[11px] font-semibold" style={{ color: 'oklch(55% 0.16 55)' }}>
+                    ⚠️ En sandbox, le nom d&apos;utilisateur doit être exactement «&nbsp;sandbox&nbsp;»
+                    — sinon l&apos;authentification échouera même avec une clé valide.
+                  </p>
+              )}
             </div>
           ))}
           <div className="flex items-end">

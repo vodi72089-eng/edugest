@@ -11,7 +11,9 @@ import { sendPlatformEmail } from '@/lib/platform-email';
 // la vue ET l'API /api/class-passing restent verrouillées.
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const FEATURE_KEYS = ['CLASS_PASSING', 'BULLETINS'];
+// Constante locale : une route Next.js ne doit exporter QUE ses handlers
+// (un export supplémentaire casse la validation de types générée).
+const FEATURE_KEYS = ['CLASS_PASSING', 'BULLETINS'];
 
 // GET /api/feature-grants?schoolId=&feature= — vérification (toute école auth.)
 //    ou sans paramètres → liste complète (SAG)
