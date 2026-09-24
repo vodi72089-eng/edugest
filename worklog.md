@@ -2413,3 +2413,36 @@ Work Log:
 
 Stage Summary:
 - Section stats du hero à l'identité EduGest : laurier (Établissements), livre bleu (Familles), toque (Élèves) — extraits du logo officiel fourni, PNG transparents dans public/brand/ ; aucun autre visuel modifié
+
+---
+Task ID: config-flow-fix
+Agent: Z.ai Code (main)
+Task: « et regarde ca marche pas les deux ne marche pas » — réparer la configuration Resend (email) + SMS (Africa's Talking) de Contrôle plateforme
+
+Work Log:
+- Diagnostiqué via agent-browser (login admin → Contrôle plateforme) : les boutons « Envoyer » (test) n'utilisaient QUE la config enregistrée ; l'utilisateur saisissait tout mais le test partait sans la config → erreur trompeuse « Configurez d'abord votre clé API Resend »
+- Reproduit le bug d'un vrai défaut fournisseur : curl direct vers api.africastalking.com → HTTP 415 car le code envoyait du JSON alors que l'API exige du form-urlencoded — AUCUN SMS n'aurait jamais pu partir, même avec une vraie clé
+- PlatformApiConfigSection.tsx : « Envoyer » sauvegarde d'abord automatiquement (email + SMS), erreurs toast prolongées (8-10 s), autoComplete new-password/off anti-remplissage-auto, astuce sandbox AT (username = « sandbox » + simulateur), note « Envoyer enregistre puis teste »
+- page.tsx (Config API inline Communications) : même pattern auto-save avant test
+- src/lib/sms.ts : Africa's Talking corrigé en application/x-www-form-urlencoded ; corps lu une seule fois (text→JSON.parse) pour afficher les erreurs réelles du fournisseur (ex. « The supplied authentication is invalid ») au lieu de « HTTP 401 »
+- API email-config : message de test plus clair + fromEmail normalisé en minuscules à l'enregistrement (Resend) ; API sms-config : message de test plus clair
+- Vérifié en navigateur : clic « Envoyer » sans « Enregistrer » → toast auto-save + badge « Resend actif »/« SMS actif » + erreur réelle du fournisseur (clé factice) ; eslint 0 erreur sur les fichiers modifiés ; page.tsx baseline inchangée (14 erreurs préexistantes)
+- Serveur dev : OOM kernel à répétition (4 Go RAM) → redémarré avec NODE_OPTIONS=--max-old-space-size=1408
+
+Stage Summary:
+- Le flux « saisir → Envoyer » fonctionne en un seul clic ; les erreurs résiduelles sont désormais les VRAIES réponses Resend/Africa's Talking
+- Reste côté utilisateur : fournir une vraie clé Resend (domaine expéditeur validé) et une vraie clé AT sandbox (numéro enregistré dans le simulateur) pour que les tests aboutissent réellement
+
+---
+Task ID: logo-change
+Agent: Z.ai Code (main)
+Task: « change ces logos » — remplacer les logos EduGest par l'emblème officiel fourni (upload/edugest-logo-officiel.png)
+
+Work Log:
+- Inventorié toutes les références : BrandLogo.tsx (full/mark), favicon layout.tsx, manifest.webmanifest (icon-192/512), landing Nav+Footer (edugest-logo-new), PDF reçus/médical (edugest-logo-pdf.jpg / edugest-logo.png), find-child, verify
+- Généré via sharp depuis l'emblème officiel (1491×1055, fond transparent) : edugest-logo-mark.png (800px, transparent — corrige aussi l'artefact de l'ancienne branche de laurier), edugest-logo.png (1000px, emblème + « EDUC GEST » en #013ebb échantillonné sur le logo), edugest-logo-new.png (1200px), edugest-logo-pdf.jpg (blanc), icon-192/512 (carré blanc, emblème 84 %)
+- Mêmes noms de fichiers → propagation automatique partout (sidebar, favicon, PWA, landing, PDFs, pages publiques)
+- Vérifié en navigateur : landing Nav + /login rendent le nouvel emblème ; img[src=/edugest-logo-mark.png] servi correctement
+
+Stage Summary:
+- Tous les logos de l'app dérivent désormais de l'emblème officiel unique ; aucun code à modifier pour les décliner (noms conservés)

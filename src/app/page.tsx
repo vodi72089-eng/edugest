@@ -6723,7 +6723,9 @@ function CommunicationsView() {
     }).catch(() => {})
   }, [isPlatformAdmin])
 
-  async function saveEmailCfg() {
+  // Renvoie true si l'enregistrement a réussi (« Envoyer » sauvegarde
+  // automatiquement avant de tester — un seul clic pour l'utilisateur).
+  async function saveEmailCfg(): Promise<boolean> {
     setSavingEmailCfg(true)
     try {
       const res = await authFetch('/api/email-config', {
@@ -6736,16 +6738,24 @@ function CommunicationsView() {
         toast.success(json.message || 'Configuration enregistrée')
         setEmailCfg(json.data)
         setEmailForm(f => ({ ...f, apiKey: '' }))
-      } else {
-        toast.error(json.error || 'Erreur de sauvegarde')
+        return true
       }
-    } catch { toast.error('Erreur réseau') } finally { setSavingEmailCfg(false) }
+      toast.error(json.error || 'Erreur de sauvegarde', { duration: 8000 })
+      return false
+    } catch { toast.error('Erreur réseau', { duration: 8000 }); return false } finally { setSavingEmailCfg(false) }
   }
 
   async function handleTestEmail() {
     if (!testEmail.trim()) { toast.error('Entrez une adresse email de test'); return }
     setTestingEmail(true)
     try {
+      // Sauvegarde automatique avant le test (sinon le test part avec
+      // l'ancienne configuration enregistrée).
+      const needsSave = !emailCfg?.configured || !!emailForm.apiKey.trim() || (!!emailCfg && emailForm.enabled !== !!emailCfg.enabled)
+      if (needsSave) {
+        const ok = await saveEmailCfg()
+        if (!ok) return
+      }
       const res = await authFetch('/api/email-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -6753,8 +6763,8 @@ function CommunicationsView() {
       })
       const json = await res.json()
       if (res.ok) toast.success(json.message || 'Email de test envoyé')
-      else toast.error(json.error || 'Échec du test')
-    } catch { toast.error('Erreur réseau') } finally { setTestingEmail(false) }
+      else toast.error(json.error || 'Échec du test', { duration: 10000 })
+    } catch { toast.error('Erreur réseau', { duration: 8000 }) } finally { setTestingEmail(false) }
   }
 
   if (!hasAccess) return null

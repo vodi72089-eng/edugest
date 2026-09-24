@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     if (action === 'test') {
       const cfg = await getSmsApiConfig(true);
       if (!cfg?.enabled || !hasProviderCredentials(cfg)) {
-        return NextResponse.json({ error: 'Configurez et activez d\'abord un fournisseur SMS' }, { status: 400 });
+        return NextResponse.json({ error: 'La vérification par SMS n\'est pas active — cochez « Activer », saisissez les identifiants du fournisseur puis envoyez (enregistrement automatique)' }, { status: 400 });
       }
       const testPhone = (body.testPhone || '').trim();
       if (!testPhone || !/^\+?\d{8,15}$/.test(testPhone.replace(/[\s\-().]/g, ''))) {

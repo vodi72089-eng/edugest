@@ -109,7 +109,10 @@ function EmailConfigCard() {
       .catch(() => {})
   }, [])
 
-  async function save() {
+  // Renvoie true si l'enregistrement a réussi (utilisé par « Envoyer » qui
+  // sauvegarde automatiquement avant de tester — l'utilisateur ne doit pas
+  // avoir à cliquer sur « Enregistrer » puis « Envoyer » séparément).
+  async function save(): Promise<boolean> {
     setSaving(true)
     try {
       const res = await authFetch('/api/email-config', {
@@ -121,11 +124,13 @@ function EmailConfigCard() {
         toast.success(json.message || 'Configuration Resend enregistrée')
         setCfg({ configured: !!json.data?.configured, enabled: !!json.data?.enabled })
         setForm((f) => ({ ...f, apiKey: '' }))
-      } else {
-        toast.error(json.error || 'Erreur de sauvegarde')
+        return true
       }
+      toast.error(json.error || 'Erreur de sauvegarde', { duration: 8000 })
+      return false
     } catch {
-      toast.error('Erreur réseau')
+      toast.error('Erreur réseau — vérifiez que le serveur est démarré', { duration: 8000 })
+      return false
     } finally {
       setSaving(false)
     }
@@ -138,15 +143,23 @@ function EmailConfigCard() {
     }
     setTesting(true)
     try {
+      // Sauvegarde automatique : si aucune clé n'est encore enregistrée ou si
+      // le formulaire contient des modifications non enregistrées, on les
+      // enregistre d'abord (sinon le test part avec l'ancienne config).
+      const needsSave = !cfg?.configured || !!form.apiKey.trim() || (!!cfg && form.enabled !== cfg.enabled)
+      if (needsSave) {
+        const ok = await save()
+        if (!ok) return
+      }
       const res = await authFetch('/api/email-config', {
         method: 'POST',
         body: JSON.stringify({ action: 'test', testEmail }),
       })
       const json = await res.json()
       if (res.ok) toast.success(json.message || 'Email de test envoyé')
-      else toast.error(json.error || 'Échec du test')
+      else toast.error(json.error || 'Échec du test', { duration: 10000 })
     } catch {
-      toast.error('Erreur réseau')
+      toast.error('Erreur réseau', { duration: 8000 })
     } finally {
       setTesting(false)
     }
@@ -212,6 +225,7 @@ function EmailConfigCard() {
               value={form.apiKey}
               onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
               placeholder="re_123456789…"
+              autoComplete="new-password"
               className={`${inputClass} font-mono`}
             />
           </div>
@@ -224,6 +238,7 @@ function EmailConfigCard() {
               value={form.fromEmail}
               onChange={(e) => setForm((f) => ({ ...f, fromEmail: e.target.value }))}
               placeholder="noreply@votre-ecole.cd"
+              autoComplete="off"
               className={inputClass}
             />
           </div>
@@ -236,6 +251,7 @@ function EmailConfigCard() {
               value={form.fromName}
               onChange={(e) => setForm((f) => ({ ...f, fromName: e.target.value }))}
               placeholder="EduGest"
+              autoComplete="off"
               className={inputClass}
             />
           </div>
@@ -263,12 +279,13 @@ function EmailConfigCard() {
               value={testEmail}
               onChange={(e) => setTestEmail(e.target.value)}
               placeholder="vous@exemple.com"
+              autoComplete="off"
               className={inputClass}
             />
             <button
               type="button"
               onClick={sendTest}
-              disabled={testing}
+              disabled={testing || saving}
               className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white transition hover:opacity-90 disabled:opacity-60 shrink-0"
               style={{ background: 'oklch(55% 0.15 175)' }}
             >
@@ -276,6 +293,9 @@ function EmailConfigCard() {
               Envoyer
             </button>
           </div>
+          <p className="mt-1.5 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
+            « Envoyer » enregistre d&apos;abord vos modifications puis teste l&apos;envoi réel via Resend.
+          </p>
         </div>
       </div>
     </div>
@@ -320,7 +340,9 @@ function SmsConfigCard() {
       .catch(() => setLoaded(true))
   }, [])
 
-  async function save() {
+  // Renvoie true si l'enregistrement a réussi (« Envoyer » sauvegarde
+  // automatiquement avant de tester — un seul clic pour l'utilisateur).
+  async function save(): Promise<boolean> {
     setSaving(true)
     try {
       const res = await authFetch('/api/sms-config', {
@@ -331,11 +353,13 @@ function SmsConfigCard() {
       if (res.ok) {
         toast.success(json.message || 'Configuration SMS enregistrée')
         setCfg({ configured: !!json.data?.configured, enabled: !!json.data?.enabled, provider: json.data?.provider })
-      } else {
-        toast.error(json.error || 'Erreur de sauvegarde')
+        return true
       }
+      toast.error(json.error || 'Erreur de sauvegarde', { duration: 8000 })
+      return false
     } catch {
-      toast.error('Erreur réseau')
+      toast.error('Erreur réseau — vérifiez que le serveur est démarré', { duration: 8000 })
+      return false
     } finally {
       setSaving(false)
     }
@@ -348,15 +372,25 @@ function SmsConfigCard() {
     }
     setTesting(true)
     try {
+      // Sauvegarde automatique : si aucun fournisseur n'est encore enregistré
+      // ou si le formulaire contient des modifications (case activée, champs
+      // saisis…), on enregistre d'abord — sinon le test part sans la config.
+      const currentFields = form.fields[form.provider] || {}
+      const hasTypedValues = Object.values(currentFields).some((v) => (v || '').trim() !== '')
+      const needsSave = !cfg?.configured || (!!cfg && form.enabled !== cfg.enabled) || (!!cfg && form.provider !== cfg.provider) || hasTypedValues
+      if (needsSave) {
+        const ok = await save()
+        if (!ok) return
+      }
       const res = await authFetch('/api/sms-config', {
         method: 'POST',
         body: JSON.stringify({ action: 'test', testPhone }),
       })
       const json = await res.json()
       if (res.ok) toast.success(json.message || 'SMS de test envoyé')
-      else toast.error(json.error || 'Échec du test')
+      else toast.error(json.error || 'Échec du test', { duration: 10000 })
     } catch {
-      toast.error('Erreur réseau')
+      toast.error('Erreur réseau', { duration: 8000 })
     } finally {
       setTesting(false)
     }
@@ -422,6 +456,13 @@ function SmsConfigCard() {
             options={SMS_PROVIDERS}
             disabled={!loaded}
           />
+          {form.provider === 'africastalking' && (
+            <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
+              Sandbox Africa&apos;s Talking : le nom d&apos;utilisateur doit être exactement{' '}
+              <span className="font-mono font-bold">sandbox</span>, et votre numéro de test doit être
+              ajouté au simulateur sandbox (africastalking.com → Sandbox → SMS Simulator) pour recevoir les SMS.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -440,6 +481,7 @@ function SmsConfigCard() {
                   }))
                 }
                 placeholder={f.placeholder}
+                autoComplete={f.secret ? 'new-password' : 'off'}
                 className={`${inputClass} ${f.secret ? 'font-mono' : ''}`}
               />
             </div>
@@ -468,12 +510,13 @@ function SmsConfigCard() {
               value={testPhone}
               onChange={(e) => setTestPhone(e.target.value)}
               placeholder="+243812345678"
+              autoComplete="off"
               className={inputClass}
             />
             <button
               type="button"
               onClick={sendTest}
-              disabled={testing}
+              disabled={testing || saving}
               className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white transition hover:opacity-90 disabled:opacity-60 shrink-0"
               style={{ background: 'oklch(55% 0.15 175)' }}
             >
@@ -481,6 +524,9 @@ function SmsConfigCard() {
               Envoyer
             </button>
           </div>
+          <p className="mt-1.5 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
+            « Envoyer » enregistre d&apos;abord vos modifications puis teste l&apos;envoi réel du SMS.
+          </p>
         </div>
       </div>
     </div>

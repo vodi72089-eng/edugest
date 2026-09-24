@@ -144,30 +144,37 @@ export async function sendSmsViaProvider(to: string, message: string): Promise<S
         errMsg = json?.message || `HTTP ${res.status}`;
       }
     } else if (cfg.provider === 'africastalking') {
+      // ⚠️ L'API Africa's Talking exige du form-urlencoded — le JSON renvoie
+      // systématiquement HTTP 415 (Unsupported Media Type).
       const headers: Record<string, string> = {
         'apiKey': cfg.africastalking.apiKey,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
         'Accept': 'application/json',
       };
-      const body: Record<string, unknown> = {
+      const params = new URLSearchParams({
         username: cfg.africastalking.username,
-        to: [dest],
+        to: dest,
         message,
-        enqueue: true,
-      };
-      if (cfg.africastalking.senderId) body.from = cfg.africastalking.senderId;
+        enqueue: 'true',
+      });
+      if (cfg.africastalking.senderId) params.set('from', cfg.africastalking.senderId);
       const res = await fetch('https://api.africastalking.com/version1/messaging', {
         method: 'POST',
         headers,
-        body: JSON.stringify(body),
+        body: params.toString(),
         signal: controller.signal,
       });
-      const json = await res.json().catch(() => ({} as any));
+      // Corps lu UNE seule fois : l'API renvoie du JSON en cas de succès,
+      // mais parfois du texte brut en cas d'erreur (ex. 401 authentication).
+      const rawBody = await res.text().catch(() => '');
+      let json: any = {};
+      try { json = rawBody ? JSON.parse(rawBody) : {}; } catch { /* texte brut */ }
       const recipient = json?.SMSMessageData?.Recipients?.[0];
       if (res.ok && recipient && String(recipient.status).toLowerCase() === 'success') {
         ok = true;
       } else {
-        errMsg = recipient?.status || json?.errorMessage || `HTTP ${res.status}`;
+        const rawText = (json && Object.keys(json).length) ? '' : rawBody.trim();
+        errMsg = recipient?.status || json?.errorMessage || rawText || `HTTP ${res.status}`;
       }
     } else if (cfg.provider === 'vonage') {
       const res = await fetch('https://rest.nexmo.com/sms/json', {

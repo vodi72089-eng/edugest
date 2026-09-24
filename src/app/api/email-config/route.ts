@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     if (action === 'test') {
       const cfg = await getEmailApiConfig(true);
       if (!cfg?.apiKey) {
-        return NextResponse.json({ error: 'Configurez d\'abord votre clé API Resend' }, { status: 400 });
+        return NextResponse.json({ error: 'Aucune clé API Resend enregistrée — saisissez votre clé (section Emails — Resend) puis envoyez : elle sera enregistrée automatiquement' }, { status: 400 });
       }
       const testEmail = (body.testEmail || '').trim();
       if (!testEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testEmail)) {
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     // ── action: save ──
     const enabled = !!body.enabled;
-    const fromEmail = (body.fromEmail || '').trim();
+    const fromEmail = (body.fromEmail || '').trim().toLowerCase();
     const fromName = (body.fromName || '').trim();
     const apiKey = (body.apiKey || '').trim();
 
