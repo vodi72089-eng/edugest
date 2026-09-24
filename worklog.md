@@ -2397,3 +2397,19 @@ Work Log:
 
 Stage Summary:
 - Notifications push pleinement configurées : clés VAPID serveur + manifest PWA + icônes carrées → l'utilisateur peut cliquer « Activer » sans erreur ; en prod : régénérer les clés VAPID + les mettre dans les variables d'environnement du serveur ; non pushé (attendre validation utilisateur)
+
+---
+Task ID: landing-stats-brand-icons
+Agent: Main Agent (Z.ai Code)
+Task: Remplacer les icônes génériques des stats du hero landing par les éléments du logo officiel EduGest
+
+Work Log:
+- Uploads récupérés depuis le CDN (logo officiel 1491×1055 transparent + capture de l'état actuel)
+- Repérage : stats hero dans src/app/page.tsx (l.664-685) — Building2/HeartHandshake/BookOpen avec teintes or/vert/bleu
+- Extraction par tri couleur (pixel RGBA : or #F5B301 vs bleu royal) via sharp → 3 éléments propres sans contamination croisée : toque dorée (Élèves), livre ouvert bleu (Familles), laurier (Établissements) ; branche laurier trop fine seule → composition branche + miroir = rameau double (81×80)
+- Artefacts : public/brand/stat-laurel.png, stat-book.png, stat-cap.png (h=80px, alpha, retina 2.5x)
+- page.tsx : stat objects {icon:hue} → {iconSrc} ; teintes de badges alignées aux couleurs réelles des éléments (établissements or inchangé, familles vert→bleu pour le livre, élèves bleu→or pour la toque) ; <stat.icon> → <img h-7 w-auto aria-hidden draggable=false> ; HeartHandshake retiré de l'import (plus utilisé) ; Building2/BookOpen conservés (autres usages l.595/1686/1702/1704)
+- Vérif : tsc 0 erreur ; eslint page.tsx = 13 baseline préexistante (aucune sur les lignes modifiées) ; navigateur desktop + iPhone 14 : 3 images chargées (naturalWidth>0), centrées dans badges, chiffres live 6/2/20 identiques à la capture utilisateur ; « 1 Issue » overlay = bruit prisma seed préexistant (unique constraint phone)
+
+Stage Summary:
+- Section stats du hero à l'identité EduGest : laurier (Établissements), livre bleu (Familles), toque (Élèves) — extraits du logo officiel fourni, PNG transparents dans public/brand/ ; aucun autre visuel modifié
