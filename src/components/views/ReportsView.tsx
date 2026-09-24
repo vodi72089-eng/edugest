@@ -13,6 +13,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
+import SearchAutocomplete from '@/components/views/SearchAutocomplete'
 import { getRoleSealLabel } from '@/lib/helpers'
 import { GOLD, GOLD_SOFT, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, SUCCESS, SUCCESS_SOFT, DANGER, WARNING } from '@/lib/constants'
 import { formatAmount } from '@/lib/currency-display'
@@ -139,7 +140,7 @@ function StatCard({ icon: Icon, label, value, bg, color }: {
 }
 
 export default function ReportsView() {
-  const { userRole, userData } = useEduGestStore()
+  const { userRole, userData, setActiveSchoolId } = useEduGestStore()
   const isSAG = userRole === 'SUPER_ADMIN_GLOBAL'
   const isParent = userRole === 'PARENT'
   // Automatisation agentique : réservée au propriétaire (SCHOOL_ADMIN) et au super admin
@@ -191,6 +192,17 @@ export default function ReportsView() {
     if (isSAG && !activeSchoolId) return
     load(days)
   }, [load, days, isSAG, activeSchoolId])
+
+  // ── Sélecteur d'école inline (SAG sans école active) ─────────────────────
+  const [pickerSchools, setPickerSchools] = useState<{ id: string; name: string; shortName?: string; city?: string }[]>([])
+  const [schoolPickerQuery, setSchoolPickerQuery] = useState('')
+
+  useEffect(() => {
+    if (!isSAG) return
+    authFetch('/api/schools?limit=100')
+      .then(async r => { const j = await r.json().catch(() => ({})); if (j.data) setPickerSchools(j.data) })
+      .catch(() => {})
+  }, [isSAG])
 
   // ── Automatisation : chargement des programmes de l'école active ───────
   // (aucun setState synchrone dans l'effet — règle react-hooks ; l'état de
@@ -427,7 +439,29 @@ export default function ReportsView() {
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-10 shadow-sm text-center">
           <FileText size={28} className="mx-auto mb-2 opacity-30" style={{ color: TEXT_MUTED_LUXE }} />
           <p className="font-semibold mb-1" style={{ color: TEXT_PRIMARY }}>Aucune école sélectionnée</p>
-          <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Choisissez une école dans le sélecteur en haut de page pour générer son rapport.</p>
+          <p className="text-sm mb-5" style={{ color: TEXT_MUTED_LUXE }}>
+            Choisissez une école — ci-dessous, ou dans la barre latérale (« École active ») — pour générer son rapport.
+          </p>
+          <div className="max-w-sm mx-auto text-left">
+            <SearchAutocomplete
+              placeholder="Rechercher une école…"
+              items={(() => {
+                const q = schoolPickerQuery.trim().toLowerCase()
+                const all = q
+                  ? pickerSchools.filter(s => `${s.name} ${s.shortName || ''} ${s.city || ''}`.toLowerCase().includes(q))
+                  : pickerSchools
+                return all.map(s => ({ id: s.id, label: s.name, sublabel: [s.shortName, s.city].filter(Boolean).join(' · ') }))
+              })()}
+              selectedId={null}
+              onSelect={(item) => { setActiveSchoolId(item.id); setSchoolPickerQuery('') }}
+              onClear={() => setSchoolPickerQuery('')}
+              searchQuery={schoolPickerQuery}
+              onSearchChange={setSchoolPickerQuery}
+              loading={pickerSchools.length === 0}
+              emptyMessage="Aucune école ne correspond"
+              itemTypeName="école"
+            />
+          </div>
         </div>
       ) : (
         <>

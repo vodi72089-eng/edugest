@@ -101,7 +101,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Secrets chiffrés : vide = conserver la valeur existante
+    // Secrets chiffrés : vide = conserver la valeur existante.
+    // Une valeur masquée renvoyée par le GET ('****1234') n'écrase jamais le
+    // vrai secret — même garde-fou que /api/payment-gateways.
     const existing = await db.paymentGatewayConfig.findUnique({
       where: {
         schoolId_gatewayType: {
@@ -111,8 +113,11 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    const isMaskedValue = (v: unknown): boolean =>
+      typeof v === 'string' && /^\*+.{0,4}$/.test(v);
+
     const encryptIfProvided = (value: string | undefined, existingValue: string | null): string | null => {
-      if (value === undefined || value === '') return existingValue;
+      if (value === undefined || value === '' || isMaskedValue(value)) return existingValue;
       return encryptSecret(value);
     };
 

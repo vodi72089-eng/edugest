@@ -4875,9 +4875,10 @@ function PaymentConfigView() {
 
   useEffect(() => {
     if (!getActiveSchoolId()) {
-      // Vue plateforme (aucune école active) : résoudre immédiatement le
-      // chargement — sinon le skeleton reste affiché indéfiniment.
-      setLoading(false)
+      // Vue plateforme (aucune école active) : catalog + configurations de la
+      // plateforme (passerelles des abonnements EduGest). loadGateways() résout
+      // le skeleton via son finally — sinon il resterait affiché indéfiniment.
+      loadGateways()
       return
     }
     loadGateways()
@@ -4889,7 +4890,10 @@ function PaymentConfigView() {
 
   async function loadGateways() {
     try {
-      const res = await authFetch(`/api/payment-gateways${getActiveSchoolId() ? `?schoolId=${getActiveSchoolId()}` : ''}`)
+      const sid = getActiveSchoolId()
+      const res = await authFetch(
+        sid ? `/api/payment-gateways?schoolId=${sid}` : '/api/platform-payment-gateways'
+      )
       const json = await res.json()
       if (json.data) {
         setAvailableGateways(json.data.catalog || [])
@@ -5065,17 +5069,18 @@ function PaymentConfigView() {
   async function saveGatewayConfig() {
     setSaving(true)
     try {
-      const res = await authFetch(`/api/payment-gateways`, {
+      const sid = getActiveSchoolId()
+      const res = await authFetch(sid ? '/api/payment-gateways' : '/api/platform-payment-gateways', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          schoolId: getActiveSchoolId() ?? null,
+          schoolId: sid ?? null,
           ...gatewayForm,
         }),
       })
       const json = await res.json()
       if (json.data) {
-        toast.success('Passerelle configurée avec succès !')
+        toast.success(sid ? 'Passerelle configurée avec succès !' : 'Passerelle plateforme configurée avec succès !')
         setShowGatewayModal(null)
         loadGateways()
       } else {
@@ -5087,11 +5092,20 @@ function PaymentConfigView() {
 
   async function toggleGateway(gateway: any) {
     try {
-      const res = await authFetch(`/api/payment-gateways/${gateway.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: !gateway.isActive }),
-      })
+      const sid = getActiveSchoolId()
+      const res = sid
+        ? await authFetch(`/api/payment-gateways/${gateway.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isActive: !gateway.isActive }),
+          })
+        // Pas de route [id] côté plateforme : upsert POST partiel (les champs
+        // absents conservent les valeurs existantes).
+        : await authFetch('/api/platform-payment-gateways', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gatewayType: gateway.gatewayType, isActive: !gateway.isActive }),
+          })
       if (res.ok) {
         toast.success(gateway.isActive ? 'Passerelle désactivée' : 'Passerelle activée')
         loadGateways()
@@ -5151,35 +5165,38 @@ function PaymentConfigView() {
         <p className="text-gray-500 text-sm mt-1">Gérez les passerelles de paiement et les monnaies</p>
       </div>
 
-      {/* Vue plateforme : aucune école active — les passerelles se configurent par école */}
+      {/* Vue plateforme : passerelles des ABONNEMENTS EduGest (schoolId = '__PLATFORM__').
+          Frais/monnaies/transactions restent scolaires — école active requise. */}
       {!getActiveSchoolId() && (
-        <div className="text-center py-14 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl">
+        <div className="text-center py-10 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl px-6">
           <div className="w-14 h-14 mx-auto mb-4 grid place-items-center rounded-2xl" style={{ background: GOLD_SOFT }}>
             <CreditCard size={26} style={{ color: GOLD }} />
           </div>
           <h3 className="font-semibold text-[15px] mb-1.5" style={{ color: TEXT_PRIMARY }}>
-            Sélectionnez une école pour configurer les paiements
+            Passerelles de la plateforme EduGest
           </h3>
-          <p className="text-[13px] max-w-md mx-auto" style={{ color: TEXT_MUTED_LUXE }}>
-            Vue plateforme active (données globales). Les passerelles de paiement
-            (Flutterwave, Orange Money, Bictorys, M-Pesa…) et les frais scolaires
-            se configurent école par école — choisissez une école dans la barre latérale.
+          <p className="text-[13px] max-w-xl mx-auto" style={{ color: TEXT_MUTED_LUXE }}>
+            Ces passerelles encaissent les abonnements EduGest des écoles
+            (Flutterwave, Orange Money, M-Pesa…). Les passerelles scolaires (frais de
+            scolarité), la devise, les frais et les transactions se configurent
+            école par école — sélectionnez une école dans la barre latérale (« École active »).
           </p>
         </div>
       )}
 
-      {/* Onglets + contenus : uniquement lorsqu'une école est active */}
-      {getActiveSchoolId() && (<>
+      {/* Onglets + contenus ; les onglets scolaires n'apparaissent que avec une école active */}
+      <>
       {/* Tabs */}
       <div className="flex gap-1 border-b">
         <button
           onClick={() => setActiveTab('gateways')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
-            activeTab === 'gateways' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
+            activeTab === 'gateways' || !getActiveSchoolId() ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
           Passerelles de Paiement
         </button>
+        {getActiveSchoolId() && (<>
         <button
           onClick={() => setActiveTab('fees')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
@@ -5204,10 +5221,11 @@ function PaymentConfigView() {
         >
           Transactions
         </button>
+        </>)}
       </div>
 
       {/* Gateways Tab */}
-      {activeTab === 'gateways' && (
+      {(activeTab === 'gateways' || !getActiveSchoolId()) && (
         <div className="space-y-4">
           {availableGateways.length === 0 && !loading && (
             <div className="text-center py-8 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl">
@@ -5273,7 +5291,7 @@ function PaymentConfigView() {
       )}
 
       {/* School Fees Tab */}
-      {activeTab === 'fees' && (
+      {getActiveSchoolId() && activeTab === 'fees' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -5365,7 +5383,7 @@ function PaymentConfigView() {
       )}
 
       {/* Currency Tab */}
-      {activeTab === 'currency' && (
+      {getActiveSchoolId() && activeTab === 'currency' && (
         <div className="space-y-6">
           {/* Currency Configuration */}
           <div className="border rounded-xl p-5 bg-white">
@@ -5524,7 +5542,7 @@ function PaymentConfigView() {
       )}
 
       {/* Transactions Tab */}
-      {activeTab === 'transactions' && (
+      {getActiveSchoolId() && activeTab === 'transactions' && (
         <div className="border rounded-xl bg-white overflow-hidden">
           <div className="p-4 border-b">
             <h3 className="font-semibold">Transactions récentes</h3>
@@ -5579,7 +5597,7 @@ function PaymentConfigView() {
           )}
         </div>
       )}
-      </>)}
+      </>
 
       {/* Gateway Configuration Modal */}
       {showGatewayModal && (

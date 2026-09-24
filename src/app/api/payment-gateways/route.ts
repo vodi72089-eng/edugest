@@ -179,9 +179,14 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Tier limit: canConfigPayments ──────────────────────────────────
+    // Le super admin de la plateforme contourne la limite de forfait :
+    // il peut pré-configurer les passerelles d'une école FREEMIUM/ESSENTIEL.
     const { getTierLimits: getTierLimitsPg } = await import('@/lib/subscription');
     const tierSchoolPg = await db.school.findUnique({ where: { id: schoolId }, select: { subscriptionTier: true } });
-    if (!getTierLimitsPg(tierSchoolPg?.subscriptionTier || 'FREEMIUM').canConfigPayments) {
+    if (
+      user.role !== 'SUPER_ADMIN_GLOBAL' &&
+      !getTierLimitsPg(tierSchoolPg?.subscriptionTier || 'FREEMIUM').canConfigPayments
+    ) {
       return NextResponse.json({ error: 'Votre forfait ne permet pas de configurer les paiements mobiles (Orange Money, M-Pesa...). Passez au forfait Standard ou supérieur.', tierLimit: true }, { status: 403 });
     }
 

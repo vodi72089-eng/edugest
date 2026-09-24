@@ -295,7 +295,7 @@ export default function EventsView() {
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-10 shadow-sm text-center">
           <CalendarDays size={28} className="mx-auto mb-2 opacity-30" style={{ color: TEXT_MUTED_LUXE }} />
           <p className="font-semibold mb-1" style={{ color: TEXT_PRIMARY }}>Aucune école sélectionnée</p>
-          <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Choisissez une école dans le sélecteur en haut de page pour consulter ses événements.</p>
+          <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Choisissez une école dans la barre latérale (« École active ») ou via la vue Rapports pour consulter ses événements.</p>
         </div>
       ) : loading ? (
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-10 shadow-sm text-center text-sm" style={{ color: TEXT_MUTED_LUXE }}>
