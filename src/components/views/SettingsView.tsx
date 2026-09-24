@@ -5,8 +5,9 @@ import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
 import type { SchoolData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
-import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera, ImagePlus, Plus, Edit, GraduationCap, Monitor, Smartphone, LogOut, Tablet, Globe, Fingerprint, Palette, HardDriveDownload } from 'lucide-react'
+import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera, ImagePlus, Plus, Edit, GraduationCap, Monitor, Smartphone, LogOut, Tablet, Globe, Fingerprint, Palette, HardDriveDownload, LifeBuoy } from 'lucide-react'
 import PersonalizationView from './PersonalizationView'
+import HelpView from './HelpView'
 import { toast } from 'sonner'
 import { detectDevice, formatDeviceTitle, formatDeviceSummary, isLoopbackIp } from '@/lib/detect-device'
 import CurrentDeviceInfo from '@/components/CurrentDeviceInfo'
@@ -61,7 +62,7 @@ function SettingsViewInner() {
   const [comments, setComments] = useState<{ id: string; authorName: string; rating: number; comment: string; isApproved: boolean; createdAt: string }[]>([])
   const logoInputRef = useRef<HTMLInputElement | null>(null)
   const coverInputRef = useRef<HTMLInputElement | null>(null)
-  const [activeTab, setActiveTab] = useState<'info' | 'fees' | 'devices' | 'personalization'>(personalizationOnly ? 'personalization' : 'info')
+  const [activeTab, setActiveTab] = useState<'info' | 'fees' | 'devices' | 'personalization' | 'aide'>(personalizationOnly ? 'personalization' : 'info')
   const [fees, setFees] = useState<any[]>([])
   const [classes, setClasses] = useState<any[]>([])
   const [showFeeModal, setShowFeeModal] = useState(false)
@@ -414,6 +415,9 @@ function SettingsViewInner() {
             <Palette size={14} className="inline mr-1" /> Personnalisation
           </button>
         )}
+        <button onClick={() => setActiveTab('aide')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'aide' ? 'text-white' : ''}`} style={activeTab === 'aide' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
+          <LifeBuoy size={14} className="inline mr-1" /> Aide
+        </button>
       </div>
 
       {/* Pending Approvals (approbateurs : admin école + super admin) */}
@@ -766,6 +770,8 @@ function SettingsViewInner() {
       )}
 
       {activeTab === 'personalization' && <PersonalizationView />}
+
+      {activeTab === 'aide' && <HelpView />}
 
       {activeTab === 'devices' && (
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">

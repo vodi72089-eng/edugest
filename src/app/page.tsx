@@ -247,6 +247,7 @@ function PublicHeader({ dark = false }: { dark?: boolean }) {
           <button onClick={() => setCurrentView('home')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Écoles</button>
           <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Fonctionnalités</button>
           <button onClick={() => setCurrentView('pricing')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Tarifs</button>
+          <button onClick={() => setCurrentView('docs')} className={`px-3.5 py-2 rounded-lg text-sm font-medium ${mutedColor} ${hoverColor} transition`}>Documentation</button>
           <button onClick={() => setCurrentView('login')} className="ml-3 edu-gold-cta px-5 py-2 rounded-xl text-sm font-semibold">Se connecter</button>
         </nav>
         <button className={`sm:hidden p-2 ${textColor}`} onClick={() => setMobileMenu(!mobileMenu)}>
@@ -258,6 +259,7 @@ function PublicHeader({ dark = false }: { dark?: boolean }) {
           <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Écoles</button>
           <button onClick={() => { setCurrentView('home'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Fonctionnalités</button>
           <button onClick={() => { setCurrentView('pricing'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Tarifs</button>
+          <button onClick={() => { setCurrentView('docs'); setMobileMenu(false) }} className={`text-left px-3 py-2 rounded-lg text-sm font-medium ${mutedColor}`}>Documentation</button>
           <button onClick={() => { setCurrentView('login'); setMobileMenu(false) }} className="edu-gold-cta px-4 py-2 rounded-xl text-sm font-semibold text-center">Se connecter</button>
         </div>
       )}
@@ -283,6 +285,7 @@ function Footer() {
           <ul className="space-y-3">
             <li><Link000 href="#" onClick={(e) => { e.preventDefault(); setCurrentView('home') }} className="w-fit text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition-colors">Trouver une école</Link000></li>
             <li><Link000 href="#" onClick={(e) => { e.preventDefault(); setCurrentView('pricing') }} className="w-fit text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition-colors">Tarifs</Link000></li>
+            <li><Link000 href="#" onClick={(e) => { e.preventDefault(); setCurrentView('docs') }} className="w-fit text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition-colors">Documentation</Link000></li>
             <li><Link001 href="#" onClick={(e) => { e.preventDefault(); setCurrentView('login') }} className="w-fit text-sm text-white/70 hover:text-[oklch(72%_0.15_65)] transition-colors">Connexion</Link001></li>
           </ul>
         </div>
@@ -617,6 +620,7 @@ function HomeView() {
             <button onClick={() => setCurrentView('home')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Écoles</button>
             <button onClick={() => { setCurrentView('home'); setTimeout(() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' }), 100) }} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Fonctionnalités</button>
             <button onClick={() => setCurrentView('pricing')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Tarifs</button>
+            <button onClick={() => setCurrentView('docs')} className="text-gray-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-[0.2em]">Documentation</button>
           </div>
           <button onClick={() => setCurrentView('login')} className="bg-[#f5a623] hover:bg-[#ffb643] hover:shadow-[0_0_30px_rgba(245,166,35,0.4)] text-[#0a0f0d] px-8 sm:px-10 py-3 sm:py-3.5 rounded-full font-extrabold text-sm transition-all shadow-[0_10px_30px_rgba(245,166,35,0.2)] active:scale-95 cursor-pointer">
             Se connecter
@@ -1030,6 +1034,21 @@ interface PricingPlanData {
   period: string; description: string; features: string; color: string;
   isPopular: boolean; isActive: boolean; sortOrder: number;
   updatedAt: string; createdAt: string;
+}
+
+// ===== PUBLIC DOCUMENTATION =====
+// Même contenu que l'ex-documentation in-app (sans la section interne
+// Hermes), accessible sans connexion depuis la landing.
+function PublicDocsView() {
+  return (
+    <div className="min-h-screen flex flex-col" style={{ background: IVORY }}>
+      <PublicHeader />
+      <div className="container-premium py-10 sm:py-14 flex-1">
+        <DocumentationView />
+      </div>
+      <Footer />
+    </div>
+  )
 }
 
 function PricingView() {
@@ -2621,13 +2640,13 @@ HEAD_TEACHER: [
 
   let menuItems: MenuItem[] = menus[userRole || ''] || menus.SECRETARY
 
-  // Support + Documentation : communs à TOUS les comptes (insérés avant « Mon profil »)
+  // Support : commun à TOUS les comptes (inséré avant « Mon profil »).
+  // La documentation vit sur la landing publique (plus d'onglet in-app).
   const COMMON_MENU_ITEMS: MenuItem[] = [
     { icon: <LifeBuoy size={16} />, label: 'Support', view: 'support' },
-    { icon: <BookOpen size={16} />, label: 'Documentation', view: 'docs' as ViewType },
   ]
   {
-    const withoutCommon = menuItems.filter(i => i.view !== 'support' && i.view !== 'docs')
+    const withoutCommon = menuItems.filter(i => i.view !== 'support')
     const profileIdx = withoutCommon.findIndex(i => i.view === 'profile')
     const insertAt = profileIdx >= 0 ? profileIdx : withoutCommon.length
     menuItems = [
@@ -2815,14 +2834,14 @@ const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   MEDICAL: ['dashboard', 'medical', 'medical-records', 'students', 'communications', 'reports', 'profile'],
   SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'pricing', 'platform-control', 'discipline', 'attendance', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'medical', 'medical-records', 'events', 'reports', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
   // Comptes hors école : corporate (multi-écoles) + support client EduGest
-  CORPORATE_ADMIN: ['corporate', 'support', 'docs', 'profile'],
-  SUPPORT_AGENT: ['support', 'docs', 'profile'],
+  CORPORATE_ADMIN: ['corporate', 'support', 'profile'],
+  SUPPORT_AGENT: ['support', 'profile'],
 }
 
-// Vues communes à TOUS les rôles : Support + Documentation
+// Vue commune à TOUS les rôles : Support (la documentation est publique, sur la landing)
 for (const roleKey of Object.keys(VIEWS_BY_ROLE) as (keyof typeof VIEWS_BY_ROLE)[]) {
   const list = VIEWS_BY_ROLE[roleKey]
-  for (const commonView of ['support', 'docs'] as ViewType[]) {
+  for (const commonView of ['support'] as ViewType[]) {
     if (!list.includes(commonView)) list.push(commonView)
   }
 }
@@ -2833,6 +2852,9 @@ const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment
 
 function canAccessView(role: string | null, view: ViewType, subscriptionTier?: string): boolean {
   if (!role) return false
+  // Documentation : page publique, ouvrable aussi connecté (depuis Support),
+  // sans entrée sidebar — jamais restreinte par rôle ni forfait.
+  if (view === 'docs') return true
   // Comptes HORS école (corporate / support) : pas de forfait, accès par rôle
   // uniquement — aucune des gardes d'abonnement ci-dessous ne doit s'appliquer.
   if (role === 'CORPORATE_ADMIN' || role === 'SUPPORT_AGENT') return (VIEWS_BY_ROLE[role] || []).includes(view)
@@ -3243,7 +3265,6 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     'corporate': 'Espace Corporate',
     'corporates': 'Entreprises',
     'support': 'Support client',
-    'docs': 'Documentation',
     'platform-emails': 'Emails plateforme',
     'activity-logs': 'Journal d’activité',
   }
@@ -4051,7 +4072,9 @@ function MainContent() {
     case 'corporate': return <CorporateSpaceView />
     case 'corporates': return <CorporatesAdminView />
     case 'support': return <SupportView />
-    case 'docs': return <DocumentationView />
+    // 'docs' n'existe plus in-app (documentation publique sur la landing) :
+    // toute ancienne session pointant dessus retombe sur le Support.
+    case 'docs': return <SupportView />
     case 'platform-emails': return <PlatformEmailsView />
     case 'activity-logs': return <LogsView />
     case 'bulletin': return <BulletinView />
@@ -9388,6 +9411,7 @@ export default function Home() {
       case 'login': view = <LoginView />; break
       case 'create-school': view = <CreateSchoolView />; break
       case 'pricing': view = <PricingView />; break
+      case 'docs': view = isDesktopApp() ? <LoginView /> : <PublicDocsView />; break
       case 'school-detail': view = <SchoolDetailView />; break
       // Landing restaurée à la demande : « Gestion Scolaire Intégrale » est de
       // retour sur la page d'accueil publique (connexion toujours unifiée sur /login)

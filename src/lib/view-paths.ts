@@ -10,6 +10,7 @@
 export const VIEW_PATHS: Record<string, string> = {
   home: '/',
   login: '/login',
+  docs: '/docs',
   'create-school': '/create-school',
   'school-detail': '/school-detail',
   dashboard: '/dashboard',
@@ -49,7 +50,7 @@ export const VIEW_PATHS: Record<string, string> = {
 };
 
 /** Views accessible WITHOUT authentication (pre-auth screens + public landing). */
-export const PUBLIC_VIEWS: readonly string[] = ['home', 'login', 'create-school', 'pricing', 'school-detail'];
+export const PUBLIC_VIEWS: readonly string[] = ['home', 'login', 'create-school', 'pricing', 'school-detail', 'docs'];
 
 /** Pre-auth-only views that must never be restored while a session is active. */
 export const PRE_AUTH_ONLY_VIEWS: readonly string[] = ['login', 'create-school', 'school-detail'];

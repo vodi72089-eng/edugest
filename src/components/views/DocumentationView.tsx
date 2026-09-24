@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, SUCCESS, DANGER, WARNING } from '@/lib/constants'
 import {
   BookOpen, Search, Rocket, Building2, ArrowRightLeft, ShieldAlert, CreditCard,
-  Mail, LifeBuoy, ScrollText, type LucideIcon,
+  Mail, LifeBuoy, type LucideIcon,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -40,7 +40,7 @@ const SECTIONS: DocSection[] = [
       {
         kind: 'list',
         items: [
-          'Créer une école : le premier compte SUPER_ADMIN_GLOBAL (administrateur de la plateforme) crée l’école depuis le menu Écoles — nom complet, sigle, ville, province, contacts.',
+          'Créer une école : depuis la page d’accueil, cliquez « Créer mon école » et renseignez les informations demandées — nom complet, sigle, ville, province, contacts.',
           'Onboarding guidé : une fois l’école créée, suivez les étapes — création des classes et des sections (Maternelle, Primaire, Secondaire), saisie ou import des élèves, affectation du personnel, configuration des frais scolaires.',
           'Invitations du personnel : invitez vos collaborateurs depuis le menu Personnel. Chacun reçoit un accès limité à son rôle.',
           'Connexion parents : les parents se connectent avec leur numéro de téléphone et leur mot de passe ; ils ne voient que leurs enfants (paiements, résultats, discipline, communications).',
@@ -76,7 +76,7 @@ const SECTIONS: DocSection[] = [
           'Un groupe scolaire (congrégation, société, fondation…) rattache plusieurs écoles sous une même entité.',
           'L’Espace Corporate affiche les totaux agrégés de toutes les écoles : élèves, classes, personnel et encaissements.',
           'Chaque corporate dispose d’au moins un compte utilisateur dédié (nom, email, téléphone, mot de passe) créé à l’ouverture du compte.',
-          'Les comptes corporate sont créés et gérés uniquement par l’administrateur de la plateforme, depuis le menu Entreprises.',
+          'Les comptes corporate sont ouverts par notre équipe : écrivez à contact@edugest.app pour rattacher vos écoles.',
         ],
       },
       { kind: 'note', tone: 'gold', text: 'Vous gérez plusieurs écoles sous une même entité ? Contactez contact@edugest.app pour ouvrir un compte corporate.' },
@@ -86,7 +86,7 @@ const SECTIONS: DocSection[] = [
     id: 'passage',
     title: 'Passage de classe',
     icon: ArrowRightLeft,
-    summary: 'Fonction Professionnel, activée par la plateforme, avec repêchage',
+    summary: 'Fonction Professionnel, activée pour votre école, avec repêchage',
     keywords: ['passage de classe', 'premium', 'professionnel', 'activation', 'verrouillé', 'repêchage', 'année suivante'],
     blocks: [
       { kind: 'p', text: 'Le passage de classe fait passer les élèves vers l’année suivante en fin d’année scolaire.' },
@@ -94,12 +94,12 @@ const SECTIONS: DocSection[] = [
         kind: 'list',
         items: [
           'Réservé aux écoles au forfait Professionnel (PREMIUM) et plus.',
-          'Même avec le bon forfait, la fonction doit être activée individuellement pour votre école : le passage d’école n’est disponible que lorsque l’administrateur de la plateforme L’ENVOIE à l’école, via un bouton dédié.',
+          'Même avec le bon forfait, la fonction doit être activée pour votre école : faites-en la demande via un ticket (catégorie Onboarding) et notre équipe l’activera.',
           'Sans activation, la vue reste verrouillée : vous voyez la fonction mais ne pouvez pas l’exécuter.',
           'Le repêchage est inclus : les élèves en échec peuvent être repêchés (rattrapage encadré) au moment du passage.',
         ],
       },
-      { kind: 'note', tone: 'warning', text: 'Forfait Professionnel + activation expresse par la plateforme = passage de classe ouvert. En cas de besoin, ouvrez un ticket (catégorie Onboarding).' },
+      { kind: 'note', tone: 'warning', text: 'Forfait Professionnel + activation par notre équipe = passage de classe ouvert. En cas de besoin, ouvrez un ticket (catégorie Onboarding).' },
     ],
   },
   {
@@ -150,7 +150,7 @@ const SECTIONS: DocSection[] = [
           'CORPORATE — groupes scolaires multi-écoles avec espace corporate.',
         ],
       },
-      { kind: 'note', tone: 'gold', text: 'Pour monter en gamme, l’école dépose une demande d’upgrade depuis sa vue Abonnement ; elle est validée par la plateforme avant activation du nouveau forfait.' },
+      { kind: 'note', tone: 'gold', text: 'Pour monter en gamme, l’école dépose une demande d’upgrade depuis sa vue Abonnement ; elle est validée par notre équipe avant activation du nouveau forfait.' },
     ],
   },
   {
@@ -160,7 +160,7 @@ const SECTIONS: DocSection[] = [
     summary: 'Nos trois adresses et l’envoi via Resend',
     keywords: ['email', 'noreply', 'support', 'contact', 'resend', 'boîte d’envoi', 'notifications'],
     blocks: [
-      { kind: 'p', text: 'La plateforme envoie ses emails depuis trois adresses officielles :' },
+      { kind: 'p', text: 'EduGest envoie ses emails depuis trois adresses officielles :' },
       {
         kind: 'list',
         items: [
@@ -173,7 +173,7 @@ const SECTIONS: DocSection[] = [
         kind: 'list',
         items: [
           'Les envois partent via Resend, notre fournisseur d’emails transactionnels.',
-          'La boîte d’envoi (menu Emails plateforme, réservé à l’administrateur plateforme) retrace chaque message : destinataire, modèle, statut SENT / SIMULATED / FAILED.',
+          'Chaque message est tracé dans la boîte d’envoi : destinataire, modèle, statut SENT / SIMULATED / FAILED.',
         ],
       },
     ],
@@ -194,24 +194,6 @@ const SECTIONS: DocSection[] = [
         ],
       },
       { kind: 'note', tone: 'success', text: 'Astuce : pour une réponse instantanée, commencez par l’Agent IA — si le cas nécessite une action humaine, ouvrez un ticket et notre équipe intervient.' },
-    ],
-  },
-  {
-    id: 'hermes',
-    title: 'Journal d’activité & Hermes (production)',
-    icon: ScrollText,
-    summary: 'AuditLog complet et agent Hermes branché par webhook signé',
-    keywords: ['journal', 'activité', 'audit', 'logs', 'hermes', 'hmac', 'webhook', 'production', 'sécurité'],
-    blocks: [
-      {
-        kind: 'list',
-        items: [
-          'Chaque action sensible est journalisée (AuditLog) : connexions, créations de comptes, rattachements corporate, envois d’emails, changements de forfait…',
-          'En production, l’agent HERMES se branche sur le journal via un webhook signé HMAC-SHA256 (configuration HERMES_AGENT_CONFIG côté administrateur plateforme) pour un audit automatique des entrées.',
-          'En développement, la journalisation reste locale : rien n’est relayé vers l’extérieur.',
-        ],
-      },
-      { kind: 'note', tone: 'danger', text: 'Le secret HMAC n’est jamais exposé côté client : seul l’administrateur plateforme peut le définir, et l’agent Hermes doit le présenter à chaque appel du webhook.' },
     ],
   },
 ]
@@ -274,7 +256,7 @@ export default function DocumentationView() {
           Documentation
         </h1>
         <p className="text-sm mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>
-          Tout savoir sur EduGest : démarrage, corporates, passage de classe, paiements, support et journal d’activité.
+          Tout savoir sur EduGest : démarrage, corporates, passage de classe, paiements et support.
         </p>
       </div>
 

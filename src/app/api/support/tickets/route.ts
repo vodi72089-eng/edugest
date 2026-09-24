@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/support/tickets — crée un ticket (+ 1er message)
-// Body: { subject, category?, priority?, body, corporateId?, schoolId? }
+// Body: { subject, category?, priority?, body, corporateId?, schoolId?, screenshotUrl? }
 export async function POST(request: NextRequest) {
   try {
     const authResult = await requireAuth(request);
@@ -105,11 +105,18 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const subject = String(body.subject || '').trim();
-    const firstMessage = String(body.body || '').trim();
+    const description = String(body.body || '').trim();
     const category = CATEGORIES.includes(body.category) ? body.category : 'GENERAL';
     const priority = PRIORITIES.includes(body.priority) ? body.priority : 'NORMAL';
+    // Capture d'écran du signalement (onglet Aide) : URL /api/upload/…
+    const screenshotUrl = typeof body.screenshotUrl === 'string' && body.screenshotUrl.startsWith('/api/upload/')
+      ? body.screenshotUrl.slice(0, 300)
+      : '';
+    const firstMessage = screenshotUrl
+      ? `${description}\n\nCapture d'écran : ${screenshotUrl}`
+      : description;
     if (subject.length < 4) return NextResponse.json({ error: 'Sujet trop court (4 caractères min.)' }, { status: 400 });
-    if (firstMessage.length < 5) return NextResponse.json({ error: 'Décrivez votre demande (5 caractères min.)' }, { status: 400 });
+    if (description.length < 5) return NextResponse.json({ error: 'Décrivez votre demande (5 caractères min.)' }, { status: 400 });
 
     // Contexte corporate / école
     let corporateId: string | null = body.corporateId || null;
@@ -155,12 +162,19 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // URL absolue pour l'agent Hermes (webhook externe) — la relative reste
+    // dans le message pour l'app.
+    const appBase = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
     await logAudit({
       action: 'TICKET_CREATED',
       userId: user.id, userName: user.name, userRole: user.role,
       entityType: 'SupportTicket', entityId: ticket.id, schoolId,
-      details: `Ticket ${ticket.ref} créé : « ${subject} » (${priority})`,
-      meta: { ref: ticket.ref, category, priority, corporate: ticket.corporate?.name || null },
+      details: `Ticket ${ticket.ref} créé : « ${subject} » (${priority})${screenshotUrl ? ' + capture d’écran' : ''}`,
+      meta: {
+        ref: ticket.ref, category, priority, corporate: ticket.corporate?.name || null,
+        screenshotUrl: screenshotUrl || null,
+        screenshotAbsoluteUrl: screenshotUrl && appBase ? `${appBase}${screenshotUrl}` : null,
+      },
     });
 
     return NextResponse.json({ data: { id: ticket.id, ref: ticket.ref } }, { status: 201 });
