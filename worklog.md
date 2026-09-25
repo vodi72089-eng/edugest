@@ -2482,3 +2482,19 @@ Work Log:
 Stage Summary:
 - Le marqueur « v0.3.3 » (sidebar + login) permet de savoir INSTANTANÉMENT si la copie locale Windows de l'utilisateur tourne sur le dernier code.
 - Prochain diagnostic utilisateur : si v0.3.3 absent → git pull raté ou serveur non redémarré (fermer les 2 fenêtres start-all.bat, relancer, Ctrl+Shift+R). Si v0.3.3 présent → lire le texte exact de l'erreur (désormais avec code AT).
+
+---
+Task ID: sms-test-sans-enregistrement
+Agent: Z.ai Code (main)
+Task: Utilisateur v0.3.3 confirmé (screenshot : sidebar v0.3.3 + username sandbox) mais AT répond « The supplied authentication is invalid » après régénération de clé — rendre le test infaillible et le diagnostic lisible.
+
+Work Log:
+- Screenshot analysé : v0.3.3 visible (code à jour), username=sandbox, erreur auth AT → la clé enregistrée/rejetée est le seul variable restant ; SENDER ID=EDUGEST repéré (interdit en sandbox).
+- src/lib/sms.ts : sendSmsViaProvider(to, message, cfgOverride?) — test d'identifiants saisis sans lecture DB ; `from` (sender ID) jamais envoyé quand username=sandbox.
+- /api/sms-config POST action=test : accepte provider+fields du formulaire → config fusionnée (secrets vides → valeur enregistrée, enabled forcé true) → test SANS save. Garde-fou save : valeur contenant « • » (masquée) jamais enregistrée comme secret.
+- PlatformApiConfigSection (SmsConfigCard) : sendTest = 1) test avec champs saisis sans enregistrer, 2) succès → save, échec → config inchangée + erreur AT complète 12 s. Masque de la clé enregistrée affiché sous le champ (« Enregistrée : atsk••••xyz »), rafraîchi après save. Placeholder + libellé SENDER ID (« laisser VIDE en sandbox ») mis à jour.
+- tsc 0 erreur, eslint 0 erreur (3 fichiers). Commit b70eda2 poussé.
+
+Stage Summary:
+- Une clé invalide ne peut plus écraser une config fonctionnante ; l'utilisateur voit maintenant QUELLE clé est enregistrée (masque) et teste exactement ce qu'il colle.
+- Reste à l'utilisateur : coller la NOUVELLE clé (copie intégrale depuis account.africastalking.com → Settings → API Key), Sender ID vide, Envoyer. Si échec → lire le code [xxx] dans l'erreur.
