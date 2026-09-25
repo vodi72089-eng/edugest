@@ -2498,3 +2498,21 @@ Work Log:
 Stage Summary:
 - Une clé invalide ne peut plus écraser une config fonctionnante ; l'utilisateur voit maintenant QUELLE clé est enregistrée (masque) et teste exactement ce qu'il colle.
 - Reste à l'utilisateur : coller la NOUVELLE clé (copie intégrale depuis account.africastalking.com → Settings → API Key), Sender ID vide, Envoyer. Si échec → lire le code [xxx] dans l'erreur.
+
+---
+Task ID: app-mise-a-jour-integree
+Agent: Z.ai Code (main)
+Task: Utilisateur « JE FAIS TOUT MAIS RIEN NE CHANGE » — screenshot montre sidebar v0.3.3 (pas v0.3.4) + anciens libellés SMS → son git pull ne rapporte pas les nouveaux commits ; rendre la mise à jour possible SANS terminal.
+
+Work Log:
+- Diagnostic : v0.3.3 + ancien libellé « SENDER ID (OPTIONNEL) » = ancien code ; les commits b70eda2/91de586 n'arrivent pas sur son PC. Cause invisible à distance (terminal inaccessible) → éliminer le besoin de terminal.
+- Vérifié : db/ NON suivie par git (git ls-files db/ vide) → aucune opération git ne risque les données école.
+- Créé /api/platform/update (POST, SUPER_ADMIN_GLOBAL) : git log avant → git stash push défensif (code seul, DB non suivie) → git pull --ff-only origin main → git log après → sortie COMPLÈTE renvoyée (stdout+stderr), 500 si échec.
+- PlatformApiConfigSection : AppUpdateCard (titre « Mise à jour de l'application », badge v{APP_VERSION}, bouton « Mettre à jour maintenant », rapport git dans un bloc mono coloré vert/rouge max-h-64 scroll, consigne Ctrl+Shift+R).
+- APP_VERSION → 0.3.5. tsc 0 erreur, eslint 0 erreur. Commits poussés : 0c3e714.
+- Test API direct (curl + Bearer) : output complet « Code actuel / Already up to date / Code après » ✓.
+- Test UI complet agent-browser : login → Contrôle plateforme → clic bouton → rapport affiché + « Already up to date » + consigne succès ✓ (screenshots update-flow-*.png). dev.log sans erreur.
+
+Stage Summary:
+- L'utilisateur n'a plus besoin de git pull manuel : un clic dans Contrôle plateforme met à jour et AFFICHE le rapport — toute erreur est visible et capture-able pour le support.
+- Prochaine étape utilisateur : Ctrl+Shift+R → v0.3.5 en sidebar → « Mettre à jour maintenant » → rapport → Ctrl+Shift+R → re-tester SMS (clé atsk_ collée, Sender ID vide).
