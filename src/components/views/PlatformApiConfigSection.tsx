@@ -12,11 +12,13 @@ import {
   ShieldAlert,
   RefreshCw,
   CircleCheck,
+  DownloadCloud,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import AppSelect from '@/components/ui/AppSelect'
 import { authFetch } from '@/lib/store'
 import { onDbChange } from '@/lib/realtime'
+import { APP_VERSION } from '@/lib/version'
 import { GOLD, ACCENT, SUCCESS, DANGER, TEXT_PRIMARY, TEXT_MUTED_LUXE, BORDER } from '@/lib/constants'
 
 // ---------------------------------------------------------------------------
@@ -716,6 +718,108 @@ function DatabaseStatusCard() {
 }
 
 // ---------------------------------------------------------------------------
+// Carte Mise à jour — git pull intégré avec sortie visible à l'écran
+// (l'utilisateur n'a plus besoin d'ouvrir un terminal ; toute erreur est
+// affichée mot pour mot et peut être capture d'écran pour le support)
+// ---------------------------------------------------------------------------
+
+function AppUpdateCard() {
+  const [busy, setBusy] = useState(false)
+  const [output, setOutput] = useState('')
+  const [ok, setOk] = useState<boolean | null>(null)
+
+  async function runUpdate() {
+    setBusy(true)
+    setOutput('')
+    setOk(null)
+    try {
+      const res = await authFetch('/api/platform/update', { method: 'POST' })
+      const json = await res.json()
+      setOutput(json.output || json.error || '(aucune sortie)')
+      setOk(res.ok && json.ok !== false)
+      if (res.ok) {
+        toast.success(json.message || 'Mise à jour appliquée — faites Ctrl+Shift+R')
+      } else {
+        toast.error('Mise à jour échouée — lisez le rapport ci-dessous', { duration: 10000 })
+      }
+    } catch {
+      setOutput('Impossible de contacter le serveur local. Vérifiez que la fenêtre « Next.js Dev » est démarrée.')
+      setOk(false)
+      toast.error('Erreur réseau')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl shadow-sm p-4 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <span
+            className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ background: 'oklch(95% 0.04 65)', color: 'oklch(45% 0.13 65)' }}
+          >
+            <DownloadCloud className="w-5 h-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-base font-extrabold tracking-tight" style={{ color: TEXT_PRIMARY }}>
+                Mise à jour de l&apos;application
+              </h3>
+              <span
+                className="text-[10px] px-2 py-0.5 rounded-full font-bold font-mono"
+                style={{ background: 'oklch(94% 0.005 250)', color: 'oklch(52% 0.015 250)' }}
+                title="Version du code en cours d'exécution"
+              >
+                v{APP_VERSION}
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
+              Récupère les dernières corrections directement depuis GitHub et affiche le résultat
+              complet — vos données ne sont jamais touchées.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={runUpdate}
+          disabled={busy}
+          className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-60 shrink-0"
+          style={{ background: 'oklch(45% 0.13 65)' }}
+        >
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          {busy ? 'Mise à jour…' : 'Mettre à jour maintenant'}
+        </button>
+      </div>
+
+      {output && (
+        <div
+          className="mt-4 rounded-xl p-3 font-mono text-[11.5px] leading-relaxed whitespace-pre-wrap break-words max-h-64 overflow-y-auto"
+          style={{
+            background: ok ? 'oklch(97% 0.02 145)' : 'oklch(97% 0.02 25)',
+            border: `1px solid ${ok ? 'oklch(90% 0.05 145)' : 'oklch(90% 0.05 25)'}`,
+            color: ok ? 'oklch(40% 0.13 145)' : 'oklch(45% 0.19 25)',
+          }}
+        >
+          {output}
+        </div>
+      )}
+
+      {ok === true && (
+        <p className="mt-3 text-xs font-semibold flex items-center gap-1.5" style={{ color: 'oklch(40% 0.13 145)' }}>
+          <CircleCheck className="w-4 h-4" /> Terminé — appuyez sur Ctrl+Shift+R pour recharger, puis vérifiez le numéro de version en bas à gauche.
+        </p>
+      )}
+      {ok === false && (
+        <p className="mt-3 text-xs font-semibold" style={{ color: DANGER }}>
+          Envoyez une capture d&apos;écran de ce rapport au support — il montre exactement la cause du blocage.
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Section complète
 // ---------------------------------------------------------------------------
 
@@ -736,6 +840,8 @@ export default function PlatformApiConfigSection() {
       </div>
 
       <DatabaseStatusCard />
+
+      <AppUpdateCard />
     </div>
   )
 }
