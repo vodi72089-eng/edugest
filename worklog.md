@@ -2516,3 +2516,19 @@ Work Log:
 Stage Summary:
 - L'utilisateur n'a plus besoin de git pull manuel : un clic dans Contrôle plateforme met à jour et AFFICHE le rapport — toute erreur est visible et capture-able pour le support.
 - Prochaine étape utilisateur : Ctrl+Shift+R → v0.3.5 en sidebar → « Mettre à jour maintenant » → rapport → Ctrl+Shift+R → re-tester SMS (clé atsk_ collée, Sender ID vide).
+
+---
+Task ID: resend-test-sans-enregistrement
+Agent: Z.ai Code (main)
+Task: « resend ne marche pas aussi » — durcir le flux email Resend comme SMS et guider l'utilisateur dans les pièges du mode test Resend.
+
+Work Log:
+- src/lib/email.ts : sendEmailViaResend(to, subject, html, fromOverride?, cfgOverride?) ; trim de la clé ; traduction des pièges Resend : /domain/ → « onboarding@resend.dev », /own email|testing emails/ → « seulement l'email de votre compte Resend », 401/403 → « clé invalide — resend.com → API Keys ».
+- /api/email-config action=test : accepte apiKey/fromEmail/fromName saisis → config fusionnée (vides → valeurs enregistrées, enabled forcé) → test SANS save. Garde-fou save : valeur masquée (•) jamais enregistrée.
+- EmailConfigCard : sendTest = test sans enregistrement → succès → save ; masque « Enregistrée : re_1••••xyz » sous la clé ; placeholder fromEmail « onboarding@resend.dev (mode test) » ; note mode test Resend ; légende mise à jour.
+- APP_VERSION → 0.3.6 ; tsc/eslint 0 erreur ; commit 17fe11b poussé.
+- Tests live curl : (1) sans config → erreur claire ✓ ; (2) fausse clé re_FAKE via overrides → « Resend: API key is invalid — votre clé API semble invalide… » ✓ ; (3) DB : RESEND_EMAIL_CONFIG non créée ✓ (rien n'a été enregistré par le test).
+
+Stage Summary:
+- Le flux Resend est maintenant symétrique au flux SMS : test-avant-enregistrement, clé masquée visible, erreurs Resend expliquées en français.
+- Règles Resend mode test communiquées : from = onboarding@resend.dev + destinataire = email du compte Resend ; domaine propre = resend.com → Domains.
