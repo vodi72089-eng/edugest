@@ -39,6 +39,11 @@ export interface SmsResult {
   provider?: SmsProvider;
 }
 
+// Africa's Talking : statuts « message accepté » (recipient.status).
+// « Success » en sandbox, « Sent »/« Enqueued »/« Processed » selon la file —
+// tout le reste (InvalidPhoneNumber, NotCached…) est un échec réel.
+const OK_STATUSES = new Set(['success', 'sent', 'enqueued', 'processed']);
+
 // ── Lecture de la configuration (cache 30 s pour éviter une requête DB
 //    à chaque envoi) ─────────────────────────────────────────────────────────
 let configCache: { value: SmsApiConfig | null; at: number } | null = null;
@@ -146,18 +151,23 @@ export async function sendSmsViaProvider(to: string, message: string): Promise<S
     } else if (cfg.provider === 'africastalking') {
       // ⚠️ L'API Africa's Talking exige du form-urlencoded — le JSON renvoie
       // systématiquement HTTP 415 (Unsupported Media Type).
+      // .trim() défensif : une clé collée avec espace/saut de ligne échouerait
+      // en authentification sans explication claire.
+      const atUsername = (cfg.africastalking.username || '').trim();
+      const atKey = (cfg.africastalking.apiKey || '').trim();
       const headers: Record<string, string> = {
-        'apiKey': cfg.africastalking.apiKey,
+        'apiKey': atKey,
         'Content-Type': 'application/x-www-form-urlencoded',
         'Accept': 'application/json',
       };
       const params = new URLSearchParams({
-        username: cfg.africastalking.username,
+        username: atUsername,
         to: dest,
         message,
         enqueue: 'true',
       });
-      if (cfg.africastalking.senderId) params.set('from', cfg.africastalking.senderId);
+      const senderId = (cfg.africastalking.senderId || '').trim();
+      if (senderId) params.set('from', senderId);
       const res = await fetch('https://api.africastalking.com/version1/messaging', {
         method: 'POST',
         headers,
@@ -170,14 +180,21 @@ export async function sendSmsViaProvider(to: string, message: string): Promise<S
       let json: any = {};
       try { json = rawBody ? JSON.parse(rawBody) : {}; } catch { /* texte brut */ }
       const recipient = json?.SMSMessageData?.Recipients?.[0];
-      if (res.ok && recipient && String(recipient.status).toLowerCase() === 'success') {
+      // Statuts acceptés par AT quand le message est pris en charge
+      // (« Success » en sandbox ; « Sent »/« Enqueued » selon la file) —
+      // tout autre statut (InvalidPhoneNumber…) est bien une erreur.
+      const atStatus = String(recipient?.status || '').toLowerCase();
+      const accepted = OK_STATUSES.has(atStatus);
+      if (res.ok && recipient && accepted) {
         ok = true;
       } else {
         const rawText = (json && Object.keys(json).length) ? '' : rawBody.trim();
-        errMsg = recipient?.status || json?.errorMessage || rawText || `HTTP ${res.status}`;
+        const baseMsg = recipient?.status || json?.errorMessage || rawText || `HTTP ${res.status}`;
+        // Code AT inclus (ex. « [401] … ») : accélère énormément le diagnostic à distance
+        errMsg = recipient?.statusCode ? `[${recipient.statusCode}] ${baseMsg}` : baseMsg;
         // Piste évidente : en sandbox, l'username DOIT être « sandbox » —
         // sinon l'authentification échoue même avec une clé valide.
-        if (!ok && /auth/i.test(errMsg) && (cfg.africastalking.username || '').trim().toLowerCase() !== 'sandbox') {
+        if (!ok && /auth/i.test(errMsg) && atUsername.toLowerCase() !== 'sandbox') {
           errMsg += ' — en mode sandbox, le nom d\u2019utilisateur doit \u00eatre exactement \u00ab sandbox \u00bb';
         } else if (!ok && /auth/i.test(errMsg)) {
           // Username correct mais refus : la clé est invalide ou régénérée
