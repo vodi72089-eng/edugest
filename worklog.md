@@ -2465,3 +2465,20 @@ Work Log:
 Stage Summary:
 - Le « HTTP 415 » ne peut plus se produire (correctif déjà actif) ; l'erreur username sandbox est maintenant impossible à rater (pré-remplissage + avertissement live + message serveur enrichi)
 - Reste côté utilisateur : créer la clé sandbox sur africastalking.com (username=sandbox), enregistrer son numéro dans le simulateur SMS, coller la clé, cocher Activer puis « Envoyer »
+
+---
+Task ID: sms-version-marker-033
+Agent: Z.ai Code (main)
+Task: Utilisateur a fait git pull + clé AT validée, mais « toujours la même erreur dans l'app » — rendre le diagnostic possible à distance (version du code locale inconnue) et durcir le parsing AT.
+
+Work Log:
+- Créé src/lib/version.ts avec APP_VERSION = '0.3.3' (marqueur visuel du code déployé).
+- page.tsx : badge « v0.3.3 » ajouté en bas de la sidebar (visible connecté) + « © 2026 EduGest · v0.3.3 » au pied de la page de connexion.
+- src/lib/sms.ts durci : trim() défensif de username/apiKey/senderId à l'envoi (clé collée avec espace = plus de 401 inexplicable) ; statuts AT de succès élargis (Success/Sent/Enqueued/Processed via OK_STATUSES) — un message accepté par AT ne peut plus être rapporté en erreur ; code AT inclus dans l'erreur (ex. « [401] … ») pour diagnostic à distance.
+- tsc --noEmit = 0 erreur ; eslint sms.ts/version.ts = 0 erreur (13 erreurs page.tsx = baseline préexistante lignes 8286+, hors zones modifiées).
+- Vérifié avec agent-browser : login footer affiche v0.3.3, sidebar affiche v0.3.3, Contrôle plateforme → SMS card OK (Resend/Africa/sandbox visibles), aucun runtime error dans dev.log.
+- Commit c9e6e6c poussé sur main (PAT).
+
+Stage Summary:
+- Le marqueur « v0.3.3 » (sidebar + login) permet de savoir INSTANTANÉMENT si la copie locale Windows de l'utilisateur tourne sur le dernier code.
+- Prochain diagnostic utilisateur : si v0.3.3 absent → git pull raté ou serveur non redémarré (fermer les 2 fenêtres start-all.bat, relancer, Ctrl+Shift+R). Si v0.3.3 présent → lire le texte exact de l'erreur (désormais avec code AT).
