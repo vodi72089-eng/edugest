@@ -179,6 +179,9 @@ export async function sendSmsViaProvider(to: string, message: string): Promise<S
         // sinon l'authentification échoue même avec une clé valide.
         if (!ok && /auth/i.test(errMsg) && (cfg.africastalking.username || '').trim().toLowerCase() !== 'sandbox') {
           errMsg += ' — en mode sandbox, le nom d\u2019utilisateur doit \u00eatre exactement \u00ab sandbox \u00bb';
+        } else if (!ok && /auth/i.test(errMsg)) {
+          // Username correct mais refus : la clé est invalide ou régénérée
+          errMsg += ' — votre cl\u00e9 API semble invalide : copiez-collez-la exactement depuis africastalking.com (Settings \u2192 API Key) ou r\u00e9g\u00e9n\u00e9rez-la';
         }
       }
     } else if (cfg.provider === 'vonage') {
