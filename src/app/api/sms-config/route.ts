@@ -67,15 +67,38 @@ export async function POST(request: NextRequest) {
     const action = body.action || 'save';
 
     if (action === 'test') {
-      const cfg = await getSmsApiConfig(true);
-      if (!cfg?.enabled || !hasProviderCredentials(cfg)) {
-        return NextResponse.json({ error: 'La vérification par SMS n\'est pas active — cochez « Activer », saisissez les identifiants du fournisseur puis envoyez (enregistrement automatique)' }, { status: 400 });
-      }
+      const saved = await getSmsApiConfig(true);
       const testPhone = (body.testPhone || '').trim();
       if (!testPhone || !/^\+?\d{8,15}$/.test(testPhone.replace(/[\s\-().]/g, ''))) {
         return NextResponse.json({ error: 'Numéro de téléphone invalide (ex. +243812345678)' }, { status: 400 });
       }
-      const result = await sendSmsViaProvider(testPhone, 'EduGest : test de configuration SMS réussi. La vérification par SMS est active.');
+
+      // Tester les identifiants SAISIS (formulaire) sans les enregistrer :
+      // une clé invalide n'écrase plus une config qui fonctionnait. Les
+      // secrets laissés vides retombent sur la valeur enregistrée.
+      let cfg = saved;
+      if (body.fields && typeof body.fields === 'object') {
+        const provider = PROVIDERS.includes(body.provider) ? (body.provider as SmsProvider) : (saved?.provider || 'africastalking');
+        const incoming = body.fields as Record<string, Record<string, string>>;
+        const merged: SmsApiConfig = { ...(saved || DEFAULT_SMS_CONFIG), enabled: true, provider };
+        for (const p of PROVIDERS) {
+          const section: Record<string, string> = {};
+          for (const k of Object.keys(DEFAULT_SMS_CONFIG[p as keyof SmsApiConfig] as Record<string, string>)) {
+            const v = (incoming[p]?.[k] ?? '').trim();
+            const isSecret = SECRET_FIELDS[p]?.includes(k);
+            section[k] = (isSecret && !v)
+              ? ((saved?.[p as keyof SmsApiConfig] as Record<string, string> | undefined)?.[k] || '')
+              : v;
+          }
+          (merged[p as keyof SmsApiConfig] as Record<string, string>) = section;
+        }
+        cfg = merged;
+      }
+
+      if (!cfg?.enabled || !hasProviderCredentials(cfg)) {
+        return NextResponse.json({ error: 'La vérification par SMS n\'est pas active — cochez « Activer », saisissez les identifiants du fournisseur puis envoyez' }, { status: 400 });
+      }
+      const result = await sendSmsViaProvider(testPhone, 'EduGest : test de configuration SMS réussi. La vérification par SMS est active.', cfg);
       if (result.success) {
         return NextResponse.json({ data: { ok: true }, message: `SMS de test envoyé à ${testPhone}` });
       }
@@ -99,6 +122,10 @@ export async function POST(request: NextRequest) {
         const incomingVal = (incoming[p]?.[k] ?? '').trim();
         const isSecret = SECRET_FIELDS[p]?.includes(k);
         if (isSecret && !incomingVal) {
+          section[k] = (prev[p as keyof SmsApiConfig] as Record<string, string>)[k] || '';
+        } else if (isSecret && incomingVal.includes('•')) {
+          // Garde-fou : une valeur masquée (affichage « atsk••••xyz ») ne doit
+          // JAMAIS être enregistrée comme clé réelle — on conserve l'existante.
           section[k] = (prev[p as keyof SmsApiConfig] as Record<string, string>)[k] || '';
         } else {
           section[k] = incomingVal;

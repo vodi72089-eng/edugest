@@ -110,8 +110,10 @@ export async function isSmsActive(): Promise<boolean> {
 }
 
 // ── Envoi via le fournisseur configuré ──────────────────────────────────────
-export async function sendSmsViaProvider(to: string, message: string): Promise<SmsResult> {
-  const cfg = await getSmsApiConfig();
+// cfgOverride : permet de tester des identifiants SAISIS (formulaire) sans
+// les enregistrer — une clé invalide n'écrase jamais une config fonctionnante.
+export async function sendSmsViaProvider(to: string, message: string, cfgOverride?: SmsApiConfig): Promise<SmsResult> {
+  const cfg = cfgOverride ?? await getSmsApiConfig();
   if (!cfg) return { success: false, error: 'SMS non configuré (Contrôle plateforme → Communication & notifications)' };
   if (!cfg.enabled) return { success: false, error: "L'envoi de SMS est désactivé" };
   if (!hasProviderCredentials(cfg)) {
@@ -167,7 +169,9 @@ export async function sendSmsViaProvider(to: string, message: string): Promise<S
         enqueue: 'true',
       });
       const senderId = (cfg.africastalking.senderId || '').trim();
-      if (senderId) params.set('from', senderId);
+      // En sandbox, AUCUN sender ID custom n'est autorisé — on ne l'envoie
+      // jamais (sinon la requête peut être refusée par AT).
+      if (senderId && atUsername.toLowerCase() !== 'sandbox') params.set('from', senderId);
       const res = await fetch('https://api.africastalking.com/version1/messaging', {
         method: 'POST',
         headers,

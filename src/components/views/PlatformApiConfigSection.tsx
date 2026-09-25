@@ -45,8 +45,8 @@ const SMS_PROVIDERS: { value: SmsProviderKey; label: string }[] = [
 const PROVIDER_FIELDS: Record<SmsProviderKey, { key: string; label: string; secret?: boolean; placeholder: string }[]> = {
   africastalking: [
     { key: 'username', label: "Nom d'utilisateur (« sandbox » pour l'essai)", placeholder: 'sandbox' },
-    { key: 'apiKey', label: 'Clé API', secret: true, placeholder: 'atsk_xxxxxxxx…' },
-    { key: 'senderId', label: 'Sender ID (optionnel)', placeholder: 'EDUGEST' },
+    { key: 'apiKey', label: 'Clé API', secret: true, placeholder: 'Collez la clé atsk_… copiée depuis africastalking.com' },
+    { key: 'senderId', label: 'Sender ID — laisser VIDE en sandbox', placeholder: '(vide en sandbox)' },
   ],
   twilio: [
     { key: 'accountSid', label: 'Account SID', placeholder: 'ACxxxxxxxx…' },
@@ -317,6 +317,9 @@ function SmsConfigCard() {
   const [testPhone, setTestPhone] = useState('')
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
+  // Valeurs masquées renvoyées par le serveur (ex. « atsk••••••••x4f2 ») —
+  // affichées sous chaque champ secret pour savoir QUELLE clé est enregistrée.
+  const [masked, setMasked] = useState<SmsFields | null>(null)
 
   useEffect(() => {
     authFetch('/api/sms-config')
@@ -324,6 +327,7 @@ function SmsConfigCard() {
       .then((j) => {
         if (j.data) {
           setCfg({ configured: !!j.data.configured, enabled: !!j.data.enabled, provider: j.data.provider })
+          setMasked(j.data.fields || null)
           setForm((prev) => {
             const fields = emptySmsFields()
             for (const p of Object.keys(fields) as SmsProviderKey[]) {
@@ -356,6 +360,7 @@ function SmsConfigCard() {
       if (res.ok) {
         toast.success(json.message || 'Configuration SMS enregistrée')
         setCfg({ configured: !!json.data?.configured, enabled: !!json.data?.enabled, provider: json.data?.provider })
+        if (json.data?.fields) setMasked(json.data.fields)
         return true
       }
       toast.error(json.error || 'Erreur de sauvegarde', { duration: 8000 })
@@ -375,23 +380,21 @@ function SmsConfigCard() {
     }
     setTesting(true)
     try {
-      // Sauvegarde automatique : si aucun fournisseur n'est encore enregistré
-      // ou si le formulaire contient des modifications (case activée, champs
-      // saisis…), on enregistre d'abord — sinon le test part sans la config.
-      const currentFields = form.fields[form.provider] || {}
-      const hasTypedValues = Object.values(currentFields).some((v) => (v || '').trim() !== '')
-      const needsSave = !cfg?.configured || (!!cfg && form.enabled !== cfg.enabled) || (!!cfg && form.provider !== cfg.provider) || hasTypedValues
-      if (needsSave) {
-        const ok = await save()
-        if (!ok) return
-      }
+      // 1) Tester AVEC les identifiants saisis, SANS les enregistrer : une clé
+      //    invalide n'écrase plus jamais une configuration qui fonctionnait.
+      //    (Les secrets laissés vides retombent sur la valeur enregistrée.)
       const res = await authFetch('/api/sms-config', {
         method: 'POST',
-        body: JSON.stringify({ action: 'test', testPhone }),
+        body: JSON.stringify({ action: 'test', testPhone, provider: form.provider, fields: form.fields }),
       })
       const json = await res.json()
-      if (res.ok) toast.success(json.message || 'SMS de test envoyé')
-      else toast.error(json.error || 'Échec du test', { duration: 10000 })
+      if (!res.ok) {
+        toast.error(json.error || 'Échec du test — la configuration enregistrée est inchangée', { duration: 12000 })
+        return
+      }
+      // 2) Succès → on enregistre les identifiants venant d'être validés.
+      await save()
+      toast.success(json.message || 'SMS de test envoyé')
     } catch {
       toast.error('Erreur réseau', { duration: 8000 })
     } finally {
@@ -473,8 +476,8 @@ function SmsConfigCard() {
             <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
               Sandbox Africa&apos;s Talking : le nom d&apos;utilisateur doit être exactement{' '}
               <span className="font-mono font-bold">sandbox</span> (déjà rempli ci-dessous), le SENDER ID
-              peut rester vide, et votre numéro de test doit être ajouté au simulateur
-              (africastalking.com → Sandbox → SMS Simulator) pour recevoir les SMS.
+              doit rester <span className="font-semibold">vide</span>, et votre numéro de test doit être ajouté
+              au simulateur (africastalking.com → Sandbox → SMS Simulator) pour recevoir les SMS.
             </p>
           )}
         </div>
@@ -498,6 +501,11 @@ function SmsConfigCard() {
                 autoComplete={f.secret ? 'new-password' : 'off'}
                 className={`${inputClass} ${f.secret ? 'font-mono' : ''}`}
               />
+              {f.secret && masked?.[form.provider]?.[f.key] && (
+                <p className="mt-1 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
+                  Enregistrée : <span className="font-mono font-semibold">{masked[form.provider][f.key]}</span>
+                </p>
+              )}
               {form.provider === 'africastalking' && f.key === 'username' &&
                 (form.fields.africastalking.username || '').trim().toLowerCase() !== 'sandbox' && (
                   <p className="mt-1 text-[11px] font-semibold" style={{ color: 'oklch(55% 0.16 55)' }}>
@@ -546,7 +554,8 @@ function SmsConfigCard() {
             </button>
           </div>
           <p className="mt-1.5 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
-            « Envoyer » enregistre d&apos;abord vos modifications puis teste l&apos;envoi réel du SMS.
+            « Envoyer » teste d&apos;abord les identifiants saisis, puis les enregistre uniquement s&apos;ils
+            fonctionnent — une clé invalide ne remplace jamais une clé enregistrée.
           </p>
         </div>
       </div>
