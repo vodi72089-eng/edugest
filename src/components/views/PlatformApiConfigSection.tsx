@@ -95,6 +95,9 @@ function relTime(iso: string | null): string {
 function EmailConfigCard() {
   const [cfg, setCfg] = useState<{ configured: boolean; enabled: boolean } | null>(null)
   const [form, setForm] = useState({ enabled: false, fromEmail: '', fromName: '', apiKey: '' })
+  // Masque de la clé enregistrée renvoyé par le serveur (ex. « re_1••••xyz ») —
+  // permet de voir QUELLE clé est active sans jamais l'exposer en clair.
+  const [maskedKey, setMaskedKey] = useState('')
   const [testEmail, setTestEmail] = useState('')
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -105,6 +108,7 @@ function EmailConfigCard() {
       .then((j) => {
         if (j.data) {
           setCfg({ configured: !!j.data.configured, enabled: !!j.data.enabled })
+          setMaskedKey(j.data.apiKeyMasked || '')
           setForm({ enabled: !!j.data.enabled, fromEmail: j.data.fromEmail || '', fromName: j.data.fromName || '', apiKey: '' })
         }
       })
@@ -125,6 +129,7 @@ function EmailConfigCard() {
       if (res.ok) {
         toast.success(json.message || 'Configuration Resend enregistrée')
         setCfg({ configured: !!json.data?.configured, enabled: !!json.data?.enabled })
+        if (json.data?.apiKeyMasked !== undefined) setMaskedKey(json.data.apiKeyMasked || '')
         setForm((f) => ({ ...f, apiKey: '' }))
         return true
       }
@@ -145,21 +150,20 @@ function EmailConfigCard() {
     }
     setTesting(true)
     try {
-      // Sauvegarde automatique : si aucune clé n'est encore enregistrée ou si
-      // le formulaire contient des modifications non enregistrées, on les
-      // enregistre d'abord (sinon le test part avec l'ancienne config).
-      const needsSave = !cfg?.configured || !!form.apiKey.trim() || (!!cfg && form.enabled !== cfg.enabled)
-      if (needsSave) {
-        const ok = await save()
-        if (!ok) return
-      }
+      // 1) Tester AVEC les identifiants saisis, SANS les enregistrer : une clé
+      //    invalide n'écrase plus jamais une configuration qui fonctionnait.
       const res = await authFetch('/api/email-config', {
         method: 'POST',
-        body: JSON.stringify({ action: 'test', testEmail }),
+        body: JSON.stringify({ action: 'test', testEmail, apiKey: form.apiKey, fromEmail: form.fromEmail, fromName: form.fromName }),
       })
       const json = await res.json()
-      if (res.ok) toast.success(json.message || 'Email de test envoyé')
-      else toast.error(json.error || 'Échec du test', { duration: 10000 })
+      if (!res.ok) {
+        toast.error(json.error || 'Échec du test — la configuration enregistrée est inchangée', { duration: 12000 })
+        return
+      }
+      // 2) Succès → on enregistre les identifiants venant d'être validés.
+      await save()
+      toast.success(json.message || 'Email de test envoyé')
     } catch {
       toast.error('Erreur réseau', { duration: 8000 })
     } finally {
@@ -230,6 +234,11 @@ function EmailConfigCard() {
               autoComplete="new-password"
               className={`${inputClass} font-mono`}
             />
+            {maskedKey && (
+              <p className="mt-1 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
+                Enregistrée : <span className="font-mono font-semibold">{maskedKey}</span>
+              </p>
+            )}
           </div>
           <div>
             <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>
@@ -239,10 +248,15 @@ function EmailConfigCard() {
               type="email"
               value={form.fromEmail}
               onChange={(e) => setForm((f) => ({ ...f, fromEmail: e.target.value }))}
-              placeholder="noreply@votre-ecole.cd"
+              placeholder="onboarding@resend.dev (mode test)"
               autoComplete="off"
               className={inputClass}
             />
+            <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
+              Mode test (sans domaine vérifié) : mettez exactement{' '}
+              <span className="font-mono font-semibold">onboarding@resend.dev</span> et envoyez vers
+              l&apos;adresse email de votre compte Resend. Votre propre domaine : resend.com → Domains.
+            </p>
           </div>
           <div>
             <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>
@@ -296,7 +310,8 @@ function EmailConfigCard() {
             </button>
           </div>
           <p className="mt-1.5 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
-            « Envoyer » enregistre d&apos;abord vos modifications puis teste l&apos;envoi réel via Resend.
+            « Envoyer » teste d&apos;abord les identifiants saisis, puis les enregistre uniquement s&apos;ils
+            fonctionnent — une clé invalide ne remplace jamais une clé enregistrée.
           </p>
         </div>
       </div>

@@ -51,13 +51,16 @@ export function invalidateEmailConfigCache() {
 }
 
 // ── Envoi via Resend API ────────────────────────────────────────────────────
+// cfgOverride : permet de tester des identifiants SAISIS (formulaire) sans
+// les enregistrer — une clé invalide n'écrase jamais une config fonctionnante.
 export async function sendEmailViaResend(
   to: string,
   subject: string,
   html: string,
-  fromOverride?: string // adresse expéditeur spécifique (ex: support@edugest.app) — sinon la config Resend
+  fromOverride?: string, // adresse expéditeur spécifique (ex: support@edugest.app) — sinon la config Resend
+  cfgOverride?: EmailApiConfig
 ): Promise<EmailResult> {
-  const cfg = await getEmailApiConfig();
+  const cfg = cfgOverride ?? await getEmailApiConfig();
   if (!cfg?.apiKey) {
     return { success: false, error: 'Resend n\'est pas configuré (clé API manquante)' };
   }
@@ -69,12 +72,13 @@ export async function sendEmailViaResend(
   }
 
   try {
+    const trimmedKey = (cfg.apiKey || '').trim();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${cfg.apiKey}`,
+        'Authorization': `Bearer ${trimmedKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -91,7 +95,15 @@ export async function sendEmailViaResend(
 
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const msg = json?.message || json?.name || `HTTP ${res.status}`;
+      let msg = json?.message || json?.name || `HTTP ${res.status}`;
+      // Pièges Resend les plus courants, traduits en pistes concrètes :
+      if (/domain/i.test(msg)) {
+        msg += ' — en mode test (sans domaine vérifié), l\'adresse expéditeur doit être exactement « onboarding@resend.dev »';
+      } else if (/own email|testing emails/i.test(msg)) {
+        msg += ' — en mode test, Resend n\'envoie qu\'à l\'adresse email de VOTRE compte Resend (celle de votre inscription)';
+      } else if (/api key|invalid|unauthorized|forbidden/i.test(msg) || res.status === 401 || res.status === 403) {
+        msg += ' — votre clé API semble invalide ou non autorisée : copiez-la exactement depuis resend.com → API Keys';
+      }
       console.error('[EMAIL][Resend] Erreur API:', msg);
       return { success: false, error: `Resend: ${msg}` };
     }

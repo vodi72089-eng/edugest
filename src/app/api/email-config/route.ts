@@ -49,13 +49,30 @@ export async function POST(request: NextRequest) {
     const action = body.action || 'save';
 
     if (action === 'test') {
-      const cfg = await getEmailApiConfig(true);
-      if (!cfg?.apiKey) {
-        return NextResponse.json({ error: 'Aucune clé API Resend enregistrée — saisissez votre clé (section Emails — Resend) puis envoyez : elle sera enregistrée automatiquement' }, { status: 400 });
-      }
+      const saved = await getEmailApiConfig(true);
       const testEmail = (body.testEmail || '').trim();
       if (!testEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testEmail)) {
         return NextResponse.json({ error: 'Adresse email de test invalide' }, { status: 400 });
+      }
+
+      // Tester les identifiants SAISIS (formulaire) sans les enregistrer :
+      // une clé invalide n'écrase plus une config qui fonctionnait. Les
+      // champs laissés vides retombent sur la valeur enregistrée.
+      let cfg = saved;
+      if (body.apiKey !== undefined || body.fromEmail !== undefined || body.fromName !== undefined) {
+        cfg = {
+          enabled: true,
+          apiKey: (body.apiKey || '').trim() || saved?.apiKey || '',
+          fromEmail: ((body.fromEmail || '').trim().toLowerCase()) || saved?.fromEmail || '',
+          fromName: (body.fromName || '').trim() || saved?.fromName || 'EduGest',
+        };
+      }
+
+      if (!cfg?.apiKey) {
+        return NextResponse.json({ error: 'Aucune clé API Resend disponible — collez votre clé (section Emails — Resend) puis envoyez' }, { status: 400 });
+      }
+      if (!cfg?.fromEmail) {
+        return NextResponse.json({ error: 'Adresse expéditeur manquante — en mode test, mettez exactement « onboarding@resend.dev »' }, { status: 400 });
       }
       const result = await sendEmailViaResend(
         testEmail,
@@ -68,7 +85,9 @@ export async function POST(request: NextRequest) {
               Les emails EduGest (codes de vérification, notifications) partiront désormais via Resend.
             </p>
           </div>
-        </div>`
+        </div>`,
+        undefined,
+        cfg
       );
       if (result.success) {
         return NextResponse.json({ data: { ok: true }, message: `Email de test envoyé à ${testEmail}` });
@@ -80,7 +99,10 @@ export async function POST(request: NextRequest) {
     const enabled = !!body.enabled;
     const fromEmail = (body.fromEmail || '').trim().toLowerCase();
     const fromName = (body.fromName || '').trim();
-    const apiKey = (body.apiKey || '').trim();
+    const apiKeyRaw = (body.apiKey || '').trim();
+    // Garde-fou : une valeur masquée (affichage « re_1••••xyz ») ne doit JAMAIS
+    // être enregistrée comme clé réelle — on conserve l'existante.
+    const apiKey = apiKeyRaw.includes('•') ? '' : apiKeyRaw;
 
     const existing = await db.globalApiConfig.findUnique({ where: { key: EMAIL_CONFIG_KEY } });
     let existingCfg: Partial<EmailApiConfig> = {};
