@@ -2509,7 +2509,6 @@ function Sidebar() {
       { icon: <Building2 size={16} />, label: 'Entreprises', view: 'corporates' as ViewType },
       { icon: <Mail size={16} />, label: 'Emails plateforme', view: 'platform-emails' as ViewType },
       { icon: <ScrollText size={16} />, label: 'Journal d\u2019activité', view: 'activity-logs' as ViewType },
-      { icon: <Shield size={16} />, label: 'Discipline', view: 'discipline' },
       { icon: <CalendarCheck size={16} />, label: 'Liste de présence', view: 'attendance' as ViewType },
       { icon: <Calendar size={16} />, label: 'Événements', view: 'events' as ViewType },
       { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
@@ -2633,6 +2632,7 @@ HEAD_TEACHER: [
   // Corporate : le client voit TOUTES ses écoles agrégées (pas de dashboard école).
   menus.CORPORATE_ADMIN = [
     { icon: <Building2 size={16} />, label: 'Espace Corporate', view: 'corporate' as ViewType },
+    { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
   ]
   // Support client EduGest : file de tickets + agent IA (accomplit les tâches avec les corporates).
   menus.SUPPORT_AGENT = [
@@ -2835,9 +2835,9 @@ const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   DISCIPLINE_SECONDAIRE: ['dashboard', 'discipline', 'attendance', 'communications', 'reports', 'profile'],
   SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'discipline', 'attendance', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'medical-records', 'events', 'reports', 'my-subscription', 'parent-qr', 'parents', 'personalization', 'whatsapp-config', 'settings', 'profile'],
   MEDICAL: ['dashboard', 'medical', 'medical-records', 'students', 'communications', 'reports', 'profile'],
-  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'pricing', 'platform-control', 'discipline', 'attendance', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'medical', 'medical-records', 'events', 'reports', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
+  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'pricing', 'platform-control', 'attendance', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'medical', 'medical-records', 'events', 'reports', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
   // Comptes hors école : corporate (multi-écoles) + support client EduGest
-  CORPORATE_ADMIN: ['corporate', 'support', 'profile'],
+  CORPORATE_ADMIN: ['corporate', 'reports', 'support', 'profile'],
   SUPPORT_AGENT: ['support', 'profile'],
 }
 
@@ -3851,7 +3851,7 @@ function WhatsAppConfigView() {
                 waTab === 'api' ? 'border-[oklch(72%_0.15_65)] text-[oklch(72%_0.15_65)]' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              <MessageSquare size={15} />
+              <img src="/logos/whatsapp.svg" alt="WhatsApp" width={15} height={15} className="shrink-0" />
               API WhatsApp &amp; Quotas
             </button>
           </div>
@@ -3880,18 +3880,6 @@ function WhatsAppConfigView() {
               <div className={`flex items-center gap-3 p-3 rounded-xl ${st.bg}`}>
                 <div className={`w-2.5 h-2.5 rounded-full ${st.dot} ${whatsappStatus === 'connecting' ? 'animate-pulse' : ''}`} />
                 <span className={`text-sm font-semibold ${st.text}`}>{st.label}</span>
-              </div>
-
-              {/* Le QR / code de parrainage est TOUJOURS généré par le serveur
-                  web EduGest (mini-service WhatsApp) : la session vit sur le
-                  serveur et reste active même si l'exe desktop est fermé. */}
-              <div className="rounded-xl bg-[oklch(97%_0.02_175)] border border-[oklch(88%_0.01_175)] p-3 flex items-start gap-2">
-                <ShieldCheck size={16} className="shrink-0 mt-0.5" style={{ color: TEAL_COLOR }} />
-                <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                  Le QR / code est généré par <b style={{ color: TEXT_PRIMARY }}>le serveur EduGest</b> (application web).
-                  La connexion reste active en permanence — même si l'application desktop (exe) est fermée.
-                  Pour reconnecter le numéro, faites-le toujours depuis <b style={{ color: TEXT_PRIMARY }}>le site EduGest</b>.
-                </p>
               </div>
 
               {whatsappStatus === 'connected' && (
@@ -4652,7 +4640,7 @@ function WhatsAppApiQuotasSection() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <MessageSquare className="text-emerald-600" size={18} />
+                  <img src="/logos/whatsapp.svg" alt="WhatsApp" width={20} height={20} className="shrink-0" />
                   Suivi des Messages WhatsApp en Temps Réel
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">

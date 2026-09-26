@@ -24,7 +24,8 @@ import {
 //
 // AUCUNE donnée personnelle d'élève (pas de noms) — uniquement des compteurs
 // et agrégats. L'école est scellée : rôles école sur user.schoolId, SAG via
-// ?schoolId= + verifySchoolAccess.
+// ?schoolId= + verifySchoolAccess, CORPORATE_ADMIN via ?schoolId= vérifié
+// contre ses écoles rattachées (CorporateSchool).
 
 const ALLOWED_DAYS = [1, 3, 4, 7];
 
@@ -70,6 +71,29 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
       }
       schoolId = requested;
+    } else if (user.role === 'CORPORATE_ADMIN') {
+      // Compte multi-écoles (forfait corporate) : l'école demandée doit
+      // appartenir à l'une de ses entreprises rattachées.
+      const requested = searchParams.get('schoolId') || '';
+      if (!requested) {
+        return NextResponse.json({ error: 'schoolId requis' }, { status: 400 });
+      }
+      const memberships = await db.corporateUser.findMany({
+        where: { userId: user.id },
+        select: { corporateId: true },
+      });
+      const corporateIds = memberships.map((m) => m.corporateId);
+      if (corporateIds.length === 0) {
+        return NextResponse.json({ error: 'Aucun espace corporate rattaché à ce compte' }, { status: 403 });
+      }
+      const link = await db.corporateSchool.findFirst({
+        where: { corporateId: { in: corporateIds }, schoolId: requested },
+        select: { id: true },
+      });
+      if (!link) {
+        return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
+      }
+      schoolId = requested;
     } else {
       if (!user.schoolId) {
         return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
@@ -103,7 +127,7 @@ export async function GET(request: NextRequest) {
     const isDirection = user.role.startsWith('DIRECTION_');
     const isDiscipline = user.role.startsWith('DISCIPLINE_');
     const isAdminLike =
-      user.role === 'SUPER_ADMIN_GLOBAL' || user.role === 'SCHOOL_ADMIN' || isDirection;
+      user.role === 'SUPER_ADMIN_GLOBAL' || user.role === 'SCHOOL_ADMIN' || user.role === 'CORPORATE_ADMIN' || isDirection;
     const isSecretary = user.role === 'SECRETARY';
     const isTeacherLike = ['TEACHER', 'HEAD_TEACHER', 'EPS'].includes(user.role);
 

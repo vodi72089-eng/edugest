@@ -21,7 +21,7 @@ import {
   FileText, Send, Copy, Users, Wallet, ShieldAlert, GraduationCap,
   Megaphone, CalendarDays, Trophy, Loader2, X, Share2, CheckCircle2,
   UserCheck, AlertTriangle, ClipboardCheck, FileDown, Bot, Clock3, Play,
-  Trash2, Power, Plus,
+  Trash2, Power, Plus, Building2, Globe,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -143,6 +143,9 @@ export default function ReportsView() {
   const { userRole, userData, setActiveSchoolId } = useEduGestStore()
   const isSAG = userRole === 'SUPER_ADMIN_GLOBAL'
   const isParent = userRole === 'PARENT'
+  // Compte multi-écoles (forfait corporate) : voit les rapports de SES écoles
+  // (scellé côté serveur via CorporateSchool).
+  const isCorporate = userRole === 'CORPORATE_ADMIN'
   // Automatisation agentique : réservée au propriétaire (SCHOOL_ADMIN) et au super admin
   const canAutomate = userRole === 'SCHOOL_ADMIN' || isSAG
 
@@ -169,11 +172,63 @@ export default function ReportsView() {
   const schoolId = getActiveSchoolId()
   const activeSchoolId = useMemo(() => schoolId, [schoolId])
 
+  // ── Corporate : écoles rattachées + école choisie (état local —
+  // getActiveSchoolId ne couvre que le SAG, le corporate n'a pas de
+  // schoolId propre) ────────────────────────────────────────────────────
+  const [corpSchools, setCorpSchools] = useState<{ id: string; name: string; shortName?: string; city?: string }[]>([])
+  const [corpSchoolId, setCorpSchoolId] = useState<string | null>(null)
+  const [corpQuery, setCorpQuery] = useState('')
+
+  useEffect(() => {
+    if (!isCorporate) return
+    authFetch('/api/corporate/me')
+      .then(async r => {
+        const j = await r.json().catch(() => ({}))
+        if (j.data?.schools) setCorpSchools(j.data.schools)
+      })
+      .catch(() => {})
+  }, [isCorporate])
+
+  // ── Super admin sans école : résumé plateforme (« sommation ») ────────────
+  const [platformStats, setPlatformStats] = useState<{
+    totalSchools: number; totalStudents: number; totalUsers: number
+    totalRevenue: number; totalDebt: number
+    tiers: { tier: string; count: number }[]
+  } | null>(null)
+  const [platformTried, setPlatformTried] = useState(false)
+
+  useEffect(() => {
+    if (!isSAG || activeSchoolId || platformTried) return
+    let cancelled = false
+    authFetch('/api/admin-analytics')
+      .then(async r => {
+        const j = await r.json().catch(() => ({}))
+        if (cancelled) return
+        const o = j.data?.overview
+        if (r.ok && o) {
+          setPlatformStats({
+            totalSchools: o.totalSchools || 0,
+            totalStudents: o.totalStudents || 0,
+            totalUsers: o.totalUsers || 0,
+            totalRevenue: o.totalRevenue || 0,
+            totalDebt: o.totalDebt || 0,
+            tiers: (j.data?.subscriptionDistribution || []).map((t: any) => ({
+              tier: t.subscriptionTier, count: t._count?.id || 0,
+            })),
+          })
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setPlatformTried(true) })
+    return () => { cancelled = true }
+  }, [isSAG, activeSchoolId, platformTried])
+
   // Aucun setState synchrone dans le corps de l'effet : tout passe par les
   // callbacks .then/.finally (règle react-hooks/set-state-in-effect).
   const load = useCallback((periodDays: number) => {
     const params = new URLSearchParams({ days: String(periodDays) })
-    if (activeSchoolId) params.set('schoolId', activeSchoolId)
+    const contextSchoolId = activeSchoolId || (isCorporate ? corpSchoolId : null)
+    if (contextSchoolId) params.set('schoolId', contextSchoolId)
     return authFetch(`/api/reports?${params}`)
       .then(async res => {
         const j = await res.json().catch(() => ({}))
@@ -186,12 +241,13 @@ export default function ReportsView() {
       })
       .catch(() => toast.error('Erreur de connexion'))
       .finally(() => setLoading(false))
-  }, [isSAG, activeSchoolId])
+  }, [isSAG, activeSchoolId, isCorporate, corpSchoolId])
 
   useEffect(() => {
     if (isSAG && !activeSchoolId) return
+    if (isCorporate && !corpSchoolId) return
     load(days)
-  }, [load, days, isSAG, activeSchoolId])
+  }, [load, days, isSAG, activeSchoolId, isCorporate, corpSchoolId])
 
   // ── Sélecteur d'école inline (SAG sans école active) ─────────────────────
   const [pickerSchools, setPickerSchools] = useState<{ id: string; name: string; shortName?: string; city?: string }[]>([])
@@ -330,10 +386,12 @@ export default function ReportsView() {
 
   async function downloadPdf() {
     if (isSAG && !activeSchoolId) { toast.error('Sélectionnez d\'abord une école'); return }
+    if (isCorporate && !corpSchoolId) { toast.error('Sélectionnez d\'abord une école'); return }
     setPdfLoading(true)
     try {
       const params = new URLSearchParams({ days: String(days) })
-      if (activeSchoolId) params.set('schoolId', activeSchoolId)
+      const contextSchoolId = activeSchoolId || (isCorporate ? corpSchoolId : null)
+      if (contextSchoolId) params.set('schoolId', contextSchoolId)
       const res = await authFetch(`/api/reports/pdf?${params}`)
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
@@ -358,13 +416,15 @@ export default function ReportsView() {
 
   async function handleSend() {
     if (isSAG && !activeSchoolId) { toast.error('Sélectionnez d\'abord une école'); return }
+    if (isCorporate && !corpSchoolId) { toast.error('Sélectionnez d\'abord une école'); return }
     setSending(true)
     setLastWarning(null)
     try {
+      const contextSchoolId = activeSchoolId || (isCorporate ? corpSchoolId : null)
       const res = await authFetch('/api/reports/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...(activeSchoolId ? { schoolId: activeSchoolId } : {}), days }),
+        body: JSON.stringify({ ...(contextSchoolId ? { schoolId: contextSchoolId } : {}), days }),
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -435,32 +495,96 @@ export default function ReportsView() {
         <span className="text-xs hidden sm:block" style={{ color: TEXT_MUTED_LUXE }}>Compteurs et agrégats — aucune donnée personnelle</span>
       </div>
 
-      {isSAG && !activeSchoolId ? (
-        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-10 shadow-sm text-center">
-          <FileText size={28} className="mx-auto mb-2 opacity-30" style={{ color: TEXT_MUTED_LUXE }} />
-          <p className="font-semibold mb-1" style={{ color: TEXT_PRIMARY }}>Aucune école sélectionnée</p>
-          <p className="text-sm mb-5" style={{ color: TEXT_MUTED_LUXE }}>
-            Choisissez une école — ci-dessous, ou dans la barre latérale (« École active ») — pour générer son rapport.
-          </p>
-          <div className="max-w-sm mx-auto text-left">
-            <SearchAutocomplete
-              placeholder="Rechercher une école…"
-              items={(() => {
-                const q = schoolPickerQuery.trim().toLowerCase()
-                const all = q
-                  ? pickerSchools.filter(s => `${s.name} ${s.shortName || ''} ${s.city || ''}`.toLowerCase().includes(q))
-                  : pickerSchools
-                return all.map(s => ({ id: s.id, label: s.name, sublabel: [s.shortName, s.city].filter(Boolean).join(' · ') }))
-              })()}
-              selectedId={null}
-              onSelect={(item) => { setActiveSchoolId(item.id); setSchoolPickerQuery('') }}
-              onClear={() => setSchoolPickerQuery('')}
-              searchQuery={schoolPickerQuery}
-              onSearchChange={setSchoolPickerQuery}
-              loading={pickerSchools.length === 0}
-              emptyMessage="Aucune école ne correspond"
-              itemTypeName="école"
-            />
+      {(isSAG && !activeSchoolId) || (isCorporate && !corpSchoolId) ? (
+        <div className="space-y-6">
+          {/* ── Sommation de la plateforme (super admin sans école) ────────── */}
+          {isSAG && !activeSchoolId && (
+            <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <Globe size={16} style={{ color: GOLD }} />
+                <h3 className="font-semibold text-[15px]" style={{ color: TEXT_PRIMARY }}>Sommation de la plateforme</h3>
+                <span className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Toutes écoles confondues</span>
+              </div>
+              {platformTried ? (
+                platformStats ? (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                      <StatCard icon={Building2} label="Écoles" value={fmtNum(platformStats.totalSchools)} bg={GOLD_SOFT} color={GOLD} />
+                      <StatCard icon={GraduationCap} label="Élèves" value={fmtNum(platformStats.totalStudents)} bg="oklch(94% 0.05 250)" color="oklch(55% 0.15 250)" />
+                      <StatCard icon={UserCheck} label="Utilisateurs" value={fmtNum(platformStats.totalUsers)} bg="oklch(94% 0.05 145)" color={SUCCESS} />
+                      <StatCard icon={Wallet} label="Encaissé" value={formatAmount(platformStats.totalRevenue)} bg={GOLD_SOFT} color={GOLD} />
+                      <StatCard icon={AlertTriangle} label="Dettes" value={formatAmount(platformStats.totalDebt)} bg="oklch(95% 0.04 25)" color={DANGER} />
+                    </div>
+                    {platformStats.tiers.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        {platformStats.tiers.map(t => (
+                          <span key={t.tier} className="px-3 py-1.5 rounded-full text-[11px] font-bold" style={{ background: IVORY, color: TEXT_MUTED_LUXE }}>
+                            {t.tier} · {fmtNum(t.count)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-center py-4" style={{ color: TEXT_MUTED_LUXE }}>Aperçu indisponible pour le moment.</p>
+                )
+              ) : (
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-6 w-6 border-4 border-[oklch(72%_0.15_65)] border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-10 shadow-sm text-center">
+            <FileText size={28} className="mx-auto mb-2 opacity-30" style={{ color: TEXT_MUTED_LUXE }} />
+            <p className="font-semibold mb-1" style={{ color: TEXT_PRIMARY }}>Aucune école sélectionnée</p>
+            <p className="text-sm mb-5" style={{ color: TEXT_MUTED_LUXE }}>
+              {isCorporate
+                ? 'Choisissez une de vos écoles ci-dessous pour générer son rapport.'
+                : 'Choisissez une école — ci-dessous, ou dans la barre latérale (« École active ») — pour générer son rapport.'}
+            </p>
+            <div className="max-w-sm mx-auto text-left">
+              {isCorporate ? (
+                <SearchAutocomplete
+                  placeholder="Rechercher une de vos écoles…"
+                  items={(() => {
+                    const q = corpQuery.trim().toLowerCase()
+                    const all = q
+                      ? corpSchools.filter(s => `${s.name} ${s.shortName || ''} ${s.city || ''}`.toLowerCase().includes(q))
+                      : corpSchools
+                    return all.map(s => ({ id: s.id, label: s.name, sublabel: [s.shortName, s.city].filter(Boolean).join(' · ') }))
+                  })()}
+                  selectedId={null}
+                  onSelect={(item) => { setCorpSchoolId(item.id); setCorpQuery(''); setLoading(true) }}
+                  onClear={() => setCorpQuery('')}
+                  searchQuery={corpQuery}
+                  onSearchChange={setCorpQuery}
+                  loading={corpSchools.length === 0}
+                  emptyMessage="Aucune école rattachée"
+                  itemTypeName="école"
+                />
+              ) : (
+                <SearchAutocomplete
+                  placeholder="Rechercher une école…"
+                  items={(() => {
+                    const q = schoolPickerQuery.trim().toLowerCase()
+                    const all = q
+                      ? pickerSchools.filter(s => `${s.name} ${s.shortName || ''} ${s.city || ''}`.toLowerCase().includes(q))
+                      : pickerSchools
+                    return all.map(s => ({ id: s.id, label: s.name, sublabel: [s.shortName, s.city].filter(Boolean).join(' · ') }))
+                  })()}
+                  selectedId={null}
+                  onSelect={(item) => { setActiveSchoolId(item.id); setSchoolPickerQuery('') }}
+                  onClear={() => setSchoolPickerQuery('')}
+                  searchQuery={schoolPickerQuery}
+                  onSearchChange={setSchoolPickerQuery}
+                  loading={pickerSchools.length === 0}
+                  emptyMessage="Aucune école ne correspond"
+                  itemTypeName="école"
+                />
+              )}
+            </div>
           </div>
         </div>
       ) : (

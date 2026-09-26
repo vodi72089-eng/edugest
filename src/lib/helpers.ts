@@ -75,6 +75,7 @@ export function getRoleLabel(role: UserRole): string {
 export function getRoleSealLabel(role: string): string {
   const map: Record<string, string> = {
     SUPER_ADMIN_GLOBAL: 'Super Admin',
+    CORPORATE_ADMIN: 'Corporate',
     SCHOOL_ADMIN: 'Propriétaire',
     ADMIN_FREEMIUM: 'Propriétaire',
     SECRETARY: 'Secrétaire',
