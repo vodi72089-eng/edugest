@@ -196,9 +196,13 @@ export async function sendSmsViaProvider(to: string, message: string, cfgOverrid
         const baseMsg = recipient?.status || json?.errorMessage || rawText || `HTTP ${res.status}`;
         // Code AT inclus (ex. « [401] … ») : accélère énormément le diagnostic à distance
         errMsg = recipient?.statusCode ? `[${recipient.statusCode}] ${baseMsg}` : baseMsg;
+        // HTTP 401 sans errorMessage : la clé est invalide ou régénérée.
+        if (!ok && res.status === 401) {
+          errMsg += ' — clé API refusée : copiez-collez-la exactement depuis africastalking.com (Settings → API Key) ou régénérez-la';
+        }
         // Piste évidente : en sandbox, l'username DOIT être « sandbox » —
         // sinon l'authentification échoue même avec une clé valide.
-        if (!ok && /auth/i.test(errMsg) && atUsername.toLowerCase() !== 'sandbox') {
+        else if (!ok && /auth/i.test(errMsg) && atUsername.toLowerCase() !== 'sandbox') {
           errMsg += ' — en mode sandbox, le nom d\u2019utilisateur doit \u00eatre exactement \u00ab sandbox \u00bb';
         } else if (!ok && /auth/i.test(errMsg)) {
           // Username correct mais refus : la clé est invalide ou régénérée
