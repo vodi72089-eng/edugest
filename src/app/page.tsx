@@ -5291,38 +5291,18 @@ function PaymentConfigView() {
         <p className="text-gray-500 text-sm mt-1">Gérez les passerelles de paiement et les monnaies</p>
       </div>
 
-      {/* Vue plateforme : passerelles des ABONNEMENTS EduGest (schoolId = '__PLATFORM__').
-          Frais/monnaies/transactions restent scolaires — école active requise. */}
-      {!getActiveSchoolId() && (
-        <div className="text-center py-10 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl px-6">
-          <div className="w-14 h-14 mx-auto mb-4 grid place-items-center rounded-2xl" style={{ background: GOLD_SOFT }}>
-            <CreditCard size={26} style={{ color: GOLD }} />
-          </div>
-          <h3 className="font-semibold text-[15px] mb-1.5" style={{ color: TEXT_PRIMARY }}>
-            Passerelles de la plateforme EduGest
-          </h3>
-          <p className="text-[13px] max-w-xl mx-auto" style={{ color: TEXT_MUTED_LUXE }}>
-            Ces passerelles encaissent les abonnements EduGest des écoles
-            (Flutterwave, Orange Money, M-Pesa…). Les passerelles scolaires (frais de
-            scolarité), la devise, les frais et les transactions se configurent
-            école par école — sélectionnez une école dans la barre latérale (« École active »).
-          </p>
-        </div>
-      )}
-
-      {/* Onglets + contenus ; les onglets scolaires n'apparaissent que avec une école active */}
+      {/* Vue identique pour tous les rôles, y compris l'admin plateforme. */}
       <>
       {/* Tabs */}
       <div className="flex gap-1 border-b">
         <button
           onClick={() => setActiveTab('gateways')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
-            activeTab === 'gateways' || !getActiveSchoolId() ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
+            activeTab === 'gateways' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
           Passerelles de Paiement
         </button>
-        {getActiveSchoolId() && (<>
         <button
           onClick={() => setActiveTab('fees')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
@@ -5347,11 +5327,10 @@ function PaymentConfigView() {
         >
           Transactions
         </button>
-        </>)}
       </div>
 
       {/* Gateways Tab */}
-      {(activeTab === 'gateways' || !getActiveSchoolId()) && (
+      {activeTab === 'gateways' && (
         <div className="space-y-4">
           {availableGateways.length === 0 && !loading && (
             <div className="text-center py-8 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl">
@@ -5417,7 +5396,7 @@ function PaymentConfigView() {
       )}
 
       {/* School Fees Tab */}
-      {getActiveSchoolId() && activeTab === 'fees' && (
+      {activeTab === 'fees' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -5509,7 +5488,7 @@ function PaymentConfigView() {
       )}
 
       {/* Currency Tab */}
-      {getActiveSchoolId() && activeTab === 'currency' && (
+      {activeTab === 'currency' && (
         <div className="space-y-6">
           {/* Currency Configuration */}
           <div className="border rounded-xl p-5 bg-white">
@@ -5668,7 +5647,7 @@ function PaymentConfigView() {
       )}
 
       {/* Transactions Tab */}
-      {getActiveSchoolId() && activeTab === 'transactions' && (
+      {activeTab === 'transactions' && (
         <div className="border rounded-xl bg-white overflow-hidden">
           <div className="p-4 border-b">
             <h3 className="font-semibold">Transactions récentes</h3>
@@ -6804,6 +6783,11 @@ function CommunicationsView() {
   // L'utilisateur configure ici la clé API Resend pour l'envoi des emails
   // (codes de vérification, notifications). Stockée côté serveur.
   const isPlatformAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
+  // Vue plateforme SANS école active : on bloque compose + historique (le
+  // super admin choisit d'abord son école — plus de tombée silencieuse sur
+  // « demo » ni d'historique qui échoue en 403).
+  const activeSchoolId = getActiveSchoolId()
+  const platformNoSchool = isPlatformAdmin && !activeSchoolId
   const [showApiConfig, setShowApiConfig] = useState(false)
   const [emailCfg, setEmailCfg] = useState<any>(null)
   const [emailForm, setEmailForm] = useState({ enabled: false, fromEmail: '', fromName: '', apiKey: '' })
@@ -6890,13 +6874,18 @@ function CommunicationsView() {
 
   async function handleSend() {
     if (!title || !content) return toast.error('Titre et contenu requis')
+    const sid = getActiveSchoolId()
+    if (!sid) {
+      toast.error("Choisissez d'abord une école active dans la barre latérale")
+      return
+    }
     try {
       const res = await authFetch('/api/communications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           senderId: userData?.id || 'demo', senderRole: userData?.role || 'SECRETARY',
-          schoolId: getActiveSchoolId() || 'demo', type, title, content, targetType,
+          schoolId: sid, type, title, content, targetType,
           sentToApp: app, sentToWhatsapp: whatsapp, scope: scope || undefined,
         }),
       })
@@ -6905,9 +6894,12 @@ function CommunicationsView() {
         if (created?.warning) toast.warning(created.warning, { duration: 6000 })
         else toast.success('Communication envoyée!')
         setTitle(''); setContent('')
-        const json = await (await authFetch(`/api/communications?limit=20${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}`)).json()
+        const json = await (await authFetch(`/api/communications?limit=20&schoolId=${sid}`)).json()
         setComms(json.data || [])
         setTotalUsers(json.totalUsers || 0)
+      } else {
+        const err = await res.json().catch(() => ({} as any))
+        toast.error(err.error || "Erreur lors de l'envoi")
       }
     } catch { toast.error('Erreur lors de l\'envoi') }
   }
@@ -7063,6 +7055,13 @@ function CommunicationsView() {
         </div>
       )}
 
+      {platformNoSchool ? (
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-10 shadow-sm text-center">
+          <Send size={28} className="mx-auto mb-2 opacity-30" style={{ color: TEXT_MUTED_LUXE }} />
+          <p className="font-semibold mb-1" style={{ color: TEXT_PRIMARY }}>Aucune école sélectionnée</p>
+          <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Choisissez une école dans la barre latérale (« École active ») pour envoyer des communications et consulter leur historique.</p>
+        </div>
+      ) : (
       <div className={`grid grid-cols-1 gap-6 ${canCreate ? 'lg:grid-cols-[1fr_1fr]' : ''}`}>
         {/* Compose */}
         {canCreate && (
@@ -7168,6 +7167,7 @@ function CommunicationsView() {
           </div>
         </div>
       </div>
+      )}
     </div>
   )
 }
