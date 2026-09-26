@@ -2532,3 +2532,23 @@ Work Log:
 Stage Summary:
 - Le flux Resend est maintenant symétrique au flux SMS : test-avant-enregistrement, clé masquée visible, erreurs Resend expliquées en français.
 - Règles Resend mode test communiquées : from = onboarding@resend.dev + destinataire = email du compte Resend ; domaine propre = resend.com → Domains.
+
+---
+Task ID: navigation-ou-on-se-trouve
+Agent: Z.ai Code (main)
+Task: « je veux que le site soit comme ca https://www.orcarouter.ai/console/catalog?q=deepseek%2Fdee tu vois il affiche la ou on se trouve » — afficher en permanence OÙ l'on se trouve dans l'app + recherche reflétée dans l'URL.
+
+Work Log:
+- Référence analysée (orcarouter.ai, login bloquant) : l'URL /console/catalog?q=deepseek%2Fdee montre la position (Console / Catalog) ET la recherche (?q=) — reproduire les deux dans EduGest.
+- src/lib/url-search.ts (nouveau) : readUrlQuery()/writeUrlQuery() — ?q= réécrit via history.replaceState (pas de pollution d'historique) + événement 'edugest:url'.
+- store.ts : activeSchoolName (nom de l'école active, affiché dans le fil d'Ariane) ; setActiveSchoolId(id, name?) ; syncUrl(view, mode, preserveQuery) — préserve ?q= à la RESTAURATION (reload/deep-link/Retour) et le lâche en NAVIGATION (clic menu) ; logout réinitialise activeSchoolName.
+- page.tsx Topbar : fil d'Ariane shadcn « EduGest / Vue / École » — EduGest cliquable (→ dashboard), icône lucide par vue (map VIEW_ICONS, 40 vues), puce dorée école active (sidebar passe item.label), adresse live en dessous en mono (/students?q=…, via popstate + 'edugest:url') sous la date.
+- StudentsView : recherche élève synchronisée à l'URL (lazy init readUrlQuery, useEffect writeUrlQuery) ; le filtre « catalogue » : ce qui est tapé dans l'autocomplete filtre AUSSI la liste (nom/prénom/matricule) — comportement /catalog?q= d'OrcaRouter.
+- Tests agent-browser : clic Élèves → /students + « EduGest | Élèves » ✓ ; taper « Amani » → /students?q=Amani + liste 1 ligne ✓ ; reload → recherche restaurée ✓ (bug syncUrl qui effaçait la query corrigé) ; deep-link direct /students?q=Amani ✓ ; clic Classes → /classes sans query ✓ ; école active → « EduGest | Classes | Groupe Scolaire Kivu Espoir » ✓ ; mobile 390px sans overflow ✓.
+- Rebase sur a894ff5..739a8f9 (commits remote) + installation du package manquant @number-flow/react (landing 500 → 200).
+- APP_VERSION 0.3.7. tsc 0 erreur ; eslint : 0 nouvelle erreur (13 baseline page.tsx inchangées). Commits poussés : b2da578, afd51c2.
+
+Stage Summary:
+- L'utilisateur voit TOUJOURS où il se trouve : fil d'Ariane EduGest / Vue / École + adresse exacte affichée dans la topbar.
+- La recherche d'élèves vit dans l'URL : F5 la conserve, l'adresse est partageable (/students?q=Amani).
+- Reste : étendre ?q= aux autres listes (classes, paiements…) si demandé ; rappeler à l'utilisateur de tirer la mise à jour (bouton « Mettre à jour maintenant » ou git pull) puis Ctrl+Shift+R.
