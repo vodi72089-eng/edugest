@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react'
 import { motion, useInView, useMotionValue, useSpring, animate } from 'framer-motion'
+import NumberFlow, { type Format } from '@number-flow/react'
 import { cn } from '@/lib/utils'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -45,18 +46,24 @@ export function AnimatedCounter({
     return () => controls.stop()
   }, [inView, finalTarget, duration])
 
-  const formatted = separator
-    ? display.toLocaleString('fr-FR', {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-      })
-    : display.toFixed(decimals)
+  // Roulement des chiffres (style Skiper UI « Animated number ») via NumberFlow :
+  // le compteur framer-motion incrémente, NumberFlow fait défiler chaque digit.
+  const format: Format = {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+    useGrouping: separator,
+  }
 
   return (
-    <span ref={ref} className={className}>
-      {prefix}
-      {formatted}
-      {suffix}
+    <span ref={ref} className={cn('inline-flex items-baseline tabular-nums', className)}>
+      <NumberFlow
+        value={display}
+        locales="fr-FR"
+        format={format}
+        prefix={prefix || undefined}
+        suffix={suffix || undefined}
+        willChange
+      />
     </span>
   )
 }
