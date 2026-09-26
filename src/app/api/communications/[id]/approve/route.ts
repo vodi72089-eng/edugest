@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
+import { notifyEvent } from '@/lib/notification-service';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, sanitizeError } from '@/lib/auth';
 import { notifyCommunication } from '@/lib/whatsapp-agent';
@@ -58,6 +59,28 @@ export async function POST(
         isRead: false,
       },
     });
+
+    // Case « App » : pour les demandes PENDING (directions/secrétaire), le
+    // vrai envoi a lieu ICI, à l'approbation — l'audience reçoit alors sa
+    // notification in-app (l'auteur est déjà prévenu ci-dessus, il est exclu).
+    if (newStatus === 'APPROVED' && comm.sentToApp) {
+      await notifyEvent(
+        {
+          type: 'COMMUNICATION',
+          schoolId: comm.schoolId,
+          actorId: user.id,
+          excludeUserIds: [comm.senderId],
+          targetType: comm.targetType,
+          classId: comm.targetId,
+          section: comm.scope,
+        },
+        {
+          title: comm.title,
+          message: comm.content.length > 200 ? comm.content.slice(0, 197) + '…' : comm.content,
+          relatedId: comm.id,
+        }
+      );
+    }
 
     // ── Diffusion WhatsApp RÉELLE au moment de l'approbation ────────────
     // Les communications PENDING des directions ne partent qu'une fois approuvées.
