@@ -11,12 +11,19 @@ import { toast } from 'sonner'
 import SearchAutocomplete, { AutocompleteItem } from './SearchAutocomplete'
 import AppSelect from '@/components/ui/AppSelect'
 import { onDbChange } from '@/lib/realtime'
+import { readUrlQuery, writeUrlQuery } from '@/lib/url-search'
 
 export default function StudentsView() {
   const [students, setStudents] = useState<StudentData[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [studentSearch, setStudentSearch] = useState('')
+  // Recherche d'élève synchronisée à l'URL (style OrcaRouter ?q=deepseek%2Fdee) :
+  //   - ce qui est tapé apparaît dans l'adresse → /students?q=…
+  //   - F5 ou un lien partagé rouvre la vue AVEC la recherche pré-remplie
+  //     (liste filtrée + suggestions de l'autocomplete)
+  // Lazy init : lit ?q= une seule fois au montage (client, jamais SSR).
+  const [studentSearch, setStudentSearch] = useState(() => readUrlQuery())
+  useEffect(() => { writeUrlQuery(studentSearch) }, [studentSearch])
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
   const [studentSearchLoading, setStudentSearchLoading] = useState(false)
@@ -159,9 +166,14 @@ export default function StudentsView() {
 
   const filtered = selectedStudentId
     ? students.filter(s => s.id === selectedStudentId)
-    : students.filter(s =>
-        !search || s.firstName.toLowerCase().includes(search.toLowerCase()) || s.lastName.toLowerCase().includes(search.toLowerCase()) || s.matricule.toLowerCase().includes(search.toLowerCase())
-      )
+    : students.filter(s => {
+        // Filtre « catalogue » : la recherche de l'autocomplete filtre AUSSI la
+        // liste en dessous en temps réel (nom, prénom ou matricule) — le même
+        // comportement que /catalog?q=… d'OrcaRouter.
+        const q = studentSearch.trim().toLowerCase()
+        if (!q) return true
+        return s.firstName.toLowerCase().includes(q) || s.lastName.toLowerCase().includes(q) || s.matricule.toLowerCase().includes(q)
+      })
 
   async function handleAddStudent(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()

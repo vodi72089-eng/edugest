@@ -120,16 +120,25 @@ function resolveView(view: ViewType): ViewType {
 // deep links work and back/forward behave like normal navigation.
 // The mapping itself lives in src/lib/view-paths.ts (shared with next.config).
 
-function syncUrl(view: ViewType, mode: 'push' | 'replace') {
+function syncUrl(view: ViewType, mode: 'push' | 'replace', preserveQuery = false) {
   if (typeof window === 'undefined') return;
-  const target = viewToPath(view);
-  if (window.location.pathname === target) return;
+  // preserveQuery : à la RESTAURATION (reload, deep link, Retour/Avant), la
+  // recherche ?q= fait partie de l'adresse — on la garde pour que la vue
+  // s'ouvre avec le même filtre. À la NAVIGATION (clic menu), on la laisse
+  // tomber : la recherche appartient à la vue qu'on quitte.
+  const query = preserveQuery ? window.location.search : '';
+  const target = viewToPath(view) + query;
+  const current = window.location.pathname + window.location.search;
+  if (current === target) return;
   try {
     if (mode === 'push') {
       window.history.pushState({ edugestView: view }, '', target);
     } else {
       window.history.replaceState({ edugestView: view }, '', target);
     }
+    // Prévenir l'UI (fil d'Ariane de la barre supérieure) que l'adresse a changé :
+    // replaceState/pushState ne déclenchent PAS popstate, on émet un événement dédié.
+    window.dispatchEvent(new CustomEvent('edugest:url'));
   } catch { /* ignore */ }
 }
 
@@ -241,7 +250,11 @@ interface EduGestStore {
   // (élèves, paiements, discipline…), il choisit explicitement l'école de
   // contexte. Toujours null pour les autres rôles (ils utilisent userData.schoolId).
   activeSchoolId: string | null
-  setActiveSchoolId: (id: string | null) => void
+  // Nom de l'école active (parallèle à activeSchoolId) : affiché dans le fil
+  // d'Ariane de la barre supérieure — l'utilisateur voit toujours OÙ il se
+  // trouve (« EduGest / Élèves / La Réussite ») sans deviner par l'ID.
+  activeSchoolName: string | null
+  setActiveSchoolId: (id: string | null, name?: string | null) => void
 
   selectedStudentId: string | null
   setSelectedStudentId: (id: string | null) => void
@@ -322,7 +335,7 @@ export function restoreSession() {
     if (session.userData) store.setUserData(session.userData as UserData);
     if (session.sidebar) store.setSidebarOpen(true);
     applyView(view);
-    syncUrl(view, 'replace');
+    syncUrl(view, 'replace', true);
   } else {
     // Not authenticated: public screens can be shown. With no deep link we
     // land on the public landing (restored at user request); auth-only or
@@ -374,7 +387,7 @@ if (typeof window !== 'undefined') {
       target = store.currentView;
     }
     applyView(target);
-    syncUrl(target, 'replace');
+    syncUrl(target, 'replace', true);
   });
 }
 
@@ -404,7 +417,16 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
   setSelectedSchoolId: (id) => set({ selectedSchoolId: id }),
 
   activeSchoolId: null,
-  setActiveSchoolId: (id) => set({ activeSchoolId: id }),
+  activeSchoolName: null,
+  setActiveSchoolId: (id, name) => {
+    // name fourni → id+name ensemble (sélection dans la sidebar) ;
+    // id null → tout réinitialiser (retour à la vue plateforme) ;
+    // id seul → conserver le nom déjà connu (appels historiques 1-argument).
+    set({
+      activeSchoolId: id,
+      activeSchoolName: name !== undefined ? name : (id ? get().activeSchoolName : null),
+    })
+  },
 
   selectedStudentId: null,
   setSelectedStudentId: (id) => set({ selectedStudentId: id }),
@@ -476,6 +498,7 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
       sidebarOpen: false,
       selectedSchoolId: null,
       activeSchoolId: null,
+      activeSchoolName: null,
       selectedStudentId: null,
       pendingStudentFocus: null,
       pendingPaymentStudent: null,
