@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, useSyncExternalStore } from 'react'
 import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken, restoreSession,
-startSessionRestoreWatchdog, isDesktopApp, getActiveSchoolId } from '@/lib/store'
+startSessionRestoreWatchdog, isDesktopApp, getActiveSchoolId, syncUrl } from '@/lib/store'
 import { startRealtimeSync } from '@/lib/realtime'
 import { playNotificationSound, unlockNotificationAudio, isNotificationSoundEnabled, setNotificationSoundEnabled, getNotificationSoundVolume, setNotificationSoundVolume, getNotificationSoundType, setNotificationSoundType, NotificationSoundType } from '@/lib/notification-sound'
 import { resolveNotifView, notifSoundLevel } from '@/lib/notification-routing'
@@ -17,7 +17,6 @@ import { setCurrencyDisplay, subscribeCurrency, getCurrencyVersion } from '@/lib
 import { EDUCATIONAL_SYSTEMS_LIST } from '@/lib/educational-systems'
 import StudentAvatar from '@/components/ui/StudentAvatar'
 import AppSelect from '@/components/ui/AppSelect';
-import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 import { readUrlQuery, writeUrlQuery } from '@/lib/url-search'
 import BrandLogo from '@/components/BrandLogo'
 import { FlagIcon } from '@/components/FlagIcon'
@@ -2913,74 +2912,8 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 }
 
 // ===== TOPBAR =====
-// ─── Fil d'Ariane : icône par vue ─────────────────────────────────────────────
-// La barre supérieure affiche en permanence OÙ l'on se trouve, comme la
-// console OrcaRouter (« Console / Catalog ») : EduGest / Vue courante / École.
-// Icônes réutilisées depuis l'import lucide-react existant (aucun nouvel import).
-const VIEW_ICONS: Partial<Record<ViewType, React.ReactNode>> = {
-  dashboard: <LayoutDashboard size={15} />,
-  students: <Users size={15} />,
-  classes: <School size={15} />,
-  grades: <BookOpen size={15} />,
-  payments: <CreditCard size={15} />,
-  finance: <Wallet size={15} />,
-  discipline: <Shield size={15} />,
-  communications: <MessageSquare size={15} />,
-  homework: <PenTool size={15} />,
-  profile: <UserCircle size={15} />,
-  pricing: <DollarSign size={15} />,
-  'class-passing': <ListChecks size={15} />,
-  convocation: <Megaphone size={15} />,
-  schools: <Building2 size={15} />,
-  bulletin: <FileText size={15} />,
-  'admin-analytics': <BarChart3 size={15} />,
-  'whatsapp-config': <MessageCircle size={15} />,
-  'platform-control': <Globe size={15} />,
-  personnel: <UsersRound size={15} />,
-  settings: <Settings size={15} />,
-  'school-reviews': <Star size={15} />,
-  'payment-verification': <CheckCircle size={15} />,
-  'payment-config': <BadgeDollarSign size={15} />,
-  'medical-records': <Stethoscope size={15} />,
-  'online-payment': <CreditCard size={15} />,
-  debts: <Landmark size={15} />,
-  'my-subscription': <Crown size={15} />,
-  medical: <HeartPulse size={15} />,
-  'parent-qr': <QrCode size={15} />,
-  parents: <Users size={15} />,
-  personalization: <Palette size={15} />,
-  attendance: <CalendarCheck size={15} />,
-  events: <Calendar size={15} />,
-  reports: <ClipboardList size={15} />,
-  corporate: <Briefcase size={15} />,
-  corporates: <Building2 size={15} />,
-  support: <Headset size={15} />,
-  docs: <LifeBuoy size={15} />,
-  'platform-emails': <Mail size={15} />,
-  'activity-logs': <ScrollText size={15} />,
-}
-
 function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; onToggleSidebar: () => void }) {
-  const { currentView, sidebarOpen, setSidebarOpen, setCurrentView, userData, userRole, setHighlightedId, activeSchoolName } = useEduGestStore()
-  // Adresse LIVE du navigateur (ex. /students?q=jean) affichée sous le fil
-  // d'Ariane — l'utilisateur voit où il se trouve, comme la console OrcaRouter
-  // qui reflète sa position dans l'URL (/console/catalog?q=…). Mise à jour via
-  // popstate (boutons Retour/Avant) + événement 'edugest:url' émis par
-  // syncUrl()/writeUrlQuery() quand la vue ou la recherche change.
-  const [urlText, setUrlText] = useState('')
-  useEffect(() => {
-    const update = () => setUrlText(window.location.pathname + window.location.search)
-    update()
-    window.addEventListener('popstate', update)
-    window.addEventListener('edugest:url', update)
-    return () => { window.removeEventListener('popstate', update); window.removeEventListener('edugest:url', update) }
-  }, [])
-  // Contexte scolaire du fil d'Ariane : pour le super admin c'est l'école
-  // active choisie dans la barre latérale ; pour tout autre rôle c'est SA
-  // propre école — d'où qu'il soit, l'écran répond « EduGest / Vue / École ».
-  const crumbSchoolName = userRole === 'SUPER_ADMIN_GLOBAL'
-    ? activeSchoolName
-    : (userData?.schoolName || null)
+  const { currentView, sidebarOpen, setSidebarOpen, setCurrentView, userData, userRole, setHighlightedId } = useEduGestStore()
   const [notifications, setNotifications] = useState<any[]>([])
   const [unreadNotifCount, setUnreadNotifCount] = useState(0)
   const [pendingCommsCount, setPendingCommsCount] = useState(0)
@@ -3353,54 +3286,6 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
         >
           {sidebarVisible ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
         </button>
-        <div className="min-w-0">
-          <Breadcrumb className="min-w-0">
-            <BreadcrumbList className="flex-nowrap">
-              <BreadcrumbItem className="shrink-0">
-                <BreadcrumbLink asChild>
-                  <button
-                    onClick={() => setCurrentView('dashboard')}
-                    className="flex items-center gap-1.5 px-1.5 py-0.5 -mx-1 rounded-lg text-[13px] font-semibold tracking-tight transition-colors hover:bg-[oklch(95%_0.01_175)] cursor-pointer"
-                    style={{ color: TEXT_MUTED_LUXE }}
-                    title="Revenir au tableau de bord"
-                  >
-                    <GraduationCap size={14} />
-                    <span className="hidden sm:inline">EduGest</span>
-                  </button>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="opacity-40" />
-              <BreadcrumbItem className="min-w-0">
-                <BreadcrumbPage className="flex items-center gap-1.5 text-[15px] font-extrabold tracking-tighter edu-heading-display min-w-0" style={{ color: TEXT_PRIMARY }}>
-                  {VIEW_ICONS[currentView] ?? <LayoutDashboard size={15} />}
-                  <span className="truncate">{viewTitles[currentView] || 'Dashboard'}</span>
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-              {crumbSchoolName && (
-                <>
-                  <BreadcrumbSeparator className="opacity-40 hidden md:inline-flex" />
-                  <BreadcrumbItem className="hidden md:inline-flex min-w-0">
-                    <span
-                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold truncate max-w-[220px]"
-                      style={{ background: GOLD_SOFT, color: TEXT_PRIMARY }}
-                      title={`École active : ${crumbSchoolName}`}
-                    >
-                      <School size={11} className="shrink-0" />
-                      <span className="truncate">{crumbSchoolName}</span>
-                    </span>
-                  </BreadcrumbItem>
-                </>
-              )}
-            </BreadcrumbList>
-          </Breadcrumb>
-          <div className="text-xs hidden sm:flex items-center gap-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>
-            <span
-              className="font-mono text-[11px] bg-[oklch(96%_0.008_175)] border border-[oklch(90%_0.01_175)] rounded px-1.5 py-px truncate max-w-[240px]"
-              title="Adresse de la page où vous vous trouvez"
-            >{urlText || viewToPath(currentView)}</span>
-            <span className="shrink-0">{new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-          </div>
-        </div>
       </div>
       <div className="flex items-center gap-2 relative" ref={notifPanelRef}>
         <button
@@ -4972,9 +4857,15 @@ function WhatsAppApiQuotasSection() {
 }
 
 function PaymentConfigView() {
-  const { userData, setCurrentView, userRole } = useEduGestStore()
+  const { userData, setCurrentView, userRole, paymentConfigTab, setPaymentConfigTab } = useEduGestStore()
   const isPlatformAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
-  const [activeTab, setActiveTab] = useState<'gateways' | 'currency' | 'transactions' | 'fees'>('gateways')
+  // Onglet piloté par le store : l'URL (/payment-config/<onglet>) est la source
+  // de vérité — clics, deep links et Retour/Avant restent synchronisés.
+  const activeTab = paymentConfigTab
+  const setActiveTab = (tab: 'gateways' | 'currency' | 'transactions' | 'fees') => {
+    setPaymentConfigTab(tab)
+    syncUrl('payment-config', 'push')
+  }
   const [gateways, setGateways] = useState<any[]>([])
   const [availableGateways, setAvailableGateways] = useState<any[]>([])
   const [currencyConfig, setCurrencyConfig] = useState<any>(null)
