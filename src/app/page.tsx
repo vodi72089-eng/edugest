@@ -4972,7 +4972,8 @@ function WhatsAppApiQuotasSection() {
 }
 
 function PaymentConfigView() {
-  const { userData, setCurrentView } = useEduGestStore()
+  const { userData, setCurrentView, userRole } = useEduGestStore()
+  const isPlatformAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
   const [activeTab, setActiveTab] = useState<'gateways' | 'currency' | 'transactions' | 'fees'>('gateways')
   const [gateways, setGateways] = useState<any[]>([])
   const [availableGateways, setAvailableGateways] = useState<any[]>([])
@@ -5303,6 +5304,7 @@ function PaymentConfigView() {
         >
           Passerelles de Paiement
         </button>
+        {!isPlatformAdmin && (
         <button
           onClick={() => setActiveTab('fees')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
@@ -5311,6 +5313,7 @@ function PaymentConfigView() {
         >
           Frais Scolaires
         </button>
+        )}
         <button
           onClick={() => setActiveTab('currency')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
@@ -5396,7 +5399,7 @@ function PaymentConfigView() {
       )}
 
       {/* School Fees Tab */}
-      {activeTab === 'fees' && (
+      {activeTab === 'fees' && !isPlatformAdmin && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
