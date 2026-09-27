@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { requireRole, sanitizeError } from '@/lib/auth';
-import { GATEWAY_INFO, PLATFORM_SCHOOL_ID, type GatewayType } from '@/lib/payment-gateway';
+import { GATEWAY_INFO, AVAILABLE_GATEWAY_TYPES, RETIRED_GATEWAY_TYPES, PLATFORM_SCHOOL_ID, type GatewayType } from '@/lib/payment-gateway';
 import { encryptSecret } from '@/lib/gateway-keys';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -9,7 +9,9 @@ import { NextRequest, NextResponse } from 'next/server';
 // écoles, qui servent à encaisser les frais de scolarité).
 // Stockage : PaymentGatewayConfig avec la sentinelle schoolId = '__PLATFORM__'.
 
-const VALID_GATEWAY_TYPES = Object.keys(GATEWAY_INFO) as GatewayType[];
+// Types valides = catalogue disponible (GATEWAY_INFO moins les passerelles
+// retirées de l'offre RDC, voir RETIRED_GATEWAY_TYPES).
+const VALID_GATEWAY_TYPES: GatewayType[] = AVAILABLE_GATEWAY_TYPES;
 
 function maskSensitive(value: string | null | undefined): string {
   if (!value) return '';
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
     if ('error' in authResult) return authResult.error;
 
     const configs = await db.paymentGatewayConfig.findMany({
-      where: { schoolId: PLATFORM_SCHOOL_ID },
+      where: { schoolId: PLATFORM_SCHOOL_ID, gatewayType: { notIn: RETIRED_GATEWAY_TYPES } },
       orderBy: { gatewayType: 'asc' },
     });
 

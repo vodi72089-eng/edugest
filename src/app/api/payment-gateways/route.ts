@@ -5,15 +5,16 @@ import {
   verifySchoolAccess,
   sanitizeError,
 } from '@/lib/auth';
-import { GATEWAY_INFO, type GatewayType } from '@/lib/payment-gateway';
+import { GATEWAY_INFO, AVAILABLE_GATEWAY_TYPES, RETIRED_GATEWAY_TYPES, type GatewayType } from '@/lib/payment-gateway';
 import { encryptSecret } from '@/lib/gateway-keys';
 import { NextRequest, NextResponse } from 'next/server';
 
 // Roles allowed to configure payment gateways for a school
 const CONFIG_ROLES = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'CASHIER'];
 
-// Valid gateway types derived from GATEWAY_INFO
-const VALID_GATEWAY_TYPES = Object.keys(GATEWAY_INFO) as GatewayType[];
+// Types valides = catalogue disponible (GATEWAY_INFO moins les passerelles
+// retirées de l'offre RDC, voir RETIRED_GATEWAY_TYPES).
+const VALID_GATEWAY_TYPES: GatewayType[] = AVAILABLE_GATEWAY_TYPES;
 
 /**
  * Masks a sensitive string, showing only the last 4 characters.
@@ -79,9 +80,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch configured gateways for the school
+    // Fetch configured gateways for the school — passerelles retirées
+    // exclues (jamais visibles côté école ni côté parents).
     const configuredGateways = await db.paymentGatewayConfig.findMany({
-      where: { schoolId },
+      where: { schoolId, gatewayType: { notIn: RETIRED_GATEWAY_TYPES } },
       orderBy: [{ isActive: 'desc' }, { gatewayType: 'asc' }],
     });
 

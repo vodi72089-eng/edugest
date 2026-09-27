@@ -7,11 +7,13 @@ import {
 import {
   initiatePayment,
   GATEWAY_INFO,
+  AVAILABLE_GATEWAY_TYPES,
   type GatewayType,
 } from '@/lib/payment-gateway';
 import { NextRequest, NextResponse } from 'next/server';
 
-const VALID_GATEWAY_TYPES = Object.keys(GATEWAY_INFO) as GatewayType[];
+// Types valides = catalogue disponible (passerelles retirées RDC exclues).
+const VALID_GATEWAY_TYPES: GatewayType[] = AVAILABLE_GATEWAY_TYPES;
 
 // POST /api/payment-gateways/initiate
 // Initiates a payment through the specified gateway for a school.

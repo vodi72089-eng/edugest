@@ -1,9 +1,9 @@
 /**
  * Service de passerelles de paiement
  * Mobile : M-Pesa, Orange Money, Airtel Money
- * Agrégateur : Bictorys (Wave, Orange Money, cartes — une seule API)
- * Cartes / internationales : Visa, Mastercard, Flutterwave
- *   (Stripe, PayPal et DPO retirés — non disponibles pour les marchands en RDC)
+ * Cartes : Visa, Mastercard
+ *   (Stripe, PayPal, DPO, Flutterwave et Bictorys retirés — non disponibles
+ *    pour les marchands en RDC, voir RETIRED_GATEWAY_TYPES)
  * Manuel : espèces, virement
  * Paiements d'abonnement EduGest : passerelles configurées au niveau
  * plateforme (schoolId sentinelle PLATFORM_SCHOOL_ID).
@@ -156,6 +156,20 @@ export const GATEWAY_INFO: Record<GatewayType, {
     requiresWebhook: false,
   },
 };
+
+/**
+ * Passerelles RETIRÉES de l'offre — non disponibles pour les marchands en
+ * RDC (comme Stripe/PayPal/DPO) : Bictorys ne couvre pas la RDC et
+ * Flutterwave n'y opère pas. Elles ne figurent plus au catalogue de la page
+ * « Config. Paiements » ni dans la validation des routes (configuration,
+ * initiation, méthodes de paiement d'abonnement). Le code de traitement
+ * reste en place pour d'éventuelles configurations historiques.
+ */
+export const RETIRED_GATEWAY_TYPES: GatewayType[] = ['FLUTTERWAVE', 'BICTORYS'];
+
+/** Catalogue disponible : toutes les passerelles SAUF les retirées. */
+export const AVAILABLE_GATEWAY_TYPES: GatewayType[] = (Object.keys(GATEWAY_INFO) as GatewayType[])
+  .filter((t) => !RETIRED_GATEWAY_TYPES.includes(t));
 
 // URLs d'API officielles : voir src/lib/gateway-api-info.ts (client-safe,
 // réexportées ici pour usage serveur éventuel).

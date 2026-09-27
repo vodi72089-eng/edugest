@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, sanitizeError } from '@/lib/auth';
-import { initiatePayment, PLATFORM_SCHOOL_ID, GATEWAY_INFO, type GatewayType } from '@/lib/payment-gateway';
+import { initiatePayment, PLATFORM_SCHOOL_ID, GATEWAY_INFO, AVAILABLE_GATEWAY_TYPES, type GatewayType } from '@/lib/payment-gateway';
 import { SUBSCRIPTION_PRICES } from '@/lib/subscription';
 import { notify } from '@/lib/notify';
 
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     if (!requestedTier || SUBSCRIPTION_PRICES[requestedTier] === undefined) {
       return NextResponse.json({ error: 'Formule d\'abonnement invalide' }, { status: 400 });
     }
-    if (!gatewayType || !GATEWAY_INFO[gatewayType as GatewayType]) {
+    if (!gatewayType || !AVAILABLE_GATEWAY_TYPES.includes(gatewayType as GatewayType)) {
       return NextResponse.json({ error: 'Moyen de paiement invalide' }, { status: 400 });
     }
 

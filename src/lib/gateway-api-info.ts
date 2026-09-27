@@ -9,9 +9,9 @@
  *  2. sur quel portail créer un compte marchand et récupérer ses clés API ;
  *  3. où trouver la documentation développeur.
  *
- * `null` pour les passerelles sans API directe : Visa/Mastercard passent
- * uniquement par le checkout hébergé Flutterwave/Bictorys (PCI-DSS) ;
- * MANUAL = espèces/virement validés par le caissier.
+ * `null` pour les passerelles sans API directe : le paiement carte en direct
+ * est refusé (PCI-DSS) et le checkout hébergé Flutterwave/Bictorys a été
+ * retiré de l'offre RDC ; MANUAL = espèces/virement validés par le caissier.
  */
 export interface GatewayApiInfo {
   /** URL de base de l'API de production (celle qu'EduGest appelle en live) */
@@ -54,13 +54,13 @@ export const GATEWAY_API_INFO: GatewayApiInfoMap = {
     apiBase: null,
     dashboardUrl: null,
     docsUrl: null,
-    keysHint: "Les cartes Visa ne sont pas acceptées en direct (PCI-DSS) : elles passent par le checkout hébergé Flutterwave ou Bictorys. Configurez l'une de ces deux passerelles.",
+    keysHint: "Les cartes Visa ne sont pas acceptées en direct (PCI-DSS) et le checkout hébergé (Flutterwave/Bictorys) a été retiré de l'offre RDC — préférez Orange Money, Airtel Money ou le paiement manuel.",
   },
   MASTERCARD: {
     apiBase: null,
     dashboardUrl: null,
     docsUrl: null,
-    keysHint: "Les cartes Mastercard ne sont pas acceptées en direct (PCI-DSS) : elles passent par le checkout hébergé Flutterwave ou Bictorys. Configurez l'une de ces deux passerelles.",
+    keysHint: "Les cartes Mastercard ne sont pas acceptées en direct (PCI-DSS) et le checkout hébergé (Flutterwave/Bictorys) a été retiré de l'offre RDC — préférez Orange Money, Airtel Money ou le paiement manuel.",
   },
   FLUTTERWAVE: {
     apiBase: 'https://api.flutterwave.com/v3',

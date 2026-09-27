@@ -2563,3 +2563,19 @@ Work Log:
 
 Stage Summary:
 - Ce n'est PAS un bug EduGest : en sandbox, AT n'envoie jamais sur le handset (documenté). Reste à l'utilisateur : Sign In → Connect sur le simulateur des docs (ou inbox du dashboard orange) pour VU les messages de test, puis environnement Live (username du dashboard vert + recharge du wallet) pour de vrais SMS sur le téléphone.
+
+Task: Retirer Bictorys et Flutterwave de Config. Paiements (indisponibles en RDC)
+
+Work Log:
+- Demande utilisateur : « enleve moi bictorys et fluterwave il marche pas en rdc » (capture : page Config. Paiements, 8 cartes, toutes « Non configuré »).
+- Analyse : les cartes proviennent du catalogue construit par GET /api/payment-gateways (école) et GET /api/platform-payment-gateways (plateforme) depuis Object.keys(GATEWAY_INFO) — décision : retirer au niveau API/validation pour ne PAS modifier src/app/page.tsx (fichier en cours d'édition de la session parallèle, commit 4bf37a9 entre-temps).
+- src/lib/payment-gateway.ts : nouvelle constante exportée RETIRED_GATEWAY_TYPES = ['FLUTTERWAVE','BICTORYS'] (+ commentaire RDC aligné sur le retrait historique Stripe/PayPal/DPO) et AVAILABLE_GATEWAY_TYPES = GATEWAY_INFO minus retirées ; en-tête du fichier mis à jour.
+- Routes redirigées vers AVAILABLE_GATEWAY_TYPES (le type ne figure plus au catalogue ni dans la validation) : payment-gateways/route.ts (VALID + requête DB notIn sur configured), platform-payment-gateways/route.ts (VALID + notIn), payment-gateways/initiate/route.ts (VALID), payment-gateways/initiate-subscription/route.ts (check GATEWAY_INFO → AVAILABLE), subscription/payment-methods/route.ts (notIn sur les méthodes d'abonnement visibles écoles).
+- src/lib/gateway-api-info.ts : textes Visa/Mastercard corrigés (plus d'invitation à « configurer Flutterwave ou Bictorys » — remplacé par Orange Money / Airtel Money / manuel) + commentaire d'en-tête.
+- Non touchés (sans effet : uniquement si configuré+actif) : OnlinePaymentView (HOSTED_METHODS/METHOD_META), GATEWAY_SVG_LOGOS page.tsx, switch process* et entrées GATEWAY_API_INFO (gardés pour configurations historiques — 0 ligne en DB, vérifié).
+- tsc --noEmit : 0 erreur (EXIT=0).
+- E2E sur serveur dev éphémère port 3200 (3100 de l'utilisateur non touché, serveur arrêté après test) : GET plateforme → 6 passerelles VISA,MASTERCARD,MPESA,ORANGE_MONEY,AIRTEL_MONEY,MANUAL sans FLUTTERWAVE/BICTORYS ; POST platform gatewayType=BICTORYS → HTTP 400 « Type de passerelle invalide » ; GET école (Complexe Scolaire Lumière) → 6 passerelles sans retirées, configured sans retirées ; GET subscription/payment-methods → aucune retirée. « === TOUS LES TESTS PASSENT === ».
+- Bump desktop 1.4.11 (push systématique).
+
+Stage Summary:
+- Bictorys + Flutterwave retirés de l'offre RDC côté API (catalogue Config. Paiements école + plateforme, validation configuration/initiation, méthodes d'abonnement) sans toucher à page.tsx — preuve E2E : catalogue 6 passerelles, POST BICTORYS 400. Le build de production sur le port 3100 devra être reconstruit (ou l'exe 1.4.11 téléchargé) pour afficher la nouvelle page.
