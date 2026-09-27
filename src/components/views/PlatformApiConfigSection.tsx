@@ -406,7 +406,20 @@ function SmsConfigCard() {
       })
       const json = await res.json()
       if (!res.ok) {
-        toast.error(json.error || 'Échec du test — la configuration enregistrée est inchangée', { duration: 12000 })
+        const msg = json.error || 'Échec du test — la configuration enregistrée est inchangée'
+        // Première configuration : rien à protéger, on conserve la saisie — sinon
+        // l'utilisateur devrait recoller la clé à chaque test (« Envoyer » ne
+        // sauvegardait que si le test réussissait). Une clé fraîche peut aussi
+        // échouer ~5 min après génération (délai officiel AT).
+        if (!cfg?.configured) {
+          const savedFirst = await save()
+          toast.error(
+            savedFirst ? `${msg} — identifiants conservés malgré l'échec, réessayez dans ~5 min` : msg,
+            { duration: 12000 },
+          )
+        } else {
+          toast.error(msg, { duration: 12000 })
+        }
         return
       }
       // 2) Succès → on enregistre les identifiants venant d'être validés.
@@ -491,10 +504,16 @@ function SmsConfigCard() {
           />
           {form.provider === 'africastalking' && (
             <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
-              Sandbox Africa&apos;s Talking : le nom d&apos;utilisateur doit être exactement{' '}
-              <span className="font-mono font-bold">sandbox</span> (déjà rempli ci-dessous), le SENDER ID
-              doit rester <span className="font-semibold">vide</span>, et votre numéro de test doit être ajouté
-              au simulateur (africastalking.com → Sandbox → SMS Simulator) pour recevoir les SMS.
+              Deux combinaisons possibles, avec{' '}
+              <span className="font-semibold">deux clés distinctes</span> (l&apos;aide AT) :{' '}
+              <span className="font-bold">Sandbox</span> → username{' '}
+              <span className="font-mono font-bold">sandbox</span> (déjà rempli ci-dessous) + clé générée
+              dans le <span className="font-semibold">dashboard Sandbox</span>, SENDER ID{' '}
+              <span className="font-semibold">vide</span>, numéro ajouté au simulateur
+              (africastalking.com → Sandbox → SMS Simulator) ;{' '}
+              <span className="font-bold">Live</span> → votre nom d&apos;utilisateur d&apos;application
+              (visible sur le dashboard AT, ce n&apos;est PAS le nom de l&apos;application) + clé de
+              Settings → API Key.
             </p>
           )}
         </div>
@@ -526,8 +545,9 @@ function SmsConfigCard() {
               {form.provider === 'africastalking' && f.key === 'username' &&
                 (form.fields.africastalking.username || '').trim().toLowerCase() !== 'sandbox' && (
                   <p className="mt-1 text-[11px] font-semibold" style={{ color: 'oklch(55% 0.16 55)' }}>
-                    ⚠️ En sandbox, le nom d&apos;utilisateur doit être exactement «&nbsp;sandbox&nbsp;»
-                    — sinon l&apos;authentification échouera même avec une clé valide.
+                    ℹ️ Username hors « sandbox » : valide uniquement avec une clé générée
+                    dans le dashboard <span className="font-bold">Live</span> — une clé Sandbox
+                    exige «&nbsp;sandbox&nbsp;» exactement, sinon AT renvoie 401.
                   </p>
               )}
             </div>
@@ -571,8 +591,9 @@ function SmsConfigCard() {
             </button>
           </div>
           <p className="mt-1.5 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
-            « Envoyer » teste d&apos;abord les identifiants saisis, puis les enregistre uniquement s&apos;ils
-            fonctionnent — une clé invalide ne remplace jamais une clé enregistrée.
+            « Envoyer » teste d&apos;abord les identifiants saisis, puis les enregistre s&apos;ils
+            fonctionnent — une clé invalide ne remplace jamais une clé enregistrée. Si rien n&apos;est
+            encore configuré, la saisie est conservée même en cas d&apos;échec.
           </p>
         </div>
       </div>

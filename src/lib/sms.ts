@@ -196,9 +196,12 @@ export async function sendSmsViaProvider(to: string, message: string, cfgOverrid
         const baseMsg = recipient?.status || json?.errorMessage || rawText || `HTTP ${res.status}`;
         // Code AT inclus (ex. « [401] … ») : accélère énormément le diagnostic à distance
         errMsg = recipient?.statusCode ? `[${recipient.statusCode}] ${baseMsg}` : baseMsg;
-        // HTTP 401 sans errorMessage : la clé est invalide ou régénérée.
+        // HTTP 401 : AT refuse le couple (username + clé) — les causes possibles,
+        // classées d'après l'aide officielle AT, sont : clé Live utilisée avec
+        // username « sandbox » (Sandbox et Live ont DEUX clés distinctes), clé
+        // copiée depuis le mauvais dashboard, clé régénérée depuis < 5 min.
         if (!ok && res.status === 401) {
-          errMsg += ' — clé API refusée : copiez-collez-la exactement depuis africastalking.com (Settings → API Key) ou régénérez-la';
+          errMsg += ' — couple (nom d\u2019utilisateur + cl\u00e9) refus\u00e9 : les cl\u00e9s Sandbox et Live sont distinctes \u2014 Sandbox \u21d2 username \u00ab sandbox \u00bb + cl\u00e9 g\u00e9n\u00e9r\u00e9e dans le dashboard Sandbox ; Live \u21d2 nom d\u2019utilisateur d\u2019application (dashboard) + cl\u00e9 de Settings \u2192 API Key';
         }
         // Piste évidente : en sandbox, l'username DOIT être « sandbox » —
         // sinon l'authentification échoue même avec une clé valide.
