@@ -100,7 +100,18 @@ export async function POST(request: NextRequest) {
       }
       const result = await sendSmsViaProvider(testPhone, 'EduGest : test de configuration SMS réussi. La vérification par SMS est active.', cfg);
       if (result.success) {
-        return NextResponse.json({ data: { ok: true }, message: `SMS de test envoyé à ${testPhone}` });
+        // Sandbox AT : le SMS n'atteint JAMAIS le téléphone (doc officielle AT :
+        // « don't expect a message sent through the sandbox to be delivered to
+        // your phone ») — il s'affiche dans le simulateur. On le dit dans le
+        // toast pour éviter un « ça n'a pas marché » à tort.
+        const isSandboxAt = cfg.provider === 'africastalking'
+          && (cfg.africastalking.username || '').trim().toLowerCase() === 'sandbox';
+        return NextResponse.json({
+          data: { ok: true },
+          message: isSandboxAt
+            ? `SMS de test envoyé à ${testPhone} — sandbox : il n'arrive PAS sur le téléphone, il s'affiche dans le simulateur (developers.africastalking.com/simulator → Sign In → Connect) ou dans l'inbox du dashboard AT`
+            : `SMS de test envoyé à ${testPhone}`,
+        });
       }
       return NextResponse.json({ error: result.error || 'Échec de l\'envoi du SMS de test' }, { status: 502 });
     }

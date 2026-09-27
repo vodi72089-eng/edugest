@@ -504,13 +504,15 @@ function SmsConfigCard() {
           />
           {form.provider === 'africastalking' && (
             <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
-              Deux environnements Africa&apos;s Talking — l&apos;hôtesse est choisie automatiquement
-              d&apos;après le username : <span className="font-mono font-bold">sandbox</span> (déjà
-              rempli ci-dessous) → envoi via l&apos;hôtesse sandbox d&apos;AT, SENDER ID{' '}
-              <span className="font-semibold">vide</span>, numéro à ajouter au simulateur
-              (africastalking.com → Sandbox → SMS Simulator) ; sinon username = nom
-              d&apos;utilisateur d&apos;application (dashboard AT) → hôtesse live, crédits requis.
-              Clé : Settings → API Key.
+              Deux environnements — l&apos;hôtesse est choisie automatiquement d&apos;après le
+              username : <span className="font-mono font-bold">sandbox</span> (déjà rempli ci-dessous) ={' '}
+              <span className="font-semibold">test gratuit</span>, mais le SMS
+              <span className="font-bold"> n&apos;arrive JAMAIS sur le téléphone</span> (doc AT) : il
+              s&apos;affiche dans le simulateur (developers.africastalking.com/simulator → Sign In →
+              Connect, ou inbox du dashboard orange account.africastalking.com) où votre numéro doit
+              être enregistré — SENDER ID vide. Username = nom d&apos;utilisateur d&apos;application
+              (dashboard vert Live) → vrai SMS sur le téléphone, crédits requis. Clé : Settings → API
+              Key.
             </p>
           )}
         </div>

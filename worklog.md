@@ -2547,3 +2547,19 @@ Work Log:
 Stage Summary:
 - Cause racine du 401 : Mauvaise hôtesse AT (live au lieu de sandbox) — credentials corrects. Le test SMS passe via l'app (HTTP 200) ; reste la confirmation de réception côté téléphone.
 - « Ne sauvegarde jamais » : deux causes réelles (serveur étranger sur port 3000 + save conditionnée au succès du test), toutes deux corrigées.
+
+Task: SMS « envoyé » mais rien sur le téléphone → où passent vraiment les SMS sandbox ?
+
+Work Log:
+- Constat utilisateur : test via l'app → 200 « SMS de test envoyé » mais aucun SMS sur le téléphone (+243835113424, numéro réel vérifié en base : WhatsApp y arrivait) ni dans developers.africastalking.com/simulator (inbox vide).
+- Test du grand livre : envoi avec solde DÉJÀ négatif → HTTP 201 accepté, solde −141,43 → −187,57 (baisse de 46,13 sans jamais renvoyer 405 InsufficientBalance) → bilan SIMULÉ = environnement sandbox confirmé (un wallet live refuserait à 405). Aide AT : le sandbox est gratuit, « you are not charged ».
+- Aide officielle AT, article « What are the sandbox and the live environments ? » (help.africastalking.com/en/articles/2189460) : « Messages, payments and other products are sent to the simulator when using Sandbox while on the live environment they'd be sent to client's phones. (So don't expect a message sent through the sandbox to be delivered to your phone :)) » → L'ABSENCE DE SMS SUR LE TÉLÉPHONE EN SANDBOX EST NORMAL ET DOCUMENTÉ.
+- Article « How do I get started on the Africa's Talking Sandbox? » : simulateur officiel https://simulator.africastalking.com:1517/ (« Register the number or numbers … NOT the HANDSET ») — injoignable depuis ici (transport error / 503 sur la racine) ; lieux de réception : simulateur des docs (developers.africastalking.com/simulator → Sign In → Connect) et « session logs/inbox for SMS on your dashboard » (account.africastalking.com, dashboard orange = Sandbox).
+- Doc developers.africastalking.com lue (evaluate DOM, a11y vide) : /docs/authentication confirme username « sandbox » en sandbox + header apiKey ; /docs/sms/sending/bulk liste Live + Sandbox « (coming soon) » ; statusCode 102 = Queued et « status … does not indicate the delivery status ».
+- src/app/api/sms-config/route.ts : message de succès du test enrichi en mode sandbox — précise que le SMS n'arrive PAS sur le téléphone et où le consulter (simulateur / inbox dashboard).
+- PlatformApiConfigSection.tsx : texte d'aide corrigé (vrai URL du simulateur, avertissement « n'arrive JAMAIS sur le téléphone » en sandbox, dashboard vert = Live avec crédits).
+- Constat infra : le serveur de l'utilisateur est un `next start -p 3100` (build prod) → les correctifs source ne s'y appliquent qu'après rebuild ; la session parallèle a des erreurs tsc en cours (page.tsx/store.ts/view-paths.ts — non touchées ici). tsc : 0 erreur sur les fichiers de cette session.
+- Bump desktop 1.4.10 (le build 1.4.9 partait sans ces textes) ; push + CI.
+
+Stage Summary:
+- Ce n'est PAS un bug EduGest : en sandbox, AT n'envoie jamais sur le handset (documenté). Reste à l'utilisateur : Sign In → Connect sur le simulateur des docs (ou inbox du dashboard orange) pour VU les messages de test, puis environnement Live (username du dashboard vert + recharge du wallet) pour de vrais SMS sur le téléphone.
