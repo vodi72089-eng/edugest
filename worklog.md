@@ -2532,3 +2532,18 @@ Work Log:
 Stage Summary:
 - Le flux Resend est maintenant symétrique au flux SMS : test-avant-enregistrement, clé masquée visible, erreurs Resend expliquées en français.
 - Règles Resend mode test communiquées : from = onboarding@resend.dev + destinataire = email du compte Resend ; domaine propre = resend.com → Domains.
+
+Task: SMS 401 « The supplied authentication is invalid » → investigation systématique jusqu'à la cause racine.
+
+Work Log:
+- Diagnostic sans fix prématuré : clé en base vérifiée (atsk…dd1d, 19h23, charset strict `atsk_[0-9a-f]{72}` intact, aucun caractère invisible) ; appel DIRECT à api.africastalking.com (sans l'app, sans cache) → 401 identique → hors application ; re-test 1 h 19 après génération → toujours 401 (donc pas le délai 5 min d'AT) ; variantes d'auth (clé sans préfixe atsk_, Authorization: Bearer) → seul le header apiKey est lu ; article officiel AT consulté (help.africastalking.com/en/articles/1036048-why-am-i-getting-the-error-supplied-authentication-is-invalid).
+- DÉCOUVERTE RACINE : AT dispose d'une HÔTESSE SANDBOX distincte — le MÊME couple (username=sandbox + atsk…dd1d) répond HTTP 200 sur https://api.sandbox.africastalking.com/version1/user (balance CDF 89.24) et POST /version1/messaging → HTTP 201 « Success » (ATXid_c0fe…, Sent to 1/1). La clé ET l'username étaient corrects depuis le début : le code ne parlait qu'à api.africastalking.com (hôtesse live) qui rejette les identifiants sandbox en 401.
+- src/lib/sms.ts : hôtesse choisie d'après le username (« sandbox » ⇒ api.sandbox.africastalking.com, sinon api.africastalking.com) ; `enqueue: 'true'` → `'1'` (AT : « form field 'enqueue' was malformed: Expected a number » → 400 une fois l'auth passée) ; messages d'erreur 401 réécrits selon l'hôtesse appelée.
+- PlatformApiConfigSection.tsx : « Envoyer » conserve désormais la saisie quand rien n'est encore configuré (cause réelle de « l'API ne se sauvegarde jamais » : test en échec ⇒ jamais de save ; en plus le serveur étranger sur le port 3000 retournait 404 sur toutes les routes API avant) ; textes d'aide de la carte SMS réalignés sur le comportement réel (hôtesse auto, SENDER ID vide en sandbox, simulateur, clé via Settings → API Key) ; la note username hors « sandbox » n'oblige plus à « sandbox ».
+- Vérifications : tsc 0 erreur ; test end-to-end via l'app (POST /api/auth admin@edugest.app → POST /api/sms-config action=test) → HTTP 200 { ok: true, « SMS de test envoyé à +243835113424 » }.
+- Desktop : 1.4.7 figée depuis le 21/09 (pushes suivants republiaient v1.4.7 sans jamais signaler de MAJ à l'exé) → bump 1.4.8 (3b7f568), puis 1.4.9 pour inclure ce fix SMS.
+- Commits : b2b4006 (message 401 + textes + save première config), 3b7f568 (bump 1.4.8), + ce commit.
+
+Stage Summary:
+- Cause racine du 401 : Mauvaise hôtesse AT (live au lieu de sandbox) — credentials corrects. Le test SMS passe via l'app (HTTP 200) ; reste la confirmation de réception côté téléphone.
+- « Ne sauvegarde jamais » : deux causes réelles (serveur étranger sur port 3000 + save conditionnée au succès du test), toutes deux corrigées.

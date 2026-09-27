@@ -166,13 +166,22 @@ export async function sendSmsViaProvider(to: string, message: string, cfgOverrid
         username: atUsername,
         to: dest,
         message,
-        enqueue: 'true',
+        // AT exige un NOMBRE ici : « true » → HTTP 400 « enqueue was malformed ».
+        enqueue: '1',
       });
       const senderId = (cfg.africastalking.senderId || '').trim();
       // En sandbox, AUCUN sender ID custom n'est autorisé — on ne l'envoie
       // jamais (sinon la requête peut être refusée par AT).
       if (senderId && atUsername.toLowerCase() !== 'sandbox') params.set('from', senderId);
-      const res = await fetch('https://api.africastalking.com/version1/messaging', {
+      // AT dispose d'une HÔTESSE SANDBOX distincte : username « sandbox » +
+      // clé sandbox renvoient systématiquement 401 sur api.africastalking.com
+      // (hôtesse live) alors que les MÊMES identifiants répondent en 200/201 sur
+      // api.sandbox.africastalking.com. L'hôtesse est donc choisie d'après le
+      // username — vérifié en direct : 201 « Success » sur l'hôtesse sandbox.
+      const atHost = atUsername.toLowerCase() === 'sandbox'
+        ? 'https://api.sandbox.africastalking.com'
+        : 'https://api.africastalking.com';
+      const res = await fetch(`${atHost}/version1/messaging`, {
         method: 'POST',
         headers,
         body: params.toString(),
@@ -196,20 +205,15 @@ export async function sendSmsViaProvider(to: string, message: string, cfgOverrid
         const baseMsg = recipient?.status || json?.errorMessage || rawText || `HTTP ${res.status}`;
         // Code AT inclus (ex. « [401] … ») : accélère énormément le diagnostic à distance
         errMsg = recipient?.statusCode ? `[${recipient.statusCode}] ${baseMsg}` : baseMsg;
-        // HTTP 401 : AT refuse le couple (username + clé) — les causes possibles,
-        // classées d'après l'aide officielle AT, sont : clé Live utilisée avec
-        // username « sandbox » (Sandbox et Live ont DEUX clés distinctes), clé
-        // copiée depuis le mauvais dashboard, clé régénérée depuis < 5 min.
+        // HTTP 401 : l'hôtesse (choisie d'après le username) refuse le couple
+        // username + clé — soit une clé live avec username « sandbox », soit une
+        // clé sandbox avec un nom d'utilisateur d'application.
         if (!ok && res.status === 401) {
-          errMsg += ' — couple (nom d\u2019utilisateur + cl\u00e9) refus\u00e9 : les cl\u00e9s Sandbox et Live sont distinctes \u2014 Sandbox \u21d2 username \u00ab sandbox \u00bb + cl\u00e9 g\u00e9n\u00e9r\u00e9e dans le dashboard Sandbox ; Live \u21d2 nom d\u2019utilisateur d\u2019application (dashboard) + cl\u00e9 de Settings \u2192 API Key';
-        }
-        // Piste évidente : en sandbox, l'username DOIT être « sandbox » —
-        // sinon l'authentification échoue même avec une clé valide.
-        else if (!ok && /auth/i.test(errMsg) && atUsername.toLowerCase() !== 'sandbox') {
-          errMsg += ' — en mode sandbox, le nom d\u2019utilisateur doit \u00eatre exactement \u00ab sandbox \u00bb';
+          errMsg += atUsername.toLowerCase() === 'sandbox'
+            ? ' — identifiants refus\u00e9s par l\u2019h\u00f4tesse sandbox d\u2019AT : recopiez la cl\u00e9 exactement (Settings \u2192 API Key) ou r\u00e9g\u00e9n\u00e9rez-la puis patientez ~5 min'
+            : ' — identifiants refus\u00e9s par l\u2019h\u00f4tesse live d\u2019AT : si votre compte est en sandbox, mettez username \u00ab sandbox \u00bb (l\u2019h\u00f4tesse sandbox sera alors utilis\u00e9e automatiquement) ; sinon v\u00e9rifiez votre nom d\u2019utilisateur d\u2019application + cl\u00e9';
         } else if (!ok && /auth/i.test(errMsg)) {
-          // Username correct mais refus : la clé est invalide ou régénérée
-          errMsg += ' — votre cl\u00e9 API semble invalide : copiez-collez-la exactement depuis africastalking.com (Settings \u2192 API Key) ou r\u00e9g\u00e9n\u00e9rez-la';
+          errMsg += ' — v\u00e9rifiez le couple username + cl\u00e9 (Settings \u2192 API Key)';
         }
       }
     } else if (cfg.provider === 'vonage') {

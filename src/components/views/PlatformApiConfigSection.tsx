@@ -504,16 +504,13 @@ function SmsConfigCard() {
           />
           {form.provider === 'africastalking' && (
             <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
-              Deux combinaisons possibles, avec{' '}
-              <span className="font-semibold">deux clés distinctes</span> (l&apos;aide AT) :{' '}
-              <span className="font-bold">Sandbox</span> → username{' '}
-              <span className="font-mono font-bold">sandbox</span> (déjà rempli ci-dessous) + clé générée
-              dans le <span className="font-semibold">dashboard Sandbox</span>, SENDER ID{' '}
-              <span className="font-semibold">vide</span>, numéro ajouté au simulateur
-              (africastalking.com → Sandbox → SMS Simulator) ;{' '}
-              <span className="font-bold">Live</span> → votre nom d&apos;utilisateur d&apos;application
-              (visible sur le dashboard AT, ce n&apos;est PAS le nom de l&apos;application) + clé de
-              Settings → API Key.
+              Deux environnements Africa&apos;s Talking — l&apos;hôtesse est choisie automatiquement
+              d&apos;après le username : <span className="font-mono font-bold">sandbox</span> (déjà
+              rempli ci-dessous) → envoi via l&apos;hôtesse sandbox d&apos;AT, SENDER ID{' '}
+              <span className="font-semibold">vide</span>, numéro à ajouter au simulateur
+              (africastalking.com → Sandbox → SMS Simulator) ; sinon username = nom
+              d&apos;utilisateur d&apos;application (dashboard AT) → hôtesse live, crédits requis.
+              Clé : Settings → API Key.
             </p>
           )}
         </div>
@@ -545,9 +542,9 @@ function SmsConfigCard() {
               {form.provider === 'africastalking' && f.key === 'username' &&
                 (form.fields.africastalking.username || '').trim().toLowerCase() !== 'sandbox' && (
                   <p className="mt-1 text-[11px] font-semibold" style={{ color: 'oklch(55% 0.16 55)' }}>
-                    ℹ️ Username hors « sandbox » : valide uniquement avec une clé générée
-                    dans le dashboard <span className="font-bold">Live</span> — une clé Sandbox
-                    exige «&nbsp;sandbox&nbsp;» exactement, sinon AT renvoie 401.
+                    ℹ️ Username hors « sandbox » → envoi via l&apos;hôtesse <span className="font-bold">live</span>{" "}
+                    d&apos;AT (compte réel, crédits requis). « sandbox » = hôtesse sandbox,
+                    utilisée automatiquement.
                   </p>
               )}
             </div>
