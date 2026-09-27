@@ -3632,11 +3632,12 @@ function ImportDbModal({ onClose }: { onClose: () => void }) {
 function DashboardLayout() {
   const [sidebarVisible, setSidebarVisible] = useState(true)
   // Popup d'import : affichée une fois, juste après la connexion d'un admin
-  // d'école (les identifiants ont été validés par l'API d'authentification).
+  // d'école (les identifiants ont été validés par l'API d'authenthentication).
   // Lazy init : consomme le flag posé à la connexion (client uniquement —
   // ce composant n'est rendu qu'après login, donc pas de risque d'hydratation).
+  // RÉSERVÉ À L'APPLICATION DESKTOP (exe) — jamais dans la version web.
   const [showImportDb, setShowImportDb] = useState(() => {
-    if (typeof window === 'undefined') return false
+    if (typeof window === 'undefined' || !isDesktopApp()) return false
     try {
       if (sessionStorage.getItem('edugest_show_import_db') === '1') {
         sessionStorage.removeItem('edugest_show_import_db')
@@ -3646,8 +3647,9 @@ function DashboardLayout() {
     return false
   })
   // Import d'autres bases de données à tout moment : les vues (ex. Paramètres)
-  // ouvrent ce modal via l'événement global 'edugest:open-import-db'.
+  // ouvrent ce modal via l'événement global 'edugest:open-import-db' (desktop uniquement).
   useEffect(() => {
+    if (!isDesktopApp()) return
     const openImportDb = () => setShowImportDb(true)
     window.addEventListener('edugest:open-import-db', openImportDb)
     return () => window.removeEventListener('edugest:open-import-db', openImportDb)

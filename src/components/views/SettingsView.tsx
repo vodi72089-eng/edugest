@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
+import { useEduGestStore, authFetch, getActiveSchoolId, isDesktopApp } from '@/lib/store'
 import type { SchoolData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
@@ -365,10 +365,10 @@ function SettingsViewInner() {
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Paramètres de l&apos;école</h1>
       </div>
 
-      {/* Base de données : import / ré-import réservé aux administrateurs d'école.
-          Ouvre le même modal que celui affiché après la connexion, via l'événement
-          global 'edugest:open-import-db' (écouté par DashboardLayout). */}
-      {userRole === 'SCHOOL_ADMIN' && (
+      {/* Base de données : import / ré-import réservé à l'application desktop
+          (exe) — jamais dans la version web. Ouvre le même modal que celui affiché
+          après la connexion, via l'événement global 'edugest:open-import-db'. */}
+      {userRole === 'SCHOOL_ADMIN' && isDesktopApp() && (
         <div
           className="rounded-2xl p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between border"
           style={{ borderColor: 'rgba(245,166,35,0.35)', background: 'linear-gradient(135deg, rgba(245,166,35,0.08), rgba(245,166,35,0.02))' }}
