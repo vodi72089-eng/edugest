@@ -2615,3 +2615,16 @@ Work Log:
 
 Stage Summary:
 - Clic sur un élève dans Discipline → fiche complète (identité, contact parent, indicateurs, historique disciplinaire, convocations) avec actions Sanctionner/Convocation préremplies, prouvée en navigateur et en API sans régression tsc/eslint ; CI et release 1.4.12 toujours bloquées par la faute de type de l'autre session (src/lib/report-pdf.ts, correctif non commité chez elle).
+
+
+Task: Import DB (web) — bouton « Ouvrir l'application desktop » (deep link edugest://) dans le modal « Application desktop requise ».
+
+Work Log:
+- Demande utilisateur : « je veux que ça me dise d'aller si je veux directement dans l'exe si j'ai l'app » (capture : modal Application desktop requise, bouton unique « Télécharger l'application desktop »).
+- La fonctionnalité était déjà codée dans l'arbre de travail (session parallèle, non commitée) : openDesktopApp() → window.location.href = 'edugest://import-db' (protocole enregistré par desktop/main.js via app.setAsDefaultProtocolClient), détection d'acceptation par perte de focus (blur) avec repli « Rien ne s'est ouvert ? L'application n'est peut-être pas encore installée — téléchargez-la ci-dessous. » après 2,5 s ; texte « Vous l'avez déjà ? Ouvrez-la directement (bouton ci-dessous) » ; côté desktop, bridge __edugest.deepLink (Home) + flag sessionStorage 'edugest:pending-import-db' (DashboardLayout) pour ouvrir l'import après connexion.
+- Vérification E2E navigateur (serveur dev 3001, compte Directeur Lumière, UA Electron neutralisée pour simuler un navigateur web) : modal → bouton « Ouvrir l'application desktop » → deep link tenté → pas d'appareil enregistré sur la machine de test → message de secours affiché correctement ; boutons « Télécharger l'application desktop » et « Plus tard » présents.
+- Commit partiel (0aaa0bf) : seuls les 4 hunks de cette fonctionnalité de src/app/page.tsx ont été indexés (git apply --cached hunk par hunk) ; les hunks WhatsApp de la session parallèle (console.log de debug, canManageAgent) restent dans l'arbre de travail, non commités.
+- Poussé sur main (f577591..0aaa0bf). CI toujours bloquée par la faute de type report-pdf.ts de l'autre session (correctif non commité).
+
+Stage Summary:
+- Le modal web propose désormais « Ouvrir l'application desktop » (deep link edugest://import-db) avec repli vers le téléchargement si l'exe n'est pas installée — prouvé en navigateur ; en attente du rebuild de l'app de production (port 3000) pour être visible côté utilisateur.
