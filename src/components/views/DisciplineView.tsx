@@ -175,12 +175,28 @@ export default function DisciplineView() {
 
   // Compteurs par liste : parent = nombre de SES enfants ; compte discipline =
   // nombre d'élèves du périmètre. Badges affichés sur les onglets.
+  // Les badges reflètent les FILTRES actifs (classe + gravité) : un élève n'est
+  // compté dans une liste que si au moins un de ses enregistrements correspond
+  // aux filtres ; sinon il retombe en Liste Blanche (cohérent avec le tableau).
   const listCounts = useMemo(() => {
     const counts = { BLACKLIST: 0, GREYLIST: 0, WHITELIST: 0 }
     const roster = isParent ? myChildren : sectionStudents
-    for (const s of roster) counts[studentListMap[s.id] || 'WHITELIST']++
+    const source = isParent ? allDisciplineRecords : allSchoolRecords
+    const classOf = (id: string) => roster.find(s => s.id === id)?.class?.name
+    const inScope = classFilter ? roster.filter(s => s.class?.name === classFilter) : roster
+    const map: Record<string, 'BLACKLIST' | 'GREYLIST' | 'WHITELIST'> = {}
+    for (const s of inScope) map[s.id] = 'WHITELIST'
+    for (const r of source) {
+      if (!(r.studentId in map)) continue
+      if (classFilter && classOf(r.studentId) !== classFilter) continue
+      if (severityFilter && r.severity !== severityFilter) continue
+      if ((LIST_RANK[r.listType] || 0) > LIST_RANK[map[r.studentId]]) {
+        map[r.studentId] = r.listType as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST'
+      }
+    }
+    for (const s of inScope) counts[map[s.id] || 'WHITELIST']++
     return counts
-  }, [isParent, myChildren, sectionStudents, studentListMap])
+  }, [isParent, myChildren, sectionStudents, allDisciplineRecords, allSchoolRecords, classFilter, severityFilter])
 
   // Options de classes pour le filtre (issues du périmètre courant).
   const classOptions = useMemo(() => {

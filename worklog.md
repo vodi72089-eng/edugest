@@ -2628,3 +2628,16 @@ Work Log:
 
 Stage Summary:
 - Le modal web propose désormais « Ouvrir l'application desktop » (deep link edugest://import-db) avec repli vers le téléchargement si l'exe n'est pas installée — prouvé en navigateur ; en attente du rebuild de l'app de production (port 3000) pour être visible côté utilisateur.
+
+
+Task: Discipline — les compteurs par liste (badges des onglets) reflètent les filtres actifs (classe + gravité).
+
+Work Log:
+- Demande utilisateur : « je veux que quand je sélectionne une classe ou les autres filtres que ça puisse montrer les vrais stat selon le filtre choisi » (capture : Discipline, filtre 6eA actif, badges Liste Noire 2 / Grise 3 / Blanche 15 inchangés alors que le tableau n'affiche que 2 lignes de 6eA).
+- Cause : listCounts (DisciplineView.tsx) calculait la classification élève depuis studentListMap, construit sur TOUS les enregistrements, sans tenir compte de classFilter ni severityFilter.
+- Correctif : listCounts reconstruit la classification par élève à partir des enregistrements filtrés (classe de l'élève + gravité de l'enregistrement) et ne compte que les élèves du périmètre filtré. Un élève sans enregistrement correspondant aux filtres retombe en Liste Blanche — cohérent avec le tableau filtré. studentListMap inchangé (utilisé pour le basculement d'onglet parent).
+- E2E navigateur (dev 3001, Directeur Lumière) : sans filtre → Noire 2 / Grise 3 / Blanche 15 (3 lignes) ; filtre 6eA → Noire 0 / Grise 2 / Blanche 1 (2 lignes TK, KM) ; 6eA + gravité Moyen → Noire 0 / Grise 1 / Blanche 2 (1 ligne TK) ; « Réinitialiser les filtres » → retour aux compteurs globaux.
+- tsc --noEmit : 0 erreur sur src ; eslint : aucune nouvelle erreur (celle de la ligne 237 est préexistante, session parallèle).
+
+Stage Summary:
+- Les badges Liste Noire / Grise / Blanche affichent désormais les statistiques réelles selon les filtres de classe et de gravité choisis — prouvé en navigateur (4 scénarios) ; en attente du rebuild de l'app de production (port 3000) pour être visible côté utilisateur.
