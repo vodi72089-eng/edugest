@@ -3701,6 +3701,22 @@ function ImportDbModal({ onClose }: { onClose: () => void }) {
 function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
   const [exeUrl, setExeUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [openFailed, setOpenFailed] = useState(false)
+
+  // Ouvre l'application déjà installée via le protocole edugest:// (enregistré
+  // par main.js au démarrage). Impossible de détecter une installation locale
+  // depuis le web : si le lien est accepté, la fenêtre perd le focus — sinon
+  // on invite à télécharger (« Rien ne s'est ouvert ? »).
+  function openDesktopApp() {
+    let accepted = false
+    const onBlur = () => { accepted = true }
+    window.addEventListener('blur', onBlur, { once: true })
+    window.location.href = 'edugest://import-db'
+    window.setTimeout(() => {
+      window.removeEventListener('blur', onBlur)
+      if (!accepted) setOpenFailed(true)
+    }, 2500)
+  }
 
   // Résout l'URL exacte de l'exe portable via latest.yml (publié par
   // electron-builder à chaque release) — comme dans desktop/main.js.
@@ -3740,10 +3756,26 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
           <p className="text-[13px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
             L&apos;importation de base de données (<strong>.db</strong> : élèves, classes, matières,
             notes et professeurs) est disponible <strong>uniquement dans l&apos;application desktop
-            EduGest</strong> (Windows). Téléchargez-la, ouvrez-la, puis importez votre fichier —
-            vos données deviendront directement la base de votre école.
+            EduGest</strong> (Windows).
+            <strong> Vous l&apos;avez déjà ? Ouvrez-la directement</strong> (bouton ci-dessous) —
+            sinon téléchargez-la, ouvrez-la, puis importez votre fichier : vos données deviendront
+            directement la base de votre école.
           </p>
-          <div className="mt-4">
+          <div className="mt-4 space-y-2">
+            <button
+              onClick={openDesktopApp}
+              className="edu-gold-cta w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-semibold text-white transition"
+              style={{ background: GOLD }}
+            >
+              <MonitorSmartphone size={14} aria-hidden="true" />
+              Ouvrir l&apos;application desktop
+            </button>
+            {openFailed && (
+              <p className="text-[12px] text-center" style={{ color: DANGER }}>
+                Rien ne s&apos;est ouvert ? L&apos;application n&apos;est peut-être pas encore
+                installée — téléchargez-la ci-dessous.
+              </p>
+            )}
             {loading ? (
               <div className="py-2 text-[12.5px] text-center" style={{ color: TEXT_MUTED_LUXE }}>
                 Recherche de la dernière version…
@@ -3753,8 +3785,8 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
                 href={exeUrl || 'https://github.com/vodi72089-eng/edugest/releases/latest'}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="edu-gold-cta block text-center py-2.5 rounded-xl text-[13px] font-semibold text-white transition"
-                style={{ background: GOLD }}
+                className="block text-center py-2.5 rounded-xl text-[13px] font-semibold border transition hover:bg-gray-50"
+                style={{ borderColor: BORDER, color: TEXT_PRIMARY }}
               >
                 <Download size={14} className="inline mr-1.5 -mt-0.5" aria-hidden="true" />
                 Télécharger l&apos;application desktop
@@ -3762,7 +3794,7 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
             )}
             <button
               onClick={onClose}
-              className="w-full mt-2 py-2.5 rounded-xl text-[13px] font-semibold border transition hover:bg-gray-50"
+              className="w-full py-2.5 rounded-xl text-[13px] font-semibold border transition hover:bg-gray-50"
               style={{ borderColor: BORDER, color: TEXT_MUTED_LUXE }}
             >
               Plus tard
@@ -3809,10 +3841,17 @@ function DashboardLayout() {
   // — modal d'import dans l'exe, modal « desktop requis » en web.
   useEffect(() => {
     const openImportDb = () => {
+      // Deep link consommé : ne pas ré-ouvrir l'import au prochain montage.
+      try { sessionStorage.removeItem('edugest:pending-import-db') } catch {}
       if (isDesktopApp()) setShowImportDb(true)
       else setShowDesktopOnly(true)
     }
     window.addEventListener('edugest:open-import-db', openImportDb)
+    // Deep link reçu pendant l'écran de connexion (bureau non monté) :
+    // ouvert dès ce montage, via un tick (hors corps d'effet synchrone).
+    if (sessionStorage.getItem('edugest:pending-import-db') === '1') {
+      setTimeout(openImportDb, 0)
+    }
     return () => window.removeEventListener('edugest:open-import-db', openImportDb)
   }, [])
   return (
@@ -9411,6 +9450,23 @@ export default function Home() {
   useEffect(() => {
     if (userRole) startRealtimeSync()
   }, [userRole])
+
+  // Deep link edugest:// reçu par l'app desktop (protocole enregistré par
+  // main.js) : ouvre l'import — ou le mémorise si le bureau n'est pas encore
+  // monté (écran de connexion), DashboardLayout l'ouvre à son montage.
+  // Sans effet sur le web (pas de bridge __edugest.deepLink).
+  useEffect(() => {
+    const bridge = (window as any).__edugest?.deepLink
+    if (!bridge) return
+    const handle = (route: unknown) => {
+      if (route !== 'import-db') return
+      try { sessionStorage.setItem('edugest:pending-import-db', '1') } catch {}
+      window.dispatchEvent(new Event('edugest:open-import-db'))
+    }
+    try { bridge.consume?.()?.then?.(handle)?.catch?.(() => {}) } catch {}
+    const off = bridge.onRoute?.(handle)
+    return () => { try { off?.() } catch {} }
+  }, [])
 
   // Restore session from localStorage before first paint (avoids hydration
   // mismatch + évite tout flash de la landing dans l'app desktop qui démarre
