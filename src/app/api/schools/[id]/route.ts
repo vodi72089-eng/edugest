@@ -45,6 +45,15 @@ export async function GET(
           orderBy: { createdAt: 'desc' },
           take: 10,
         },
+        // Galerie publique + événements visibles sur la page vitrine de
+        // l'école (SchoolDetailView) : uniquement les événements « Tout le
+        // monde » (audience=ALL) — PERSONNEL/PARENTS restent internes.
+        schoolPhotos: { orderBy: { createdAt: 'desc' } },
+        events: {
+          where: { audience: 'ALL', startAt: { gte: new Date() } },
+          orderBy: { startAt: 'asc' },
+          take: 20,
+        },
         _count: {
           select: { students: true, classes: true, users: true },
         },

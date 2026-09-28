@@ -2748,7 +2748,14 @@ HEAD_TEACHER: [
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ]
     if (userRole === 'SCHOOL_ADMIN') {
-      menuItems.push({ icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType })
+      // L'admin créateur garde accès aux Paramètres (onglet Photos : 1 photo
+      // en FREEMIUM) et aux Événements (visibles sur la page publique de
+      // l'école dès la création) — les deux fonctionnalités publiques du forfait.
+      menuItems.push(
+        { icon: <Calendar size={16} />, label: 'Événements', view: 'events' as ViewType },
+        { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
+        { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
+      )
     }
   } else if (directionRoles.includes(userRole as UserRole)) {
     // Menu direction : « Paramètres » retiré — une direction ne gère pas les

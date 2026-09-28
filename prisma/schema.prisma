@@ -58,6 +58,7 @@ model School {
   schoolFees        SchoolFee[]
   notifications     Notification[]
   subscriptionRequests SubscriptionRequest[]
+  schoolPhotos      SchoolPhoto[]
   whatsappCustomEnabled Boolean   @default(false)
   whatsappApiType       String    @default("META_CLOUD")
   whatsappMetaToken     String?
@@ -970,6 +971,19 @@ model SchoolEvent {
   updatedAt   DateTime  @updatedAt
 
   @@index([schoolId, startAt])
+}
+
+/// Galerie photos publique de l'école (page vitrine). Limite par forfait
+/// (getTierLimits().maxPhotos) appliquée côté serveur à l'ajout.
+model SchoolPhoto {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  url       String
+  caption   String?
+  createdAt DateTime @default(now())
+
+  @@index([schoolId, createdAt])
 }
 
 // ─── Tokens de réinitialisation de mot de passe ───

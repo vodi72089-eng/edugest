@@ -9,6 +9,18 @@ export interface SchoolData {
   maxStudents: number; schoolType: string; schoolCategory: string;
   averageRating: number; totalReviews: number; studentCount: number; classCount: number;
   isActive: boolean; _count?: { students: number; classes: number; users: number };
+  // Page vitrine (SchoolDetailView) : galerie publique + événements visibles.
+  schoolPhotos?: SchoolPhotoData[];
+  events?: SchoolEventData[];
+}
+
+export interface SchoolPhotoData {
+  id: string; url: string; caption?: string | null; createdAt: string;
+}
+
+export interface SchoolEventData {
+  id: string; title: string; description?: string | null; category: string;
+  startAt: string; endAt?: string | null; location?: string | null; audience: string;
 }
 
 export interface StudentData {

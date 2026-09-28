@@ -112,6 +112,7 @@ export interface TierLimits {
   reportCardsToParents: boolean; // notes & bulletins visibles côté parents
   medicalAccess: boolean;       // réservé à partir de Professionnel
   canUseCustomWhatsappApi: boolean; // API WhatsApp perso (BYO) — Professionnel+
+  maxPhotos: number;            // Galerie photo publique (Corporate = illimité)
 }
 
 export function getTierLimits(tier: string): TierLimits {
@@ -126,6 +127,7 @@ export function getTierLimits(tier: string): TierLimits {
       reportCardsToParents: false,
       medicalAccess: false,
       canUseCustomWhatsappApi: false,
+      maxPhotos: 1,
     },
     ESSENTIEL: {
       maxStudents: 250,
@@ -137,6 +139,7 @@ export function getTierLimits(tier: string): TierLimits {
       reportCardsToParents: false,
       medicalAccess: false,
       canUseCustomWhatsappApi: false,
+      maxPhotos: 5,
     },
     STANDARD: {
       maxStudents: 1000,
@@ -148,6 +151,7 @@ export function getTierLimits(tier: string): TierLimits {
       reportCardsToParents: true,
       medicalAccess: false,
       canUseCustomWhatsappApi: false,
+      maxPhotos: 10,
     },
     PREMIUM: {
       maxStudents: 2500,
@@ -159,6 +163,7 @@ export function getTierLimits(tier: string): TierLimits {
       reportCardsToParents: true,
       medicalAccess: true,
       canUseCustomWhatsappApi: true,
+      maxPhotos: 25,
     },
     ENTERPRISE: {
       maxStudents: 99999,
@@ -170,6 +175,7 @@ export function getTierLimits(tier: string): TierLimits {
       reportCardsToParents: true,
       medicalAccess: true,
       canUseCustomWhatsappApi: true,
+      maxPhotos: 40,
     },
     CORPORATE: {
       maxStudents: 999999,
@@ -181,6 +187,7 @@ export function getTierLimits(tier: string): TierLimits {
       reportCardsToParents: true,
       medicalAccess: true,
       canUseCustomWhatsappApi: true,
+      maxPhotos: 999999,
     },
   };
   return limits[tier] || limits.FREEMIUM;
