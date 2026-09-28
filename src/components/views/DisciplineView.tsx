@@ -9,6 +9,7 @@ import StudentAvatar from '@/components/ui/StudentAvatar'
 import { Shield, Megaphone, Ban, AlertTriangle, Award, Send, Check, X, Edit, Brain } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete from './SearchAutocomplete'
+import StudentProfileModal from './StudentProfileModal'
 import AppSelect from '@/components/ui/AppSelect'
 import { useFeatureAccess } from '@/hooks/useFeatureAccess'
 import { useRouter } from 'next/navigation'
@@ -74,6 +75,8 @@ export default function DisciplineView() {
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [selectedStudentSearchId, setSelectedStudentSearchId] = useState<string | null>(null)
+  // Fiche détaillée ouverte par clic sur un élève (tableau / lignes).
+  const [profileStudentId, setProfileStudentId] = useState<string | null>(null)
   const [showSanctionForm, setShowSanctionForm] = useState(false)
   const [showConvocationForm, setShowConvocationForm] = useState(false)
   const [sanctionType, setSanctionType] = useState('RETARD')
@@ -831,17 +834,33 @@ export default function DisciplineView() {
               ) : displayRecords.length === 0 ? (
                 <tr><td colSpan={6} className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Aucun enregistrement</td></tr>
               ) : displayRecords.map(r => (
-                <tr ref={highlightedId === r.id ? highlightedRef : undefined} key={r.id} className={`hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0 ${highlightedId === r.id ? 'edu-highlight' : ''}`}>
+                <tr
+                  ref={highlightedId === r.id ? highlightedRef : undefined}
+                  key={r.id}
+                  onClick={(e) => {
+                    // Clic sur la ligne → fiche élève. On ignore les éléments
+                    // interactifs (boutons d'édition/classification, champs).
+                    const target = e.target as HTMLElement
+                    if (target.closest('button, input, select, textarea, a')) return
+                    if (r.studentId) setProfileStudentId(r.studentId)
+                  }}
+                  className={`hover:bg-[oklch(97%_0.005_175)] transition border-b border-[oklch(90%_0.01_175)] last:border-0 cursor-pointer ${highlightedId === r.id ? 'edu-highlight' : ''}`}
+                >
                   {(!isParent || !selectedChildId) && (
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setProfileStudentId(r.studentId)}
+                        title="Voir la fiche de l'élève"
+                        className="w-full flex items-center gap-2.5 text-left group"
+                      >
                         {r.student ? (
                           <StudentAvatar firstName={r.student.firstName} lastName={r.student.lastName} photoUrl={r.student.photoUrl} size={32} className="text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
                         ) : (
                           <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>??</div>
                         )}
                         <div>
-                          <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{r.student ? `${r.student.firstName} ${r.student.lastName}` : '—'}</div>
+                          <div className="text-[13px] font-medium group-hover:underline underline-offset-2" style={{ color: TEXT_PRIMARY }}>{r.student ? `${r.student.firstName} ${r.student.lastName}` : '—'}</div>
                           <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
                             {(() => {
                               const cls = r.student?.class?.name || (isParent ? myChildren : sectionStudents).find(s => s.id === r.studentId)?.class?.name || ''
@@ -850,7 +869,7 @@ export default function DisciplineView() {
                             })()}
                           </div>
                         </div>
-                      </div>
+                      </button>
                     </td>
                   )}
                   <td className="px-4 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{r.title}</td>
@@ -902,6 +921,32 @@ export default function DisciplineView() {
           </table>
         </div>
       </div>
+
+      {/* ── Fiche élève : ouverte par clic sur une ligne du tableau ────── */}
+      {profileStudentId && (
+        <StudentProfileModal
+          key={profileStudentId}
+          studentId={profileStudentId}
+          onClose={() => setProfileStudentId(null)}
+          canAct={isDisciplineRole}
+          onSanction={(id) => {
+            setProfileStudentId(null)
+            setSelectedStudentSearchId(id)
+            setSelectedStudentId(id)
+            setShowConvocationForm(false)
+            setShowSanctionForm(true)
+          }}
+          onConvocation={(id) => {
+            setProfileStudentId(null)
+            setSelectedStudentSearchId(id)
+            setSelectedStudentId(id)
+            setShowSanctionForm(false)
+            setConvocationMotif('')
+            setConvocationDate('')
+            setShowConvocationForm(true)
+          }}
+        />
+      )}
     </div>
   )
 }

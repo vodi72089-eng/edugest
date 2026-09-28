@@ -2597,3 +2597,21 @@ Work Log:
 
 Stage Summary:
 - Durée de vie QR personnalisable au détail de la minute (ex. 3 min) de bout en bout (UI + API + approbation secrétaire), message d'erreur réseau explicite avec instruction de rechargement, Discipline affiche la classe à côté de chaque élève (tableau, suggestions, convocations, formulaires), unicité par école prouvée sans code (token 192 bits + schoolId serveur). IMPORTANT : l'app de production tourne désormais sur le port 3000 (3100 est mort) — rebuild nécessaire pour que le correctif soit actif côté utilisateur.
+
+
+Task: Discipline — clic sur un élève → fiche détaillée (identité, contact parent, historique disciplinaire).
+
+Work Log:
+- Demande utilisateur : « je veux que quand je clique sur un élève je puisse avoir des informations sur lui » (écran Discipline, capture Listes Noire/Grise/Blanche).
+- Nouveau composant src/components/views/StudentProfileModal.tsx : fiche ouverte par clic sur une ligne/cellule élève — en-tête (photo, nom, matricule, classe + section, badge de liste, mention « Exclu »), 4 indicateurs (points, incidents, dernier incident, statut), bloc Identité (sexe, naissance + âge, classe, année scolaire, école, téléphone, adresse si présente), bloc Parent / tuteur (nom, téléphone, email — état vide explicite), Historique disciplinaire complet (motif, type, date, statut, gravité, points, description, liste) et section Convocations facultative (masquée silencieusement si la feature n'est pas dans le forfait).
+- Une seule requête : GET /api/students/:id renvoie déjà l'élève + disciplineRecords (+ class, parent, school, schoolYear) ; permission students:read déjà détenue par DISCIPLINE_*, DIRECTION et PARENT — aucun nouveau point d'API.
+- DisciplineView : ligne du tableau cliquable (garde sur éléments interactifs — boutons de modification/classification et champs — pour ne pas voler leur clic), cellule Élève transformée en bouton « Voir la fiche de l'élève » (soulignement au survol), modale montée avec key={studentId} : chaque nouvel élève crée un composant neuf, donc zéro setState synchrone dans l'effet (règle react-hooks/set-state-in-effect respectée).
+- Actions rapides depuis la fiche (rôles discipline uniquement) : « Sanctionner » et « Convocation » ferment la modale et ouvrent le formulaire correspondant avec l'élève déjà présélectionné.
+- tsc --noEmit : 0 erreur sur src (seul tests/comprehensive-audit.spec.ts prédéfini, hors scope) ; eslint sur les 2 fichiers : 0 nouvelle erreur — l'unique signalement de DisciplineView.tsx (ligne 221, set-state-in-effect) est antérieur et reste donc dans la baseline CI 109.
+- E2E API (serveur dev 3001, arbre courant) : 20 fiches élèves lues avec identité + parent + disciplineRecords systématiquement présents (7 incidents au total), élève sans incident géré (Liste Blanche), convocations par élève → 200.
+- E2E navigateur (vue Discipline, compte Discipline Primaire, Complexe Scolaire Lumière) : clic « Lukaku Mputu » → fiche « CSL-2025-009 · Classe 4eA — Secondaire », badge Liste Grise, POINTS -1 / INCIDENTS 1 / DERNIER 22 sept. 2026 / STATUT Actif, naissance 07/09/2010 · 16 ans, parent Maman Nsimba +243810000022, historique « Retard occasionnel » (Retard · 22 sept. 2026 · Confirmé · Faible · -1 · description · Liste Grise) ; fermeture par Échap OK ; action « Convocation » → modale fermée + « Convocation des parents — Lukaku Mputu » ouverte avec élève présélectionné ; onglet Liste Blanche (15 lignes) → clic « Amani Baketu » → « Aucun incident enregistré — élève en Liste Blanche » (0 incident, badge Liste Blanche) ; aucune erreur console liée à la fiche (seul /api/sync/pulse 500 préexistant, hors périmètre).
+- Nettoyage : session E2E mintée supprimée ; serveur dev 3001 relancé pour l'arbre courant.
+- Pas de bump desktop : livraison web, la 1.4.12 reste en attente d'un CI vert.
+
+Stage Summary:
+- Clic sur un élève dans Discipline → fiche complète (identité, contact parent, indicateurs, historique disciplinaire, convocations) avec actions Sanctionner/Convocation préremplies, prouvée en navigateur et en API sans régression tsc/eslint ; CI et release 1.4.12 toujours bloquées par la faute de type de l'autre session (src/lib/report-pdf.ts, correctif non commité chez elle).
