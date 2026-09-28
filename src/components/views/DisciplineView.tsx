@@ -295,11 +295,17 @@ export default function DisciplineView() {
 
     let base = records
     if (tab === 'WHITELIST') {
-      // Liste Blanche = élèves sans AUCUN enregistrement (« Aucune infraction »)
-      // + les records positifs (Excellence, Mérite…). La détection se fait sur
-      // TOUTES les listes : un enfant sanctionné en Liste Grise/Noire ne doit
-      // JAMAIS ressortir en Liste Blanche.
-      const studentIdsWithRecords = new Set(allRecords.map(r => r.studentId))
+      // Liste Blanche = élèves sans incident VISIBLE (« Aucune infraction »)
+      // + les records positifs (Excellence, Mérite…). « Sans incident » tient
+      // compte des filtres actifs : un élève dont tous les incidents sont
+      // d'une autre gravité (ou d'une autre classe) est « sans incident » ici.
+      const classOf = (id: string) => roster.find(s => s.id === id)?.class?.name
+      const matchesFilters = (r: DisciplineData) => {
+        if (classFilter && classOf(r.studentId) !== classFilter) return false
+        if (severityFilter && r.severity !== severityFilter) return false
+        return true
+      }
+      const studentIdsWithRecords = new Set(allRecords.filter(matchesFilters).map(r => r.studentId))
       const candidates = selectedId ? roster.filter(s => s.id === selectedId) : roster
       const cleanRecords = candidates
         .filter(s => !studentIdsWithRecords.has(s.id))
@@ -325,7 +331,10 @@ export default function DisciplineView() {
     if (classFilter) {
       out = out.filter(r => (r.student?.class?.name || roster.find(s => s.id === r.studentId)?.class?.name) === classFilter)
     }
-    if (severityFilter) out = out.filter(r => r.severity === severityFilter)
+    // Les lignes synthétiques « Aucune infraction » (type CLEAN) matérialisent
+    // l'absence d'incident : la gravité ne peut pas les écarter (sinon la
+    // Liste Blanche serait vide dès qu'un filtre de gravité est actif).
+    if (severityFilter) out = out.filter(r => r.type === 'CLEAN' || r.severity === severityFilter)
     if (dateSort === 'asc') {
       out = [...out].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
     }

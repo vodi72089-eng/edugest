@@ -2641,3 +2641,16 @@ Work Log:
 
 Stage Summary:
 - Les badges Liste Noire / Grise / Blanche affichent désormais les statistiques réelles selon les filtres de classe et de gravité choisis — prouvé en navigateur (4 scénarios) ; en attente du rebuild de l'app de production (port 3000) pour être visible côté utilisateur.
+
+
+Task: Discipline — Liste Blanche vide quand un filtre de gravité est actif (badge 18 mais « Aucun enregistrement »).
+
+Work Log:
+- Demande utilisateur : « ARRANGE ça » (capture : Discipline, filtre « Grave » actif, Liste Blanche badge 18 mais tableau vide).
+- Cause : les lignes synthétiques « Aucune infraction » ont severity 'NONE' → le filtre de gravité (r.severity === severityFilter) les écartait toutes. De plus, la détection des élèves « sans incident » ignorait les filtres (un élève avec seulement des incidents d'une autre gravité n'avait pas sa ligne).
+- Correctif (DisciplineView.tsx, displayRecords) : (1) studentIdsWithRecords ne retient que les enregistrements correspondant aux filtres actifs (classe + gravité) — un élève dont tous les incidents sont hors filtre devient « sans incident » ; (2) le filtre de gravité épargne les lignes synthétiques (type CLEAN) qui matérialisent l'absence d'incident.
+- E2E navigateur (dev 3001, Directeur Lumière) : filtre « Grave » → Liste Blanche 18 lignes « Aucune infraction » (avant : vide) ; Liste Noire 2 lignes (les 2 élèves noirs ont bien un incident Grave) ; Liste Grise vide (correct : aucun incident Grave en grise) ; reset → Noire 2 / Grise 3 / Blanche 15.
+- tsc --noEmit : 0 erreur sur src ; eslint : aucune nouvelle erreur.
+
+Stage Summary:
+- La Liste Blanche affiche désormais les lignes « Aucune infraction » cohérentes avec les filtres de classe et de gravité — prouvé en navigateur ; en attente du rebuild de l'app de production (port 3000) pour être visible côté utilisateur.
