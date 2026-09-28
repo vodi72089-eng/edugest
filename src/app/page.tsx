@@ -3024,7 +3024,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     }
   }, [])
 
-  const adminRoles = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'SECRETARY']
+  const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'SECRETARY']
   const showPendingComms = adminRoles.includes(userRole || '')
 
   const totalUnread = unreadNotifCount
@@ -3874,6 +3874,7 @@ function DashboardLayout() {
 function WhatsAppConfigView() {
   const { userRole } = useEduGestStore()
   const isSuperAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
+  const canManageAgent = isSuperAdmin || userRole === 'SCHOOL_ADMIN'
   // Onglets : « Connexion » (agent Baileys) et « API WhatsApp & Quotas »
   // (déplacé depuis Config. Paiements — demande utilisateur)
   const [waTab, setWaTab] = useState<'connexion' | 'api'>('connexion')
@@ -3898,9 +3899,9 @@ function WhatsAppConfigView() {
   }
 
   useEffect(() => {
-    // Le statut temps-réel de l'agent est réservé au super administrateur
-    // (l'API /api/whatsapp-status applique requireRole SUPER_ADMIN_GLOBAL)
-    if (!isSuperAdmin) { setLoading(false); return }
+    // Le statut temps-réel de l'agent est réservé au super administrateur et à
+    // l'admin d'école (l'API /api/whatsapp-status applique requireRole)
+    if (!canManageAgent) { setLoading(false); return }
     checkStatus()
     const interval = setInterval(checkStatus, 2000)
     return () => clearInterval(interval)
@@ -4029,9 +4030,9 @@ function WhatsAppConfigView() {
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Connexion WhatsApp</h1>
       </div>
 
-      {!isSuperAdmin ? (
-        // Admins d'école : uniquement la gestion « API WhatsApp & Quotas » —
-        // la connexion de l'agent (QR / code) est réservée au super administrateur
+      {!canManageAgent ? (
+        // Hors gestion de l'agent : uniquement « API WhatsApp & Quotas » —
+        // la connexion (QR / code) est réservée au propriétaire + admin d'école
         <WhatsAppApiQuotasSection />
       ) : (
         <>
@@ -6855,13 +6856,13 @@ function CommunicationsView() {
   const { userData, userRole, highlightedId } = useEduGestStore()
   const [totalUsers, setTotalUsers] = useState(0)
   const [expandedComm, setExpandedComm] = useState<string | null>(null)
-  const canCreate = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const canCreate = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
   // Approbateurs DISTINCTS des créateurs : seuls le super admin plateforme et
   // L'ADMIN DE L'ÉCOLE peuvent approuver/rejeter les demandes PENDING
   // (directions + secrétaire). Avant : les boutons s'affichaient pour les
   // créateurs mêmes que l'API refusait (403), et l'admin d'école ne voyait rien.
   const canApprove = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN'].includes(userRole || '')
-  const canSeeStats = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const canSeeStats = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
   const isDirection = ['DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
   // Cycle imposé automatiquement selon la fonction de la direction (pas de choix)
   const directionScope = userRole === 'DIRECTION_MATERNELLE' ? 'MATERNELLE'
@@ -7277,8 +7278,8 @@ function HomeworkView() {
   const [loading, setLoading] = useState(true)
   const isTeacher = userRole === 'TEACHER' || userRole === 'HEAD_TEACHER'
   const isParent = userRole === 'PARENT'
-  const canCreate = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
-  const canSeeStats = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const canCreate = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const canSeeStats = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
   const [totalUsers, setTotalUsers] = useState(0)
   const [expandedHomework, setExpandedHomework] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -8467,7 +8468,7 @@ function ConvocationView() {
 
   const { userData, userRole, highlightedId } = useEduGestStore()
   const isParent = userRole === 'PARENT'
-  const canCreate = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE'].includes(userRole || '')
+  const canCreate = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE'].includes(userRole || '')
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
