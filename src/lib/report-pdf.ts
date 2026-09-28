@@ -1,10 +1,12 @@
 import type { DetailedReport } from '@/lib/report-data';
 import { fmtLagosDateTime } from '@/lib/report-data';
 
-// ─── Générateur PDF « design EduGest » pour les rapports d'activité ─────────
-// Palette et typographie alignées sur l'app : bandeau vert-noir profond,
-// accents or #f5a623, fonds ivoire, tableaux à en-têtes verts.
-// Toutes les dates/heure sont rendues en Africa/Lagos AVEC les secondes.
+// ─── Générateur PDF des rapports d'activité — design du reçu de paiement ────
+// Même vocabulaire visuel que buildReceiptPDF (design « Institut Gianelli ») :
+// double bordure navy/or sur chaque page, en-tête logos + filets or, sections
+// en or, lignes pointillées label gris / valeur navy, encadré vert menthe du
+// montant, bloc signature/cachet et QR de vérification. Dates en Africa/Lagos
+// avec les secondes.
 
 // pdfkit est chargé À L'EXÉCUTION (import dynamique natif, hors bundle) :
 // sa build ESM référence 'stream' et casse la compilation webpack si elle
@@ -25,6 +27,7 @@ interface PdfKitDoc {
   fontSize(size: number): PdfKitDoc;
   fillColor(color: string): PdfKitDoc;
   strokeColor(color: string): PdfKitDoc;
+  image(src: string | Buffer, x?: number, y?: number, opts?: Record<string, unknown>): PdfKitDoc;
   text(
     content: string,
     x?: number | Record<string, unknown>,
@@ -52,19 +55,29 @@ async function loadPdfKit(): Promise<PdfKitCtor> {
   return _pdfkitCtor;
 }
 
-const INK = '#0a0f0d';        // vert-noir (bandeau)
-const GOLD = '#f5a623';       // or signature
-const GOLD_DARK = '#c47d0e';
-const IVORY = '#faf8f2';      // fond lignes alternées
-const TEXT = '#1c2520';
-const MUTED = '#6b7a72';
-const GREEN = '#2f9e63';
-const DANGER = '#b91c1c';
-const BORDER = '#e3ded2';
+const NAVY = '#022448';
+const GOLD = '#d4af37';
+const GREEN = '#00875a';
+const LGREEN = '#e8f5e9';
+const MINT = '#c8e6c9';
+const GRAY = '#787878';
+const LGRAY = '#c8c8c8';
+const RED = '#ba1a1a';
+const IVORY = '#faf8f2';
+const WHITE = '#ffffff';
+const DANGER_BG = '#fdecec';
 
 const PAGE_W = 595.28; // A4
+const PAGE_H = 841.89;
+const MM = 2.834645669;
 const MARGIN = 40;
 const CONTENT_W = PAGE_W - MARGIN * 2;
+
+export interface ReportPdfAssets {
+  schoolLogo?: Buffer | null;
+  eduGestLogo?: Buffer | null;
+  qrDataUrl?: string | null;
+}
 
 function periodTitle(days: number): string {
   if (days === 1) return 'RAPPORT QUOTIDIEN';
@@ -86,12 +99,26 @@ function truncate(s: string, max = 140): string {
   return clean.length > max ? clean.slice(0, max - 1) + '…' : clean;
 }
 
-export function buildReportPdf(data: DetailedReport, sealLabel: string): Promise<Buffer> {
+function getSchoolInitials(shortName: string): string {
+  return (shortName || '')
+    .split(/[\s\-_]+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 4);
+}
+
+export function buildReportPdf(
+  data: DetailedReport,
+  sealLabel: string,
+  assets: ReportPdfAssets = {},
+): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     void (async () => {
       try {
         const PDFDocument = await loadPdfKit();
-        renderReport(PDFDocument, data, sealLabel, resolve, reject);
+        renderReport(PDFDocument, data, sealLabel, assets, resolve, reject);
       } catch (e) {
         reject(e);
       }
@@ -103,13 +130,14 @@ function renderReport(
   PDFDocument: PdfKitCtor,
   data: DetailedReport,
   sealLabel: string,
+  assets: ReportPdfAssets,
   resolve: (buf: Buffer) => void,
   reject: (err: unknown) => void,
 ) {
   const doc = new PDFDocument({
       size: 'A4',
       // marge basse volontairement réduite : la zone de pied de page (tamponnée
-      // en fin de génération via bufferedPageRange) vit dedans — un tampon SOUS
+      // en fin de génération via bufferedPageRange) vit dedans — un texte SOUS
       // la marge relancerait une page → récursion infinie de pdfkit.
       margins: { top: 42, bottom: 20, left: MARGIN, right: MARGIN },
       bufferPages: true,
@@ -124,162 +152,317 @@ function renderReport(
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    // ── Bandeau d'en-tête ───────────────────────────────────────────────────
-    doc.rect(0, 0, PAGE_W, 118).fill(INK);
-    doc.rect(0, 0, 6, 118).fill(GOLD);
-    doc.fillColor(GOLD).font('Helvetica-Bold').fontSize(9)
-      .text('E D U G E S T   ·   R A P P O R T   D \' A C T I V I T É', MARGIN, 24);
-    doc.fillColor('#ffffff').fontSize(21)
-      .text(periodTitle(data.period.days), MARGIN, 40);
-    doc.fillColor(GOLD).fontSize(12).font('Helvetica-Bold')
-      .text(data.school.name, MARGIN, 70);
-    doc.fillColor('#c9d2cc').fontSize(9).font('Helvetica')
-      .text(
-        `Période : ${fmtDay(data.period.from)} au ${fmtDay(data.period.to)} (${data.period.days} jour${data.period.days > 1 ? 's' : ''})`,
-        MARGIN, 88,
-      )
-      .text(`Généré le ${fmtLagosDateTime(data.generatedAtISO)} (heure locale)`, MARGIN, 101);
-    doc.y = 138;
+    const headerTop = 20 * MM;
+    const title = periodTitle(data.period.days);
+    const schoolName = (data.school.name || '').toUpperCase().slice(0, 30);
+
+    // ── Cadre double navy/or (chaque page, style reçu) ──────────────────────
+    const drawFrame = () => {
+      doc.lineWidth(1.5 * MM).strokeColor(NAVY)
+        .rect(5 * MM, 5 * MM, PAGE_W - 10 * MM, PAGE_H - 10 * MM).stroke();
+      doc.lineWidth(0.3 * MM).strokeColor(GOLD)
+        .rect(8 * MM, 8 * MM, PAGE_W - 16 * MM, PAGE_H - 16 * MM).stroke();
+      doc.lineWidth(1);
+    };
+
+    const drawGoldRules = (y: number) => {
+      doc.lineWidth(1 * MM).strokeColor(GOLD)
+        .moveTo(MARGIN, y).lineTo(PAGE_W - MARGIN, y).stroke();
+      doc.lineWidth(0.3 * MM)
+        .moveTo(MARGIN, y + 2 * MM).lineTo(PAGE_W - MARGIN, y + 2 * MM).stroke();
+      doc.lineWidth(1);
+    };
+
+    // ── En-tête page 1 (identique au reçu) ──────────────────────────────────
+    const drawFirstPageHeader = () => {
+      drawFrame();
+
+      const logoX = MARGIN + 8;
+      const logoSize = 22 * MM;
+      doc.fillColor(WHITE).rect(logoX, headerTop, logoSize, logoSize).fill();
+      doc.lineWidth(1.5 * MM).strokeColor(GOLD)
+        .rect(logoX, headerTop, logoSize, logoSize).stroke();
+      doc.lineWidth(1);
+
+      let logoDrawn = false;
+      if (assets.schoolLogo && assets.schoolLogo.length) {
+        try {
+          doc.image(assets.schoolLogo, logoX + 4, headerTop + 4, {
+            fit: [logoSize - 8, logoSize - 8],
+          });
+          logoDrawn = true;
+        } catch {
+          logoDrawn = false;
+        }
+      }
+      if (!logoDrawn) {
+        doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(12)
+          .text(getSchoolInitials(data.school.shortName || data.school.name),
+            logoX, headerTop + logoSize / 2 - 7, { width: logoSize, align: 'center', lineBreak: false });
+      }
+
+      const nameX = logoX + logoSize + 15;
+      doc.fillColor(GOLD).font('Helvetica-Bold').fontSize(18)
+        .text(schoolName, nameX, headerTop + 10, { lineBreak: false });
+
+      const address = [data.school.address, data.school.city, data.school.province]
+        .filter(Boolean).join(', ');
+      if (address) {
+        doc.fillColor(GRAY).font('Helvetica').fontSize(8.5)
+          .text(address.slice(0, 58), nameX, headerTop + 34, { lineBreak: false });
+      }
+      const contact = [data.school.phone, data.school.email].filter(Boolean).join('  |  ');
+      if (contact) {
+        doc.fillColor(GRAY).font('Helvetica').fontSize(8.5)
+          .text(contact.slice(0, 58), nameX, headerTop + (address ? 46 : 34), { lineBreak: false });
+      }
+
+      if (assets.eduGestLogo && assets.eduGestLogo.length) {
+        try {
+          doc.image(assets.eduGestLogo, PAGE_W - MARGIN - 24 * MM - 8, headerTop - 6, {
+            width: 24 * MM,
+            height: 24 * MM,
+          });
+        } catch {
+          doc.fillColor(GOLD).font('Helvetica-Bold').fontSize(11)
+            .text('EduGest', MARGIN, headerTop + 8, { width: CONTENT_W, align: 'right', lineBreak: false });
+        }
+      } else {
+        doc.fillColor(GOLD).font('Helvetica-Bold').fontSize(11)
+          .text('EduGest', MARGIN, headerTop + 8, { width: CONTENT_W, align: 'right', lineBreak: false });
+      }
+
+      const ruleY = headerTop + 30 * MM;
+      drawGoldRules(ruleY);
+
+      doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(16)
+        .text(title, MARGIN, ruleY + 16, { width: CONTENT_W, align: 'center', lineBreak: false });
+      doc.fillColor(GRAY).font('Helvetica').fontSize(9)
+        .text(
+          `Période : du ${fmtDay(data.period.from)} au ${fmtDay(data.period.to)} (${data.period.days} jour${data.period.days > 1 ? 's' : ''})`,
+          MARGIN, ruleY + 34, { width: CONTENT_W, align: 'center', lineBreak: false },
+        )
+        .text(
+          `Généré le ${fmtLagosDateTime(data.generatedAtISO)} (heure locale)`,
+          MARGIN, ruleY + 46, { width: CONTENT_W, align: 'center', lineBreak: false },
+        );
+    };
+
+    // ── Mini-en-tête des pages suivantes ────────────────────────────────────
+    const drawContinuationHeader = () => {
+      drawFrame();
+      doc.fillColor(GOLD).font('Helvetica-Bold').fontSize(10)
+        .text(schoolName, MARGIN + 2, headerTop + 6, { width: CONTENT_W / 2, lineBreak: false });
+      doc.fillColor(GRAY).font('Helvetica').fontSize(8)
+        .text(title, MARGIN, headerTop + 8, { width: CONTENT_W, align: 'right', lineBreak: false });
+      const ruleY = headerTop + 20;
+      drawGoldRules(ruleY);
+      doc.x = MARGIN;
+      doc.y = ruleY + 16;
+    };
+
+    drawFirstPageHeader();
+    doc.x = MARGIN;
+    doc.y = 210;
+
+    const newPage = () => {
+      doc.addPage();
+      drawContinuationHeader();
+    };
 
     const ensureSpace = (needed: number) => {
-      if (doc.y + needed > doc.page.height - 60) doc.addPage();
+      if (doc.y + needed > doc.page.height - 60) newPage();
     };
 
+    const drawDottedLine = (x1: number, y: number, x2: number) => {
+      const step = 2.5;
+      const count = Math.floor((x2 - x1) / step);
+      doc.lineWidth(0.6).strokeColor(LGRAY);
+      for (let i = 0; i < count; i += 2) {
+        const sx = x1 + i * step;
+        const ex = Math.min(sx + step * 0.6, x2);
+        doc.moveTo(sx, y).lineTo(ex, y);
+      }
+      doc.stroke();
+      doc.lineWidth(1);
+    };
+
+    // ── Titre de section (or gras, comme « INFORMATIONS ELEVE ») ────────────
     const sectionTitle = (label: string) => {
       ensureSpace(50);
-      doc.moveDown(0.6);
-      const y = doc.y;
-      doc.rect(MARGIN, y + 1, 3.5, 12).fill(GOLD);
-      doc.fillColor(INK).font('Helvetica-Bold').fontSize(11.5)
-        .text(label, MARGIN + 10, y, { characterSpacing: 0.6 });
-      doc.moveTo(MARGIN, y + 18).lineTo(MARGIN + CONTENT_W, y + 18)
-        .lineWidth(0.7).strokeColor(BORDER).stroke();
-      doc.y = y + 24;
+      const y = doc.y + 8;
+      doc.fillColor(GOLD).font('Helvetica-Bold').fontSize(10)
+        .text(label, MARGIN + 2, y, { characterSpacing: 0.8, lineBreak: false });
+      drawDottedLine(MARGIN, y + 17, MARGIN + CONTENT_W);
+      doc.x = MARGIN;
+      doc.y = y + 23;
     };
 
-    const statChips = (items: { label: string; value: string; color?: string }[]) => {
-      const chipW = (CONTENT_W - (items.length - 1) * 8) / items.length;
-      const chipH = 40;
-      ensureSpace(chipH + 12);
+    // ── Ligne label gris / valeur navy séparée par un pointillé ─────────────
+    const infoRow = (label: string, value: string) => {
+      ensureSpace(26);
       const y = doc.y;
-      items.forEach((it, i) => {
-        const x = MARGIN + i * (chipW + 8);
-        doc.roundedRect(x, y, chipW, chipH, 6).fill(IVORY);
-        doc.fillColor(it.color || INK).font('Helvetica-Bold').fontSize(13)
-          .text(it.value, x + 8, y + 6, { width: chipW - 16 });
-        doc.fillColor(MUTED).font('Helvetica').fontSize(7)
-          .text(it.label.toUpperCase(), x + 8, y + 25, { width: chipW - 16, characterSpacing: 0.4 });
-      });
-      // pdfkit déplace doc.x après text(x, y) → le réancrer à gauche
+      drawDottedLine(MARGIN, y, MARGIN + CONTENT_W);
+      doc.fillColor(GRAY).font('Helvetica-Bold').fontSize(9)
+        .text(label, MARGIN + 4, y + 4, { width: 160, lineBreak: false });
+      const valueW = CONTENT_W - 174;
+      const vh = doc.font('Helvetica').fontSize(9.5).heightOfString(value, { width: valueW });
+      doc.fillColor(NAVY).fontSize(9.5)
+        .text(value, MARGIN + 170, y + 4, { width: valueW, align: 'right' });
       doc.x = MARGIN;
-      doc.y = y + chipH + 6;
+      doc.y = y + Math.max(16, vh + 8);
+    };
+
+    // ── Colonnes de chiffres entre deux filets navy (« SITUATION FINANCIERE ») ─
+    const statColumns = (items: { label: string; value: string; color?: string }[]) => {
+      ensureSpace(64);
+      const y0 = doc.y + 6;
+      doc.lineWidth(1.4).strokeColor(NAVY)
+        .moveTo(MARGIN, y0).lineTo(MARGIN + CONTENT_W, y0).stroke();
+      doc.lineWidth(1);
+      const colW = CONTENT_W / items.length;
+      items.forEach((it, i) => {
+        const x = MARGIN + colW * i;
+        doc.fillColor(GRAY).font('Helvetica').fontSize(8)
+          .text(it.label.toUpperCase(), x, y0 + 10, { width: colW, align: 'center', lineBreak: false });
+        doc.fillColor(it.color || NAVY).font('Helvetica-Bold').fontSize(13)
+          .text(it.value, x, y0 + 28, { width: colW, align: 'center', lineBreak: false });
+      });
+      doc.lineWidth(1.4).strokeColor(NAVY)
+        .moveTo(MARGIN, y0 + 46).lineTo(MARGIN + CONTENT_W, y0 + 46).stroke();
+      doc.lineWidth(1);
+      doc.x = MARGIN;
+      doc.y = y0 + 54;
+    };
+
+    // ── Encadré vert menthe (« MONTANT PAYE ») ───────────────────────────────
+    const mintBox = (label: string, value: string) => {
+      const boxH = 28 * MM;
+      ensureSpace(boxH + 20);
+      const y = doc.y + 8;
+      const bx = MARGIN + 6;
+      const bw = CONTENT_W - 12;
+      doc.fillColor(LGREEN).rect(bx, y, bw, boxH).fill();
+      doc.lineWidth(0.8 * MM).strokeColor(MINT).rect(bx, y, bw, boxH).stroke();
+      doc.lineWidth(1);
+      doc.fillColor(GREEN).font('Helvetica-Bold').fontSize(9)
+        .text(label, bx, y + 14, { width: bw, align: 'center', lineBreak: false });
+      doc.fontSize(26)
+        .text(value, bx, y + 30, { width: bw, align: 'center', lineBreak: false });
+      doc.x = MARGIN;
+      doc.y = y + boxH + 8;
     };
 
     interface Col { header: string; width: number; align?: 'left' | 'right' | 'center' }
     const drawTable = (cols: Col[], rows: string[][], opts?: { dangerRow?: (r: string[]) => boolean }) => {
       if (!rows.length) return;
+      const totalW = cols.reduce((s, c) => s + c.width, 0);
+      const scale = CONTENT_W / totalW;
+      const nCols = cols.map((c) => ({ ...c, width: c.width * scale }));
       const rowPad = 4;
       const fontH = 8;
-      // Hauteurs
       const rowHeights = rows.map((r) => {
         let h = 0;
-        cols.forEach((c, i) => {
+        nCols.forEach((c, i) => {
           const th = doc.font('Helvetica').fontSize(fontH).heightOfString(r[i] || '', { width: c.width - 8 });
           h = Math.max(h, th);
         });
         return h + rowPad * 2;
       });
       const headH = 18;
-      // Éclatement multi-pages
-      let cursor = doc.y;
-      let i = 0;
       const pageBottom = doc.page.height - 60;
+
+      const drawHead = () => {
+        const hy = doc.y;
+        doc.fillColor(NAVY).rect(MARGIN, hy, CONTENT_W, headH).fill();
+        let x = MARGIN;
+        nCols.forEach((c) => {
+          doc.fillColor(WHITE).font('Helvetica-Bold').fontSize(7.5)
+            .text(c.header.toUpperCase(), x + 4, hy + 5, {
+              width: c.width - 8, align: c.align || 'left', characterSpacing: 0.4, lineBreak: false,
+            });
+          x += c.width;
+        });
+        doc.y = hy + headH;
+        doc.x = MARGIN;
+      };
+
+      let i = 0;
       while (i < rows.length) {
-        // espace restant
-        let avail = pageBottom - cursor;
-        // entête répétée si nouvelle page
-        const needHead = cursor === doc.page.margins.top + 0 || i === 0 ? 0 : headH;
-        if (avail < needHead + rowHeights[i]) {
-          doc.addPage();
-          cursor = doc.y;
-          avail = pageBottom - cursor;
-        }
-        if (i === 0 || cursor === doc.y) {
-          // entête
-          ensureSpace(headH + 8);
-          const hy = doc.y;
-          doc.rect(MARGIN, hy, CONTENT_W, headH).fill(INK);
-          let x = MARGIN;
-          cols.forEach((c) => {
-            doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(7.5)
-              .text(c.header.toUpperCase(), x + 4, hy + 5, { width: c.width - 8, align: c.align || 'left', characterSpacing: 0.4, lineBreak: false });
-            x += c.width;
-          });
-          doc.y = hy + headH;
-          cursor = doc.y;
-        }
-        // lignes tenant dans la page
-        let batchH = 0;
+        if (doc.y + headH > pageBottom) newPage();
+        const tableTopY = doc.y;
+        drawHead();
         let j = i;
-        while (j < rows.length && batchH + rowHeights[j] <= pageBottom - cursor) {
+        let batchH = 0;
+        while (j < rows.length && batchH + rowHeights[j] <= pageBottom - doc.y) {
           batchH += rowHeights[j];
           j++;
         }
-        if (j === i) { doc.addPage(); cursor = doc.y; continue; }
-        // fond zébré
-        let y = cursor;
+        if (j === i) {
+          if (doc.y >= pageBottom) {
+            newPage();
+            continue;
+          }
+          j = i + 1;
+        }
+        let y = doc.y;
         for (let k = i; k < j; k++) {
           const isDanger = opts?.dangerRow?.(rows[k]);
           if (k % 2 === 1 || isDanger) {
-            doc.rect(MARGIN, y, CONTENT_W, rowHeights[k]).fill(isDanger ? '#fdecec' : IVORY);
+            doc.rect(MARGIN, y, CONTENT_W, rowHeights[k]).fill(isDanger ? DANGER_BG : IVORY);
           }
           y += rowHeights[k];
         }
-        // textes
-        y = cursor;
+        y = doc.y;
         for (let k = i; k < j; k++) {
           let x = MARGIN;
-          cols.forEach((c, ci) => {
-            doc.fillColor(opts?.dangerRow?.(rows[k]) ? DANGER : TEXT).font('Helvetica').fontSize(fontH)
+          const isDanger = opts?.dangerRow?.(rows[k]);
+          nCols.forEach((c, ci) => {
+            doc.fillColor(isDanger ? RED : NAVY).font('Helvetica').fontSize(fontH)
               .text(rows[k][ci] || '', x + 4, y + rowPad, { width: c.width - 8, align: c.align || 'left' });
             x += c.width;
           });
           y += rowHeights[k];
         }
-        // bordures
-        doc.rect(MARGIN, cursor - headH, CONTENT_W, (y - cursor) + headH)
-          .lineWidth(0.6).strokeColor(BORDER).stroke();
+        doc.lineWidth(0.6).strokeColor(LGRAY)
+          .rect(MARGIN, tableTopY, CONTENT_W, y - tableTopY).stroke();
+        doc.lineWidth(1);
         doc.x = MARGIN;
         doc.y = y;
-        cursor = y;
         i = j;
+        if (i < rows.length) newPage();
       }
-      doc.moveDown(0.4);
+      doc.y += 8;
+      doc.x = MARGIN;
     };
 
     // ═══ 1. EFFECTIFS ═══════════════════════════════════════════════════════
     sectionTitle('EFFECTIFS');
-    statChips([
-      { label: 'Élèves actifs', value: fmtNum(data.students.total), color: GOLD_DARK },
-      { label: 'Classes', value: fmtNum(data.students.classesCount) },
-      { label: 'Professeurs', value: fmtNum(data.students.teachers), color: GREEN },
+    statColumns([
+      { label: 'Élèves actifs', value: fmtNum(data.students.total), color: NAVY },
+      { label: 'Classes', value: fmtNum(data.students.classesCount), color: GREEN },
+      { label: 'Professeurs', value: fmtNum(data.students.teachers), color: GOLD },
     ]);
     if (data.students.byClass.length) {
-      ensureSpace(24);
-      doc.fillColor(MUTED).font('Helvetica').fontSize(8.5)
-        .text(`Répartition : ${data.students.byClass.slice(0, 8).map((c) => `${c.className} (${c.count})`).join(' · ')}`, { width: CONTENT_W });
+      infoRow(
+        'RÉPARTITION',
+        data.students.byClass.slice(0, 8).map((c) => `${c.className} (${c.count})`).join(' · '),
+      );
     }
 
     // ═══ 2. PAIEMENTS ═══════════════════════════════════════════════════════
     sectionTitle('PAIEMENTS DE LA PÉRIODE');
-    statChips([
-      { label: 'Transactions', value: fmtNum(data.payments.transactions), color: GOLD_DARK },
-      { label: `Total encaissé (${data.currencySymbol})`, value: fmtNum(data.payments.collected), color: GREEN },
-      { label: `Total attendu (${data.currencySymbol})`, value: fmtNum(data.payments.expected) },
-      { label: 'Impayés actuels', value: fmtNum(data.payments.unpaid), color: DANGER },
+    mintBox(
+      `TOTAL ENCAISSÉ (${data.currencySymbol})`,
+      `${fmtNum(data.payments.collected)} ${data.currencySymbol}`,
+    );
+    statColumns([
+      { label: 'Transactions', value: fmtNum(data.payments.transactions), color: NAVY },
+      { label: `Total attendu (${data.currencySymbol})`, value: fmtNum(data.payments.expected), color: GREEN },
+      { label: 'Impayés actuels', value: fmtNum(data.payments.unpaid), color: RED },
     ]);
     if (data.payments.list.length) {
-      doc.fillColor(MUTED).font('Helvetica-Bold').fontSize(8.5)
+      doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(9)
         .text('Élèves ayant payé — horodatage à la seconde et référence du reçu :', { width: CONTENT_W });
       doc.moveDown(0.3);
       drawTable(
@@ -301,7 +484,7 @@ function renderReport(
         ]),
       );
       if (data.payments.list.length >= 150) {
-        doc.fillColor(MUTED).fontSize(7.5)
+        doc.fillColor(GRAY).font('Helvetica').fontSize(7.5)
           .text('(liste limitée aux 150 derniers paiements de la période)', { width: CONTENT_W });
       }
     }
@@ -322,20 +505,20 @@ function renderReport(
         ]),
       );
     } else {
-      doc.fillColor(MUTED).font('Helvetica').fontSize(9)
+      doc.fillColor(GRAY).font('Helvetica').fontSize(9)
         .text('Aucune communication envoyée sur la période.', { width: CONTENT_W });
     }
 
     // ═══ 4. DISCIPLINE ══════════════════════════════════════════════════════
     sectionTitle('DISCIPLINE DE LA PÉRIODE');
-    statChips([
-      { label: 'Incidents / sanctions', value: fmtNum(data.discipline.incidents), color: DANGER },
+    statColumns([
+      { label: 'Incidents / sanctions', value: fmtNum(data.discipline.incidents), color: RED },
       { label: 'Points positifs', value: fmtNum(data.discipline.positives), color: GREEN },
-      { label: 'Convocations', value: fmtNum(data.discipline.convocations), color: GOLD_DARK },
+      { label: 'Convocations', value: fmtNum(data.discipline.convocations), color: GOLD },
     ]);
 
     if (data.discipline.incidentsList.length) {
-      doc.fillColor(TEXT).font('Helvetica-Bold').fontSize(9)
+      doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(9)
         .text('Incidents et sanctions — élèves, sanction, description et points :', { width: CONTENT_W });
       doc.moveDown(0.3);
       drawTable(
@@ -356,13 +539,13 @@ function renderReport(
         { dangerRow: () => true },
       );
     } else {
-      doc.fillColor(MUTED).font('Helvetica').fontSize(9)
+      doc.fillColor(GRAY).font('Helvetica').fontSize(9)
         .text('Aucun incident ni sanction sur la période.', { width: CONTENT_W });
       doc.moveDown(0.4);
     }
 
     if (data.discipline.positivesList.length) {
-      doc.fillColor(TEXT).font('Helvetica-Bold').fontSize(9)
+      doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(9)
         .text('Points positifs — élèves récompensés, nombre de points et raison :', { width: CONTENT_W });
       doc.moveDown(0.3);
       drawTable(
@@ -379,13 +562,13 @@ function renderReport(
         ]),
       );
     } else {
-      doc.fillColor(MUTED).font('Helvetica').fontSize(9)
+      doc.fillColor(GRAY).font('Helvetica').fontSize(9)
         .text('Aucun point positif distribué sur la période.', { width: CONTENT_W });
       doc.moveDown(0.4);
     }
 
     if (data.discipline.convocationsList.length) {
-      doc.fillColor(TEXT).font('Helvetica-Bold').fontSize(9)
+      doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(9)
         .text('Convocations — élèves, motif et statut :', { width: CONTENT_W });
       doc.moveDown(0.3);
       drawTable(
@@ -402,18 +585,18 @@ function renderReport(
         ]),
       );
     } else {
-      doc.fillColor(MUTED).font('Helvetica').fontSize(9)
+      doc.fillColor(GRAY).font('Helvetica').fontSize(9)
         .text('Aucune convocation sur la période.', { width: CONTENT_W });
       doc.moveDown(0.4);
     }
 
     // ═══ 5. PRÉSENCES ═══════════════════════════════════════════════════════
     sectionTitle('PRÉSENCES DE LA PÉRIODE');
-    statChips([
+    statColumns([
       { label: 'Taux de présence', value: data.attendance.rate !== null ? `${data.attendance.rate}%` : '—', color: GREEN },
       { label: 'Présents', value: fmtNum(data.attendance.present), color: GREEN },
-      { label: 'Absents', value: fmtNum(data.attendance.absent), color: DANGER },
-      { label: 'Retards', value: fmtNum(data.attendance.late), color: GOLD_DARK },
+      { label: 'Absents', value: fmtNum(data.attendance.absent), color: RED },
+      { label: 'Retards', value: fmtNum(data.attendance.late), color: GOLD },
     ]);
     const absents = data.attendanceByStudent.filter((s) => s.absentDays > 0);
     const lates = data.attendanceByStudent.filter((s) => s.lateDays > 0);
@@ -433,10 +616,10 @@ function renderReport(
         ]),
         { dangerRow: (r) => r[2] !== '—' && parseInt(r[2], 10) >= 2 },
       );
-      doc.fillColor(MUTED).fontSize(7.5)
+      doc.fillColor(GRAY).fontSize(7.5)
         .text("Les absences de 2 jours et plus sur la période sont signalées en rouge.", { width: CONTENT_W });
     } else {
-      doc.fillColor(MUTED).font('Helvetica').fontSize(9)
+      doc.fillColor(GRAY).font('Helvetica').fontSize(9)
         .text('Aucune absence ni retard enregistré sur la période.', { width: CONTENT_W });
       doc.moveDown(0.4);
     }
@@ -465,14 +648,14 @@ function renderReport(
         ]),
       );
     } else {
-      doc.fillColor(MUTED).font('Helvetica').fontSize(9)
+      doc.fillColor(GRAY).font('Helvetica').fontSize(9)
         .text('Pas assez de données pour classer les classes sur la période.', { width: CONTENT_W });
       doc.moveDown(0.4);
     }
 
     sectionTitle("CLASSEMENT DES ÉLÈVES — % ESTIMÉ (NOTES) ET CONDUITE (DISCIPLINE)");
     if (data.studentRanking.top.length) {
-      doc.fillColor(TEXT).font('Helvetica-Bold').fontSize(9)
+      doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(9)
         .text('Les 3 élèves qui excellent :', { width: CONTENT_W });
       doc.moveDown(0.3);
       drawTable(
@@ -494,7 +677,7 @@ function renderReport(
       );
     }
     if (data.studentRanking.bottom.length) {
-      doc.fillColor(TEXT).font('Helvetica-Bold').fontSize(9)
+      doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(9)
         .text('Les 3 élèves en difficulté — à suivre de près :', { width: CONTENT_W });
       doc.moveDown(0.3);
       drawTable(
@@ -517,34 +700,72 @@ function renderReport(
       );
     }
     if (!data.studentRanking.top.length && !data.studentRanking.bottom.length) {
-      doc.fillColor(MUTED).font('Helvetica').fontSize(9)
+      doc.fillColor(GRAY).font('Helvetica').fontSize(9)
         .text('Pas assez de données pour classer les élèves sur la période.', { width: CONTENT_W });
       doc.moveDown(0.4);
     }
 
-    // ── Sceau final ─────────────────────────────────────────────────────────
-    ensureSpace(70);
-    doc.moveDown(1);
-    const sealY = Math.min(doc.y + 6, doc.page.height - 110);
-    doc.rect(MARGIN, sealY, CONTENT_W, 52).fill(IVORY);
-    doc.rect(MARGIN, sealY, 3.5, 52).fill(GOLD);
-    doc.fillColor(MUTED).font('Helvetica-Oblique').fontSize(9)
-      .text(`Rapport scellé sur le rôle : ${sealLabel}`, MARGIN + 12, sealY + 9, { width: CONTENT_W - 20 });
-    doc.text(`Généré par EduGest le ${fmtLagosDateTime(data.generatedAtISO)} (heure locale)`, MARGIN + 12, sealY + 24, { width: CONTENT_W - 20 });
-    doc.fillColor(MUTED).font('Helvetica').fontSize(7)
-      .text('Document confidentiel — destiné à la direction de l\'établissement.', MARGIN + 12, sealY + 38, { width: CONTENT_W - 20 });
+    // ── Signature & cachet (comme le reçu) ──────────────────────────────────
+    ensureSpace(200);
+    const sigY = doc.y + 12;
+    doc.lineWidth(1.4).strokeColor(GOLD)
+      .moveTo(MARGIN, sigY).lineTo(MARGIN + CONTENT_W, sigY).stroke();
+    doc.lineWidth(1);
+    doc.fillColor(GRAY).font('Helvetica-Bold').fontSize(8)
+      .text(`Rapport scellé sur le rôle : ${sealLabel}`, MARGIN + 4, sigY + 8, { lineBreak: false });
 
-    // ── Pieds de page + numéros (tamponnés APRÈS génération, sans risque
-    //    de re-déclencher une page : ils restent au-dessus de la marge basse) ─
+    const labelY = sigY + 34;
+    const half = CONTENT_W / 2;
+    doc.fillColor(GRAY).font('Helvetica-Bold').fontSize(7)
+      .text('Signature Direction', MARGIN + 4, labelY, { lineBreak: false })
+      .text("Cachet de l'école", MARGIN + half + 4, labelY, { lineBreak: false });
+    doc.lineWidth(0.6).strokeColor(LGRAY)
+      .moveTo(MARGIN + 4, labelY + 16)
+      .lineTo(MARGIN + half - 12, labelY + 16)
+      .stroke()
+      .moveTo(MARGIN + half + 4, labelY + 16)
+      .lineTo(MARGIN + CONTENT_W - 4, labelY + 16)
+      .stroke();
+    doc.lineWidth(1);
+    doc.fillColor(GRAY).font('Helvetica-Oblique').fontSize(7)
+      .text("Document confidentiel — destiné à la direction de l'établissement.",
+        MARGIN, labelY + 30, { width: CONTENT_W, align: 'center', lineBreak: false });
+    doc.x = MARGIN;
+    doc.y = labelY + 44;
+
+    // ── Pieds de page + QR (tamponnés APRÈS génération) ─────────────────────
     const range = doc.bufferedPageRange();
+    const footerY = PAGE_H - 25 * MM;
+
+    if (assets.qrDataUrl && range.count > 0) {
+      doc.switchToPage(range.start + range.count - 1);
+      const qrY = PAGE_H - 60 * MM;
+      try {
+        doc.image(assets.qrDataUrl, PAGE_W / 2 - 10 * MM, qrY, { width: 20 * MM, height: 20 * MM });
+      } catch { /* QR ignoré */ }
+      doc.fillColor(GRAY).font('Helvetica-Bold').fontSize(7)
+        .text('VERIFICATION', MARGIN, qrY + 59, { width: CONTENT_W, align: 'center', lineBreak: false });
+      doc.fillColor(LGRAY).font('Helvetica').fontSize(6.5)
+        .text("Pour vérifier l'authenticité de ce rapport, scannez le QR code",
+          MARGIN, qrY + 70, { width: CONTENT_W, align: 'center', lineBreak: false });
+    }
+
     for (let i = range.start; i < range.start + range.count; i++) {
       doc.switchToPage(i);
-      const fy = doc.page.height - 34;
-      if (i > 0) {
-        doc.fontSize(7.5).fillColor(MUTED)
-          .text(`EduGest — Rapport d'activité · ${data.school.name}`, MARGIN, fy, { width: CONTENT_W - 60, lineBreak: false })
-          .text(`Page ${i + 1}`, MARGIN, fy, { width: CONTENT_W, align: 'right', lineBreak: false });
-      }
+      doc.lineWidth(0.8 * MM).strokeColor(GOLD)
+        .moveTo(MARGIN, footerY).lineTo(PAGE_W - MARGIN, footerY).stroke();
+      doc.lineWidth(1);
+      doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(8)
+        .text((data.school.name || '').slice(0, 48), MARGIN, footerY + 8,
+          { width: CONTENT_W, align: 'center', lineBreak: false });
+      doc.fillColor(GRAY).font('Helvetica').fontSize(7)
+        .text('Généré par EduGest - La plateforme de gestion scolaire', MARGIN, footerY + 19,
+          { width: CONTENT_W, align: 'center', lineBreak: false });
+      doc.fillColor(LGRAY).font('Helvetica-Oblique').fontSize(6.5)
+        .text(
+          `Document généré le ${fmtLagosDateTime(data.generatedAtISO)} — Page ${i + 1}/${range.count}`,
+          MARGIN, footerY + 29, { width: CONTENT_W, align: 'center', lineBreak: false },
+        );
     }
 
     doc.end();

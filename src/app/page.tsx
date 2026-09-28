@@ -74,7 +74,7 @@ import {
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
    ChevronUp, ExternalLink, Check, Copy, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown, DatabaseZap,
    User, Landmark, Palette, BellRing, HeartPulse, Database, Stethoscope, Volume2, VolumeX, CalendarCheck, CalendarDays,
-   LifeBuoy, Headset, ScrollText, Bot, Newspaper
+   LifeBuoy, Headset, ScrollText, Bot, Newspaper, MonitorSmartphone
 } from 'lucide-react'
 import { Link000, Link001 } from '@/components/ui/skiper-ui/skiper40'
 import {
@@ -906,6 +906,16 @@ function SchoolDetailView() {
   const [school, setSchool] = useState<SchoolData | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Badges catégorie (mêmes tons que la vue Événements interne).
+  const CATEGORY_META: Record<string, { label: string; bg: string; color: string }> = {
+    REUNION: { label: 'Réunion', bg: GOLD_SOFT, color: GOLD },
+    EXAMEN: { label: 'Examen', bg: 'oklch(95% 0.04 145)', color: SUCCESS },
+    FETE: { label: 'Fête', bg: 'oklch(95% 0.06 85)', color: 'oklch(58% 0.14 75)' },
+    REUNION_PARENTS: { label: 'Réunion parents', bg: 'oklch(96% 0.04 100)', color: WARNING },
+    SORTIE: { label: 'Sortie scolaire', bg: 'oklch(95% 0.04 175)', color: ACCENT },
+    AUTRE: { label: 'Autre', bg: 'oklch(95% 0.01 175)', color: TEXT_MUTED_LUXE },
+  }
+
   useEffect(() => {
     if (!selectedSchoolId) {
       // No school selected (e.g. stale restored view) — self-heal to home
@@ -1003,6 +1013,55 @@ function SchoolDetailView() {
                 <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Abonnement</div>
               </div>
             </div>
+
+            {/* ── Événements à venir (publics : audience « Tout le monde ») ── */}
+            {(school.events?.length ?? 0) > 0 && (
+              <div className="mt-8">
+                <h3 className="font-semibold mb-3" style={{ color: TEXT_PRIMARY }}>Événements à venir</h3>
+                <div className="space-y-2.5">
+                  {school.events!.map(ev => {
+                    const meta = CATEGORY_META[ev.category] || CATEGORY_META.AUTRE
+                    const d = new Date(ev.startAt)
+                    const dateLabel = d.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' })
+                    const timeLabel = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+                    return (
+                      <div key={ev.id} className="flex items-start gap-3 p-3 rounded-xl border border-[oklch(90%_0.01_175)]" style={{ background: IVORY }}>
+                        <div className="w-9 h-9 rounded-lg grid place-items-center shrink-0" style={{ background: meta.bg }}>
+                          <CalendarDays size={16} style={{ color: meta.color }} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold text-[13px]" style={{ color: TEXT_PRIMARY }}>{ev.title}</span>
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide" style={{ background: meta.bg, color: meta.color }}>{meta.label}</span>
+                          </div>
+                          <div className="text-[11px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>
+                            {dateLabel} · {timeLabel}{ev.location ? ` · ${ev.location}` : ''}
+                          </div>
+                          {ev.description && <p className="text-[12px] mt-1 leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>{ev.description}</p>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── Galerie photos ── */}
+            {(school.schoolPhotos?.length ?? 0) > 0 && (
+              <div className="mt-8">
+                <h3 className="font-semibold mb-3" style={{ color: TEXT_PRIMARY }}>Galerie</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {school.schoolPhotos!.map(ph => (
+                    <div key={ph.id} className="rounded-xl overflow-hidden border border-[oklch(90%_0.01_175)] bg-white">
+                      <img src={ph.url} alt={ph.caption || 'Photo de l\'école'} className="w-full h-32 object-cover" loading="lazy" />
+                      {ph.caption && (
+                        <p className="px-2.5 py-2 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{ph.caption}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="mt-6 flex flex-wrap gap-3">
               <div className="flex items-center gap-2 text-sm" style={{ color: TEXT_MUTED_LUXE }}><Mail size={14} /> {school.email}</div>
@@ -3629,6 +3688,85 @@ function ImportDbModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+// ===== MODAL « RÉSERVÉ À L'APPLICATION DESKTOP » (version web) =====
+// En web, l'import de base de données est impossible : un clic sur « Importer
+// une base » ouvre ce modal — explication + téléchargement de l'exe desktop.
+function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
+  const [exeUrl, setExeUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  // Résout l'URL exacte de l'exe portable via latest.yml (publié par
+  // electron-builder à chaque release) — comme dans desktop/main.js.
+  useEffect(() => {
+    let cancelled = false
+    fetch('https://github.com/vodi72089-eng/edugest/releases/latest/download/latest.yml')
+      .then(r => (r.ok ? r.text() : ''))
+      .then(text => {
+        if (cancelled) return
+        const m = text.match(/^version:\s*(.+)$/m)
+        const version = String(m ? m[1] : '').trim().replace(/^v/, '')
+        if (version) {
+          setExeUrl(`https://github.com/vodi72089-eng/edugest/releases/latest/download/EduGest-Portable-${version}.exe`)
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: 'rgba(10,15,13,0.6)', backdropFilter: 'blur(6px)' }}>
+      <div className="w-full max-w-md rounded-2xl shadow-2xl overflow-hidden" style={{ background: '#fff' }}>
+        <div className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: '1px solid oklch(90% 0.01 175)' }}>
+          <div className="w-10 h-10 rounded-xl grid place-items-center shrink-0" style={{ background: `linear-gradient(135deg, ${GOLD} 0%, #c47d0e 100%)` }}>
+            <MonitorSmartphone size={20} className="text-white" aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-bold text-[15px]" style={{ color: TEXT_PRIMARY }}>Application desktop requise</h3>
+            <p className="text-[11.5px]" style={{ color: TEXT_MUTED_LUXE }}>Import de base de données — espace administrateur</p>
+          </div>
+          <button onClick={onClose} className="ml-auto p-1.5 rounded-lg hover:bg-gray-100 transition" style={{ color: TEXT_MUTED_LUXE }} aria-label="Fermer">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="px-5 py-4">
+          <p className="text-[13px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
+            L&apos;importation de base de données (<strong>.db</strong> : élèves, classes, matières,
+            notes et professeurs) est disponible <strong>uniquement dans l&apos;application desktop
+            EduGest</strong> (Windows). Téléchargez-la, ouvrez-la, puis importez votre fichier —
+            vos données deviendront directement la base de votre école.
+          </p>
+          <div className="mt-4">
+            {loading ? (
+              <div className="py-2 text-[12.5px] text-center" style={{ color: TEXT_MUTED_LUXE }}>
+                Recherche de la dernière version…
+              </div>
+            ) : (
+              <a
+                href={exeUrl || 'https://github.com/vodi72089-eng/edugest/releases/latest'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="edu-gold-cta block text-center py-2.5 rounded-xl text-[13px] font-semibold text-white transition"
+                style={{ background: GOLD }}
+              >
+                <Download size={14} className="inline mr-1.5 -mt-0.5" aria-hidden="true" />
+                Télécharger l&apos;application desktop
+              </a>
+            )}
+            <button
+              onClick={onClose}
+              className="w-full mt-2 py-2.5 rounded-xl text-[13px] font-semibold border transition hover:bg-gray-50"
+              style={{ borderColor: BORDER, color: TEXT_MUTED_LUXE }}
+            >
+              Plus tard
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function DashboardLayout() {
   const [sidebarVisible, setSidebarVisible] = useState(true)
   // Popup d'import : affichée une fois, juste après la connexion d'un admin
@@ -3646,11 +3784,27 @@ function DashboardLayout() {
     } catch {}
     return false
   })
+  // Modal « desktop uniquement » (version web) : proposé après la connexion
+  // quand le flag d'import est posé — l'utilisateur comprend pourquoi l'import
+  // est inaccessible et peut télécharger l'exe.
+  const [showDesktopOnly, setShowDesktopOnly] = useState(() => {
+    if (typeof window === 'undefined' || isDesktopApp()) return false
+    try {
+      if (sessionStorage.getItem('edugest_show_import_db') === '1') {
+        sessionStorage.removeItem('edugest_show_import_db')
+        return true
+      }
+    } catch {}
+    return false
+  })
   // Import d'autres bases de données à tout moment : les vues (ex. Paramètres)
-  // ouvrent ce modal via l'événement global 'edugest:open-import-db' (desktop uniquement).
+  // ouvrent le modal adapté via l'événement global 'edugest:open-import-db'
+  // — modal d'import dans l'exe, modal « desktop requis » en web.
   useEffect(() => {
-    if (!isDesktopApp()) return
-    const openImportDb = () => setShowImportDb(true)
+    const openImportDb = () => {
+      if (isDesktopApp()) setShowImportDb(true)
+      else setShowDesktopOnly(true)
+    }
     window.addEventListener('edugest:open-import-db', openImportDb)
     return () => window.removeEventListener('edugest:open-import-db', openImportDb)
   }, [])
@@ -3664,6 +3818,7 @@ function DashboardLayout() {
         </main>
       </div>
       {showImportDb && <ImportDbModal onClose={() => setShowImportDb(false)} />}
+      {showDesktopOnly && <DesktopOnlyModal onClose={() => setShowDesktopOnly(false)} />}
     </div>
   )
 }

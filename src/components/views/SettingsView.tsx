@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useEduGestStore, authFetch, getActiveSchoolId, isDesktopApp } from '@/lib/store'
+import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
 import type { SchoolData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
@@ -12,6 +12,8 @@ import { toast } from 'sonner'
 import { detectDevice, formatDeviceTitle, formatDeviceSummary, isLoopbackIp } from '@/lib/detect-device'
 import CurrentDeviceInfo from '@/components/CurrentDeviceInfo'
 import AppSelect from '@/components/ui/AppSelect'
+import { getTierLimits } from '@/lib/subscription'
+import type { SchoolPhotoData } from '@/lib/types'
 
 export default function SettingsView() {
   const { userRole, userData, setCurrentView } = useEduGestStore()
@@ -62,9 +64,14 @@ function SettingsViewInner() {
   const [comments, setComments] = useState<{ id: string; authorName: string; rating: number; comment: string; isApproved: boolean; createdAt: string }[]>([])
   const logoInputRef = useRef<HTMLInputElement | null>(null)
   const coverInputRef = useRef<HTMLInputElement | null>(null)
-  const [activeTab, setActiveTab] = useState<'info' | 'fees' | 'devices' | 'personalization' | 'aide'>(personalizationOnly ? 'personalization' : 'info')
+  const [activeTab, setActiveTab] = useState<'info' | 'fees' | 'devices' | 'personalization' | 'aide' | 'photos'>(personalizationOnly ? 'personalization' : 'info')
   const [fees, setFees] = useState<any[]>([])
   const [classes, setClasses] = useState<any[]>([])
+  // Galerie photo publique (page vitrique) — gérée ici uniquement.
+  const [photos, setPhotos] = useState<SchoolPhotoData[]>([])
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null)
+  const photoInputRef = useRef<HTMLInputElement | null>(null)
   const [showFeeModal, setShowFeeModal] = useState(false)
   const [feeForm, setFeeForm] = useState({ name: '', amount: '', currency: 'CDF', trimester: 'T1', classId: '' })
   const [editingFee, setEditingFee] = useState<any>(null)
@@ -161,6 +168,7 @@ function SettingsViewInner() {
             setMaxStudents(String(s.maxStudents || 100))
             setLogoUrl(s.logo || '')
             setCoverUrl(s.coverImage || '')
+            setPhotos(s.schoolPhotos || [])
           }
           setLoading(false)
         })
@@ -246,8 +254,67 @@ function SettingsViewInner() {
     setSaving(false)
   }
 
-  async function handleImageUpload(file: File, type: 'logo' | 'coverImage') {
-    if (type === 'logo') setUploadingLogo(true)
+  // ── Galerie photo publique ─────────────────────────────────────────────
+  // Limite forfait (getTierLimits().maxPhotos) vérifiée côté client (blocage
+  // immédiat) ET côté serveur (POST /api/school-photos → 403 au-delà).
+  const maxPhotos = getTierLimits(school?.subscriptionTier || 'FREEMIUM').maxPhotos
+  const photoLimitReached = photos.length >= maxPhotos
+
+  async function handlePhotoUpload(file: File) {
+    const schoolId = getActiveSchoolId()
+    if (!schoolId) return
+    if (photoLimitReached) {
+      toast.error(`Limite du forfait atteinte (${maxPhotos} photo${maxPhotos > 1 ? 's' : ''} maximum) — passez à l'offre supérieure`)
+      return
+    }
+    if (!file.type.startsWith('image/')) { toast.error('Format non supporté. Utilisez une image (PNG, JPEG, WebP…)'); return }
+    if (file.size > 10 * 1024 * 1024) { toast.error('Image trop lourde (max 10 Mo)'); return }
+    setUploadingPhoto(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const upRes = await authFetch('/api/upload', { method: 'POST', body: formData })
+      const upJson = await upRes.json().catch(() => ({}))
+      if (!upRes.ok || !upJson.url) { toast.error(upJson.error || "Envoi de l'image impossible"); return }
+      const res = await authFetch('/api/school-photos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schoolId, url: upJson.url }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setPhotos(prev => [j.data as SchoolPhotoData, ...prev])
+        toast.success('Photo ajoutée à la galerie')
+      } else {
+        toast.error(j.error || "Erreur lors de l'ajout")
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  async function handleDeletePhoto(id: string) {
+    if (!window.confirm('Supprimer cette photo ?')) return
+    setDeletingPhotoId(id)
+    try {
+      const res = await authFetch(`/api/school-photos/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setPhotos(prev => prev.filter(p => p.id !== id))
+        toast.success('Photo supprimée')
+      } else {
+        const j = await res.json().catch(() => ({}))
+        toast.error(j.error || 'Erreur lors de la suppression')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setDeletingPhotoId(null)
+    }
+  }
+
+  async function handleImageUpload(file: File, type: 'logo' | 'coverImage') {    if (type === 'logo') setUploadingLogo(true)
     else setUploadingCover(true)
     try {
       const formData = new FormData()
@@ -365,10 +432,10 @@ function SettingsViewInner() {
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Paramètres de l&apos;école</h1>
       </div>
 
-      {/* Base de données : import / ré-import réservé à l'application desktop
-          (exe) — jamais dans la version web. Ouvre le même modal que celui affiché
-          après la connexion, via l'événement global 'edugest:open-import-db'. */}
-      {userRole === 'SCHOOL_ADMIN' && isDesktopApp() && (
+      {/* Base de données : carte toujours visible — en web, le clic ouvre le modal
+          « Application desktop requis » (import + téléchargement de l'exe) ;
+          dans l'exe, c'est le modal d'import classique. */}
+      {userRole === 'SCHOOL_ADMIN' && (
         <div
           className="rounded-2xl p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between border"
           style={{ borderColor: 'rgba(245,166,35,0.35)', background: 'linear-gradient(135deg, rgba(245,166,35,0.08), rgba(245,166,35,0.02))' }}
@@ -413,6 +480,11 @@ function SettingsViewInner() {
         {canPersonalize && (
           <button onClick={() => setActiveTab('personalization')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'personalization' ? 'text-white' : ''}`} style={activeTab === 'personalization' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
             <Palette size={14} className="inline mr-1" /> Personnalisation
+          </button>
+        )}
+        {canPersonalize && (
+          <button onClick={() => setActiveTab('photos')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'photos' ? 'text-white' : ''}`} style={activeTab === 'photos' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
+            <ImagePlus size={14} className="inline mr-1" /> Photos
           </button>
         )}
         <button onClick={() => setActiveTab('aide')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'aide' ? 'text-white' : ''}`} style={activeTab === 'aide' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
@@ -770,6 +842,64 @@ function SettingsViewInner() {
       )}
 
       {activeTab === 'personalization' && <PersonalizationView />}
+
+      {activeTab === 'photos' && (
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-1">
+            <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Galerie photos</h3>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: GOLD_SOFT, color: GOLD }}>
+                {photos.length}/{maxPhotos}
+              </span>
+              <input ref={photoInputRef} type="file" accept="image/*" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(f); e.target.value = '' }} />
+              <button
+                onClick={() => photoInputRef.current?.click()}
+                disabled={uploadingPhoto || photoLimitReached}
+                className="edu-gold-cta px-4 py-2 rounded-xl text-[13px] font-semibold inline-flex items-center gap-2 disabled:opacity-50"
+              >
+                {uploadingPhoto ? <div className="h-3.5 w-3.5 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <ImagePlus size={14} />}
+                Ajouter une photo
+              </button>
+            </div>
+          </div>
+          <p className="text-xs mb-4" style={{ color: TEXT_MUTED_LUXE }}>
+            {photoLimitReached
+              ? `Limite du forfait ${school?.subscriptionTier || 'FREEMIUM'} atteinte — retirez une photo ou passez à l'offre supérieure pour en ajouter.`
+              : `Ces photos sont visibles sur la page publique de votre école (forfait ${school?.subscriptionTier || 'FREEMIUM'} : ${maxPhotos} photo${maxPhotos > 1 ? 's' : ''} maximum).`}
+          </p>
+
+          {photos.length === 0 ? (
+            <div className="border-2 border-dashed border-[oklch(90%_0.01_175)] rounded-2xl py-12 text-center">
+              <ImagePlus size={26} className="mx-auto mb-2 opacity-30" style={{ color: TEXT_MUTED_LUXE }} />
+              <p className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Aucune photo pour le moment</p>
+              <p className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Ajoutez jusqu'à {maxPhotos} photo{maxPhotos > 1 ? 's' : ''} pour présenter votre école.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {photos.map(ph => (
+                <div key={ph.id} className="relative group rounded-xl overflow-hidden border border-[oklch(90%_0.01_175)] bg-white">
+                  <img src={ph.url} alt={ph.caption || 'Photo de l\'école'} className="w-full h-32 object-cover" />
+                  {ph.caption && (
+                    <p className="px-2.5 py-2 text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{ph.caption}</p>
+                  )}
+                  <button
+                    onClick={() => handleDeletePhoto(ph.id)}
+                    disabled={deletingPhotoId === ph.id}
+                    title="Supprimer cette photo"
+                    className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-white/90 shadow grid place-items-center opacity-0 group-hover:opacity-100 transition disabled:opacity-40"
+                    style={{ color: DANGER }}
+                  >
+                    {deletingPhotoId === ph.id
+                      ? <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      : <Trash2 size={13} />}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {activeTab === 'aide' && <HelpView />}
 
