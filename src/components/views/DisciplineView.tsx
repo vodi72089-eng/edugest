@@ -85,7 +85,7 @@ export default function DisciplineView() {
   const [submitting, setSubmitting] = useState(false)
   const [convocationMotif, setConvocationMotif] = useState('')
   const [convocationDate, setConvocationDate] = useState('')
-  const [convocations, setConvocations] = useState<{ id: string; motif: string; date: string; status: string; student: { firstName: string; lastName: string; matricule: string; photoUrl?: string } }[]>([])
+  const [convocations, setConvocations] = useState<{ id: string; motif: string; date: string; status: string; student: { firstName: string; lastName: string; matricule: string; photoUrl?: string; class?: { id: string; name: string } | null } }[]>([])
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
   const [editPoints, setEditPoints] = useState('')
   const [editListType, setEditListType] = useState<'BLACKLIST' | 'GREYLIST' | 'WHITELIST'>('GREYLIST')
@@ -192,18 +192,20 @@ export default function DisciplineView() {
 
   const studentSuggestions = useMemo(() => {
     if (!isDisciplineRole) return []
-    if (studentSearch.length < 1) return sectionStudents.map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule }))
+    const sub = (s: { matricule: string; class?: { name: string } }) => s.class?.name ? `${s.matricule} · Classe ${s.class.name}` : s.matricule
+    if (studentSearch.length < 1) return sectionStudents.map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: sub(s) }))
     return sectionStudents.filter(s =>
       `${s.firstName} ${s.lastName}`.toLowerCase().includes(studentSearch.toLowerCase()) || s.matricule.toLowerCase().includes(studentSearch.toLowerCase())
-    ).map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: s.matricule }))
+    ).map(s => ({ id: s.id, label: `${s.firstName} ${s.lastName}`, sublabel: sub(s) }))
   }, [studentSearch, sectionStudents, isDisciplineRole])
 
   const childSuggestions = useMemo(() => {
     if (!isParent) return []
-    if (childSearch.length < 1) return myChildren.map(c => ({ id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: c.matricule }))
+    const sub = (c: { matricule: string; class?: { name: string } }) => c.class?.name ? `${c.matricule} · Classe ${c.class.name}` : c.matricule
+    if (childSearch.length < 1) return myChildren.map(c => ({ id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: sub(c) }))
     return myChildren.filter(c =>
       `${c.firstName} ${c.lastName}`.toLowerCase().includes(childSearch.toLowerCase()) || c.matricule.toLowerCase().includes(childSearch.toLowerCase())
-    ).map(c => ({ id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: c.matricule }))
+    ).map(c => ({ id: c.id, label: `${c.firstName} ${c.lastName}`, sublabel: sub(c) }))
   }, [childSearch, myChildren, isParent])
 
   useEffect(() => {
@@ -569,7 +571,7 @@ export default function DisciplineView() {
                     />
                   ) : (
                     <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm font-medium" style={{ color: TEXT_PRIMARY, background: GOLD_SOFT }}>
-                      {selectedStudentName?.firstName} {selectedStudentName?.lastName} ({selectedStudentName?.matricule})
+                      {selectedStudentName?.firstName} {selectedStudentName?.lastName} ({selectedStudentName?.matricule}){selectedStudentName?.class?.name ? ` · Classe ${selectedStudentName.class.name}` : ''}
                     </div>
                   )}
                 </div>
@@ -631,7 +633,7 @@ export default function DisciplineView() {
                     />
                   ) : (
                     <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm font-medium" style={{ color: TEXT_PRIMARY, background: GOLD_SOFT }}>
-                      {selectedStudentName?.firstName} {selectedStudentName?.lastName}
+                      {selectedStudentName?.firstName} {selectedStudentName?.lastName}{selectedStudentName?.class?.name ? ` · Classe ${selectedStudentName.class.name}` : ''}
                     </div>
                   )}
                 </div>
@@ -665,7 +667,7 @@ export default function DisciplineView() {
                     <StudentAvatar firstName={c.student.firstName} lastName={c.student.lastName} photoUrl={c.student.photoUrl} size={32} className="text-white" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }} />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate" style={{ color: TEXT_PRIMARY }}>{c.student.firstName} {c.student.lastName}</div>
-                      <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{c.motif}</div>
+                      <div className="text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{c.student.class?.name ? `Classe ${c.student.class.name} · ` : ''}{c.motif}</div>
                     </div>
                     <div className="text-right shrink-0">
                       <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{formatDate(c.date)}</div>
@@ -733,7 +735,7 @@ export default function DisciplineView() {
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>{c.motif}</div>
                   <div className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-                    {c.student.firstName} {c.student.lastName} — {new Date(c.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    {c.student.firstName} {c.student.lastName}{c.student.class?.name ? ` · Classe ${c.student.class.name}` : ''} — {new Date(c.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
                   </div>
                 </div>
                 <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full ${c.status === 'PENDING' ? 'bg-[oklch(95%_0.08_80)] text-[oklch(55%_0.15_80)]' : c.status === 'SENT' ? 'bg-[oklch(95%_0.08_250)] text-[oklch(55%_0.15_250)]' : c.status === 'CONFIRMED' ? 'bg-[oklch(95%_0.08_145)] text-[oklch(55%_0.15_145)]' : 'bg-[oklch(95%_0.04_175)] text-[oklch(55%_0.12_175)]'}`}>
@@ -840,7 +842,13 @@ export default function DisciplineView() {
                         )}
                         <div>
                           <div className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>{r.student ? `${r.student.firstName} ${r.student.lastName}` : '—'}</div>
-                          <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{r.student?.matricule || ''}</div>
+                          <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
+                            {(() => {
+                              const cls = r.student?.class?.name || (isParent ? myChildren : sectionStudents).find(s => s.id === r.studentId)?.class?.name || ''
+                              const mat = r.student?.matricule || ''
+                              return cls ? `Classe ${cls}${mat ? ` · ${mat}` : ''}` : mat
+                            })()}
+                          </div>
                         </div>
                       </div>
                     </td>

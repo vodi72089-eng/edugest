@@ -48,6 +48,9 @@ export default function ParentQrView() {
   const [showCreate, setShowCreate] = useState(false)
   const [label, setLabel] = useState('')
   const [duration, setDuration] = useState('30d')
+  // Durée personnalisée « au détail » (ex. chaque 3 min) : quantité + unité.
+  const [customQty, setCustomQty] = useState('3')
+  const [customUnit, setCustomUnit] = useState<'minutes' | 'hours' | 'days'>('minutes')
   const [creating, setCreating] = useState(false)
 
   const [previewQr, setPreviewQr] = useState<{ item: QrItem; dataUrl: string; url: string } | null>(null)
@@ -75,7 +78,23 @@ export default function ParentQrView() {
     e.preventDefault()
     setCreating(true)
     try {
-      const d = DURATIONS.find(x => x.value === duration) || DURATIONS[3]
+      // ── Durée : preset (DURATIONS) OU personnalisée au détail (ex. 3 min) ──
+      const isCustom = duration === 'custom'
+      let durationPayload: { durationMinutes?: number; durationHours?: number }
+      if (isCustom) {
+        const qty = Number(customQty)
+        if (!Number.isFinite(qty) || qty < 1) {
+          toast.error('Durée invalide : saisissez un nombre supérieur à 0')
+          return
+        }
+        const minutes = Math.round(customUnit === 'minutes' ? qty : customUnit === 'hours' ? qty * 60 : qty * 24 * 60)
+        if (minutes < 1) { toast.error('Durée minimale : 1 minute'); return }
+        if (minutes > 366 * 24 * 60) { toast.error('Durée maximale : 1 an'); return }
+        durationPayload = { durationMinutes: minutes }
+      } else {
+        const d = DURATIONS.find(x => x.value === duration) || DURATIONS[3]
+        durationPayload = { durationHours: d.hours }
+      }
       // ── Secrétaire : demande d'approbation à l'admin général ────────────
       if (isSecretary) {
         const r = await authFetch('/api/settings-approval', {
@@ -83,7 +102,7 @@ export default function ParentQrView() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             changeType: 'qr_create',
-            changeData: { label: label || null, durationHours: d.hours },
+            changeData: { label: label || null, ...durationPayload },
           }),
         })
         const j = await r.json().catch(() => ({}))
@@ -100,7 +119,7 @@ export default function ParentQrView() {
       const r = await authFetch('/api/school-qr-codes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label: label || null, durationHours: d.hours, ...(isSuperAdmin ? { schoolId: contextSchoolId } : {}) }),
+        body: JSON.stringify({ label: label || null, ...durationPayload, ...(isSuperAdmin ? { schoolId: contextSchoolId } : {}) }),
       })
       const j = await r.json()
       if (!r.ok) {
@@ -116,7 +135,10 @@ export default function ParentQrView() {
       setLabel('')
       await loadCodes()
       await openPreview(j.data)
-    } catch { toast.error('Erreur réseau') }
+    } catch {
+      // La plupart du temps : serveur injoignable (redémarrage / port changé).
+      toast.error('Erreur réseau : le serveur ne répond pas. Rechargez la page (F5) puis réessayez.')
+    }
     finally { setCreating(false) }
   }
 
@@ -278,7 +300,34 @@ export default function ParentQrView() {
               </div>
               <div>
                 <label className="text-sm font-medium block mb-1" style={{ color: TEXT_PRIMARY }}>Durée de vie du QR code *</label>
-                <AppSelect value={duration} onChange={setDuration} options={DURATIONS.map(d => ({ value: d.value, label: d.label }))} />
+                <AppSelect
+                  value={duration}
+                  onChange={setDuration}
+                  options={[...DURATIONS.map(d => ({ value: d.value, label: d.label })), { value: 'custom', label: 'Personnalisée — durée exacte' }]}
+                />
+                {duration === 'custom' && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <input
+                      type="number" min={1} step={1}
+                      value={customQty}
+                      onChange={e => setCustomQty(e.target.value)}
+                      placeholder="ex. 3"
+                      className="w-24 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+                    />
+                    <AppSelect
+                      value={customUnit}
+                      onChange={v => setCustomUnit(v as 'minutes' | 'hours' | 'days')}
+                      options={[
+                        { value: 'minutes', label: 'minute(s)' },
+                        { value: 'hours', label: 'heure(s)' },
+                        { value: 'days', label: 'jour(s)' },
+                      ]}
+                    />
+                    <span className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>
+                      ex. {customQty || '?'} {customUnit === 'minutes' ? 'min' : customUnit === 'hours' ? 'h' : 'j'}
+                    </span>
+                  </div>
+                )}
                 <p className="text-[12px] mt-2 flex items-start gap-1.5" style={{ color: TEXT_MUTED_LUXE }}>
                   <Clock size={12} className="shrink-0 mt-0.5" />
                   Après expiration, le QR code ne fonctionne plus : mesure de sécurité pour empêcher les inscriptions non autorisées.

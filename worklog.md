@@ -2579,3 +2579,21 @@ Work Log:
 
 Stage Summary:
 - Bictorys + Flutterwave retirés de l'offre RDC côté API (catalogue Config. Paiements école + plateforme, validation configuration/initiation, méthodes d'abonnement) sans toucher à page.tsx — preuve E2E : catalogue 6 passerelles, POST BICTORYS 400. Le build de production sur le port 3100 devra être reconstruit (ou l'exe 1.4.11 téléchargé) pour afficher la nouvelle page.
+
+Task: QR Parents — durée de vie « aux millimètres près », unicité par école, message d'erreur clair, classe à côté des élèves (Discipline).
+
+Work Log:
+- Demande utilisateur (4 points) : QR impossible à générer, QR unique d'une école à l'autre, personnalisation fine (ex. « chaque 3 min »), classe affichée à côté des élèves → clarification demandée : écran « Discipline » (les captures jointes étaient partiellement parasites : une image de lecteur vidéo + la page Rapports qui n'affiche aucune liste d'élèves).
+- « Erreur réseau » à la génération : cause racine déjà prouvée (onglet sur le port 3100 mort, serveur relancé sur 3000 → ECONNREFUSED) ; ParentQrView catch enrichi : « Erreur réseau : le serveur ne répond pas. Rechargez la page (F5) puis réessayez. ».
+- Durée personnalisée (UI) : ParentQrView — option « Personnalisée — durée exacte » ajoutée au sélecteur (presets 1h/24h/7j/30j/3mois/1an inchangés) + quantité (≥1, défaut 3) + unité minute(s)/heure(s)/jour(s), contrôle « ex. 3 min » ; bornes client 1 min ↔ 366 j.
+- Durée personnalisée (API) : POST /api/school-qr-codes accepte durationMinutes (arrondi à la minute, ≥ 1 min sinon 400) ; durationHours/durationDays/expiresAt inchangés (rétrocompatibles) ; settings-approval gère durationMinutes à l'approbation (flow secrétaire → admin), garde 366 j existante conservée.
+- Discipline — classe à côté des élèves : tableau des listes Noire/Grise/Blanche (cellule Élève : « Classe 4eA · CSL-2025-009 », fallback sur roster si student.class absent), sous-libellé des suggestions de recherche (« matricule · Classe X »), convocations staff et parent, champs Élève des formulaires sanction/convocation ; /api/convocations : select student enrichi de class (GET/POST/PUT — les 3 sites) ; /api/discipline portait déjà student.class.
+- Unicité QR par école : AUCUN changement de code nécessaire — déjà garanti par token crypto.randomBytes(24) (192 bits) + liaison schoolId côté serveur, /api/public/find-child résout l'école depuis le token.
+- tsc --noEmit : 0 erreur sur src (seul tests/comprehensive-audit.spec.ts préexistant, hors scope).
+- E2E API (serveur dev 3001, arbre courant) : POST durationMinutes=3 → 201, expiresAt = +3 min (±<60 s) ; durationMinutes=0 → 400 ; durationHours=720 → 201 (non-régression presets) ; unicité : token école A ≠ token école B, find-child(token A) → « Complexe Scolaire Lumière », find-child(token B) → « Institut Mwanzo » ; convocations GET → student.class « 6eA » (insertion directe Prisma sans notification, ligne supprimée après).
+- E2E navigateur : modal QR → option « Personnalisée — durée exacte », quantité 3, unité « minute(s) » ; soumission → toast « QR code généré avec succès », QR dans la liste, expiration en base ≈ 3 min ; vue Discipline → « Lukaku Mputu | Classe 4eA · CSL-2025-009 » (Noire/Grise) et lignes synthétiques Liste Blanche (« Amani Baketu | Classe CP1 · CSL-2025-016 ») ✓.
+- Nettoyage : 4 QR de test supprimés (seul « teste » de l'utilisateur conservé), convocation de test supprimée, sessions mintées supprimées.
+- Bump desktop 1.4.12 (push systématique).
+
+Stage Summary:
+- Durée de vie QR personnalisable au détail de la minute (ex. 3 min) de bout en bout (UI + API + approbation secrétaire), message d'erreur réseau explicite avec instruction de rechargement, Discipline affiche la classe à côté de chaque élève (tableau, suggestions, convocations, formulaires), unicité par école prouvée sans code (token 192 bits + schoolId serveur). IMPORTANT : l'app de production tourne désormais sur le port 3000 (3100 est mort) — rebuild nécessaire pour que le correctif soit actif côté utilisateur.
