@@ -251,13 +251,6 @@ export function buildBulletinPDF(
     doc.text(addressParts.slice(0, 60), mx + 30, y + 20);
   }
 
-  // ── QR CODE UNIQUE (coin supérieur droit) ──
-  if (qrCodeDataUrl) {
-    try {
-      doc.addImage(qrCodeDataUrl, 'PNG', W - mx - 26, y - 2, 24, 24);
-    } catch { /* QR ignoré si échec d'encodage */ }
-  }
-
   // ══════════════════════════════════════════════════════════════════
   //  LIGNE DÉCORATIVE OR
   // ══════════════════════════════════════════════════════════════════
@@ -413,7 +406,7 @@ export function buildBulletinPDF(
   centerText(doc, sanitizeAscii(getMention(average)), y + 2, W);
 
   // ══════════════════════════════════════════════════════════════════
-  //  SIGNATURE & CACHET
+  //  QR DE VÉRIFICATION — juste en bas (centré), sous la ligne dorée
   // ══════════════════════════════════════════════════════════════════
   y = Math.min(Math.max(y + 10, 200), 218);
 
@@ -421,42 +414,25 @@ export function buildBulletinPDF(
   doc.setLineWidth(0.5);
   doc.line(mx, y, W - mx, y);
 
-  y += 12;
-  const leftBoxX = mx + 4;
-  const rightBoxX = W / 2 + 5;
-  const sigBoxW = W / 2 - mx - 10;
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
-  setT(doc, GRAY);
-  doc.text('Signature Direction', leftBoxX, y);
-  setD(doc, LGRAY);
-  doc.setLineWidth(0.3);
-  doc.line(leftBoxX, y + 10, leftBoxX + sigBoxW - 5, y + 10);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
-  setT(doc, GRAY);
-  doc.text('Cachet de l\'ecole', rightBoxX, y);
-  setD(doc, LGRAY);
-  doc.setLineWidth(0.3);
-  doc.line(rightBoxX, y + 10, rightBoxX + sigBoxW - 5, y + 10);
-
-  // ══════════════════════════════════════════════════════════════════
-  //  AVIS DE VÉRIFICATION (QR code)
-  // ══════════════════════════════════════════════════════════════════
+  const qrSize = 18;
+  const qrY = y + 6;
   if (qrCodeDataUrl) {
-    const verifyY = Math.max(y + 12, H - 50);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
-    setT(doc, GRAY);
-    centerText(doc, 'VERIFICATION', verifyY, W);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.5);
-    setT(doc, LGRAY);
-    centerText(doc, 'Pour verifier l\'authenticite de ce bulletin, scannez le QR code', verifyY + 4, W);
+    try {
+      doc.addImage(qrCodeDataUrl, 'PNG', W / 2 - qrSize / 2, qrY, qrSize, qrSize);
+    } catch { /* QR ignoré si échec d'encodage */ }
   }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  setT(doc, GRAY);
+  centerText(doc, 'VERIFICATION', qrY + qrSize + 4, W);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  setT(doc, LGRAY);
+  centerText(doc, 'Pour verifier l\'authenticite de ce bulletin, scannez le QR code', qrY + qrSize + 8, W);
+
+  y = qrY + qrSize + 12;
 
   // ══════════════════════════════════════════════════════════════════
   //  PIED DE PAGE : école + EduGest
