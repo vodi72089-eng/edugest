@@ -52,7 +52,7 @@ export class BulletinError extends Error {
  * Sanitisation ASCII (design gianelli) : rendu identique de tous les accents
  * quel que soit l'environnement jsPDF (É→E, è→e, —→-, etc.).
  */
-function sanitizeAscii(text: string): string {
+export function sanitizeAscii(text: string): string {
   return String(text || '')
     .replace(/[\u00C0-\u00C5]/g, 'A')
     .replace(/[\u00C6]/g, 'AE')
