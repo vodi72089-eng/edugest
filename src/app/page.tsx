@@ -3906,6 +3906,11 @@ function WhatsAppConfigView() {
     setConnectionModeState(mode)
     if (mode !== 'qr') setQrCode(null)
   }
+  // Ref synchronisée avec pairCode : checkStatus est lancé par un intervalle
+  // (useEffect []) et capturerait la valeur périmée (null) sinon — le pattern
+  // est identique à connectionModeRef.
+  const pairCodeRef = useRef<string | null>(null)
+  useEffect(() => { pairCodeRef.current = pairCode }, [pairCode])
 
   useEffect(() => {
     // Le statut temps-réel de l'agent est réservé au super administrateur et à
@@ -3941,7 +3946,7 @@ function WhatsAppConfigView() {
         // prévenir le mini-service. On détecte l'échéance ici (polling 2 s) et
         // on affiche un message clair au lieu de laisser « En attente... »
         // tourner indéfiniment.
-        if (pairCode && pairExpiresAt && Date.now() > pairExpiresAt && !pairExpired) {
+        if (pairCodeRef.current && pairExpiresAt && Date.now() > pairExpiresAt && !pairExpired) {
           setPairExpired(true)
           setPairCode(null)
           setPairExpiresAt(null)
@@ -3963,9 +3968,9 @@ function WhatsAppConfigView() {
           // d'expiration, mais il peut rester en « connecting » (reconnexion
           // auto anti-logout). C'est donc la DISPARITION du code pendant
           // l'attente qui signale l'échec — pas seulement le statut.
-          || (connectionModeRef.current === 'phone' && pairCode && !json.data?.pairingCode)) {
+          || (connectionModeRef.current === 'phone' && pairCodeRef.current && !json.data?.pairingCode)) {
           boundRef.current = false
-          if (pairCode) {
+          if (pairCodeRef.current) {
             setPairCode(null)
             setPairExpiresAt(null)
             setPairProgress([])
