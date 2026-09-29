@@ -2042,7 +2042,12 @@ function LoginView() {
         // Popup import base de données : admin créateur uniquement — DANS l'app,
         // identifiants déjà validés (jamais sur la page de connexion).
         if (role === 'SCHOOL_ADMIN') {
-          try { sessionStorage.setItem('edugest_show_import_db', '1') } catch {}
+          try {
+            // Popup import : plus jamais après un « Plus tard » ou un import déjà fait.
+            if (localStorage.getItem('edugest_import_db_dismissed') !== '1') {
+              sessionStorage.setItem('edugest_show_import_db', '1')
+            }
+          } catch {}
         }
         toast.success(`Bienvenue, ${apiUser.name}!`)
         return
@@ -2315,7 +2320,12 @@ function LoginView() {
                           }, json.data.token)
                           // Popup import base de données : admin créateur uniquement
                           if (role === 'SCHOOL_ADMIN') {
-                            try { sessionStorage.setItem('edugest_show_import_db', '1') } catch {}
+                            try {
+                              // Popup import : plus jamais après un « Plus tard » ou un import déjà fait.
+                              if (localStorage.getItem('edugest_import_db_dismissed') !== '1') {
+                                sessionStorage.setItem('edugest_show_import_db', '1')
+                              }
+                            } catch {}
                           }
                           toast.success(`Bienvenue, ${apiUser.name}!`)
                           setShowWhatsappModal(false)
@@ -3856,6 +3866,15 @@ function DashboardLayout() {
     }
     return () => window.removeEventListener('edugest:open-import-db', openImportDb)
   }, [])
+  // Fermeture du popup d'import (« desktop requis » ou import direct) :
+  // mémorisée définitivement (localStorage) — plus aucune popup à la
+  // connexion suivante, que l'utilisateur ait importé sa base ou non.
+  // Le bouton « Importer une base » de Paramètres reste accessible.
+  const closeImportDbPrompt = () => {
+    setShowImportDb(false)
+    setShowDesktopOnly(false)
+    try { localStorage.setItem('edugest_import_db_dismissed', '1') } catch {}
+  }
   return (
     <div className={`min-h-screen grid grid-cols-1 ${sidebarVisible ? 'lg:grid-cols-[240px_1fr]' : ''}`} style={{ background: IVORY }}>
       {sidebarVisible && <Sidebar />}
@@ -3865,8 +3884,8 @@ function DashboardLayout() {
           <MainContent />
         </main>
       </div>
-      {showImportDb && <ImportDbModal onClose={() => setShowImportDb(false)} />}
-      {showDesktopOnly && <DesktopOnlyModal onClose={() => setShowDesktopOnly(false)} />}
+      {showImportDb && <ImportDbModal onClose={closeImportDbPrompt} />}
+      {showDesktopOnly && <DesktopOnlyModal onClose={closeImportDbPrompt} />}
     </div>
   )
 }
