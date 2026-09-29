@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
       select: { name: true, shortName: true, address: true, city: true, province: true, logo: true },
     });
 
-    const period = from && to ? `Du ${from} au ${to}` : from ? `Depuis ${from}` : to : `Jusqu'au ${to}` : 'Tout l\'historique';
+    const period = from && to ? `Du ${from} au ${to}` : from ? `Depuis ${from}` : to ? `Jusqu'au ${to}` : 'Tout l\'historique';
 
     const pdfBuffer = buildTeacherAttendancePDF({
       teacher: { name: teacher.name, email: teacher.email, subjectName: teacher.subjectName, classNames: teacher.classNames },
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
 
     const filename = `presence-${teacher.name.replace(/\s+/g, '-')}-${from || 'debut'}-${to || 'fin'}.pdf`;
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
