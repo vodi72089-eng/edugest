@@ -64,13 +64,16 @@ function SettingsViewInner() {
   const [comments, setComments] = useState<{ id: string; authorName: string; rating: number; comment: string; isApproved: boolean; createdAt: string }[]>([])
   const logoInputRef = useRef<HTMLInputElement | null>(null)
   const coverInputRef = useRef<HTMLInputElement | null>(null)
-  const [activeTab, setActiveTab] = useState<'info' | 'fees' | 'devices' | 'personalization' | 'aide' | 'photos'>(personalizationOnly ? 'personalization' : 'info')
+  const [activeTab, setActiveTab] = useState<'info' | 'fees' | 'devices' | 'personalization' | 'aide'>(personalizationOnly ? 'personalization' : 'info')
   const [fees, setFees] = useState<any[]>([])
   const [classes, setClasses] = useState<any[]>([])
-  // Galerie photo publique (page vitrique) — gérée ici uniquement.
+  // Galerie photo publique (page vitrique) — onglet Personnalisation.
   const [photos, setPhotos] = useState<SchoolPhotoData[]>([])
+  const [captions, setCaptions] = useState<Record<string, string>>({})
+  const [photoTier, setPhotoTier] = useState('FREEMIUM')
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null)
+  const [savingCaptionId, setSavingCaptionId] = useState<string | null>(null)
   const photoInputRef = useRef<HTMLInputElement | null>(null)
   const [showFeeModal, setShowFeeModal] = useState(false)
   const [feeForm, setFeeForm] = useState({ name: '', amount: '', currency: 'CDF', trimester: 'T1', classId: '' })
@@ -169,6 +172,8 @@ function SettingsViewInner() {
             setLogoUrl(s.logo || '')
             setCoverUrl(s.coverImage || '')
             setPhotos(s.schoolPhotos || [])
+            setCaptions(Object.fromEntries((s.schoolPhotos || []).map((p: SchoolPhotoData) => [p.id, p.caption || ''])))
+            setPhotoTier(s.subscriptionTier || 'FREEMIUM')
           }
           setLoading(false)
         })
@@ -257,7 +262,7 @@ function SettingsViewInner() {
   // ── Galerie photo publique ─────────────────────────────────────────────
   // Limite forfait (getTierLimits().maxPhotos) vérifiée côté client (blocage
   // immédiat) ET côté serveur (POST /api/school-photos → 403 au-delà).
-  const maxPhotos = getTierLimits(school?.subscriptionTier || 'FREEMIUM').maxPhotos
+  const maxPhotos = getTierLimits(photoTier).maxPhotos
   const photoLimitReached = photos.length >= maxPhotos
 
   async function handlePhotoUpload(file: File) {
@@ -283,7 +288,9 @@ function SettingsViewInner() {
       })
       const j = await res.json().catch(() => ({}))
       if (res.ok) {
-        setPhotos(prev => [j.data as SchoolPhotoData, ...prev])
+        const created = j.data as SchoolPhotoData
+        setPhotos((prev) => [created, ...prev])
+        setCaptions((prev) => ({ ...prev, [created.id]: created.caption || '' }))
         toast.success('Photo ajoutée à la galerie')
       } else {
         toast.error(j.error || "Erreur lors de l'ajout")
@@ -301,7 +308,12 @@ function SettingsViewInner() {
     try {
       const res = await authFetch(`/api/school-photos/${id}`, { method: 'DELETE' })
       if (res.ok) {
-        setPhotos(prev => prev.filter(p => p.id !== id))
+        setPhotos((prev) => prev.filter((p) => p.id !== id))
+        setCaptions((prev) => {
+          const next = { ...prev }
+          delete next[id]
+          return next
+        })
         toast.success('Photo supprimée')
       } else {
         const j = await res.json().catch(() => ({}))
@@ -311,6 +323,31 @@ function SettingsViewInner() {
       toast.error('Erreur réseau')
     } finally {
       setDeletingPhotoId(null)
+    }
+  }
+
+  async function handleSaveCaption(id: string, value?: string) {
+    const caption = (value ?? captions[id] ?? '').trim()
+    const photo = photos.find((p) => p.id === id)
+    if (!photo || (photo.caption ?? '') === caption) return
+    setSavingCaptionId(id)
+    try {
+      const res = await authFetch(`/api/school-photos/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caption }),
+      })
+      if (res.ok) {
+        setPhotos((prev) => prev.map((p) => (p.id === id ? { ...p, caption: caption || null } : p)))
+        toast.success('Description enregistrée')
+      } else {
+        const j = await res.json().catch(() => ({}))
+        toast.error(j.error || "Erreur lors de l'enregistrement")
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setSavingCaptionId(null)
     }
   }
 
@@ -480,11 +517,6 @@ function SettingsViewInner() {
         {canPersonalize && (
           <button onClick={() => setActiveTab('personalization')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'personalization' ? 'text-white' : ''}`} style={activeTab === 'personalization' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
             <Palette size={14} className="inline mr-1" /> Personnalisation
-          </button>
-        )}
-        {canPersonalize && (
-          <button onClick={() => setActiveTab('photos')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'photos' ? 'text-white' : ''}`} style={activeTab === 'photos' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
-            <ImagePlus size={14} className="inline mr-1" /> Photos
           </button>
         )}
         <button onClick={() => setActiveTab('aide')} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${activeTab === 'aide' ? 'text-white' : ''}`} style={activeTab === 'aide' ? { background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` } : { color: TEXT_MUTED_LUXE }}>
@@ -841,9 +873,9 @@ function SettingsViewInner() {
         </div>
       )}
 
-      {activeTab === 'personalization' && <PersonalizationView />}
-
-      {activeTab === 'photos' && (
+      {activeTab === 'personalization' && (
+      <div className="space-y-6">
+        {/* ── Galerie photos publique (page vitrine de l'école) ── */}
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 shadow-sm">
           <div className="flex items-center justify-between flex-wrap gap-3 mb-1">
             <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Galerie photos</h3>
@@ -865,8 +897,8 @@ function SettingsViewInner() {
           </div>
           <p className="text-xs mb-4" style={{ color: TEXT_MUTED_LUXE }}>
             {photoLimitReached
-              ? `Limite du forfait ${school?.subscriptionTier || 'FREEMIUM'} atteinte — retirez une photo ou passez à l'offre supérieure pour en ajouter.`
-              : `Ces photos sont visibles sur la page publique de votre école (forfait ${school?.subscriptionTier || 'FREEMIUM'} : ${maxPhotos} photo${maxPhotos > 1 ? 's' : ''} maximum).`}
+              ? `Limite du forfait ${photoTier} atteinte (${maxPhotos} photo${maxPhotos > 1 ? 's' : ''}) — retirez une photo ou passez à l'offre supérieure pour en ajouter.`
+              : `Ces photos sont visibles sur la page publique de votre école — forfait ${photoTier} : ${maxPhotos} photo${maxPhotos > 1 ? 's' : ''} maximum.`}
           </p>
 
           {photos.length === 0 ? (
@@ -876,29 +908,48 @@ function SettingsViewInner() {
               <p className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Ajoutez jusqu'à {maxPhotos} photo{maxPhotos > 1 ? 's' : ''} pour présenter votre école.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {photos.map(ph => (
-                <div key={ph.id} className="relative group rounded-xl overflow-hidden border border-[oklch(90%_0.01_175)] bg-white">
-                  <img src={ph.url} alt={ph.caption || 'Photo de l\'école'} className="w-full h-32 object-cover" />
-                  {ph.caption && (
-                    <p className="px-2.5 py-2 text-[11px] truncate" style={{ color: TEXT_MUTED_LUXE }}>{ph.caption}</p>
-                  )}
-                  <button
-                    onClick={() => handleDeletePhoto(ph.id)}
-                    disabled={deletingPhotoId === ph.id}
-                    title="Supprimer cette photo"
-                    className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-white/90 shadow grid place-items-center opacity-0 group-hover:opacity-100 transition disabled:opacity-40"
-                    style={{ color: DANGER }}
-                  >
-                    {deletingPhotoId === ph.id
-                      ? <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      : <Trash2 size={13} />}
-                  </button>
+                <div key={ph.id} className="rounded-xl overflow-hidden border border-[oklch(90%_0.01_175)] bg-white">
+                  <img src={ph.url} alt={ph.caption || 'Photo de l\'école'} className="w-full h-36 object-cover" />
+                  <div className="p-2.5 space-y-2">
+                    <input
+                      type="text"
+                      value={captions[ph.id] ?? ''}
+                      placeholder="Description de la photo…"
+                      maxLength={140}
+                      onChange={e => setCaptions(prev => ({ ...prev, [ph.id]: e.target.value }))}
+                      onBlur={(e) => handleSaveCaption(ph.id, e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                      aria-label="Description de la photo"
+                      className="w-full px-2.5 py-1.5 text-[11px] border rounded-lg outline-none focus:ring-2"
+                      style={{ borderColor: 'oklch(90% 0.01 175)', color: TEXT_PRIMARY }}
+                    />
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px]" style={{ color: TEXT_MUTED_LUXE }}>
+                        {savingCaptionId === ph.id ? 'Enregistrement…' : 'Description enregistrée automatiquement'}
+                      </span>
+                      <button
+                        onClick={() => handleDeletePhoto(ph.id)}
+                        disabled={deletingPhotoId === ph.id}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition hover:bg-[oklch(95%_0.04_25)] disabled:opacity-40"
+                        style={{ color: DANGER }}
+                      >
+                        {deletingPhotoId === ph.id
+                          ? <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          : <Trash2 size={12} />}
+                        Supprimer
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
+
+        <PersonalizationView />
+      </div>
       )}
 
       {activeTab === 'aide' && <HelpView />}

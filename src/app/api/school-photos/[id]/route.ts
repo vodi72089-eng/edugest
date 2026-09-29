@@ -1,17 +1,13 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 import { requirePermission, verifySchoolAccess, sanitizeError } from '@/lib/auth';
-import { UPLOAD_DIR } from '@/app/api/upload/route';
 
-// DELETE /api/school-photos/[id] — suppression d'une photo de la galerie.
-// Réservé SAG + SCHOOL_ADMIN (mêmes rôles que l'ajout). Le fichier est
-// retiré du disque si personne d'autre ne le référence.
+// PATCH /api/school-photos/[id] — met à jour la légende d'une photo.
+// Réservé SAG + SCHOOL_ADMIN (mêmes rôles que l'ajout/suppression).
 
 const MANAGE_ROLES = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN'];
 
-export async function DELETE(
+export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -33,24 +29,17 @@ export async function DELETE(
       return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
     }
 
-    await db.schoolPhoto.delete({ where: { id } });
+    const body = await request.json();
+    const caption = typeof body.caption === 'string' ? body.caption.trim().slice(0, 140) : '';
 
-    // Suppression du fichier du disque (best-effort : personne d'autre ne
-    // doit le référencer — couverture + logo passent par d'autres champs).
-    const stillUsed = await db.school.count({
-      where: { OR: [{ logo: photo.url }, { coverImage: photo.url }] },
-    }).catch(() => 1);
-    if (stillUsed === 0 && photo.url.startsWith('/api/upload/')) {
-      const name = photo.url.replace('/api/upload/', '');
-      if (/^[a-zA-Z0-9._-]{1,120}$/.test(name) && !name.includes('..')) {
-        const filePath = path.join(UPLOAD_DIR, name);
-        if (filePath.startsWith(UPLOAD_DIR)) fs.rmSync(filePath, { force: true });
-      }
-    }
+    const updated = await db.schoolPhoto.update({
+      where: { id },
+      data: { caption: caption || null },
+    });
 
-    return NextResponse.json({ data: { id } });
+    return NextResponse.json({ data: updated });
   } catch (error) {
-    console.error('Error deleting school photo:', error);
+    console.error('Error updating school photo caption:', error);
     return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });
   }
 }
