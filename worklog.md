@@ -2670,3 +2670,18 @@ Work Log:
 
 Stage Summary:
 - Les professeurs (TEACHER et HEAD_TEACHER) peuvent désormais faire l'appel quotidien depuis « Liste de présence » — prouvé en API et en navigateur ; en attente du rebuild de l'app de production (port 3000) pour être visible côté utilisateur.
+
+
+Task: Présence des professeurs — appel quotidien par cycle, historique filtrable, fiche PDF.
+
+Work Log:
+- Demande utilisateur : « on peut aussi mettre une liste de presence pour les professeur... les comptes discipline qui l'auront et ils pourront voir seulement la liste des professeurs de son cycle... l'admin de l'école peut voir tout les prof... quand on clique sur un prof on puisse telecharger sa liste de presence... format pdf avec le meme design que les autres pdf... on pourra filtre par classe par jour... en bas du pdf avoir les nombres de fois qu'il est venu et pas venu ».
+- Schema: nouveau modele TeacherAttendanceRecord (teacherId, schoolId, date, status, recordedBy, validatedBy/At) + relations User/School.
+- API: GET/POST /api/attendance/teachers (liste profs du cycle + statuts du jour, filtre cycle pour DISCIPLINE_*), GET /api/attendance/teachers/history (filtre date), GET /api/attendance/teachers/history/pdf (fiche PDF design gianelli avec totaux presents/absents/retards en bas).
+- UI (AttendanceView): 3 onglets — Appel du jour (eleves), Présence profs (liste du cycle + boutons Present/Absent + bouton telecharger PDF par prof), Historique (filtre date + tableau eleves/profs).
+- E2E (serveur dev 3002, Directeur Lumière): GET teachers → 3 profs; POST → saved=2; history → 2 records, stats {present:1, absent:1}; PDF → 35 Ko, header %PDF valide; UI → 3 onglets visibles, liste profs OK.
+- Note: le .env contient un chemin Linux (DATABASE_URL=file:/home/z/my-project/...) — prisma db push doit etre lance avec DATABASE_URL=file:./db/custom.db (le bon chemin Windows de .env.local).
+- Commits: b072204 (schema+API+PDF), e47c812 (UI), d9226eb (fix syntaxe PDF).
+
+Stage Summary:
+- Les professeurs ont leur propre appel quotidien (onglet « Présence profs »), visible par cycle pour les comptes DISCIPLINE_* et en entier pour l'admin d'école; chaque prof a une fiche PDF de présence (design gianelli, totaux en bas) telechargeable depuis sa ligne; l'onglet Historique filtre par date et affiche eleves + profs — prouve en API et en navigateur.
