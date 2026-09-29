@@ -45,7 +45,8 @@ export default function AttendanceView() {
   const disciplineRoles: UserRole[] = ['DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE']
   const directionVariants: UserRole[] = ['DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE']
   const isDisciplineRole = disciplineRoles.includes(userRole as UserRole)
-  const canTakeAttendance = isDisciplineRole || directionVariants.includes(userRole as UserRole) || userRole === 'SCHOOL_ADMIN' || isSAG
+  const isTeacherRole = userRole === 'TEACHER' || userRole === 'HEAD_TEACHER'
+  const canTakeAttendance = isDisciplineRole || directionVariants.includes(userRole as UserRole) || userRole === 'SCHOOL_ADMIN' || isSAG || isTeacherRole
 
   const [classes, setClasses] = useState<ClassRow[]>([])
   const [classId, setClassId] = useState('')

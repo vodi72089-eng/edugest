@@ -639,6 +639,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'classes:read', 'classes:update',
     'subjects:read',
     'discipline:read', 'discipline:create',
+    'attendance:read', 'attendance:create',
     // Convocations retirées : seuls les PARENTS, la DIRECTION, la DISCIPLINE,
     // l'ADMIN DE L'ÉCOLE et le SECRÉTAIRE voient les convocations. Un professeur
     // (titulaire inclus) ne voit que les notes et les communications reçues.
@@ -653,6 +654,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'classes:read', 'subjects:read',
     'homework:read', 'homework:create',
     'discipline:read',
+    'attendance:read', 'attendance:create',
     'communications:read',
     'notifications:read',
   ],
@@ -690,6 +692,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'classes:read', 'classes:create', 'classes:update', 'classes:delete',
     'subjects:read', 'subjects:create',
     'discipline:read', 'discipline:create', 'discipline:update',
+    'attendance:read', 'attendance:create',
     'convocations:read', 'convocations:create', 'convocations:update',
     'communications:read', 'communications:create',
     'homework:read', 'homework:create',

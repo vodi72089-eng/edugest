@@ -2654,3 +2654,19 @@ Work Log:
 
 Stage Summary:
 - La Liste Blanche affiche désormais les lignes « Aucune infraction » cohérentes avec les filtres de classe et de gravité — prouvé en navigateur ; en attente du rebuild de l'app de production (port 3000) pour être visible côté utilisateur.
+
+
+Task: Liste de présence accessible aux professeurs (TEACHER + HEAD_TEACHER).
+
+Work Log:
+- Demande utilisateur : « j'aimerais que les professeurs puissent aussi avoir une liste des présence » (capture : vue Liste de présence).
+- src/lib/auth.ts : ajout des permissions attendance:read + attendance:create à TEACHER, HEAD_TEACHER et SCHOOL_ADMIN (pour ne pas casser l'accès existant via le changement de permission API).
+- src/app/api/attendance/route.ts : GET passe de discipline:read à attendance:read ; POST passe de discipline:update à attendance:create (modèle de permission cohérent).
+- src/components/views/AttendanceView.tsx : canTakeAttendance accepte désormais TEACHER et HEAD_TEACHER (isTeacherRole).
+- src/app/page.tsx : 'attendance' ajouté à VIEWS_BY_ROLE.TEACHER et HEAD_TEACHER + entrées sidebar « Liste de présence » pour les deux rôles.
+- E2E API (serveur dev 3001, compte Prof. Mwepu Kashala TEACHER) : GET /api/classes → 200 (3 classes) ; GET /api/attendance?classId=CE1 → 200 (1 élève) ; POST /api/attendance → 201 saved=1 (anti-contournement vérifié : un élève d'une autre classe est refusé).
+- E2E navigateur : session TEACHER → /attendance → h1 « Liste de présence », sidebar avec l'entrée, pas de message d'accès refusé, sélecteur de classe présent.
+- tsc --noEmit : 0 erreur sur src ; eslint : aucune nouvelle erreur.
+
+Stage Summary:
+- Les professeurs (TEACHER et HEAD_TEACHER) peuvent désormais faire l'appel quotidien depuis « Liste de présence » — prouvé en API et en navigateur ; en attente du rebuild de l'app de production (port 3000) pour être visible côté utilisateur.
