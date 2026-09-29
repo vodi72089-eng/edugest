@@ -2576,6 +2576,7 @@ function Sidebar() {
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
+      { icon: <Megaphone size={16} />, label: 'Convocations', view: 'convocation' as ViewType },
       { icon: <HeartPulse size={16} />, label: 'Service Médical', view: 'medical' as ViewType },
       { icon: <Stethoscope size={16} />, label: 'Fiches Médicales', view: 'medical-records' as ViewType },
       { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
@@ -3884,6 +3885,12 @@ function WhatsAppConfigView() {
   const [connectionMode, setConnectionModeState] = useState<'qr' | 'phone' | null>(null)
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [pairCode, setPairCode] = useState<string | null>(null)
+  // Expiration du code de parrainage : WhatsApp invalide le code après quelques
+  // minutes SANS que le mini-service ne le sache (statut « connecting » figé).
+  // Le front impose donc sa propre échéance → message clair au lieu d'une
+  // attente infinie.
+  const [pairExpiresAt, setPairExpiresAt] = useState<number | null>(null)
+  const [pairExpired, setPairExpired] = useState(false)
   const [phoneNumber, setPhoneNumber] = useState('')
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
@@ -3927,6 +3934,18 @@ function WhatsAppConfigView() {
           setConnectionMode('phone')
           setPairCode(json.data.pairingCode)
           setPairProgress(['Code généré !'])
+          setPairExpired(false)
+          setPairExpiresAt(Date.now() + 5 * 60 * 1000)
+        }
+        // Expiration côté client : WhatsApp invalide le code après ~5 min sans
+        // prévenir le mini-service. On détecte l'échéance ici (polling 2 s) et
+        // on affiche un message clair au lieu de laisser « En attente... »
+        // tourner indéfiniment.
+        if (pairCode && pairExpiresAt && Date.now() > pairExpiresAt && !pairExpired) {
+          setPairExpired(true)
+          setPairCode(null)
+          setPairExpiresAt(null)
+          toast.error('Le code de parrainage a expiré. Générez un nouveau code pour reconnecter WhatsApp.')
         }
         if (json.data?.status === 'connected') {
           setPairCode(null); setPairProgress([])
@@ -3939,8 +3958,19 @@ function WhatsAppConfigView() {
               .then(j => { if (j?.message) toast.success(j.message) })
               .catch(() => {})
           }
-        } else if (json.data?.status === 'disconnected') {
+        } else if (json.data?.status === 'disconnected'
+          // Le mini-service efface le code en cas de déconnexion OU
+          // d'expiration, mais il peut rester en « connecting » (reconnexion
+          // auto anti-logout). C'est donc la DISPARITION du code pendant
+          // l'attente qui signale l'échec — pas seulement le statut.
+          || (connectionModeRef.current === 'phone' && pairCode && !json.data?.pairingCode)) {
           boundRef.current = false
+          if (pairCode) {
+            setPairCode(null)
+            setPairExpiresAt(null)
+            setPairProgress([])
+            toast.error('Le code de parrainage a expiré ou le client s\'est déconnecté. Générez un nouveau code.')
+          }
         }
       }
     } catch {}
@@ -3964,6 +3994,8 @@ function WhatsAppConfigView() {
     setRequestingPair(true)
     setPairProgress([])
     setPairCode(null)
+    setPairExpired(false)
+    setPairExpiresAt(null)
     const steps = [
       'Démarrage du client WhatsApp (natsu-baileys-v10)...',
       'Chargement de WhatsApp Web...',
@@ -3985,6 +4017,7 @@ function WhatsAppConfigView() {
       if (json.data?.ok && json.data?.pairingCode) {
         setPairCode(json.data.pairingCode)
         setPairProgress(p => [...p, 'Code généré !'])
+        setPairExpiresAt(Date.now() + 5 * 60 * 1000)
         toast.success('Code de parrainage généré !')
       } else {
         toast.error(json.data?.error || json.error || 'Impossible de générer le code')
@@ -4151,6 +4184,15 @@ function WhatsAppConfigView() {
                       {whatsappStatus === 'disconnected' && (
                         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
                           <p className="text-xs text-amber-700">⚠️ La connexion a été fermée — le code a probablement expiré.</p>
+                          <button onClick={handleStartPhone} disabled={requestingPair} className="w-full py-2.5 rounded-xl text-white font-semibold text-sm disabled:opacity-50 transition hover:opacity-90" style={{ background: `linear-gradient(135deg, ${TEAL_COLOR}, ${GOLD_COLOR})` }}>
+                            {requestingPair ? 'Génération...' : 'Générer un nouveau code'}
+                          </button>
+                        </div>
+                      )}
+                      {pairExpired && (
+                        <div className="rounded-xl border border-red-200 bg-red-50 p-3 space-y-2">
+                          <p className="text-xs text-red-700 font-semibold">⏱ Le code de parrainage a expiré.</p>
+                          <p className="text-xs text-red-600">WhatsApp invalide les codes après quelques minutes. Générez un nouveau code et saisissez-le rapidement sur votre téléphone.</p>
                           <button onClick={handleStartPhone} disabled={requestingPair} className="w-full py-2.5 rounded-xl text-white font-semibold text-sm disabled:opacity-50 transition hover:opacity-90" style={{ background: `linear-gradient(135deg, ${TEAL_COLOR}, ${GOLD_COLOR})` }}>
                             {requestingPair ? 'Génération...' : 'Générer un nouveau code'}
                           </button>

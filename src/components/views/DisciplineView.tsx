@@ -189,7 +189,8 @@ export default function DisciplineView() {
     for (const r of source) {
       if (!(r.studentId in map)) continue
       if (classFilter && classOf(r.studentId) !== classFilter) continue
-      if (severityFilter && r.severity !== severityFilter) continue
+      if (severityFilter === 'CLEAN' && r.type !== 'CLEAN') continue
+      if (severityFilter && severityFilter !== 'CLEAN' && r.severity !== severityFilter) continue
       if ((LIST_RANK[r.listType] || 0) > LIST_RANK[map[r.studentId]]) {
         map[r.studentId] = r.listType as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST'
       }
@@ -302,7 +303,8 @@ export default function DisciplineView() {
       const classOf = (id: string) => roster.find(s => s.id === id)?.class?.name
       const matchesFilters = (r: DisciplineData) => {
         if (classFilter && classOf(r.studentId) !== classFilter) return false
-        if (severityFilter && r.severity !== severityFilter) return false
+        if (severityFilter === 'CLEAN' && r.type !== 'CLEAN') return false
+        if (severityFilter && severityFilter !== 'CLEAN' && r.severity !== severityFilter) return false
         return true
       }
       const studentIdsWithRecords = new Set(allRecords.filter(matchesFilters).map(r => r.studentId))
@@ -336,7 +338,9 @@ export default function DisciplineView() {
     // Liste Blanche serait vide dès qu'un filtre de gravité est actif).
     // Le filtre de gravité ne s'applique PAS à la Liste Blanche : ses lignes
     // sont des lignes CLEAN (sans incident) — le filtre viderait l'onglet.
-    if (severityFilter && tab !== 'WHITELIST') {
+    // Filtre « Clean » explicite : seules les lignes CLEAN sont retenues.
+    if (severityFilter === 'CLEAN') out = out.filter(r => r.type === 'CLEAN')
+    else if (severityFilter && tab !== 'WHITELIST') {
       out = out.filter(r => r.type === 'CLEAN' || r.severity === severityFilter)
     }
     if (dateSort === 'asc') {
@@ -791,6 +795,7 @@ export default function DisciplineView() {
             onChange={setSeverityFilter}
             options={[
               { value: '', label: 'Toute gravité' },
+              { value: 'CLEAN', label: 'Clean' },
               { value: 'HIGH', label: 'Grave' },
               { value: 'MEDIUM', label: 'Moyen' },
               { value: 'LOW', label: 'Faible' },

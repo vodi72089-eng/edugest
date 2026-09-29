@@ -55,6 +55,7 @@ model School {
   supportTickets    SupportTicket[]
   featureGrants     FeatureGrant[]
   attendanceRecords AttendanceRecord[]
+  teacherAttendanceRecords TeacherAttendanceRecord[]
   schoolFees        SchoolFee[]
   notifications     Notification[]
   subscriptionRequests SubscriptionRequest[]
@@ -118,6 +119,7 @@ model User {
   homeworkReads   HomeworkRead[]
   convocationReads ConvocationRead[]
   teacherAssignments TeacherAssignment[]
+  teacherAttendanceRecords TeacherAttendanceRecord[]
   pushSubscriptions PushSubscription[]
   infirmaryVisitsRecorded InfirmaryVisit[] @relation("RecordedVisits")
   medicalDocumentsCreated MedicalDocument[] @relation("MedicalDocumentsCreated")
@@ -540,6 +542,25 @@ model AttendanceRecord {
 
   @@unique([studentId, date])
   @@index([classId, date])
+}
+
+model TeacherAttendanceRecord {
+  id          String    @id @default(cuid())
+  teacherId   String
+  schoolId    String
+  date        String    // YYYY-MM-DD
+  status      String    // PRESENT | ABSENT | LATE
+  recordedBy  String?
+  validatedBy String?
+  validatedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  teacher User   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  school  School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, date])
+  @@index([schoolId, date])
 }
 
 model ReportCard {
