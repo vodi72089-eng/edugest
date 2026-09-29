@@ -50,6 +50,7 @@ export default async function VerifyDocumentPage({ params }: { params: Promise<{
     : record?.type === 'MEDICAL' ? 'Document médical'
     : record?.type === 'SUMMONS' ? 'Sommation'
     : record?.type === 'REPORT' ? "Rapport d'activité"
+    : record?.type === 'STUDENT_CARD' ? "Carte d'identité scolaire"
     : 'Document';
   const isOfficial = !!record;
 

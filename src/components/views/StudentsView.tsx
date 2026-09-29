@@ -3,10 +3,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
 import type { StudentData, ClassData, GradeData } from '@/lib/types'
-import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT, DANGER } from '@/lib/constants'
+import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT, DANGER, BORDER } from '@/lib/constants'
 import { getInitials, formatNumber, getStatusPill } from '@/lib/helpers'
 import StudentAvatar from '@/components/ui/StudentAvatar'
-import { Plus, X, Users, ChevronDown, Eye, EyeOff, Edit, Trash2, Check, Archive } from 'lucide-react'
+import StudentCardModal from './StudentCardModal'
+import { Plus, X, Users, ChevronDown, Eye, EyeOff, Edit, Trash2, Check, Archive, IdCard } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchAutocomplete, { AutocompleteItem } from './SearchAutocomplete'
 import AppSelect from '@/components/ui/AppSelect'
@@ -41,6 +42,7 @@ export default function StudentsView() {
   const [showParentPwd, setShowParentPwd] = useState(false)
   const [adding, setAdding] = useState(false)
   const [viewingStudent, setViewingStudent] = useState<StudentData | null>(null)
+  const [showStudentCard, setShowStudentCard] = useState(false)
   // Résultats de la période dans le modal « Détails de l'élève »
   const [viewTrimester, setViewTrimester] = useState('T1')
   const [viewGrades, setViewGrades] = useState<GradeData[]>([])
@@ -466,7 +468,17 @@ export default function StudentsView() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <h3 className="font-semibold" style={{ color: TEXT_PRIMARY }}>Détails de l'élève</h3>
-              <button onClick={() => setViewingStudent(null)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-gray-100 transition"><X size={16} className="text-gray-500" /></button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowStudentCard(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition hover:bg-[oklch(97%_0.005_175)]"
+                  style={{ borderColor: BORDER, color: TEXT_PRIMARY }}
+                  title="Voir et télécharger la carte d'identité scolaire"
+                >
+                  <IdCard size={13} /> Carte d'élève
+                </button>
+                <button onClick={() => setViewingStudent(null)} className="w-8 h-8 rounded-lg grid place-items-center hover:bg-gray-100 transition"><X size={16} className="text-gray-500" /></button>
+              </div>
             </div>
             <div className="px-6 py-5 space-y-4">
               <div className="flex items-center gap-4">
@@ -536,6 +548,11 @@ export default function StudentsView() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Carte d'identité scolaire (QR + téléchargement) */}
+      {showStudentCard && viewingStudent && (
+        <StudentCardModal student={viewingStudent} onClose={() => setShowStudentCard(false)} />
       )}
 
       {editingStudent && (

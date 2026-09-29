@@ -44,7 +44,7 @@ export async function GET(
       include: {
         class: { select: { id: true, name: true, section: true, level: true } },
         parent: { select: { id: true, name: true, email: true, phone: true } },
-        school: { select: { id: true, name: true, shortName: true } },
+        school: { select: { id: true, name: true, shortName: true, logo: true } },
         schoolYear: { select: { id: true, label: true } },
         grades: {
           include: {

@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { authFetch } from '@/lib/store'
-import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, DANGER, WARNING, SUCCESS, SUCCESS_SOFT, IVORY } from '@/lib/constants'
+import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, DANGER, WARNING, SUCCESS, SUCCESS_SOFT, IVORY, BORDER } from '@/lib/constants'
 import { formatDate } from '@/lib/helpers'
 import StudentAvatar from '@/components/ui/StudentAvatar'
-import { X, Shield, Megaphone, Calendar, GraduationCap, Users, Phone, Mail, MapPin, AlertTriangle, Ban, Award, RotateCcw, School } from 'lucide-react'
+import { X, Shield, Megaphone, Calendar, GraduationCap, Users, Phone, Mail, MapPin, AlertTriangle, Ban, Award, RotateCcw, School, IdCard } from 'lucide-react'
+import StudentCardModal from './StudentCardModal'
 
 // Priorité « une seule liste par élève » : Blanche < Grise < Noire
 // (même règle que celle de DisciplineView).
@@ -109,6 +110,7 @@ export default function StudentProfileModal({ studentId, onClose, canAct = false
   const [convocations, setConvocations] = useState<ProfileConvocation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [showCard, setShowCard] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -199,6 +201,17 @@ export default function StudentProfileModal({ studentId, onClose, canAct = false
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {student && (
+              <button
+                onClick={() => setShowCard(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition hover:bg-[oklch(97%_0.005_175)]"
+                style={{ borderColor: BORDER, color: TEXT_PRIMARY }}
+                title="Voir et télécharger la carte d'identité scolaire"
+              >
+                <IdCard size={13} />
+                <span className="hidden sm:inline">Carte d'élève</span>
+              </button>
+            )}
             {canAct && student && (onSanction || onConvocation) && (
               <div className="hidden sm:flex items-center gap-2">
                 {onSanction && (
@@ -407,6 +420,11 @@ export default function StudentProfileModal({ studentId, onClose, canAct = false
           </div>
         ) : null}
       </div>
+
+      {/* Carte d'identité scolaire (QR + téléchargement) */}
+      {showCard && student && (
+        <StudentCardModal student={student} onClose={() => setShowCard(false)} />
+      )}
     </div>
   )
 }

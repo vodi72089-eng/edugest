@@ -41,6 +41,7 @@ import ParentsView from '@/components/views/ParentsView'
 import PersonalizationView from '@/components/views/PersonalizationView'
 import { getTierLimits } from '@/lib/subscription'
 import StudentsView from '@/components/views/StudentsView'
+import StudentCardModal from '@/components/views/StudentCardModal'
 import GradesView from '@/components/views/GradesView'
 import PaymentsView from '@/components/views/PaymentsView'
 import FinanceSituationView from '@/components/views/FinanceSituationView'
@@ -74,7 +75,7 @@ import {
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
    ChevronUp, ExternalLink, Check, Copy, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown, DatabaseZap,
    User, Landmark, Palette, BellRing, HeartPulse, Database, Stethoscope, Volume2, VolumeX, CalendarCheck, CalendarDays,
-   LifeBuoy, Headset, ScrollText, Bot, Newspaper, MonitorSmartphone
+   LifeBuoy, Headset, ScrollText, Bot, Newspaper, MonitorSmartphone, IdCard
 } from 'lucide-react'
 import { Link000, Link001 } from '@/components/ui/skiper-ui/skiper40'
 import {
@@ -4434,6 +4435,8 @@ function ClassesView() {
   const [viewingClassId, setViewingClassId] = useState<string | null>(null)
   const [viewingClassName, setViewingClassName] = useState('')
   const [classStudents, setClassStudents] = useState<StudentData[]>([])
+  // Carte d'identité scolaire (QR + téléchargement) d'un élève de la classe
+  const [cardStudent, setCardStudent] = useState<StudentData | null>(null)
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [activeSchoolYear, setActiveSchoolYear] = useState<string>('')
   const canManage = userRole === 'SUPER_ADMIN_GLOBAL' || (userRole && userRole.startsWith('DIRECTION'))
@@ -4735,6 +4738,7 @@ function ClassesView() {
                       <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-5 py-3" style={{ color: GOLD }}>Élève</th>
                       <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-5 py-3" style={{ color: GOLD }}>Matricule</th>
                       <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-5 py-3" style={{ color: GOLD }}>Parent</th>
+                      <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-5 py-3" style={{ color: GOLD }}>Carte</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4751,6 +4755,16 @@ function ClassesView() {
                         </td>
                         <td className="px-5 py-3 text-[13px] font-mono" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</td>
                         <td className="px-5 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.parent?.name || '—'}</td>
+                        <td className="px-5 py-3">
+                          <button
+                            onClick={() => setCardStudent(s)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition"
+                            style={{ color: TEXT_PRIMARY }}
+                            title="Carte d'identité scolaire (QR + téléchargement)"
+                          >
+                            <IdCard size={12} /> Carte
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -4759,6 +4773,11 @@ function ClassesView() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Carte d'identité scolaire (QR + téléchargement) */}
+      {cardStudent && (
+        <StudentCardModal student={cardStudent} onClose={() => setCardStudent(null)} />
       )}
     </div>
   )

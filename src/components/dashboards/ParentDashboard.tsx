@@ -4,11 +4,12 @@ import { useState, useEffect, useRef } from 'react'
 import { useEduGestStore, authFetch, ViewType } from '@/lib/store'
 import { toast } from 'sonner'
 import type { StudentData } from '@/lib/types'
-import { Users, Shield, PenTool, BookOpen, FileText, CreditCard, Edit, Check, Camera, Bell, Calendar } from 'lucide-react'
+import { Users, Shield, PenTool, BookOpen, FileText, CreditCard, Edit, Check, Camera, Bell, Calendar, IdCard } from 'lucide-react'
 import { ACCENT, GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, WARNING, DANGER, INFO } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
 import { tierAllowsParentGrades } from '@/lib/subscription'
 import StudentAvatar from '@/components/ui/StudentAvatar'
+import StudentCardModal from '@/components/views/StudentCardModal'
 import StatCard from './StatCard'
 
 export default function ParentDashboard() {
@@ -24,6 +25,8 @@ export default function ParentDashboard() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const childPhotoInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map())
   const [editingPhotoForChild, setEditingPhotoForChild] = useState<string | null>(null)
+  // Carte d'identité scolaire (QR + téléchargement) d'un enfant
+  const [cardChild, setCardChild] = useState<StudentData | null>(null)
   const [pendingHomework, setPendingHomework] = useState(0)
   const [recentDisciplineCount, setRecentDisciplineCount] = useState(0)
   const [convocations, setConvocations] = useState<{ id: string; motif: string; date: string; status: string; student: { firstName: string; lastName: string; matricule: string } }[]>([])
@@ -223,6 +226,14 @@ export default function ParentDashboard() {
                       {chip.icon} {chip.label}
                     </button>
                   ))}
+                  <button
+                    onClick={() => setCardChild(child)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-[oklch(90%_0.01_175)] hover:bg-[oklch(95%_0.04_175)] hover:border-[oklch(72%_0.15_65_/_0.3)] transition"
+                    style={{ color: TEXT_PRIMARY }}
+                    title="Carte d'identité scolaire (QR + téléchargement)"
+                  >
+                    <IdCard size={14} /> Carte
+                  </button>
                 </div>
               </div>
             )
@@ -287,6 +298,11 @@ export default function ParentDashboard() {
           ))
         })()}
       </div>
+
+      {/* Carte d'identité scolaire d'un enfant (QR + téléchargement) */}
+      {cardChild && (
+        <StudentCardModal student={cardChild} onClose={() => setCardChild(null)} />
+      )}
     </div>
   )
 }
