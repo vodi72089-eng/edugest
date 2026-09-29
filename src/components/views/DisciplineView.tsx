@@ -334,7 +334,11 @@ export default function DisciplineView() {
     // Les lignes synthétiques « Aucune infraction » (type CLEAN) matérialisent
     // l'absence d'incident : la gravité ne peut pas les écarter (sinon la
     // Liste Blanche serait vide dès qu'un filtre de gravité est actif).
-    if (severityFilter) out = out.filter(r => r.type === 'CLEAN' || r.severity === severityFilter)
+    // Le filtre de gravité ne s'applique PAS à la Liste Blanche : ses lignes
+    // sont des lignes CLEAN (sans incident) — le filtre viderait l'onglet.
+    if (severityFilter && tab !== 'WHITELIST') {
+      out = out.filter(r => r.type === 'CLEAN' || r.severity === severityFilter)
+    }
     if (dateSort === 'asc') {
       out = [...out].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
     }
