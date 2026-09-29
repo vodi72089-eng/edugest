@@ -2659,7 +2659,6 @@ function Sidebar() {
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <School size={16} />, label: 'Mes Classes', view: 'classes' },
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
-      { icon: <CalendarCheck size={16} />, label: 'Liste de présence', view: 'attendance' as ViewType },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
@@ -2669,7 +2668,6 @@ HEAD_TEACHER: [
   { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
   { icon: <School size={16} />, label: 'Ma Classe', view: 'classes' },
   { icon: <BookOpen size={16} />, label: 'Notes reçues', view: 'grades' },
-  { icon: <CalendarCheck size={16} />, label: 'Liste de présence', view: 'attendance' as ViewType },
   { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
   { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
   { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
@@ -2893,8 +2891,8 @@ function notifTypeToView(type: string, role?: string | null): ViewType {
 // ===== ROLE-BASED VIEW ACCESS =====
 const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   PARENT: ['dashboard', 'grades', 'bulletin', 'online-payment', 'payment-verification', 'discipline', 'homework', 'communications', 'school-reviews', 'profile', 'convocation'],
-  TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'attendance', 'communications', 'reports', 'profile'],
-  HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'attendance', 'bulletin', 'communications', 'reports', 'profile'],
+  TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'communications', 'reports', 'profile'],
+  HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'bulletin', 'communications', 'reports', 'profile'],
   SECRETARY: ['dashboard', 'students', 'classes', 'convocation', 'discipline', 'payments', 'communications', 'payment-verification', 'class-passing', 'parent-qr', 'events', 'reports', 'my-subscription', 'settings', 'profile'],
   CASHIER: ['dashboard', 'payments', 'finance', 'payment-verification', 'debts', 'communications', 'reports', 'profile'],
   DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'events', 'reports', 'settings', 'profile'],
