@@ -28,6 +28,40 @@ interface StudentCardModalProps {
   onClose: () => void
 }
 
+/** Sexe : la base stocke 'M' / 'F'. */
+function genderOf(g?: string | null): string {
+  if (g === 'M') return 'Masculin'
+  if (g === 'F') return 'Féminin'
+  return '—'
+}
+
+/** Âge révolu à partir de la date de naissance (— si absente/invalide). */
+function ageOf(birth?: string | null): string {
+  if (!birth) return '—'
+  const d = new Date(birth)
+  if (Number.isNaN(d.getTime())) return '—'
+  const now = new Date()
+  let age = now.getFullYear() - d.getFullYear()
+  const m = now.getMonth() - d.getMonth()
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--
+  return age >= 0 ? `${age} ans` : '—'
+}
+
+/** « PRIMAIRE » → « Primaire » (libellé présenté sur la carte). */
+function titleCase(v: string): string {
+  return v.charAt(0) + v.slice(1).toLowerCase()
+}
+
+/** Champ libellé de la carte (sexe, âge, classe, année). */
+function InfoField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-white/40 text-[9px] uppercase tracking-wider leading-none">{label}</div>
+      <div className="text-white/85 text-[12px] font-semibold truncate mt-0.5">{value}</div>
+    </div>
+  )
+}
+
 /**
  * Carte d'identité scolaire — format carte de crédit, avec QR code unique
  * menant à la page publique de vérification (/verify/document/[code]).
@@ -38,30 +72,59 @@ export default function StudentCardModal({ student, onClose }: StudentCardModalP
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
-  // Données enrichies (école, année) si le contexte ne les fournit pas
-  // — ex. ouverture depuis la liste des élèves qui ne joint pas l'école.
-  const [extra, setExtra] = useState<{ school?: ProfileStudent['school']; schoolYear?: ProfileStudent['schoolYear'] }>({})
+  // Données enrichies (école, année, sexe, âge, classe) si le contexte ne les
+  // fournit pas — ex. ouverture depuis la liste qui ne joint pas l'école.
+  const [extra, setExtra] = useState<{
+    school?: ProfileStudent['school']
+    schoolYear?: ProfileStudent['schoolYear']
+    gender?: string | null
+    dateOfBirth?: string | null
+    class?: ProfileStudent['class']
+  }>({})
+  // Vrai quand l'enrichissement est terminé (ou sans rien à charger) :
+  // le QR n'est enregistré qu'ensuite, pour que sexe/âge/classe/année
+  // figurent dans les métadonnées de vérification.
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    if (student.school && student.schoolYear) return
+    const missing = !student.school || !student.schoolYear || !student.gender || !student.dateOfBirth || !student.class
+    if (!missing) { setReady(true); return }
     let cancelled = false
     authFetch(`/api/students/${student.id}`)
       .then(r => r.json())
       .then(j => {
-        if (cancelled || !j.data) return
-        setExtra({ school: j.data.school, schoolYear: j.data.schoolYear })
+        if (cancelled) return
+        if (j.data) {
+          setExtra({
+            school: j.data.school,
+            schoolYear: j.data.schoolYear,
+            gender: j.data.gender,
+            dateOfBirth: j.data.dateOfBirth,
+            class: j.data.class,
+          })
+        }
+        setReady(true)
       })
-      .catch(() => { /* silencieux */ })
+      .catch(() => { if (!cancelled) setReady(true) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [student.id])
 
   const school = extra.school || student.school
   const schoolYear = extra.schoolYear || student.schoolYear
+  const gender = extra.gender ?? student.gender
+  const dateOfBirth = extra.dateOfBirth ?? student.dateOfBirth
+  const klass = extra.class || student.class
+
+  const fullName = `${student.firstName} ${student.lastName}`.trim()
+  const genderLabel = genderOf(gender)
+  const ageLabel = ageOf(dateOfBirth)
 
   // Enregistre la carte dans le registre de vérification + génère le QR
-  // (attend que l'école soit connue, sinon schoolId est absent → 400)
+  // (attend que l'école soit connue, sinon schoolId est absent → 400, et que
+  //  l'enrichissement soit fini pour embarquer sexe/âge/classe/année)
   useEffect(() => {
+    if (!ready) return
     const schoolId = school?.id
     const schoolName = school?.name
     if (!schoolId) return
@@ -79,8 +142,12 @@ export default function StudentCardModal({ student, onClose }: StudentCardModalP
               firstName: student.firstName,
               lastName: student.lastName,
               matricule: student.matricule,
-              className: student.class?.name || null,
+              className: klass?.name || null,
               schoolName: schoolName || null,
+              gender: genderLabel !== '—' ? genderLabel : null,
+              age: ageLabel !== '—' ? ageLabel : null,
+              dateOfBirth: dateOfBirth || null,
+              schoolYear: schoolYear?.label || null,
             },
           }),
         })
@@ -99,7 +166,7 @@ export default function StudentCardModal({ student, onClose }: StudentCardModalP
     setup()
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [student.id, school?.id])
+  }, [student.id, school?.id, ready])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
@@ -124,8 +191,6 @@ export default function StudentCardModal({ student, onClose }: StudentCardModalP
     } catch { /* silencieux */ }
     finally { setDownloading(false) }
   }
-
-  const fullName = `${student.firstName} ${student.lastName}`.trim()
 
   return (
     <div
@@ -205,15 +270,20 @@ export default function StudentCardModal({ student, onClose }: StudentCardModalP
                 style={{ borderColor: GOLD }}
               />
             </div>
-            <div className="flex-1 min-w-0 space-y-1.5 py-1">
+            <div className="flex-1 min-w-0 space-y-2 py-1">
               <div className="text-white font-extrabold text-lg leading-tight truncate">{fullName}</div>
               <div className="font-mono text-[13px] font-bold" style={{ color: GOLD }}>{student.matricule || '—'}</div>
-              <div className="text-white/60 text-xs">
-                {student.class ? `Classe ${student.class.name}${student.class.section ? ` — ${student.class.section}` : ''}` : '—'}
+
+              {/* État civil scolaire : sexe, âge, classe, année */}
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                <InfoField label="Sexe" value={genderLabel} />
+                <InfoField label="Âge" value={ageLabel} />
+                <InfoField
+                  label="Classe"
+                  value={klass ? `${klass.name}${klass.section ? ` — ${titleCase(klass.section)}` : ''}` : '—'}
+                />
+                <InfoField label="Année" value={schoolYear?.label || '—'} />
               </div>
-              {schoolYear && (
-                <div className="text-white/40 text-[11px]">Année scolaire {schoolYear.label}</div>
-              )}
             </div>
           </div>
 

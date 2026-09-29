@@ -103,13 +103,20 @@ export async function registerDocument(input: UpsertDocumentInput): Promise<{ id
     return { id: created.id, url: documentVerifyUrl(created.id) };
   }
 
-  // STUDENT_CARD : une seule carte par élève (rescanner réutilise la fiche)
+  // STUDENT_CARD : une seule carte par élève (rescanner réutilise la fiche,
+  // mise à jour avec les dernières infos — sexe, âge, classe, année…)
   if (input.type === 'STUDENT_CARD' && input.studentId) {
     const existing = await db.documentVerification.findFirst({
       where: { type: 'STUDENT_CARD', studentId: input.studentId },
       select: { id: true },
     });
-    if (existing) return { id: existing.id, url: documentVerifyUrl(existing.id) };
+    if (existing) {
+      await db.documentVerification.update({
+        where: { id: existing.id },
+        data: { metadata: metadataJson },
+      });
+      return { id: existing.id, url: documentVerifyUrl(existing.id) };
+    }
 
     const created = await db.documentVerification.create({
       data: {

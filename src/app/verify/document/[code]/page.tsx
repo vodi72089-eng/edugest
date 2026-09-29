@@ -38,6 +38,7 @@ export default async function VerifyDocumentPage({ params }: { params: Promise<{
     studentName?: string; className?: string; average?: number; mention?: string;
     paidAmount?: number; receiptNumber?: string; title?: string; docCode?: string;
     totalRemaining?: number; debtsCount?: number; periodFrom?: string; periodTo?: string; days?: number;
+    gender?: string; age?: string; schoolYear?: string;
     [key: string]: unknown;
   }
   const meta: DocMeta = (() => {
@@ -125,6 +126,9 @@ export default async function VerifyDocumentPage({ params }: { params: Promise<{
                       {student ? `${student.firstName} ${student.lastName}` : String(meta.studentName || '—')}
                       {student?.matricule ? <span className="block text-white/40 text-[11px] font-normal">Matricule : {student.matricule}</span> : null}
                       {meta.className ? <span className="block text-white/40 text-[11px] font-normal">Classe : {String(meta.className)}</span> : null}
+                      {meta.gender ? <span className="block text-white/40 text-[11px] font-normal">Sexe : {String(meta.gender)}</span> : null}
+                      {meta.age ? <span className="block text-white/40 text-[11px] font-normal">Âge : {String(meta.age)}</span> : null}
+                      {meta.schoolYear ? <span className="block text-white/40 text-[11px] font-normal">Année scolaire : {String(meta.schoolYear)}</span> : null}
                     </dd>
                   </div>
                 )}
