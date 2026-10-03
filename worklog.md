@@ -2685,3 +2685,27 @@ Work Log:
 
 Stage Summary:
 - Les professeurs ont leur propre appel quotidien (onglet « Présence profs »), visible par cycle pour les comptes DISCIPLINE_* et en entier pour l'admin d'école; chaque prof a une fiche PDF de présence (design gianelli, totaux en bas) telechargeable depuis sa ligne; l'onglet Historique filtre par date et affiche eleves + profs — prouve en API et en navigateur.
+
+---
+Task ID: 8 (Chantier A — RBAC + Multi-tenant)
+Agent: Z.ai Code (agent principal de développement)
+Task: Audit complet du dépôt + correction des escalades de privilèges RBAC et des fuites multi-tenant, sur branche dédiée avec suite de tests sécurité étendue, PR ouverte.
+
+Work Log:
+- git pull --rebase (conflits page.tsx/SettingsView résolus en prenant la version distante « restauration ») ; commit local de bruit chmod supprimé ; core.fileMode=false.
+- Audit : 3 agents Explore (RBAC/rôles, isolation multi-tenant/audit trail, état chantiers B-I) + lecture auth.ts ; 154 routes API, 21 rôles réels, 9 risques confirmés documentés.
+- fix/rbac-role-escalation (3 commits) :
+  - src/lib/auth.ts : VALID_ROLES + isValidRole (whitelist stricte, même pour le wildcard SAG), cycleBarrierOk (DIRECTION_*/DISCIPLINE_* confinés à leur cycle), rôles legacy DIRECTION/DISCIPLINE retirés de SCHOOL_STAFF_CREATION_ROLES + matrice SECRETARY, canManageUserAccount strict (< et non <=).
+  - src/app/api/users/route.ts : validation whitelist 400 en POST/PUT, garde auto-modification (rôle/isActive sur soi interdits), logAudit USER_CREATED / USER_ROLE_CHANGED (before/after) / USER_ACTIVATED / USER_DEACTIVATED avec IP + User-Agent.
+  - src/lib/audit.ts + prisma/schema.prisma : AuditLog.ip, AuditLog.userAgent, @@index([schoolId]) ; listAuditLogs filtre schoolId.
+  - Isolation : school-currency GET + verifySchoolAccess ; 4 routes */read (communications, grades via classe, homework, convocations) re-vérification tenant ; POST /api/students valide classId/schoolYearId ∈ école.
+  - scripts/security-tests/run-security-tests.mjs : section 7 — 14 nouveaux tests (44 total).
+- Incidents infra diagnostiqués et corrigés : EMFILE (watchpack) = épuisement des 128 instances inotify par duplication du scheduler (garde pgrep « index.ts » ne matchant pas la commande réelle) → fix keepalive (pgrep + ulimit -n 65536 + secrets webhook + heap 1536) ; purge des process stales ; client Prisma régénéré (tsc repassé).
+- Tests réels : suite sécurité 44/44 PASS contre serveur dev ; tsc --noEmit PASS ; lint 71 ≤ baseline 109 (aucun fichier modifié dans les erreurs) ; vérification navigateur : Journal d'activité affiche les entrées USER_* (badges, détails techniques).
+- Git : 3 commits propres poussés sur fix/rbac-role-escalation (main intact) ; PR #1 créée via API GitHub (gh CLI indisponible) : https://github.com/vodi72089-eng/edugest/pull/1
+
+Stage Summary:
+- Chantier A livré et prouvé : 0 escalade connue restante côté /api/users, 0 IDOR connu sur les routes audités, audit trail opérationnel sur la gestion des comptes.
+- 44/44 tests sécurité (dont 14 nouveaux), PR #1 en revue — NE PAS merger avant CI verte.
+- Chantiers B-I audités (B partiels : attendance sans JUSTIFIED_ABSENCE/arrivalTime/lateMinutes ni PUT ; C/D/F/I existants et solides ; E vérification OK mais signature absente ; G Neon absent ; H Google OAuth absent — next-auth installé jamais importé ; WhatsApp session unique non isolée par école).
+- Prochaines étapes : merger PR #1 après CI, puis Chantier B (présences) et E (signature locale), /api/health (J), EmailProvider abstraction formelle.
