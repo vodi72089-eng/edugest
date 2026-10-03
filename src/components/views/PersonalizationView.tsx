@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useEduGestStore, authFetch } from '@/lib/store'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
 import type { UserData } from '@/lib/store'
 import {
   ACCENT,
@@ -32,6 +32,7 @@ import {
   Users,
   BookOpen,
   Settings as SettingsIcon,
+  Camera,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -194,6 +195,8 @@ function PersonalizationViewInner({
   const [saving, setSaving] = useState(false)
   const [schools, setSchools] = useState<SchoolOption[]>([])
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement | null>(null)
 
   const isDirty =
     colors.primary !== savedColors.primary ||
@@ -368,6 +371,48 @@ function PersonalizationViewInner({
     applyColors({ primary: DEFAULTS.primary, accent: DEFAULTS.accent, gold: DEFAULTS.gold })
   }
 
+  // ── Photo de l'école ──────────────────────────────────────────────────────
+  // Même chaîne que SettingsView : upload vers /api/upload (category schools),
+  // puis écriture du champ logo de l'école. La photo apparaît sur les reçus,
+  // rapports, bulletins et dans l'app (avatar établissement).
+  const handleUploadLogo = async () => {
+    const file = logoInputRef.current?.files?.[0]
+    if (!file) return
+    setUploadingLogo(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('category', 'schools')
+      const uploadRes = await authFetch('/api/upload', { method: 'POST', body: formData })
+      if (uploadRes.ok) {
+        const uploadJson = await uploadRes.json()
+        const url = uploadJson.url as string
+        const targetSchoolId = isSuperAdmin ? selectedSchoolId : getActiveSchoolId()
+        if (!targetSchoolId) {
+          toast.error('Aucune école cible pour la photo')
+          return
+        }
+        const res = await authFetch(`/api/schools/${targetSchoolId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ logo: url }),
+        })
+        if (res.ok) {
+          if (!isSuperAdmin && userData) setUserData({ ...userData, schoolLogo: url })
+          toast.success('Photo de l’école mise à jour !')
+        } else {
+          toast.error('Erreur lors de la mise à jour de l’école')
+        }
+      } else {
+        toast.error('Erreur lors de l’import de l’image')
+      }
+    } catch {
+      toast.error('Erreur lors du téléchargement')
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
   const activePreset = PRESETS.find(
     (p) => p.primary === colors.primary && p.accent === colors.accent && p.gold === colors.gold
   )
@@ -415,6 +460,61 @@ function PersonalizationViewInner({
             </div>
           </div>
         )}
+
+        {/* ── Carte photo de l'école ── */}
+        <Card className="rounded-2xl" style={{ borderColor: BORDER, backgroundColor: '#ffffff' }}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base" style={{ color: TEXT_PRIMARY }}>
+              <Camera className="h-4 w-4" style={{ color: ACCENT }} aria-hidden="true" />
+              Photo de l&apos;école
+            </CardTitle>
+            <CardDescription style={{ color: TEXT_MUTED_LUXE }}>
+              Votre photo apparaît sur les reçus, rapports, bulletins et dans l&apos;application.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              {userData?.schoolLogo ? (
+                <img
+                  src={userData.schoolLogo}
+                  alt="Photo de l'école"
+                  className="h-20 w-20 rounded-2xl border-4 border-white object-cover shadow-lg"
+                />
+              ) : (
+                <div
+                  className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl border-4 border-white text-2xl font-bold text-white shadow-lg"
+                  style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}
+                >
+                  {brandInitial}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
+                  {userData?.schoolLogo
+                    ? 'Votre photo est visible sur tous les documents et dans l’app.'
+                    : 'Aucune photo pour le moment — ajoutez celle de votre établissement.'}
+                </p>
+                <div className="mt-3">
+                  <Button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={uploadingLogo}
+                    className="h-10 rounded-xl px-4 font-semibold text-white"
+                    style={{ backgroundColor: colors.accent }}
+                  >
+                    {uploadingLogo ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Camera className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    {uploadingLogo ? 'Import…' : userData?.schoolLogo ? 'Changer la photo' : 'Ajouter la photo'}
+                  </Button>
+                </div>
+                <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleUploadLogo} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* ── Carte principale : aperçu en temps réel ── */}
         <Card className="overflow-hidden rounded-2xl py-0" style={{ borderColor: BORDER, backgroundColor: '#ffffff' }}>

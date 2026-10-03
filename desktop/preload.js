@@ -61,4 +61,22 @@ contextBridge.exposeInMainWorld('__edugest', {
       return ipcRenderer.invoke('edugest:system-info').catch(() => ({}));
     } catch { return Promise.resolve({}); }
   },
+  /**
+   * Deep link « edugest:// » reçu du site web (ex. edugest://import-db) :
+   * - `consume()` : route en attente au démarrage (app lancée PAR le lien).
+   * - `onRoute(cb)` : route poussée par une deuxième instance (app déjà ouverte).
+   * Sans effet sur le web (pas de bridge → l'interface n'écoute pas).
+   */
+  deepLink: {
+    consume: () => {
+      try {
+        return ipcRenderer.invoke('edugest:deep-link:consume').catch(() => null);
+      } catch { return Promise.resolve(null); }
+    },
+    onRoute: (cb) => {
+      const listener = (_e, route) => { try { cb(route); } catch {} };
+      ipcRenderer.on('edugest:deep-link', listener);
+      return () => ipcRenderer.removeListener('edugest:deep-link', listener);
+    },
+  },
 });

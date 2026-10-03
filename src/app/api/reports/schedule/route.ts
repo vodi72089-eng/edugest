@@ -7,15 +7,16 @@ import { runSchedule } from '@/lib/report-scheduler';
 // ─── Automatisation des rapports (système agentique) ────────────────────────
 // GET    /api/reports/schedule[?schoolId=…]       → liste des programmes
 // POST   /api/reports/schedule                    → créer / mettre à jour
-//        body: { id?, schoolId?, intervalDays, hour, minute, recipients[],
-//                sendPdf, isActive, action?: 'run' }
+//        body: { id?, schoolId?, reportType?, intervalDays, hour, minute,
+//                recipients[], sendPdf, isActive, action?: 'run' }
 //        action:'run' → exécute IMMÉDIATEMENT le programme (test utilisateur)
 // DELETE /api/reports/schedule?id=…               → supprimer un programme
 //
-// Rôles : SUPER_ADMIN_GLOBAL (école via schoolId) et SCHOOL_ADMIN (son école).
+// Rôles : SUPER_ADMIN_GLOBAL (école via schoolId), SCHOOL_ADMIN (son école)
+// et CASHIER (son école, programmes de type « cashier » uniquement).
 // L'heure est interprétée en Africa/Lagos (UTC+1, pas d'heure d'hiver).
 
-const SCHEDULE_ALLOWED_ROLES = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN'];
+const SCHEDULE_ALLOWED_ROLES = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'CASHIER'];
 
 const FREQ_LABELS: Record<number, string> = {
   1: 'Chaque jour',
@@ -29,7 +30,7 @@ function freqLabel(n: number): string {
 }
 
 function serialize(s: {
-  id: string; schoolId: string; intervalDays: number; hour: number; minute: number;
+  id: string; schoolId: string; reportType?: string | null; intervalDays: number; hour: number; minute: number;
   recipients: string; sendPdf: boolean; isActive: boolean; lastRunAt: Date | null;
   nextRunAt: Date | null; lastStatus: string | null; lastDetail: string | null;
   runCount: number; createdBy: string; createdByName: string;
@@ -37,6 +38,7 @@ function serialize(s: {
   return {
     id: s.id,
     schoolId: s.schoolId,
+    reportType: s.reportType === 'cashier' ? 'cashier' : 'activity',
     intervalDays: s.intervalDays,
     freqLabel: freqLabel(s.intervalDays),
     hour: s.hour,
@@ -78,7 +80,8 @@ export async function GET(request: NextRequest) {
     }
 
     const rows = await db.reportSchedule.findMany({
-      where: { schoolId },
+      // Le caissier ne voit que ses programmes de caisse ; les admins voient tout.
+      where: { schoolId, ...(user.role === 'CASHIER' ? { reportType: 'cashier' } : {}) },
       orderBy: { createdAt: 'desc' },
     });
     return NextResponse.json({ data: rows.map(serialize) });
@@ -102,7 +105,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({} as Record<string, unknown>));
     const b = body as {
-      id?: string; schoolId?: string; intervalDays?: number; hour?: number; minute?: number;
+      id?: string; schoolId?: string; reportType?: string; intervalDays?: number; hour?: number; minute?: number;
       recipients?: string[]; sendPdf?: boolean; isActive?: boolean; action?: string;
     };
 
@@ -144,6 +147,9 @@ export async function POST(request: NextRequest) {
       : [];
     const sendPdf = b.sendPdf !== false;
     const isActive = b.isActive !== false;
+    // Le caissier ne programme QUE des rapports de caisse ; les admins peuvent
+    // choisir le type (activité par défaut, caisse si demandé).
+    const reportType = user.role === 'CASHIER' || b.reportType === 'cashier' ? 'cashier' : 'activity';
 
     if (!recipients.length) {
       return NextResponse.json({ error: 'Au moins un numéro WhatsApp destinataire est requis' }, { status: 400 });
@@ -153,6 +159,7 @@ export async function POST(request: NextRequest) {
       schoolId,
       createdBy: user.id,
       createdByName: user.name,
+      reportType,
       intervalDays,
       hour,
       minute,
@@ -165,6 +172,10 @@ export async function POST(request: NextRequest) {
     if (b.id) {
       const existing = await db.reportSchedule.findFirst({ where: { id: b.id, schoolId } });
       if (!existing) return NextResponse.json({ error: 'Programme non trouvé' }, { status: 404 });
+      // Le caissier ne peut modifier que ses propres programmes de caisse.
+      if (user.role === 'CASHIER' && existing.reportType !== 'cashier') {
+        return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
+      }
       // nextRunAt recalculé si l'heure/fréquence change, conservé sinon
       const timeChanged =
         existing.hour !== hour || existing.minute !== minute || existing.intervalDays !== intervalDays;
@@ -209,6 +220,9 @@ export async function DELETE(request: NextRequest) {
     const schedule = await db.reportSchedule.findUnique({ where: { id } });
     if (!schedule) return NextResponse.json({ error: 'Programme non trouvé' }, { status: 404 });
     if (user.role !== 'SUPER_ADMIN_GLOBAL' && schedule.schoolId !== user.schoolId) {
+      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
+    }
+    if (user.role === 'CASHIER' && schedule.reportType !== 'cashier') {
       return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
     }
     await db.reportSchedule.delete({ where: { id } });

@@ -53,6 +53,52 @@ function isPortable() {
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 
+// ─── Instance unique + protocole « edugest:// » (deep link) ──────────────────
+// Le site web (modal « Application desktop requise ») ouvre directement
+// l'application installée via edugest://import-db. Une deuxième instance
+// transmet la route à celle qui tourne déjà puis se ferme (jamais de double
+// serveur local).
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    const route = extractDeepLinkRoute(argv);
+    pendingDeepLink = route;
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+    if (route) mainWindow.webContents.send('edugest:deep-link', route);
+  });
+}
+
+// Enregistre edugest:// dans le registre Windows (et équivalents macOS/Linux)
+// — la page web peut alors « lancer l'exe » depuis le navigateur.
+app.setAsDefaultProtocolClient('edugest');
+
+/** Routes acceptées : un lien edugest:// arbitraire ne pilote jamais l'app. */
+const DEEP_LINK_ROUTES = new Set(['import-db']);
+
+/** Extrait la route de « edugest://import-db » dans argv (null sinon). */
+function extractDeepLinkRoute(argv) {
+  for (const arg of argv || []) {
+    const m = /^edugest:\/\/([a-z-]+)$/i.exec(String(arg));
+    if (m) return m[1].toLowerCase();
+  }
+  return null;
+}
+
+/**
+ * Route en attente, consommée UNE FOIS par le renderer dès son montage
+ * (couvre le lancement à froid, où l'événement poussé serait perdu).
+ */
+let pendingDeepLink = null;
+ipcMain.handle('edugest:deep-link:consume', () => {
+  const route = pendingDeepLink && DEEP_LINK_ROUTES.has(pendingDeepLink) ? pendingDeepLink : null;
+  pendingDeepLink = null;
+  return route;
+});
+
 // ─── Chemins ─────────────────────────────────────────────────────────────────
 
 const isPackaged = app.isPackaged;
@@ -903,6 +949,9 @@ app.whenReady().then(async () => {
   createSplash();
 
   try {
+    // Lancement venu d'un deep link edugest:// (app fermée) : mémorisé AVANT
+    // le chargement de l'UI — le renderer le consomme dès son montage.
+    pendingDeepLink = extractDeepLinkRoute(process.argv);
     const port = await startBackend();
     createWindow(port);
   } catch (e) {

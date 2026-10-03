@@ -32,6 +32,7 @@ import CashierDashboard from '@/components/dashboards/CashierDashboard'
 import ParentDashboard from '@/components/dashboards/ParentDashboard'
 import TeacherDashboard from '@/components/dashboards/TeacherDashboard'
 import HeadTeacherDashboard from '@/components/dashboards/HeadTeacherDashboard'
+import TeacherConductView from '@/components/views/TeacherConductView'
 import DisciplineDashboardView from '@/components/dashboards/DisciplineDashboard'
 import MedicalDashboard from '@/components/dashboards/MedicalDashboard'
 import MedicalView from '@/components/views/MedicalView'
@@ -2670,6 +2671,7 @@ function Sidebar() {
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <School size={16} />, label: 'Mes Classes', view: 'classes' },
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
+      { icon: <Shield size={16} />, label: 'Conduite', view: 'conduct' as ViewType },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
@@ -2679,6 +2681,7 @@ HEAD_TEACHER: [
   { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
   { icon: <School size={16} />, label: 'Ma Classe', view: 'classes' },
   { icon: <BookOpen size={16} />, label: 'Notes reçues', view: 'grades' },
+  { icon: <Shield size={16} />, label: 'Conduite', view: 'conduct' as ViewType },
   { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
   { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
   { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
@@ -2902,8 +2905,8 @@ function notifTypeToView(type: string, role?: string | null): ViewType {
 // ===== ROLE-BASED VIEW ACCESS =====
 const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   PARENT: ['dashboard', 'grades', 'bulletin', 'online-payment', 'payment-verification', 'discipline', 'homework', 'communications', 'school-reviews', 'profile', 'convocation'],
-  TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'communications', 'reports', 'profile'],
-  HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'bulletin', 'communications', 'reports', 'profile'],
+  TEACHER: ['dashboard', 'classes', 'grades', 'conduct', 'homework', 'communications', 'reports', 'profile'],
+  HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'conduct', 'homework', 'bulletin', 'communications', 'reports', 'profile'],
   SECRETARY: ['dashboard', 'students', 'classes', 'convocation', 'discipline', 'payments', 'communications', 'payment-verification', 'class-passing', 'parent-qr', 'events', 'reports', 'my-subscription', 'settings', 'profile'],
   CASHIER: ['dashboard', 'payments', 'finance', 'payment-verification', 'debts', 'communications', 'reports', 'profile'],
   DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'events', 'reports', 'settings', 'profile'],
@@ -4320,6 +4323,7 @@ function MainContent() {
     case 'debts': return <DettesView onNavigate={(v) => setCurrentView(v as ViewType)} schoolId={getActiveSchoolId() || ''} />
     case 'payment-config': return <PaymentConfigView />
     case 'discipline': return <DisciplineView />
+    case 'conduct': return <TeacherConductView />
     case 'attendance': return <AttendanceView />
     case 'events': return <EventsView />
     case 'reports': return <ReportsView />

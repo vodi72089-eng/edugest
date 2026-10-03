@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, requireRole, verifySchoolAccess, sanitizeError, type AuthUser } from '@/lib/auth';
+import { requireAuth, requirePermission, requireRole, verifySchoolAccess, sanitizeError, type AuthUser } from '@/lib/auth';
 import { archiveExcessStudents, restoreArchivedStudents } from '@/lib/archive';
 
 export async function GET(
@@ -81,19 +81,29 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await requirePermission(request, 'school:update');
+    const authResult = await requireAuth(request);
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
 
-    // Only SUPER_ADMIN_GLOBAL can update schools
-    if (user.role !== 'SUPER_ADMIN_GLOBAL') {
+    const { id } = await params;
+
+    // ── RÈGLES DE MODIFICATION ────────────────────────────────────────────────
+    // - SUPER_ADMIN_GLOBAL : modification complète (permission school:update).
+    // - SCHOOL_ADMIN : peut modifier UNIQUEMENT la photo (logo) et la couverture
+    //   de SA PROPRE école, quel que soit le forfait (la photo est un besoin de
+    //   base, pas une feature payante). Les autres champs (nom, forfait…)
+    //   restent réservés au SUPER_ADMIN / au flux d'approbation.
+    const isSchoolAdminSelf = user.role === 'SCHOOL_ADMIN' && user.schoolId === id
+    if (!isSchoolAdminSelf) {
+      const permCheck = await requirePermission(request, 'school:update');
+      if ('error' in permCheck) return permCheck.error;
+    }
+    if (user.role !== 'SUPER_ADMIN_GLOBAL' && !isSchoolAdminSelf) {
       return NextResponse.json(
         { error: 'Seul un SUPER_ADMIN_GLOBAL peut modifier une école' },
         { status: 403 }
       );
     }
-
-    const { id } = await params;
 
     // Verify school access
     if (!verifySchoolAccess(user, id)) {
@@ -124,6 +134,13 @@ export async function PUT(
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
         updateData[field] = body[field];
+      }
+    }
+
+    // SCHOOL_ADMIN : seuls logo/coverImage de sa propre école sont modifiables
+    if (isSchoolAdminSelf) {
+      for (const key of Object.keys(updateData)) {
+        if (key !== 'logo' && key !== 'coverImage') delete updateData[key];
       }
     }
 

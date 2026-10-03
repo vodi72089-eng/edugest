@@ -460,6 +460,10 @@ function SettingsViewInner() {
     }
   }
 
+  // Base de données déjà connectée (élèves importés ou créés) : la carte
+  // d'import ne sert plus — elle n'apparaît que sur une base vide.
+  const dbConnected = (school?._count?.students ?? 0) > 0
+
   if (loading) return <div className="text-center py-8" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div>
 
   return (
@@ -469,10 +473,11 @@ function SettingsViewInner() {
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Paramètres de l&apos;école</h1>
       </div>
 
-      {/* Base de données : carte toujours visible — en web, le clic ouvre le modal
-          « Application desktop requis » (import + téléchargement de l'exe) ;
-          dans l'exe, c'est le modal d'import classique. */}
-      {userRole === 'SCHOOL_ADMIN' && (
+      {/* Base de données : carte visible uniquement si la base n'est PAS encore
+          connectée (0 élève). En web, le clic ouvre le modal « Application
+          desktop requis » (import + téléchargement de l'exe) ; dans l'exe,
+          c'est le modal d'import classique. */}
+      {userRole === 'SCHOOL_ADMIN' && !dbConnected && (
         <div
           className="rounded-2xl p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between border"
           style={{ borderColor: 'rgba(245,166,35,0.35)', background: 'linear-gradient(135deg, rgba(245,166,35,0.08), rgba(245,166,35,0.02))' }}

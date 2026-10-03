@@ -194,6 +194,7 @@ export type ViewType =
   | 'docs'
   | 'platform-emails'
   | 'activity-logs'
+  | 'conduct'
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'

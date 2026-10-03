@@ -327,7 +327,7 @@ model GradeRead {
 }
 
 model DisciplineRecord {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   studentId      String
   type           String
   severity       String
@@ -337,10 +337,16 @@ model DisciplineRecord {
   listType       String   @default("GREYLIST")
   status         String   @default("PENDING")
   schoolId       String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  // Demande « Conduite » d'un professeur : createdBy = prof demandeur,
+  // reviewedBy/reviewedAt = disciplinaire qui approuve ou refuse.
+  // Null = créé directement par le disciplinaire (pas de demande).
+  createdBy      String?
+  reviewedBy     String?
+  reviewedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  student        Student  @relation(fields: [studentId], references: [id])
+  student        Student   @relation(fields: [studentId], references: [id])
 }
 
 model Blacklist {
@@ -1164,6 +1170,7 @@ model ReportSchedule {
   schoolId      String
   createdBy     String    // userId du créateur
   createdByName String    // dénormalisé pour l'audit/l'affichage
+  reportType    String    @default("activity") // activity = rapport d'activité · cashier = rapport de caisse
   intervalDays  Int       @default(1) // 1 = quotidien, 2 = tous les 2 jours, 7 = hebdo
   hour          Int       @default(8) // heure d'envoi (0-23, Africa/Lagos)
   minute        Int       @default(0)

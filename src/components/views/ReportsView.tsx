@@ -61,6 +61,7 @@ interface SendResult {
 interface ScheduleItem {
   id: string
   schoolId: string
+  reportType: string
   intervalDays: number
   freqLabel: string
   hour: number
@@ -76,6 +77,26 @@ interface ScheduleItem {
   runCount: number
   createdBy: string
   createdByName: string
+}
+
+/** Aperçu du rapport de caisse (GET /api/reports/cashier). */
+interface CashierPreviewData {
+  period: { from: string; to: string; days: number }
+  cutoff: { iso: string; dateLabel: string; timeLabel: string }
+  schedule: { intervalDays: number; hour: number; minute: number }
+  currencySymbol: string
+  payments: {
+    transactions: number
+    payers: number
+    collected: number
+    byHour: { hour: number; count: number; total: number }[]
+  }
+  debts: {
+    count: number
+    total: number
+    worst: { student: string; className: string; remaining: number }[]
+    least: { student: string; className: string; remaining: number }[]
+  }
 }
 
 const FREQ_OPTIONS = [
@@ -146,8 +167,10 @@ export default function ReportsView() {
   // Compte multi-écoles (forfait corporate) : voit les rapports de SES écoles
   // (scellé côté serveur via CorporateSchool).
   const isCorporate = userRole === 'CORPORATE_ADMIN'
-  // Automatisation agentique : réservée au propriétaire (SCHOOL_ADMIN) et au super admin
-  const canAutomate = userRole === 'SCHOOL_ADMIN' || isSAG
+  // Automatisation agentique : propriétaire (SCHOOL_ADMIN) + super admin —
+  // et le caissier, qui programme SON rapport de caisse (heure + fréquence).
+  const isCashier = userRole === 'CASHIER'
+  const canAutomate = userRole === 'SCHOOL_ADMIN' || isSAG || isCashier
 
   const [days, setDays] = useState(7)
   const [report, setReport] = useState<ReportData | null>(null)
@@ -168,6 +191,11 @@ export default function ReportsView() {
   const [recipientsTouched, setRecipientsTouched] = useState(false)
   const [autoPdf, setAutoPdf] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
+  // Type de programme : le caissier ne programme QUE du « cashier ».
+  const [autoType, setAutoType] = useState<'activity' | 'cashier'>('activity')
+  const effectiveType: 'activity' | 'cashier' = isCashier ? 'cashier' : autoType
+  // Aperçu du rapport de caisse (paiements jusqu'à H−1 min, dettes, top graves/moins)
+  const [cashierPreview, setCashierPreview] = useState<CashierPreviewData | null>(null)
 
   const schoolId = getActiveSchoolId()
   const activeSchoolId = useMemo(() => schoolId, [schoolId])
@@ -281,6 +309,44 @@ export default function ReportsView() {
     loadSchedules()
   }, [loadSchedules, isSAG, activeSchoolId])
 
+  // ── Aperçu du rapport de caisse (recalculé quand heure/fréquence changent) ──
+  // Le « chargement » est DÉRIVÉ (clé non encore chargée) : aucun setState
+  // synchrone dans l'effet (règle react-hooks/set-state-in-effect).
+  const previewKey = `${activeSchoolId || ''}|${autoFreq}|${autoTime}`
+  const [loadedPreviewKey, setLoadedPreviewKey] = useState<string | null>(null)
+  const [refreshingPreview, setRefreshingPreview] = useState(false)
+  const loadingPreview = effectiveType === 'cashier' && (loadedPreviewKey !== previewKey || refreshingPreview)
+
+  const loadCashierPreview = useCallback((): Promise<void> => {
+    if (!canAutomate || effectiveType !== 'cashier') return Promise.resolve()
+    const [hh, mm] = autoTime.split(':').map(x => Number.parseInt(x, 10))
+    const params = new URLSearchParams({
+      intervalDays: String(autoFreq),
+      hour: String(Number.isFinite(hh) ? hh : 12),
+      minute: String(Number.isFinite(mm) ? mm : 0),
+    })
+    if (activeSchoolId) params.set('schoolId', activeSchoolId)
+    const key = `${activeSchoolId || ''}|${autoFreq}|${autoTime}`
+    return authFetch(`/api/reports/cashier?${params}`)
+      .then(async res => {
+        const j = await res.json().catch(() => ({}))
+        if (res.ok) setCashierPreview(j.data || null)
+      })
+      .catch(() => { /* aperçu indisponible — état inchangé */ })
+      .then(() => setLoadedPreviewKey(key))
+  }, [canAutomate, effectiveType, autoFreq, autoTime, activeSchoolId])
+
+  useEffect(() => {
+    if (isSAG && !activeSchoolId) return
+    loadCashierPreview()
+  }, [loadCashierPreview, isSAG, activeSchoolId])
+
+  async function refreshCashierPreview() {
+    setRefreshingPreview(true)
+    await loadCashierPreview()
+    setRefreshingPreview(false)
+  }
+
   // Pré-remplissage sans effet : le téléphone du compte courant sert de
   // valeur affichée tant que l'utilisateur n'a rien saisi.
   const effectiveRecipients =
@@ -302,6 +368,7 @@ export default function ReportsView() {
         body: JSON.stringify({
           id: editingId || undefined,
           ...(activeSchoolId ? { schoolId: activeSchoolId } : {}),
+          reportType: effectiveType,
           intervalDays: autoFreq,
           hour: Number.isFinite(hh) ? hh : 8,
           minute: Number.isFinite(mm) ? mm : 0,
@@ -329,6 +396,7 @@ export default function ReportsView() {
         body: JSON.stringify({
           id: s.id,
           ...(activeSchoolId ? { schoolId: activeSchoolId } : {}),
+          reportType: s.reportType || 'activity',
           intervalDays: s.intervalDays,
           hour: s.hour,
           minute: s.minute,
@@ -377,6 +445,7 @@ export default function ReportsView() {
 
   function editSchedule(s: ScheduleItem) {
     setEditingId(s.id)
+    setAutoType(s.reportType === 'cashier' ? 'cashier' : 'activity')
     setAutoFreq(s.intervalDays)
     setAutoTime(s.timeLabel)
     setAutoRecipients(s.recipients.join(', '))
@@ -655,6 +724,25 @@ export default function ReportsView() {
 
               {/* Formulaire */}
               <div className="mt-4 rounded-xl p-4 border border-[oklch(90%_0.01_175)]" style={{ background: IVORY }}>
+                {!isCashier && (
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <span className="text-[12px] font-semibold" style={{ color: TEXT_PRIMARY }}>Type de rapport</span>
+                    <div className="flex flex-wrap gap-1.5 ml-auto">
+                      {([['activity', 'Rapport d’activité'], ['cashier', 'Rapport de caisse']] as const).map(([t, label]) => (
+                        <button
+                          key={t}
+                          onClick={() => setAutoType(t)}
+                          className="px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition"
+                          style={autoType === t
+                            ? { background: GOLD, color: 'white', borderColor: GOLD }
+                            : { background: 'white', color: TEXT_MUTED_LUXE, borderColor: 'oklch(90% 0.01 175)' }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center gap-2 mb-3">
                   <Clock3 size={14} style={{ color: GOLD }} />
                   <span className="text-[12px] font-semibold" style={{ color: TEXT_PRIMARY }}>Fréquence d&apos;envoi</span>
@@ -713,6 +801,98 @@ export default function ReportsView() {
                 </div>
               </div>
 
+              {/* Rappel du périmètre du rapport de caisse */}
+              {effectiveType === 'cashier' && (
+                <p className="text-[11px] mt-2 leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
+                  <strong style={{ color: TEXT_PRIMARY }}>Rapport de caisse :</strong> paiements reçus jusqu&apos;à l&apos;heure d&apos;envoi − 1 minute (envoi à 12h00 → jusqu&apos;à 11h59:59),
+                  décompte des payeurs selon l&apos;heure, total encaissé, dettes et les <strong>5 cas les plus graves</strong> ainsi que les <strong>5 moindres</strong>.
+                </p>
+              )}
+
+              {/* Aperçu du prochain rapport de caisse */}
+              {effectiveType === 'cashier' && (
+                <div className="mt-3 rounded-xl p-4 border border-[oklch(90%_0.01_175)] bg-white">
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <Wallet size={14} style={{ color: GOLD }} />
+                    <span className="text-[12px] font-semibold" style={{ color: TEXT_PRIMARY }}>Aperçu du prochain rapport</span>
+                    {cashierPreview && (
+                      <span className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
+                        Paiements jusqu&apos;au {cashierPreview.cutoff.dateLabel} {cashierPreview.cutoff.timeLabel}
+                      </span>
+                    )}
+                    <button
+                      onClick={refreshCashierPreview}
+                      disabled={loadingPreview}
+                      className="ml-auto px-3 py-1.5 rounded-lg text-[12px] font-semibold border inline-flex items-center gap-1 disabled:opacity-50"
+                      style={{ borderColor: 'rgba(245,166,35,0.5)', color: TEXT_PRIMARY }}
+                    >
+                      {loadingPreview ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />}
+                      Actualiser
+                    </button>
+                  </div>
+                  {loadingPreview && !cashierPreview ? (
+                    <p className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>
+                      <Loader2 size={13} className="inline animate-spin mr-1" />Calcul de l&apos;aperçu…
+                    </p>
+                  ) : !cashierPreview ? (
+                    <p className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>Aperçu indisponible pour le moment.</p>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+                        <StatCard icon={Users} label="Payeurs sur l’intervalle" value={fmtNum(cashierPreview.payments.payers)} bg={GOLD_SOFT} color={GOLD} />
+                        <StatCard icon={Wallet} label={`Encaissé (${cashierPreview.currencySymbol})`} value={formatAmount(cashierPreview.payments.collected)} bg={SUCCESS_SOFT} color={SUCCESS} />
+                        <StatCard icon={AlertTriangle} label="Élèves endettés" value={fmtNum(cashierPreview.debts.count)} bg="oklch(95% 0.04 25)" color={DANGER} />
+                        <StatCard icon={FileText} label="Reste dû (toutes dettes)" value={formatAmount(cashierPreview.debts.total)} bg="oklch(95% 0.04 25)" color={DANGER} />
+                      </div>
+                      {cashierPreview.payments.byHour.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-[11px] font-semibold mb-1.5" style={{ color: TEXT_MUTED_LUXE }}>
+                            Paiements reçus selon l’heure (heure locale)
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {cashierPreview.payments.byHour.slice(0, 16).map(h => (
+                              <span key={h.hour} className="px-2 py-1 rounded-lg text-[11px] font-semibold" style={{ background: IVORY, color: TEXT_PRIMARY }}>
+                                {String(h.hour).padStart(2, '0')}h–{String((h.hour + 1) % 24).padStart(2, '0')}h : {h.count} · {formatAmount(h.total)}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                        <div className="rounded-lg p-3 border border-[oklch(92%_0.03_25)]">
+                          <p className="text-[11px] font-bold mb-1.5" style={{ color: DANGER }}>Cas les plus graves — top 5</p>
+                          {cashierPreview.debts.worst.length ? (
+                            cashierPreview.debts.worst.map((w, i) => (
+                              <p key={`${w.student}-${i}`} className="text-[12px] flex justify-between gap-2 py-0.5" style={{ color: TEXT_PRIMARY }}>
+                                <span className="truncate">{w.student} <span style={{ color: TEXT_MUTED_LUXE }}>({w.className})</span></span>
+                                <strong className="shrink-0">{formatAmount(w.remaining)}</strong>
+                              </p>
+                            ))
+                          ) : (
+                            <p className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>Aucune dette en cours — tous les élèves sont à jour.</p>
+                          )}
+                        </div>
+                        <div className="rounded-lg p-3 border border-[oklch(92%_0.03_150)]">
+                          <p className="text-[11px] font-bold mb-1.5" style={{ color: SUCCESS }}>Cas les moindres — top 5</p>
+                          {cashierPreview.debts.least.length ? (
+                            cashierPreview.debts.least.map((l, i) => (
+                              <p key={`${l.student}-${i}`} className="text-[12px] flex justify-between gap-2 py-0.5" style={{ color: TEXT_PRIMARY }}>
+                                <span className="truncate">{l.student} <span style={{ color: TEXT_MUTED_LUXE }}>({l.className})</span></span>
+                                <strong className="shrink-0">{formatAmount(l.remaining)}</strong>
+                              </p>
+                            ))
+                          ) : (
+                            <p className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>
+                              {cashierPreview.debts.count > 0 ? 'Moins de 5 débiteurs — tous figurent dans les cas graves.' : 'Aucune dette en cours.'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               {/* Liste des programmes */}
               <div className="mt-3 space-y-2">
                 {loadingSchedules ? (
@@ -730,6 +910,12 @@ export default function ReportsView() {
                       <div key={s.id} className="rounded-xl border border-[oklch(90%_0.01_175)] px-4 py-3 flex flex-wrap items-center gap-3">
                         <span className="px-2.5 py-1 rounded-full text-[11px] font-bold" style={{ background: s.isActive ? SUCCESS_SOFT : IVORY, color: s.isActive ? SUCCESS : TEXT_MUTED_LUXE }}>
                           {s.isActive ? '● Actif' : '○ En pause'}
+                        </span>
+                        <span
+                          className="px-2 py-1 rounded-full text-[10.5px] font-bold"
+                          style={{ background: s.reportType === 'cashier' ? GOLD_SOFT : IVORY, color: s.reportType === 'cashier' ? GOLD : TEXT_MUTED_LUXE }}
+                        >
+                          {s.reportType === 'cashier' ? 'Caisse' : 'Activité'}
                         </span>
                         <div className="min-w-0">
                           <p className="text-[13px] font-semibold truncate" style={{ color: TEXT_PRIMARY }}>

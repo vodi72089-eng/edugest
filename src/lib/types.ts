@@ -57,6 +57,9 @@ export interface DisciplineData {
   id: string; studentId: string; type: string; severity: string;
   title: string; description: string; points: number; listType: string;
   status: string; schoolId: string; createdAt: string;
+  /** Demande « Conduite » soumise par un professeur (null = créé directement
+   *  par le disciplinaire). */
+  createdBy?: string | null;
   student?: { id: string; firstName: string; lastName: string; matricule: string; photoUrl?: string; class?: { id: string; name: string; section?: string } };
 }
 

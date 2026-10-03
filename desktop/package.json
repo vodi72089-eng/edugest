@@ -64,6 +64,12 @@
       "icon": "icon.png",
       "signAndEditExecutable": true
     },
+    "protocols": [
+      {
+        "name": "EduGest",
+        "schemes": ["edugest"]
+      }
+    ],
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,

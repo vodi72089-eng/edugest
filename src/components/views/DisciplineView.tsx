@@ -52,7 +52,7 @@ export default function DisciplineView() {
   const [records, setRecords] = useState<DisciplineData[]>([])
   const [loading, setLoading] = useState(true)
   const { disciplineTab } = useEduGestStore()
-  const [tab, setTab] = useState<'BLACKLIST' | 'GREYLIST' | 'WHITELIST'>(disciplineTab || 'GREYLIST')
+  const [tab, setTab] = useState<'BLACKLIST' | 'GREYLIST' | 'WHITELIST' | 'REQUESTS'>(disciplineTab || 'GREYLIST')
   const [selectedChildId, setSelectedChildId] = useState('')
   const [myChildren, setMyChildren] = useState<StudentData[]>([])
   const [childSearch, setChildSearch] = useState('')
@@ -234,41 +234,59 @@ export default function DisciplineView() {
     // évitant la course entre le fetch parentId et le fetch studentId.
     if (pendingStudentFocus && isParent) {
       const focus = pendingStudentFocus
-      setPendingStudentFocus(null)
-      setSelectedChildSearchId(focus.id)
-      setSelectedChildId(focus.id)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-      return
+      // Délégué à un tick : jamais de setState synchrone dans un effet.
+      const t = setTimeout(() => {
+        setPendingStudentFocus(null)
+        setSelectedChildSearchId(focus.id)
+        setSelectedChildId(focus.id)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }, 0)
+      return () => clearTimeout(t)
     }
     if (isParent) {
-      // Clic notification DISCIPLINE_INCIDENT : le record peut se trouver dans
-      // une autre liste que l'onglet courant -> enfant + onglet du record.
-      const hid = useEduGestStore.getState().highlightedId
-      if (hid) {
-        const found = allDisciplineRecords.find(r => r.id === hid)
-        if (found?.student) {
-          const target = found.listType as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST'
-          let changed = false
-          if (found.student.id !== selectedChildId) {
-            setSelectedChildSearchId(found.student.id)
-            setSelectedChildId(found.student.id)
-            changed = true
+      // Bloc parent délégué à un tick (setState synchrone interdit dans un
+      // effet). Le re-run provoqué par ces setState relance le fetch avec les
+      // nouvelles valeurs — inutile de fetcher avec les anciennes.
+      let cancelled = false
+      const t = setTimeout(() => {
+        if (cancelled) return
+        // Clic notification DISCIPLINE_INCIDENT : le record peut se trouver dans
+        // une autre liste que l'onglet courant -> enfant + onglet du record.
+        const hid = useEduGestStore.getState().highlightedId
+        if (hid) {
+          const found = allDisciplineRecords.find(r => r.id === hid)
+          if (found?.student) {
+            const target = found.listType as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST'
+            let changed = false
+            if (found.student.id !== selectedChildId) {
+              setSelectedChildSearchId(found.student.id)
+              setSelectedChildId(found.student.id)
+              changed = true
+            }
+            if (target !== tab) { setTab(target); changed = true }
+            if (changed) return
           }
-          if (target !== tab) { setTab(target); changed = true }
-          if (changed) return
         }
-      }
-      // Enfant sélectionné : basculer sur SA liste (classification unique,
-      // priorité Noire > Grise > Blanche ; jamais sanctionné → Blanche).
-      if (selectedChildId && studentListMap[selectedChildId] && studentListMap[selectedChildId] !== tab) {
-        setTab(studentListMap[selectedChildId])
-        return
-      }
+        // Enfant sélectionné : basculer sur SA liste (classification unique,
+        // priorité Noire > Grise > Blanche ; jamais sanctionné → Blanche).
+        if (selectedChildId && studentListMap[selectedChildId] && studentListMap[selectedChildId] !== tab) {
+          setTab(studentListMap[selectedChildId])
+        }
+      }, 0)
+      return () => { cancelled = true; clearTimeout(t) }
     }
     let cancelled = false
+    // (suite : fetch des records — voir ci-dessous)
     const params = new URLSearchParams()
-    params.set('listType', tab)
-    params.set('limit', '50')
+    if (tab === 'REQUESTS') {
+      // Demandes « Conduite » en attente (toutes listes) — le scopage
+      // au cycle du disciplinaire se fait côté client (pendingRequests).
+      params.set('status', 'PENDING')
+      params.set('limit', '200')
+    } else {
+      params.set('listType', tab)
+      params.set('limit', '50')
+    }
     if (isParent && userData?.id) {
       if (selectedChildId) {
         params.set('studentId', selectedChildId)
@@ -289,10 +307,33 @@ export default function DisciplineView() {
 
   const activeSchoolId = getActiveSchoolId()
 
+  // ── Demandes « Conduite » des professeurs (disciplinaire uniquement) ──
+  // Records PENDING créés par un prof — le disciplinaire n'en traite que
+  // l'approbation/refus ; la liste affichée est re-scopée à SON cycle.
+  // (Déclaré AVANT la garde d'accès : hooks toujours appelés dans le même ordre.)
+  const [pendingRequests, setPendingRequests] = useState<DisciplineData[]>([])
+  const [approveSeverity, setApproveSeverity] = useState('LOW')
+  const [reviewingId, setReviewingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isDisciplineRole || !getActiveSchoolId()) return
+    authFetch(`/api/discipline?schoolId=${getActiveSchoolId()}&status=PENDING&limit=200`)
+      .then(r => r.json())
+      .then(j => {
+        const cycleIds = new Set(sectionStudents.map(s => s.id))
+        setPendingRequests(((j.data || []) as DisciplineData[]).filter(r => r.createdBy && cycleIds.has(r.studentId)))
+      })
+      .catch(() => {})
+  }, [isDisciplineRole, sectionStudents, activeSchoolId])
+
   const displayRecords = useMemo(() => {
     const roster = isParent ? myChildren : sectionStudents
     const allRecords = isParent ? allDisciplineRecords : allSchoolRecords
     const selectedId = isParent ? selectedChildId : selectedStudentId
+
+    // Onglet « Demandes » : demandes « Conduite » des professeurs, re-scopées
+    // au cycle du disciplinaire côté chargement.
+    if (tab === 'REQUESTS') return pendingRequests
 
     let base = records
     if (tab === 'WHITELIST') {
@@ -347,7 +388,7 @@ export default function DisciplineView() {
       out = [...out].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
     }
     return out
-  }, [tab, records, isParent, myChildren, sectionStudents, selectedChildId, selectedStudentId, allDisciplineRecords, allSchoolRecords, classFilter, severityFilter, dateSort, activeSchoolId])
+  }, [tab, records, isParent, myChildren, sectionStudents, selectedChildId, selectedStudentId, allDisciplineRecords, allSchoolRecords, classFilter, severityFilter, dateSort, activeSchoolId, pendingRequests])
 
   const selectedChildName = selectedChildId ? myChildren.find(c => c.id === selectedChildId) : null
   const selectedStudentName = selectedStudentId ? sectionStudents.find(s => s.id === selectedStudentId) : null
@@ -365,6 +406,30 @@ export default function DisciplineView() {
         .then(j => setAllSchoolRecords(j.data || []))
         .catch(() => {})
     }
+  }
+
+  // Approbation (gravité choisie par le disciplinaire) ou refus.
+  async function handleReviewRequest(r: DisciplineData, decision: 'CONFIRMED' | 'REJECTED') {
+    if (!r.id || r.id.startsWith('clean-')) return
+    setReviewingId(r.id)
+    try {
+      const res = await authFetch('/api/discipline', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: r.id, status: decision, severity: approveSeverity }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (res.ok) {
+        toast.success(decision === 'CONFIRMED'
+          ? 'Demande acceptée — listes mises à jour, parents notifiés'
+          : 'Demande refusée')
+        setPendingRequests(prev => prev.filter(p => p.id !== r.id))
+        refreshAllSchoolRecords()
+      } else {
+        toast.error(j.error || 'Erreur')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setReviewingId(null) }
   }
 
   async function handleAddSanction() {
@@ -828,6 +893,8 @@ export default function DisciplineView() {
           { key: 'BLACKLIST' as const, label: 'Liste Noire', icon: <Ban size={14} />, color: DANGER, count: listCounts.BLACKLIST },
           { key: 'GREYLIST' as const, label: 'Liste Grise', icon: <AlertTriangle size={14} />, color: WARNING, count: listCounts.GREYLIST },
           { key: 'WHITELIST' as const, label: 'Liste Blanche', icon: <Award size={14} />, color: SUCCESS, count: listCounts.WHITELIST },
+          // Demandes « Conduite » des professeurs — visibles par le disciplinaire
+          ...(isDisciplineRole ? [{ key: 'REQUESTS' as const, label: 'Demandes', icon: <Shield size={14} />, color: GOLD, count: pendingRequests.length }] : []),
         ].map(t => (
           <button
             key={t.key}
@@ -930,6 +997,39 @@ export default function DisciplineView() {
                           {savingEdit ? <div className="h-3 w-3 border-2 border-[oklch(40%_0.13_145)] border-t-transparent rounded-full animate-spin" /> : <Check size={13} />}
                         </button>
                         <button onClick={() => setEditingRecordId(null)} className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_25)] transition" style={{ color: DANGER }} title="Annuler">
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ) : tab === 'REQUESTS' ? (
+                      // Demande « Conduite » : le disciplinaire choisit la gravité,
+                      // puis accepte (listes + parents) ou refuse.
+                      <div className="flex items-center gap-2">
+                        <AppSelect
+                          value={approveSeverity}
+                          onChange={setApproveSeverity}
+                          className="w-28"
+                          options={[
+                            { value: 'LOW', label: 'Faible' },
+                            { value: 'MEDIUM', label: 'Moyen' },
+                            { value: 'HIGH', label: 'Grave' },
+                          ]}
+                        />
+                        <button
+                          onClick={() => handleReviewRequest(r, 'CONFIRMED')}
+                          disabled={reviewingId === r.id}
+                          className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_145)] transition"
+                          style={{ color: SUCCESS }}
+                          title="Accepter — mettre à jour les listes et notifier les parents"
+                        >
+                          {reviewingId === r.id ? <div className="h-3 w-3 border-2 border-[oklch(40%_0.13_145)] border-t-transparent rounded-full animate-spin" /> : <Check size={13} />}
+                        </button>
+                        <button
+                          onClick={() => handleReviewRequest(r, 'REJECTED')}
+                          disabled={reviewingId === r.id}
+                          className="w-7 h-7 rounded-lg grid place-items-center hover:bg-[oklch(95%_0.04_25)] transition"
+                          style={{ color: DANGER }}
+                          title="Refuser la demande"
+                        >
                           <X size={13} />
                         </button>
                       </div>

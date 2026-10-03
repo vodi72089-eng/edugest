@@ -705,8 +705,8 @@ function renderReport(
       doc.moveDown(0.4);
     }
 
-    // ── Signature & cachet (comme le reçu) ──────────────────────────────────
-    ensureSpace(200);
+    // ── Bloc scellé + QR (comme le reçu) ────────────────────────────────────
+    ensureSpace(150);
     const sigY = doc.y + 12;
     doc.lineWidth(1.4).strokeColor(GOLD)
       .moveTo(MARGIN, sigY).lineTo(MARGIN + CONTENT_W, sigY).stroke();
@@ -714,32 +714,8 @@ function renderReport(
     doc.fillColor(GRAY).font('Helvetica-Bold').fontSize(8)
       .text(`Rapport scellé sur le rôle : ${sealLabel}`, MARGIN + 4, sigY + 8, { lineBreak: false });
 
-    const labelY = sigY + 34;
-    const half = CONTENT_W / 2;
-    doc.fillColor(GRAY).font('Helvetica-Bold').fontSize(7)
-      .text('Signature Direction', MARGIN + 4, labelY, { lineBreak: false })
-      .text("Cachet de l'école", MARGIN + half + 4, labelY, { lineBreak: false });
-    doc.lineWidth(0.6).strokeColor(LGRAY)
-      .moveTo(MARGIN + 4, labelY + 16)
-      .lineTo(MARGIN + half - 12, labelY + 16)
-      .stroke()
-      .moveTo(MARGIN + half + 4, labelY + 16)
-      .lineTo(MARGIN + CONTENT_W - 4, labelY + 16)
-      .stroke();
-    doc.lineWidth(1);
-    doc.fillColor(GRAY).font('Helvetica-Oblique').fontSize(7)
-      .text("Document confidentiel — destiné à la direction de l'établissement.",
-        MARGIN, labelY + 30, { width: CONTENT_W, align: 'center', lineBreak: false });
-    doc.x = MARGIN;
-    doc.y = labelY + 44;
-
-    // ── Pieds de page + QR (tamponnés APRÈS génération) ─────────────────────
-    const range = doc.bufferedPageRange();
-    const footerY = PAGE_H - 25 * MM;
-
-    if (assets.qrDataUrl && range.count > 0) {
-      doc.switchToPage(range.start + range.count - 1);
-      const qrY = PAGE_H - 60 * MM;
+    const qrY = sigY + 26;
+    if (assets.qrDataUrl) {
       try {
         doc.image(assets.qrDataUrl, PAGE_W / 2 - 10 * MM, qrY, { width: 20 * MM, height: 20 * MM });
       } catch { /* QR ignoré */ }
@@ -749,6 +725,14 @@ function renderReport(
         .text("Pour vérifier l'authenticité de ce rapport, scannez le QR code",
           MARGIN, qrY + 70, { width: CONTENT_W, align: 'center', lineBreak: false });
     }
+    doc.fillColor(GRAY).font('Helvetica-Oblique').fontSize(7)
+      .text("Document confidentiel — destiné à la direction de l'établissement.",
+        MARGIN, qrY + 84, { width: CONTENT_W, align: 'center', lineBreak: false });
+    doc.x = MARGIN;
+    doc.y = qrY + 96;
+
+    const range = doc.bufferedPageRange();
+    const footerY = PAGE_H - 25 * MM;
 
     for (let i = range.start; i < range.start + range.count; i++) {
       doc.switchToPage(i);

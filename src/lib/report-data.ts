@@ -59,7 +59,11 @@ export interface StudentRankingRow {
 }
 
 export interface DetailedReport {
-  school: { id: string; name: string; shortName: string; address: string; city: string; province: string; phone: string; email: string };
+  school: {
+    id: string; name: string; shortName: string;
+    address: string | null; city: string | null; province: string | null;
+    phone: string | null; email: string | null; logo: string | null;
+  };
   period: { from: string; to: string; days: number };
   generatedAtISO: string;
   currencySymbol: string;
@@ -101,7 +105,7 @@ export async function collectDetailedReport(schoolId: string, days: number): Pro
 
   const school = await db.school.findUnique({
     where: { id: schoolId },
-    select: { id: true, name: true, shortName: true, address: true, city: true, province: true, phone: true, email: true },
+    select: { id: true, name: true, shortName: true, address: true, city: true, province: true, phone: true, email: true, logo: true },
   });
   if (!school) throw new Error('École non trouvée');
 
@@ -391,7 +395,11 @@ export async function collectDetailedReport(schoolId: string, days: number): Pro
   };
 
   return {
-    school: { id: school.id, name: school.name, shortName: school.shortName, address: school.address, city: school.city, province: school.province, phone: school.phone, email: school.email },
+    school: {
+      id: school.id, name: school.name, shortName: school.shortName,
+      address: school.address, city: school.city, province: school.province,
+      phone: school.phone, email: school.email, logo: school.logo,
+    },
     period: { from: fromStr, to: toStr, days },
     generatedAtISO: new Date().toISOString(),
     currencySymbol,

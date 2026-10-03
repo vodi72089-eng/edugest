@@ -4,6 +4,8 @@ import { requireRole } from '@/lib/auth';
 const WA_SERVER = process.env.WHATSAPP_SERVER_URL || 'http://localhost:3001';
 const WA_API_KEY = process.env.WHATSAPP_API_KEY || (process.env.NODE_ENV !== 'production' ? 'edugest-wa-dev-key' : '');
 
+const AGENT_ROLES = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN'];
+
 async function waFetch(path: string, method: string = 'GET', body?: any) {
   const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json', 'x-api-key': WA_API_KEY } };
   if (body) opts.body = JSON.stringify(body);
@@ -25,7 +27,7 @@ async function waFetch(path: string, method: string = 'GET', body?: any) {
 // GET /api/whatsapp-status — statut temps-réel de l'agent WhatsApp (mini-service)
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requireRole(request, ['SUPER_ADMIN_GLOBAL']);
+    const authResult = await requireRole(request, AGENT_ROLES);
     if ('error' in authResult) return authResult.error;
     const data = await waFetch('/status');
     return NextResponse.json({ data });
@@ -42,7 +44,7 @@ export async function GET(request: NextRequest) {
 //   { action: 'reset' } → /reset  : nouvelle session neuve immédiate
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireRole(request, ['SUPER_ADMIN_GLOBAL']);
+    const authResult = await requireRole(request, AGENT_ROLES);
     if ('error' in authResult) return authResult.error;
     const body = await request.json().catch(() => ({}));
 
