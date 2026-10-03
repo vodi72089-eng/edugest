@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, sanitizeError } from '@/lib/auth';
+import { requirePermission, sanitizeError, verifySchoolAccess } from '@/lib/auth';
 
 export async function POST(
   request: NextRequest,
@@ -12,9 +12,19 @@ export async function POST(
     const { user } = authResult;
     const { id: gradeId } = await params;
 
-    const grade = await db.grade.findUnique({ where: { id: gradeId } });
+    const grade = await db.grade.findUnique({
+      where: { id: gradeId },
+      include: { class: { select: { schoolId: true } } },
+    });
     if (!grade) {
       return NextResponse.json({ error: 'Note non trouvée' }, { status: 404 });
+    }
+
+    // ── ISOLATION MULTI-ÉCOLES : une note n'a pas de schoolId propre →
+    // scoping via la classe (avant : findUnique sans vérification du tenant
+    // → écriture GradeRead cross-écoles possible).
+    if (!verifySchoolAccess(user, grade.class.schoolId)) {
+      return NextResponse.json({ error: 'Accès non autorisé à cette note' }, { status: 403 });
     }
 
     await db.gradeRead.upsert({

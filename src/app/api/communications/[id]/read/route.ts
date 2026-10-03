@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, sanitizeError } from '@/lib/auth';
+import { requireAuth, sanitizeError, verifySchoolAccess } from '@/lib/auth';
 
 export async function POST(
   request: NextRequest,
@@ -15,6 +15,13 @@ export async function POST(
     const communication = await db.communication.findUnique({ where: { id: communicationId } });
     if (!communication) {
       return NextResponse.json({ error: 'Communication non trouvée' }, { status: 404 });
+    }
+
+    // ── ISOLATION MULTI-ÉCOLES : impossible de marquer comme lue une
+    // communication d'une autre école (avant : findUnique sans re-vérification
+    // du tenant → écriture CommunicationRead cross-écoles possible).
+    if (!verifySchoolAccess(user, communication.schoolId)) {
+      return NextResponse.json({ error: 'Accès non autorisé à cette communication' }, { status: 403 });
     }
 
     const existing = await db.communicationRead.findUnique({

@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, sanitizeError } from '@/lib/auth';
+import { requirePermission, sanitizeError, verifySchoolAccess } from '@/lib/auth';
 
 export async function POST(
   request: NextRequest,
@@ -15,6 +15,13 @@ export async function POST(
     const convocation = await db.convocation.findUnique({ where: { id: convocationId } });
     if (!convocation) {
       return NextResponse.json({ error: 'Convocation non trouvée' }, { status: 404 });
+    }
+
+    // ── ISOLATION MULTI-ÉCOLES : impossible de marquer comme lue une
+    // convocation d'une autre école (avant : findUnique sans re-vérification
+    // du tenant → écriture ConvocationRead cross-écoles possible).
+    if (!verifySchoolAccess(user, convocation.schoolId)) {
+      return NextResponse.json({ error: 'Accès non autorisé à cette convocation' }, { status: 403 });
     }
 
     await db.convocationRead.upsert({

@@ -163,6 +163,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ── INTÉGRITÉ RÉFÉRENTIELLE MULTI-ÉCOLES : la classe et l'année scolaire
+    // doivent appartenir à l'école cible (avant : un classId/schoolYearId
+    // d'une AUTRE école était accepté tel quel → élève rattaché cross-tenant).
+    const [classRecord, yearRecord] = await Promise.all([
+      db.class.findFirst({ where: { id: classId, schoolId }, select: { id: true } }),
+      db.schoolYear.findFirst({ where: { id: schoolYearId, schoolId }, select: { id: true } }),
+    ]);
+    if (!classRecord) {
+      return NextResponse.json(
+        { error: 'Classe non trouvée dans cette école' },
+        { status: 400 }
+      );
+    }
+    if (!yearRecord) {
+      return NextResponse.json(
+        { error: 'Année scolaire non trouvée dans cette école' },
+        { status: 400 }
+      );
+    }
+
     // ── Tier limit: maxStudents ────────────────────────────────────────
     const limitCheck = await checkCanCreateStudent(schoolId);
     if (!limitCheck.ok) {
