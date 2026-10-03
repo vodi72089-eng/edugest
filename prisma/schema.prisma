@@ -594,11 +594,14 @@ model AuditLog {
   entityId   String?
   details    String?
   schoolId   String?
-  meta       String?  // JSON sérialisé (payload Hermes)
+  meta       String?  // JSON sérialisé (payload Hermes, before/after…)
+  ip         String?  // IP de l'auteur (traçabilité demandée en prod)
+  userAgent  String?  // User-Agent de l'auteur
   createdAt  DateTime @default(now())
 
   @@index([action])
   @@index([createdAt])
+  @@index([schoolId])
 }
 
 model GlobalApiConfig {

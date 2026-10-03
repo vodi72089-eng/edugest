@@ -28,6 +28,8 @@ export interface AuditEntry {
   details?: string;          // résumé lisible (français)
   schoolId?: string | null;
   meta?: Record<string, unknown>; // payload structuré pour Hermes
+  ip?: string | null;        // IP de l'auteur (traçabilité)
+  userAgent?: string | null; // User-Agent de l'auteur
 }
 
 let hermesCache: { value: { enabled: boolean; webhookUrl: string; secret: string; minLevel: string } | null; at: number } | null = null;
@@ -106,6 +108,8 @@ export async function logAudit(entry: AuditEntry): Promise<void> {
         details: entry.details,
         schoolId: entry.schoolId || null,
         meta: entry.meta ? JSON.stringify(entry.meta) : null,
+        ip: entry.ip || null,
+        userAgent: entry.userAgent || null,
       },
     });
   } catch (e) {
@@ -116,11 +120,12 @@ export async function logAudit(entry: AuditEntry): Promise<void> {
 }
 
 // Lecture (admin plateforme + support) avec filtres simples.
-export async function listAuditLogs(opts: { action?: string; limit?: number; cursor?: string }) {
+export async function listAuditLogs(opts: { action?: string; limit?: number; cursor?: string; schoolId?: string }) {
   const limit = Math.min(opts.limit || 100, 300);
   return db.auditLog.findMany({
     where: {
       ...(opts.action ? { action: { startsWith: opts.action } } : {}),
+      ...(opts.schoolId ? { schoolId: opts.schoolId } : {}),
     },
     orderBy: { createdAt: 'desc' as const },
     take: limit,

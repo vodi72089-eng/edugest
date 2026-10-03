@@ -880,12 +880,25 @@ export function getRoleLevel(role: string): number {
   return ROLE_LEVELS[role] ?? 0;
 }
 
+// ── Whitelist stricte des rôles valides ──────────────────────────────────
+// Toute chaîne hors de cette liste est rejetée côté API (POST/PUT /api/users),
+// même par le SUPER_ADMIN_GLOBAL : plus aucune string de rôle arbitraire ne
+// peut être écrite en base (anti-pollution du modèle User.role).
+export const VALID_ROLES: readonly string[] = Object.keys(ROLE_LEVELS);
+
+export function isValidRole(role: unknown): role is string {
+  return typeof role === 'string' && VALID_ROLES.includes(role);
+}
+
 // Rôles internes à une école. Seul SUPER_ADMIN_GLOBAL peut créer
 // SCHOOL_ADMIN / ADMIN_FREEMIUM / SUPER_ADMIN_GLOBAL (les clés du royaume).
+// NB : les rôles legacy 'DIRECTION' et 'DISCIPLINE' (sans scoping de cycle)
+// en sont volontairement EXCLUS — plus aucun compte legacy ne peut être créé
+// par un staff d'école ; seul le SAG conserve ce pouvoir historique.
 const SCHOOL_STAFF_CREATION_ROLES = [
   'SECRETARY', 'CASHIER', 'TEACHER', 'HEAD_TEACHER', 'PARENT',
-  'DIRECTION', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE',
-  'DISCIPLINE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE',
+  'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE',
+  'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE',
   'EPS', 'MEDICAL',
 ];
 
@@ -906,14 +919,32 @@ const ROLE_CREATION_MATRIX: Record<string, string[]> = {
   DIRECTION_MATERNELLE: SCHOOL_STAFF_CREATION_ROLES,
   DIRECTION_PRIMAIRE: SCHOOL_STAFF_CREATION_ROLES,
   DIRECTION_SECONDAIRE: SCHOOL_STAFF_CREATION_ROLES,
-  SECRETARY: ['SECRETARY', 'CASHIER', 'TEACHER', 'HEAD_TEACHER', 'PARENT', 'EPS', 'MEDICAL', 'DISCIPLINE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE'],
+  SECRETARY: ['SECRETARY', 'CASHIER', 'TEACHER', 'HEAD_TEACHER', 'PARENT', 'EPS', 'MEDICAL', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE'],
   DISCIPLINE: ['TEACHER', 'HEAD_TEACHER'],
   DISCIPLINE_MATERNELLE: ['TEACHER', 'HEAD_TEACHER'],
   DISCIPLINE_PRIMAIRE: ['TEACHER', 'HEAD_TEACHER'],
   DISCIPLINE_SECONDAIRE: ['TEACHER', 'HEAD_TEACHER'],
 };
 
+/**
+ * Barrière de cycle : un acteur lié à un cycle (DIRECTION_* / DISCIPLINE_*)
+ * ne peut attribuer que des rôles de SON cycle — un DIRECTION_MATERNELLE ne
+ * peut pas créer ni promouvoir un DIRECTION_SECONDAIRE (même niveau 70,
+ * franchissement de cycle intra-école autrefois possible). Les acteurs
+ * school-wide (SCHOOL_ADMIN, SECRETARY…) ne sont pas contraints.
+ */
+function cycleBarrierOk(creatorRole: string, targetRole: string): boolean {
+  const targetCycle = getRoleCycle(targetRole);
+  if (!targetCycle) return true; // rôle sans cycle → pas de contrainte
+  const creatorCycle = getRoleCycle(creatorRole);
+  if (!creatorCycle) return true; // acteur school-wide
+  return creatorCycle === targetCycle;
+}
+
 export function canCreateRole(creatorRole: string, targetRole: string): boolean {
+  // Whitelist stricte : un rôle inconnu n'est créable par PERSONNE
+  // (y compris le wildcard '*' du SAG — anti-pollution du modèle).
+  if (!isValidRole(targetRole)) return false;
   // Seul SUPER_ADMIN_GLOBAL peut créer/attribuer SUPER_ADMIN_GLOBAL.
   if (targetRole === 'SUPER_ADMIN_GLOBAL') return creatorRole === 'SUPER_ADMIN_GLOBAL';
   const allowed = ROLE_CREATION_MATRIX[creatorRole];
@@ -925,6 +956,8 @@ export function canCreateRole(creatorRole: string, targetRole: string): boolean 
   if (!allowed.includes(targetRole)) return false;
   // Double barrière hiérarchique : jamais un rôle strictement supérieur au sien.
   if (creatorRole !== 'SUPER_ADMIN_GLOBAL' && getRoleLevel(targetRole) > getRoleLevel(creatorRole)) return false;
+  // Barrière de cycle : DIRECTION_*/DISCIPLINE_* restent dans leur cycle.
+  if (creatorRole !== 'SUPER_ADMIN_GLOBAL' && !cycleBarrierOk(creatorRole, targetRole)) return false;
   return true;
 }
 
@@ -948,13 +981,17 @@ export function canChangeUserRole(actor: AuthUser, targetUser: { role: string; s
 /**
  * Contrôle de modification d'un compte existant pour les champs sensibles
  * (rôle, isActive, mot de passe) : impossible de toucher un compte de niveau
- * supérieur au sien, un SUPER_ADMIN_GLOBAL, ou un compte d'une autre école.
+ * supérieur OU ÉGAL au sien (un pair ne peut plus désactiver/réinitialiser un
+ * autre pair de même niveau — ex. un SCHOOL_ADMIN ne peut plus toucher un
+ * autre SCHOOL_ADMIN), un SUPER_ADMIN_GLOBAL, ou un compte d'une autre école.
+ * La modification de son PROPRE compte passe par le garde dédié de la route
+ * (PUT /api/users : champs non sensibles autorisés, rôle/isActive interdits).
  */
 export function canManageUserAccount(actor: AuthUser, targetUser: { role: string; schoolId: string | null }): boolean {
   if (actor.role === 'SUPER_ADMIN_GLOBAL') return true;
   if (targetUser.role === 'SUPER_ADMIN_GLOBAL') return false;
   if (actor.schoolId === null || actor.schoolId !== targetUser.schoolId) return false;
-  return getRoleLevel(targetUser.role) <= getRoleLevel(actor.role);
+  return getRoleLevel(targetUser.role) < getRoleLevel(actor.role);
 }
 
 export function sanitizeError(error: unknown): string {

@@ -2,7 +2,16 @@ import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { requirePermission, requireRole, verifySchoolAccess, canCreateRole, canChangeUserRole, canManageUserAccount, safeParseInt, sanitizeError } from '@/lib/auth';
+import { requirePermission, requireRole, verifySchoolAccess, canCreateRole, canChangeUserRole, canManageUserAccount, safeParseInt, sanitizeError, isValidRole, getClientIp } from '@/lib/auth';
+import { logAudit } from '@/lib/audit';
+
+/** Contexte d'audit commun (IP + User-Agent) extrait des en-têtes de la requête. */
+function auditContext(request: NextRequest) {
+  return {
+    ip: getClientIp(request) || null,
+    userAgent: request.headers.get('user-agent') || null,
+  };
+}
 
 function generateRandomPassword(length: number = 12): string {
   return crypto.randomBytes(length).toString('base64').slice(0, length);
@@ -195,6 +204,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, email, phone, password, role, schoolId, isActive, subjectName, classNames, isTitulaire, titulaireClassIds } = body;
 
+    // ── SÉCURITÉ : whitelist stricte des rôles — toute string arbitraire est
+    // rejetée AVANT toute autre vérification (même via le wildcard du SAG).
+    if (!isValidRole(role)) {
+      return NextResponse.json(
+        { error: `Rôle invalide : « ${String(role)} »` },
+        { status: 400 }
+      );
+    }
+
     // L'admin PLATEFORME n'appartient à aucune école : schoolId est attendu
     // absent/null pour ce rôle — obligatoire pour tous les autres.
     const isPlatformAdminRole = role === 'SUPER_ADMIN_GLOBAL';
@@ -349,6 +367,20 @@ export async function POST(request: NextRequest) {
       warnings.push(...await syncTeacherAssignments(newUser.id, effectiveSchoolId, String(subjectName), String(classNames)));
     }
 
+    // ── AUDIT TRAIL : création de compte tracée (acteur, cible, rôle, IP). ──
+    await logAudit({
+      action: 'USER_CREATED',
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      entityType: 'USER',
+      entityId: newUser.id,
+      details: `Création du compte « ${newUser.name} » (${newUser.role})`,
+      schoolId: newUser.schoolId,
+      meta: { targetRole: newUser.role, targetEmail: newUser.email || null, targetPhone: newUser.phone || null },
+      ...auditContext(request),
+    });
+
     return NextResponse.json({ data: newUser, warnings }, { status: 201 });
   } catch (error) {
     console.error('Error creating user:', error);
@@ -367,6 +399,14 @@ export async function PUT(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
+
+    // ── SÉCURITÉ : whitelist stricte des rôles (anti-pollution du modèle).
+    if (role !== undefined && !isValidRole(role)) {
+      return NextResponse.json(
+        { error: `Rôle invalide : « ${String(role)} »` },
+        { status: 400 }
+      );
     }
 
     const existing = await db.user.findUnique({ where: { id } });
@@ -397,12 +437,25 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // ── SÉCURITÉ : toute modification de compte exige que l'acteur ait un
-    // niveau >= à la cible (empêche un SECRETARY de modifier/réinitialiser
-    // le mot de passe d'un DIRECTION, SCHOOL_ADMIN, etc.).
-    if (!canManageUserAccount(user, existing)) {
+    // ── SÉCURITÉ : auto-modification — un compte ne peut JAMAIS changer son
+    // propre rôle ni son propre statut d'activation (anti-escalade :
+    // self-promotion, self-réactivation après désactivation). Les champs non
+    // sensibles (nom, email, téléphone…) restent modifiables sur soi.
+    const isSelf = user.id === existing.id;
+    if (isSelf && ((role !== undefined && role !== existing.role) || isActive !== undefined)) {
       return NextResponse.json(
-        { error: 'Vous ne pouvez pas modifier un compte de niveau supérieur au vôtre' },
+        { error: 'Vous ne pouvez pas modifier votre propre rôle ou votre statut d\'activation' },
+        { status: 403 }
+      );
+    }
+
+    // ── SÉCURITÉ : toute modification d'un AUTRE compte exige un niveau
+    // strictement supérieur à la cible (canManageUserAccount — les pairs de
+    // même niveau ne se gèrent plus entre eux : un SCHOOL_ADMIN ne peut plus
+    // désactiver/réinitialiser le mot de passe d'un autre SCHOOL_ADMIN).
+    if (!isSelf && !canManageUserAccount(user, existing)) {
+      return NextResponse.json(
+        { error: 'Vous ne pouvez pas modifier un compte de niveau supérieur ou égal au vôtre' },
         { status: 403 }
       );
     }
@@ -553,6 +606,37 @@ export async function PUT(request: NextRequest) {
       });
     }
 
+    // ── AUDIT TRAIL : les opérations sensibles sur les comptes sont tracées.
+    // (rôle changé, activation/désactivation ; les éditions triviales de
+    // profil ne sont pas journalisées pour éviter de noyer le journal.)
+    if (role !== undefined && role !== existing.role) {
+      await logAudit({
+        action: 'USER_ROLE_CHANGED',
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        entityType: 'USER',
+        entityId: existing.id,
+        details: `Rôle de « ${existing.name} » : ${existing.role} → ${role}`,
+        schoolId: existing.schoolId,
+        meta: { before: { role: existing.role }, after: { role }, targetEmail: existing.email || null },
+        ...auditContext(request),
+      });
+    } else if (isActive !== undefined && isActive !== existing.isActive) {
+      await logAudit({
+        action: isActive ? 'USER_ACTIVATED' : 'USER_DEACTIVATED',
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        entityType: 'USER',
+        entityId: existing.id,
+        details: `${isActive ? 'Activation' : 'Désactivation'} du compte « ${existing.name} » (${existing.role})`,
+        schoolId: existing.schoolId,
+        meta: { before: { isActive: existing.isActive }, after: { isActive }, targetEmail: existing.email || null },
+        ...auditContext(request),
+      });
+    }
+
     return NextResponse.json({ data: updatedUser, warnings });
   } catch (error) {
     console.error('Error updating user:', error);
@@ -610,6 +694,20 @@ export async function DELETE(request: NextRequest) {
         role: true,
         isActive: true,
       },
+    });
+
+    // ── AUDIT TRAIL : désactivation (soft delete) tracée. ──────────────────
+    await logAudit({
+      action: 'USER_DEACTIVATED',
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      entityType: 'USER',
+      entityId: existing.id,
+      details: `Désactivation (suppression logique) du compte « ${existing.name} » (${existing.role})`,
+      schoolId: existing.schoolId,
+      meta: { targetEmail: existing.email || null },
+      ...auditContext(request),
     });
 
     return NextResponse.json({ data: deletedUser });
