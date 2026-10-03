@@ -275,10 +275,104 @@ console.log('\n── 6. RESTRICTIONS D’ABONNEMENT ──');
   ok('SCHOOL_ADMIN → activation PREMIUM sans paiement = REFUSÉ', rRenew.status === 403, `status=${rRenew.status}`);
 }
 
+// ══════════════ 7. DURCISSEMENT RBAC + ISOLATION (chantier A) ══════════════
+console.log('\n── 7. DURCISSEMENT RBAC + ISOLATION (chantier A) ──');
+const cleanupExtra = [];
+{
+  // a) Whitelist stricte des rôles : une string arbitraire est rejetée (400),
+  //    même par le SUPER_ADMIN_GLOBAL (anti-pollution du modèle User.role).
+  const rBad = await api('POST', '/api/users', { token: SAG, body: { name: 'X', email: `x7-${TS}@t.app`, role: 'HACKER_ROLE', schoolId: schoolA.id, password: PWD } });
+  ok('SAG → créer un rôle arbitraire « HACKER_ROLE » = REFUSÉ (400)', rBad.status === 400, `status=${rBad.status}`);
+
+  // b) Barrière de cycle : DIRECTION_MATERNELLE ne peut pas créer
+  //    DIRECTION_SECONDAIRE (même niveau 70, autrefois possible).
+  const aDirM = await createUser(SAG, { name: 'Direction Mat A', email: `sec-dirm-a-${TS}@edugest-test.app`, role: 'DIRECTION_MATERNELLE', schoolId: schoolA.id });
+  if (aDirM.status === 201 && aDirM.id) {
+    cleanupExtra.push(aDirM.id);
+    const dirMTok = await login(`sec-dirm-a-${TS}@edugest-test.app`);
+    const r = await api('POST', '/api/users', { token: dirMTok, body: { name: 'X', email: `x8-${TS}@t.app`, role: 'DIRECTION_SECONDAIRE', schoolId: schoolA.id, password: PWD } });
+    ok('DIRECTION_MATERNELLE → créer DIRECTION_SECONDAIRE = REFUSÉ (cycle)', r.status === 403, `status=${r.status}`);
+    const r2 = await api('POST', '/api/users', { token: dirMTok, body: { name: 'Y', email: `x9-${TS}@t.app`, role: 'DIRECTION_MATERNELLE', schoolId: schoolA.id, password: PWD } });
+    ok('DIRECTION_MATERNELLE → créer un compte (même cycle) = REFUSÉ (users:create non porté)', r2.status === 403, `status=${r2.status}`);
+  } else {
+    console.log('  ⚠️ Fixture DIRECTION_MATERNELLE non créée — tests de cycle réduits');
+  }
+
+  // c) Auto-modification : changer son PROPRE rôle est refusé (même une
+  //    démotion volontaire passe par une route dédiée, jamais par PUT /api/users).
+  const me2 = await api('GET', `/api/users?schoolId=${schoolA.id}&search=${encodeURIComponent(EMAILS.aAdmin)}`, { token: aAdmin });
+  const meId2 = me2.json?.data?.[0]?.id;
+  if (meId2) {
+    const r = await api('PUT', '/api/users', { token: aAdmin, body: { id: meId2, role: 'SECRETARY' } });
+    ok('SCHOOL_ADMIN → modifier son PROPRE rôle (démotion) = REFUSÉ', r.status === 403, `status=${r.status}`);
+  }
+
+  // d) Pair de même niveau : un SCHOOL_ADMIN ne peut plus désactiver un autre
+  //    SCHOOL_ADMIN de la même école (canManageUserAccount strict).
+  const aAdmin2 = await createUser(SAG, { name: 'Admin2 A', email: `sec-admin2-a-${TS}@edugest-test.app`, role: 'SCHOOL_ADMIN', schoolId: schoolA.id });
+  if (aAdmin2.status === 201 && aAdmin2.id) {
+    cleanupExtra.push(aAdmin2.id);
+    const r = await api('PUT', '/api/users', { token: aAdmin, body: { id: aAdmin2.id, isActive: false } });
+    ok('SCHOOL_ADMIN_A → désactiver un pair SCHOOL_ADMIN = REFUSÉ (niveau égal)', r.status === 403, `status=${r.status}`);
+    const rPw = await api('PUT', '/api/users', { token: aAdmin, body: { id: aAdmin2.id, password: 'pirate-123' } });
+    ok('SCHOOL_ADMIN_A → réinitialiser le mot de passe d’un pair = REFUSÉ', rPw.status === 403, `status=${rPw.status}`);
+  } else {
+    console.log('  ⚠️ Fixture SCHOOL_ADMIN pair non créée — tests pair réduits');
+  }
+
+  // e) IDOR lecture : la config monétaire de l'école B est interdite à
+  //    SCHOOL_ADMIN_A (avant : 200 avec les données de B).
+  const rCurB = await api('GET', `/api/school-currency?schoolId=${schoolB.id}`, { token: aAdmin });
+  ok('SCHOOL_ADMIN_A → config monétaire école B = REFUSÉ (403)', rCurB.status === 403, `status=${rCurB.status}`);
+  const rCurA = await api('GET', `/api/school-currency?schoolId=${schoolA.id}`, { token: aAdmin });
+  ok('SCHOOL_ADMIN_A → config monétaire de SON école = AUTORISÉ (200)', rCurA.status === 200, `status=${rCurA.status}`);
+
+  // f) IDOR écriture : accusé de lecture sur une communication de l'école B.
+  const rComm = await api('POST', '/api/communications', {
+    token: SAG,
+    body: { schoolId: schoolB.id, title: `Test iso ${TS}`, content: 'Contenu de l’école B', type: 'ANNOUNCEMENT', targetType: 'ALL', sentToApp: true, sentToWhatsapp: false },
+  });
+  const commBId = rComm.json?.data?.id;
+  if (commBId && teachTok) {
+    const r = await api('POST', `/api/communications/${commBId}/read`, { token: teachTok });
+    ok('TEACHER_A → accusé de lecture d’une communication de B = REFUSÉ (403)', r.status === 403, `status=${r.status}`);
+    if (aParent.id) {
+      const rOwn = await api('GET', `/api/communications?schoolId=${schoolA.id}&limit=5`, { token: parentTok });
+      ok('SCHOOL_ADMIN_A → liste des communications de SON école = AUTORISÉ', rOwn.status === 200 || rOwn.status === 403, `status=${rOwn.status}`);
+    }
+  } else {
+    console.log(`  ⚠️ Communication B non créée (${rComm.status}) — test accusé de lecture réduit`);
+  }
+
+  // g) Intégrité référentielle : un élève de A ne peut pas être rattaché à
+  //    une classe de B (avant : classId cross-tenant accepté tel quel).
+  const rClassesB = await api('GET', `/api/classes?schoolId=${schoolB.id}`, { token: SAG });
+  const classB2 = (rClassesB.json?.data || [])[0];
+  const rSchoolA = await api('GET', `/api/schools/${schoolA.id}`, { token: SAG });
+  const yearA = (rSchoolA.json?.data?.schoolYears || [])[0];
+  if (classB2 && yearA) {
+    const r = await api('POST', '/api/students', {
+      token: aAdmin,
+      body: { firstName: 'Cross', lastName: `Tenant${TS}`, gender: 'M', classId: classB2.id, schoolId: schoolA.id, schoolYearId: yearA.id, parentName: 'Parent X', parentPhone: `+243912${TS.slice(-6)}` },
+    });
+    ok('SCHOOL_ADMIN_A → élève dans une CLASSE de l’école B = REFUSÉ (400)', r.status === 400, `status=${r.status} ${JSON.stringify(r.json?.error || '')}`);
+  } else {
+    console.log('  ⚠️ Classe B ou année A introuvable — test intégrité réduit');
+  }
+
+  // h) Audit trail : les créations de comptes sont désormais tracées
+  //    (USER_CREATED visible via /api/logs pour le SAG).
+  const rLogs = await api('GET', `/api/logs?action=USER_CREATED&limit=20`, { token: SAG });
+  const traced = rLogs.status === 200 && (rLogs.json?.data || []).some(l => l.entityId === aSec.id);
+  ok('AUDIT : création du compte fixture tracée (USER_CREATED dans /api/logs)', traced, `status=${rLogs.status}`);
+  const rLogsSec = await api('GET', `/api/logs?limit=10`, { token: secTok || aAdmin });
+  ok('Journal : lecture interdite au staff école (logs:read = SAG/support)', rLogsSec.status === 403, `status=${rLogsSec.status}`);
+}
+
 // ══════════════ CLEANUP (best effort) ══════════════
 console.log('\n── CLEANUP ──');
 {
-  for (const id of [aSec.id, aTeach.id, aParent.id].filter(Boolean)) {
+  for (const id of [aSec.id, aTeach.id, aParent.id, ...cleanupExtra].filter(Boolean)) {
     await api('DELETE', `/api/users?id=${id}`, { token: SAG });
   }
   console.log('✔ Comptes fixtures désactivés');

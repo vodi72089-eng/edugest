@@ -1,18 +1,26 @@
 import { db } from '@/lib/db';
-import { requirePermission, sanitizeError } from '@/lib/auth';
+import { requirePermission, sanitizeError, verifySchoolAccess } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/school-currency?schoolId=xxx — Get currency config for a school
+// ── ISOLATION MULTI-ÉCOLES : le schoolId du query est vérifié contre le
+// compte (bypass SAG seul) — avant : tout staff authentifié pouvait lire la
+// config monétaire de N'IMPORTE QUELLE école (IDOR lecture).
 export async function GET(request: NextRequest) {
   try {
     const authResult = await requirePermission(request, 'school:read');
     if ('error' in authResult) return authResult.error;
+    const { user } = authResult;
 
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get('schoolId') || '';
 
     if (!schoolId) {
       return NextResponse.json({ error: 'schoolId est requis' }, { status: 400 });
+    }
+
+    if (!verifySchoolAccess(user, schoolId)) {
+      return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });
     }
 
     const config = await db.schoolCurrencyConfig.findUnique({
