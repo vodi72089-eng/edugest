@@ -3,12 +3,18 @@
 # Relance next dev s'il meurt. Tue d'abord tout process stale sur :3000.
 cd /home/z/my-project
 
+# ── Élévation du nombre de descripteurs ─────────────────────────────────────
+# Le watcher de Next.js (watchpack) surveille tout src/ + mini-services/ :
+# sous la limite par défaut (1024), le serveur démarre en état cassé
+# (EMFILE « too many open files », toutes les routes répondent 404).
+ulimit -n 65536 2>/dev/null || true
+
 LOG=/home/z/my-project/dev.log
 SCHED_LOG=/home/z/my-project/mini-services/report-scheduler/scheduler.log
 
 # ── Mini-service planificateur de rapports (port 3002) ──────────────────────
 start_scheduler() {
-  if ! pgrep -f "mini-services/report-scheduler/index.ts" >/dev/null 2>&1; then
+  if ! pgrep -f "mini-services/report-scheduler" >/dev/null 2>&1; then
     DATABASE_URL="file:/home/z/my-project/db/custom.db" \
     bun run --cwd /home/z/my-project/mini-services/report-scheduler dev \
       >> "$SCHED_LOG" 2>&1 &
@@ -30,7 +36,9 @@ while true; do
   DATABASE_URL="file:/home/z/my-project/db/custom.db" \
   NEXT_PUBLIC_APP_URL="http://localhost:3000" \
   WHATSAPP_SERVER_URL="http://localhost:3001" \
-  NODE_OPTIONS="--max-old-space-size=1200" \
+  SUBSCRIPTION_WEBHOOK_SECRET="test-secret" \
+  PLATFORM_WEBHOOK_SECRET="test-secret" \
+  NODE_OPTIONS="--max-old-space-size=1536" \
     ./node_modules/.bin/next dev -p 3000 --webpack >> "$LOG" 2>&1 &
   PID=$!
   echo "[$(date '+%F %T')] EduGest dev server démarré (PID $PID)" >> "$LOG"
@@ -38,7 +46,7 @@ while true; do
   # Surveiller : tant qu'il tourne, on dort (et on ravive le planificateur)
   while kill -0 $PID 2>/dev/null; do
     sleep 5
-    pgrep -f "mini-services/report-scheduler/index.ts" >/dev/null 2>&1 || start_scheduler
+    pgrep -f "mini-services/report-scheduler" >/dev/null 2>&1 || start_scheduler
   done
 
   echo "[$(date '+%F %T')] Serveur mort, redémarrage dans 3s..." >> "$LOG"
