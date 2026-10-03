@@ -32,7 +32,10 @@ export interface AddressData {
 
 // Default center: Kinshasa, DRC
 const DEFAULT_CENTER: [number, number] = [-4.4419, 15.2663]
+// Vue « ville » par défaut, et niveau « bâtiment » (toits, maisons) après
+// localisation : l'utilisateur doit voir l'endroit exact où il se trouve.
 const DEFAULT_ZOOM = 13
+const DETAIL_ZOOM = 18
 
 function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void }) {
   useMapEvents({
@@ -43,11 +46,11 @@ function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => v
   return null
 }
 
-function FlyToCenter({ center }: { center: [number, number] }) {
+function FlyToCenter({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap()
   useEffect(() => {
-    map.flyTo(center, DEFAULT_ZOOM, { duration: 1 })
-  }, [center, map])
+    map.flyTo(center, zoom, { duration: 1 })
+  }, [center, zoom, map])
   return null
 }
 
@@ -144,6 +147,10 @@ export default function SchoolMap({ latitude, longitude, onLocationChange }: Sch
   const [markerPos, setMarkerPos] = useState<[number, number] | null>(
     latitude && longitude ? [latitude, longitude] : null
   )
+  // Zoom cible du « fly » : bâtiment dès qu'une position existe, sinon vue ville
+  const [targetZoom, setTargetZoom] = useState<number>(
+    latitude && longitude ? DETAIL_ZOOM : DEFAULT_ZOOM
+  )
   const [geocoding, setGeocoding] = useState(false)
   const [source, setSource] = useState<'gps' | 'ip' | null>(null)
   // Garde-fou : une seule localisation automatique par montage
@@ -157,6 +164,7 @@ export default function SchoolMap({ latitude, longitude, onLocationChange }: Sch
   ) => {
     setMapCenter([lat, lng])
     setMarkerPos([lat, lng])
+    setTargetZoom(DETAIL_ZOOM)
     setSource(src)
     setGeocoding(true)
     const address = await reverseGeocode(lat, lng)
@@ -191,6 +199,7 @@ export default function SchoolMap({ latitude, longitude, onLocationChange }: Sch
       }
       // Hors ligne / refusé : centre par défaut (Kinshasa)
       setMapCenter(DEFAULT_CENTER)
+      setTargetZoom(DEFAULT_ZOOM)
       setSource(null)
     } finally {
       setLocating(false)
@@ -243,10 +252,11 @@ export default function SchoolMap({ latitude, longitude, onLocationChange }: Sch
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maxZoom={19}
           />
           {markerPos && <Marker position={markerPos} />}
           <MapClickHandler onClick={handleMapClick} />
-          <FlyToCenter center={mapCenter} />
+          <FlyToCenter center={mapCenter} zoom={targetZoom} />
         </MapContainer>
       </div>
       <p className="text-[11px] flex items-center flex-wrap gap-x-1" style={{ color: '#94a3b8' }}>
