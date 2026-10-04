@@ -35,6 +35,12 @@ const DEFAULT_CENTER: [number, number] = [-4.4419, 15.2663]
 // Vue « ville » par défaut, et niveau « bâtiment » (toits, maisons) après
 // localisation : l'utilisateur doit voir l'endroit exact où il se trouve.
 const DEFAULT_ZOOM = 13
+/**
+ * Zoom pour une position dérivée de l'IP : l'IP ne situe que le quartier
+ * (~1–5 km). Zoomer au niveau bâtiment (18) laisserait croire à une précision
+ * qui n'existe pas — d'où les « marqueur au mauvais endroit » signalés.
+ */
+const IP_ZOOM = 14
 const DETAIL_ZOOM = 18
 
 function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void }) {
@@ -127,16 +133,40 @@ async function locateByIp(): Promise<IpLocation | null> {
   return null
 }
 
-/** Tente le GPS du navigateur (délai max ~10 s). Résout null en cas d'échec/refus. */
-function tryGps(): Promise<{ lat: number; lng: number } | null> {
+/**
+ * Tente le GPS du navigateur (délai max ~8 s). Résout null en cas d'échec/refus.
+ *
+ * La précision (mètres) est désormais remontée : sans elle, un fix de bureau
+ * dégradé — souvent le centroïde du pays, à ±50 km — était traité comme un fix
+ * d'habitation et zoomait au niveau du bâtiment sur un endroit faux.
+ */
+function tryGps(): Promise<{ lat: number; lng: number; accuracy: number } | null> {
   return new Promise((resolve) => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) return resolve(null)
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (pos) => resolve({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: typeof pos.coords.accuracy === 'number' ? pos.coords.accuracy : Number.POSITIVE_INFINITY,
+      }),
       () => resolve(null),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
     )
   })
+}
+
+/** Au-delà de ce rayon, le fix GPS est considéré comme inutilisable. */
+const GPS_MAX_ACCURACY_M = 10000
+
+/**
+ * Zoom proportionnel à la précision réelle du fix : on ne zoome jamais au
+ * niveau bâtiment si l'incertitude dépasse le bâtiment.
+ */
+function zoomForAccuracy(accuracy: number): number {
+  if (accuracy <= 100) return DETAIL_ZOOM
+  if (accuracy <= 1000) return 16
+  if (accuracy <= 5000) return IP_ZOOM
+  return DEFAULT_ZOOM
 }
 
 export default function SchoolMap({ latitude, longitude, onLocationChange }: SchoolMapProps) {
@@ -160,41 +190,51 @@ export default function SchoolMap({ latitude, longitude, onLocationChange }: Sch
     lat: number,
     lng: number,
     src: 'gps' | 'ip',
-    ipInfo?: IpLocation
+    opts?: { accuracy?: number; ipInfo?: IpLocation }
   ) => {
+    const accuracy = opts?.accuracy
+    const ipInfo = opts?.ipInfo
     setMapCenter([lat, lng])
     setMarkerPos([lat, lng])
-    setTargetZoom(DETAIL_ZOOM)
+    // Zoom proportionnel à la fiabilité de la source : le GPS atteint le
+    // bâtiment (si son rayon d'incertitude le permet), l'IP ne situe que le
+    // quartier.
+    setTargetZoom(src === 'ip' ? IP_ZOOM : zoomForAccuracy(accuracy ?? Number.POSITIVE_INFINITY))
     setSource(src)
     setGeocoding(true)
     const address = await reverseGeocode(lat, lng)
     setGeocoding(false)
-    const finalAddress: Partial<AddressData> = address && (address.city || address.country)
-      ? address
-      : {
-          address: address?.address || '',
-          city: ipInfo?.city || address?.city || '',
-          province: ipInfo?.province || address?.province || '',
-          country: ipInfo?.country || address?.country || '',
-        }
+    // ⚠️ Une position par IP est un CENTROÏDE (souvent le centre-ville) :
+    // géocoder cette rue au hasard écrirait une adresse fausse dans le
+    // formulaire. On ne reprend donc que la ville/la province/pays, la rue
+    // restant à préciser par un clic sur la carte.
+    const finalAddress: Partial<AddressData> = {
+      address: src === 'ip' ? '' : (address?.address || ''),
+      city: (src === 'ip' ? ipInfo?.city : undefined) || address?.city || '',
+      province: (src === 'ip' ? ipInfo?.province : undefined) || address?.province || '',
+      country: (src === 'ip' ? ipInfo?.country : undefined) || address?.country || '',
+    }
     onLocationChange(lat, lng, finalAddress)
   }, [onLocationChange])
 
   /**
-   * Localisation complète : GPS d'abord, puis position par IP (l'app desktop
-   * Windows n'a pas accès au GPS navigateur), puis Kinshasa par défaut.
+   * Localisation complète : GPS d'abord (si son rayon d'incertitude est
+   * exploitable), puis position par IP (l'app desktop Windows n'a pas accès au
+   * GPS navigateur), puis Kinshasa par défaut.
    */
   const locate = useCallback(async () => {
     setLocating(true)
     try {
       const gps = await tryGps()
-      if (gps) {
-        await applyPosition(gps.lat, gps.lng, 'gps')
+      // Un fix trop imprécis (souvent le centroïde du pays sur un poste sans
+      // GPS) est IGNORÉ : on préfère l'IP, au moins rattachée à la bonne ville.
+      if (gps && gps.accuracy <= GPS_MAX_ACCURACY_M) {
+        await applyPosition(gps.lat, gps.lng, 'gps', { accuracy: gps.accuracy })
         return
       }
       const ip = await locateByIp()
       if (ip) {
-        await applyPosition(ip.lat, ip.lng, 'ip', ip)
+        await applyPosition(ip.lat, ip.lng, 'ip', { ipInfo: ip })
         return
       }
       // Hors ligne / refusé : centre par défaut (Kinshasa)
@@ -269,7 +309,7 @@ export default function SchoolMap({ latitude, longitude, onLocationChange }: Sch
         )}
         {!locating && source === 'ip' && latitude != null && longitude != null && (
           <span className="ml-1 font-medium" style={{ color: '#64748b' }}>
-            Position approximative détectée automatiquement : {latitude.toFixed(4)}, {longitude.toFixed(4)}
+            Position approximative (par IP, au niveau du quartier) — cliquez sur la carte pour préciser
           </span>
         )}
         {!locating && !source && latitude != null && longitude != null && (
