@@ -18,7 +18,7 @@ import { normalizeClientIp } from './geo';
 // Legacy files (v1: { userId, expiresAt }) are read transparently — missing
 // fields default to '' / 0 / undefined.
 // Par défaut : dossier de travail du serveur. L'app desktop (Electron)
-// surcharge via EDUGEST_SESSIONS_DIR vers %APPDATA%/EduGest/.sessions :
+// surcharge via EDUGEST_SESSIONS_DIR vers %APPDATA%/Look School 360/.sessions :
 // sinon chaque mise à jour (et chaque redémarrage du portable, extrait en
 // temp) effacerait les sessions et forcerait une reconnexion.
 const SESSIONS_DIR = process.env.EDUGEST_SESSIONS_DIR || path.join(process.cwd(), '.sessions');
@@ -701,7 +701,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'schools:read',
     'payment-gateways:manage', 'currency:manage', 'transactions:read',
     'notifications:read',
-    // Support EduGest : l'admin d'école peut ouvrir des tickets et discuter
+    // Support Look School 360 : l'admin d'école peut ouvrir des tickets et discuter
     // avec le support client / l'agent IA.
     'support:read', 'support:create',
   ],
@@ -712,7 +712,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'support:read', 'support:create', // tickets + agent IA
     'stats:read', 'profile:read', 'profile:update', 'notifications:read',
   ],
-  // ── Support client EduGest : accomplit les tâches avec les corporates
+  // ── Support client Look School 360 : accomplit les tâches avec les corporates
   // (tickets, réponses, relances) + lecture du journal d'activité. ──
   SUPPORT_AGENT: [
     'support:read', 'support:create', 'support:handle', // file complète + réponses + statuts

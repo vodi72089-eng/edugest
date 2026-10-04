@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
           enabled: true,
           apiKey: (body.apiKey || '').trim() || saved?.apiKey || '',
           fromEmail: ((body.fromEmail || '').trim().toLowerCase()) || saved?.fromEmail || '',
-          fromName: (body.fromName || '').trim() || saved?.fromName || 'EduGest',
+          fromName: (body.fromName || '').trim() || saved?.fromName || 'Look School 360',
         };
       }
 
@@ -76,13 +76,13 @@ export async function POST(request: NextRequest) {
       }
       const result = await sendEmailViaResend(
         testEmail,
-        'EduGest — Test de configuration Resend',
+        'Look School 360 — Test de configuration Resend',
         `
         <div style="max-width:480px;margin:40px auto;font-family:'Segoe UI',Tahoma,sans-serif;">
           <div style="background:linear-gradient(135deg,#0d1f1a,#0b1613);border-radius:16px;padding:32px;text-align:center;">
             <h1 style="color:#f5a623;margin:0 0 12px;font-size:22px;">✅ Configuration Resend active</h1>
             <p style="color:rgba(255,255,255,0.7);margin:0;font-size:14px;">
-              Les emails EduGest (codes de vérification, notifications) partiront désormais via Resend.
+              Les emails Look School 360 (codes de vérification, notifications) partiront désormais via Resend.
             </p>
           </div>
         </div>`,
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
       enabled,
       apiKey: apiKey || (existingCfg.apiKey as string) || '',
       fromEmail,
-      fromName: fromName || 'EduGest',
+      fromName: fromName || 'Look School 360',
     };
 
     await db.globalApiConfig.upsert({

@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       try {
         const { sendSmsViaProvider, isSmsActive } = await import('@/lib/sms')
         if (await isSmsActive()) {
-          const smsResult = await sendSmsViaProvider(normalizedPhone, `EduGest : code de réinitialisation ${code}. Valable 15 minutes.`)
+          const smsResult = await sendSmsViaProvider(normalizedPhone, `Look School 360 : code de réinitialisation ${code}. Valable 15 minutes.`)
           if (smsResult.success) {
             codeSent = true
             channel = 'sms'

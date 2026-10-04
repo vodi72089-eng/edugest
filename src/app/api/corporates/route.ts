@@ -123,8 +123,8 @@ export async function POST(request: NextRequest) {
         to: user.email,
         fromKey: 'contact',
         template: 'WELCOME_CORPORATE',
-        subject: 'Bienvenue sur EduGest — votre espace corporate',
-        html: `<p>Bonjour ${user.name || ''},</p><p>Votre espace corporate <b>${corporate.name}</b> est prêt : ${corporate.schools.length} école(s) rattachée(s).</p><p>Connectez-vous sur EduGest avec vos identifiants.</p><p>L'équipe EduGest — ${from}</p>`,
+        subject: 'Bienvenue sur Look School 360 — votre espace corporate',
+        html: `<p>Bonjour ${user.name || ''},</p><p>Votre espace corporate <b>${corporate.name}</b> est prêt : ${corporate.schools.length} école(s) rattachée(s).</p><p>Connectez-vous sur Look School 360 avec vos identifiants.</p><p>L'équipe Look School 360 — ${from}</p>`,
       });
     }
 

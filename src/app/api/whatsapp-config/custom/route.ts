@@ -201,7 +201,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       data: updated,
       message: customEnabled
-        ? 'Propre API WhatsApp activée avec succès. Aucune limite de messages sur EduGest.'
+        ? 'Propre API WhatsApp activée avec succès. Aucune limite de messages sur Look School 360.'
         : 'Passerelle WhatsApp partagée configurée.',
     });
   } catch (error: any) {

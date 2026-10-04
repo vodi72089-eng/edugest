@@ -99,8 +99,8 @@ export async function POST(request: NextRequest) {
       if (!a.email) continue;
       await sendPlatformEmail({
         to: a.email, fromKey: 'contact', template: 'HANDOVER_GRANT',
-        subject: `EduGest — « ${featureLabel} » activé pour ${school.name}`,
-        html: `<p>Bonjour ${a.name},</p><p>L'administrateur de la plateforme a activé <b>${featureLabel}</b> pour votre école <b>${school.name}</b>${activeUntil ? ` (jusqu'au ${activeUntil.toLocaleDateString('fr-FR')})` : ''}.</p><p>Rendez-vous dans l'onglet dédié de votre tableau de bord.</p><p>L'équipe EduGest</p>`,
+        subject: `Look School 360 — « ${featureLabel} » activé pour ${school.name}`,
+        html: `<p>Bonjour ${a.name},</p><p>L'administrateur de la plateforme a activé <b>${featureLabel}</b> pour votre école <b>${school.name}</b>${activeUntil ? ` (jusqu'au ${activeUntil.toLocaleDateString('fr-FR')})` : ''}.</p><p>Rendez-vous dans l'onglet dédié de votre tableau de bord.</p><p>L'équipe Look School 360</p>`,
       });
     }
 

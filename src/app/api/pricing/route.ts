@@ -9,7 +9,7 @@ const DEFAULT_TIERS = [
     name: 'Freemium',
     price: 0,
     period: '/mois',
-    description: 'Pour découvrir EduGest',
+    description: 'Pour découvrir Look School 360',
     features: '1 admin,0 professeur,100 élèves max,0 msg WhatsApp,Gestion basique',
     color: 'oklch(52% 0.015 250)',
     isPopular: false,

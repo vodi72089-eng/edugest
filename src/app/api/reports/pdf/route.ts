@@ -7,10 +7,10 @@ import { getRoleSealLabel } from '@/lib/helpers';
 import { registerDocument, qrDataUrlForDocument } from '@/lib/document-verify';
 import { getEduGestLogoBuffer, fetchSchoolLogoBuffer } from '@/lib/pdf-brand';
 
-// ─── Rapport PDF au design EduGest (détaillé, nominatif) ────────────────────
+// ─── Rapport PDF au design Look School 360 (détaillé, nominatif) ────────────────────
 // GET /api/reports/pdf?days=N[&schoolId=…]
 //
-// Renvoie un PDF A4 (bandeau vert/or EduGest) contenant TOUT le détail de la
+// Renvoie un PDF A4 (bandeau vert/or Look School 360) contenant TOUT le détail de la
 // période : effectifs, paiements (élève, montant, horodatage à la seconde,
 // n° de reçu), sujets des communications, sanctions (élève + description),
 // points positifs (élève + points + raison), convocations, présences par

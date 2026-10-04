@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET /api/whatsapp/usage?schoolId=...
 // Suivi en temps réel du quota WhatsApp : forfait, consommé ce mois, restant,
 // % et date de réinitialisation. Si l'école envoie via sa propre API WhatsApp,
-// limit = -1 (illimité côté EduGest — le client n'est limité que par ses tokens Meta).
+// limit = -1 (illimité côté Look School 360 — le client n'est limité que par ses tokens Meta).
 export async function GET(request: NextRequest) {
   try {
     const authResult = await requireAuth(request);

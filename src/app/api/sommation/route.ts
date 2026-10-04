@@ -77,7 +77,7 @@ function sanitizeAscii(text: string): string {
     .replace(/[^\x20-\x7E]/g, '')
 }
 
-/** Logo EduGest embarqué (version compacte pour PDF, lu depuis /public). */
+/** Logo Look School 360 embarqué (version compacte pour PDF, lu depuis /public). */
 function getEduGestLogoBase64(): string | null {
   try {
     const candidates = [
@@ -98,8 +98,8 @@ function getEduGestLogoBase64(): string | null {
 // ─── PDF Builder — design « Institut Gianelli » (navy & or) ──────────────────
 // Même vocabulaire visuel que reçus, bulletins, fiches de présence et
 // documents médicaux : double bordure décorative, logo école encadré d'or +
-// logo EduGest en haut à droite, filets or, libellés de section en or,
-// lignes pointillées, QR code de vérification et pied de page EduGest.
+// logo Look School 360 en haut à droite, filets or, libellés de section en or,
+// lignes pointillées, QR code de vérification et pied de page Look School 360.
 
 const NAVY: [number, number, number] = [2, 36, 72]
 const GOLD: [number, number, number] = [212, 175, 55]
@@ -166,7 +166,7 @@ function buildSommationPDF(
   doc.rect(8, 8, W - 16, H - 16)
 
   // ══════════════════════════════════════════════════════════════════
-  //  EN-TÊTE : logo école encadré d'or + logo EduGest en haut à droite
+  //  EN-TÊTE : logo école encadré d'or + logo Look School 360 en haut à droite
   // ══════════════════════════════════════════════════════════════════
   let y = 20
   const logoX = mx + 2
@@ -219,7 +219,7 @@ function buildSommationPDF(
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(11)
       setT(GOLD)
-      doc.text('EduGest', W - mx - 4, y + 8, { align: 'right' })
+      doc.text('Look School 360', W - mx - 4, y + 8, { align: 'right' })
     }
   } catch { /* logo ignoré */ }
 
@@ -486,7 +486,7 @@ function buildSommationPDF(
   }
 
   // ══════════════════════════════════════════════════════════════════
-  //  PIED DE PAGE : école + EduGest
+  //  PIED DE PAGE : école + Look School 360
   // ══════════════════════════════════════════════════════════════════
   const footerY = H - 25
 
@@ -502,7 +502,7 @@ function buildSommationPDF(
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7)
   setT(GRAY)
-  centerText(doc, 'Genere par EduGest - La plateforme de gestion scolaire', footerY + 9, W)
+  centerText(doc, 'Genere par Look School 360 - La plateforme de gestion scolaire', footerY + 9, W)
 
   doc.setFont('helvetica', 'italic')
   doc.setFontSize(6.5)

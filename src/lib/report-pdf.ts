@@ -143,7 +143,7 @@ function renderReport(
       bufferPages: true,
       info: {
         Title: `${periodTitle(data.period.days)} — ${data.school.name}`,
-        Author: 'EduGest',
+        Author: 'Look School 360',
         Subject: "Rapport d'activité scolaire",
       },
     });
@@ -225,11 +225,11 @@ function renderReport(
           });
         } catch {
           doc.fillColor(GOLD).font('Helvetica-Bold').fontSize(11)
-            .text('EduGest', MARGIN, headerTop + 8, { width: CONTENT_W, align: 'right', lineBreak: false });
+            .text('Look School 360', MARGIN, headerTop + 8, { width: CONTENT_W, align: 'right', lineBreak: false });
         }
       } else {
         doc.fillColor(GOLD).font('Helvetica-Bold').fontSize(11)
-          .text('EduGest', MARGIN, headerTop + 8, { width: CONTENT_W, align: 'right', lineBreak: false });
+          .text('Look School 360', MARGIN, headerTop + 8, { width: CONTENT_W, align: 'right', lineBreak: false });
       }
 
       const ruleY = headerTop + 30 * MM;
@@ -743,7 +743,7 @@ function renderReport(
         .text((data.school.name || '').slice(0, 48), MARGIN, footerY + 8,
           { width: CONTENT_W, align: 'center', lineBreak: false });
       doc.fillColor(GRAY).font('Helvetica').fontSize(7)
-        .text('Généré par EduGest - La plateforme de gestion scolaire', MARGIN, footerY + 19,
+        .text('Généré par Look School 360 - La plateforme de gestion scolaire', MARGIN, footerY + 19,
           { width: CONTENT_W, align: 'center', lineBreak: false });
       doc.fillColor(LGRAY).font('Helvetica-Oblique').fontSize(6.5)
         .text(

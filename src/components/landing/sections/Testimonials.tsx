@@ -26,7 +26,7 @@ const TESTIMONIALS: Testimonial[] = [
     role: 'Directrice',
     establishment: 'Lycée International de Paris',
     flag: '🇫🇷',
-    quote: "EduGest a transformé notre gestion quotidienne. En 3 mois, nous avons réduit le temps administratif de 40%. L'intuitivité de la plateforme a convaincu même les plus réticents.",
+    quote: "Look School 360 a transformé notre gestion quotidienne. En 3 mois, nous avons réduit le temps administratif de 40%. L'intuitivité de la plateforme a convaincu même les plus réticents.",
     initials: 'MD',
     color: '#4F9EFF',
   },

@@ -17,7 +17,7 @@ import {
 
 // ─── Planificateur agentique des rapports ───────────────────────────────────
 // Chaque minute, le serveur balaie les ReportSchedule actifs dont nextRunAt
-// est échu, génère le rapport (texte WhatsApp + PDF au design EduGest) et
+// est échu, génère le rapport (texte WhatsApp + PDF au design Look School 360) et
 // l'envoie aux destinataires programmés. Démarré par src/instrumentation.ts.
 
 interface ScheduleLike {
@@ -79,7 +79,7 @@ async function runScheduleInner(schedule: ScheduleLike): Promise<{ status: strin
     const sealLabel = 'Propriétaire';
     const text = buildWhatsAppTextReport(data, sealLabel);
     const footer =
-      `\n\n🤖 _Envoi automatique EduGest — tous les ${days} jour${days > 1 ? 's' : ''} à ` +
+      `\n\n🤖 _Envoi automatique Look School 360 — tous les ${days} jour${days > 1 ? 's' : ''} à ` +
       `${String(schedule.hour).padStart(2, '0')}:${String(schedule.minute).padStart(2, '0')} (heure locale)_`;
     const fullText = `${text}${footer}`;
 
@@ -96,7 +96,7 @@ async function runScheduleInner(schedule: ScheduleLike): Promise<{ status: strin
         status = 'agent_offline';
         detail = `Agent WhatsApp non connecté (${live.status}) — rapport généré mais non envoyé. Reconnectez l’agent ; l’envoi reprendra automatiquement.`;
       } else {
-        // PDF joint (design EduGest)
+        // PDF joint (design Look School 360)
         let pdfBase64: string | null = null;
         let filename = `rapport-${data.school.shortName || 'ecole'}-${data.period.to}.pdf`;
         if (schedule.sendPdf) {
@@ -135,7 +135,7 @@ async function runScheduleInner(schedule: ScheduleLike): Promise<{ status: strin
                 fileBase64: pdfBase64,
                 filename,
                 mimetype: 'application/pdf',
-                caption: `📋 ${periodTitleOf(days)} — ${data.school.name} (PDF EduGest)`,
+                caption: `📋 ${periodTitleOf(days)} — ${data.school.name} (PDF Look School 360)`,
                 schoolId: schedule.schoolId,
               });
             }

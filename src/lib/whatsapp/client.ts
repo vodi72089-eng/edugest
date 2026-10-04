@@ -38,7 +38,7 @@ export async function startWhatsApp(): Promise<void> {
     auth: state,
     logger: logger as any,
     printQRInTerminal: true,
-    browser: ['EduGest', 'Safari', '3.0'],
+    browser: ['Look School 360', 'Safari', '3.0'],
   });
 
   sock.ev.on('creds.update', saveCreds);

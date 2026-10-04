@@ -43,10 +43,10 @@ const playfairDisplay = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "EduGest — Gestion Scolaire Premium",
+  title: "Look School 360 — Gestion Scolaire Premium",
   description: "La plateforme de gestion scolaire multi-écoles qui simplifie la vie des directions, enseignants et parents.",
   manifest: '/manifest.webmanifest',
-  appleWebApp: { capable: true, title: 'EduGest' },
+  appleWebApp: { capable: true, title: 'Look School 360' },
   icons: {
     icon: "/edugest-logo-mark.png",
   },

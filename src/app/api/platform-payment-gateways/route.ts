@@ -5,7 +5,7 @@ import { encryptSecret } from '@/lib/gateway-keys';
 import { NextRequest, NextResponse } from 'next/server';
 
 // ─── Configuration des passerelles de paiement de la PLATEFORME ─────────────
-// Les abonnements EduGest sont payés via CES passerelles (et non celles des
+// Les abonnements Look School 360 sont payés via CES passerelles (et non celles des
 // écoles, qui servent à encaisser les frais de scolarité).
 // Stockage : PaymentGatewayConfig avec la sentinelle schoolId = '__PLATFORM__'.
 

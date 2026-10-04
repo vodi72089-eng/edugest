@@ -6,7 +6,7 @@ import { sendPlatformEmail } from '@/lib/platform-email';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SUPPORT CLIENT — TICKETS
-// Le support EduGest accomplit les tâches AVEC les clients (corporates et
+// Le support Look School 360 accomplit les tâches AVEC les clients (corporates et
 // écoles) via une file de tickets. Un ticket peut être créé par tout
 // utilisateur connecté ; traité par SUPPORT_AGENT / SUPER_ADMIN_GLOBAL.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
         fromKey: 'support',
         template: 'TICKET_CREATED',
         subject: `[${ticket.ref}] Accusé de réception — ${subject.slice(0, 60)}`,
-        html: `<p>Bonjour ${user.name},</p><p>Votre demande <b>${ticket.ref}</b> a bien été enregistrée : « ${subject} ».</p><p>Notre support client la traite dans les meilleurs délais.</p><p>L'équipe support EduGest</p>`,
+        html: `<p>Bonjour ${user.name},</p><p>Votre demande <b>${ticket.ref}</b> a bien été enregistrée : « ${subject} ».</p><p>Notre support client la traite dans les meilleurs délais.</p><p>L'équipe support Look School 360</p>`,
       });
     }
 

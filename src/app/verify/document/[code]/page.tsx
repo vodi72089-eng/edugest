@@ -6,7 +6,7 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Vérification de document — EduGest',
+  title: 'Vérification de document — Look School 360',
 };
 
 function formatDate(d: Date | null | undefined): string {
@@ -60,9 +60,9 @@ export default async function VerifyDocumentPage({ params }: { params: Promise<{
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-5">
         <div className="flex items-center gap-2.5">
-          <img src="/edugest-logo-mark.png" alt="Logo EduGest" className="w-10 h-10 object-contain" />
+          <img src="/edugest-logo-mark.png" alt="Logo Look School 360" className="w-10 h-10 object-contain" />
           <div>
-            <div className="text-white font-bold tracking-tight text-lg">Edu<span style={{ color: 'oklch(72% 0.15 65)' }}>Gest</span></div>
+            <div className="text-white font-bold tracking-tight text-lg">Look <span style={{ color: 'oklch(72% 0.15 65)' }}>School 360</span></div>
             <div className="text-white/40 text-[11px]">Vérification de documents officiels</div>
           </div>
         </div>
@@ -92,8 +92,8 @@ export default async function VerifyDocumentPage({ params }: { params: Promise<{
             </h1>
             <p className="text-white/60 text-sm max-w-md mx-auto">
               {isOfficial
-                ? `Ce ${typeLabel.toLowerCase()} a bien été généré par EduGest. Il est authentique et officiel.`
-                : 'Aucun document officiel EduGest ne correspond à ce code. Le document pourrait être falsifié ou le lien est incorrect.'}
+                ? `Ce ${typeLabel.toLowerCase()} a bien été généré par Look School 360. Il est authentique et officiel.`
+                : 'Aucun document officiel Look School 360 ne correspond à ce code. Le document pourrait être falsifié ou le lien est incorrect.'}
             </p>
           </div>
 
@@ -212,20 +212,20 @@ export default async function VerifyDocumentPage({ params }: { params: Promise<{
               <div className="mt-6 rounded-xl p-4 text-center" style={{ background: 'rgba(0,135,90,0.1)', border: '1px solid rgba(0,135,90,0.3)' }}>
                 <p className="text-[12px] leading-relaxed" style={{ color: 'rgba(134,239,172,0.9)' }}>
                   <strong className="font-bold">Authenticité vérifiée.</strong> Ce document est enregistré dans le registre officiel
-                  de l&apos;école via EduGest. Toute modification du PDF invaliderait le code de vérification.
+                  de l&apos;école via Look School 360. Toute modification du PDF invaliderait le code de vérification.
                 </p>
               </div>
             </div>
           )}
 
           <p className="text-center text-white/25 text-[11px] mt-8">
-            EduGest — La plateforme de gestion scolaire · Code de vérification : <span className="font-mono">{code.slice(0, 12)}…</span>
+            Look School 360 — La plateforme de gestion scolaire · Code de vérification : <span className="font-mono">{code.slice(0, 12)}…</span>
           </p>
         </div>
       </main>
 
       <footer className="relative z-10 text-center text-white/25 text-[12px] py-5">
-        © 2026 EduGest
+        © 2026 Look School 360
       </footer>
     </div>
   );

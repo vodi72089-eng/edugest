@@ -261,7 +261,7 @@ export default function HowItWorks() {
               </span>
             </h2>
             <p className="mt-4 text-base md:text-lg text-[#6B7280] max-w-lg mx-auto">
-              En trois étapes, votre établissement est opérationnel sur EduGest.
+              En trois étapes, votre établissement est opérationnel sur Look School 360.
             </p>
           </div>
         </ScrollReveal>

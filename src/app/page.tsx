@@ -307,7 +307,7 @@ function Footer() {
         </div>
       </div>
       <div className="container-premium pt-6 border-t border-white/10 flex flex-col sm:flex-row justify-between text-xs text-white/40 pb-8">
-        <span>© 2026 EduGest · Tous droits réservés</span>
+        <span>© 2026 Look School 360 · Tous droits réservés</span>
         <span className="mt-2 sm:mt-0">Conditions · Confidentialité · Cookies</span>
       </div>
     </footer>
@@ -875,7 +875,7 @@ function HomeView() {
             <span style={{ color: GOLD }}>►</span>
           </div>
           <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
-            Pourquoi choisir <GradientText className="inline-block" colors={['#f5a623', '#e8962d', '#d4860f']}>EduGest</GradientText>
+            Pourquoi choisir <GradientText className="inline-block" colors={['#f5a623', '#e8962d', '#d4860f']}>Look School 360</GradientText>
           </h2>
           <p className="text-base max-w-[500px] mx-auto mb-12" style={{ color: TEXT_MUTED_LUXE }}>
             Une plateforme conçue pour les réalités africaines, avec les outils qu&apos;il vous faut.
@@ -2029,7 +2029,7 @@ function LoginView() {
             name: apiUser.name,
             role,
             schoolId: apiUser.schoolId ?? null,
-            schoolName: apiUser.school?.name || (role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'EduGest'),
+            schoolName: apiUser.school?.name || (role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'Look School 360'),
             schoolLogo: apiUser.school?.logo || null,
             initials: getInitials(apiUser.name),
             profileImageUrl: apiUser.profileImageUrl || null,
@@ -2116,7 +2116,7 @@ function LoginView() {
           </div>
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-1">
-              Edu<span style={{ color: 'oklch(72% 0.15 65)', textShadow: '0 0 20px oklch(72% 0.15 65 / 0.4)' }}>Gest</span>
+              Look <span style={{ color: 'oklch(72% 0.15 65)', textShadow: '0 0 20px oklch(72% 0.15 65 / 0.4)' }}>School 360</span>
             </h1>
             <p className="text-white/50 text-sm font-medium">
               La plateforme de gestion scolaire
@@ -2212,7 +2212,7 @@ function LoginView() {
 
       {/* Footer — collé au bas de la page (mt-auto), respecte la zone sûre iOS */}
       <footer className="relative z-20 mt-auto w-full text-center text-[13px] text-white/30 py-5" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
-        © 2026 EduGest · v{APP_VERSION}
+        © 2026 Look School 360 · v{APP_VERSION}
       </footer>
 
       {/* WhatsApp Login Modal */}
@@ -2313,7 +2313,7 @@ function LoginView() {
                             name: apiUser.name,
                             role,
                             schoolId: apiUser.schoolId ?? null,
-                            schoolName: apiUser.school?.name || (role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'EduGest'),
+                            schoolName: apiUser.school?.name || (role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'Look School 360'),
                             schoolLogo: apiUser.school?.logo || null,
                             initials: getInitials(apiUser.name),
                             profileImageUrl: apiUser.profileImageUrl || null,
@@ -2709,7 +2709,7 @@ HEAD_TEACHER: [
     { icon: <Building2 size={16} />, label: 'Espace Corporate', view: 'corporate' as ViewType },
     { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
   ]
-  // Support client EduGest : file de tickets + agent IA (accomplit les tâches avec les corporates).
+  // Support client Look School 360 : file de tickets + agent IA (accomplit les tâches avec les corporates).
   menus.SUPPORT_AGENT = [
     { icon: <Headset size={16} />, label: 'Support client', view: 'support' },
   ]
@@ -2918,7 +2918,7 @@ const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'discipline', 'attendance', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'medical-records', 'events', 'reports', 'my-subscription', 'parent-qr', 'parents', 'personalization', 'whatsapp-config', 'settings', 'profile'],
   MEDICAL: ['dashboard', 'medical', 'medical-records', 'students', 'communications', 'reports', 'profile'],
   SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'pricing', 'platform-control', 'attendance', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'medical', 'medical-records', 'events', 'reports', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
-  // Comptes hors école : corporate (multi-écoles) + support client EduGest
+  // Comptes hors école : corporate (multi-écoles) + support client Look School 360
   CORPORATE_ADMIN: ['corporate', 'reports', 'support', 'profile'],
   SUPPORT_AGENT: ['support', 'profile'],
 }
@@ -3087,7 +3087,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
       if (!bridge?.show) return; // navigateur web : rien (Web Push gère)
       if (document.hasFocus()) return; // premier plan : le son in-app suffit
       bridge.show({
-        title: notif.title || 'EduGest',
+        title: notif.title || 'Look School 360',
         body: notif.message || '',
         tag: notif.id,
         url: viewToPath(notifTypeToView(notif.type, userRole)),
@@ -3677,7 +3677,7 @@ function ImportDbModal({ onClose }: { onClose: () => void }) {
             <>
               <p className="text-[13px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
                 Vous êtes connecté en tant qu&apos;administrateur d&apos;école. Importez votre fichier de base de
-                données EduGest (<strong>.db</strong>) : élèves, classes, matières, notes et professeurs
+                données Look School 360 (<strong>.db</strong>) : élèves, classes, matières, notes et professeurs
                 deviennent directement la base de votre école.
               </p>
               <p className="text-[12px] leading-relaxed rounded-lg px-3 py-2" style={{ color: TEXT_MUTED_LUXE, background: IVORY }}>
@@ -3744,7 +3744,7 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
         const m = text.match(/^version:\s*(.+)$/m)
         const version = String(m ? m[1] : '').trim().replace(/^v/, '')
         if (version) {
-          setExeUrl(`https://github.com/vodi72089-eng/edugest/releases/latest/download/EduGest-Portable-${version}.exe`)
+          setExeUrl(`https://github.com/vodi72089-eng/edugest/releases/latest/download/Look School 360-Portable-${version}.exe`)
         }
       })
       .catch(() => {})
@@ -3771,7 +3771,7 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
           <p className="text-[13px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
             L&apos;importation de base de données (<strong>.db</strong> : élèves, classes, matières,
             notes et professeurs) est disponible <strong>uniquement dans l&apos;application desktop
-            EduGest</strong> (Windows).
+            Look School 360</strong> (Windows).
             <strong> Vous l&apos;avez déjà ? Ouvrez-la directement</strong> (bouton ci-dessous) —
             sinon téléchargez-la, ouvrez-la, puis importez votre fichier : vos données deviendront
             directement la base de votre école.
@@ -4962,7 +4962,7 @@ function WhatsAppApiQuotasSection() {
                 <span>Consommation du mois</span>
                 <span>
                   {waConfig?.customEnabled
-                    ? 'Illimité (Non bridé par EduGest)'
+                    ? 'Illimité (Non bridé par Look School 360)'
                     : `${waConfig?.used || 0} / ${waConfig?.monthlyLimit >= 999999 ? 'Illimité' : waConfig?.monthlyLimit} messages`}
                 </span>
               </div>
@@ -4984,7 +4984,7 @@ function WhatsAppApiQuotasSection() {
 
             {waConfig?.customEnabled ? (
               <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900">
-                🎉 <strong>Mode Propre API activé</strong> : Vos envois transitent directement par vos identifiants Meta Cloud API ou passerelle dédiée. <strong>Aucune limitation de volume ou blocage n'est appliqué par EduGest.</strong>
+                🎉 <strong>Mode Propre API activé</strong> : Vos envois transitent directement par vos identifiants Meta Cloud API ou passerelle dédiée. <strong>Aucune limitation de volume ou blocage n'est appliqué par Look School 360.</strong>
               </div>
             ) : (waConfig?.percentUsed || 0) > 80 ? (
               <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 flex items-center justify-between">
@@ -5012,7 +5012,7 @@ function WhatsAppApiQuotasSection() {
               Connecter votre propre API WhatsApp (BYO)
             </h3>
             <p className="text-xs text-slate-500 mb-5">
-              Si vous disposez d'un compte WhatsApp Business API (Meta Cloud API) ou d'un serveur dédié, renseignez vos identifiants ci-dessous. EduGest lèvera toutes les restrictions de volume.
+              Si vous disposez d'un compte WhatsApp Business API (Meta Cloud API) ou d'un serveur dédié, renseignez vos identifiants ci-dessous. Look School 360 lèvera toutes les restrictions de volume.
             </p>
 
             <form onSubmit={saveWaConfig} className="space-y-4">
@@ -5025,7 +5025,7 @@ function WhatsAppApiQuotasSection() {
                   className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
                 />
                 <label htmlFor="customWaSwitch" className="text-sm font-bold text-slate-800 cursor-pointer">
-                  Activer ma propre API WhatsApp (Supprimer la limite de messages EduGest)
+                  Activer ma propre API WhatsApp (Supprimer la limite de messages Look School 360)
                 </label>
               </div>
 
@@ -5187,7 +5187,7 @@ function PaymentConfigView() {
   useEffect(() => {
     if (!getActiveSchoolId()) {
       // Vue plateforme (aucune école active) : catalog + configurations de la
-      // plateforme (passerelles des abonnements EduGest). loadGateways() résout
+      // plateforme (passerelles des abonnements Look School 360). loadGateways() résout
       // le skeleton via son finally — sinon il resterait affiché indéfiniment.
       loadGateways()
       return
@@ -7147,7 +7147,7 @@ function CommunicationsView() {
                   Configuration de l&apos;API email Resend
                 </h3>
                 <p className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>
-                  Les emails EduGest (codes de vérification de compte, notifications) seront envoyés via Resend.
+                  Les emails Look School 360 (codes de vérification de compte, notifications) seront envoyés via Resend.
                   Obtenez votre clé API sur <span className="font-semibold">resend.com</span> puis validez votre domaine expéditeur.
                 </p>
               </div>
@@ -7195,7 +7195,7 @@ function CommunicationsView() {
                     type="text"
                     value={emailForm.fromName}
                     onChange={e => setEmailForm(f => ({ ...f, fromName: e.target.value }))}
-                    placeholder="EduGest"
+                    placeholder="Look School 360"
                     className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
                     style={{ color: TEXT_PRIMARY }}
                   />
@@ -7527,7 +7527,7 @@ function HomeworkView() {
             </div>
           )}
           <div>
-            <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{schoolData.name || 'EduGest'}</h2>
+            <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{schoolData.name || 'Look School 360'}</h2>
             <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Devoirs assignés</p>
           </div>
         </div>
@@ -7731,7 +7731,7 @@ function HomeworkView() {
                 </div>
               )}
               <div className="flex-1">
-                <h3 className="font-bold text-sm" style={{ color: TEXT_PRIMARY }}>{schoolData?.name || 'EduGest'}</h3>
+                <h3 className="font-bold text-sm" style={{ color: TEXT_PRIMARY }}>{schoolData?.name || 'Look School 360'}</h3>
                 <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Pièce jointe du devoir</p>
               </div>
               <button onClick={() => setPreviewAttachment(null)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[oklch(95%_0.01_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>
@@ -9241,7 +9241,7 @@ function SubscriptionUpgradeView() {
           schoolId: getActiveSchoolId() ?? null,
           gatewayType: selectedGateway,
           amount: tier.price,
-          description: `Abonnement ${tier.name} - ${userData?.schoolName || 'EduGest'}`,
+          description: `Abonnement ${tier.name} - ${userData?.schoolName || 'Look School 360'}`,
           customerPhone: customerPhone || undefined,
         }),
       })
@@ -9607,7 +9607,7 @@ export default function Home() {
         if (!current || current.id !== p.id) return // session changée entre-temps
         const patch: Partial<UserData> = {
           schoolId: p.schoolId ?? null,
-          schoolName: p.school?.name || (current.role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'EduGest'),
+          schoolName: p.school?.name || (current.role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'Look School 360'),
           schoolLogo: p.school?.logo ?? null,
           profileImageUrl: p.profileImageUrl ?? null,
         }

@@ -1,10 +1,10 @@
 'use client'
 
 /**
- * BrandLogo — LE logo officiel EduGest, centralisé (source unique).
+ * BrandLogo — LE logo officiel Look School 360, centralisé (source unique).
  *
  * Deux variantes dérivées du même logo officiel :
- *  - 'full' → logo complet avec le nom « EDUC GEST » (/edugest-logo.png)
+ *  - 'full' → logo complet avec le nom « LOOK SCHOOL 360 » (/edugest-logo.png)
  *  - 'mark' → symbole seul, couronne + livre (/edugest-logo-mark.png),
  *    utilisé pour les petites tailles (favicon, avatars, en-têtes compacts).
  *
@@ -26,7 +26,7 @@ export default function BrandLogo({
   return (
     <img
       src={src}
-      alt="EduGest — logo officiel"
+      alt="Look School 360 — logo officiel"
       className={`object-contain ${className}`}
       style={{ height, width: 'auto', ...style }}
     />

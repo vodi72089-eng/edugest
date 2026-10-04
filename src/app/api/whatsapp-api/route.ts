@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // ─── API WhatsApp personnelle de l'école (Meta WhatsApp Cloud API) ──────────
 // Le client branche son propre numéro + token Meta : les messages partent via
-// SON API → plus de limite mensuelle EduGest (limité par ses tokens Meta).
+// SON API → plus de limite mensuelle Look School 360 (limité par ses tokens Meta).
 
 const CONFIG_ROLES = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'CASHIER'];
 
@@ -151,7 +151,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE /api/whatsapp-api?schoolId=... — désactiver la config (retour à l'agent EduGest)
+// DELETE /api/whatsapp-api?schoolId=... — désactiver la config (retour à l'agent Look School 360)
 export async function DELETE(request: NextRequest) {
   try {
     const authResult = await requireAuth(request);

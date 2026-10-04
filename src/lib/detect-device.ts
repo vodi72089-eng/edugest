@@ -75,11 +75,11 @@ export function detectDevice(ua: string): DeviceInfo {
 
   let browser = 'Navigateur inconnu'
   let browserVersion = ''
-  // Application de bureau EduGest (Electron) : marque affichée au lieu du moteur.
+  // Application de bureau Look School 360 (Electron) : marque affichée au lieu du moteur.
   // Ex. : Mozilla/5.0 (Windows NT 10.0; Win64; x64) ... Chrome/134.0.0.0 Safari/537.36 Electron/35.7.5
   const electronMatch = ua.match(/Electron\/([\d.]+)/i)
   if (electronMatch) {
-    browser = 'EduGest Desktop'
+    browser = 'Look School 360 Desktop'
     browserVersion = electronMatch[1] || ''
   } else for (const [pattern, name] of BROWSER_PATTERNS) {
     const m = ua.match(pattern)
@@ -152,7 +152,7 @@ export function detectDevice(ua: string): DeviceInfo {
     }
   }
 
-  // Ordinateur de bureau EduGest : la marque du PC est injectée dans le
+  // Ordinateur de bureau Look School 360 : la marque du PC est injectée dans le
   // user-agent par l'application Electron (« EduGestPC/… (Marque: Dell Inc.;
   // Modele: Latitude 5400; PC: BUREAU-01) »). On l'extrait pour l'affichage.
   if (isDesktop) {

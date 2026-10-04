@@ -45,7 +45,7 @@ export interface PassingAdminNoticeResult {
 }
 
 function emailHtml(params: { title: string; message: string; schoolName?: string | null }): string {
-  const brand = params.schoolName || 'EduGest';
+  const brand = params.schoolName || 'Look School 360';
   return `
     <!DOCTYPE html>
     <html>
@@ -62,7 +62,7 @@ function emailHtml(params: { title: string; message: string; schoolName?: string
           <h2 style="color:#ffffff;margin:0 0 10px;font-size:17px;">${params.title}</h2>
           <p style="color:rgba(255,255,255,0.75);font-size:14px;line-height:1.6;margin:0 0 18px;">${params.message}</p>
           <p style="color:rgba(255,255,255,0.4);font-size:12px;margin:0;text-align:center;">
-            Notification automatique — EduGest, la plateforme de gestion scolaire
+            Notification automatique — Look School 360, la plateforme de gestion scolaire
           </p>
         </div>
       </div>

@@ -435,7 +435,7 @@ export function buildBulletinPDF(
   y = qrY + qrSize + 12;
 
   // ══════════════════════════════════════════════════════════════════
-  //  PIED DE PAGE : école + EduGest
+  //  PIED DE PAGE : école + Look School 360
   // ══════════════════════════════════════════════════════════════════
   const footerY = H - 25;
 
@@ -451,7 +451,7 @@ export function buildBulletinPDF(
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   setT(doc, GRAY);
-  centerText(doc, 'Genere par EduGest - La plateforme de gestion scolaire', footerY + 9, W);
+  centerText(doc, 'Genere par Look School 360 - La plateforme de gestion scolaire', footerY + 9, W);
 
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(6.5);

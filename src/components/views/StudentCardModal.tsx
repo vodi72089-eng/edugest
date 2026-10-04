@@ -237,7 +237,7 @@ export default function StudentCardModal({ student, onClose }: StudentCardModalP
           {/* Bandeau or supérieur */}
           <div className="h-1.5" style={{ background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
 
-          {/* En-tête : logos école + EduGest */}
+          {/* En-tête : logos école + Look School 360 */}
           <div className="flex items-center justify-between px-5 pt-4">
             <div className="flex items-center gap-2.5">
               {school?.logo ? (
@@ -253,7 +253,7 @@ export default function StudentCardModal({ student, onClose }: StudentCardModalP
               </div>
             </div>
             <div className="text-right">
-              <div className="text-white font-black tracking-tight text-base">Edu<span style={{ color: GOLD }}>Gest</span></div>
+              <div className="text-white font-black tracking-tight text-base">Look <span style={{ color: GOLD }}>School 360</span></div>
               <div className="text-white/40 text-[9px] uppercase tracking-widest">Plateforme officielle</div>
             </div>
           </div>

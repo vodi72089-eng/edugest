@@ -36,7 +36,7 @@ const SECTIONS: DocSection[] = [
     summary: 'Créer une école, inviter le personnel, connecter les parents',
     keywords: ['école', 'onboarding', 'invitation', 'rôles', 'parents', 'super admin', 'classes', 'élèves'],
     blocks: [
-      { kind: 'p', text: 'Bienvenue sur EduGest ! Voici le chemin complet pour lancer votre établissement en quelques minutes.' },
+      { kind: 'p', text: 'Bienvenue sur Look School 360 ! Voici le chemin complet pour lancer votre établissement en quelques minutes.' },
       {
         kind: 'list',
         items: [
@@ -160,7 +160,7 @@ const SECTIONS: DocSection[] = [
     summary: 'Nos trois adresses et l’envoi via Resend',
     keywords: ['email', 'noreply', 'support', 'contact', 'resend', 'boîte d’envoi', 'notifications'],
     blocks: [
-      { kind: 'p', text: 'EduGest envoie ses emails depuis trois adresses officielles :' },
+      { kind: 'p', text: 'Look School 360 envoie ses emails depuis trois adresses officielles :' },
       {
         kind: 'list',
         items: [
@@ -189,7 +189,7 @@ const SECTIONS: DocSection[] = [
         kind: 'list',
         items: [
           'Onglet Support → tickets : choisissez une catégorie (Général, Technique, Facturation, Onboarding, Données) et une priorité, puis suivez le statut : Ouvert → En cours → Résolu / Fermé.',
-          'L’Agent IA EduGest est disponible 24/7 : il répond immédiatement à vos questions sur la plateforme (élèves, notes, paiements, passage de classe, espace corporate…).',
+          'L’Agent IA Look School 360 est disponible 24/7 : il répond immédiatement à vos questions sur la plateforme (élèves, notes, paiements, passage de classe, espace corporate…).',
           'Le support humain prend le relais pour les opérations sensibles : il accomplit les tâches avec les corporates (rattachements, upgrades, configurations).',
         ],
       },
@@ -256,7 +256,7 @@ export default function DocumentationView() {
           Documentation
         </h1>
         <p className="text-sm mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>
-          Tout savoir sur EduGest : démarrage, corporates, passage de classe, paiements et support.
+          Tout savoir sur Look School 360 : démarrage, corporates, passage de classe, paiements et support.
         </p>
       </div>
 

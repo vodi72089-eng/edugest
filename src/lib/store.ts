@@ -254,7 +254,7 @@ interface EduGestStore {
   activeSchoolId: string | null
   // Nom de l'école active (parallèle à activeSchoolId) : affiché dans le fil
   // d'Ariane de la barre supérieure — l'utilisateur voit toujours OÙ il se
-  // trouve (« EduGest / Élèves / La Réussite ») sans deviner par l'ID.
+  // trouve (« Look School 360 / Élèves / La Réussite ») sans deviner par l'ID.
   activeSchoolName: string | null
   setActiveSchoolId: (id: string | null, name?: string | null) => void
 

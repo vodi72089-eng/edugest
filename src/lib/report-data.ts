@@ -513,7 +513,7 @@ export function buildWhatsAppTextReport(data: DetailedReport, sealLabel: string)
   }
   const gen = new Date(data.generatedAtISO);
   lines.push(`_Rapport scellé sur le rôle : ${sealLabel}_`);
-  lines.push(`_Généré par EduGest le ${d(isoDate(gen))} à ${gen.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}_`);
+  lines.push(`_Généré par Look School 360 le ${d(isoDate(gen))} à ${gen.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}_`);
   return lines.join('\n');
 }
 

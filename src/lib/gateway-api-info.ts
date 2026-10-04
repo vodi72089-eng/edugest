@@ -4,7 +4,7 @@
  *
  * Affichées dans le modal de configuration (Paramètres → Paiements →
  * Passerelles) pour que l'administrateur sache exactement :
- *  1. quelle URL EduGest appelle réellement (base API, prod + sandbox —
+ *  1. quelle URL Look School 360 appelle réellement (base API, prod + sandbox —
  *     valeurs reflétées du code d'initiation de src/lib/payment-gateway.ts) ;
  *  2. sur quel portail créer un compte marchand et récupérer ses clés API ;
  *  3. où trouver la documentation développeur.
@@ -14,7 +14,7 @@
  * retiré de l'offre RDC ; MANUAL = espèces/virement validés par le caissier.
  */
 export interface GatewayApiInfo {
-  /** URL de base de l'API de production (celle qu'EduGest appelle en live) */
+  /** URL de base de l'API de production (celle qu'Look School 360 appelle en live) */
   apiBase: string | null;
   /** URL de base de l'API sandbox (mode test), si distincte */
   sandboxBase?: string | null;
@@ -22,7 +22,7 @@ export interface GatewayApiInfo {
   dashboardUrl: string | null;
   /** Documentation développeur */
   docsUrl: string | null;
-  /** Étapes concrètes pour obtenir les identifiants à saisir dans EduGest */
+  /** Étapes concrètes pour obtenir les identifiants à saisir dans Look School 360 */
   keysHint: string | null;
 }
 

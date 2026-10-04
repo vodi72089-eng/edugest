@@ -140,7 +140,7 @@ const transporter = nodemailer.createTransport({
 export async function sendOtpEmail(
   to: string,
   code: string,
-  schoolName: string = 'EduGest'
+  schoolName: string = 'Look School 360'
 ): Promise<EmailResult> {
   const html = `
     <!DOCTYPE html>

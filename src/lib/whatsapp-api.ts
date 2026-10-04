@@ -4,7 +4,7 @@ import { decryptSecret } from './gateway-keys';
 // ─── API WhatsApp personnelle du client (Meta WhatsApp Cloud API) ───────────
 // Si l'école configure sa propre API WhatsApp (Phone Number ID + token Meta),
 // tous les messages de l'application partent via SON numéro et SON token :
-//   → plus de limite mensuelle EduGest
+//   → plus de limite mensuelle Look School 360
 //   → le client n'est limité que par les tokens qu'il achète auprès de Meta
 
 export const WHATSAPP_GRAPH_VERSION = 'v21.0';

@@ -18,8 +18,8 @@ interface WhatsappUsageData {
 
 /**
  * Carte de suivi en TEMPS RÉEL des messages WhatsApp de l'école.
- * - Agent EduGest : quota mensuel du forfait (consommé / limite / restant)
- * - API WhatsApp perso du client : illimité côté EduGest (tokens Meta)
+ * - Agent Look School 360 : quota mensuel du forfait (consommé / limite / restant)
+ * - API WhatsApp perso du client : illimité côté Look School 360 (tokens Meta)
  * Rafraîchit toutes les 10 s + quand la fenêtre redevient visible.
  */
 export default function WhatsappUsageCard({ compact = false }: { compact?: boolean }) {
@@ -101,7 +101,7 @@ export default function WhatsappUsageCard({ compact = false }: { compact?: boole
 
       {usage.usingCustomApi ? (
         <p className="text-xs leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
-          Vos notifications partent via <strong>votre propre API WhatsApp</strong> : aucune limite EduGest.
+          Vos notifications partent via <strong>votre propre API WhatsApp</strong> : aucune limite Look School 360.
           Vous êtes uniquement limité par les tokens achetés auprès de Meta.
           {usage.used > 0 && <> — {usage.used} message{usage.used > 1 ? 's' : ''} envoyé{usage.used > 1 ? 's' : ''} ce mois.</>}
         </p>
@@ -132,7 +132,7 @@ export default function WhatsappUsageCard({ compact = false }: { compact?: boole
           </div>
           {atLimit && (
             <p className="text-[11px] mt-2 p-2 rounded-lg" style={{ background: 'oklch(97% 0.02 25)', color: DANGER }}>
-              Les envois via l&apos;agent EduGest sont suspendus jusqu&apos;à la réinitialisation
+              Les envois via l&apos;agent Look School 360 sont suspendus jusqu&apos;à la réinitialisation
               {usage.canUseCustomApi && <> — ou connectez votre propre API WhatsApp dans <strong>Config. Paiements → API WhatsApp</strong> pour des envois illimités</>}
               {usage.tier === 'FREEMIUM' && <> — passez à un forfait supérieur pour débloquer les envois</>}.
             </p>

@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 
 /**
  * Web Push helpers (VAPID).
- * Sends real browser push notifications (visible even when EduGest is closed),
+ * Sends real browser push notifications (visible even when Look School 360 is closed),
  * and automatically prunes dead subscriptions (404/410 from the push service).
  */
 

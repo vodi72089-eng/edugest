@@ -1,5 +1,5 @@
 /**
- * EduGest Desktop — preload (pont sécurisé renderer → main).
+ * Look School 360 Desktop — preload (pont sécurisé renderer → main).
  *
  * Expose :
  * - `window.__edugest.ready()` : l'interface prévient quand elle est peinte

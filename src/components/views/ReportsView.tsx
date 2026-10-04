@@ -717,7 +717,7 @@ export default function ReportsView() {
                 <div className="min-w-0">
                   <h3 className="font-bold text-[15px]" style={{ color: TEXT_PRIMARY }}>Automatisation des rapports</h3>
                   <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
-                    L&apos;agent EduGest envoie le rapport tout seul : texte WhatsApp + PDF détaillé au design de l&apos;app, à l&apos;heure exacte choisie (heure locale).
+                    L&apos;agent Look School 360 envoie le rapport tout seul : texte WhatsApp + PDF détaillé au design de l&apos;app, à l&apos;heure exacte choisie (heure locale).
                   </p>
                 </div>
               </div>

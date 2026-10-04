@@ -59,7 +59,7 @@ async function reverseGeocode(lat: number, lng: number): Promise<Partial<Address
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=fr&addressdetails=1`,
-      { headers: { 'User-Agent': 'EduGest/1.0' } }
+      { headers: { 'User-Agent': 'Look School 360/1.0' } }
     )
     if (!res.ok) return null
     const data = await res.json()

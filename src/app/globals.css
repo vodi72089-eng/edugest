@@ -42,7 +42,7 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  /* EduGest custom colors */
+  /* Look School 360 custom colors */
   --color-edu-accent: oklch(55% 0.15 175);
   --color-edu-accent-soft: oklch(95% 0.04 175);
   --color-edu-success: oklch(60% 0.15 145);
@@ -59,7 +59,7 @@
 
 :root {
   --radius: 0.625rem;
-  /* EduGest design tokens */
+  /* Look School 360 design tokens */
   --edu-bg: oklch(98% 0.003 220);
   --edu-surface: oklch(100% 0 0);
   --edu-surface2: oklch(96% 0.003 220);
@@ -157,7 +157,7 @@
   }
 }
 
-/* EduGest custom utility classes */
+/* Look School 360 custom utility classes */
 .edu-accent { color: oklch(55% 0.15 175); }
 .edu-accent-bg { background: oklch(55% 0.15 175); }
 .edu-accent-soft-bg { background: oklch(95% 0.04 175); }
@@ -752,7 +752,7 @@
 }
 
 /* ===== BOOK ANIMATION ===== */
-/* Adapted from Uiverse.io by anand_4957 — EduGest color scheme */
+/* Adapted from Uiverse.io by anand_4957 — Look School 360 color scheme */
 .edu-book,
 .edu-book__pg-shadow,
 .edu-book__pg {

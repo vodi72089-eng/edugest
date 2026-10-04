@@ -1,5 +1,5 @@
 /**
- * NotificationSoundService — son de notification EduGest (Web + Electron).
+ * NotificationSoundService — son de notification Look School 360 (Web + Electron).
  *
  * Deux couches de lecture :
  *   1. Fichier local embarqué /sounds/notification.wav (aucun service externe,

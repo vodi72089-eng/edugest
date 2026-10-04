@@ -4,7 +4,7 @@ import { GATEWAY_INFO, PLATFORM_SCHOOL_ID, RETIRED_GATEWAY_TYPES } from '@/lib/p
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/subscription/payment-methods
-// Moyens de paiement acceptés par la PLATEFORME pour les abonnements EduGest.
+// Moyens de paiement acceptés par la PLATEFORME pour les abonnements Look School 360.
 // Les clients (admins d'école) l'utilisent pour savoir s'ils peuvent payer en
 // ligne (API de paiement configurée par la plateforme) ou devoir remplir le
 // formulaire de paiement manuel.

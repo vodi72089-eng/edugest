@@ -8,7 +8,7 @@ const WA_API_KEY = process.env.WHATSAPP_API_KEY || (process.env.NODE_ENV !== 'pr
 
 async function sendWhatsAppOtp(phone: string, code: string): Promise<boolean> {
   try {
-    const message = `🔐 Code de vérification EduGest: ${code}\n\nCe code expire dans 10 minutes. Ne le partagez avec personne.`;
+    const message = `🔐 Code de vérification Look School 360: ${code}\n\nCe code expire dans 10 minutes. Ne le partagez avec personne.`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 28000);
     const res = await fetch(`${WA_SERVER}/send`, {
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       } else {
         const otpResult = await generateOtp(user.id, 'email', 'registration');
         if (otpResult.success && otpResult.code) {
-          const emailResult = await sendOtpEmail(user.email, otpResult.code, school?.name || 'EduGest');
+          const emailResult = await sendOtpEmail(user.email, otpResult.code, school?.name || 'Look School 360');
           results.email = { sent: emailResult.success, error: emailResult.error };
         } else {
           results.email = { sent: false, error: otpResult.error };

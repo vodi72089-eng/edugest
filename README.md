@@ -1,4 +1,4 @@
-# EduGest
+# Look School 360
 
 Application de gestion éducative complète pour écoles africaines — multi-rôles, WhatsApp, paiements mobiles, discipline, bulletins, convocations.
 

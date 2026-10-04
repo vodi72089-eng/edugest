@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * EduGest — Protection frontend contre les accès faciles aux outils de développement.
+ * Look School 360 — Protection frontend contre les accès faciles aux outils de développement.
  *
  * Portée (dissuasion, PAS une protection absolue — le code envoyé au navigateur
  * reste toujours inspectable par un utilisateur déterminé) :

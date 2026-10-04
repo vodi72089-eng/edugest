@@ -332,7 +332,7 @@ export async function POST(request: NextRequest) {
       `📅 Période : ${fmtDate(fromStr)} → ${fmtDate(toStr)} (${days} jour${days > 1 ? 's' : ''})\n\n` +
       `${bodyText}\n` +
       `_Rapport scellé sur le rôle : ${getRoleSealLabel(user.role)}_\n` +
-      `_Généré par EduGest le ${fmtDate(isoDate(generatedAt))} à ${generatedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}_`;
+      `_Généré par Look School 360 le ${fmtDate(isoDate(generatedAt))} à ${generatedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}_`;
 
     // ── Destinataires : administratifs de CETTE école ──────────────────────
     const adminRecipientRoles = [

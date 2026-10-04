@@ -2,7 +2,7 @@ import { db } from './db';
 import QRCode from 'qrcode';
 
 /**
- * Registre des documents officiels EduGest.
+ * Registre des documents officiels Look School 360.
  *
  * Chaque document PDF généré (bulletin, reçu, fiche médicale, sommation)
  * contient un QR code unique qui pointe vers `${APP_URL}/verify/document/{code}`.
