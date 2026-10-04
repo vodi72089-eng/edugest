@@ -1,11 +1,13 @@
 'use client'
 
 /**
- * BrandLogo — LE logo officiel EduGest, centralisé (source unique).
+ * BrandLogo - LE logo officiel EduGest, centralisé (source unique).
  *
- * Deux variantes dérivées du même logo officiel :
- *  - 'full' → logo complet avec le nom « EDUC GEST » (/edugest-logo.png)
- *  - 'mark' → symbole seul, couronne + livre (/edugest-logo-mark.png),
+ * Deux variantes dérivées du logo officiel :
+ *  - 'full' → emblème haute définition (/edugest-logo-new.png, 1200x849) —
+ *    l'ancien /edugest-logo.png (1000x884, avec le lettrage « EDUC GEST »)
+ *    était illisible à 36 px de haut : le texte dégénéré en bouillie.
+ *  - 'mark' → symbole seul, couronne + livre (/edugest-logo-mark.png, 512²),
  *    utilisé pour les petites tailles (favicon, avatars, en-têtes compacts).
  *
  * Sur fond sombre, envelopper d'une plaque claire (bg-white rounded-2xl p-…)
@@ -22,7 +24,7 @@ export default function BrandLogo({
   className?: string
   style?: React.CSSProperties
 }) {
-  const src = variant === 'mark' ? '/edugest-logo-mark.png' : '/edugest-logo.png'
+  const src = variant === 'mark' ? '/edugest-logo-mark.png' : '/edugest-logo-new.png'
   return (
     <img
       src={src}
