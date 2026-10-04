@@ -22,7 +22,7 @@ function EduGestLogo({ className = '' }: { className?: string }) {
   return (
     <img
       src="/edugest-logo-new.png"
-      alt="EduGest"
+      alt="Look School 360"
       width="32"
       height="32"
       className={className}
@@ -127,14 +127,14 @@ export default function Nav({ onLogin, onNavigate }: NavProps) {
             <button
               onClick={() => handleNavClick('hero')}
               className="flex items-center gap-2.5 group"
-              aria-label="EduGest Home"
+              aria-label="Look School 360 Home"
             >
               <EduGestLogo className="transition-transform duration-300 group-hover:scale-110" />
               <span
                 className="text-[18px] font-semibold tracking-tight"
                 style={{ color: '#FAFAFA', fontFamily: 'var(--font-geist-sans)' }}
               >
-                EduGest
+                Look School 360
               </span>
             </button>
 
@@ -241,7 +241,7 @@ export default function Nav({ onLogin, onNavigate }: NavProps) {
                   className="text-lg font-semibold tracking-tight"
                   style={{ color: '#FAFAFA' }}
                 >
-                  EduGest
+                  Look School 360
                 </span>
               </motion.div>
 

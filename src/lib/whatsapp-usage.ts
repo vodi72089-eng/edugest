@@ -3,7 +3,7 @@ import { getTierLimits } from './subscription';
 import { getSchoolWhatsappApiConfig } from './whatsapp-api';
 
 // ─── Suivi d'utilisation WhatsApp (temps réel) ──────────────────────────────
-// Chaque message envoyé via l'agent WhatsApp EduGest (Baileys) est journalisé
+// Chaque message envoyé via l'agent WhatsApp Look School 360 (Baileys) est journalisé
 // dans WhatsappMessageLog (channel='agent'). Les messages partis via l'API
 // WhatsApp personnelle du client (channel='custom_api') ne comptent PAS dans
 // le quota — le client n'est limité que par les tokens qu'il achète chez Meta.
@@ -12,7 +12,7 @@ export interface WhatsappUsage {
   tier: string;
   /** Limite mensuelle (-1 = illimité, 0 = aucun message autorisé) */
   limit: number;
-  /** Messages envoyés ce mois-ci via l'agent EduGest */
+  /** Messages envoyés ce mois-ci via l'agent Look School 360 */
   used: number;
   /** Messages restants (null = illimité) */
   remaining: number | null;
@@ -22,7 +22,7 @@ export interface WhatsappUsage {
   periodStart: string;
   /** Fin de la fenêtre de quota (1er jour du mois suivant) */
   resetsAt: string;
-  /** true si l'école envoie via sa propre API WhatsApp (illimité côté EduGest) */
+  /** true si l'école envoie via sa propre API WhatsApp (illimité côté Look School 360) */
   usingCustomApi: boolean;
   /** true si l'école peut configurer sa propre API WhatsApp selon son forfait */
   canUseCustomApi: boolean;
@@ -35,7 +35,7 @@ export function currentQuotaPeriod(now = new Date()): { periodStart: Date; reset
   return { periodStart, resetsAt };
 }
 
-/** Nombre de messages envoyés ce mois via l'agent EduGest pour une école */
+/** Nombre de messages envoyés ce mois via l'agent Look School 360 pour une école */
 export async function getMonthlyMessageCount(schoolId: string, periodStart?: Date): Promise<number> {
   const { periodStart: start } = currentQuotaPeriod();
   const since = periodStart || start;
@@ -46,7 +46,7 @@ export async function getMonthlyMessageCount(schoolId: string, periodStart?: Dat
 
 /**
  * Usage WhatsApp temps réel d'une école : quota du forfait, consommation du
- * mois, restant, pourcentage — et mode d'envoi actif (agent EduGest ou API perso).
+ * mois, restant, pourcentage — et mode d'envoi actif (agent Look School 360 ou API perso).
  */
 export async function getWhatsappUsage(schoolId: string | null | undefined): Promise<WhatsappUsage> {
   const { periodStart, resetsAt } = currentQuotaPeriod();
@@ -71,7 +71,7 @@ export async function getWhatsappUsage(schoolId: string | null | undefined): Pro
   const limits = getTierLimits(tier);
   const used = await getMonthlyMessageCount(schoolId);
 
-  // API personnelle active → pas de limite EduGest
+  // API personnelle active → pas de limite Look School 360
   const customApi = await getSchoolWhatsappApiConfig(schoolId);
   const usingCustomApi = !!(customApi && customApi.isActive);
 
@@ -92,7 +92,7 @@ export async function getWhatsappUsage(schoolId: string | null | undefined): Pro
 }
 
 /**
- * Vérifie que l'école peut encore envoyer un message via l'agent EduGest.
+ * Vérifie que l'école peut encore envoyer un message via l'agent Look School 360.
  * Retourne { ok: true } si OK, sinon { ok: false, reason } avec le détail usage.
  */
 export async function checkWhatsappQuota(

@@ -135,7 +135,7 @@ function ChatMockup() {
           EG
         </div>
         <div>
-          <p className="text-xs font-semibold text-[#FAFAFA]">EduGest Chat</p>
+          <p className="text-xs font-semibold text-[#FAFAFA]">Look School 360 Chat</p>
           <p className="text-[9px] text-[#34D399]">● En ligne — 3 langues</p>
         </div>
         <div className="ml-auto flex gap-1.5">

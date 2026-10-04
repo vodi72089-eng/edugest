@@ -5,7 +5,7 @@
  *   (Stripe, PayPal, DPO, Flutterwave et Bictorys retirés — non disponibles
  *    pour les marchands en RDC, voir RETIRED_GATEWAY_TYPES)
  * Manuel : espèces, virement
- * Paiements d'abonnement EduGest : passerelles configurées au niveau
+ * Paiements d'abonnement Look School 360 : passerelles configurées au niveau
  * plateforme (schoolId sentinelle PLATFORM_SCHOOL_ID).
  */
 
@@ -14,7 +14,7 @@ import { convertCurrency } from '@/lib/exchange-rate';
 import { decryptSecret } from '@/lib/gateway-keys';
 import { randomBytes } from 'crypto';
 
-/** École sentinelle : passerelles de paiement de la PLATEFORME (abonnements EduGest) */
+/** École sentinelle : passerelles de paiement de la PLATEFORME (abonnements Look School 360) */
 export const PLATFORM_SCHOOL_ID = '__PLATFORM__';
 
 export type GatewayType =
@@ -179,7 +179,7 @@ export { GATEWAY_API_INFO } from './gateway-api-info';
 /**
  * Initier un paiement via la passerelle configurée
  * @param configSchoolId Lire les identifiants depuis une autre école
- *                       (ex: PLATFORM_SCHOOL_ID pour les abonnements EduGest)
+ *                       (ex: PLATFORM_SCHOOL_ID pour les abonnements Look School 360)
  */
 export async function initiatePayment(
   gatewayType: GatewayType,
@@ -731,7 +731,7 @@ async function processVisaPayment(
   // PCI-DSS : AUCUN numéro de carte ne transite par nos serveurs.
   // Le paiement carte direct (PAN/CVV) est REFUSÉ : utilisez le checkout
   // hébergé du fournisseur (redirection). Aucune tokenisation disponible
-  // côté EduGest à ce jour.
+  // côté Look School 360 à ce jour.
   return {
     success: false,
     reference,
@@ -813,11 +813,11 @@ async function processFlutterwavePayment(
         redirect_url: appUrl ? `${appUrl}/?payment=flutterwave&ref=${reference}` : undefined,
         customer: {
           email: request.customerEmail || 'client@edugest.app',
-          name: request.customerName || 'Client EduGest',
+          name: request.customerName || 'Client Look School 360',
           phonenumber: request.customerPhone || undefined,
         },
         customizations: {
-          title: 'EduGest',
+          title: 'Look School 360',
           description: request.description.slice(0, 100),
         },
       }),
@@ -891,7 +891,7 @@ async function processBictorysPayment(
         successRedirectUrl: appUrl ? `${appUrl}/?payment=bictorys&ref=${reference}` : undefined,
         errorRedirectUrl: appUrl ? `${appUrl}/?payment=cancel&ref=${reference}` : undefined,
         customerObject: {
-          name: request.customerName || 'Client EduGest',
+          name: request.customerName || 'Client Look School 360',
           phone: phoneDigits,
           email: request.customerEmail || undefined,
           country,

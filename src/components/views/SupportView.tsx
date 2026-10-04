@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SUPPORT CLIENT — tickets (clients ⇄ support EduGest) + Agent IA
+// SUPPORT CLIENT — tickets (clients ⇄ support Look School 360) + Agent IA
 // • Tout utilisateur connecté peut ouvrir un ticket et discuter avec l'agent IA
 // • SUPPORT_AGENT / SUPER_ADMIN_GLOBAL traitent la file complète (statuts,
 //   priorités, réponses) et accomplissent les tâches avec les corporates
@@ -82,7 +82,7 @@ function PriorityPill({ priority }: { priority: string }) {
 function AgentChatPanel() {
   interface Msg { role: 'user' | 'assistant'; content: string }
   const [messages, setMessages] = useState<Msg[]>([
-    { role: 'assistant', content: 'Bonjour 👋 Je suis l’Agent EduGest. Posez-moi vos questions sur la plateforme : élèves, notes, paiements, passage de classe, espace corporate… Comment puis-je vous aider ?' },
+    { role: 'assistant', content: 'Bonjour 👋 Je suis l’Agent Look School 360. Posez-moi vos questions sur la plateforme : élèves, notes, paiements, passage de classe, espace corporate… Comment puis-je vous aider ?' },
   ])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -121,7 +121,7 @@ function AgentChatPanel() {
           <Bot size={18} style={{ color: GOLD }} />
         </span>
         <div>
-          <p className="text-sm font-bold leading-tight" style={{ color: TEXT_PRIMARY }}>Agent EduGest</p>
+          <p className="text-sm font-bold leading-tight" style={{ color: TEXT_PRIMARY }}>Agent Look School 360</p>
           <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Réponses immédiates sur la plateforme · 24/7</p>
         </div>
       </div>
@@ -258,7 +258,7 @@ function TicketThread({ ticketId, canHandle, onBack }: { ticketId: string; canHa
               </span>
               <div className={`max-w-[85%] sm:max-w-[75%] ${mine ? 'text-right' : ''}`}>
                 <p className="text-[10px] font-semibold mb-1" style={{ color: TEXT_MUTED_LUXE }}>
-                  {m.author.name} · {m.authorRole === 'SUPPORT' ? 'Support EduGest' : m.authorRole === 'AGENT' ? 'Agent IA' : 'Client'} · {formatDate(m.createdAt)}
+                  {m.author.name} · {m.authorRole === 'SUPPORT' ? 'Support Look School 360' : m.authorRole === 'AGENT' ? 'Agent IA' : 'Client'} · {formatDate(m.createdAt)}
                 </p>
                 <div className={`inline-block text-left px-3.5 py-2.5 rounded-2xl text-[13px] leading-relaxed whitespace-pre-wrap ${mine ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}
                   style={isSupport ? { background: 'oklch(95% 0.04 145)', color: TEXT_PRIMARY } : { background: 'oklch(96% 0.008 175)', color: TEXT_PRIMARY }}>

@@ -9,7 +9,7 @@
 //    SECRETARY)
 //  - PUT/DELETE /api/events/[id] → édition (mêmes rôles) et suppression
 //    (SAG + SCHOOL_ADMIN uniquement)
-// Design EduGest : or/oklch, cartes arrondies, badges ambre/or/vert — pas de bleu.
+// Design Look School 360 : or/oklch, cartes arrondies, badges ambre/or/vert — pas de bleu.
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'

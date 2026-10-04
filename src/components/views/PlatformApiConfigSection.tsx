@@ -58,7 +58,7 @@ const PROVIDER_FIELDS: Record<SmsProviderKey, { key: string; label: string; secr
   vonage: [
     { key: 'apiKey', label: 'API key', secret: true, placeholder: 'abcd1234' },
     { key: 'apiSecret', label: 'API secret', secret: true, placeholder: '••••••••' },
-    { key: 'from', label: 'Expéditeur (nom ou numéro)', placeholder: 'EduGest' },
+    { key: 'from', label: 'Expéditeur (nom ou numéro)', placeholder: 'Look School 360' },
   ],
   custom: [
     { key: 'webhookUrl', label: 'URL du webhook', placeholder: 'https://api.exemple.com/sms' },
@@ -266,7 +266,7 @@ function EmailConfigCard() {
               type="text"
               value={form.fromName}
               onChange={(e) => setForm((f) => ({ ...f, fromName: e.target.value }))}
-              placeholder="EduGest"
+              placeholder="Look School 360"
               autoComplete="off"
               className={inputClass}
             />

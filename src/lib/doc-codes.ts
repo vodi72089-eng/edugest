@@ -1,7 +1,7 @@
 import { db } from './db';
 
 /**
- * Générateur de codes uniques pour les documents officiels EduGest.
+ * Générateur de codes uniques pour les documents officiels Look School 360.
  *
  * Format lisible : {PREFIXE}-{AA}-{NNNN} — ex. DIS-26-0042.
  * Le compteur est séquentiel par préfixe et par année ; une boucle de

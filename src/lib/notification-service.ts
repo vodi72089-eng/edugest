@@ -135,13 +135,13 @@ function notificationEmailHtml(title: string, message: string): string {
     <body style="margin:0;padding:0;background:#0a0f0d;font-family:'Segoe UI',Tahoma,sans-serif;">
       <div style="max-width:520px;margin:40px auto;background:linear-gradient(135deg,#0d1f1a,#0b1613);border-radius:16px;border:1px solid rgba(245,166,35,0.2);overflow:hidden;">
         <div style="background:linear-gradient(135deg,#f5a623,#ffb643);padding:20px;text-align:center;">
-          <h1 style="margin:0;color:#0a0f0d;font-size:20px;font-weight:800;">🎓 EduGest</h1>
+          <h1 style="margin:0;color:#0a0f0d;font-size:20px;font-weight:800;">🎓 Look School 360</h1>
         </div>
         <div style="padding:28px;">
           <h2 style="color:#ffffff;margin:0 0 10px;font-size:17px;">${title}</h2>
           <p style="color:rgba(255,255,255,0.75);font-size:14px;line-height:1.6;margin:0;">${message}</p>
           <p style="color:rgba(255,255,255,0.4);font-size:12px;margin:18px 0 0;text-align:center;">
-            Connectez-vous à EduGest pour consulter le détail.
+            Connectez-vous à Look School 360 pour consulter le détail.
           </p>
         </div>
       </div>

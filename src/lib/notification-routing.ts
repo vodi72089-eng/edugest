@@ -1,5 +1,5 @@
 /**
- * Routage centralisé des notifications EduGest.
+ * Routage centralisé des notifications Look School 360.
  *
  * SINGLE SOURCE OF TRUTH (client + serveur) :
  *   notificationType → vue cible PAR RÔLE → URL réelle (VIEW_PATHS).

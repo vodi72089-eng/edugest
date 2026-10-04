@@ -120,7 +120,7 @@ export default function Footer({ onLogin, onNavigate }: FooterProps) {
             <div className="flex items-center justify-center sm:justify-start gap-3 mb-3">
               <img
                 src="/edugest-logo-new.png"
-                alt="EduGest"
+                alt="Look School 360"
                 width="32"
                 height="32"
                 className="object-contain"
@@ -129,14 +129,14 @@ export default function Footer({ onLogin, onNavigate }: FooterProps) {
                 className="text-xl font-bold"
                 style={{ color: '#FAFAFA' }}
               >
-                EduGest
+                Look School 360
               </span>
             </div>
             <p
               className="text-sm max-w-md mx-auto sm:mx-0"
               style={{ color: '#6B7280' }}
             >
-              EduGest — La gestion scolaire, repensée.
+              Look School 360 — La gestion scolaire, repensée.
             </p>
           </div>
         </ScrollReveal>
@@ -284,7 +284,7 @@ export default function Footer({ onLogin, onNavigate }: FooterProps) {
 
         {/* Bottom bar */}
         <div className="py-6 sm:py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-center sm:text-left" style={{ color: '#4B5563' }}>
-          <span>© 2026 EduGest · Tous droits réservés</span>
+          <span>© 2026 Look School 360 · Tous droits réservés</span>
           <span>Bureaux à Paris, New York, Singapore</span>
           <span>Made with care for schools worldwide</span>
         </div>

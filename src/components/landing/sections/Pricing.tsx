@@ -47,7 +47,7 @@ interface Plan {
 const PLANS: Plan[] = [
   {
     name: 'Freemium',
-    subtitle: 'Pour découvrir EduGest',
+    subtitle: 'Pour découvrir Look School 360',
     monthlyPrice: 0,
     features: [
       { text: '1 admin', included: true },

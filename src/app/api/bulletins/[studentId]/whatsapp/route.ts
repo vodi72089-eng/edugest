@@ -117,7 +117,7 @@ export async function POST(
       `Moyenne : ${bulletin.average.toFixed(2)}/20\n` +
       `École : ${bulletin.school.name}\n\n` +
       `Le bulletin complet est joint en PDF.\n\n` +
-      `_EduGest - ${bulletin.school.name}_`;
+      `_Look School 360 - ${bulletin.school.name}_`;
 
     // 4. Envoi du document via le mini-service WhatsApp
     const ok = await sendWhatsAppDocument({

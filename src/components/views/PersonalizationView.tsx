@@ -42,7 +42,7 @@ import AppSelect from '@/components/ui/AppSelect'
 
 // ─── Constantes locales ─────────────────────────────────────────────────────
 
-// Couleurs par défaut d'EduGest (équivalents hex des constantes oklch)
+// Couleurs par défaut d'Look School 360 (équivalents hex des constantes oklch)
 const DEFAULTS = { primary: '#13151d', accent: '#0b8c7f', gold: '#d9a441' }
 
 // Format hexadécimal strict attendu côté API
@@ -54,9 +54,9 @@ const HEX_INPUT_RE = /^[#0-9A-Fa-f]{0,6}$/
 // Forfaits autorisant la personnalisation (aligné sur l'API — gating strict)
 const DESIGN_TIERS = ['STANDARD', 'PREMIUM', 'ENTERPRISE', 'CORPORATE']
 
-// Presets de palettes cliquables (inspiration Gianelli, adaptée EduGest)
+// Presets de palettes cliquables (inspiration Gianelli, adaptée Look School 360)
 const PRESETS = [
-  { name: 'EduGest', primary: '#13151d', accent: '#0b8c7f', gold: '#d9a441' },
+  { name: 'Look School 360', primary: '#13151d', accent: '#0b8c7f', gold: '#d9a441' },
   { name: 'Forêt', primary: '#0f2417', accent: '#1a7a4a', gold: '#d9a441' },
   { name: 'Océan', primary: '#0d1b2a', accent: '#0e7490', gold: '#e0b341' },
   { name: 'Bordeaux', primary: '#2a0d14', accent: '#9f1239', gold: '#d9a441' },
@@ -366,7 +366,7 @@ function PersonalizationViewInner({
     }
   }
 
-  // ── Réinitialisation (défauts EduGest) ────────────────────────────────────
+  // ── Réinitialisation (défauts Look School 360) ────────────────────────────────────
   const handleReset = () => {
     applyColors({ primary: DEFAULTS.primary, accent: DEFAULTS.accent, gold: DEFAULTS.gold })
   }
@@ -561,7 +561,7 @@ function PersonalizationViewInner({
                     {brandInitial}
                   </span>
                   <span className="truncate text-[10px] font-semibold text-white/90">
-                    EduGest
+                    Look School 360
                   </span>
                 </div>
                 {MOCK_MENU.map((item, index) => {

@@ -118,7 +118,7 @@ export default function PlatformEmailsView() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Emails plateforme</h1>
-          <p className="text-sm mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>Nos adresses officielles et la boîte d’envoi de tous les emails EduGest</p>
+          <p className="text-sm mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>Nos adresses officielles et la boîte d’envoi de tous les emails Look School 360</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setTab('addresses')} className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${tab === 'addresses' ? 'shadow-sm' : 'hover:opacity-80'}`}

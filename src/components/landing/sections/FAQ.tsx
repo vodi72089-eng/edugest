@@ -14,9 +14,9 @@ interface FAQItem {
 
 const FAQ_DATA: FAQItem[] = [
   {
-    question: 'Combien coûte EduGest ?',
+    question: 'Combien coûte Look School 360 ?',
     answer:
-      "EduGest propose une formule gratuite pour les petits établissements (jusqu'à 50 élèves), et des formules payantes à partir de 3€ par élève par mois. Le plan annuel offre 20% de réduction. Pour les grands groupes, un devis sur mesure est établi.",
+      "Look School 360 propose une formule gratuite pour les petits établissements (jusqu'à 50 élèves), et des formules payantes à partir de 3€ par élève par mois. Le plan annuel offre 20% de réduction. Pour les grands groupes, un devis sur mesure est établi.",
   },
   {
     question: 'Comment se passe la migration depuis notre ancien système ?',
@@ -26,7 +26,7 @@ const FAQ_DATA: FAQItem[] = [
   {
     question: 'Est-ce que ça marche hors-ligne ?',
     answer:
-      "Oui, EduGest fonctionne en mode hors-ligne grâce à un système de synchronisation intelligent. Les données sont enregistrées localement et se synchronisent automatiquement dès que la connexion est rétablie, sans aucune perte d'information.",
+      "Oui, Look School 360 fonctionne en mode hors-ligne grâce à un système de synchronisation intelligent. Les données sont enregistrées localement et se synchronisent automatiquement dès que la connexion est rétablie, sans aucune perte d'information.",
   },
   {
     question: 'Quels moyens de paiement sont supportés ?',
@@ -36,7 +36,7 @@ const FAQ_DATA: FAQItem[] = [
   {
     question: 'Y a-t-il une application mobile ?',
     answer:
-      "Oui, EduGest est disponible sur iOS et Android. L'application permet aux directeurs, enseignants et parents d'accéder à toutes les fonctionnalités clés : notes, communications, paiements et suivi de la scolarité, directement depuis leur téléphone.",
+      "Oui, Look School 360 est disponible sur iOS et Android. L'application permet aux directeurs, enseignants et parents d'accéder à toutes les fonctionnalités clés : notes, communications, paiements et suivi de la scolarité, directement depuis leur téléphone.",
   },
   {
     question: 'Le support est-il disponible 24/7 ?',
@@ -46,17 +46,17 @@ const FAQ_DATA: FAQItem[] = [
   {
     question: 'Combien de langues sont supportées ?',
     answer:
-      "EduGest est disponible en français, anglais, espagnol et portugais. Nous ajoutons régulièrement de nouvelles langues en fonction des besoins de nos utilisateurs. L'interface s'adapte automatiquement à la langue du navigateur de l'utilisateur.",
+      "Look School 360 est disponible en français, anglais, espagnol et portugais. Nous ajoutons régulièrement de nouvelles langues en fonction des besoins de nos utilisateurs. L'interface s'adapte automatiquement à la langue du navigateur de l'utilisateur.",
   },
   {
     question: 'Est-ce conforme au RGPD ?',
     answer:
-      "Absolument. EduGest est entièrement conforme au RGPD et aux réglementations locales de protection des données. Vos données sont hébergées en Europe, chiffrées en transit et au repos. Vous pouvez exporter ou supprimer vos données à tout moment.",
+      "Absolument. Look School 360 est entièrement conforme au RGPD et aux réglementations locales de protection des données. Vos données sont hébergées en Europe, chiffrées en transit et au repos. Vous pouvez exporter ou supprimer vos données à tout moment.",
   },
   {
     question: 'Puis-je essayer avant d\'acheter ?',
     answer:
-      "Oui, vous pouvez créer un compte gratuit et utiliser EduGest sans engagement. Le plan Starter est gratuit pour toujours. Pour les plans supérieurs, une période d'essai de 14 jours est disponible, avec accès complet à toutes les fonctionnalités, sans carte bancaire requise.",
+      "Oui, vous pouvez créer un compte gratuit et utiliser Look School 360 sans engagement. Le plan Starter est gratuit pour toujours. Pour les plans supérieurs, une période d'essai de 14 jours est disponible, avec accès complet à toutes les fonctionnalités, sans carte bancaire requise.",
   },
   {
     question: 'Comment se passe l\'onboarding ?',
@@ -171,7 +171,7 @@ export default function FAQ() {
               </span>
             </h2>
             <p className="text-[#9CA3AF] text-base sm:text-lg">
-              Tout ce que vous devez savoir sur EduGest.
+              Tout ce que vous devez savoir sur Look School 360.
             </p>
           </div>
         </ScrollReveal>

@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
       if (!cfg?.enabled || !hasProviderCredentials(cfg)) {
         return NextResponse.json({ error: 'La vérification par SMS n\'est pas active — cochez « Activer », saisissez les identifiants du fournisseur puis envoyez' }, { status: 400 });
       }
-      const result = await sendSmsViaProvider(testPhone, 'EduGest : test de configuration SMS réussi. La vérification par SMS est active.', cfg);
+      const result = await sendSmsViaProvider(testPhone, 'Look School 360 : test de configuration SMS réussi. La vérification par SMS est active.', cfg);
       if (result.success) {
         // Sandbox AT : le SMS n'atteint JAMAIS le téléphone (doc officielle AT :
         // « don't expect a message sent through the sandbox to be delivered to

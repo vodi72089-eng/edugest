@@ -333,7 +333,7 @@ export default function ReceiptPreview({ payment, student, school, onClose }: Re
             <div style={{ padding: '16px 48px 28px', textAlign: 'center' }}>
               <hr style={{ border: 'none', borderTop: '1px solid #cbd5e1', marginBottom: 14 }} />
               <div style={{ fontSize: 11, color: '#64748b' }}>
-                Généré par <strong style={{ color: '#b8860b' }}>EduGest</strong> — La plateforme de gestion scolaire
+                Généré par <strong style={{ color: '#b8860b' }}>Look School 360</strong> — La plateforme de gestion scolaire
               </div>
               <div style={{ fontSize: 9, color: '#cbd5e1', marginTop: 6 }}>
                 Document généré automatiquement le {formatDate(new Date().toISOString())} — Ce reçu fait foi de paiement.

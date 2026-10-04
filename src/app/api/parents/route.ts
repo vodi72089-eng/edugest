@@ -6,7 +6,7 @@ import { requireFeature } from '@/lib/feature-gate';
 /**
  * GET /api/parents
  * Liste des comptes parents de l'école (inspirée de la gestion des parents
- * d'institut-gianelli, adaptée au style/data EduGest) :
+ * d'institut-gianelli, adaptée au style/data Look School 360) :
  *  - recherche par nom / email / téléphone
  *  - pagination (page / limit)
  *  - pour chaque parent : ses enfants (élèves) + stats de paiement de l'année courante

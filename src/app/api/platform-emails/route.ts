@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       to,
       fromKey,
       template: 'TEST',
-      subject: 'Test — emails officiels EduGest',
+      subject: 'Test — emails officiels Look School 360',
       html: `<p>Email de test envoyé depuis l'adresse officielle <b>${fromKey}@edugest.app</b>.</p><p>Si vous lisez ce message dans une vraie boîte mail, l'acheminement Resend est opérationnel.</p>`,
     });
 

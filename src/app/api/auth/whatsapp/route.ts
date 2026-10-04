@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const message = `🔐 Code EduGest: ${verificationCode}\n⏱ Expire dans 10 min`;
+      const message = `🔐 Code Look School 360: ${verificationCode}\n⏱ Expire dans 10 min`;
       const sent = await sendWhatsAppMessage(trimmedPhone, message);
 
       if (!sent) {

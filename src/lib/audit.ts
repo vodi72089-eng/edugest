@@ -8,7 +8,7 @@ import crypto from 'crypto';
 //   1. Écriture locale dans AuditLog (toujours, y compris en dev)
 //   2. En production, si HERMES_AGENT_CONFIG est configuré (GlobalApiConfig),
 //      l'entrée est relayée en fire-and-forget vers le webhook Hermes avec une
-//      signature HMAC-SHA256 (en-tête X-EduGest-Signature) pour vérification
+//      signature HMAC-SHA256 (en-tête X-Look School 360-Signature) pour vérification
 //      côté agent.
 //
 // Config attendue (clé GlobalApiConfig « HERMES_AGENT_CONFIG ») :
@@ -80,7 +80,7 @@ async function forwardToHermes(entry: AuditEntry & { loggedAt: string }) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(signature ? { 'X-EduGest-Signature': `sha256=${signature}` } : {}),
+        ...(signature ? { 'X-Look School 360-Signature': `sha256=${signature}` } : {}),
       },
       body,
       signal: controller.signal,

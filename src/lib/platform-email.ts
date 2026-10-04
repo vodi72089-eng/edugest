@@ -2,7 +2,7 @@ import { db } from './db';
 import { sendEmailViaResend } from './email';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// NOS EMAILS PLATEFORME — adresses officielles EduGest branchées sur Resend
+// NOS EMAILS PLATEFORME — adresses officielles Look School 360 branchées sur Resend
 //
 // La plateforme possède SES propres adresses d'expédition :
 //   • noreply@edugest.app  → notifications transactionnelles (OTP, welcome…)

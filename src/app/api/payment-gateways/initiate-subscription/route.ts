@@ -6,7 +6,7 @@ import { SUBSCRIPTION_PRICES } from '@/lib/subscription';
 import { notify } from '@/lib/notify';
 
 // POST /api/payment-gateways/initiate-subscription
-// Un client (admin d'école) règle SON abonnement EduGest via une passerelle
+// Un client (admin d'école) règle SON abonnement Look School 360 via une passerelle
 // configurée AU NIVEAU PLATEFORME (Visa, M-Pesa, Orange Money…).
 //  - API plateforme configurée  → une demande de paiement est générée
 //    (transaction passerelle + demande d'abonnement notifiée aux admins).
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
         schoolId: user.schoolId,
         amount,
         currency,
-        description: `Abonnement EduGest ${requestedTier} — ${school.name}`,
+        description: `Abonnement Look School 360 ${requestedTier} — ${school.name}`,
         customerPhone,
         customerEmail,
         customerName,
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
         schoolId: user.schoolId,
         type: 'SUBSCRIPTION_PAYMENT',
         title: 'Demande de paiement envoyée',
-        message: `Votre demande d'abonnement ${requestedTier} (${amount}$ via ${GATEWAY_INFO[gatewayType as GatewayType].displayName}) a été transmise à l'administrateur EduGest. Réf: ${paymentResult.reference || 'n/a'}`,
+        message: `Votre demande d'abonnement ${requestedTier} (${amount}$ via ${GATEWAY_INFO[gatewayType as GatewayType].displayName}) a été transmise à l'administrateur Look School 360. Réf: ${paymentResult.reference || 'n/a'}`,
         linkTo: 'my-subscription',
       },
     });

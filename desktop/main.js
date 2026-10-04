@@ -1,16 +1,16 @@
 /**
- * EduGest Desktop — Application de bureau (Windows / macOS / Linux)
+ * Look School 360 Desktop — Application de bureau (Windows / macOS / Linux)
  *
  * Architecture :
  *  1. Au premier lancement, la base de données SQLite locale est copiée dans
- *     le dossier de données de l'utilisateur (%APPDATA%/EduGest/edugest.db).
+ *     le dossier de données de l'utilisateur (%APPDATA%/Look School 360/edugest.db).
  *  2. Le serveur Next.js standalone (généré par `npm run build`) est démarré
  *     en processus fils sur un port local libre.
- *  3. Un SPLASH (vrai logo officiel EduGest) s'affiche INSTANTANÉMENT et
+ *  3. Un SPLASH (vrai logo officiel Look School 360) s'affiche INSTANTANÉMENT et
  *     affiche l'étape en cours (base de données → serveur → interface) —
  *     l'utilisateur voit l'app se lancer tout de suite, puis la fenêtre
  *     principale remplace le splash (démarrage perçu rapide).
- *  4. AUCUNE barre de menu système (EduGest / Affichage / Édition supprimés).
+ *  4. AUCUNE barre de menu système (Look School 360 / Affichage / Édition supprimés).
  *
  * Performances : sondage serveur à 250 ms, throttling d'arrière-plan désactivé,
  * splash sans frame pour un affichage immédiat même sur machine modeste.
@@ -110,7 +110,7 @@ const APP_DIR = isPackaged
 
 const SERVER_JS = path.join(APP_DIR, 'server.js');
 
-/** Vrai logo officiel EduGest (complet « EDUC GEST », fond transparent) */
+/** Vrai logo officiel Look School 360 (complet « EDUC GEST », fond transparent) */
 const SPLASH_LOGO = path.join(__dirname, 'splash-logo.png');
 /** Symbole seul (icône fenêtre/exe) */
 const ICON_PATH = path.join(__dirname, 'icon.png');
@@ -242,8 +242,8 @@ function createSplash() {
     } catch { return ''; }
   })();
   const logoHtml = logoUri
-    ? `<img src="${logoUri}" alt="EduGest" draggable="false" style="width:140px;height:auto;display:block;filter:drop-shadow(0 8px 28px rgba(0,0,0,.5))">`
-    : `<div class="fallback">EduGest</div>`;
+    ? `<img src="${logoUri}" alt="Look School 360" draggable="false" style="width:140px;height:auto;display:block;filter:drop-shadow(0 8px 28px rgba(0,0,0,.5))">`
+    : `<div class="fallback">Look School 360</div>`;
   splashWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
   *{box-sizing:border-box}
@@ -258,11 +258,11 @@ function createSplash() {
   .ver{position:absolute;bottom:10px;left:0;right:0;text-align:center;color:rgba(255,255,255,.25);font-size:10px;letter-spacing:.3px}
 </style></head><body>
   ${logoHtml}
-  <h1>EduGest</h1>
+  <h1>Look School 360</h1>
   <p class="sub">Édition bureau</p>
   <div class="bar"><span></span></div>
   <p id="stage">Préparation de votre espace…</p>
-  <div class="ver">EduGest Desktop ${APP_VERSION ? 'v' + APP_VERSION : ''}</div>
+  <div class="ver">Look School 360 Desktop ${APP_VERSION ? 'v' + APP_VERSION : ''}</div>
   <script>
     window.__setStage = function(t){
       var el = document.getElementById('stage');
@@ -381,7 +381,7 @@ function createWindow(port) {
     minHeight: 640,
     show: false,
     center: true,
-    title: 'EduGest',
+    title: 'Look School 360',
     icon: ICON_PATH,
     backgroundColor: '#0a0f0d',
     autoHideMenuBar: true,
@@ -398,7 +398,7 @@ function createWindow(port) {
   // jamais un bandeau ni une fenêtre perdue hors écran.
   mainWindow.maximize();
 
-  // Barre de menu système SUPPRIMÉE (EduGest / Affichage / Édition)
+  // Barre de menu système SUPPRIMÉE (Look School 360 / Affichage / Édition)
   mainWindow.setMenuBarVisibility(false);
   mainWindow.removeMenu();
 
@@ -441,7 +441,7 @@ function createWindow(port) {
 // ─── Mises à jour : simple bannière DANS l'app (zéro popup) ─────────────────
 // Le processus principal détecte/télécharge, l'interface affiche une bannière
 // discrète (UpdateBanner) : disponible → téléchargement (% ) → redémarrer.
-// Les données (%APPDATA%/EduGest/edugest.db) ne sont JAMAIS touchées.
+// Les données (%APPDATA%/Look School 360/edugest.db) ne sont JAMAIS touchées.
 
 /** Dernier état MAJ connu — renvoyé à l'interface si elle (re)charge après
  *  l'événement (une annonce arrivée pendant le chargement ne doit pas être
@@ -493,7 +493,7 @@ try {
       // est présent et non vide dans Téléchargements, on l'utilise quand même.
       let f = pendingPortableAsset.file;
       if (!f || !fs.existsSync(f)) {
-        const expected = path.join(app.getPath('downloads'), `EduGest-Portable-${pendingPortableAsset.version}.exe`);
+        const expected = path.join(app.getPath('downloads'), `Look School 360-Portable-${pendingPortableAsset.version}.exe`);
         if (fs.existsSync(expected) && fs.statSync(expected).size > 0) f = expected;
       }
       if (f && fs.existsSync(f)) {
@@ -506,7 +506,7 @@ try {
           if (err) {
             log('Lancement MAJ bloqué par Windows :', err);
             try { shell.showItemInFolder(f); } catch {}
-            sendUpdate('error', { message: "Windows a bloqué le lancement — double-cliquez sur le fichier mis en surbrillance dans vos Téléchargements, puis rouvrez EduGest." });
+            sendUpdate('error', { message: "Windows a bloqué le lancement — double-cliquez sur le fichier mis en surbrillance dans vos Téléchargements, puis rouvrez Look School 360." });
           } else {
             app.quit();
           }
@@ -544,7 +544,7 @@ try {
         if (!Notification.isSupported()) { _e.reply('edugest:notify:result', false); return; }
         const p = payload || {};
         const notif = new Notification({
-          title: String(p.title || 'EduGest').slice(0, 120),
+          title: String(p.title || 'Look School 360').slice(0, 120),
           body: String(p.body || '').slice(0, 300),
           icon: ICON_PATH,
           silent: p.silent === true,
@@ -581,12 +581,12 @@ try {
  *  lancé : on compare sa taille au content-length réel (HEAD, redirections
  *  suivies) avant de déclarer « prêt », sinon openPath échoue en silence. */
 function downloadPortableUpdate(asset) {
-  const dest = path.join(app.getPath('downloads'), `EduGest-Portable-${asset.version}.exe`);
+  const dest = path.join(app.getPath('downloads'), `Look School 360-Portable-${asset.version}.exe`);
   const startDownload = () => {
     log('Téléchargement portable :', dest);
     sendUpdate('downloading', { percent: 0, version: asset.version });
     const get = (url, redirects) => {
-      https.get(url, { headers: { 'User-Agent': 'EduGest-Desktop', Accept: 'application/octet-stream' } }, (res) => {
+      https.get(url, { headers: { 'User-Agent': 'Look School 360-Desktop', Accept: 'application/octet-stream' } }, (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects > 0) {
           res.resume();
           get(res.headers.location, redirects - 1);
@@ -658,7 +658,7 @@ function downloadPortableUpdate(asset) {
  *  (null en cas d'erreur réseau : l'appelant retélécharge alors prudemment). */
 function headContentLength(url, cb, redirects = 5) {
   if (redirects <= 0) { cb(new Error('too many redirects'), 0); return; }
-  const req = https.request(url, { method: 'HEAD', headers: { 'User-Agent': 'EduGest-Desktop' }, timeout: 15000 }, (res) => {
+  const req = https.request(url, { method: 'HEAD', headers: { 'User-Agent': 'Look School 360-Desktop' }, timeout: 15000 }, (res) => {
     res.resume();
     if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
       try { headContentLength(new URL(res.headers.location, url).toString(), cb, redirects - 1); } catch { cb(new Error('bad redirect'), 0); }
@@ -714,7 +714,7 @@ function checkPortableUpdate(manual = false) {
   const get = (url, redirects) => {
     if (redirects <= 0) { checkDone(); return; }
     const req = https.get(url, {
-      headers: { 'User-Agent': 'EduGest-Desktop' },
+      headers: { 'User-Agent': 'Look School 360-Desktop' },
     }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume(); // vide le flux de la réponse de redirection
@@ -741,7 +741,7 @@ function checkPortableUpdate(manual = false) {
           // Bannière in-app (comme l'installée) : l'exe portable est
           // téléchargé directement (redirections GitHub suivies), GitHub reste
           // invisible pour l'utilisateur.
-          pendingPortableAsset = { url: `${RELEASE_LATEST_BASE}/EduGest-Portable-${latest}.exe`, version: latest, file: null };
+          pendingPortableAsset = { url: `${RELEASE_LATEST_BASE}/Look School 360-Portable-${latest}.exe`, version: latest, file: null };
           sendUpdate('available', { version: latest });
         } catch {}
       });
@@ -817,7 +817,7 @@ function setupAutoUpdate() {
     sendUpdate('ready', { version: info.version });
   });
 
-  autoUpdater.on('update-not-available', () => log('EduGest est à jour.'));
+  autoUpdater.on('update-not-available', () => log('Look School 360 est à jour.'));
   autoUpdater.on('error', (e) => log('Erreur vérification MAJ (ignorée) :', e.message));
 
   const doCheck = () => {
@@ -855,7 +855,7 @@ async function startBackend() {
   // 2) Ports locaux libres (interface + agent WhatsApp)
   const port = await findFreePort(3927);
   currentPort = port;
-  log('Démarrage du serveur EduGest sur le port', port);
+  log('Démarrage du serveur Look School 360 sur le port', port);
 
   // 2b) Agent WhatsApp embarqué (Baileys, bundlé — même Node qu'Electron).
   //     Démarre avec l'app, session dans userData (survit aux MAJ).
@@ -891,7 +891,7 @@ async function startBackend() {
 
   // 3) Serveur Next.js standalone en processus fils (Node embarqué d'Electron)
   setSplashStage('Démarrage du serveur local…');
-  // Sessions serveur persistantes : dans userData (%APPDATA%/EduGest), JAMAIS
+  // Sessions serveur persistantes : dans userData (%APPDATA%/Look School 360), JAMAIS
   // dans le dossier de l'app (écrasé à chaque mise à jour, et ré-extrait en
   // temp à chaque lancement du portable). Durée 30 jours : pas de reconnexion
   // forcée après une MAJ ou un redémarrage.
@@ -957,7 +957,7 @@ app.whenReady().then(async () => {
   } catch (e) {
     log('ERREUR FATALE :', e.message);
     closeSplash();
-    dialog.showErrorBox('EduGest', 'Impossible de démarrer le serveur local EduGest.\n\n' + e.message);
+    dialog.showErrorBox('Look School 360', 'Impossible de démarrer le serveur local Look School 360.\n\n' + e.message);
     app.quit();
   }
 

@@ -198,7 +198,7 @@ export async function POST(req: NextRequest) {
         {
           title: 'Passage à l’infirmerie',
           message: `${student.firstName} ${student.lastName} — consultation à l’infirmerie enregistrée`,
-          parentMessage: `${student.firstName} ${student.lastName} a passé à l’infirmerie aujourd’hui. Détails dans EduGest.`,
+          parentMessage: `${student.firstName} ${student.lastName} a passé à l’infirmerie aujourd’hui. Détails dans Look School 360.`,
           relatedId: visit.id,
         }
       );

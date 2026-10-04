@@ -5,7 +5,7 @@ import path from 'path';
 /**
  * PDF médical — design « Institut Gianelli » (navy & or), identique aux reçus
  * et bulletins : double bordure décorative, logo école encadré d'or, logo
- * EduGest en haut à droite, lignes pointillées, sections or, QR de
+ * Look School 360 en haut à droite, lignes pointillées, sections or, QR de
  * vérification en bas et marqueur caché pour l'import dans « Vérification ».
  *
  * Types supportés :
@@ -254,7 +254,7 @@ export function buildMedicalDocumentPDF(
   doc.setLineWidth(0.3);
   doc.rect(8, 8, W - 16, H - 16);
 
-  // ═══ EN-TÊTE : logo école encadré d'or + logo EduGest haut droit ═══
+  // ═══ EN-TÊTE : logo école encadré d'or + logo Look School 360 haut droit ═══
   let y = 20;
 
   const logoX = mx + 2;
@@ -591,7 +591,7 @@ export function buildMedicalDocumentPDF(
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   setT(doc, GRAY);
-  centerText(doc, sanitizeAscii(`${school.name} - Genere par EduGest - La plateforme de gestion scolaire`), H - 17, W);
+  centerText(doc, sanitizeAscii(`${school.name} - Genere par Look School 360 - La plateforme de gestion scolaire`), H - 17, W);
   centerText(doc, fmtDateTime(new Date()), H - 13, W);
 
   // Marqueur caché pour l'import dans « Vérification » (blanc 4pt)

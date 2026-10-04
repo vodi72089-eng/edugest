@@ -192,9 +192,9 @@ export default function FindChildPage() {
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-5">
         <div className="flex items-center gap-2.5">
-          <img src="/edugest-logo-mark.png" alt="Logo EduGest" className="w-10 h-10 object-contain" />
+          <img src="/edugest-logo-mark.png" alt="Logo Look School 360" className="w-10 h-10 object-contain" />
           <div>
-            <div className="text-white font-bold tracking-tight text-lg">Edu<span style={{ color: 'oklch(72% 0.15 65)' }}>Gest</span></div>
+            <div className="text-white font-bold tracking-tight text-lg">Look <span style={{ color: 'oklch(72% 0.15 65)' }}>School 360</span></div>
             <div className="text-white/40 text-[11px]">Retrouver mon enfant</div>
           </div>
         </div>
@@ -546,7 +546,7 @@ export default function FindChildPage() {
                 ))}
               </div>
               <p className="text-white/60 text-sm mb-1">
-                Connectez-vous dans l&apos;app EduGest avec votre numéro de téléphone <strong className="text-white/80">{registeredLogin}</strong>.
+                Connectez-vous dans l&apos;app Look School 360 avec votre numéro de téléphone <strong className="text-white/80">{registeredLogin}</strong>.
               </p>
               <p className="text-white/40 text-[12px] mb-6">
                 À la première connexion, définissez votre mot de passe via « Mot de passe oublié » : un code vous sera envoyé sur WhatsApp.

@@ -1,9 +1,9 @@
 {
   "name": "edugest-desktop",
   "version": "1.4.12",
-  "description": "EduGest — La plateforme de gestion scolaire (application de bureau)",
+  "description": "Look School 360 — La plateforme de gestion scolaire (application de bureau)",
   "main": "main.js",
-  "author": "EduGest",
+  "author": "Look School 360",
   "license": "MIT",
   "scripts": {
     "start": "electron .",
@@ -16,8 +16,8 @@
   },
   "build": {
     "appId": "cd.edugest.desktop",
-    "productName": "EduGest",
-    "copyright": "Copyright © 2026 EduGest",
+    "productName": "Look School 360",
+    "copyright": "Copyright © 2026 Look School 360",
     "directories": {
       "output": "dist",
       "buildResources": "."
@@ -66,7 +66,7 @@
     },
     "protocols": [
       {
-        "name": "EduGest",
+        "name": "Look School 360",
         "schemes": ["edugest"]
       }
     ],
@@ -78,15 +78,15 @@
       "runAfterFinish": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "artifactName": "EduGest-Setup-${version}.exe",
-      "shortcutName": "EduGest",
+      "artifactName": "Look School 360-Setup-${version}.exe",
+      "shortcutName": "Look School 360",
       "installerIcon": "icon.ico",
       "uninstallerIcon": "icon.ico",
       "installerHeaderIcon": "icon.ico",
       "include": "installer.nsh"
     },
     "portable": {
-      "artifactName": "EduGest-Portable-${version}.exe"
+      "artifactName": "Look School 360-Portable-${version}.exe"
     },
     "publish": [
       {

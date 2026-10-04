@@ -108,7 +108,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         fromKey: 'support',
         template: 'TICKET_REPLY',
         subject: `[${ticket.ref}] Nouvelle réponse du support`,
-        html: `<p>Bonjour ${ticket.createdBy.name},</p><p>Le support a répondu à votre ticket <b>${ticket.ref}</b> :</p><blockquote>${text.slice(0, 500)}</blockquote><p>Connectez-vous à EduGest pour voir le fil complet.</p><p>L'équipe support EduGest</p>`,
+        html: `<p>Bonjour ${ticket.createdBy.name},</p><p>Le support a répondu à votre ticket <b>${ticket.ref}</b> :</p><blockquote>${text.slice(0, 500)}</blockquote><p>Connectez-vous à Look School 360 pour voir le fil complet.</p><p>L'équipe support Look School 360</p>`,
       });
     }
 

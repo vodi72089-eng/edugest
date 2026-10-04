@@ -186,11 +186,11 @@ export async function isWhatsAppConnected(): Promise<boolean> {
 /**
  * Envoie un message WhatsApp.
  * Route automatiquement vers l'API WhatsApp personnelle de l'école (Meta Cloud API)
- * si elle est configurée et active — sinon passe par l'agent partagé EduGest (Baileys).
+ * si elle est configurée et active — sinon passe par l'agent partagé Look School 360 (Baileys).
  * Chaque envoi est journalisé (quota mensuel + audit) via recordWhatsappMessage.
  */
 export async function sendWhatsAppMessage(phone: string, message: string, schoolId?: string | null): Promise<boolean> {
-  // 1) API WhatsApp personnelle de l'école → messages illimités côté EduGest
+  // 1) API WhatsApp personnelle de l'école → messages illimités côté Look School 360
   if (schoolId) {
     const config = await getSchoolWhatsappApiConfig(schoolId);
     if (config && config.isActive) {
@@ -201,7 +201,7 @@ export async function sendWhatsAppMessage(phone: string, message: string, school
     }
   }
 
-  // 2) Agent partagé EduGest (Baileys)
+  // 2) Agent partagé Look School 360 (Baileys)
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 28000);
@@ -236,7 +236,7 @@ export async function sendWhatsAppDocument(params: {
   caption?: string;
   schoolId?: string | null;
 }): Promise<boolean> {
-  // 1) API WhatsApp personnelle de l'école → documents illimités côté EduGest
+  // 1) API WhatsApp personnelle de l'école → documents illimités côté Look School 360
   if (params.schoolId) {
     const config = await getSchoolWhatsappApiConfig(params.schoolId);
     if (config && config.isActive) {
@@ -254,7 +254,7 @@ export async function sendWhatsAppDocument(params: {
     }
   }
 
-  // 2) Agent partagé EduGest (Baileys)
+  // 2) Agent partagé Look School 360 (Baileys)
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 40000);
@@ -321,7 +321,7 @@ async function checkSchoolAgentReady(
     },
   });
 
-  // Si l'école a configuré sa propre API WhatsApp (ex: Meta Cloud API) → illimité côté EduGest
+  // Si l'école a configuré sa propre API WhatsApp (ex: Meta Cloud API) → illimité côté Look School 360
   const customApi = await getSchoolWhatsappApiConfig(schoolId);
   const usingCustomApi = !!(customApi && customApi.isActive) || !!(school?.whatsappCustomEnabled && school.whatsappMetaToken && school.whatsappMetaPhoneId);
   if (usingCustomApi) {
@@ -395,7 +395,7 @@ export async function notifyConvocation(params: {
     `École : ${schoolName}\n` +
     `Motif : ${motif}\n` +
     `Date : ${formattedDate}\n\n` +
-    `_EduGest - ${schoolName}_`;
+    `_Look School 360 - ${schoolName}_`;
 
   return sendWhatsAppMessage(parentPhone, message, schoolId);
 }
@@ -437,7 +437,7 @@ export async function notifyHomework(params: {
     `Sujet : ${title}\n` +
     `À rendre le : ${formattedDate}\n` +
     `École : ${schoolName}\n\n` +
-    `_EduGest - ${schoolName}_`;
+    `_Look School 360 - ${schoolName}_`;
 
   return sendWhatsAppMessage(parentPhone, message, schoolId);
 }
@@ -481,7 +481,7 @@ export async function notifyGrade(params: {
     `Note : ${score}/${maxScore} (${percentage}%)\n` +
     `Trimestre : ${trimester}\n` +
     `École : ${schoolName}\n\n` +
-    `_EduGest - ${schoolName}_`;
+    `_Look School 360 - ${schoolName}_`;
 
   return sendWhatsAppMessage(parentPhone, message, schoolId);
 }
@@ -518,7 +518,7 @@ export async function notifyBulletin(params: {
     `Moyenne : ${average.toFixed(2)}/20\n` +
     `Rang : ${ranking}/${totalStudents}\n` +
     `École : ${schoolName}\n\n` +
-    `_EduGest - ${schoolName}_`;
+    `_Look School 360 - ${schoolName}_`;
 
   return sendWhatsAppMessage(parentPhone, message, schoolId);
 }
@@ -565,7 +565,7 @@ export async function notifyDiscipline(params: {
     `Titre : ${title}\n` +
     `Détails : ${description}\n` +
     `École : ${schoolName}\n\n` +
-    `_EduGest - ${schoolName}_`;
+    `_Look School 360 - ${schoolName}_`;
 
   return sendWhatsAppMessage(parentPhone, message, schoolId);
 }
@@ -717,7 +717,7 @@ export async function notifyCommunication(params: {
   const message = `${emoji} *${title.toUpperCase()}*\n` +
     `${schoolName}\n\n` +
     `${content}\n\n` +
-    `_EduGest - ${schoolName}_`;
+    `_Look School 360 - ${schoolName}_`;
 
   // Plafond de sécurité anti-ban
   const MAX_RECIPIENTS = 200;
@@ -847,7 +847,7 @@ export async function notifyMedicalVisit(params: {
     (params.decision === 'SENT_HOME' || params.decision === 'EMERGENCY_EVACUATION'
       ? `⚠️ *URGENT* : Merci de bien vouloir contacter sans attendre la direction ou le service médical de l'école.\n\n`
       : '') +
-    `_Notification automatique sécurisée transmise par EduGest._`;
+    `_Notification automatique sécurisée transmise par Look School 360._`;
 
   return await sendWhatsAppMessage(params.parentPhone, msg, params.schoolId);
 }
@@ -878,7 +878,7 @@ export async function notifyRepechage(params: {
     `\nMatières concernées :\n${subjectList}\n` +
     (params.note ? `\n📝 Note : ${params.note}\n` : '') +
     `\n🏫 ${school?.name || 'École'}\n\n` +
-    `_EduGest — Notification automatique_`;
+    `_Look School 360 — Notification automatique_`;
 
   const sent = await sendWhatsAppMessage(parent.phone, msg, params.schoolId);
   return { sent, detail: sent ? 'Message envoyé' : 'Échec envoi' };

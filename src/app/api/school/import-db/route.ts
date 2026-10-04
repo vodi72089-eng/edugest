@@ -21,13 +21,13 @@ interface SqliteRow { [key: string]: unknown }
  * POST /api/school/import-db  (multipart/form-data)
  *
  * L'administrateur d'une école importe SA base de données (fichier SQLite
- * EduGest : élèves, classes, matières, notes, professeurs, frais scolaires).
+ * Look School 360 : élèves, classes, matières, notes, professeurs, frais scolaires).
  * Les données sont fusionnées dans l'école de l'admin : elles deviennent
  * directement la base de données de son école (aucun parent n'étant encore
  * connecté dans la plupart des cas, les comptes parents sont recréés).
  *
  * Champs du formulaire :
- *  - file            : le fichier .db / .sqlite (base EduGest)
+ *  - file            : le fichier .db / .sqlite (base Look School 360)
  *  - email, password : identifiants admin (si pas de token Bearer — utile
  *                      depuis la page de connexion et l'app desktop)
  *  - schoolId        : optionnel (SUPER_ADMIN_GLOBAL uniquement)
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
 
     if (!hasTable('Student') && !hasTable('Class')) {
       source.close();
-      return NextResponse.json({ error: 'Ce fichier n\'est pas une base de données EduGest (tables élèves/classes absentes)' }, { status: 400 });
+      return NextResponse.json({ error: 'Ce fichier n\'est pas une base de données Look School 360 (tables élèves/classes absentes)' }, { status: 400 });
     }
 
     const summary = {
