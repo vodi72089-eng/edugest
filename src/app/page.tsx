@@ -3442,8 +3442,8 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
                   setSoundVolume(v)
                   setNotificationSoundVolume(v, userData?.id || null)
                 }}
-                onMouseUp={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume }) }}
-                onTouchEnd={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume }) }}
+                onMouseUp={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume, force: true }) }}
+                onTouchEnd={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume, force: true }) }}
                 className="w-20 h-1 accent-current"
                 style={{ accentColor: GOLD }}
                 title={`Volume : ${soundVolume}%`}
@@ -3457,7 +3457,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
                   setSoundType(t)
                   setNotificationSoundType(t, userData?.id || null)
                   unlockNotificationAudio()
-                  playNotificationSound({ userId: userData?.id || null, type: t })
+                  playNotificationSound({ userId: userData?.id || null, type: t, force: true })
                 }}
                 className="text-[10px] rounded-lg px-1.5 py-1 border bg-white"
                 style={{ borderColor: BORDER, color: TEXT_PRIMARY }}
@@ -3469,7 +3469,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
                 <option value="ALERT">Alerte</option>
               </select>
               <button
-                onClick={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume, type: soundType }) }}
+                onClick={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume, type: soundType, force: true }) }}
                 className="text-[10px] font-semibold px-2 py-1 rounded-lg"
                 style={{ background: GOLD_SOFT, color: TEXT_PRIMARY }}
                 title="Écouter le son"
