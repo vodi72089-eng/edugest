@@ -9,7 +9,7 @@ import { requireAuth, sanitizeError } from '@/lib/auth';
 // GET /api/upload/[...path] — l'exécutable desktop et le serveur standalone
 // utilisent donc exactement le même mécanisme, sans dépendre du dossier public.
 
-export const UPLOAD_DIR = path.resolve(process.cwd(), 'upload');
+const UPLOAD_DIR = path.resolve(process.cwd(), 'upload');
 
 const ALLOWED_MIME = new Set([
   'image/png',
