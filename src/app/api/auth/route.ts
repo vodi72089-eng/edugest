@@ -2,7 +2,8 @@ import { db } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { createToken, getClientIp, getUserAgentFromRequest, checkRateLimit, SESSION_DURATION_MS } from '@/lib/auth';
+import { createToken, getClientIp, getUserAgentFromRequest, SESSION_DURATION_MS } from '@/lib/auth';
+import { checkRateLimitDb } from '@/lib/rate-limit-db';
 import { normalizeClientIp } from '@/lib/geo';
 import { checkSubscription } from '@/lib/subscription-server';
 import { notify } from '@/lib/notify';
@@ -107,10 +108,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Rate Limiting ────────────────────────────────────────────────────
+    // ── Rate Limiting (PERSISTANT en base — survit aux redémarrages) ─────
     // IP-based limit: prevents distributed brute-force that rotates emails/phones
+    // + limite par compte : empêche le martelage d'UN identifiant en changeant d'IP.
     const ip = getClientIp(request) || 'unknown';
-    if (!checkRateLimit(`login_ip_${ip}`, 30, 15 * 60 * 1000)) {
+    if (!(await checkRateLimitDb(`login_ip:${ip}`, 30, 15 * 60 * 1000))) {
       return NextResponse.json(
         { error: 'Trop de tentatives. Réessayez plus tard.' },
         { status: 429 }
@@ -118,6 +120,12 @@ export async function POST(request: NextRequest) {
     }
 
     const identifier = (email || phone || '').toLowerCase();
+    if (!(await checkRateLimitDb(`login_account:${identifier}`, 20, 15 * 60 * 1000))) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives pour ce compte. Réessayez plus tard.', retryAfterSeconds: 900 },
+        { status: 429 }
+      );
+    }
     const remainingLock = getRemainingLock(identifier);
     if (remainingLock > 0) {
       return NextResponse.json(
@@ -218,6 +226,9 @@ export async function POST(request: NextRequest) {
 
     // ── Clear rate limit on success ──────────────────────────────────────
     loginAttempts.delete(identifier);
+    // Compteurs persistants : le succès réinitialise le seau du compte (l'IP
+    // garde son historique — elle peut servir à d'autres tentatives).
+    try { await db.rateLimitBucket.delete({ where: { key: `login_account:${identifier}` } }).catch(() => {}); } catch { /* ignore */ }
 
     // ── Check account verification ─────────────────────────────────────
     // OTP verification disabled: allow all users to login

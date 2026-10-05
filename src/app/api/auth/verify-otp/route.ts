@@ -20,9 +20,9 @@ export async function POST(request: NextRequest) {
     // du plafond de 3 tentatives par code (lib/otp.ts). Sans cela, un attaquant
     // pouvait marteler l'endpoint (spam/énumération de userId) même si le
     // brute force du code lui-même reste plafonné côté base.
-    const { checkRateLimit } = await import('@/lib/auth');
+    const { checkRateLimitDb } = await import('@/lib/rate-limit-db');
     const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    if (!checkRateLimit(`verify-otp:ip:${clientIp}`, 20, 15 * 60 * 1000)) {
+    if (!(await checkRateLimitDb(`verify-otp:ip:${clientIp}`, 20, 15 * 60 * 1000))) {
       return NextResponse.json({ error: 'Trop de tentatives. Réessayez dans 15 minutes.' }, { status: 429 });
     }
 

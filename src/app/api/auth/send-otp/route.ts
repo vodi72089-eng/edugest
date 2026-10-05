@@ -42,10 +42,10 @@ export async function POST(request: NextRequest) {
 
     // ── SÉCURITÉ (P2) : rate limit — avant, n'importe qui pouvait demander
     // des OTP pour n'importe quel userId (bombing SMS/WhatsApp + énumération).
-    const { checkRateLimit } = await import('@/lib/auth');
+    const { checkRateLimitDb } = await import('@/lib/rate-limit-db');
     const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    if (!checkRateLimit(`send-otp:ip:${clientIp}`, 10, 15 * 60 * 1000) ||
-        !checkRateLimit(`send-otp:user:${userId}`, 5, 15 * 60 * 1000)) {
+    if (!(await checkRateLimitDb(`send-otp:ip:${clientIp}`, 10, 15 * 60 * 1000)) ||
+        !(await checkRateLimitDb(`send-otp:user:${userId}`, 5, 15 * 60 * 1000))) {
       return NextResponse.json({ error: 'Trop de demandes de code. Réessayez dans 15 minutes.' }, { status: 429 });
     }
 

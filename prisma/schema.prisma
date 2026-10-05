@@ -1235,3 +1235,16 @@ model UploadFile {
 
   @@index([schoolId])
 }
+
+// ── Rate-limiting persistant ────────────────────────────────────────────────
+// Compteurs à fenêtre fixe stockés en base (et non plus en Map mémoire) :
+// un redémarrage du serveur n'efface plus les compteurs — le brute force du
+// login/OTP ne peut plus repartir de zéro à chaque restart.
+model RateLimitBucket {
+  key       String   @id // ex. login_ip:1.2.3.4 · otp_send:+243…
+  count     Int      @default(0)
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([resetAt])
+}
