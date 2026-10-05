@@ -1,4 +1,5 @@
 import { db } from './db';
+import { decryptSecret } from './gateway-keys';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION SMS — vérification par SMS (codes de réinitialisation,
@@ -12,6 +13,31 @@ import { db } from './db';
 // ═══════════════════════════════════════════════════════════════════════════
 
 const SMS_CONFIG_KEY = 'SMS_CONFIG';
+
+// Champs secrets par fournisseur — SOURCE DE VÉRITÉ partagée (route sms-config
+// et ce module) : ces champs sont CHIFFRÉS (AES-256-GCM) à l'écriture et
+// DÉCHIFFRÉS à la lecture. En base, ils ne sont jamais lisibles en clair.
+export const SMS_SECRET_FIELDS: Record<string, string[]> = {
+  twilio: ['authToken'],
+  africastalking: ['apiKey'],
+  vonage: ['apiSecret'],
+  custom: ['webhookToken'],
+};
+
+/** Déchiffre les champs secrets d'une config lue depuis la base (au memoire
+ *  uniquement en clair, jamais ré-envoyée telle quelle au client). Les valeurs
+ *  historiques non préfixées « enc:v1: » passent telles quelles (compat). */
+function decryptConfigSecrets(cfg: SmsApiConfig): SmsApiConfig {
+  const out: SmsApiConfig = { ...cfg };
+  for (const p of Object.keys(SMS_SECRET_FIELDS)) {
+    const section = { ...(out[p as keyof SmsApiConfig] as Record<string, string>) };
+    for (const k of SMS_SECRET_FIELDS[p]) {
+      if (section[k]) section[k] = decryptSecret(section[k]) ?? '';
+    }
+    (out[p as keyof SmsApiConfig] as Record<string, string>) = section;
+  }
+  return out;
+}
 
 export type SmsProvider = 'africastalking' | 'twilio' | 'vonage' | 'custom';
 
@@ -68,8 +94,11 @@ export async function getSmsApiConfig(force: boolean = false): Promise<SmsApiCon
       vonage: { ...DEFAULT_SMS_CONFIG.vonage, ...(parsed.vonage || {}) },
       custom: { ...DEFAULT_SMS_CONFIG.custom, ...(parsed.custom || {}) },
     };
-    configCache = { value: merged, at: Date.now() };
-    return merged;
+    // DÉCHIFFREMENT des secrets stockés (chiffrés à l'écriture) : la config en
+    // mémoire est en clair pour l'envoi SMS — jamais renvoyée telle quelle.
+    const decrypted = decryptConfigSecrets(merged);
+    configCache = { value: decrypted, at: Date.now() };
+    return decrypted;
   } catch (e) {
     console.warn('[SMS] Lecture config impossible:', e);
     return null;

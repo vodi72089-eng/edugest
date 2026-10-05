@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireRole, sanitizeError } from '@/lib/auth';
-import { getSmsApiConfig, invalidateSmsConfigCache, sendSmsViaProvider, hasProviderCredentials, SmsApiConfig, DEFAULT_SMS_CONFIG, SmsProvider } from '@/lib/sms';
+import { getSmsApiConfig, invalidateSmsConfigCache, sendSmsViaProvider, hasProviderCredentials, SmsApiConfig, DEFAULT_SMS_CONFIG, SmsProvider, SMS_SECRET_FIELDS } from '@/lib/sms';
+import { encryptSecret } from '@/lib/gateway-keys';
 
 const SMS_CONFIG_KEY = 'SMS_CONFIG';
 
-// Champs secrets : laissés vides dans le formulaire, la valeur existante est conservée
-const SECRET_FIELDS: Record<string, string[]> = {
-  twilio: ['authToken'],
-  africastalking: ['apiKey'],
-  vonage: ['apiSecret'],
-  custom: ['webhookToken'],
-};
+const SECRET_FIELDS = SMS_SECRET_FIELDS; // champs secrets (chiffrés en base)
 const PROVIDERS = ['africastalking', 'twilio', 'vonage', 'custom'];
 
 function maskValue(v: string): string {
@@ -121,9 +116,9 @@ export async function POST(request: NextRequest) {
     const provider = PROVIDERS.includes(body.provider) ? (body.provider as SmsProvider) : 'africastalking';
     const incoming = (body.fields || {}) as Record<string, Record<string, string>>;
 
-    const existing = await db.globalApiConfig.findUnique({ where: { key: SMS_CONFIG_KEY } });
-    let prev: SmsApiConfig = DEFAULT_SMS_CONFIG;
-    try { if (existing) prev = { ...DEFAULT_SMS_CONFIG, ...JSON.parse(existing.value) }; } catch { /* reset */ }
+    // Config précédente DÉCHIFFRÉE (getSmsApiConfig renvoie les secrets en
+    // clair en mémoire) : la fusion des champs laissés vides opère en clair.
+    const prev: SmsApiConfig = (await getSmsApiConfig(true)) || DEFAULT_SMS_CONFIG;
 
     // Fusion : les champs secrets laissés vides conservent leur valeur existante
     const next: SmsApiConfig = { ...DEFAULT_SMS_CONFIG, enabled, provider };
@@ -149,16 +144,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Identifiants incomplets pour le fournisseur sélectionné' }, { status: 400 });
     }
 
+    // ── CHIFFREMENT des secrets avant stockage (AES-256-GCM) ───────────────
+    // Sans PAYMENT_KEYS_SECRET, encryptSecret REFUSE (throw) : la config
+    // n'est PAS enregistrée en clair — réponse 500 explicite à l'admin.
+    const toStore: SmsApiConfig = JSON.parse(JSON.stringify(next));
+    for (const p of Object.keys(SECRET_FIELDS)) {
+      const section = { ...(toStore[p as keyof SmsApiConfig] as Record<string, string>) };
+      for (const k of SECRET_FIELDS[p]) {
+        if (section[k]) section[k] = encryptSecret(section[k]) as string;
+      }
+      (toStore[p as keyof SmsApiConfig] as Record<string, string>) = section;
+    }
+
     await db.globalApiConfig.upsert({
       where: { key: SMS_CONFIG_KEY },
       create: {
         key: SMS_CONFIG_KEY,
-        value: JSON.stringify(next),
+        value: JSON.stringify(toStore),
         description: 'Configuration de l\'API SMS (vérification par SMS + notifications)',
         updatedBy: user.id,
       },
       update: {
-        value: JSON.stringify(next),
+        value: JSON.stringify(toStore),
         updatedBy: user.id,
       },
     });
