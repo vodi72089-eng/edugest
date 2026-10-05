@@ -432,8 +432,27 @@ function createWindow(port) {
     log('Échec chargement UI :', code, desc, '→', url);
     closeSplash();
   });
+  // ── SÉCURITÉ : allowlist stricte des ouvertures de fenêtre ────────────────
+  // window.open()/target=_blank sont interceptés : seuls les schémas SÛRS sont
+  // confiés au navigateur système. Tout le reste (file://, edugest:// non
+  // routé, smb://, binaires, schémas custom arbitraires) est REFUSÉ et
+  // journalisé — un contenu compromis dans la fenêtre ne peut pas ouvrir un
+  // gestionnaire externe arbitraire (exécution de binaire, lecture de fichiers
+  // locaux via file://, etc.). Cohérent avec le handler 'update-open-page'
+  // qui n'accepte déjà que https://.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    try {
+      const parsed = new URL(url);
+      const safeProtocols = ['https:', 'mailto:'];
+      if (safeProtocols.includes(parsed.protocol)) {
+        shell.openExternal(url);
+      } else {
+        log('window-open refusé (schéma non autorisé) :', parsed.protocol, url);
+      }
+    } catch (e) {
+      // URL malformée : refus par défaut (jamais d'ouverture au doigt mouillé).
+      log('window-open refusé (URL invalide) :', String(url).slice(0, 120));
+    }
     return { action: 'deny' };
   });
   mainWindow.on('closed', () => { mainWindow = null; });
