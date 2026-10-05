@@ -24,6 +24,11 @@ jobs:
       - name: Generate Prisma client
         run: bunx prisma generate
 
+      # Client SQLite de l'app desktop (src/generated/ est gitignoré) :
+      # sans lui, tsc échoue sur l'import dynamique de src/lib/db.ts.
+      - name: Generate SQLite Prisma client (desktop)
+        run: bunx prisma generate --schema prisma/schema.sqlite.prisma
+
       # Le build Next.js ne masque PLUS les erreurs TypeScript
       # (typescript.ignoreBuildErrors: false dans next.config.ts)
       - name: Typecheck (tsc --noEmit)
