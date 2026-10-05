@@ -309,7 +309,7 @@ export default function MedicalRecordsView() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center max-w-md mx-auto p-8 rounded-3xl" style={{ background: 'oklch(97% 0.01 65)', border: '1px solid oklch(88% 0.06 75)' }}>
           <Lock className="w-12 h-12 mx-auto mb-4" style={{ color: 'oklch(70% 0.13 75)' }} />
-          <h3 className="text-xl font-bold mb-2" style={{ color: 'oklch(35% 0.08 75)' }}>Module médical Premium</h3>
+          <h3 className="text-xl font-bold mb-2" style={{ color: 'oklch(35% 0.08 75)' }}>Module médical Professionnel</h3>
           <p className="text-sm mb-4" style={{ color: 'oklch(45% 0.05 75)' }}>
             La gestion des fiches médicales est disponible à partir de l&apos;offre <strong>Professionnel</strong>.
             Votre forfait actuel : <strong>{getTierLabel(tier)}</strong>.

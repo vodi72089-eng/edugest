@@ -9189,7 +9189,7 @@ function SubscriptionUpgradeView() {
     { id: 'ESSENTIEL', name: 'Essentiel', price: 100, color: INFO, features: ['Élèves', 'Classes', 'Notes', 'Parents', 'Paiements', 'Devoirs', 'Discipline'] },
     { id: 'STANDARD', name: 'Standard', price: 250, color: ACCENT, features: ['Tout Essentiel', 'Bulletins', 'Communications', 'Convocations'] },
     { id: 'PREMIUM', name: 'Professionnel', price: 500, color: WARNING, features: ['Tout Standard', 'Analytics', 'Multi-années'] },
-    { id: 'ENTERPRISE', name: 'Enterprise', price: 1000, color: SUCCESS, features: ['Tout Premium', 'API', 'Support prioritaire', 'Branding custom'] },
+    { id: 'ENTERPRISE', name: 'Enterprise', price: 1000, color: SUCCESS, features: ['Tout Professionnel', 'API', 'Support prioritaire', 'Branding custom'] },
     { id: 'CORPORATE', name: 'Corporate', price: 0, color: DANGER, features: ['Tout Enterprise', 'Prix sur mesure'] },
   ]
 
