@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, AuthUser } from './auth';
-import { hasFeatureAccess, getMinTierForFeature, getSchoolTier, TierFeature } from './subscription';
+import { hasFeatureAccess, getMinTierForFeature, TierFeature } from './subscription';
+import { getSchoolTier } from './subscription-server';
 
 /**
  * Middleware pour vérifier qu'un utilisateur a accès à une fonctionnalité

@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import { requireRole, sanitizeError } from '@/lib/auth';
-
-const run = promisify(exec);
 
 // POST /api/platform/update — met à jour le code local depuis GitHub
 // (git stash de sécurité + git pull --ff-only) et renvoie la SORTIE COMPLÈTE
@@ -11,10 +7,39 @@ const run = promisify(exec);
 // savoir ouvrir un terminal. Réservé au super administrateur plateforme.
 // ⚠️ db/ (base de données) n'est PAS suivie par git → aucune mise à jour ne
 // touche jamais les données de l'école.
+//
+// ⚠️ CLOUDFLARE WORKERS : child_process (git) n'existe pas sur workerd. La
+// mise à jour se fait alors par CI (git push → Cloudflare Workers Builds).
+// On détecte l'environnement et on répond 501 avec un message explicite
+// (jamais de coupure silencieuse). L'import de child_process est dynamique
+// (specifier variable) pour que Vite ne l'analyse pas au build.
+const CP_MOD = 'child_process';
+const UTIL_MOD = 'util';
+
+async function runningOnWorkers(): Promise<boolean> {
+  try {
+    await import(CP_MOD);
+    return false; // Node : child_process disponible
+  } catch {
+    return true; // Workers : child_process absent
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const authResult = await requireRole(request, ['SUPER_ADMIN_GLOBAL']);
     if ('error' in authResult) return authResult.error;
+
+    // Garde Workers : pas de shell → mise à jour impossible.
+    if (await runningOnWorkers()) {
+      return NextResponse.json({
+        error: 'Mise à jour impossible sur Cloudflare Workers (pas de shell). Déploiement via CI : git push → Cloudflare Workers Builds.',
+      }, { status: 501 });
+    }
+
+    const { exec } = await import(CP_MOD);
+    const { promisify } = await import(UTIL_MOD);
+    const run = promisify(exec);
 
     const cwd = process.cwd();
     const lines: string[] = [];
@@ -65,7 +90,7 @@ export async function POST(request: NextRequest) {
       ok: pullOk,
       output: lines.join('\n'),
       message: pullOk
-        ? 'Mise à jour appliquée — faites Ctrl+Shift+R dans le navigateur pour recharger l\u2019application'
+        ? 'Mise à jour appliquée — faites Ctrl+Shift+R dans le navigateur pour recharger l’application'
         : undefined,
     }, { status: pullOk ? 200 : 500 });
   } catch (error) {

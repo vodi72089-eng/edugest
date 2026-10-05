@@ -16,7 +16,7 @@ export async function enrichSessionsWithLocation(userId: string, sessions: Sessi
     if (s.location || !ip) continue;
     const loc = await resolveIpLocation(ip);
     if (loc) {
-      updateSessionLocationBySid(userId, s.sid, loc);
+      await updateSessionLocationBySid(userId, s.sid, loc);
       s.location = loc;
     }
   }

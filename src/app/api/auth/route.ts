@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { createToken, getClientIp, getUserAgentFromRequest, checkRateLimit } from '@/lib/auth';
 import { normalizeClientIp } from '@/lib/geo';
-import { checkSubscription } from '@/lib/subscription';
+import { checkSubscription } from '@/lib/subscription-server';
 import { notify } from '@/lib/notify';
 import { repairPlatformAdminIntegrity } from '@/lib/role-repair';
 

@@ -1,9 +1,10 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -1027,6 +1028,34 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+// Sessions d'authentification (migrer depuis le store fichier .sessions de
+// l'ere VPS : workerd n'a pas de systeme de fichiers).
+// Champs alignes sur src/lib/auth.ts (Session shape v2 + enrichissement
+// appareil). token = porteur opaque (jamais expose) ; sid = id exposable a l'UI.
+model Session {
+  token         String   @id
+  sid           String   @unique
+  userId        String
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  lastUsedAt    DateTime @default(now())
+  userAgent     String   @default("")
+  ip            String   @default("")
+  fingerprintId String   @default("")
+  screen        String   @default("")
+  gpu           String   @default("")
+  battery       String   @default("")
+  languages     String   @default("")
+  timezone      String   @default("")
+  memory        String   @default("")
+  cores         String   @default("")
+  network       String   @default("")
+  location      Json?
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 // ─── Comptes CORPORATE (clients multi-écoles) ───

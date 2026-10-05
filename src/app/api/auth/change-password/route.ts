@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
     const currentToken = getTokenFromRequest(request);
     let revokedCount = 0;
     if (currentToken) {
-      revokedCount = revokeAllUserSessionsExcept(user.id, currentToken);
+      revokedCount = await revokeAllUserSessionsExcept(user.id, currentToken);
     }
 
     return NextResponse.json({

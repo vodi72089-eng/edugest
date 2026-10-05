@@ -1,0 +1,46 @@
+- generic [active] [ref=f4e1]:
+  - generic [ref=f4e485]:
+    - navigation [ref=f4e486]:
+      - img "EduGest — logo officiel" [ref=f4e488]
+    - main [ref=f4e489]:
+      - generic [ref=f4e498]:
+        - heading "EduGest" [level=1] [ref=f4e499]
+        - paragraph [ref=f4e500]: La plateforme de gestion scolaire
+      - generic [ref=f4e501]:
+        - generic [ref=f4e502]:
+          - heading "Connexion" [level=2] [ref=f4e503]
+          - paragraph [ref=f4e504]: Parents, personnel de l'école, direction et enseignants
+        - generic [ref=f4e505]:
+          - generic [ref=f4e506]:
+            - text: Email ou numéro WhatsApp
+            - textbox "ex. parent@email.com ou +243 81..." [ref=f4e507]: admin@edugest.app
+          - generic [ref=f4e508]:
+            - text: Mot de passe
+            - generic [ref=f4e509]:
+              - textbox "••••••••" [ref=f4e510]: admin123
+              - button [ref=f4e511]
+          - generic [ref=f4e515]:
+            - generic [ref=f4e516] [cursor=pointer]:
+              - checkbox "Se souvenir de moi" [ref=f4e517]
+              - text: Se souvenir de moi
+            - button "Mot de passe oublié ?" [ref=f4e518]
+          - button [disabled] [ref=f4e553]
+        - generic [ref=f4e520]: ou
+        - button "Se connecter avec WhatsApp" [ref=f4e523]
+        - paragraph [ref=f4e526]:
+          - text: Pas encore de compte ?
+          - button "Créer mon école" [ref=f4e527]
+      - generic [ref=f4e528]:
+        - generic [ref=f4e529]: Sécurisé
+        - generic [ref=f4e532]: Afrique
+        - generic [ref=f4e536]: Certifié
+    - generic [ref=f4e540]: © 2026 EduGest · Kinshasa · Dakar · Abidjan
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f4e476] [cursor=pointer]:
+    - generic [ref=f4e556]:
+      - text: Compiling
+      - generic [ref=f4e557]:
+        - generic [ref=f4e558]: .
+        - generic [ref=f4e559]: .
+        - generic [ref=f4e560]: .
+  - alert [ref=f4e484]

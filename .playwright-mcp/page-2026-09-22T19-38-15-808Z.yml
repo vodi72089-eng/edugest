@@ -1,0 +1,116 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - navigation [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - button "Toggle menu" [ref=e6]
+          - button [ref=e8]:
+            - img "Luymasflix" [ref=e10]:
+              - generic [ref=e12]: LUYMAS
+              - generic [ref=e13]: FLIX
+              - generic: LUYMASFLIX
+          - list [ref=e15]:
+            - listitem [ref=e16]:
+              - button "Accueil" [ref=e17]
+            - listitem [ref=e19]:
+              - button "Films" [ref=e20]
+            - listitem [ref=e21]:
+              - button "Séries" [ref=e22]
+            - listitem [ref=e23]:
+              - button "Ma Liste" [ref=e24]
+        - generic [ref=e25]:
+          - button "Rechercher" [ref=e27]
+          - button "Paramètres Plex" [ref=e31]
+          - button "Notifications" [ref=e35]
+          - button "Connexion" [ref=e39]
+    - main [ref=e43]
+    - contentinfo [ref=e198]:
+      - generic [ref=e201]:
+        - generic [ref=e202]:
+          - link "Facebook" [ref=e203] [cursor=pointer]:
+            - /url: "#"
+          - link "Twitter" [ref=e207] [cursor=pointer]:
+            - /url: "#"
+          - link "Instagram" [ref=e211] [cursor=pointer]:
+            - /url: "#"
+          - link "YouTube" [ref=e216] [cursor=pointer]:
+            - /url: "#"
+        - generic [ref=e221]:
+          - generic [ref=e222]:
+            - heading "Navigation" [level=4] [ref=e223]
+            - list [ref=e224]:
+              - listitem [ref=e225]:
+                - link "Accueil" [ref=e226] [cursor=pointer]:
+                  - /url: "#"
+              - listitem [ref=e227]:
+                - link "Films" [ref=e228] [cursor=pointer]:
+                  - /url: "#"
+              - listitem [ref=e229]:
+                - link "Séries TV" [ref=e230] [cursor=pointer]:
+                  - /url: "#"
+              - listitem [ref=e231]:
+                - link "Ma Liste" [ref=e232] [cursor=pointer]:
+                  - /url: "#"
+          - generic [ref=e233]:
+            - heading "Catégories" [level=4] [ref=e234]
+            - list [ref=e235]:
+              - listitem [ref=e236]:
+                - link "Action" [ref=e237] [cursor=pointer]:
+                  - /url: "#"
+              - listitem [ref=e238]:
+                - link "Comédie" [ref=e239] [cursor=pointer]:
+                  - /url: "#"
+              - listitem [ref=e240]:
+                - link "Drame" [ref=e241] [cursor=pointer]:
+                  - /url: "#"
+              - listitem [ref=e242]:
+                - link "Thriller" [ref=e243] [cursor=pointer]:
+                  - /url: "#"
+          - generic [ref=e244]:
+            - heading "Assistance" [level=4] [ref=e245]
+            - list [ref=e246]:
+              - listitem [ref=e247]:
+                - link "Centre d'aide" [ref=e248] [cursor=pointer]:
+                  - /url: "#"
+              - listitem [ref=e249]:
+                - link "FAQ" [ref=e250] [cursor=pointer]:
+                  - /url: "#"
+              - listitem [ref=e251]:
+                - link "Contactez-nous" [ref=e252] [cursor=pointer]:
+                  - /url: "#"
+              - listitem [ref=e253]:
+                - link "Statut" [ref=e254] [cursor=pointer]:
+                  - /url: "#"
+          - generic [ref=e255]:
+            - heading "Légal" [level=4] [ref=e256]
+            - list [ref=e257]:
+              - listitem [ref=e258]:
+                - link "Politique de confidentialité" [ref=e259] [cursor=pointer]:
+                  - /url: "#"
+              - listitem [ref=e260]:
+                - link "Conditions d'utilisation" [ref=e261] [cursor=pointer]:
+                  - /url: "#"
+              - listitem [ref=e262]:
+                - link "Préférences cookies" [ref=e263] [cursor=pointer]:
+                  - /url: "#"
+              - listitem [ref=e264]:
+                - link "Informations légales" [ref=e265] [cursor=pointer]:
+                  - /url: "#"
+        - generic [ref=e266]:
+          - button "Code de service" [ref=e267]
+          - generic [ref=e272]: Tous les systèmes opérationnels
+        - generic [ref=e278]:
+          - generic [ref=e279]:
+            - link [ref=e280] [cursor=pointer]:
+              - /url: "#"
+              - img "Luymasflix" [ref=e281]:
+                - generic [ref=e283]: LUYMAS
+                - generic [ref=e284]: FLIX
+                - generic: LUYMASFLIX
+            - generic [ref=e285]: Powered by Luymas AI
+          - paragraph [ref=e286]: © 2026 Luymasflix. Tous droits réservés.
+          - generic [ref=e287]: Chiffrement SSL
+      - button "Retour en haut"
+  - region "Notifications (F8)":
+    - list
+  - button "Open Next.js Dev Tools" [ref=e296] [cursor=pointer]

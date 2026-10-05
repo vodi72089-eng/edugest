@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, classFilterForCycle } from '@/lib/auth';
-import { checkCanCreateStudent, getTierLimits } from '@/lib/subscription';
+import { checkCanCreateStudent } from '@/lib/subscription-server';
+import { getTierLimits } from '@/lib/subscription';
 
 function generateRandomPassword(length: number = 12): string {
   return crypto.randomBytes(length).toString('base64').slice(0, length);

@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   try {
     const currentToken = getTokenFromRequest(request);
     if (currentToken) {
-      revokeSessionByToken(currentToken);
+      await revokeSessionByToken(currentToken);
     }
 
     const response = NextResponse.json({ data: { ok: true } });

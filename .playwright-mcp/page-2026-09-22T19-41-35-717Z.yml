@@ -1,0 +1,181 @@
+- generic [active] [ref=f4e1]:
+  - generic [ref=f4e2]:
+    - generic [ref=f4e4]:
+      - navigation [ref=f4e5]:
+        - button [ref=f4e6]:
+          - img "EduGest — logo officiel" [ref=f4e7]
+        - generic [ref=f4e8]:
+          - button "Écoles" [ref=f4e9]
+          - button "Fonctionnalités" [ref=f4e10]
+          - button "Tarifs" [ref=f4e11]
+        - button "Se connecter" [ref=f4e12] [cursor=pointer]
+      - main [ref=f4e13]:
+        - generic [ref=f4e14]:
+          - heading "|" [level=1] [ref=f4e15]
+          - paragraph [ref=f4e17]:
+            - generic "La plateforme africaine de gestion scolaire qui connecte écoles, familles et enseignants pour un avenir meilleur." [ref=f4e18]:
+              - generic [aria-hidden] [ref=f4e19]: La
+              - generic [aria-hidden] [ref=f4e20]: plateforme
+              - generic [aria-hidden] [ref=f4e21]: africaine
+              - generic [aria-hidden] [ref=f4e22]: de
+              - generic [aria-hidden] [ref=f4e23]: gestion
+              - generic [aria-hidden] [ref=f4e24]: scolaire
+              - generic [aria-hidden] [ref=f4e25]: qui
+              - generic [aria-hidden] [ref=f4e26]: connecte
+              - generic [aria-hidden] [ref=f4e27]: écoles,
+              - generic [aria-hidden] [ref=f4e28]: familles
+              - generic [aria-hidden] [ref=f4e29]: et
+              - generic [aria-hidden] [ref=f4e30]: enseignants
+              - generic [aria-hidden] [ref=f4e31]: pour
+              - generic [aria-hidden] [ref=f4e32]: un
+              - generic [aria-hidden] [ref=f4e33]: avenir
+              - generic [aria-hidden] [ref=f4e34]: meilleur.
+        - generic [ref=f4e36]:
+          - textbox "Rechercher une école par nom..." [ref=f4e41]
+          - generic [ref=f4e43]:
+            - button "Toutes provinces" [ref=f4e46] [cursor=pointer]
+            - button "Rechercher" [ref=f4e50] [cursor=pointer]
+        - generic [ref=f4e51]:
+          - generic [ref=f4e53]:
+            - generic [ref=f4e54]: 🏫
+            - generic [ref=f4e55]: "0"
+            - generic [ref=f4e56]: Établissements
+          - generic [ref=f4e58]:
+            - generic [ref=f4e59]: 👨‍👩‍👧‍👦
+            - generic [ref=f4e60]: "0"
+            - generic [ref=f4e61]: Familles
+          - generic [ref=f4e63]:
+            - generic [ref=f4e64]: 🎓
+            - generic [ref=f4e65]: "0"
+            - generic [ref=f4e66]: Élèves
+    - paragraph [ref=f4e69]:
+      - strong [ref=f4e70]: "0"
+      - text: Établissement •
+      - strong [ref=f4e71]: "0"
+      - text: Familles •
+      - strong [ref=f4e72]: "0"
+      - text: Élèves
+    - generic [ref=f4e73]:
+      - generic [ref=f4e74]:
+        - button "Toutes 0" [ref=f4e75] [cursor=pointer]:
+          - text: Toutes
+          - generic [ref=f4e76]: "0"
+        - button "Maternelle 0" [ref=f4e77] [cursor=pointer]:
+          - text: Maternelle
+          - generic [ref=f4e78]: "0"
+        - button "Primaire 0" [ref=f4e79] [cursor=pointer]:
+          - text: Primaire
+          - generic [ref=f4e80]: "0"
+        - button "Secondaire 0" [ref=f4e81] [cursor=pointer]:
+          - text: Secondaire
+          - generic [ref=f4e82]: "0"
+        - button "Mixte 0" [ref=f4e83] [cursor=pointer]:
+          - text: Mixte
+          - generic [ref=f4e84]: "0"
+        - button "Privée 0" [ref=f4e85] [cursor=pointer]:
+          - text: Privée
+          - generic [ref=f4e86]: "0"
+        - button "Publique 0" [ref=f4e87] [cursor=pointer]:
+          - text: Publique
+          - generic [ref=f4e88]: "0"
+        - generic [ref=f4e89]: Affichage 0—0 sur 0
+        - button "Voir carte" [ref=f4e90]
+      - generic [ref=f4e96]:
+        - strong [ref=f4e97]: 0 écoles
+        - text: correspondent à votre recherche
+    - generic [ref=f4e130]:
+      - generic [ref=f4e131]:
+        - generic [ref=f4e132]: ►
+        - heading "Les systèmes scolaires intégrés" [level=2] [ref=f4e134]:
+          - text: Les
+          - generic [ref=f4e135]: systèmes scolaires
+          - text: intégrés
+        - paragraph [ref=f4e136]: "Cliquez sur un système pour découvrir ses parcours officiels : classes, options/filières populaires et horaires types."
+      - generic [ref=f4e137]:
+        - button "RDC RD Congo 1ère Primaire à 6ème Primaire, 7e & 8e Éducation de base, 1ère à 4ème Humanités Voir les parcours" [ref=f4e138]:
+          - generic [ref=f4e147]:
+            - generic [ref=f4e148]: RDC
+            - generic [ref=f4e149]: RD Congo
+          - generic [ref=f4e150]: 1ère Primaire à 6ème Primaire, 7e & 8e Éducation de base, 1ère à 4ème Humanités
+          - generic [ref=f4e151]: Voir les parcours
+        - button "Belgique Belgique P1 à P6 (1ère à 6ème primaire), S1 à S6 (1ère à 6ème secondaire) Voir les parcours" [ref=f4e154]:
+          - generic [ref=f4e162]:
+            - generic [ref=f4e163]: Belgique
+            - generic [ref=f4e164]: Belgique
+          - generic [ref=f4e165]: P1 à P6 (1ère à 6ème primaire), S1 à S6 (1ère à 6ème secondaire)
+          - generic [ref=f4e166]: Voir les parcours
+        - button "France France CP, CE1, CE2, CM1, CM2, 6ème, 5ème, 4ème, 3ème, 2nde, 1ère, Terminale Voir les parcours" [ref=f4e169]:
+          - generic [ref=f4e177]:
+            - generic [ref=f4e178]: France
+            - generic [ref=f4e179]: France
+          - generic [ref=f4e180]: CP, CE1, CE2, CM1, CM2, 6ème, 5ème, 4ème, 3ème, 2nde, 1ère, Terminale
+          - generic [ref=f4e181]: Voir les parcours
+        - button "Anglophone International / Anglophone Class 1-6, Form 1-5, Lower Sixth, Upper Sixth Voir les parcours" [ref=f4e184]:
+          - generic [ref=f4e196]:
+            - generic [ref=f4e197]: Anglophone
+            - generic [ref=f4e198]: International / Anglophone
+          - generic [ref=f4e199]: Class 1-6, Form 1-5, Lower Sixth, Upper Sixth
+          - generic [ref=f4e200]: Voir les parcours
+        - button "Francophone Afrique Francophone SIL, CP, CE1, CE2, CM1, CM2, 6ème, 5ème, 4ème, 3ème, 2nde, 1ère, Terminale Voir les parcours" [ref=f4e203]:
+          - generic [ref=f4e211]:
+            - generic [ref=f4e212]: Francophone
+            - generic [ref=f4e213]: Afrique Francophone
+          - generic [ref=f4e214]: SIL, CP, CE1, CE2, CM1, CM2, 6ème, 5ème, 4ème, 3ème, 2nde, 1ère, Terminale
+          - generic [ref=f4e215]: Voir les parcours
+    - generic [ref=f4e219]:
+      - generic [ref=f4e220]: ►
+      - heading "Pourquoi choisir EduGest" [level=2] [ref=f4e222]:
+        - text: Pourquoi choisir
+        - generic [ref=f4e223]: EduGest
+      - paragraph [ref=f4e224]: Une plateforme conçue pour les réalités africaines, avec les outils qu'il vous faut.
+      - generic [ref=f4e225]:
+        - generic [ref=f4e227]:
+          - heading "Gestion Scolaire Intégrale" [level=3] [ref=f4e232]
+          - paragraph [ref=f4e233]: Notes, bulletins, emploi du temps — tout en un seul endroit
+        - generic [ref=f4e235]:
+          - heading "Communication Instantanée" [level=3] [ref=f4e239]
+          - paragraph [ref=f4e240]: WhatsApp, SMS, notifications push pour rester connecté
+        - generic [ref=f4e242]:
+          - heading "Paiements Simplifiés" [level=3] [ref=f4e246]
+          - paragraph [ref=f4e247]: Mobile Money, virement, espèces — encaissez facilement
+        - generic [ref=f4e249]:
+          - heading "Multi-Écoles" [level=3] [ref=f4e255]
+          - paragraph [ref=f4e256]: Gérez plusieurs établissements depuis un tableau de bord unique
+        - generic [ref=f4e258]:
+          - heading "Sécurité & Conformité" [level=3] [ref=f4e262]
+          - paragraph [ref=f4e263]: Données protégées, conformes aux normes africaines
+        - generic [ref=f4e265]:
+          - heading "Analytique Avancée" [level=3] [ref=f4e269]
+          - paragraph [ref=f4e270]: Tableaux de bord et rapports en temps réel
+    - contentinfo [ref=f4e272]:
+      - generic [ref=f4e273]:
+        - generic [ref=f4e274]:
+          - img "EduGest — logo officiel" [ref=f4e276]
+          - paragraph [ref=f4e277]: La plateforme de gestion scolaire multi-écoles qui simplifie la vie des directions, enseignants et parents en Afrique francophone.
+        - generic [ref=f4e278]:
+          - heading "Produit" [level=4] [ref=f4e279]
+          - list [ref=f4e280]:
+            - listitem [ref=f4e281]:
+              - button "Trouver une école" [ref=f4e282]
+            - listitem [ref=f4e283]:
+              - button "Tarifs" [ref=f4e284]
+            - listitem [ref=f4e285]:
+              - button "Connexion" [ref=f4e286]
+        - generic [ref=f4e287]:
+          - heading "Rôles" [level=4] [ref=f4e288]
+          - list [ref=f4e289]:
+            - listitem [ref=f4e290]: Super Admin
+            - listitem [ref=f4e291]: Secrétaire
+            - listitem [ref=f4e292]: Parent
+            - listitem [ref=f4e293]: Enseignant
+        - generic [ref=f4e294]:
+          - heading "Contact" [level=4] [ref=f4e295]
+          - list [ref=f4e296]:
+            - listitem [ref=f4e297]: support@edugest.app
+            - listitem [ref=f4e298]: +243 81 234 56 78
+            - listitem [ref=f4e299]: Kinshasa · Dakar · Abidjan
+      - generic [ref=f4e300]:
+        - generic [ref=f4e301]: © 2026 EduGest · Tous droits réservés
+        - generic [ref=f4e302]: Conditions · Confidentialité · Cookies
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f4e308] [cursor=pointer]

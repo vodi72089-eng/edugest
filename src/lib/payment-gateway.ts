@@ -10,7 +10,7 @@
  */
 
 import { db } from '@/lib/db';
-import { convertCurrency } from '@/lib/exchange-rate';
+import { convertCurrency } from '@/lib/exchange-rate-server';
 import { decryptSecret } from '@/lib/gateway-keys';
 import { randomBytes } from 'crypto';
 

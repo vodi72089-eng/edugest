@@ -1,6 +1,6 @@
 import { requirePermission, sanitizeError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
-import { convertCurrency, fetchExchangeRates, SUPPORTED_CURRENCIES } from '@/lib/exchange-rate';
+import { convertCurrency, fetchExchangeRates, SUPPORTED_CURRENCIES } from '@/lib/exchange-rate-server';
 
 // GET /api/exchange-rate?from=USD&to=CDF&amount=100 — Convert currency
 export async function GET(request: NextRequest) {

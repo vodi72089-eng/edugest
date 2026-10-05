@@ -3,7 +3,8 @@ import { notifyEvent } from '@/lib/notification-service';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
 import { requireFeature } from '@/lib/feature-gate';
-import { getSchoolTier, hasFeatureAccess, getMinTierForFeature } from '@/lib/subscription';
+import { hasFeatureAccess, getMinTierForFeature } from '@/lib/subscription';
+import { getSchoolTier } from '@/lib/subscription-server';
 import { notifyCommunication, isWhatsAppConnected } from '@/lib/whatsapp-agent';
 
 export async function GET(request: NextRequest) {

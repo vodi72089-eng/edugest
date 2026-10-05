@@ -1,11 +1,10 @@
 import { db } from './db';
 import { NextRequest } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { Prisma } from '@prisma/client';
 import { normalizeClientIp } from './geo';
 
-// ─── Session store (file-based, survives HMR) ────────────────────────────
-// Session file shape (v2 — supports connected-devices feature):
+// ─── Session store (DB — Node + Cloudflare Workers) ────────────────────────
+// Session shape (v2 — supports connected-devices feature):
 //   {
 //     sid: string          // session id (crypto.randomUUID), safe to expose to UI
 //     userId: string
@@ -15,19 +14,13 @@ import { normalizeClientIp } from './geo';
 //     userAgent: string    // from request headers at creation
 //     ip: string           // from request headers at creation
 //   }
-// Legacy files (v1: { userId, expiresAt }) are read transparently — missing
-// fields default to '' / 0 / undefined.
-// Par défaut : dossier de travail du serveur. L'app desktop (Electron)
-// surcharge via EDUGEST_SESSIONS_DIR vers %APPDATA%/EduGest/.sessions :
-// sinon chaque mise à jour (et chaque redémarrage du portable, extrait en
-// temp) effacerait les sessions et forcerait une reconnexion.
-const SESSIONS_DIR = process.env.EDUGEST_SESSIONS_DIR || path.join(process.cwd(), '.sessions');
+// Store en base (modèle Session) : workerd n'a pas de système de fichiers.
 // Durée de session : 24 h sur le web. L'app desktop surcharge via
 // EDUGEST_SESSION_DAYS (ex: 30) pour rester connectée, MAJ incluses.
 const SESSION_DURATION_MS =
   (Number.parseInt(process.env.EDUGEST_SESSION_DAYS || '', 10) || 1) * 24 * 60 * 60 * 1000;
-// Throttle: only persist lastUsedAt if it's older than this, to avoid a disk
-// write on every single API request.
+// Throttle: only persist lastUsedAt if it's older than this, to avoid a write
+// on every single API request.
 const LAST_USED_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
 
 export interface SessionMeta {
@@ -85,286 +78,130 @@ export interface SessionListItem {
   location?: GeoLocation | null;
 }
 
-function ensureSessionsDir() {
-  try {
-    if (!fs.existsSync(SESSIONS_DIR)) {
-      fs.mkdirSync(SESSIONS_DIR, { recursive: true });
-    }
-  } catch {
-    // Fallback: if we can't create dir, we'll use in-memory only
-  }
-}
-
-function getSessionPath(token: string): string {
-  const dir = path.join(SESSIONS_DIR, token.slice(0, 2));
-  return path.join(dir, `${token}.json`);
-}
-
-function normalizeSession(raw: any): SessionData | null {
-  if (!raw || typeof raw !== 'object') return null;
-  if (!raw.userId || typeof raw.userId !== 'string') return null;
+// ── Helpers de conversion (DB ↔ forme SessionData) ───────────────────────
+function toSessionData(s: {
+  sid: string; userId: string; expiresAt: Date; createdAt: Date; lastUsedAt: Date;
+  userAgent: string; ip: string; fingerprintId: string; screen: string; gpu: string;
+  battery: string; languages: string; timezone: string; memory: string; cores: string;
+  network: string; location: unknown;
+}): SessionData {
   return {
-    sid: typeof raw.sid === 'string' ? raw.sid : '',
-    userId: raw.userId,
-    expiresAt: typeof raw.expiresAt === 'number' ? raw.expiresAt : 0,
-    createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : 0,
-    lastUsedAt: typeof raw.lastUsedAt === 'number' ? raw.lastUsedAt : 0,
-    userAgent: typeof raw.userAgent === 'string' ? raw.userAgent : '',
-    ip: typeof raw.ip === 'string' ? raw.ip : '',
-    fingerprintId: typeof raw.fingerprintId === 'string' ? raw.fingerprintId : '',
-    screen: typeof raw.screen === 'string' ? raw.screen : '',
-    gpu: typeof raw.gpu === 'string' ? raw.gpu : '',
-    battery: typeof raw.battery === 'string' ? raw.battery : '',
-    languages: typeof raw.languages === 'string' ? raw.languages : '',
-    timezone: typeof raw.timezone === 'string' ? raw.timezone : '',
-    memory: typeof raw.memory === 'string' ? raw.memory : '',
-    cores: typeof raw.cores === 'string' ? raw.cores : '',
-    network: typeof raw.network === 'string' ? raw.network : '',
-    location: raw.location && typeof raw.location === 'object' ? raw.location as GeoLocation : null,
+    sid: s.sid,
+    userId: s.userId,
+    expiresAt: s.expiresAt.getTime(),
+    createdAt: s.createdAt.getTime(),
+    lastUsedAt: s.lastUsedAt.getTime(),
+    userAgent: s.userAgent,
+    ip: s.ip,
+    fingerprintId: s.fingerprintId,
+    screen: s.screen,
+    gpu: s.gpu,
+    battery: s.battery,
+    languages: s.languages,
+    timezone: s.timezone,
+    memory: s.memory,
+    cores: s.cores,
+    network: s.network,
+    location: (s.location && typeof s.location === 'object' ? s.location : null) as GeoLocation | null,
   };
 }
 
-function writeSession(token: string, data: SessionData) {
-  try {
-    ensureSessionsDir();
-    const dir = path.join(SESSIONS_DIR, token.slice(0, 2));
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(getSessionPath(token), JSON.stringify(data), 'utf-8');
-  } catch {
-    // Silently fail — fallback to in-memory won't work but won't crash either
-  }
-}
-
-function readSession(token: string): SessionData | null {
-  try {
-    const sessionPath = getSessionPath(token);
-    if (!fs.existsSync(sessionPath)) return null;
-    const raw = fs.readFileSync(sessionPath, 'utf-8');
-    return normalizeSession(JSON.parse(raw));
-  } catch {
-    return null;
-  }
-}
-
-function deleteSession(token: string) {
-  try {
-    const sessionPath = getSessionPath(token);
-    if (fs.existsSync(sessionPath)) fs.unlinkSync(sessionPath);
-  } catch {
-    // ignore
-  }
-}
-
-export function createSession(userId: string, meta: SessionMeta = {}): string {
+export async function createSession(userId: string, meta: SessionMeta = {}): Promise<string> {
   const token = crypto.randomUUID();
-  const now = Date.now();
-  const session: SessionData = {
-    sid: crypto.randomUUID(),
-    userId,
-    expiresAt: now + SESSION_DURATION_MS,
-    createdAt: now,
-    lastUsedAt: now,
-    userAgent: meta.userAgent || '',
-    ip: meta.ip || '',
-  };
-  writeSession(token, session);
+  const now = new Date();
+  await db.session.create({
+    data: {
+      token,
+      sid: crypto.randomUUID(),
+      userId,
+      expiresAt: new Date(now.getTime() + SESSION_DURATION_MS),
+      createdAt: now,
+      lastUsedAt: now,
+      userAgent: meta.userAgent || '',
+      ip: meta.ip || '',
+    },
+  });
   return token;
 }
 
-export function validateSession(token: string): { userId: string } | null {
-  const session = readSession(token);
-  if (!session) return null;
-  if (Date.now() > session.expiresAt) { deleteSession(token); return null; }
-  // Throttled refresh of lastUsedAt — avoids a disk write on every request.
-  const now = Date.now();
-  if (session.lastUsedAt === 0 || now - session.lastUsedAt > LAST_USED_REFRESH_MS) {
-    session.lastUsedAt = now;
-    writeSession(token, session);
+export async function validateSession(token: string): Promise<{ userId: string } | null> {
+  const s = await db.session.findUnique({ where: { token } });
+  if (!s) return null;
+  if (Date.now() > s.expiresAt.getTime()) {
+    await db.session.delete({ where: { token } }).catch(() => {});
+    return null;
   }
-  return { userId: session.userId };
+  // Throttled refresh of lastUsedAt — avoids a write on every request.
+  const now = Date.now();
+  if (s.lastUsedAt.getTime() === 0 || now - s.lastUsedAt.getTime() > LAST_USED_REFRESH_MS) {
+    await db.session.update({ where: { token }, data: { lastUsedAt: new Date(now) } });
+  }
+  return { userId: s.userId };
 }
 
 // ─── Session enumeration & revocation (connected-devices feature) ─────────
-// Scans .sessions/** and returns all sessions belonging to `userId`.
-// `currentToken` (optional) marks the calling session as isCurrent.
-export function listUserSessions(userId: string, currentToken?: string): SessionListItem[] {
-  const out: SessionListItem[] = [];
-  try {
-    ensureSessionsDir();
-    const subdirs = fs.readdirSync(SESSIONS_DIR, { withFileTypes: true });
-    for (const d of subdirs) {
-      if (!d.isDirectory()) continue;
-      const subdirPath = path.join(SESSIONS_DIR, d.name);
-      let files: string[] = [];
-      try { files = fs.readdirSync(subdirPath); } catch { continue; }
-      for (const f of files) {
-        if (!f.endsWith('.json')) continue;
-        const token = f.replace(/\.json$/, '');
-        const sessionPath = path.join(subdirPath, f);
-        try {
-          const raw = fs.readFileSync(sessionPath, 'utf-8');
-          const s = normalizeSession(JSON.parse(raw));
-          if (!s || s.userId !== userId) continue;
-          // Skip expired (don't return, and clean up)
-          if (Date.now() > s.expiresAt) { try { fs.unlinkSync(sessionPath); } catch {} continue; }
-          out.push({
-            sid: s.sid || token.slice(0, 8),
-            createdAt: s.createdAt,
-            lastUsedAt: s.lastUsedAt,
-            expiresAt: s.expiresAt,
-            userAgent: s.userAgent,
-            ip: s.ip,
-            isCurrent: !!currentToken && token === currentToken,
-          });
-        } catch {
-          // Corrupt file — skip
-        }
-      }
-    }
-  } catch {
-    // Sessions dir not readable — return empty
-  }
-  // Most recently used first
-  out.sort((a, b) => b.lastUsedAt - a.lastUsedAt);
-  return out;
+// Liste les sessions appartenant à `userId`. `currentToken` (optionnel) marque
+// la session appelante comme isCurrent.
+export async function listUserSessions(userId: string, currentToken?: string): Promise<SessionListItem[]> {
+  const sessions = await db.session.findMany({
+    where: { userId, expiresAt: { gt: new Date() } },
+    orderBy: { lastUsedAt: 'desc' },
+  });
+  return sessions.map((s) => ({
+    sid: s.sid || s.token.slice(0, 8),
+    createdAt: s.createdAt.getTime(),
+    lastUsedAt: s.lastUsedAt.getTime(),
+    expiresAt: s.expiresAt.getTime(),
+    userAgent: s.userAgent,
+    ip: s.ip,
+    isCurrent: !!currentToken && s.token === currentToken,
+  }));
 }
 
 // Revoke a session by its token (used by /api/auth/logout).
-export function revokeSessionByToken(token: string): boolean {
-  const sessionPath = getSessionPath(token);
-  try {
-    if (!fs.existsSync(sessionPath)) return false;
-    fs.unlinkSync(sessionPath);
-    return true;
-  } catch {
-    return false;
-  }
+export async function revokeSessionByToken(token: string): Promise<boolean> {
+  const res = await db.session.deleteMany({ where: { token } });
+  return res.count > 0;
 }
 
 // Write device-enrichment fields (fingerprint + hardware signals) into the
-// session file for a given token. Only known string fields are accepted.
-export function updateSessionDeviceData(token: string, device: Record<string, unknown>): boolean {
-  const session = readSession(token);
-  if (!session) return false;
+// session for a given token. Only known string fields are accepted.
+export async function updateSessionDeviceData(token: string, device: Record<string, unknown>): Promise<boolean> {
   const allowed = ['fingerprintId', 'screen', 'gpu', 'battery', 'languages', 'timezone', 'memory', 'cores', 'network'] as const;
-  let changed = false;
+  const data: Record<string, string> = {};
   for (const key of allowed) {
     const value = device[key];
-    if (typeof value === 'string' && value.trim() !== '' && session[key] !== value) {
-      session[key] = value;
-      changed = true;
-    }
+    if (typeof value === 'string' && value.trim() !== '') data[key] = value;
   }
-  if (changed) writeSession(token, session);
-  return true;
+  if (Object.keys(data).length === 0) return true;
+  const res = await db.session.updateMany({ where: { token }, data });
+  return res.count > 0;
 }
 
-// Persist the resolved IP geolocation into the session file matching `sid`.
-// Mirrors revokeSessionBySid's scan pattern (sid is safe to expose, tokens never leave the server).
-export function updateSessionLocationBySid(userId: string, sid: string, location: GeoLocation | null): boolean {
-  try {
-    ensureSessionsDir();
-    const subdirs = fs.readdirSync(SESSIONS_DIR, { withFileTypes: true });
-    for (const d of subdirs) {
-      if (!d.isDirectory()) continue;
-      const subdirPath = path.join(SESSIONS_DIR, d.name);
-      let files: string[] = [];
-      try { files = fs.readdirSync(subdirPath); } catch { continue; }
-      for (const f of files) {
-        if (!f.endsWith('.json')) continue;
-        const token = f.replace(/\.json$/, '');
-        const sessionPath = path.join(subdirPath, f);
-        try {
-          const raw = fs.readFileSync(sessionPath, 'utf-8');
-          const s = normalizeSession(JSON.parse(raw));
-          if (!s || s.userId !== userId) continue;
-          const fileSid = s.sid || token.slice(0, 8);
-          if (fileSid === sid) {
-            s.location = location;
-            writeSession(token, s);
-            return true;
-          }
-        } catch {
-          // skip corrupt
-        }
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return false;
+// Persist the resolved IP geolocation into the session matching `sid`.
+// (sid is safe to expose, tokens never leave the server.)
+export async function updateSessionLocationBySid(userId: string, sid: string, location: GeoLocation | null): Promise<boolean> {
+  const res = await db.session.updateMany({
+    where: { userId, sid },
+    data: { location: location === null ? { set: null } : (location as unknown as Prisma.InputJsonValue) },
+  });
+  return res.count > 0;
 }
 
 // Revoke a specific session by its sid (safe — the actual auth token never
 // leaves the server). Returns true if a session was found & deleted.
-export function revokeSessionBySid(userId: string, sid: string): boolean {
-  let revoked = false;
-  try {
-    ensureSessionsDir();
-    const subdirs = fs.readdirSync(SESSIONS_DIR, { withFileTypes: true });
-    for (const d of subdirs) {
-      if (revoked) break;
-      if (!d.isDirectory()) continue;
-      const subdirPath = path.join(SESSIONS_DIR, d.name);
-      let files: string[] = [];
-      try { files = fs.readdirSync(subdirPath); } catch { continue; }
-      for (const f of files) {
-        if (!f.endsWith('.json')) continue;
-        const token = f.replace(/\.json$/, '');
-        const sessionPath = path.join(subdirPath, f);
-        try {
-          const raw = fs.readFileSync(sessionPath, 'utf-8');
-          const s = normalizeSession(JSON.parse(raw));
-          if (!s || s.userId !== userId) continue;
-          const fileSid = s.sid || token.slice(0, 8);
-          if (fileSid === sid) {
-            fs.unlinkSync(sessionPath);
-            revoked = true;
-            break;
-          }
-        } catch {
-          // skip corrupt
-        }
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return revoked;
+export async function revokeSessionBySid(userId: string, sid: string): Promise<boolean> {
+  const res = await db.session.deleteMany({ where: { userId, sid } });
+  return res.count > 0;
 }
 
 // Revoke ALL sessions for a user EXCEPT the current token. Used after a
 // password change to force re-login on other devices.
-export function revokeAllUserSessionsExcept(userId: string, exceptToken: string): number {
-  let count = 0;
-  try {
-    ensureSessionsDir();
-    const subdirs = fs.readdirSync(SESSIONS_DIR, { withFileTypes: true });
-    for (const d of subdirs) {
-      if (!d.isDirectory()) continue;
-      const subdirPath = path.join(SESSIONS_DIR, d.name);
-      let files: string[] = [];
-      try { files = fs.readdirSync(subdirPath); } catch { continue; }
-      for (const f of files) {
-        if (!f.endsWith('.json')) continue;
-        const token = f.replace(/\.json$/, '');
-        if (token === exceptToken) continue;
-        const sessionPath = path.join(subdirPath, f);
-        try {
-          const raw = fs.readFileSync(sessionPath, 'utf-8');
-          const s = normalizeSession(JSON.parse(raw));
-          if (!s || s.userId !== userId) continue;
-          fs.unlinkSync(sessionPath);
-          count++;
-        } catch {
-          // skip corrupt
-        }
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return count;
+export async function revokeAllUserSessionsExcept(userId: string, exceptToken: string): Promise<number> {
+  const res = await db.session.deleteMany({
+    where: { userId, token: { not: exceptToken } },
+  });
+  return res.count;
 }
 
 // Extract the bearer token from a request (for marking isCurrent in list).
@@ -399,11 +236,11 @@ export async function createToken(userData: {
   id: string; name: string; email: string | null; phone: string | null;
   role: string; schoolId: string | null; isActive: boolean;
 }, meta: SessionMeta = {}): Promise<string> {
-  return createSession(userData.id, meta);
+  return await createSession(userData.id, meta);
 }
 
 export async function verifyToken(token: string): Promise<{ userId: string } | null> {
-  return validateSession(token);
+  return await validateSession(token);
 }
 
 // ─── Auth helpers ──────────────────────────────────────────────────────────
@@ -418,7 +255,7 @@ export async function requireAuth(request: NextRequest): Promise<{ user: AuthUse
     return { error: Response.json({ error: 'Authentification requise' }, { status: 401 }) };
   }
   const token = authHeader.slice(7);
-  const session = validateSession(token);
+  const session = await validateSession(token);
   if (!session) return { error: Response.json({ error: 'Session expirée ou invalide' }, { status: 401 }) };
   const user = await db.user.findUnique({
     where: { id: session.userId },
@@ -965,7 +802,7 @@ export function sanitizeError(error: unknown): string {
 }
 
 // ─── Subscription enforcement ─────────────────────────────────────────────
-import { checkSubscription } from '@/lib/subscription';
+import { checkSubscription } from '@/lib/subscription-server';
 
 /**
  * Require an active subscription for the school.

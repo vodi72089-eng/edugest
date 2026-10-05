@@ -1,0 +1,73 @@
+# ─── Look School 360 — production (Coolify/VPS → Neon PostgreSQL) ────────────
+# Fichier distinct de docker-compose.yml (développement local SQLite) :
+# dans Coolify → Application → Docker Compose → indiquer CE fichier.
+# Toutes les variables ${...} sont fournies par Coolify (Env Variables) ;
+# ${VAR:-} = optionnel (vide si absent), ${VAR} = requis.
+services:
+  edugest:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+    ports:
+      - "3000:3000"
+    volumes:
+      - edugest-sessions:/app/.sessions
+      - edugest-upload:/app/upload
+    environment:
+      # ── Base de données : Neon PostgreSQL (string DIRECT, pas le pooler) ──
+      DATABASE_URL: ${DATABASE_URL}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      NODE_ENV: production
+      # ── App ↔ mini-service WhatsApp (réseau Docker interne) ────────────────
+      WHATSAPP_SERVER_URL: http://whatsapp:3001
+      WHATSAPP_API_KEY: ${WHATSAPP_API_KEY}
+      WHATSAPP_CORS_ORIGINS: ${WHATSAPP_CORS_ORIGINS:-}
+      # ── Sessions & sécurité ───────────────────────────────────────────────
+      EDUGEST_SESSIONS_DIR: ${EDUGEST_SESSIONS_DIR:-/app/.sessions}
+      EDUGEST_SESSION_DAYS: ${EDUGEST_SESSION_DAYS:-}
+      RESET_TOKEN_SECRET: ${RESET_TOKEN_SECRET}
+      PAYMENT_KEYS_SECRET: ${PAYMENT_KEYS_SECRET}
+      REPORT_SCHEDULER_KEY: ${REPORT_SCHEDULER_KEY}
+      # ── Email (SMTP) ──────────────────────────────────────────────────────
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      # ── Notifications push (VAPID) ────────────────────────────────────────
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+      # ── Webhooks paiements (URLs publiques une fois le domaine actif) ─────
+      MPESA_WEBHOOK_SECRET: ${MPESA_WEBHOOK_SECRET:-}
+      ORANGE_MONEY_WEBHOOK_SECRET: ${ORANGE_MONEY_WEBHOOK_SECRET:-}
+      AIRTEL_MONEY_WEBHOOK_SECRET: ${AIRTEL_MONEY_WEBHOOK_SECRET:-}
+      PLATFORM_WEBHOOK_SECRET: ${PLATFORM_WEBHOOK_SECRET:-}
+      SUBSCRIPTION_WEBHOOK_SECRET: ${SUBSCRIPTION_WEBHOOK_SECRET:-}
+      # ── Google OAuth (routes à construire) ────────────────────────────────
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # ── Divers ────────────────────────────────────────────────────────────
+      CASHIER_PHONE: ${CASHIER_PHONE:-}
+    depends_on:
+      - whatsapp
+    restart: unless-stopped
+
+  # Mini-service Baileys (pairing code + envoi) — session persistante en volume
+  whatsapp:
+    build: ./mini-services/whatsapp-server
+    environment:
+      WHATSAPP_API_KEY: ${WHATSAPP_API_KEY}
+      WHATSAPP_AUTH_DIR: /data/whatsapp-auth
+      WA_HOST: 0.0.0.0
+      WA_PORT: "3001"
+      WHATSAPP_CORS_ORIGINS: ${WHATSAPP_CORS_ORIGINS:-}
+    volumes:
+      - whatsapp-auth:/data/whatsapp-auth
+    restart: unless-stopped
+
+volumes:
+  edugest-sessions:
+  edugest-upload:
+  whatsapp-auth:

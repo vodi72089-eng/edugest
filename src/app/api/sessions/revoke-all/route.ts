@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const count = revokeAllUserSessionsExcept(user.id, currentToken);
+    const count = await revokeAllUserSessionsExcept(user.id, currentToken);
 
     return NextResponse.json({
       data: { revoked: count },

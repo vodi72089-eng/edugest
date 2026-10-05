@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     const { user } = authResult;
 
     const currentToken = getTokenFromRequest(request) || undefined;
-    const sessions = listUserSessions(user.id, currentToken);
+    const sessions = await listUserSessions(user.id, currentToken);
     await enrichSessionsWithLocation(user.id, sessions);
 
     return NextResponse.json({ data: sessions });

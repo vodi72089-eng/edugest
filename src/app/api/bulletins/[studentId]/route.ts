@@ -2,7 +2,8 @@ import { db } from '@/lib/db';
 import { requireAuth, verifySchoolAccess, verifyParentAccess, sanitizeError } from '@/lib/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { generateBulletinPDF, BulletinError } from '@/lib/bulletin';
-import { tierAllowsParentGrades, hasFeatureAccess, getSchoolTier } from '@/lib/subscription';
+import { tierAllowsParentGrades, hasFeatureAccess } from '@/lib/subscription';
+import { getSchoolTier } from '@/lib/subscription-server';
 
 // ─── Route Handler ──────────────────────────────────────────────────────────
 

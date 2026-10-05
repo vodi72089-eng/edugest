@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
 
     await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
-    const sessionToken = createSession(user.id, {
+    const sessionToken = await createSession(user.id, {
       userAgent: getUserAgentFromRequest(request),
       ip: getClientIp(request),
     });
