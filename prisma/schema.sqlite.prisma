@@ -1193,3 +1193,19 @@ model ReportSchedule {
   @@index([schoolId])
   @@index([isActive, nextRunAt])
 }
+
+// ── Suivi des fichiers uploadés (quota par école) ──────────────────────────
+// Chaque POST /api/upload enregistre une ligne : la somme des tailles d'une
+// école plafonne ses uploads (QUOTA_UPLOAD_PAR_ECOLE_OCTETS). La ligne est
+// supprimée quand le fichier l'est (ex. suppression d'une photo de galerie).
+model UploadFile {
+  id        String   @id @default(cuid())
+  fileName  String   @unique // nom réel sur disque (ex. 1780…-ab12cd.png)
+  size      Int      // octets
+  mimeType  String   // type DÉTECTÉ par magic bytes (pas le type déclaré)
+  uploaderId String  // User.id
+  schoolId  String?  // null pour les admins plateforme
+  createdAt DateTime @default(now())
+
+  @@index([schoolId])
+}

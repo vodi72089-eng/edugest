@@ -100,6 +100,12 @@ export async function DELETE(
 
     await db.schoolPhoto.delete({ where: { id } });
     const fileDeleted = deleteUploadFile(photo.url);
+    // Synchronise le suivi de quota : la ligne UploadFile du fichier supprimé
+    // est retirée pour ne pas compter du stockage libéré.
+    const fileName = (photo.url || '').replace(/^\/api\/upload\//, '');
+    if (fileName && !fileName.includes('/') && !fileName.includes('..')) {
+      await db.uploadFile.deleteMany({ where: { fileName } }).catch(() => {});
+    }
 
     return NextResponse.json({ data: { ok: true, fileDeleted } });
   } catch (error) {
