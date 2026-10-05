@@ -1,0 +1,39 @@
+# ─── Contexte de build image production ──────────────────────────────────────
+# Les deps viennent de bun.lock (étape deps du Dockerfile) — jamais du host.
+node_modules
+.pnpm-store
+.next
+
+# Secrets/environnement : l'image n'en embarque JAMAIS aucun.
+# Toutes les variables sont fournies par Coolify au runtime (+ build args).
+.env
+.env.*
+!.env.example
+
+# Git / CI / agents
+.git
+.github
+.agents
+
+# App desktop Electron (~1 Go de dist) — inutile côté serveur
+desktop
+
+# Données runtime : montées en volumes en production (jamais dans l'image)
+prisma/db
+.sessions
+upload
+whatsapp-auth
+server.log
+
+# Caches et fichiers de travail divers
+.playwright-mcp
+.qa-shots
+qa-shots
+ux-shots
+.pnpm-store
+.npmrc
+.clinerules-*
+*.log
+AUDIT-RAPPORT.txt
+RAPPORT-QA.txt
+list_users_tmp.js

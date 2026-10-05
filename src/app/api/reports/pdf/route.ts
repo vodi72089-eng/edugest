@@ -4,6 +4,8 @@ import { requireAuth, verifySchoolAccess, sanitizeError } from '@/lib/auth';
 import { collectDetailedReport } from '@/lib/report-data';
 import { buildReportPdf } from '@/lib/report-pdf';
 import { getRoleSealLabel } from '@/lib/helpers';
+import { registerDocument, qrDataUrlForDocument } from '@/lib/document-verify';
+import { getEduGestLogoBuffer, fetchSchoolLogoBuffer } from '@/lib/pdf-brand';
 
 // ─── Rapport PDF au design EduGest (détaillé, nominatif) ────────────────────
 // GET /api/reports/pdf?days=N[&schoolId=…]
@@ -64,7 +66,23 @@ export async function GET(request: NextRequest) {
     const sealLabel = getRoleSealLabel(user.role);
     data.sealLabel = sealLabel;
 
-    const pdf = await buildReportPdf(data, sealLabel);
+    const [schoolLogo, eduGestLogo] = await Promise.all([
+      fetchSchoolLogoBuffer(data.school.logo),
+      Promise.resolve(getEduGestLogoBuffer()),
+    ]);
+    const docRecord = await registerDocument({
+      type: 'REPORT',
+      schoolId,
+      metadata: {
+        periodFrom: data.period.from,
+        periodTo: data.period.to,
+        days: data.period.days,
+        sealLabel,
+      },
+    });
+    const qrDataUrl = await qrDataUrlForDocument(docRecord.id);
+
+    const pdf = await buildReportPdf(data, sealLabel, { schoolLogo, eduGestLogo, qrDataUrl });
 
     return new NextResponse(new Uint8Array(pdf), {
       status: 200,

@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Revoke all other sessions (force re-login on other devices)
-    revokeAllUserSessionsExcept(result.userId, '')
+    await revokeAllUserSessionsExcept(result.userId, '')
 
     return NextResponse.json({
       message: 'Mot de passe réinitialisé avec succès. Veuillez vous reconnecter.',

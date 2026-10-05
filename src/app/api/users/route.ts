@@ -270,7 +270,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Tier limit: maxAdmins / maxTeachers ────────────────────────────
-    const { checkCanCreateUser } = await import('@/lib/subscription');
+    const { checkCanCreateUser } = await import('@/lib/subscription-server');
     const tierCheck = effectiveSchoolId ? await checkCanCreateUser(effectiveSchoolId, role) : { ok: true as const };
     if (!tierCheck.ok) {
       return NextResponse.json({ error: tierCheck.error, limit: tierCheck.limit, current: tierCheck.current, tierLimit: true }, { status: 403 });

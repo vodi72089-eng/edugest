@@ -174,6 +174,8 @@ export async function PATCH(req: NextRequest) {
     let expiresAt: Date
     if (data.expiresAt) {
       expiresAt = new Date(data.expiresAt)
+    } else if (data.durationMinutes) {
+      expiresAt = new Date(Date.now() + Math.round(Number(data.durationMinutes)) * 60 * 1000)
     } else if (data.durationHours) {
       expiresAt = new Date(Date.now() + Number(data.durationHours) * 3600 * 1000)
     } else if (data.durationDays) {

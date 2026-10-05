@@ -2552,3 +2552,155 @@ Stage Summary:
 - L'utilisateur voit TOUJOURS où il se trouve : fil d'Ariane EduGest / Vue / École + adresse exacte affichée dans la topbar.
 - La recherche d'élèves vit dans l'URL : F5 la conserve, l'adresse est partageable (/students?q=Amani).
 - Reste : étendre ?q= aux autres listes (classes, paiements…) si demandé ; rappeler à l'utilisateur de tirer la mise à jour (bouton « Mettre à jour maintenant » ou git pull) puis Ctrl+Shift+R.
+Task: SMS 401 « The supplied authentication is invalid » → investigation systématique jusqu'à la cause racine.
+
+Work Log:
+- Diagnostic sans fix prématuré : clé en base vérifiée (atsk…dd1d, 19h23, charset strict `atsk_[0-9a-f]{72}` intact, aucun caractère invisible) ; appel DIRECT à api.africastalking.com (sans l'app, sans cache) → 401 identique → hors application ; re-test 1 h 19 après génération → toujours 401 (donc pas le délai 5 min d'AT) ; variantes d'auth (clé sans préfixe atsk_, Authorization: Bearer) → seul le header apiKey est lu ; article officiel AT consulté (help.africastalking.com/en/articles/1036048-why-am-i-getting-the-error-supplied-authentication-is-invalid).
+- DÉCOUVERTE RACINE : AT dispose d'une HÔTESSE SANDBOX distincte — le MÊME couple (username=sandbox + atsk…dd1d) répond HTTP 200 sur https://api.sandbox.africastalking.com/version1/user (balance CDF 89.24) et POST /version1/messaging → HTTP 201 « Success » (ATXid_c0fe…, Sent to 1/1). La clé ET l'username étaient corrects depuis le début : le code ne parlait qu'à api.africastalking.com (hôtesse live) qui rejette les identifiants sandbox en 401.
+- src/lib/sms.ts : hôtesse choisie d'après le username (« sandbox » ⇒ api.sandbox.africastalking.com, sinon api.africastalking.com) ; `enqueue: 'true'` → `'1'` (AT : « form field 'enqueue' was malformed: Expected a number » → 400 une fois l'auth passée) ; messages d'erreur 401 réécrits selon l'hôtesse appelée.
+- PlatformApiConfigSection.tsx : « Envoyer » conserve désormais la saisie quand rien n'est encore configuré (cause réelle de « l'API ne se sauvegarde jamais » : test en échec ⇒ jamais de save ; en plus le serveur étranger sur le port 3000 retournait 404 sur toutes les routes API avant) ; textes d'aide de la carte SMS réalignés sur le comportement réel (hôtesse auto, SENDER ID vide en sandbox, simulateur, clé via Settings → API Key) ; la note username hors « sandbox » n'oblige plus à « sandbox ».
+- Vérifications : tsc 0 erreur ; test end-to-end via l'app (POST /api/auth admin@edugest.app → POST /api/sms-config action=test) → HTTP 200 { ok: true, « SMS de test envoyé à +243835113424 » }.
+- Desktop : 1.4.7 figée depuis le 21/09 (pushes suivants republiaient v1.4.7 sans jamais signaler de MAJ à l'exé) → bump 1.4.8 (3b7f568), puis 1.4.9 pour inclure ce fix SMS.
+- Commits : b2b4006 (message 401 + textes + save première config), 3b7f568 (bump 1.4.8), + ce commit.
+
+Stage Summary:
+- Cause racine du 401 : Mauvaise hôtesse AT (live au lieu de sandbox) — credentials corrects. Le test SMS passe via l'app (HTTP 200) ; reste la confirmation de réception côté téléphone.
+- « Ne sauvegarde jamais » : deux causes réelles (serveur étranger sur port 3000 + save conditionnée au succès du test), toutes deux corrigées.
+
+Task: SMS « envoyé » mais rien sur le téléphone → où passent vraiment les SMS sandbox ?
+
+Work Log:
+- Constat utilisateur : test via l'app → 200 « SMS de test envoyé » mais aucun SMS sur le téléphone (+243835113424, numéro réel vérifié en base : WhatsApp y arrivait) ni dans developers.africastalking.com/simulator (inbox vide).
+- Test du grand livre : envoi avec solde DÉJÀ négatif → HTTP 201 accepté, solde −141,43 → −187,57 (baisse de 46,13 sans jamais renvoyer 405 InsufficientBalance) → bilan SIMULÉ = environnement sandbox confirmé (un wallet live refuserait à 405). Aide AT : le sandbox est gratuit, « you are not charged ».
+- Aide officielle AT, article « What are the sandbox and the live environments ? » (help.africastalking.com/en/articles/2189460) : « Messages, payments and other products are sent to the simulator when using Sandbox while on the live environment they'd be sent to client's phones. (So don't expect a message sent through the sandbox to be delivered to your phone :)) » → L'ABSENCE DE SMS SUR LE TÉLÉPHONE EN SANDBOX EST NORMAL ET DOCUMENTÉ.
+- Article « How do I get started on the Africa's Talking Sandbox? » : simulateur officiel https://simulator.africastalking.com:1517/ (« Register the number or numbers … NOT the HANDSET ») — injoignable depuis ici (transport error / 503 sur la racine) ; lieux de réception : simulateur des docs (developers.africastalking.com/simulator → Sign In → Connect) et « session logs/inbox for SMS on your dashboard » (account.africastalking.com, dashboard orange = Sandbox).
+- Doc developers.africastalking.com lue (evaluate DOM, a11y vide) : /docs/authentication confirme username « sandbox » en sandbox + header apiKey ; /docs/sms/sending/bulk liste Live + Sandbox « (coming soon) » ; statusCode 102 = Queued et « status … does not indicate the delivery status ».
+- src/app/api/sms-config/route.ts : message de succès du test enrichi en mode sandbox — précise que le SMS n'arrive PAS sur le téléphone et où le consulter (simulateur / inbox dashboard).
+- PlatformApiConfigSection.tsx : texte d'aide corrigé (vrai URL du simulateur, avertissement « n'arrive JAMAIS sur le téléphone » en sandbox, dashboard vert = Live avec crédits).
+- Constat infra : le serveur de l'utilisateur est un `next start -p 3100` (build prod) → les correctifs source ne s'y appliquent qu'après rebuild ; la session parallèle a des erreurs tsc en cours (page.tsx/store.ts/view-paths.ts — non touchées ici). tsc : 0 erreur sur les fichiers de cette session.
+- Bump desktop 1.4.10 (le build 1.4.9 partait sans ces textes) ; push + CI.
+
+Stage Summary:
+- Ce n'est PAS un bug EduGest : en sandbox, AT n'envoie jamais sur le handset (documenté). Reste à l'utilisateur : Sign In → Connect sur le simulateur des docs (ou inbox du dashboard orange) pour VU les messages de test, puis environnement Live (username du dashboard vert + recharge du wallet) pour de vrais SMS sur le téléphone.
+
+Task: Retirer Bictorys et Flutterwave de Config. Paiements (indisponibles en RDC)
+
+Work Log:
+- Demande utilisateur : « enleve moi bictorys et fluterwave il marche pas en rdc » (capture : page Config. Paiements, 8 cartes, toutes « Non configuré »).
+- Analyse : les cartes proviennent du catalogue construit par GET /api/payment-gateways (école) et GET /api/platform-payment-gateways (plateforme) depuis Object.keys(GATEWAY_INFO) — décision : retirer au niveau API/validation pour ne PAS modifier src/app/page.tsx (fichier en cours d'édition de la session parallèle, commit 4bf37a9 entre-temps).
+- src/lib/payment-gateway.ts : nouvelle constante exportée RETIRED_GATEWAY_TYPES = ['FLUTTERWAVE','BICTORYS'] (+ commentaire RDC aligné sur le retrait historique Stripe/PayPal/DPO) et AVAILABLE_GATEWAY_TYPES = GATEWAY_INFO minus retirées ; en-tête du fichier mis à jour.
+- Routes redirigées vers AVAILABLE_GATEWAY_TYPES (le type ne figure plus au catalogue ni dans la validation) : payment-gateways/route.ts (VALID + requête DB notIn sur configured), platform-payment-gateways/route.ts (VALID + notIn), payment-gateways/initiate/route.ts (VALID), payment-gateways/initiate-subscription/route.ts (check GATEWAY_INFO → AVAILABLE), subscription/payment-methods/route.ts (notIn sur les méthodes d'abonnement visibles écoles).
+- src/lib/gateway-api-info.ts : textes Visa/Mastercard corrigés (plus d'invitation à « configurer Flutterwave ou Bictorys » — remplacé par Orange Money / Airtel Money / manuel) + commentaire d'en-tête.
+- Non touchés (sans effet : uniquement si configuré+actif) : OnlinePaymentView (HOSTED_METHODS/METHOD_META), GATEWAY_SVG_LOGOS page.tsx, switch process* et entrées GATEWAY_API_INFO (gardés pour configurations historiques — 0 ligne en DB, vérifié).
+- tsc --noEmit : 0 erreur (EXIT=0).
+- E2E sur serveur dev éphémère port 3200 (3100 de l'utilisateur non touché, serveur arrêté après test) : GET plateforme → 6 passerelles VISA,MASTERCARD,MPESA,ORANGE_MONEY,AIRTEL_MONEY,MANUAL sans FLUTTERWAVE/BICTORYS ; POST platform gatewayType=BICTORYS → HTTP 400 « Type de passerelle invalide » ; GET école (Complexe Scolaire Lumière) → 6 passerelles sans retirées, configured sans retirées ; GET subscription/payment-methods → aucune retirée. « === TOUS LES TESTS PASSENT === ».
+- Bump desktop 1.4.11 (push systématique).
+
+Stage Summary:
+- Bictorys + Flutterwave retirés de l'offre RDC côté API (catalogue Config. Paiements école + plateforme, validation configuration/initiation, méthodes d'abonnement) sans toucher à page.tsx — preuve E2E : catalogue 6 passerelles, POST BICTORYS 400. Le build de production sur le port 3100 devra être reconstruit (ou l'exe 1.4.11 téléchargé) pour afficher la nouvelle page.
+
+Task: QR Parents — durée de vie « aux millimètres près », unicité par école, message d'erreur clair, classe à côté des élèves (Discipline).
+
+Work Log:
+- Demande utilisateur (4 points) : QR impossible à générer, QR unique d'une école à l'autre, personnalisation fine (ex. « chaque 3 min »), classe affichée à côté des élèves → clarification demandée : écran « Discipline » (les captures jointes étaient partiellement parasites : une image de lecteur vidéo + la page Rapports qui n'affiche aucune liste d'élèves).
+- « Erreur réseau » à la génération : cause racine déjà prouvée (onglet sur le port 3100 mort, serveur relancé sur 3000 → ECONNREFUSED) ; ParentQrView catch enrichi : « Erreur réseau : le serveur ne répond pas. Rechargez la page (F5) puis réessayez. ».
+- Durée personnalisée (UI) : ParentQrView — option « Personnalisée — durée exacte » ajoutée au sélecteur (presets 1h/24h/7j/30j/3mois/1an inchangés) + quantité (≥1, défaut 3) + unité minute(s)/heure(s)/jour(s), contrôle « ex. 3 min » ; bornes client 1 min ↔ 366 j.
+- Durée personnalisée (API) : POST /api/school-qr-codes accepte durationMinutes (arrondi à la minute, ≥ 1 min sinon 400) ; durationHours/durationDays/expiresAt inchangés (rétrocompatibles) ; settings-approval gère durationMinutes à l'approbation (flow secrétaire → admin), garde 366 j existante conservée.
+- Discipline — classe à côté des élèves : tableau des listes Noire/Grise/Blanche (cellule Élève : « Classe 4eA · CSL-2025-009 », fallback sur roster si student.class absent), sous-libellé des suggestions de recherche (« matricule · Classe X »), convocations staff et parent, champs Élève des formulaires sanction/convocation ; /api/convocations : select student enrichi de class (GET/POST/PUT — les 3 sites) ; /api/discipline portait déjà student.class.
+- Unicité QR par école : AUCUN changement de code nécessaire — déjà garanti par token crypto.randomBytes(24) (192 bits) + liaison schoolId côté serveur, /api/public/find-child résout l'école depuis le token.
+- tsc --noEmit : 0 erreur sur src (seul tests/comprehensive-audit.spec.ts préexistant, hors scope).
+- E2E API (serveur dev 3001, arbre courant) : POST durationMinutes=3 → 201, expiresAt = +3 min (±<60 s) ; durationMinutes=0 → 400 ; durationHours=720 → 201 (non-régression presets) ; unicité : token école A ≠ token école B, find-child(token A) → « Complexe Scolaire Lumière », find-child(token B) → « Institut Mwanzo » ; convocations GET → student.class « 6eA » (insertion directe Prisma sans notification, ligne supprimée après).
+- E2E navigateur : modal QR → option « Personnalisée — durée exacte », quantité 3, unité « minute(s) » ; soumission → toast « QR code généré avec succès », QR dans la liste, expiration en base ≈ 3 min ; vue Discipline → « Lukaku Mputu | Classe 4eA · CSL-2025-009 » (Noire/Grise) et lignes synthétiques Liste Blanche (« Amani Baketu | Classe CP1 · CSL-2025-016 ») ✓.
+- Nettoyage : 4 QR de test supprimés (seul « teste » de l'utilisateur conservé), convocation de test supprimée, sessions mintées supprimées.
+- Bump desktop 1.4.12 (push systématique).
+
+Stage Summary:
+- Durée de vie QR personnalisable au détail de la minute (ex. 3 min) de bout en bout (UI + API + approbation secrétaire), message d'erreur réseau explicite avec instruction de rechargement, Discipline affiche la classe à côté de chaque élève (tableau, suggestions, convocations, formulaires), unicité par école prouvée sans code (token 192 bits + schoolId serveur). IMPORTANT : l'app de production tourne désormais sur le port 3000 (3100 est mort) — rebuild nécessaire pour que le correctif soit actif côté utilisateur.
+
+
+Task: Discipline — clic sur un élève → fiche détaillée (identité, contact parent, historique disciplinaire).
+
+Work Log:
+- Demande utilisateur : « je veux que quand je clique sur un élève je puisse avoir des informations sur lui » (écran Discipline, capture Listes Noire/Grise/Blanche).
+- Nouveau composant src/components/views/StudentProfileModal.tsx : fiche ouverte par clic sur une ligne/cellule élève — en-tête (photo, nom, matricule, classe + section, badge de liste, mention « Exclu »), 4 indicateurs (points, incidents, dernier incident, statut), bloc Identité (sexe, naissance + âge, classe, année scolaire, école, téléphone, adresse si présente), bloc Parent / tuteur (nom, téléphone, email — état vide explicite), Historique disciplinaire complet (motif, type, date, statut, gravité, points, description, liste) et section Convocations facultative (masquée silencieusement si la feature n'est pas dans le forfait).
+- Une seule requête : GET /api/students/:id renvoie déjà l'élève + disciplineRecords (+ class, parent, school, schoolYear) ; permission students:read déjà détenue par DISCIPLINE_*, DIRECTION et PARENT — aucun nouveau point d'API.
+- DisciplineView : ligne du tableau cliquable (garde sur éléments interactifs — boutons de modification/classification et champs — pour ne pas voler leur clic), cellule Élève transformée en bouton « Voir la fiche de l'élève » (soulignement au survol), modale montée avec key={studentId} : chaque nouvel élève crée un composant neuf, donc zéro setState synchrone dans l'effet (règle react-hooks/set-state-in-effect respectée).
+- Actions rapides depuis la fiche (rôles discipline uniquement) : « Sanctionner » et « Convocation » ferment la modale et ouvrent le formulaire correspondant avec l'élève déjà présélectionné.
+- tsc --noEmit : 0 erreur sur src (seul tests/comprehensive-audit.spec.ts prédéfini, hors scope) ; eslint sur les 2 fichiers : 0 nouvelle erreur — l'unique signalement de DisciplineView.tsx (ligne 221, set-state-in-effect) est antérieur et reste donc dans la baseline CI 109.
+- E2E API (serveur dev 3001, arbre courant) : 20 fiches élèves lues avec identité + parent + disciplineRecords systématiquement présents (7 incidents au total), élève sans incident géré (Liste Blanche), convocations par élève → 200.
+- E2E navigateur (vue Discipline, compte Discipline Primaire, Complexe Scolaire Lumière) : clic « Lukaku Mputu » → fiche « CSL-2025-009 · Classe 4eA — Secondaire », badge Liste Grise, POINTS -1 / INCIDENTS 1 / DERNIER 22 sept. 2026 / STATUT Actif, naissance 07/09/2010 · 16 ans, parent Maman Nsimba +243810000022, historique « Retard occasionnel » (Retard · 22 sept. 2026 · Confirmé · Faible · -1 · description · Liste Grise) ; fermeture par Échap OK ; action « Convocation » → modale fermée + « Convocation des parents — Lukaku Mputu » ouverte avec élève présélectionné ; onglet Liste Blanche (15 lignes) → clic « Amani Baketu » → « Aucun incident enregistré — élève en Liste Blanche » (0 incident, badge Liste Blanche) ; aucune erreur console liée à la fiche (seul /api/sync/pulse 500 préexistant, hors périmètre).
+- Nettoyage : session E2E mintée supprimée ; serveur dev 3001 relancé pour l'arbre courant.
+- Pas de bump desktop : livraison web, la 1.4.12 reste en attente d'un CI vert.
+
+Stage Summary:
+- Clic sur un élève dans Discipline → fiche complète (identité, contact parent, indicateurs, historique disciplinaire, convocations) avec actions Sanctionner/Convocation préremplies, prouvée en navigateur et en API sans régression tsc/eslint ; CI et release 1.4.12 toujours bloquées par la faute de type de l'autre session (src/lib/report-pdf.ts, correctif non commité chez elle).
+
+
+Task: Import DB (web) — bouton « Ouvrir l'application desktop » (deep link edugest://) dans le modal « Application desktop requise ».
+
+Work Log:
+- Demande utilisateur : « je veux que ça me dise d'aller si je veux directement dans l'exe si j'ai l'app » (capture : modal Application desktop requise, bouton unique « Télécharger l'application desktop »).
+- La fonctionnalité était déjà codée dans l'arbre de travail (session parallèle, non commitée) : openDesktopApp() → window.location.href = 'edugest://import-db' (protocole enregistré par desktop/main.js via app.setAsDefaultProtocolClient), détection d'acceptation par perte de focus (blur) avec repli « Rien ne s'est ouvert ? L'application n'est peut-être pas encore installée — téléchargez-la ci-dessous. » après 2,5 s ; texte « Vous l'avez déjà ? Ouvrez-la directement (bouton ci-dessous) » ; côté desktop, bridge __edugest.deepLink (Home) + flag sessionStorage 'edugest:pending-import-db' (DashboardLayout) pour ouvrir l'import après connexion.
+- Vérification E2E navigateur (serveur dev 3001, compte Directeur Lumière, UA Electron neutralisée pour simuler un navigateur web) : modal → bouton « Ouvrir l'application desktop » → deep link tenté → pas d'appareil enregistré sur la machine de test → message de secours affiché correctement ; boutons « Télécharger l'application desktop » et « Plus tard » présents.
+- Commit partiel (0aaa0bf) : seuls les 4 hunks de cette fonctionnalité de src/app/page.tsx ont été indexés (git apply --cached hunk par hunk) ; les hunks WhatsApp de la session parallèle (console.log de debug, canManageAgent) restent dans l'arbre de travail, non commités.
+- Poussé sur main (f577591..0aaa0bf). CI toujours bloquée par la faute de type report-pdf.ts de l'autre session (correctif non commité).
+
+Stage Summary:
+- Le modal web propose désormais « Ouvrir l'application desktop » (deep link edugest://import-db) avec repli vers le téléchargement si l'exe n'est pas installée — prouvé en navigateur ; en attente du rebuild de l'app de production (port 3000) pour être visible côté utilisateur.
+
+
+Task: Discipline — les compteurs par liste (badges des onglets) reflètent les filtres actifs (classe + gravité).
+
+Work Log:
+- Demande utilisateur : « je veux que quand je sélectionne une classe ou les autres filtres que ça puisse montrer les vrais stat selon le filtre choisi » (capture : Discipline, filtre 6eA actif, badges Liste Noire 2 / Grise 3 / Blanche 15 inchangés alors que le tableau n'affiche que 2 lignes de 6eA).
+- Cause : listCounts (DisciplineView.tsx) calculait la classification élève depuis studentListMap, construit sur TOUS les enregistrements, sans tenir compte de classFilter ni severityFilter.
+- Correctif : listCounts reconstruit la classification par élève à partir des enregistrements filtrés (classe de l'élève + gravité de l'enregistrement) et ne compte que les élèves du périmètre filtré. Un élève sans enregistrement correspondant aux filtres retombe en Liste Blanche — cohérent avec le tableau filtré. studentListMap inchangé (utilisé pour le basculement d'onglet parent).
+- E2E navigateur (dev 3001, Directeur Lumière) : sans filtre → Noire 2 / Grise 3 / Blanche 15 (3 lignes) ; filtre 6eA → Noire 0 / Grise 2 / Blanche 1 (2 lignes TK, KM) ; 6eA + gravité Moyen → Noire 0 / Grise 1 / Blanche 2 (1 ligne TK) ; « Réinitialiser les filtres » → retour aux compteurs globaux.
+- tsc --noEmit : 0 erreur sur src ; eslint : aucune nouvelle erreur (celle de la ligne 237 est préexistante, session parallèle).
+
+Stage Summary:
+- Les badges Liste Noire / Grise / Blanche affichent désormais les statistiques réelles selon les filtres de classe et de gravité choisis — prouvé en navigateur (4 scénarios) ; en attente du rebuild de l'app de production (port 3000) pour être visible côté utilisateur.
+
+
+Task: Discipline — Liste Blanche vide quand un filtre de gravité est actif (badge 18 mais « Aucun enregistrement »).
+
+Work Log:
+- Demande utilisateur : « ARRANGE ça » (capture : Discipline, filtre « Grave » actif, Liste Blanche badge 18 mais tableau vide).
+- Cause : les lignes synthétiques « Aucune infraction » ont severity 'NONE' → le filtre de gravité (r.severity === severityFilter) les écartait toutes. De plus, la détection des élèves « sans incident » ignorait les filtres (un élève avec seulement des incidents d'une autre gravité n'avait pas sa ligne).
+- Correctif (DisciplineView.tsx, displayRecords) : (1) studentIdsWithRecords ne retient que les enregistrements correspondant aux filtres actifs (classe + gravité) — un élève dont tous les incidents sont hors filtre devient « sans incident » ; (2) le filtre de gravité épargne les lignes synthétiques (type CLEAN) qui matérialisent l'absence d'incident.
+- E2E navigateur (dev 3001, Directeur Lumière) : filtre « Grave » → Liste Blanche 18 lignes « Aucune infraction » (avant : vide) ; Liste Noire 2 lignes (les 2 élèves noirs ont bien un incident Grave) ; Liste Grise vide (correct : aucun incident Grave en grise) ; reset → Noire 2 / Grise 3 / Blanche 15.
+- tsc --noEmit : 0 erreur sur src ; eslint : aucune nouvelle erreur.
+
+Stage Summary:
+- La Liste Blanche affiche désormais les lignes « Aucune infraction » cohérentes avec les filtres de classe et de gravité — prouvé en navigateur ; en attente du rebuild de l'app de production (port 3000) pour être visible côté utilisateur.
+
+
+Task: Liste de présence accessible aux professeurs (TEACHER + HEAD_TEACHER).
+
+Work Log:
+- Demande utilisateur : « j'aimerais que les professeurs puissent aussi avoir une liste des présence » (capture : vue Liste de présence).
+- src/lib/auth.ts : ajout des permissions attendance:read + attendance:create à TEACHER, HEAD_TEACHER et SCHOOL_ADMIN (pour ne pas casser l'accès existant via le changement de permission API).
+- src/app/api/attendance/route.ts : GET passe de discipline:read à attendance:read ; POST passe de discipline:update à attendance:create (modèle de permission cohérent).
+- src/components/views/AttendanceView.tsx : canTakeAttendance accepte désormais TEACHER et HEAD_TEACHER (isTeacherRole).
+- src/app/page.tsx : 'attendance' ajouté à VIEWS_BY_ROLE.TEACHER et HEAD_TEACHER + entrées sidebar « Liste de présence » pour les deux rôles.
+- E2E API (serveur dev 3001, compte Prof. Mwepu Kashala TEACHER) : GET /api/classes → 200 (3 classes) ; GET /api/attendance?classId=CE1 → 200 (1 élève) ; POST /api/attendance → 201 saved=1 (anti-contournement vérifié : un élève d'une autre classe est refusé).
+- E2E navigateur : session TEACHER → /attendance → h1 « Liste de présence », sidebar avec l'entrée, pas de message d'accès refusé, sélecteur de classe présent.
+- tsc --noEmit : 0 erreur sur src ; eslint : aucune nouvelle erreur.
+
+Stage Summary:
+- Les professeurs (TEACHER et HEAD_TEACHER) peuvent désormais faire l'appel quotidien depuis « Liste de présence » — prouvé en API et en navigateur ; en attente du rebuild de l'app de production (port 3000) pour être visible côté utilisateur.
+
+
+Task: Présence des professeurs — appel quotidien par cycle, historique filtrable, fiche PDF.
+
+Work Log:
+- Demande utilisateur : « on peut aussi mettre une liste de presence pour les professeur... les comptes discipline qui l'auront et ils pourront voir seulement la liste des professeurs de son cycle... l'admin de l'école peut voir tout les prof... quand on clique sur un prof on puisse telecharger sa liste de presence... format pdf avec le meme design que les autres pdf... on pourra filtre par classe par jour... en bas du pdf avoir les nombres de fois qu'il est venu et pas venu ».
+- Schema: nouveau modele TeacherAttendanceRecord (teacherId, schoolId, date, status, recordedBy, validatedBy/At) + relations User/School.
+- API: GET/POST /api/attendance/teachers (liste profs du cycle + statuts du jour, filtre cycle pour DISCIPLINE_*), GET /api/attendance/teachers/history (filtre date), GET /api/attendance/teachers/history/pdf (fiche PDF design gianelli avec totaux presents/absents/retards en bas).
+- UI (AttendanceView): 3 onglets — Appel du jour (eleves), Présence profs (liste du cycle + boutons Present/Absent + bouton telecharger PDF par prof), Historique (filtre date + tableau eleves/profs).
+- E2E (serveur dev 3002, Directeur Lumière): GET teachers → 3 profs; POST → saved=2; history → 2 records, stats {present:1, absent:1}; PDF → 35 Ko, header %PDF valide; UI → 3 onglets visibles, liste profs OK.
+- Note: le .env contient un chemin Linux (DATABASE_URL=file:/home/z/my-project/...) — prisma db push doit etre lance avec DATABASE_URL=file:./db/custom.db (le bon chemin Windows de .env.local).
+- Commits: b072204 (schema+API+PDF), e47c812 (UI), d9226eb (fix syntaxe PDF).
+
+Stage Summary:
+- Les professeurs ont leur propre appel quotidien (onglet « Présence profs »), visible par cycle pour les comptes DISCIPLINE_* et en entier pour l'admin d'école; chaque prof a une fiche PDF de présence (design gianelli, totaux en bas) telechargeable depuis sa ligne; l'onglet Historique filtre par date et affiche eleves + profs — prouve en API et en navigateur.

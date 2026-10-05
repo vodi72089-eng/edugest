@@ -18,8 +18,9 @@ import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
 import type { UserRole } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT, DANGER, SUCCESS, SUCCESS_SOFT } from '@/lib/constants'
 import StudentAvatar from '@/components/ui/StudentAvatar'
-import { CalendarCheck, ClipboardList, Check, Database, ShieldAlert, Clock } from 'lucide-react'
+import { CalendarCheck, ClipboardList, Check, Database, ShieldAlert, Clock, Users, Download } from 'lucide-react'
 import { toast } from 'sonner'
+import { savePdfBlob, toastPdfSaved } from '@/lib/desktop-files'
 import AppSelect from '@/components/ui/AppSelect'
 
 interface ClassRow { id: string; name: string; section?: string | null }
@@ -56,6 +57,21 @@ export default function AttendanceView() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [lastSave, setLastSave] = useState<{ saved: number; at: string } | null>(null)
+
+  // ── Présence des professeurs ─────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<'students' | 'teachers' | 'history'>('students')
+  const [teachers, setTeachers] = useState<{ id: string; name: string; email: string; role: string; subjectName: string | null; classNames: string | null; attendance: string | null }[]>([])
+  const [teacherAttendanceMap, setTeacherAttendanceMap] = useState<Record<string, string>>({})
+  const [teachersLoading, setTeachersLoading] = useState(false)
+  const [teachersSaving, setTeachersSaving] = useState(false)
+  const [teachersLastSave, setTeachersLastSave] = useState<{ saved: number; at: string } | null>(null)
+
+  // ── Historique de présence (élèves + profs) ────────────────────────────
+  const [historyRecords, setHistoryRecords] = useState<{ id: string; date: string; status: string; studentId?: string; teacherId?: string; student?: { firstName: string; lastName: string; matricule: string } | null; teacher?: { name: string; email: string; role: string; subjectName: string | null; classNames: string | null } | null }[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'students' | 'teachers'>('all')
+  const [historyDate, setHistoryDate] = useState('')
+  const [historyClassId, setHistoryClassId] = useState('')
 
   // Classes : super admin → TOUJOURS schoolId=getActiveSchoolId() (sans école
   // active : aucune requête, vue plateforme vide) ; rôles école → param omis,
@@ -94,6 +110,52 @@ export default function AttendanceView() {
     return () => { cancelled = true }
   }, [classId, date])
 
+  // Charger les professeurs + leurs statuts du jour
+  useEffect(() => {
+    if (!canTakeAttendance || activeTab !== 'teachers') return
+    const schoolId = getActiveSchoolId()
+    if (!schoolId && isSAG) return
+    let cancelled = false
+    setTeachersLoading(true)
+    const params = new URLSearchParams({ date })
+    if (schoolId) params.set('schoolId', schoolId)
+    authFetch(`/api/attendance/teachers?${params}`)
+      .then(r => r.json())
+      .then(j => {
+        if (cancelled) return
+        setTeachers(j.data?.teachers || [])
+        const map: Record<string, string> = {}
+        for (const t of j.data?.teachers || []) {
+          if (t.attendance) map[t.id] = t.attendance
+        }
+        setTeacherAttendanceMap(map)
+        setTeachersLoading(false)
+      })
+      .catch(() => { if (!cancelled) setTeachersLoading(false) })
+    return () => { cancelled = true }
+  }, [canTakeAttendance, isSAG, getActiveSchoolId(), activeTab, date])
+
+  // Charger l'historique de présence (élèves + profs)
+  useEffect(() => {
+    if (!canTakeAttendance || activeTab !== 'history') return
+    const schoolId = getActiveSchoolId()
+    if (!schoolId && isSAG) return
+    let cancelled = false
+    setHistoryLoading(true)
+    const params = new URLSearchParams()
+    if (schoolId) params.set('schoolId', schoolId)
+    if (historyDate) params.set('date', historyDate)
+    authFetch(`/api/attendance/teachers/history?${params}`)
+      .then(r => r.json())
+      .then(j => {
+        if (cancelled) return
+        setHistoryRecords(j.data?.records || [])
+        setHistoryLoading(false)
+      })
+      .catch(() => { if (!cancelled) setHistoryLoading(false) })
+    return () => { cancelled = true }
+  }, [canTakeAttendance, isSAG, getActiveSchoolId(), activeTab, historyDate])
+
   const counts = useMemo(() => {
     let present = 0, absent = 0, late = 0
     for (const s of students) {
@@ -118,6 +180,48 @@ export default function AttendanceView() {
       return date
     }
   }, [date])
+
+  async function handleSaveTeacherAttendance() {
+    const schoolId = getActiveSchoolId()
+    if (!schoolId) { toast.error('Erreur: école non trouvée'); return }
+    const entries = Object.entries(teacherAttendanceMap).map(([teacherId, status]) => ({ teacherId, status }))
+    if (entries.length === 0) { toast.error('Marquez au moins un professeur'); return }
+    setTeachersSaving(true)
+    try {
+      const res = await authFetch('/api/attendance/teachers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schoolId, date, entries }),
+      })
+      if (res.ok) {
+        const j = await res.json().catch(() => null)
+        const saved = typeof j?.data?.saved === 'number' ? j.data.saved : entries.length
+        setTeachersLastSave({ saved, at: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) })
+        toast.success(`Présence professeurs enregistrée — ${saved} enregistrement${saved > 1 ? 's' : ''}`)
+      } else {
+        const j = await res.json().catch(() => ({}))
+        toast.error(j.error || 'Erreur lors de l\'enregistrement')
+      }
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+    setTeachersSaving(false)
+  }
+
+  async function handleDownloadTeacherPdf(teacherId: string) {
+    const schoolId = getActiveSchoolId()
+    if (!schoolId) { toast.error('Erreur: école non trouvée'); return }
+    try {
+      const res = await authFetch(`/api/attendance/teachers/history/pdf?teacherId=${teacherId}&schoolId=${schoolId}`)
+      if (!res.ok) { toast.error('Erreur lors du téléchargement'); return }
+      const blob = await res.blob()
+      // Desktop : rangé dans Documents/EduGest/Présences ; web : téléchargé.
+      const saved = await savePdfBlob(blob, `presence-prof-${teacherId}.pdf`)
+      if (saved) toastPdfSaved(saved)
+    } catch {
+      toast.error('Erreur de connexion')
+    }
+  }
 
   async function refreshDbRecords() {
     try {
@@ -189,7 +293,25 @@ export default function AttendanceView() {
         <span className="text-xs hidden sm:block" style={{ color: TEXT_MUTED_LUXE }}>Enregistré en base de données — scellé par école</span>
       </div>
 
-      {/* ── Appel du jour ─────────────────────────────────────────────── */}
+      {/* ── Onglets ──────────────────────────────────────────────────── */}
+      <div className="flex gap-2 mb-6">
+        {([['students', 'Appel du jour', CalendarCheck], ['teachers', 'Présence profs', Users], ['history', 'Historique', Database]] as const).map(([key, label, Icon]) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold border transition"
+            style={activeTab === key
+              ? { background: GOLD, color: 'white', borderColor: GOLD }
+              : { background: 'white', color: TEXT_MUTED_LUXE, borderColor: 'oklch(90% 0.01 175)' }}
+          >
+            <Icon size={14} />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Appel du jour (élèves) ─────────────────────────────────────── */}
+      {activeTab === 'students' && (
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm mb-6">
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <div className="flex items-center gap-2 mr-2">
@@ -273,9 +395,152 @@ export default function AttendanceView() {
           </>
         )}
       </div>
+      )}
+
+      {/* ── Présence profs ────────────────────────────────────────────── */}
+      {activeTab === 'teachers' && (
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm mb-6">
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <div className="flex items-center gap-2 mr-2">
+              <Users size={16} style={{ color: GOLD }} />
+              <h3 className="font-semibold text-[15px]" style={{ color: TEXT_PRIMARY }}>Présence des professeurs</h3>
+            </div>
+            <input
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+            />
+            <button onClick={handleSaveTeacherAttendance} disabled={teachersSaving} className="edu-gold-cta ml-auto px-4 py-2 rounded-xl text-[13px] font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+              {teachersSaving ? <div className="h-3.5 w-3.5 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <Check size={13} />}
+              Enregistrer
+            </button>
+          </div>
+
+          {teachersLastSave && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl mb-3 text-[12px] font-medium" style={{ background: SUCCESS_SOFT, color: SUCCESS }}>
+              <Database size={13} />
+              {teachersLastSave.saved} enregistrement{teachersLastSave.saved > 1 ? 's' : ''} à {teachersLastSave.at}
+            </div>
+          )}
+
+          {teachersLoading ? (
+            <div className="text-center py-6 text-sm" style={{ color: TEXT_MUTED_LUXE }}>Chargement des professeurs...</div>
+          ) : teachers.length === 0 ? (
+            <div className="text-center py-6 text-sm" style={{ color: TEXT_MUTED_LUXE }}>Aucun professeur dans ce cycle</div>
+          ) : (
+            <div className="max-h-96 overflow-y-auto custom-scrollbar space-y-1.5">
+              {teachers.map(t => {
+                const st = teacherAttendanceMap[t.id] || ''
+                return (
+                  <div key={t.id} className="flex items-center gap-3 px-3 py-2 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition">
+                    <div className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px] font-semibold shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}>
+                      {t.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-medium truncate" style={{ color: TEXT_PRIMARY }}>{t.name}</div>
+                      <div className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{t.subjectName || t.classNames || t.email}</div>
+                    </div>
+                    <button
+                      onClick={() => handleDownloadTeacherPdf(t.id)}
+                      className="p-1.5 rounded-lg border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition"
+                      title="Télécharger l'historique PDF"
+                    >
+                      <Download size={13} style={{ color: GOLD }} />
+                    </button>
+                    <div className="flex gap-1 shrink-0">
+                      {([['PRESENT', 'Présent', SUCCESS], ['ABSENT', 'Absent', DANGER]] as const).map(([val, label, color]) => (
+                        <button
+                          key={val}
+                          onClick={() => setTeacherAttendanceMap(prev => {
+                            const next = { ...prev }
+                            if (st === val) delete next[t.id]
+                            else next[t.id] = val
+                            return next
+                          })}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition"
+                          style={st === val ? { background: color, color: 'white', borderColor: color } : { background: 'white', color: TEXT_MUTED_LUXE, borderColor: 'oklch(90% 0.01 175)' }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Historique ─────────────────────────────────────────────────── */}
+      {activeTab === 'history' && (
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm mb-6">
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <div className="flex items-center gap-2 mr-2">
+              <Database size={16} style={{ color: GOLD }} />
+              <h3 className="font-semibold text-[15px]" style={{ color: TEXT_PRIMARY }}>Historique de présence</h3>
+            </div>
+            <input
+              type="date"
+              value={historyDate}
+              onChange={e => setHistoryDate(e.target.value)}
+              className="px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
+            />
+            <AppSelect
+              value={historyFilter}
+              onChange={(v) => setHistoryFilter(v as 'all' | 'students' | 'teachers')}
+              className="w-40"
+              options={[
+                { value: 'all', label: 'Tous' },
+                { value: 'students', label: 'Élèves' },
+                { value: 'teachers', label: 'Profs' },
+              ]}
+            />
+          </div>
+
+          {historyLoading ? (
+            <div className="text-center py-6 text-sm" style={{ color: TEXT_MUTED_LUXE }}>Chargement...</div>
+          ) : historyRecords.length === 0 ? (
+            <div className="text-center py-6 text-sm" style={{ color: TEXT_MUTED_LUXE }}>Aucun enregistrement</div>
+          ) : (
+            <div className="max-h-96 overflow-y-auto custom-scrollbar">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-[11px] uppercase tracking-wider" style={{ color: TEXT_MUTED_LUXE }}>
+                    <th className="pb-2 font-semibold">Date</th>
+                    <th className="pb-2 font-semibold">Nom</th>
+                    <th className="pb-2 font-semibold">Type</th>
+                    <th className="pb-2 font-semibold">Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyRecords.map((rec, i) => {
+                    const name = rec.teacher?.name || (rec.student ? `${rec.student.firstName} ${rec.student.lastName}` : '—')
+                    const type = rec.teacher ? 'Prof' : 'Élève'
+                    const meta = STATUS_META[rec.status] || { label: rec.status, bg: 'oklch(95% 0.04 175)', color: TEXT_MUTED_LUXE }
+                    return (
+                      <tr key={rec.id || i} className="border-t border-[oklch(90%_0.01_175)]">
+                        <td className="py-2 text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>{rec.date}</td>
+                        <td className="py-2 text-[12px] font-medium" style={{ color: TEXT_PRIMARY }}>{name}</td>
+                        <td className="py-2 text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>{type}</td>
+                        <td className="py-2">
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: meta.bg, color: meta.color }}>
+                            {meta.label}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Historique du jour (lu en base) ────────────────────────────── */}
-      {classId && !loading && (
+      {activeTab === 'students' && classId && !loading && (
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl shadow-sm overflow-hidden">
           <div className="px-5 py-3 flex items-center gap-2 border-b border-[oklch(90%_0.01_175)]" style={{ background: IVORY }}>
             <Database size={15} style={{ color: GOLD }} />

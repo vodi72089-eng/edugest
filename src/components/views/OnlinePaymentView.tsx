@@ -6,6 +6,7 @@ import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, SUCCESS, DANGER } from '@/
 import { getInitials, formatNumber } from '@/lib/helpers'
 import { CreditCard, Smartphone, CheckCircle, ArrowLeft, Loader2, Download, FileText, ArrowRightLeft } from 'lucide-react'
 import { toast } from 'sonner'
+import { savePdfBlob, toastPdfSaved } from '@/lib/desktop-files'
 import SearchAutocomplete, { AutocompleteItem } from './SearchAutocomplete'
 import type { StudentData, PaymentData } from '@/lib/types'
 import { SUPPORTED_CURRENCIES } from '@/lib/exchange-rate'
@@ -358,15 +359,10 @@ export default function OnlinePaymentView() {
       const res = await authFetch(`/api/payments/receipt/${resultPaymentId}`)
       if (!res.ok) throw new Error()
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `recu-${resultRef || resultPaymentId.slice(-8)}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      toast.success('Reçu téléchargé avec succès!')
+      // Desktop : rangé dans Documents/EduGest/Reçus de paiement ; web : téléchargé.
+      const saved = await savePdfBlob(blob, `recu-${resultRef || resultPaymentId.slice(-8)}.pdf`)
+      if (saved) toastPdfSaved(saved)
+      else toast.success('Reçu téléchargé avec succès!')
     } catch {
       toast.error('Erreur lors du téléchargement du reçu')
     } finally {

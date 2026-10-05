@@ -34,8 +34,15 @@ export default async function VerifyDocumentPage({ params }: { params: Promise<{
     } catch { student = null; }
   }
 
-  const meta = (() => {
-    try { return JSON.parse(record?.metadata || '{}') as Record<string, unknown>; } catch { return {}; }
+  interface DocMeta {
+    studentName?: string; className?: string; average?: number; mention?: string;
+    paidAmount?: number; receiptNumber?: string; title?: string; docCode?: string;
+    totalRemaining?: number; debtsCount?: number; periodFrom?: string; periodTo?: string; days?: number;
+    gender?: string; age?: string; schoolYear?: string;
+    [key: string]: unknown;
+  }
+  const meta: DocMeta = (() => {
+    try { return JSON.parse(record?.metadata || '{}') as DocMeta; } catch { return {}; }
   })();
 
   const typeLabel =
@@ -43,6 +50,8 @@ export default async function VerifyDocumentPage({ params }: { params: Promise<{
     : record?.type === 'BULLETIN' ? 'Bulletin scolaire'
     : record?.type === 'MEDICAL' ? 'Document médical'
     : record?.type === 'SUMMONS' ? 'Sommation'
+    : record?.type === 'REPORT' ? "Rapport d'activité"
+    : record?.type === 'STUDENT_CARD' ? "Carte d'identité scolaire"
     : 'Document';
   const isOfficial = !!record;
 
@@ -117,6 +126,9 @@ export default async function VerifyDocumentPage({ params }: { params: Promise<{
                       {student ? `${student.firstName} ${student.lastName}` : String(meta.studentName || '—')}
                       {student?.matricule ? <span className="block text-white/40 text-[11px] font-normal">Matricule : {student.matricule}</span> : null}
                       {meta.className ? <span className="block text-white/40 text-[11px] font-normal">Classe : {String(meta.className)}</span> : null}
+                      {meta.gender ? <span className="block text-white/40 text-[11px] font-normal">Sexe : {String(meta.gender)}</span> : null}
+                      {meta.age ? <span className="block text-white/40 text-[11px] font-normal">Âge : {String(meta.age)}</span> : null}
+                      {meta.schoolYear ? <span className="block text-white/40 text-[11px] font-normal">Année scolaire : {String(meta.schoolYear)}</span> : null}
                     </dd>
                   </div>
                 )}
@@ -175,6 +187,17 @@ export default async function VerifyDocumentPage({ params }: { params: Promise<{
                           {String(meta.debtsCount)} échéance{Number(meta.debtsCount) > 1 ? 's' : ''} impayée{Number(meta.debtsCount) > 1 ? 's' : ''}
                         </span>
                       ) : null}
+                    </dd>
+                  </div>
+                )}
+
+                {/* Rapport : période couverte */}
+                {record.type === 'REPORT' && meta.periodFrom && (
+                  <div className="flex items-start justify-between gap-4 py-2.5 border-b border-white/5">
+                    <dt className="text-white/45 text-[13px] font-medium">Période couverte</dt>
+                    <dd className="text-white text-[13px] font-semibold text-right">
+                      {new Date(String(meta.periodFrom)).toLocaleDateString('fr-FR')} → {new Date(String(meta.periodTo)).toLocaleDateString('fr-FR')}
+                      {meta.days !== undefined ? <span className="block text-white/40 text-[11px] font-normal">{String(meta.days)} jour(s)</span> : null}
                     </dd>
                   </div>
                 )}

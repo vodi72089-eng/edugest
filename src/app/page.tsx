@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, useSyncExternalStore } from 'react'
 import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken, restoreSession,
-startSessionRestoreWatchdog, isDesktopApp, getActiveSchoolId } from '@/lib/store'
+startSessionRestoreWatchdog, isDesktopApp, getActiveSchoolId, syncUrl } from '@/lib/store'
 import { startRealtimeSync } from '@/lib/realtime'
 import { playNotificationSound, unlockNotificationAudio, isNotificationSoundEnabled, setNotificationSoundEnabled, getNotificationSoundVolume, setNotificationSoundVolume, getNotificationSoundType, setNotificationSoundType, NotificationSoundType } from '@/lib/notification-sound'
 import { resolveNotifView, notifSoundLevel } from '@/lib/notification-routing'
 import { viewToPath, pathToView } from '@/lib/view-paths'
 import { toast } from 'sonner'
+import { savePdfBlob, savePdfUrl, toastPdfSaved } from '@/lib/desktop-files'
 import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
 import { GATEWAY_API_INFO } from '@/lib/gateway-api-info'
 import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, DisciplineData, CommunicationData, HomeworkData } from '@/lib/types'
@@ -17,7 +18,6 @@ import { setCurrencyDisplay, subscribeCurrency, getCurrencyVersion } from '@/lib
 import { EDUCATIONAL_SYSTEMS_LIST } from '@/lib/educational-systems'
 import StudentAvatar from '@/components/ui/StudentAvatar'
 import AppSelect from '@/components/ui/AppSelect';
-import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 import { readUrlQuery, writeUrlQuery } from '@/lib/url-search'
 import BrandLogo from '@/components/BrandLogo'
 import { FlagIcon } from '@/components/FlagIcon'
@@ -33,6 +33,7 @@ import CashierDashboard from '@/components/dashboards/CashierDashboard'
 import ParentDashboard from '@/components/dashboards/ParentDashboard'
 import TeacherDashboard from '@/components/dashboards/TeacherDashboard'
 import HeadTeacherDashboard from '@/components/dashboards/HeadTeacherDashboard'
+import TeacherConductView from '@/components/views/TeacherConductView'
 import DisciplineDashboardView from '@/components/dashboards/DisciplineDashboard'
 import MedicalDashboard from '@/components/dashboards/MedicalDashboard'
 import MedicalView from '@/components/views/MedicalView'
@@ -42,6 +43,7 @@ import ParentsView from '@/components/views/ParentsView'
 import PersonalizationView from '@/components/views/PersonalizationView'
 import { getTierLimits } from '@/lib/subscription'
 import StudentsView from '@/components/views/StudentsView'
+import StudentCardModal from '@/components/views/StudentCardModal'
 import GradesView from '@/components/views/GradesView'
 import PaymentsView from '@/components/views/PaymentsView'
 import FinanceSituationView from '@/components/views/FinanceSituationView'
@@ -75,7 +77,7 @@ import {
   UsersRound, BadgeDollarSign, Siren, Heart, Target, Briefcase,
    ChevronUp, ExternalLink, Check, Copy, Minus, PanelLeftClose, PanelLeftOpen, ImagePlus, Upload, Camera, RotateCcw, EyeOff, Download, Save, MessageCircle, Trash2, RefreshCw, QrCode, Hash, ShieldCheck, Crown, DatabaseZap,
    User, Landmark, Palette, BellRing, HeartPulse, Database, Stethoscope, Volume2, VolumeX, CalendarCheck, CalendarDays,
-   LifeBuoy, Headset, ScrollText, Bot, Newspaper
+   LifeBuoy, Headset, ScrollText, Bot, Newspaper, MonitorSmartphone, IdCard
 } from 'lucide-react'
 import { Link000, Link001 } from '@/components/ui/skiper-ui/skiper40'
 import {
@@ -907,6 +909,16 @@ function SchoolDetailView() {
   const [school, setSchool] = useState<SchoolData | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Badges catégorie (mêmes tons que la vue Événements interne).
+  const CATEGORY_META: Record<string, { label: string; bg: string; color: string }> = {
+    REUNION: { label: 'Réunion', bg: GOLD_SOFT, color: GOLD },
+    EXAMEN: { label: 'Examen', bg: 'oklch(95% 0.04 145)', color: SUCCESS },
+    FETE: { label: 'Fête', bg: 'oklch(95% 0.06 85)', color: 'oklch(58% 0.14 75)' },
+    REUNION_PARENTS: { label: 'Réunion parents', bg: 'oklch(96% 0.04 100)', color: WARNING },
+    SORTIE: { label: 'Sortie scolaire', bg: 'oklch(95% 0.04 175)', color: ACCENT },
+    AUTRE: { label: 'Autre', bg: 'oklch(95% 0.01 175)', color: TEXT_MUTED_LUXE },
+  }
+
   useEffect(() => {
     if (!selectedSchoolId) {
       // No school selected (e.g. stale restored view) — self-heal to home
@@ -1004,6 +1016,55 @@ function SchoolDetailView() {
                 <div className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>Abonnement</div>
               </div>
             </div>
+
+            {/* ── Événements à venir (publics : audience « Tout le monde ») ── */}
+            {(school.events?.length ?? 0) > 0 && (
+              <div className="mt-8">
+                <h3 className="font-semibold mb-3" style={{ color: TEXT_PRIMARY }}>Événements à venir</h3>
+                <div className="space-y-2.5">
+                  {school.events!.map(ev => {
+                    const meta = CATEGORY_META[ev.category] || CATEGORY_META.AUTRE
+                    const d = new Date(ev.startAt)
+                    const dateLabel = d.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' })
+                    const timeLabel = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+                    return (
+                      <div key={ev.id} className="flex items-start gap-3 p-3 rounded-xl border border-[oklch(90%_0.01_175)]" style={{ background: IVORY }}>
+                        <div className="w-9 h-9 rounded-lg grid place-items-center shrink-0" style={{ background: meta.bg }}>
+                          <CalendarDays size={16} style={{ color: meta.color }} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold text-[13px]" style={{ color: TEXT_PRIMARY }}>{ev.title}</span>
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide" style={{ background: meta.bg, color: meta.color }}>{meta.label}</span>
+                          </div>
+                          <div className="text-[11px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>
+                            {dateLabel} · {timeLabel}{ev.location ? ` · ${ev.location}` : ''}
+                          </div>
+                          {ev.description && <p className="text-[12px] mt-1 leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>{ev.description}</p>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── Galerie photos ── */}
+            {(school.schoolPhotos?.length ?? 0) > 0 && (
+              <div className="mt-8">
+                <h3 className="font-semibold mb-3" style={{ color: TEXT_PRIMARY }}>Galerie</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {school.schoolPhotos!.map(ph => (
+                    <div key={ph.id} className="rounded-xl overflow-hidden border border-[oklch(90%_0.01_175)] bg-white">
+                      <img src={ph.url} alt={ph.caption || 'Photo de l\'école'} className="w-full h-32 object-cover" loading="lazy" />
+                      {ph.caption && (
+                        <p className="px-2.5 py-2 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>{ph.caption}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="mt-6 flex flex-wrap gap-3">
               <div className="flex items-center gap-2 text-sm" style={{ color: TEXT_MUTED_LUXE }}><Mail size={14} /> {school.email}</div>
@@ -1983,7 +2044,12 @@ function LoginView() {
         // Popup import base de données : admin créateur uniquement — DANS l'app,
         // identifiants déjà validés (jamais sur la page de connexion).
         if (role === 'SCHOOL_ADMIN') {
-          try { sessionStorage.setItem('edugest_show_import_db', '1') } catch {}
+          try {
+            // Popup import : plus jamais après un « Plus tard » ou un import déjà fait.
+            if (localStorage.getItem('edugest_import_db_dismissed') !== '1') {
+              sessionStorage.setItem('edugest_show_import_db', '1')
+            }
+          } catch {}
         }
         toast.success(`Bienvenue, ${apiUser.name}!`)
         return
@@ -2132,6 +2198,17 @@ function LoginView() {
             <svg viewBox="0 0 24 24" width="18" height="18" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> Se connecter avec WhatsApp
           </button>
 
+          {/* Téléchargement de l'app desktop (EXE Windows) — Release GitHub */}
+          <a
+            href="https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/EduGest-Setup-1.4.12.exe"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-3.5 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 transition hover:opacity-90 hover:shadow-lg"
+            style={{ background: 'oklch(40% 0.15 145)', boxShadow: '0 4px 12px oklch(40% 0.15 145 / 0.2)' }}
+          >
+            <Download size={18} /> Télécharger l'app (Windows)
+          </a>
+
           <p className="text-center text-[13px] mt-5 text-white/50">
             Pas encore de compte ? <button onClick={() => setCurrentView('create-school')} className="font-medium hover:underline" style={{ color: 'oklch(72% 0.15 65 / 0.8)' }}>Créer mon école</button>
           </p>
@@ -2256,7 +2333,12 @@ function LoginView() {
                           }, json.data.token)
                           // Popup import base de données : admin créateur uniquement
                           if (role === 'SCHOOL_ADMIN') {
-                            try { sessionStorage.setItem('edugest_show_import_db', '1') } catch {}
+                            try {
+                              // Popup import : plus jamais après un « Plus tard » ou un import déjà fait.
+                              if (localStorage.getItem('edugest_import_db_dismissed') !== '1') {
+                                sessionStorage.setItem('edugest_show_import_db', '1')
+                              }
+                            } catch {}
                           }
                           toast.success(`Bienvenue, ${apiUser.name}!`)
                           setShowWhatsappModal(false)
@@ -2518,6 +2600,7 @@ function Sidebar() {
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
       { icon: <ListChecks size={16} />, label: 'Passage de classe', view: 'class-passing' },
       { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
+      { icon: <Megaphone size={16} />, label: 'Convocations', view: 'convocation' as ViewType },
       { icon: <HeartPulse size={16} />, label: 'Service Médical', view: 'medical' as ViewType },
       { icon: <Stethoscope size={16} />, label: 'Fiches Médicales', view: 'medical-records' as ViewType },
       { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
@@ -2600,6 +2683,7 @@ function Sidebar() {
       { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
       { icon: <School size={16} />, label: 'Mes Classes', view: 'classes' },
       { icon: <BookOpen size={16} />, label: 'Notes', view: 'grades' },
+      { icon: <Shield size={16} />, label: 'Conduite', view: 'conduct' as ViewType },
       { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
       { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
       { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
@@ -2609,6 +2693,7 @@ HEAD_TEACHER: [
   { icon: <LayoutDashboard size={16} />, label: 'Dashboard', view: 'dashboard' },
   { icon: <School size={16} />, label: 'Ma Classe', view: 'classes' },
   { icon: <BookOpen size={16} />, label: 'Notes reçues', view: 'grades' },
+  { icon: <Shield size={16} />, label: 'Conduite', view: 'conduct' as ViewType },
   { icon: <PenTool size={16} />, label: 'Devoirs', view: 'homework' },
   { icon: <FileText size={16} />, label: 'Bulletins', view: 'bulletin' },
   { icon: <MessageSquare size={16} />, label: 'Communications', view: 'communications' },
@@ -2690,7 +2775,14 @@ HEAD_TEACHER: [
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ]
     if (userRole === 'SCHOOL_ADMIN') {
-      menuItems.push({ icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType })
+      // L'admin créateur garde accès aux Paramètres (onglet Photos : 1 photo
+      // en FREEMIUM) et aux Événements (visibles sur la page publique de
+      // l'école dès la création) — les deux fonctionnalités publiques du forfait.
+      menuItems.push(
+        { icon: <Calendar size={16} />, label: 'Événements', view: 'events' as ViewType },
+        { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
+        { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
+      )
     }
   } else if (directionRoles.includes(userRole as UserRole)) {
     // Menu direction : « Paramètres » retiré — une direction ne gère pas les
@@ -2825,8 +2917,8 @@ function notifTypeToView(type: string, role?: string | null): ViewType {
 // ===== ROLE-BASED VIEW ACCESS =====
 const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   PARENT: ['dashboard', 'grades', 'bulletin', 'online-payment', 'payment-verification', 'discipline', 'homework', 'communications', 'school-reviews', 'profile', 'convocation'],
-  TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'communications', 'reports', 'profile'],
-  HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'homework', 'bulletin', 'communications', 'reports', 'profile'],
+  TEACHER: ['dashboard', 'classes', 'grades', 'conduct', 'homework', 'communications', 'reports', 'profile'],
+  HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'conduct', 'homework', 'bulletin', 'communications', 'reports', 'profile'],
   SECRETARY: ['dashboard', 'students', 'classes', 'convocation', 'discipline', 'payments', 'communications', 'payment-verification', 'class-passing', 'parent-qr', 'events', 'reports', 'my-subscription', 'settings', 'profile'],
   CASHIER: ['dashboard', 'payments', 'finance', 'payment-verification', 'debts', 'communications', 'reports', 'profile'],
   DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'events', 'reports', 'settings', 'profile'],
@@ -2913,74 +3005,8 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 }
 
 // ===== TOPBAR =====
-// ─── Fil d'Ariane : icône par vue ─────────────────────────────────────────────
-// La barre supérieure affiche en permanence OÙ l'on se trouve, comme la
-// console OrcaRouter (« Console / Catalog ») : EduGest / Vue courante / École.
-// Icônes réutilisées depuis l'import lucide-react existant (aucun nouvel import).
-const VIEW_ICONS: Partial<Record<ViewType, React.ReactNode>> = {
-  dashboard: <LayoutDashboard size={15} />,
-  students: <Users size={15} />,
-  classes: <School size={15} />,
-  grades: <BookOpen size={15} />,
-  payments: <CreditCard size={15} />,
-  finance: <Wallet size={15} />,
-  discipline: <Shield size={15} />,
-  communications: <MessageSquare size={15} />,
-  homework: <PenTool size={15} />,
-  profile: <UserCircle size={15} />,
-  pricing: <DollarSign size={15} />,
-  'class-passing': <ListChecks size={15} />,
-  convocation: <Megaphone size={15} />,
-  schools: <Building2 size={15} />,
-  bulletin: <FileText size={15} />,
-  'admin-analytics': <BarChart3 size={15} />,
-  'whatsapp-config': <MessageCircle size={15} />,
-  'platform-control': <Globe size={15} />,
-  personnel: <UsersRound size={15} />,
-  settings: <Settings size={15} />,
-  'school-reviews': <Star size={15} />,
-  'payment-verification': <CheckCircle size={15} />,
-  'payment-config': <BadgeDollarSign size={15} />,
-  'medical-records': <Stethoscope size={15} />,
-  'online-payment': <CreditCard size={15} />,
-  debts: <Landmark size={15} />,
-  'my-subscription': <Crown size={15} />,
-  medical: <HeartPulse size={15} />,
-  'parent-qr': <QrCode size={15} />,
-  parents: <Users size={15} />,
-  personalization: <Palette size={15} />,
-  attendance: <CalendarCheck size={15} />,
-  events: <Calendar size={15} />,
-  reports: <ClipboardList size={15} />,
-  corporate: <Briefcase size={15} />,
-  corporates: <Building2 size={15} />,
-  support: <Headset size={15} />,
-  docs: <LifeBuoy size={15} />,
-  'platform-emails': <Mail size={15} />,
-  'activity-logs': <ScrollText size={15} />,
-}
-
 function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; onToggleSidebar: () => void }) {
-  const { currentView, sidebarOpen, setSidebarOpen, setCurrentView, userData, userRole, setHighlightedId, activeSchoolName } = useEduGestStore()
-  // Adresse LIVE du navigateur (ex. /students?q=jean) affichée sous le fil
-  // d'Ariane — l'utilisateur voit où il se trouve, comme la console OrcaRouter
-  // qui reflète sa position dans l'URL (/console/catalog?q=…). Mise à jour via
-  // popstate (boutons Retour/Avant) + événement 'edugest:url' émis par
-  // syncUrl()/writeUrlQuery() quand la vue ou la recherche change.
-  const [urlText, setUrlText] = useState('')
-  useEffect(() => {
-    const update = () => setUrlText(window.location.pathname + window.location.search)
-    update()
-    window.addEventListener('popstate', update)
-    window.addEventListener('edugest:url', update)
-    return () => { window.removeEventListener('popstate', update); window.removeEventListener('edugest:url', update) }
-  }, [])
-  // Contexte scolaire du fil d'Ariane : pour le super admin c'est l'école
-  // active choisie dans la barre latérale ; pour tout autre rôle c'est SA
-  // propre école — d'où qu'il soit, l'écran répond « EduGest / Vue / École ».
-  const crumbSchoolName = userRole === 'SUPER_ADMIN_GLOBAL'
-    ? activeSchoolName
-    : (userData?.schoolName || null)
+  const { currentView, sidebarOpen, setSidebarOpen, setCurrentView, userData, userRole, setHighlightedId } = useEduGestStore()
   const [notifications, setNotifications] = useState<any[]>([])
   const [unreadNotifCount, setUnreadNotifCount] = useState(0)
   const [pendingCommsCount, setPendingCommsCount] = useState(0)
@@ -3025,7 +3051,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     }
   }, [])
 
-  const adminRoles = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'SECRETARY']
+  const adminRoles = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'SECRETARY']
   const showPendingComms = adminRoles.includes(userRole || '')
 
   const totalUnread = unreadNotifCount
@@ -3353,54 +3379,6 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
         >
           {sidebarVisible ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
         </button>
-        <div className="min-w-0">
-          <Breadcrumb className="min-w-0">
-            <BreadcrumbList className="flex-nowrap">
-              <BreadcrumbItem className="shrink-0">
-                <BreadcrumbLink asChild>
-                  <button
-                    onClick={() => setCurrentView('dashboard')}
-                    className="flex items-center gap-1.5 px-1.5 py-0.5 -mx-1 rounded-lg text-[13px] font-semibold tracking-tight transition-colors hover:bg-[oklch(95%_0.01_175)] cursor-pointer"
-                    style={{ color: TEXT_MUTED_LUXE }}
-                    title="Revenir au tableau de bord"
-                  >
-                    <GraduationCap size={14} />
-                    <span className="hidden sm:inline">EduGest</span>
-                  </button>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="opacity-40" />
-              <BreadcrumbItem className="min-w-0">
-                <BreadcrumbPage className="flex items-center gap-1.5 text-[15px] font-extrabold tracking-tighter edu-heading-display min-w-0" style={{ color: TEXT_PRIMARY }}>
-                  {VIEW_ICONS[currentView] ?? <LayoutDashboard size={15} />}
-                  <span className="truncate">{viewTitles[currentView] || 'Dashboard'}</span>
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-              {crumbSchoolName && (
-                <>
-                  <BreadcrumbSeparator className="opacity-40 hidden md:inline-flex" />
-                  <BreadcrumbItem className="hidden md:inline-flex min-w-0">
-                    <span
-                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold truncate max-w-[220px]"
-                      style={{ background: GOLD_SOFT, color: TEXT_PRIMARY }}
-                      title={`École active : ${crumbSchoolName}`}
-                    >
-                      <School size={11} className="shrink-0" />
-                      <span className="truncate">{crumbSchoolName}</span>
-                    </span>
-                  </BreadcrumbItem>
-                </>
-              )}
-            </BreadcrumbList>
-          </Breadcrumb>
-          <div className="text-xs hidden sm:flex items-center gap-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>
-            <span
-              className="font-mono text-[11px] bg-[oklch(96%_0.008_175)] border border-[oklch(90%_0.01_175)] rounded px-1.5 py-px truncate max-w-[240px]"
-              title="Adresse de la page où vous vous trouvez"
-            >{urlText || viewToPath(currentView)}</span>
-            <span className="shrink-0">{new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-          </div>
-        </div>
       </div>
       <div className="flex items-center gap-2 relative" ref={notifPanelRef}>
         <button
@@ -3476,8 +3454,8 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
                   setSoundVolume(v)
                   setNotificationSoundVolume(v, userData?.id || null)
                 }}
-                onMouseUp={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume }) }}
-                onTouchEnd={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume }) }}
+                onMouseUp={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume, force: true }) }}
+                onTouchEnd={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume, force: true }) }}
                 className="w-20 h-1 accent-current"
                 style={{ accentColor: GOLD }}
                 title={`Volume : ${soundVolume}%`}
@@ -3491,7 +3469,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
                   setSoundType(t)
                   setNotificationSoundType(t, userData?.id || null)
                   unlockNotificationAudio()
-                  playNotificationSound({ userId: userData?.id || null, type: t })
+                  playNotificationSound({ userId: userData?.id || null, type: t, force: true })
                 }}
                 className="text-[10px] rounded-lg px-1.5 py-1 border bg-white"
                 style={{ borderColor: BORDER, color: TEXT_PRIMARY }}
@@ -3503,7 +3481,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
                 <option value="ALERT">Alerte</option>
               </select>
               <button
-                onClick={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume, type: soundType }) }}
+                onClick={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVolume, type: soundType, force: true }) }}
                 className="text-[10px] font-semibold px-2 py-1 rounded-lg"
                 style={{ background: GOLD_SOFT, color: TEXT_PRIMARY }}
                 title="Écouter le son"
@@ -3744,14 +3722,139 @@ function ImportDbModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+// ===== MODAL « RÉSERVÉ À L'APPLICATION DESKTOP » (version web) =====
+// En web, l'import de base de données est impossible : un clic sur « Importer
+// une base » ouvre ce modal — explication + téléchargement de l'exe desktop.
+function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
+  const [exeUrl, setExeUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [openFailed, setOpenFailed] = useState(false)
+
+  // Ouvre l'application déjà installée via le protocole edugest:// (enregistré
+  // par main.js au démarrage). Impossible de détecter une installation locale
+  // depuis le web : si le lien est accepté, la fenêtre perd le focus — sinon
+  // on invite à télécharger (« Rien ne s'est ouvert ? »).
+  function openDesktopApp() {
+    let accepted = false
+    const onBlur = () => { accepted = true }
+    window.addEventListener('blur', onBlur, { once: true })
+    window.location.href = 'edugest://import-db'
+    window.setTimeout(() => {
+      window.removeEventListener('blur', onBlur)
+      if (!accepted) setOpenFailed(true)
+    }, 2500)
+  }
+
+  // Résout l'URL exacte de l'exe portable via latest.yml (publié par
+  // electron-builder à chaque release) — comme dans desktop/main.js.
+  useEffect(() => {
+    let cancelled = false
+    fetch('https://github.com/vodi72089-eng/edugest/releases/latest/download/latest.yml')
+      .then(r => (r.ok ? r.text() : ''))
+      .then(text => {
+        if (cancelled) return
+        const m = text.match(/^version:\s*(.+)$/m)
+        const version = String(m ? m[1] : '').trim().replace(/^v/, '')
+        if (version) {
+          setExeUrl(`https://github.com/vodi72089-eng/edugest/releases/latest/download/EduGest-Portable-${version}.exe`)
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: 'rgba(10,15,13,0.6)', backdropFilter: 'blur(6px)' }}>
+      <div className="w-full max-w-md rounded-2xl shadow-2xl overflow-hidden" style={{ background: '#fff' }}>
+        <div className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: '1px solid oklch(90% 0.01 175)' }}>
+          <div className="w-10 h-10 rounded-xl grid place-items-center shrink-0" style={{ background: `linear-gradient(135deg, ${GOLD} 0%, #c47d0e 100%)` }}>
+            <MonitorSmartphone size={20} className="text-white" aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-bold text-[15px]" style={{ color: TEXT_PRIMARY }}>Application desktop requise</h3>
+            <p className="text-[11.5px]" style={{ color: TEXT_MUTED_LUXE }}>Import de base de données — espace administrateur</p>
+          </div>
+          <button onClick={onClose} className="ml-auto p-1.5 rounded-lg hover:bg-gray-100 transition" style={{ color: TEXT_MUTED_LUXE }} aria-label="Fermer">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="px-5 py-4">
+          <p className="text-[13px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
+            L&apos;importation de base de données (<strong>.db</strong> : élèves, classes, matières,
+            notes et professeurs) est disponible <strong>uniquement dans l&apos;application desktop
+            EduGest</strong> (Windows).
+            <strong> Vous l&apos;avez déjà ? Ouvrez-la directement</strong> (bouton ci-dessous) —
+            sinon téléchargez-la, ouvrez-la, puis importez votre fichier : vos données deviendront
+            directement la base de votre école.
+          </p>
+          <div className="mt-4 space-y-2">
+            <button
+              onClick={openDesktopApp}
+              className="edu-gold-cta w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-semibold text-white transition"
+              style={{ background: GOLD }}
+            >
+              <MonitorSmartphone size={14} aria-hidden="true" />
+              Ouvrir l&apos;application desktop
+            </button>
+            {openFailed && (
+              <p className="text-[12px] text-center" style={{ color: DANGER }}>
+                Rien ne s&apos;est ouvert ? L&apos;application n&apos;est peut-être pas encore
+                installée — téléchargez-la ci-dessous.
+              </p>
+            )}
+            {loading ? (
+              <div className="py-2 text-[12.5px] text-center" style={{ color: TEXT_MUTED_LUXE }}>
+                Recherche de la dernière version…
+              </div>
+            ) : (
+              <a
+                href={exeUrl || 'https://github.com/vodi72089-eng/edugest/releases/latest'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-center py-2.5 rounded-xl text-[13px] font-semibold border transition hover:bg-gray-50"
+                style={{ borderColor: BORDER, color: TEXT_PRIMARY }}
+              >
+                <Download size={14} className="inline mr-1.5 -mt-0.5" aria-hidden="true" />
+                Télécharger l&apos;application desktop
+              </a>
+            )}
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 rounded-xl text-[13px] font-semibold border transition hover:bg-gray-50"
+              style={{ borderColor: BORDER, color: TEXT_MUTED_LUXE }}
+            >
+              Plus tard
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function DashboardLayout() {
   const [sidebarVisible, setSidebarVisible] = useState(true)
   // Popup d'import : affichée une fois, juste après la connexion d'un admin
-  // d'école (les identifiants ont été validés par l'API d'authentification).
+  // d'école (les identifiants ont été validés par l'API d'authenthentication).
   // Lazy init : consomme le flag posé à la connexion (client uniquement —
   // ce composant n'est rendu qu'après login, donc pas de risque d'hydratation).
+  // RÉSERVÉ À L'APPLICATION DESKTOP (exe) — jamais dans la version web.
   const [showImportDb, setShowImportDb] = useState(() => {
-    if (typeof window === 'undefined') return false
+    if (typeof window === 'undefined' || !isDesktopApp()) return false
+    try {
+      if (sessionStorage.getItem('edugest_show_import_db') === '1') {
+        sessionStorage.removeItem('edugest_show_import_db')
+        return true
+      }
+    } catch {}
+    return false
+  })
+  // Modal « desktop uniquement » (version web) : proposé après la connexion
+  // quand le flag d'import est posé — l'utilisateur comprend pourquoi l'import
+  // est inaccessible et peut télécharger l'exe.
+  const [showDesktopOnly, setShowDesktopOnly] = useState(() => {
+    if (typeof window === 'undefined' || isDesktopApp()) return false
     try {
       if (sessionStorage.getItem('edugest_show_import_db') === '1') {
         sessionStorage.removeItem('edugest_show_import_db')
@@ -3761,12 +3864,32 @@ function DashboardLayout() {
     return false
   })
   // Import d'autres bases de données à tout moment : les vues (ex. Paramètres)
-  // ouvrent ce modal via l'événement global 'edugest:open-import-db'.
+  // ouvrent le modal adapté via l'événement global 'edugest:open-import-db'
+  // — modal d'import dans l'exe, modal « desktop requis » en web.
   useEffect(() => {
-    const openImportDb = () => setShowImportDb(true)
+    const openImportDb = () => {
+      // Deep link consommé : ne pas ré-ouvrir l'import au prochain montage.
+      try { sessionStorage.removeItem('edugest:pending-import-db') } catch {}
+      if (isDesktopApp()) setShowImportDb(true)
+      else setShowDesktopOnly(true)
+    }
     window.addEventListener('edugest:open-import-db', openImportDb)
+    // Deep link reçu pendant l'écran de connexion (bureau non monté) :
+    // ouvert dès ce montage, via un tick (hors corps d'effet synchrone).
+    if (sessionStorage.getItem('edugest:pending-import-db') === '1') {
+      setTimeout(openImportDb, 0)
+    }
     return () => window.removeEventListener('edugest:open-import-db', openImportDb)
   }, [])
+  // Fermeture du popup d'import (« desktop requis » ou import direct) :
+  // mémorisée définitivement (localStorage) — plus aucune popup à la
+  // connexion suivante, que l'utilisateur ait importé sa base ou non.
+  // Le bouton « Importer une base » de Paramètres reste accessible.
+  const closeImportDbPrompt = () => {
+    setShowImportDb(false)
+    setShowDesktopOnly(false)
+    try { localStorage.setItem('edugest_import_db_dismissed', '1') } catch {}
+  }
   return (
     <div className={`min-h-screen grid grid-cols-1 ${sidebarVisible ? 'lg:grid-cols-[240px_1fr]' : ''}`} style={{ background: IVORY }}>
       {sidebarVisible && <Sidebar />}
@@ -3776,7 +3899,8 @@ function DashboardLayout() {
           <MainContent />
         </main>
       </div>
-      {showImportDb && <ImportDbModal onClose={() => setShowImportDb(false)} />}
+      {showImportDb && <ImportDbModal onClose={closeImportDbPrompt} />}
+      {showDesktopOnly && <DesktopOnlyModal onClose={closeImportDbPrompt} />}
     </div>
   )
 }
@@ -3786,6 +3910,7 @@ function DashboardLayout() {
 function WhatsAppConfigView() {
   const { userRole } = useEduGestStore()
   const isSuperAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
+  const canManageAgent = isSuperAdmin || userRole === 'SCHOOL_ADMIN'
   // Onglets : « Connexion » (agent Baileys) et « API WhatsApp & Quotas »
   // (déplacé depuis Config. Paiements — demande utilisateur)
   const [waTab, setWaTab] = useState<'connexion' | 'api'>('connexion')
@@ -3793,6 +3918,12 @@ function WhatsAppConfigView() {
   const [connectionMode, setConnectionModeState] = useState<'qr' | 'phone' | null>(null)
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [pairCode, setPairCode] = useState<string | null>(null)
+  // Expiration du code de parrainage : WhatsApp invalide le code après quelques
+  // minutes SANS que le mini-service ne le sache (statut « connecting » figé).
+  // Le front impose donc sa propre échéance → message clair au lieu d'une
+  // attente infinie.
+  const [pairExpiresAt, setPairExpiresAt] = useState<number | null>(null)
+  const [pairExpired, setPairExpired] = useState(false)
   const [phoneNumber, setPhoneNumber] = useState('')
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
@@ -3808,11 +3939,16 @@ function WhatsAppConfigView() {
     setConnectionModeState(mode)
     if (mode !== 'qr') setQrCode(null)
   }
+  // Ref synchronisée avec pairCode : checkStatus est lancé par un intervalle
+  // (useEffect []) et capturerait la valeur périmée (null) sinon — le pattern
+  // est identique à connectionModeRef.
+  const pairCodeRef = useRef<string | null>(null)
+  useEffect(() => { pairCodeRef.current = pairCode }, [pairCode])
 
   useEffect(() => {
-    // Le statut temps-réel de l'agent est réservé au super administrateur
-    // (l'API /api/whatsapp-status applique requireRole SUPER_ADMIN_GLOBAL)
-    if (!isSuperAdmin) { setLoading(false); return }
+    // Le statut temps-réel de l'agent est réservé au super administrateur et à
+    // l'admin d'école (l'API /api/whatsapp-status applique requireRole)
+    if (!canManageAgent) { setLoading(false); return }
     checkStatus()
     const interval = setInterval(checkStatus, 2000)
     return () => clearInterval(interval)
@@ -3836,6 +3972,18 @@ function WhatsAppConfigView() {
           setConnectionMode('phone')
           setPairCode(json.data.pairingCode)
           setPairProgress(['Code généré !'])
+          setPairExpired(false)
+          setPairExpiresAt(Date.now() + 5 * 60 * 1000)
+        }
+        // Expiration côté client : WhatsApp invalide le code après ~5 min sans
+        // prévenir le mini-service. On détecte l'échéance ici (polling 2 s) et
+        // on affiche un message clair au lieu de laisser « En attente... »
+        // tourner indéfiniment.
+        if (pairCodeRef.current && pairExpiresAt && Date.now() > pairExpiresAt && !pairExpired) {
+          setPairExpired(true)
+          setPairCode(null)
+          setPairExpiresAt(null)
+          toast.error('Le code de parrainage a expiré. Générez un nouveau code pour reconnecter WhatsApp.')
         }
         if (json.data?.status === 'connected') {
           setPairCode(null); setPairProgress([])
@@ -3848,8 +3996,19 @@ function WhatsAppConfigView() {
               .then(j => { if (j?.message) toast.success(j.message) })
               .catch(() => {})
           }
-        } else if (json.data?.status === 'disconnected') {
+        } else if (json.data?.status === 'disconnected'
+          // Le mini-service efface le code en cas de déconnexion OU
+          // d'expiration, mais il peut rester en « connecting » (reconnexion
+          // auto anti-logout). C'est donc la DISPARITION du code pendant
+          // l'attente qui signale l'échec — pas seulement le statut.
+          || (connectionModeRef.current === 'phone' && pairCodeRef.current && !json.data?.pairingCode)) {
           boundRef.current = false
+          if (pairCodeRef.current) {
+            setPairCode(null)
+            setPairExpiresAt(null)
+            setPairProgress([])
+            toast.error('Le code de parrainage a expiré ou le client s\'est déconnecté. Générez un nouveau code.')
+          }
         }
       }
     } catch {}
@@ -3873,6 +4032,8 @@ function WhatsAppConfigView() {
     setRequestingPair(true)
     setPairProgress([])
     setPairCode(null)
+    setPairExpired(false)
+    setPairExpiresAt(null)
     const steps = [
       'Démarrage du client WhatsApp (natsu-baileys-v10)...',
       'Chargement de WhatsApp Web...',
@@ -3894,6 +4055,7 @@ function WhatsAppConfigView() {
       if (json.data?.ok && json.data?.pairingCode) {
         setPairCode(json.data.pairingCode)
         setPairProgress(p => [...p, 'Code généré !'])
+        setPairExpiresAt(Date.now() + 5 * 60 * 1000)
         toast.success('Code de parrainage généré !')
       } else {
         toast.error(json.data?.error || json.error || 'Impossible de générer le code')
@@ -3941,9 +4103,9 @@ function WhatsAppConfigView() {
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Connexion WhatsApp</h1>
       </div>
 
-      {!isSuperAdmin ? (
-        // Admins d'école : uniquement la gestion « API WhatsApp & Quotas » —
-        // la connexion de l'agent (QR / code) est réservée au super administrateur
+      {!canManageAgent ? (
+        // Hors gestion de l'agent : uniquement « API WhatsApp & Quotas » —
+        // la connexion (QR / code) est réservée au propriétaire + admin d'école
         <WhatsAppApiQuotasSection />
       ) : (
         <>
@@ -4065,6 +4227,15 @@ function WhatsAppConfigView() {
                           </button>
                         </div>
                       )}
+                      {pairExpired && (
+                        <div className="rounded-xl border border-red-200 bg-red-50 p-3 space-y-2">
+                          <p className="text-xs text-red-700 font-semibold">⏱ Le code de parrainage a expiré.</p>
+                          <p className="text-xs text-red-600">WhatsApp invalide les codes après quelques minutes. Générez un nouveau code et saisissez-le rapidement sur votre téléphone.</p>
+                          <button onClick={handleStartPhone} disabled={requestingPair} className="w-full py-2.5 rounded-xl text-white font-semibold text-sm disabled:opacity-50 transition hover:opacity-90" style={{ background: `linear-gradient(135deg, ${TEAL_COLOR}, ${GOLD_COLOR})` }}>
+                            {requestingPair ? 'Génération...' : 'Générer un nouveau code'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                   {!pairCode && (
@@ -4164,6 +4335,7 @@ function MainContent() {
     case 'debts': return <DettesView onNavigate={(v) => setCurrentView(v as ViewType)} schoolId={getActiveSchoolId() || ''} />
     case 'payment-config': return <PaymentConfigView />
     case 'discipline': return <DisciplineView />
+    case 'conduct': return <TeacherConductView />
     case 'attendance': return <AttendanceView />
     case 'events': return <EventsView />
     case 'reports': return <ReportsView />
@@ -4298,6 +4470,8 @@ function ClassesView() {
   const [viewingClassId, setViewingClassId] = useState<string | null>(null)
   const [viewingClassName, setViewingClassName] = useState('')
   const [classStudents, setClassStudents] = useState<StudentData[]>([])
+  // Carte d'identité scolaire (QR + téléchargement) d'un élève de la classe
+  const [cardStudent, setCardStudent] = useState<StudentData | null>(null)
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [activeSchoolYear, setActiveSchoolYear] = useState<string>('')
   const canManage = userRole === 'SUPER_ADMIN_GLOBAL' || (userRole && userRole.startsWith('DIRECTION'))
@@ -4599,6 +4773,7 @@ function ClassesView() {
                       <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-5 py-3" style={{ color: GOLD }}>Élève</th>
                       <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-5 py-3" style={{ color: GOLD }}>Matricule</th>
                       <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-5 py-3" style={{ color: GOLD }}>Parent</th>
+                      <th className="text-left text-[11px] font-semibold uppercase tracking-wider px-5 py-3" style={{ color: GOLD }}>Carte</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4615,6 +4790,16 @@ function ClassesView() {
                         </td>
                         <td className="px-5 py-3 text-[13px] font-mono" style={{ color: TEXT_MUTED_LUXE }}>{s.matricule}</td>
                         <td className="px-5 py-3 text-[13px]" style={{ color: TEXT_MUTED_LUXE }}>{s.parent?.name || '—'}</td>
+                        <td className="px-5 py-3">
+                          <button
+                            onClick={() => setCardStudent(s)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition"
+                            style={{ color: TEXT_PRIMARY }}
+                            title="Carte d'identité scolaire (QR + téléchargement)"
+                          >
+                            <IdCard size={12} /> Carte
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -4623,6 +4808,11 @@ function ClassesView() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Carte d'identité scolaire (QR + téléchargement) */}
+      {cardStudent && (
+        <StudentCardModal student={cardStudent} onClose={() => setCardStudent(null)} />
       )}
     </div>
   )
@@ -4972,8 +5162,15 @@ function WhatsAppApiQuotasSection() {
 }
 
 function PaymentConfigView() {
-  const { userData, setCurrentView } = useEduGestStore()
-  const [activeTab, setActiveTab] = useState<'gateways' | 'currency' | 'transactions' | 'fees'>('gateways')
+  const { userData, setCurrentView, userRole, paymentConfigTab, setPaymentConfigTab } = useEduGestStore()
+  const isPlatformAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
+  // Onglet piloté par le store : l'URL (/payment-config/<onglet>) est la source
+  // de vérité — clics, deep links et Retour/Avant restent synchronisés.
+  const activeTab = paymentConfigTab
+  const setActiveTab = (tab: 'gateways' | 'currency' | 'transactions' | 'fees') => {
+    setPaymentConfigTab(tab)
+    syncUrl('payment-config', 'push')
+  }
   const [gateways, setGateways] = useState<any[]>([])
   const [availableGateways, setAvailableGateways] = useState<any[]>([])
   const [currencyConfig, setCurrencyConfig] = useState<any>(null)
@@ -5291,38 +5488,19 @@ function PaymentConfigView() {
         <p className="text-gray-500 text-sm mt-1">Gérez les passerelles de paiement et les monnaies</p>
       </div>
 
-      {/* Vue plateforme : passerelles des ABONNEMENTS EduGest (schoolId = '__PLATFORM__').
-          Frais/monnaies/transactions restent scolaires — école active requise. */}
-      {!getActiveSchoolId() && (
-        <div className="text-center py-10 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl px-6">
-          <div className="w-14 h-14 mx-auto mb-4 grid place-items-center rounded-2xl" style={{ background: GOLD_SOFT }}>
-            <CreditCard size={26} style={{ color: GOLD }} />
-          </div>
-          <h3 className="font-semibold text-[15px] mb-1.5" style={{ color: TEXT_PRIMARY }}>
-            Passerelles de la plateforme EduGest
-          </h3>
-          <p className="text-[13px] max-w-xl mx-auto" style={{ color: TEXT_MUTED_LUXE }}>
-            Ces passerelles encaissent les abonnements EduGest des écoles
-            (Flutterwave, Orange Money, M-Pesa…). Les passerelles scolaires (frais de
-            scolarité), la devise, les frais et les transactions se configurent
-            école par école — sélectionnez une école dans la barre latérale (« École active »).
-          </p>
-        </div>
-      )}
-
-      {/* Onglets + contenus ; les onglets scolaires n'apparaissent que avec une école active */}
+      {/* Vue identique pour tous les rôles, y compris l'admin plateforme. */}
       <>
       {/* Tabs */}
       <div className="flex gap-1 border-b">
         <button
           onClick={() => setActiveTab('gateways')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
-            activeTab === 'gateways' || !getActiveSchoolId() ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
+            activeTab === 'gateways' ? 'border-[#f5a623] text-[#f5a623]' : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
           Passerelles de Paiement
         </button>
-        {getActiveSchoolId() && (<>
+        {!isPlatformAdmin && (
         <button
           onClick={() => setActiveTab('fees')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
@@ -5331,6 +5509,7 @@ function PaymentConfigView() {
         >
           Frais Scolaires
         </button>
+        )}
         <button
           onClick={() => setActiveTab('currency')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition ${
@@ -5347,11 +5526,10 @@ function PaymentConfigView() {
         >
           Transactions
         </button>
-        </>)}
       </div>
 
       {/* Gateways Tab */}
-      {(activeTab === 'gateways' || !getActiveSchoolId()) && (
+      {activeTab === 'gateways' && (
         <div className="space-y-4">
           {availableGateways.length === 0 && !loading && (
             <div className="text-center py-8 bg-white border border-[oklch(90%_0.01_175)] rounded-2xl">
@@ -5417,7 +5595,7 @@ function PaymentConfigView() {
       )}
 
       {/* School Fees Tab */}
-      {getActiveSchoolId() && activeTab === 'fees' && (
+      {activeTab === 'fees' && !isPlatformAdmin && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -5509,7 +5687,7 @@ function PaymentConfigView() {
       )}
 
       {/* Currency Tab */}
-      {getActiveSchoolId() && activeTab === 'currency' && (
+      {activeTab === 'currency' && (
         <div className="space-y-6">
           {/* Currency Configuration */}
           <div className="border rounded-xl p-5 bg-white">
@@ -5668,7 +5846,7 @@ function PaymentConfigView() {
       )}
 
       {/* Transactions Tab */}
-      {getActiveSchoolId() && activeTab === 'transactions' && (
+      {activeTab === 'transactions' && (
         <div className="border rounded-xl bg-white overflow-hidden">
           <div className="p-4 border-b">
             <h3 className="font-semibold">Transactions récentes</h3>
@@ -5882,6 +6060,7 @@ function PaymentVerificationView() {
 
   const [payments, setPayments] = useState<PaymentData[]>([])
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null)
+  const [receiptFileName, setReceiptFileName] = useState('recu.pdf')
   const [receiptLoading, setReceiptLoading] = useState(false)
   // Parent-specific: search by receipt number
   const [receiptSearch, setReceiptSearch] = useState('')
@@ -5904,6 +6083,7 @@ function PaymentVerificationView() {
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       setReceiptUrl(url)
+      setReceiptFileName(`recu-${paymentId.slice(-8)}.pdf`)
     } catch {
       toast.error('Erreur lors du chargement du reçu')
     }
@@ -6147,14 +6327,9 @@ function PaymentVerificationView() {
                               const res = await authFetch(`/api/medical/documents/${universalResult.data.id}/pdf`)
                               if (!res.ok) throw new Error()
                               const blob = await res.blob()
-                              const url = URL.createObjectURL(blob)
-                              const a = document.createElement('a')
-                              a.href = url
-                              a.download = `${(universalResult.data.docCode || 'document').toLowerCase()}.pdf`
-                              document.body.appendChild(a)
-                              a.click()
-                              document.body.removeChild(a)
-                              URL.revokeObjectURL(url)
+                              // Desktop : rangé dans Documents/EduGest/Documents médicaux ; web : téléchargé.
+                              const saved = await savePdfBlob(blob, `${(universalResult.data.docCode || 'document').toLowerCase()}.pdf`)
+                              if (saved) toastPdfSaved(saved)
                             } catch { toast.error('Erreur lors du téléchargement du PDF') }
                           }}
                           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white"
@@ -6294,9 +6469,9 @@ function PaymentVerificationView() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <a href={receiptUrl} download className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
+                  <button onClick={async () => { try { const s = await savePdfUrl(receiptUrl, receiptFileName); if (s) toastPdfSaved(s); } catch { toast.error('Erreur lors du téléchargement') } }} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
                     <Download size={14} /> Télécharger
-                  </a>
+                  </button>
                   <button onClick={() => { URL.revokeObjectURL(receiptUrl); setReceiptUrl(null) }} className="w-9 h-9 rounded-lg grid place-items-center hover:bg-gray-100 transition">
                     <X size={18} className="text-gray-500" />
                   </button>
@@ -6319,15 +6494,10 @@ function PaymentVerificationView() {
       const res = await authFetch(`/api/payments/receipt/${paymentId}`)
       if (!res.ok) throw new Error()
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
       const payment = payments.find(p => p.id === paymentId)
-      a.download = `recu-${payment?.receiptNumber || paymentId.slice(-8)}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      // Desktop : rangé dans Documents/EduGest/Reçus de paiement ; web : téléchargé.
+      const saved = await savePdfBlob(blob, `recu-${payment?.receiptNumber || paymentId.slice(-8)}.pdf`)
+      if (saved) toastPdfSaved(saved)
     } catch {
       toast.error('Erreur lors du téléchargement du reçu')
     }
@@ -6573,14 +6743,9 @@ function PaymentVerificationView() {
                           const res = await authFetch(`/api/medical/documents/${universalResult.data.id}/pdf`)
                           if (!res.ok) throw new Error()
                           const blob = await res.blob()
-                          const url = URL.createObjectURL(blob)
-                          const a = document.createElement('a')
-                          a.href = url
-                          a.download = `${(universalResult.data.docCode || 'document').toLowerCase()}.pdf`
-                          document.body.appendChild(a)
-                          a.click()
-                          document.body.removeChild(a)
-                          URL.revokeObjectURL(url)
+                          // Desktop : rangé dans Documents/EduGest/Documents médicaux ; web : téléchargé.
+                          const saved = await savePdfBlob(blob, `${(universalResult.data.docCode || 'document').toLowerCase()}.pdf`)
+                          if (saved) toastPdfSaved(saved)
                         } catch { toast.error('Erreur lors du téléchargement du PDF') }
                       }}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white"
@@ -6736,9 +6901,9 @@ function PaymentVerificationView() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <a href={receiptUrl} download className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
+                <button onClick={async () => { try { const s = await savePdfUrl(receiptUrl, receiptFileName); if (s) toastPdfSaved(s); } catch { toast.error('Erreur lors du téléchargement') } }} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
                   <Download size={14} /> Télécharger
-                </a>
+                </button>
                 <button onClick={() => { URL.revokeObjectURL(receiptUrl); setReceiptUrl(null) }} className="w-9 h-9 rounded-lg grid place-items-center hover:bg-gray-100 transition">
                   <X size={18} className="text-gray-500" />
                 </button>
@@ -6779,13 +6944,13 @@ function CommunicationsView() {
   const { userData, userRole, highlightedId } = useEduGestStore()
   const [totalUsers, setTotalUsers] = useState(0)
   const [expandedComm, setExpandedComm] = useState<string | null>(null)
-  const canCreate = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const canCreate = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
   // Approbateurs DISTINCTS des créateurs : seuls le super admin plateforme et
   // L'ADMIN DE L'ÉCOLE peuvent approuver/rejeter les demandes PENDING
   // (directions + secrétaire). Avant : les boutons s'affichaient pour les
   // créateurs mêmes que l'API refusait (403), et l'admin d'école ne voyait rien.
   const canApprove = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN'].includes(userRole || '')
-  const canSeeStats = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const canSeeStats = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
   const isDirection = ['DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
   // Cycle imposé automatiquement selon la fonction de la direction (pas de choix)
   const directionScope = userRole === 'DIRECTION_MATERNELLE' ? 'MATERNELLE'
@@ -6804,6 +6969,11 @@ function CommunicationsView() {
   // L'utilisateur configure ici la clé API Resend pour l'envoi des emails
   // (codes de vérification, notifications). Stockée côté serveur.
   const isPlatformAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
+  // Vue plateforme SANS école active : on bloque compose + historique (le
+  // super admin choisit d'abord son école — plus de tombée silencieuse sur
+  // « demo » ni d'historique qui échoue en 403).
+  const activeSchoolId = getActiveSchoolId()
+  const platformNoSchool = isPlatformAdmin && !activeSchoolId
   const [showApiConfig, setShowApiConfig] = useState(false)
   const [emailCfg, setEmailCfg] = useState<any>(null)
   const [emailForm, setEmailForm] = useState({ enabled: false, fromEmail: '', fromName: '', apiKey: '' })
@@ -6890,13 +7060,18 @@ function CommunicationsView() {
 
   async function handleSend() {
     if (!title || !content) return toast.error('Titre et contenu requis')
+    const sid = getActiveSchoolId()
+    if (!sid) {
+      toast.error("Choisissez d'abord une école active dans la barre latérale")
+      return
+    }
     try {
       const res = await authFetch('/api/communications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           senderId: userData?.id || 'demo', senderRole: userData?.role || 'SECRETARY',
-          schoolId: getActiveSchoolId() || 'demo', type, title, content, targetType,
+          schoolId: sid, type, title, content, targetType,
           sentToApp: app, sentToWhatsapp: whatsapp, scope: scope || undefined,
         }),
       })
@@ -6905,9 +7080,12 @@ function CommunicationsView() {
         if (created?.warning) toast.warning(created.warning, { duration: 6000 })
         else toast.success('Communication envoyée!')
         setTitle(''); setContent('')
-        const json = await (await authFetch(`/api/communications?limit=20${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}`)).json()
+        const json = await (await authFetch(`/api/communications?limit=20&schoolId=${sid}`)).json()
         setComms(json.data || [])
         setTotalUsers(json.totalUsers || 0)
+      } else {
+        const err = await res.json().catch(() => ({} as any))
+        toast.error(err.error || "Erreur lors de l'envoi")
       }
     } catch { toast.error('Erreur lors de l\'envoi') }
   }
@@ -7063,6 +7241,13 @@ function CommunicationsView() {
         </div>
       )}
 
+      {platformNoSchool ? (
+        <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-10 shadow-sm text-center">
+          <Send size={28} className="mx-auto mb-2 opacity-30" style={{ color: TEXT_MUTED_LUXE }} />
+          <p className="font-semibold mb-1" style={{ color: TEXT_PRIMARY }}>Aucune école sélectionnée</p>
+          <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>Choisissez une école dans la barre latérale (« École active ») pour envoyer des communications et consulter leur historique.</p>
+        </div>
+      ) : (
       <div className={`grid grid-cols-1 gap-6 ${canCreate ? 'lg:grid-cols-[1fr_1fr]' : ''}`}>
         {/* Compose */}
         {canCreate && (
@@ -7168,6 +7353,7 @@ function CommunicationsView() {
           </div>
         </div>
       </div>
+      )}
     </div>
   )
 }
@@ -7180,8 +7366,8 @@ function HomeworkView() {
   const [loading, setLoading] = useState(true)
   const isTeacher = userRole === 'TEACHER' || userRole === 'HEAD_TEACHER'
   const isParent = userRole === 'PARENT'
-  const canCreate = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
-  const canSeeStats = ['SUPER_ADMIN_GLOBAL', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const canCreate = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
+  const canSeeStats = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'].includes(userRole || '')
   const [totalUsers, setTotalUsers] = useState(0)
   const [expandedHomework, setExpandedHomework] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -8203,10 +8389,10 @@ function BulletinView() {
       const res = await authFetch(`/api/bulletins/${id}?trimester=${selectedTrimester}${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}`)
       if (!res.ok) { toast.error('Erreur lors du téléchargement'); return }
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a'); a.href = url; a.download = `bulletin-${lastName || 'eleve'}-${selectedTrimester}.pdf`
-      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
-      toast.success('Bulletin téléchargé !')
+      // Desktop : rangé dans Documents/EduGest/Bulletins ; web : téléchargé.
+      const saved = await savePdfBlob(blob, `bulletin-${lastName || 'eleve'}-${selectedTrimester}.pdf`)
+      if (saved) toastPdfSaved(saved)
+      else toast.success('Bulletin téléchargé !')
     } catch { toast.error('Erreur réseau') }
   }
 
@@ -8370,7 +8556,7 @@ function ConvocationView() {
 
   const { userData, userRole, highlightedId } = useEduGestStore()
   const isParent = userRole === 'PARENT'
-  const canCreate = ['SUPER_ADMIN_GLOBAL', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE'].includes(userRole || '')
+  const canCreate = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'SECRETARY', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE', 'DISCIPLINE_MATERNELLE', 'DISCIPLINE_PRIMAIRE', 'DISCIPLINE_SECONDAIRE'].includes(userRole || '')
   const [studentSearch, setStudentSearch] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null)
   const [studentSuggestions, setStudentSuggestions] = useState<AutocompleteItem[]>([])
@@ -9002,7 +9188,7 @@ function SubscriptionUpgradeView() {
     { id: 'ESSENTIEL', name: 'Essentiel', price: 100, color: INFO, features: ['Élèves', 'Classes', 'Notes', 'Parents', 'Paiements', 'Devoirs', 'Discipline'] },
     { id: 'STANDARD', name: 'Standard', price: 250, color: ACCENT, features: ['Tout Essentiel', 'Bulletins', 'Communications', 'Convocations'] },
     { id: 'PREMIUM', name: 'Professionnel', price: 500, color: WARNING, features: ['Tout Standard', 'Analytics', 'Multi-années'] },
-    { id: 'ENTERPRISE', name: 'Enterprise', price: 1000, color: SUCCESS, features: ['Tout Premium', 'API', 'Support prioritaire', 'Branding custom'] },
+    { id: 'ENTERPRISE', name: 'Enterprise', price: 1000, color: SUCCESS, features: ['Tout Professionnel', 'API', 'Support prioritaire', 'Branding custom'] },
     { id: 'CORPORATE', name: 'Corporate', price: 0, color: DANGER, features: ['Tout Enterprise', 'Prix sur mesure'] },
   ]
 
@@ -9353,6 +9539,23 @@ export default function Home() {
   useEffect(() => {
     if (userRole) startRealtimeSync()
   }, [userRole])
+
+  // Deep link edugest:// reçu par l'app desktop (protocole enregistré par
+  // main.js) : ouvre l'import — ou le mémorise si le bureau n'est pas encore
+  // monté (écran de connexion), DashboardLayout l'ouvre à son montage.
+  // Sans effet sur le web (pas de bridge __edugest.deepLink).
+  useEffect(() => {
+    const bridge = (window as any).__edugest?.deepLink
+    if (!bridge) return
+    const handle = (route: unknown) => {
+      if (route !== 'import-db') return
+      try { sessionStorage.setItem('edugest:pending-import-db', '1') } catch {}
+      window.dispatchEvent(new Event('edugest:open-import-db'))
+    }
+    try { bridge.consume?.()?.then?.(handle)?.catch?.(() => {}) } catch {}
+    const off = bridge.onRoute?.(handle)
+    return () => { try { off?.() } catch {} }
+  }, [])
 
   // Restore session from localStorage before first paint (avoids hydration
   // mismatch + évite tout flash de la landing dans l'app desktop qui démarre

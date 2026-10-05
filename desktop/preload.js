@@ -11,6 +11,11 @@
  *   `show(payload)` affiche un toast système (titre/corps/icône), et
  *   `onNavigate(cb)` reçoit le clic sur le toast (URL + id) pour que
  *   l'interface ouvre la bonne page. Sans effet sur le web.
+ * - `window.__edugest.files` : sauvegarde des PDF générés —
+ *   `savePdf({ filename, data })` range le fichier dans
+ *   Documents/EduGest/<Catégorie>/ et retourne son chemin,
+ *   `showInFolder(path)` le montre dans l'explorateur. Sans effet sur le web
+ *   (l'interface utilise alors le téléchargement navigateur).
  */
 const { contextBridge, ipcRenderer } = require('electron');
 
@@ -55,10 +60,46 @@ contextBridge.exposeInMainWorld('__edugest', {
       return () => ipcRenderer.removeListener('edugest:navigate', listener);
     },
   },
+  /**
+   * Sauvegarde des PDF générés (reçus, bulletins, rapports…) :
+   * - `savePdf({ filename, data })` : base64 → Documents/EduGest/<Catégorie>/
+   *   (catégorie déduite du nom : recu-*, bulletin-*, sommation-*, …).
+   *   Résout { ok, path, folder, filename } ou { ok: false }.
+   * - `showInFolder(path)` : montre le fichier dans l'explorateur Windows.
+   * Sans effet sur le web (pas de bridge → repli téléchargement navigateur).
+   */
+  files: {
+    savePdf: (payload) => {
+      try {
+        return ipcRenderer.invoke('edugest:save-pdf', payload || {}).catch(() => ({ ok: false }));
+      } catch { return Promise.resolve({ ok: false }); }
+    },
+    showInFolder: (p) => {
+      try { ipcRenderer.invoke('edugest:show-in-folder', p).catch(() => {}); } catch {}
+    },
+  },
   /** Informations système de l'ordinateur (marque, modèle, OS, IP…). */
   systemInfo: () => {
     try {
       return ipcRenderer.invoke('edugest:system-info').catch(() => ({}));
     } catch { return Promise.resolve({}); }
+  },
+  /**
+   * Deep link « edugest:// » reçu du site web (ex. edugest://import-db) :
+   * - `consume()` : route en attente au démarrage (app lancée PAR le lien).
+   * - `onRoute(cb)` : route poussée par une deuxième instance (app déjà ouverte).
+   * Sans effet sur le web (pas de bridge → l'interface n'écoute pas).
+   */
+  deepLink: {
+    consume: () => {
+      try {
+        return ipcRenderer.invoke('edugest:deep-link:consume').catch(() => null);
+      } catch { return Promise.resolve(null); }
+    },
+    onRoute: (cb) => {
+      const listener = (_e, route) => { try { cb(route); } catch {} };
+      ipcRenderer.on('edugest:deep-link', listener);
+      return () => ipcRenderer.removeListener('edugest:deep-link', listener);
+    },
   },
 });

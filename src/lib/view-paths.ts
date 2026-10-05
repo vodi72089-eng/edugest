@@ -33,6 +33,10 @@ export const VIEW_PATHS: Record<string, string> = {
   'platform-control': '/platform-control',
   personnel: '/personnel',
   settings: '/settings',
+  // Support client : file de tickets. Sans ce chemin, un clic sur « Support »
+  // laissait l'URL à « / » → un rafraîchissement/Retour perdait la vue, et
+  // notifUrlForRole() renvoyait une URL sans rapport pour les Web Push.
+  support: '/support',
   'school-reviews': '/school-reviews',
   'payment-verification': '/payment-verification',
   'payment-config': '/payment-config',
@@ -56,15 +60,32 @@ export const PUBLIC_VIEWS: readonly string[] = ['home', 'login', 'create-school'
 export const PRE_AUTH_ONLY_VIEWS: readonly string[] = ['login', 'create-school', 'school-detail'];
 
 /** Convert a view name to its canonical browser path. */
-export function viewToPath(view: string): string {
-  return VIEW_PATHS[view] ?? '/';
+export function viewToPath(view: string, subTab?: string | null): string {
+  const base = VIEW_PATHS[view] ?? '/';
+  // Sous-onglets : /payment-config/transactions, /payment-config/currency…
+  if (view === 'payment-config' && subTab && subTab !== 'gateways') {
+    return `${base}/${subTab}`;
+  }
+  return base;
 }
 
 /** Convert a browser pathname to a view name (null when unknown). */
 export function pathToView(pathname: string): string | null {
+  return parsePath(pathname).view;
+}
+
+/**
+ * Convertit un chemin en { view, subTab }.
+ * /payment-config/transactions → { view: 'payment-config', subTab: 'transactions' }
+ */
+export function parsePath(pathname: string): { view: string | null; subTab: string | null } {
   const clean = (pathname || '/').split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
   for (const [view, path] of Object.entries(VIEW_PATHS)) {
-    if (path === clean) return view;
+    if (path === clean) return { view, subTab: null };
+    if (view === 'payment-config' && clean.startsWith(`${path}/`)) {
+      const sub = clean.slice(path.length + 1).split('/')[0];
+      return { view, subTab: sub || null };
+    }
   }
-  return null;
+  return { view: null, subTab: null };
 }

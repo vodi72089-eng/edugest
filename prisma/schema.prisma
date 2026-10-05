@@ -1,9 +1,10 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -55,9 +56,11 @@ model School {
   supportTickets    SupportTicket[]
   featureGrants     FeatureGrant[]
   attendanceRecords AttendanceRecord[]
+  teacherAttendanceRecords TeacherAttendanceRecord[]
   schoolFees        SchoolFee[]
   notifications     Notification[]
   subscriptionRequests SubscriptionRequest[]
+  schoolPhotos      SchoolPhoto[]
   whatsappCustomEnabled Boolean   @default(false)
   whatsappApiType       String    @default("META_CLOUD")
   whatsappMetaToken     String?
@@ -117,6 +120,7 @@ model User {
   homeworkReads   HomeworkRead[]
   convocationReads ConvocationRead[]
   teacherAssignments TeacherAssignment[]
+  teacherAttendanceRecords TeacherAttendanceRecord[]
   pushSubscriptions PushSubscription[]
   infirmaryVisitsRecorded InfirmaryVisit[] @relation("RecordedVisits")
   medicalDocumentsCreated MedicalDocument[] @relation("MedicalDocumentsCreated")
@@ -324,7 +328,7 @@ model GradeRead {
 }
 
 model DisciplineRecord {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   studentId      String
   type           String
   severity       String
@@ -334,10 +338,16 @@ model DisciplineRecord {
   listType       String   @default("GREYLIST")
   status         String   @default("PENDING")
   schoolId       String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  // Demande « Conduite » d'un professeur : createdBy = prof demandeur,
+  // reviewedBy/reviewedAt = disciplinaire qui approuve ou refuse.
+  // Null = créé directement par le disciplinaire (pas de demande).
+  createdBy      String?
+  reviewedBy     String?
+  reviewedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  student        Student  @relation(fields: [studentId], references: [id])
+  student        Student   @relation(fields: [studentId], references: [id])
 }
 
 model Blacklist {
@@ -539,6 +549,25 @@ model AttendanceRecord {
 
   @@unique([studentId, date])
   @@index([classId, date])
+}
+
+model TeacherAttendanceRecord {
+  id          String    @id @default(cuid())
+  teacherId   String
+  schoolId    String
+  date        String    // YYYY-MM-DD
+  status      String    // PRESENT | ABSENT | LATE
+  recordedBy  String?
+  validatedBy String?
+  validatedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  teacher User   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  school  School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, date])
+  @@index([schoolId, date])
 }
 
 model ReportCard {
@@ -972,6 +1001,19 @@ model SchoolEvent {
   @@index([schoolId, startAt])
 }
 
+/// Galerie photos publique de l'école (page vitrine). Limite par forfait
+/// (getTierLimits().maxPhotos) appliquée côté serveur à l'ajout.
+model SchoolPhoto {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  url       String
+  caption   String?
+  createdAt DateTime @default(now())
+
+  @@index([schoolId, createdAt])
+}
+
 // ─── Tokens de réinitialisation de mot de passe ───
 // Stockés en base (et non en mémoire) pour survivre aux redémarrages du
 // serveur : un parent qui demande un code doit pouvoir le saisir même si
@@ -986,6 +1028,34 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+// Sessions d'authentification (migrer depuis le store fichier .sessions de
+// l'ere VPS : workerd n'a pas de systeme de fichiers).
+// Champs alignes sur src/lib/auth.ts (Session shape v2 + enrichissement
+// appareil). token = porteur opaque (jamais expose) ; sid = id exposable a l'UI.
+model Session {
+  token         String   @id
+  sid           String   @unique
+  userId        String
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  lastUsedAt    DateTime @default(now())
+  userAgent     String   @default("")
+  ip            String   @default("")
+  fingerprintId String   @default("")
+  screen        String   @default("")
+  gpu           String   @default("")
+  battery       String   @default("")
+  languages     String   @default("")
+  timezone      String   @default("")
+  memory        String   @default("")
+  cores         String   @default("")
+  network       String   @default("")
+  location      Json?
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 // ─── Comptes CORPORATE (clients multi-écoles) ───
@@ -1129,6 +1199,7 @@ model ReportSchedule {
   schoolId      String
   createdBy     String    // userId du créateur
   createdByName String    // dénormalisé pour l'audit/l'affichage
+  reportType    String    @default("activity") // activity = rapport d'activité · cashier = rapport de caisse
   intervalDays  Int       @default(1) // 1 = quotidien, 2 = tous les 2 jours, 7 = hebdo
   hour          Int       @default(8) // heure d'envoi (0-23, Africa/Lagos)
   minute        Int       @default(0)

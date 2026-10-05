@@ -1,0 +1,46 @@
+diff --git a/dist/node/chunks/node.js b/dist/node/chunks/node.js
+index 35c5c82b149c8b2cff024cf03b8667672871d97e..62e27ef01d71ed62510a5674de2c87b71635856a 100644
+--- a/dist/node/chunks/node.js
++++ b/dist/node/chunks/node.js
+@@ -15828,7 +15828,7 @@ var SSRCompatModuleRunner = class extends ModuleRunner {
+ 			viteMod.ssrModule = exports;
+ 			return exports;
+ 		} catch (err) {
+-			viteMod.ssrError = err;
++			if (err?.code !== "ERR_TRANSPORT_INVOKE_TIMEOUT") viteMod.ssrError = err;
+ 			throw err;
+ 		}
+ 	}
+diff --git a/dist/node/module-runner.js b/dist/node/module-runner.js
+index 178c3ca9682d1ae208f4ca6aee01cb55e3cc6c0a..5cb5de67ced0b619cd0480e108e18793c8d04bca 100644
+--- a/dist/node/module-runner.js
++++ b/dist/node/module-runner.js
+@@ -612,9 +612,9 @@ const createInvokeableTransport = (transport) => {
+ 					id: `send:${promiseId}`,
+ 					data
+ 				}
+-			}, sendPromise = transport.send(wrappedData), { promise, resolve, reject } = promiseWithResolvers(), timeout = transport.timeout ?? 6e4, timeoutId;
++			}, sendPromise = transport.send(wrappedData), { promise, resolve, reject } = promiseWithResolvers(), timeout = transport.timeout ?? 6e5, timeoutId;
+ 			timeout > 0 && (timeoutId = setTimeout(() => {
+-				rpcPromises.delete(promiseId), reject(/* @__PURE__ */ Error(`transport invoke timed out after ${timeout}ms (data: ${JSON.stringify(wrappedData)})`));
++				rpcPromises.delete(promiseId), reject(Object.assign(/* @__PURE__ */ Error(`transport invoke timed out after ${timeout}ms (data: ${JSON.stringify(wrappedData)})`), { code: "ERR_TRANSPORT_INVOKE_TIMEOUT" }));
+ 			}, timeout), timeoutId?.unref?.()), rpcPromises.set(promiseId, {
+ 				resolve,
+ 				reject,
+@@ -1188,11 +1188,15 @@ var ModuleRunner = class {
+ 		this.debug && (debugTimer = setTimeout(() => {
+ 			this.debug(`[module runner] module ${moduleId} takes over 2s to load.\n${`stack:\n${[...callstack, moduleId].reverse().map((p) => `  - ${p}`).join("\n")}`}`);
+ 		}, 2e3));
++		let timedOut = !1;
+ 		try {
+ 			let promise = this.directRequest(url, mod, callstack);
+ 			return mod.promise = promise, mod.evaluated = !1, this.processImport(await promise, meta, metadata);
++		} catch (err) {
++			timedOut = err?.code === "ERR_TRANSPORT_INVOKE_TIMEOUT";
++			throw err;
+ 		} finally {
+-			mod.evaluated = !0, debugTimer && clearTimeout(debugTimer);
++			timedOut ? this.evaluatedModules.invalidateModule(mod) : mod.evaluated = !0, debugTimer && clearTimeout(debugTimer);
+ 		}
+ 	}
+ 	async cachedModule(url, importer) {

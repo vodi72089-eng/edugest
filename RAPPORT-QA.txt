@@ -1,0 +1,200 @@
+================================================================================
+                        RAPPORT QA / AUDIT SÉCURITÉ — EduGest
+================================================================================
+Date        : 26/09/2026
+Environnement : Next.js 16.3.5 (dev), Prisma/SQLite, http://localhost:3100
+Base        : prisma/db/custom.db — 6 écoles, 20 utilisateurs, 20 élèves
+Méthode     : tests API live (tokens par rôle), audit statique des 128 routes
+              API, vérification des gates d'abonnement (feature-gate) et des
+              permissions par rôle (ROLE_PERMISSIONS).
+Note        : Rapport uniquement — aucune correction appliquée (mission
+              "qa-only"). Les tests ont été réalisés sur plusieurs jours
+              (22/09 → 26/09) ; les différences entre versions sont signalées.
+
+--------------------------------------------------------------------------------
+1. COMPTES DE TEST (20 en base, tous admin123 après reset)
+--------------------------------------------------------------------------------
+admin@edugest.app           SUPER_ADMIN_GLOBAL (aucune école)
+parent@email.com            PARENT (11 enfants, CSL)
+nsimba@email.com            PARENT
+admin@lumiere.cd            SCHOOL_ADMIN (CSL — PREMIUM)
+admin@brazza.cd             SCHOOL_ADMIN (FREEMIUM)
+admin@mwanzo.cd             SCHOOL_ADMIN
+admin@dakar.cd              SCHOOL_ADMIN
+admin@abidjan.cd            SCHOOL_ADMIN
+admin@kivu.cd               SCHOOL_ADMIN (échelle GSK)
+claudine@lumiere.cd         SECRETARY (CSL)
+joseph@lumiere.cd           CASHIER (CSL)
+dir.maternelle@lumiere.cd   DIRECTION_MATERNELLE
+dir.primaire@lumiere.cd     DIRECTION_PRIMAIRE
+dir.secondaire@lumiere.cd   DIRECTION_SECONDAIRE
+disc.maternelle@lumiere.cd  DISCIPLINE_MATERNELLE
+disc.primaire@lumiere.cd    DISCIPLINE_PRIMAIRE
+disc.secondaire@lumiere.cd  DISCIPLINE_SECONDAIRE
+headteacher@lumiere.cd      HEAD_TEACHER
+mwepu@lumiere.cd            TEACHER (mdp non déterminé avant reset)
+tshibola@lumiere.cd         TEACHER
+
+Incident : le compte "admin@csl.cd" référencé dans certains tests n'EXISTE PAS
+en base (404/login échec) — probablement renommé en admin@lumiere.cd.
+Tous les mots de passe ont été réinitialisés à admin123 au cours du test.
+
+IDs écoles : CSL(s1)=cmud3g92k0000tk745gz4mm0i ; Kivu(s2)=cmud3g97k0005tk74ncj1dgjj
+             (+4 autres : mwanzo, dakar, abidjan, brazza)
+
+================================================================================
+                          FINDINGS (par gravité)
+================================================================================
+
+--------------------------------------------------------------------------------
+[P1 — CONFIRMÉ LIVE] IDOR lecture config devise : GET /api/school-currency
+--------------------------------------------------------------------------------
+Fichier    : src/app/api/school-currency/route.ts (GET, L8-L35)
+Faille     : requirePermission('school:read') mais le schoolId du QUERY est
+             utilisé tel quel, SANS verifySchoolAccess(user, schoolId).
+Preuve     : SECRETARY claudine@lumiere.cd (école s1) :
+               GET /api/school-currency?schoolId=<Kivu s2>
+               → 200 avec la VRAIE config de s2 :
+               {"id":"cmufzmltt0000tkxkpgdh3z0t","schoolId":"cmud3g97k0005tk74ncj1dgjj",
+                "baseCurrency":"USD","displayCurrency":"USD","enabledCurrencies":"USD,CDF",...}
+             SCHOOL_ADMIN admin@brazza.cd (s2) → lit la config de s1 en 200.
+Impact     : n'importe quel rôle avec school:read (SECRETARY, DIRECTION,
+             SCHOOL_ADMIN...) peut lire la configuration financière de
+             TOUTE école concurrente en devinant/générant un schoolId.
+             (Quand aucune config n'existe, des valeurs par défaut sont
+             renvoyées — fuite de moindre gravité.)
+Remarque   : l'IDOR est reproductible quel que soit le schoolId passé.
+
+--------------------------------------------------------------------------------
+[P1 — CONFIRMÉ, PUIS CORRIGÉ PENDANT LA PÉRIODE DE TEST] IDOR whatsapp-config
+--------------------------------------------------------------------------------
+Fichier    : src/app/api/whatsapp-config/route.ts
+État initial (22-24/09) : GET lisait searchParams.get('schoolId') sans aucune
+             vérification (requireAuth seul) → TOUS les comptes (SECRETARY,
+             PARENT, CASHIER, DIRECTION...) recevaient 200 avec
+             schoolId=<n'importe quelle école>. Data null à l'époque (pas de
+             config seedée) mais le canal était ouvert.
+État actuel (26/09) : CORRIGÉ — whitelist WHATSAPP_CONFIG_ROLES
+             [SAG, SCHOOL_ADMIN, SECRETARY] + schoolId honoré UNIQUEMENT pour
+             SAG, sinon user.schoolId forcé.
+Re-test     : PARENT/CASH/DIR/HEAD → 403 ; SECRETARY ne reçoit que sa propre
+             école ; SAG → 200 sur s2 (légitime). ÉTAT : OK après fix.
+Note       : si le fix n'est pas encore commité, il doit l'être.
+
+--------------------------------------------------------------------------------
+[P2 — CONFIRMÉ LIVE] GET /api/schools public sans authentification
+--------------------------------------------------------------------------------
+Fichier    : src/app/api/schools/route.ts
+Faille     : GET accessible sans token (requireAuth optionnel).
+Preuve     : GET /api/schools sans Authorization → 200, 6 écoles, champs :
+             id, name, shortName, city, province, schoolCategory, schoolType,
+             isActive, createdAt, logo, coverImage et _count.
+Impact     : fuite des métriques internes (_count students/classes/users par
+             école) + inventaire complet des écoles avant authentification.
+             Partiallement "by design" (annuaire public), mais _count et les
+             IDs internes n'ont rien à faire dans une réponse publique.
+Recommandé : page publique = champs marketing seulement ; compteurs agrégés.
+
+--------------------------------------------------------------------------------
+[P2 — CONFIRMÉ LIVE] POST /api/schools sans authentification
+--------------------------------------------------------------------------------
+Faille     : création de compte école entièrement anonyme.
+Preuve     : POST /api/schools (aucun header Auth) avec name/shortName/email/
+             phone/city/province/country → 201, école créée (FREEMIUM) +
+             admin généré avec mdp aléatoire envoyé (flux d'inscription).
+             (Données créées nettoyées après test.)
+Impact     : spam d'inscription d'écoles ; vérifié : rate-limit par IP présent
+             (évalué : limite l'abus mais pas d'email/captcha de vérification).
+Gravité    : modérée — fonctionnalité d'inscription vouue publique, à durcir
+             (captcha, vérification email, modération admin avant activation).
+
+--------------------------------------------------------------------------------
+[P2 — CONFIRMÉ LIVE] POST /api/school-comments sans rate-limit
+--------------------------------------------------------------------------------
+Fichier    : src/app/api/school-comments/route.ts
+Preuve     : 3× POST sans auth → 201 en moins de 100 ms (aucun throttling).
+             (Commentaires créés avec isApproved=false ; nettoyés après test.)
+Impact     : spam illimité en base (bombardement d'avis). La modération
+             (isApproved) limite la diffusion publique mais pas le remplissage
+             de la DB ni le coût de modération.
+Remarque   : le rate-limit IP de POST /api/schools montre que le pattern
+             existe déjà dans la codebase — il est simplement absent ici.
+
+--------------------------------------------------------------------------------
+[P3] Routes "read by ID" sans vérification d'école
+--------------------------------------------------------------------------------
+Fichiers   : api/convocations/[id]/read, api/grades/[id]/read,
+             api/homework/[id]/read, api/communications/[id]/approve
+Faille     : accès par ID séquentiel (cuid) sans verifySchoolAccess sur
+             l'objet chargé. Nécessite une session valide, et les IDs CUID
+             sont difficiles à deviner → gravité faible, mais un utilisateur
+             d'une école qui obtient un ID (ex. fuite d'email/URL) peut lire
+             des données d'une autre école.
+Existant   : 71 des 128 routes API n'appellent pas verifySchoolAccess —
+             surface à auditer unitairement (beaucoup se scopent via
+             user.schoolId dans le WHERE, ce qui est correct).
+
+--------------------------------------------------------------------------------
+[P3] GET /api/upload public
+--------------------------------------------------------------------------------
+Par design (réponses statiques), protégé contre la traversée de chemin.
+Inclus pour traçabilité — pas une faille actuelle.
+
+--------------------------------------------------------------------------------
+[P4 / hygiène]
+--------------------------------------------------------------------------------
+- Sessions en fichiers locaux (src/lib/auth.ts getSessionPath) : OK en dev,
+  à revoir pour multi-instances ; TTL ~48h observé (expiration testée).
+- Erreur d'API "sanitizeError" OK (pas de fuite de stack en prod).
+- admin@csl.cd documenté dans worklog mais inexistant en DB → document désaligné.
+
+================================================================================
+                          TESTS OK (POSTES VALIDÉS)
+================================================================================
+✓ PARENT scoping étroit :
+    GET /students  → 200 mais 11/11 élèves ont parentId = session.user.id
+                     et schoolId = école du parent (aucune fuite).
+    GET /payments  → 200, 20 paiements limités aux 7 enfants du parent.
+    GET /users     → 403.
+✓ DIRECTION : schoolId passé en query est IGNORÉ (forcé à user.schoolId) —
+    GET /stats?schoolId=s2 renvoie les stats de s1 (pas d'IDOR).
+✓ CASHIER : payments s2 → 403 ; users → 403 ; whatsapp → 403.
+✓ DISCIPLINE : convocations s2 → 403 ; grades → 403 "Permission insuffisante".
+✓ HEAD_TEACHER : users → 403 ; homework → 200 (école propre).
+✓ school/design?schoolId=autre → 403 (corrigé depuis le test initial en erreur).
+✓ Gate FREEMIUM : GET /class-passing → 403 avec message explicite
+    "requiert le forfait PREMIUM ou supérieure (actuel : FREEMIUM)".
+✓ Gate grant : SCHOOL_ADMIN sans grant → 403 grantRequired (comportement voulu).
+✓ SAG : /admin-analytics 200 (SAG only) ; class-passing 400 sans schoolId.
+✓ Login : rate-limit IP (30/15min) + lockout progressif par compte (5→60s,
+    doublage jusqu'à 24h) + messages génériques.
+✓ payments/verify-receipt : correctif P1 antérieur déjà appliqué.
+✓ subscription/status, sessions, notifications : auto-scopés.
+✓ upload POST : requireAuth ; GET protégé contre traversal.
+
+================================================================================
+                          RECOMMANDATIONS (ordre)
+================================================================================
+1. [P1] school-currency : ajouter verifySchoolAccess(user, schoolId) ou forcer
+   user.schoolId hors SAG (même pattern que le fix whatsapp-config).
+2. [P1] S'assurer que le fix whatsapp-config est commité/déployé.
+3. [P2] /api/schools GET : retirer _count + IDs internes de la réponse publique.
+4. [P2] /api/school-comments POST : rate-limit IP (réutiliser checkRateLimit).
+5. [P3] Appliquer verifySchoolAccess sur les read-by-ID (convocations, grades,
+   homework, communications/approve) — ou scoping WHERE systematique.
+6. [P3] Inscription écoles : captcha + vérification email + modération.
+7. [Doc] Corriger worklog (admin@csl.cd inexistant), réaligner les identifiants.
+
+================================================================================
+                          LIMITES DU TEST
+================================================================================
+- Parcours UI bouton-par-bouton non couverts dans cette session : le focus a
+  été mis sur l'API et les garde-fous serveur (l'UI ne fait que refléter
+  client-permissions.ts).
+- "admin@csl.cd" non testable (compte inexistant).
+- Données seedées pour la preuve IDOR (config s2, configs WA) laissées en place
+  sauf mention contraire ; écoles/commentaires de test créés puis SUPPRIMÉS
+  (DB : 6 écoles, 0 orphelin, 0 spam).
+- Tests effectués sur le serveur dev (port 3100 ; le 3000 était occupé) :
+  comportements de prod (HTTPS, headers, rate-limit réseau) non couverts.
+================================================================================

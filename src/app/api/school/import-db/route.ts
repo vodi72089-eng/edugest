@@ -33,6 +33,13 @@ interface SqliteRow { [key: string]: unknown }
  *  - schoolId        : optionnel (SUPER_ADMIN_GLOBAL uniquement)
  */
 export async function POST(request: NextRequest) {
+  // Réservé à l'application desktop (exe) — la version web ne peut pas importer.
+  const userAgent = request.headers.get('user-agent') || '';
+  const isElectron = /electron/i.test(userAgent);
+  if (!isElectron) {
+    return NextResponse.json({ error: 'L\'import de base de données n\'est disponible que dans l\'application desktop.' }, { status: 403 });
+  }
+
   // Fichier temporaire à nettoyer
   let tmpPath: string | null = null;
   try {

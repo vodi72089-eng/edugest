@@ -7,7 +7,7 @@ import { requirePermission, verifySchoolAccess, sanitizeError, getRoleCycle, cla
 // POST /api/attendance { classId, date, entries:[{studentId,status}] } → upsert
 //
 // Gardes serveur :
-//  - permission discipline:read / discipline:update
+//  - permission attendance:read (GET) / attendance:create (POST)
 //  - accès école vérifié
 //  - un compte à cycle imposé (DIRECTION_*/DISCIPLINE_*) ne peut appeler que
 //    les classes de SON cycle (section OU nom maternelle M1/M2/PS/MS/GS…)
@@ -44,7 +44,7 @@ async function assertClassAccess(
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await requirePermission(request, 'discipline:read');
+    const authResult = await requirePermission(request, 'attendance:read');
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
 
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requirePermission(request, 'discipline:update');
+    const authResult = await requirePermission(request, 'attendance:create');
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
 

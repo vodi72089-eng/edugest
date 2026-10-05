@@ -29,6 +29,10 @@ import { ROLE_PERMISSIONS } from '@/lib/auth';
  *   STUDENT_ENROLLED / CLASS_CREATED→ SECRETARY + SCHOOL_ADMIN
  *                                     + DIRECTION_<cycle>
  *   COMMUNICATION_PENDING           → SCHOOL_ADMIN (+ SUPER_ADMIN_GLOBAL)
+ *   COMMUNICATION (envoyée)         → audience visée par la communication :
+ *                                     ALL → toute l'école, STAFF → personnel,
+ *                                     PARENTS/CLASS → parents (portée de cycle
+ *                                     filtrée comme la lecture GET).
  *
  * Le resolver vérifie : type d'événement, schoolId, studentId (relation
  * parent-enfant réelle), cycle/section, rôle et permission associée.
@@ -46,6 +50,8 @@ export interface NotificationEvent {
   classId?: string | null;
   /** Cycle explicite (MATERNELLE|PRIMAIRE|SECONDAIRE) si déjà connu. */
   section?: string | null;
+  /** Audience d'une communication (ALL | PARENTS | STAFF | CLASS). */
+  targetType?: string | null;
   /** Auteur de l'action — exclu par défaut (il SAIT ce qu'il vient de faire). */
   actorId?: string | null;
   /** Exclusions additionnelles explicites. */
@@ -82,6 +88,7 @@ const EVENT_PERMISSION: Record<string, string> = {
   MEDICAL_DOCUMENT: 'students:read',
   DISPENSE: 'dispenses:read',
   COMMUNICATION_PENDING: 'communications:read',
+  COMMUNICATION: 'communications:read',
 };
 
 function roleHasPermission(role: string, permission: string): boolean {
@@ -152,6 +159,26 @@ async function resolveParentsOfClass(event: NotificationEvent): Promise<Resolved
   const out: ResolvedNotificationRecipient[] = [];
   for (const s of students) {
     if (s.parentId) await push(out, { userId: s.parentId, role: 'PARENT', reason: 'PARENT_OF_CLASS_STUDENT' });
+  }
+  return out;
+}
+
+/** Tous les parents de l'école (users PARENT scellés, sinon via les élèves). */
+async function resolveSchoolParents(event: NotificationEvent, reason: string): Promise<ResolvedNotificationRecipient[]> {
+  if (!event.schoolId) return [];
+  const bySchool = await db.user.findMany({
+    where: { schoolId: event.schoolId, role: 'PARENT', isActive: true },
+    select: { id: true },
+  });
+  if (bySchool.length > 0) return bySchool.map((u) => ({ userId: u.id, role: 'PARENT', reason }));
+  const students = await db.student.findMany({
+    where: { schoolId: event.schoolId, parentId: { not: null }, isArchived: false },
+    select: { parentId: true },
+    distinct: ['parentId'],
+  });
+  const out: ResolvedNotificationRecipient[] = [];
+  for (const s of students) {
+    if (s.parentId) out.push({ userId: s.parentId, role: 'PARENT', reason });
   }
   return out;
 }
@@ -278,6 +305,37 @@ export async function resolveNotificationRecipients(event: NotificationEvent): P
       await add(await staff(['SCHOOL_ADMIN'], 'SCHOOL_ADMIN_OF_SCHOOL'));
       await add(await staff(['SUPER_ADMIN_GLOBAL'], 'PLATFORM_APPROVER'));
       break;
+
+    // ── COMMUNICATION ENVOYÉE : audience ciblée (ALL/PARENTS/STAFF/CLASS) ───
+    // Même visibilité que GET /api/communications : tout le monde pour ALL,
+    // personnel sans les parents pour STAFF, parents pour PARENTS/CLASS.
+    case 'COMMUNICATION': {
+      const target = (event.targetType || 'ALL').toUpperCase();
+      if (target === 'PARENTS') {
+        await add(await resolveSchoolParents(event, 'PARENT_OF_SCHOOL'));
+      } else if (target === 'CLASS') {
+        const classParents = await resolveParentsOfClass(event);
+        if (classParents.length > 0) await add(classParents);
+        else await add(await resolveSchoolParents(event, 'PARENT_OF_SCHOOL'));
+      } else if (target === 'STAFF') {
+        await add(await staff(Object.keys(ROLE_PERMISSIONS).filter((r) => r !== 'PARENT'), 'STAFF_OF_SCHOOL'));
+      } else {
+        await add(await staff(Object.keys(ROLE_PERMISSIONS), 'AUDIENCE_COMMUNICATION_ALL'));
+      }
+      // Portée de cycle : une communication scellée MATERNELLE/PRIMAIRE/…
+      // n'est visible que par les directions/disciplines de CE cycle
+      // (identique au filtre `scope` de la liste GET).
+      if (event.section) {
+        const allowed = new Set(cycleRolesForSection(event.section));
+        for (let i = list.length - 1; i >= 0; i--) {
+          const role = list[i].role;
+          if ((role.startsWith('DIRECTION_') || role.startsWith('DISCIPLINE_')) && !allowed.has(role)) {
+            list.splice(i, 1);
+          }
+        }
+      }
+      break;
+    }
 
     default:
       // Famille inconnue : aucun destinataire implicite. Les événements à

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { viewToPath, pathToView, PUBLIC_VIEWS, PRE_AUTH_ONLY_VIEWS } from './view-paths'
+import { viewToPath, parsePath, PUBLIC_VIEWS, PRE_AUTH_ONLY_VIEWS } from './view-paths'
 
 // ─── Persistence Keys ────────────────────────────────────────────────────────
 
@@ -120,14 +120,15 @@ function resolveView(view: ViewType): ViewType {
 // deep links work and back/forward behave like normal navigation.
 // The mapping itself lives in src/lib/view-paths.ts (shared with next.config).
 
-function syncUrl(view: ViewType, mode: 'push' | 'replace', preserveQuery = false) {
+export function syncUrl(view: ViewType, mode: 'push' | 'replace', preserveQuery = false) {
   if (typeof window === 'undefined') return;
   // preserveQuery : à la RESTAURATION (reload, deep link, Retour/Avant), la
   // recherche ?q= fait partie de l'adresse — on la garde pour que la vue
   // s'ouvre avec le même filtre. À la NAVIGATION (clic menu), on la laisse
   // tomber : la recherche appartient à la vue qu'on quitte.
   const query = preserveQuery ? window.location.search : '';
-  const target = viewToPath(view) + query;
+  const subTab = view === 'payment-config' ? useEduGestStore.getState().paymentConfigTab : null;
+  const target = viewToPath(view, subTab) + query;
   const current = window.location.pathname + window.location.search;
   if (current === target) return;
   try {
@@ -193,6 +194,7 @@ export type ViewType =
   | 'docs'
   | 'platform-emails'
   | 'activity-logs'
+  | 'conduct'
 
 export type UserRole =
   | 'SUPER_ADMIN_GLOBAL'
@@ -276,6 +278,12 @@ interface EduGestStore {
   disciplineTab: 'BLACKLIST' | 'GREYLIST' | 'WHITELIST'
   setDisciplineTab: (tab: 'BLACKLIST' | 'GREYLIST' | 'WHITELIST') => void
 
+  // Onglet actif de Config. Paiements — synchronisé avec l'URL
+  // (/payment-config/transactions, /payment-config/currency…) pour que chaque
+  // onglet ait une adresse fixe et partageable.
+  paymentConfigTab: 'gateways' | 'fees' | 'currency' | 'transactions'
+  setPaymentConfigTab: (tab: 'gateways' | 'fees' | 'currency' | 'transactions') => void
+
   searchQuery: string
   setSearchQuery: (q: string) => void
 
@@ -316,7 +324,7 @@ export function restoreSession() {
   // The URL is the first-class source of truth: a deep link like /students
   // restores the Students view directly. Without a deep link, authenticated
   // users land on the dashboard; anonymous users see the public landing.
-  const urlView = pathToView(window.location.pathname) as ViewType | null;
+  const { view: urlView, subTab } = parsePath(window.location.pathname);
   const authed = !!(session && (session.role || session.userData));
 
   if (authed) {
@@ -327,9 +335,13 @@ export function restoreSession() {
       urlView !== 'login' &&
       !(PRE_AUTH_ONLY_VIEWS as readonly string[]).includes(urlView)
     ) {
-      view = urlView;
+      view = urlView as ViewType;
     } else if (session.view && session.view !== 'home') {
       view = session.view as ViewType;
+    }
+    // Sous-onglet de Config. Paiements depuis l'URL (deep link / refresh)
+    if (view === 'payment-config' && subTab) {
+      store.setPaymentConfigTab(subTab as 'gateways' | 'fees' | 'currency' | 'transactions');
     }
     if (session.role) store.setUserRole(session.role as UserRole);
     if (session.userData) store.setUserData(session.userData as UserData);
@@ -377,14 +389,18 @@ export function startSessionRestoreWatchdog() {
 if (typeof window !== 'undefined') {
   window.addEventListener('popstate', () => {
     const store = useEduGestStore.getState();
-    const urlView = pathToView(window.location.pathname) as ViewType | null;
-    let target: ViewType = resolveView(urlView || 'home');
+    const { view: urlView, subTab } = parsePath(window.location.pathname);
+    let target: ViewType = resolveView((urlView || 'home') as ViewType);
     if (!store.userRole && !(PUBLIC_VIEWS as readonly string[]).includes(target)) {
       // Anonymous users can never land on an auth-only view.
       target = 'login';
     } else if (store.userRole && target === 'login') {
       // Authenticated users never fall back to the pre-auth login screen.
       target = store.currentView;
+    }
+    // Retour/avant vers /payment-config/<onglet> : onglet exact restauré
+    if (target === 'payment-config' && subTab) {
+      store.setPaymentConfigTab(subTab as 'gateways' | 'fees' | 'currency' | 'transactions');
     }
     applyView(target);
     syncUrl(target, 'replace', true);
@@ -448,6 +464,9 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
 
   disciplineTab: 'GREYLIST',
   setDisciplineTab: (tab) => set({ disciplineTab: tab }),
+
+  paymentConfigTab: 'gateways',
+  setPaymentConfigTab: (tab) => set({ paymentConfigTab: tab }),
 
   searchQuery: '',
   setSearchQuery: (q) => set({ searchQuery: q }),

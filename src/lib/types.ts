@@ -9,6 +9,18 @@ export interface SchoolData {
   maxStudents: number; schoolType: string; schoolCategory: string;
   averageRating: number; totalReviews: number; studentCount: number; classCount: number;
   isActive: boolean; _count?: { students: number; classes: number; users: number };
+  // Page vitrine (SchoolDetailView) : galerie publique + événements visibles.
+  schoolPhotos?: SchoolPhotoData[];
+  events?: SchoolEventData[];
+}
+
+export interface SchoolPhotoData {
+  id: string; url: string; caption?: string | null; createdAt: string;
+}
+
+export interface SchoolEventData {
+  id: string; title: string; description?: string | null; category: string;
+  startAt: string; endAt?: string | null; location?: string | null; audience: string;
 }
 
 export interface StudentData {
@@ -45,6 +57,9 @@ export interface DisciplineData {
   id: string; studentId: string; type: string; severity: string;
   title: string; description: string; points: number; listType: string;
   status: string; schoolId: string; createdAt: string;
+  /** Demande « Conduite » soumise par un professeur (null = créé directement
+   *  par le disciplinaire). */
+  createdBy?: string | null;
   student?: { id: string; firstName: string; lastName: string; matricule: string; photoUrl?: string; class?: { id: string; name: string; section?: string } };
 }
 

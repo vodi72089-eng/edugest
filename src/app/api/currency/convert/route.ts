@@ -6,7 +6,7 @@ import {
   convertCurrency,
   SUPPORTED_CURRENCIES,
   getCurrencySymbol,
-} from '@/lib/exchange-rate';
+} from '@/lib/exchange-rate-server';
 import { NextRequest, NextResponse } from 'next/server';
 
 const VALID_CURRENCY_CODES = SUPPORTED_CURRENCIES.map((c) => c.code);

@@ -3,6 +3,8 @@ import { notifyEvent } from '@/lib/notification-service';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
 import { requireFeature } from '@/lib/feature-gate';
+import { hasFeatureAccess, getMinTierForFeature } from '@/lib/subscription';
+import { getSchoolTier } from '@/lib/subscription-server';
 import { notifyCommunication, isWhatsAppConnected } from '@/lib/whatsapp-agent';
 
 export async function GET(request: NextRequest) {
@@ -145,6 +147,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
     }
 
+    // L'école cible doit exister (anti-tombée « demo » / ID inventé côté client).
+    const targetSchool = await db.school.findUnique({ where: { id: schoolId }, select: { id: true } });
+    if (!targetSchool) {
+      return NextResponse.json({ error: 'École inconnue' }, { status: 400 });
+    }
+
+    // Envoi selon l'offre de l'ÉCOLE CIBLE. requireFeature bypass le super
+    // admin (aucune école rattachée à son compte) : sans ce contrôle, il
+    // pourrait envoyer à une école FREEMIUM alors que le module communications
+    // est réservé STANDARD+ pour les écoles.
+    if (user.role === 'SUPER_ADMIN_GLOBAL') {
+      const targetTier = await getSchoolTier(schoolId);
+      if (!hasFeatureAccess(targetTier, 'communications')) {
+        return NextResponse.json({
+          error: `Fonctionnalité non disponible dans le forfait ${targetTier} de cette école`,
+          featureRequired: 'communications',
+          tierRequired: getMinTierForFeature('communications'),
+          currentTier: targetTier,
+        }, { status: 403 });
+      }
+    }
+
     // CRITICAL: Derive senderId and senderRole from the authenticated user, NOT from request body
     // This prevents identity spoofing
     const senderId = user.id;
@@ -196,6 +220,29 @@ export async function POST(request: NextRequest) {
         {
           title: 'Communication en attente',
           message: `${user.name} a créé une communication "${title}" qui nécessite votre approbation.`,
+        }
+      );
+    }
+
+    // ── Case « App » : vraie notification in-app ────────────────────────────
+    // sentToApp ne doit pas être un simple champ stocké : la communication
+    // approuvée crée les notifications DB + Web Push pour l'audience visée
+    // (résolution identique à la lecture : ALL/PARENTS/STAFF/CLASS + cycle).
+    // Non bloquant : notifyEvent journalise et avale ses propres erreurs.
+    if (communication.status === 'APPROVED' && communication.sentToApp) {
+      await notifyEvent(
+        {
+          type: 'COMMUNICATION',
+          schoolId,
+          actorId: senderId,
+          targetType: communication.targetType,
+          classId: communication.targetId,
+          section: communication.scope,
+        },
+        {
+          title: communication.title,
+          message: communication.content.length > 200 ? communication.content.slice(0, 197) + '…' : communication.content,
+          relatedId: communication.id,
         }
       );
     }

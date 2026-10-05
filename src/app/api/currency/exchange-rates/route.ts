@@ -7,7 +7,7 @@ import {
 import {
   fetchExchangeRates,
   SUPPORTED_CURRENCIES,
-} from '@/lib/exchange-rate';
+} from '@/lib/exchange-rate-server';
 import { NextRequest, NextResponse } from 'next/server';
 
 const CONFIG_ROLES = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN'];

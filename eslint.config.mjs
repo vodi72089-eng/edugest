@@ -8,7 +8,7 @@ const __dirname = dirname(__filename);
 
 const eslintConfig = [
   {
-    ignores: ["desktop/**", "mini-services/**", "db/**"],
+    ignores: ["desktop/**", "mini-services/**", "db/**", "src/generated/**"],
   },
   ...nextCoreWebVitals, ...nextTypescript, {
   rules: {
@@ -48,7 +48,7 @@ const eslintConfig = [
     "no-useless-escape": "off",
   },
 }, {
-  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills", "*.js", "whatsapp-server.ts", "src/lib/whatsapp/**"]
+  ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills", "*.js", "whatsapp-server.ts", "src/lib/whatsapp/**", "dist/**", ".vinext/**"]
 }];
 
 export default eslintConfig;

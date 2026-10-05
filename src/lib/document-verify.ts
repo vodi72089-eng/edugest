@@ -10,7 +10,7 @@ import QRCode from 'qrcode';
  * est officiel — sans compte, sans connexion.
  */
 
-export type DocumentType = 'BULLETIN' | 'RECEIPT' | 'MEDICAL' | 'SUMMONS';
+export type DocumentType = 'BULLETIN' | 'RECEIPT' | 'MEDICAL' | 'SUMMONS' | 'REPORT' | 'STUDENT_CARD';
 
 /** URL de base de l'application (fonctionne en web et en desktop). */
 export function appBaseUrl(): string {
@@ -96,6 +96,33 @@ export async function registerDocument(input: UpsertDocumentInput): Promise<{ id
         studentId: input.studentId ?? null,
         paymentRecordId: input.paymentRecordId,
         trimester: input.trimester ?? null,
+        metadata: metadataJson,
+      },
+      select: { id: true },
+    });
+    return { id: created.id, url: documentVerifyUrl(created.id) };
+  }
+
+  // STUDENT_CARD : une seule carte par élève (rescanner réutilise la fiche,
+  // mise à jour avec les dernières infos — sexe, âge, classe, année…)
+  if (input.type === 'STUDENT_CARD' && input.studentId) {
+    const existing = await db.documentVerification.findFirst({
+      where: { type: 'STUDENT_CARD', studentId: input.studentId },
+      select: { id: true },
+    });
+    if (existing) {
+      await db.documentVerification.update({
+        where: { id: existing.id },
+        data: { metadata: metadataJson },
+      });
+      return { id: existing.id, url: documentVerifyUrl(existing.id) };
+    }
+
+    const created = await db.documentVerification.create({
+      data: {
+        type: 'STUDENT_CARD',
+        schoolId: input.schoolId,
+        studentId: input.studentId,
         metadata: metadataJson,
       },
       select: { id: true },

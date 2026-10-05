@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/school-qr-codes — génère un QR code avec une durée de vie choisie
-// Body: { label?, durationHours?, durationDays?, expiresAt? , schoolId? }
+// Body: { label?, durationMinutes?, durationHours?, durationDays?, expiresAt?, schoolId? }
+// durationMinutes : durée personnalisée au détail de la minute (ex. 3 minutes).
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireRole(request, QR_CREATE_ROLES);
@@ -67,6 +68,13 @@ export async function POST(request: NextRequest) {
     let expiresAt: Date | null = null;
     if (body.expiresAt) {
       expiresAt = new Date(body.expiresAt);
+    } else if (body.durationMinutes !== undefined && body.durationMinutes !== null) {
+      // Durée personnalisée au détail de la minute (ex. 3 minutes)
+      const minutes = Math.round(Number(body.durationMinutes));
+      if (!Number.isFinite(minutes) || minutes < 1) {
+        return NextResponse.json({ error: 'La durée de vie doit être d\u2019au moins 1 minute' }, { status: 400 });
+      }
+      expiresAt = new Date(Date.now() + minutes * 60 * 1000);
     } else if (body.durationHours) {
       expiresAt = new Date(Date.now() + Number(body.durationHours) * 3600 * 1000);
     } else if (body.durationDays) {

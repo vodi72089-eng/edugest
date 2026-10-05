@@ -6,6 +6,109 @@ import { requireFeature } from '@/lib/feature-gate';
 import { notifyDiscipline } from '@/lib/whatsapp-agent';
 import { classifyStudent, learnKeywordsFromRecord } from '@/lib/discipline-classifier';
 
+/**
+ * Finalise un record de discipline : classification automatique (une seule
+ * liste par élève), synchronisation des listes Noire/Grise/Blanche et
+ * notifications (push + WhatsApp) aux parents et au disciplinaire.
+ * Appelé à la création d'un record direct (POST) et à l'approbation d'une
+ * demande « Conduite » (PUT PENDING → CONFIRMED).
+ */
+async function finalizeConductRecord(
+  record: {
+    id: string; studentId: string; schoolId: string; title: string;
+    description: string; listType: string; severity: string; type: string;
+  },
+  actor: { id: string; name: string },
+) {
+  // Auto-classify student after new sanction
+  let finalListType = record.listType;
+  try {
+    const classification = await classifyStudent(record.studentId, record.schoolId)
+    finalListType = classification.listType
+    if (classification.listType !== record.listType) {
+      await db.disciplineRecord.update({
+        where: { id: record.id },
+        data: { listType: classification.listType }
+      })
+    }
+  } catch (e) {
+    console.warn('[Discipline] Auto-classification failed:', e)
+  }
+
+  // Sync the list tables with the final classification: ensure exactly one
+  // entry in the matching list and remove the student from the other lists
+  const listTables: Record<string, {
+    findFirst: (args: { where: { studentId: string; schoolId: string } }) => Promise<{ id: string } | null>
+    create: (args: { data: { studentId: string; schoolId: string; reason: string; addedBy: string } }) => Promise<unknown>
+    deleteMany: (args: { where: { studentId: string; schoolId: string } }) => Promise<unknown>
+  }> = {
+    BLACKLIST: db.blacklist,
+    GREYLIST: db.greylist,
+    WHITELIST: db.whitelist,
+  }
+  for (const [listName, model] of Object.entries(listTables)) {
+    if (listName === finalListType) {
+      const existingEntry = await model.findFirst({ where: { studentId: record.studentId, schoolId: record.schoolId } })
+      if (!existingEntry) {
+        await model.create({
+          data: { studentId: record.studentId, schoolId: record.schoolId, reason: `${record.title}: ${record.description}`, addedBy: actor.name },
+        })
+      }
+    } else {
+      await model.deleteMany({ where: { studentId: record.studentId, schoolId: record.schoolId } })
+    }
+  }
+
+  // Envoyer notification WhatsApp au parent
+  try {
+    const student = await db.student.findUnique({
+      where: { id: record.studentId },
+      select: { parentId: true, firstName: true, lastName: true, schoolId: true, class: { select: { section: true } } },
+    });
+
+    // ── Notifications : Parent + DIRECTION_<cycle> + DISCIPLINE_<cycle>
+    //    de l'école (resolver centralisé — scellé au cycle de l'élève).
+    //    NI caissier, NI secrétaire : discipline = environnement disciplinaire. ─
+    if (student?.schoolId) {
+      await notifyEvent(
+        { type: 'DISCIPLINE_INCIDENT', schoolId: student.schoolId, studentId: record.studentId, actorId: actor.id, section: student.class?.section ?? null },
+        {
+          title: 'Incident de discipline',
+          message: `${student.firstName} ${student.lastName} - ${record.title} (${record.severity})`,
+          parentMessage: `${student.firstName} ${student.lastName} - ${record.title}: ${record.description}`,
+          relatedId: record.id,
+        }
+      );
+    }
+
+    // WhatsApp notification
+    if (student?.parentId) {
+      const parent = await db.user.findUnique({
+        where: { id: student.parentId },
+        select: { phone: true },
+      });
+      const school = await db.school.findUnique({
+        where: { id: record.schoolId },
+        select: { name: true },
+      });
+      if (parent?.phone && school) {
+        await notifyDiscipline({
+          parentPhone: parent.phone,
+          studentName: `${student.firstName} ${student.lastName}`,
+          type: record.type,
+          severity: record.severity,
+          title: record.title,
+          description: record.description,
+          schoolName: school.name,
+          schoolId: record.schoolId,
+        });
+      }
+    }
+  } catch (notifError) {
+    console.error('[Discipline] Notification failed:', notifError);
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const authResult = await requirePermission(request, 'discipline:read');
@@ -26,6 +129,7 @@ export async function GET(request: NextRequest) {
     const listType = searchParams.get('listType') || '';
     const severity = searchParams.get('severity') || '';
     const studentId = searchParams.get('studentId') || '';
+    const status = searchParams.get('status') || '';
     const page = safeParseInt(searchParams.get('page'), 1, 1, 1000);
     const limit = safeParseInt(searchParams.get('limit'), 20, 1, 200);
 
@@ -40,6 +144,7 @@ export async function GET(request: NextRequest) {
     if (listType) where.listType = listType;
     if (severity) where.severity = severity;
     if (studentId) where.studentId = studentId;
+    if (status) where.status = status;
 
     // For PARENT role, filter by parentId - only show their children's records
     if (user.role === 'PARENT') {
@@ -99,6 +204,7 @@ export async function POST(request: NextRequest) {
       listType,
       status,
       schoolId,
+      isRequest,
     } = body;
 
     if (!studentId || !type || !severity || !title || !description || !schoolId) {
@@ -136,6 +242,34 @@ export async function POST(request: NextRequest) {
     // CRITICAL: Use authenticated user's name for 'addedBy' field instead of hardcoded 'System'
     const addedBy = user.name;
 
+    // ── Demande « Conduite » d'un professeur ──────────────────────────────
+    // Le record reste PENDING (createdBy = prof) jusqu'à l'approbation du
+    // disciplinaire : pas de classification, pas de sync des listes, pas de
+    // notification — tout cela a lieu à l'approbation (PUT CONFIRMED).
+    if (isRequest) {
+      if (!description) {
+        return NextResponse.json({ error: 'La raison est requise' }, { status: 400 });
+      }
+      const record = await db.disciplineRecord.create({
+        data: {
+          studentId,
+          type: type || 'CONDUITE',
+          severity: severity || 'LOW',
+          title: title || 'Conduite en classe',
+          description,
+          points: points ?? 0,
+          listType: listType || 'GREYLIST',
+          status: 'PENDING',
+          schoolId,
+          createdBy: user.id,
+        },
+        include: {
+          student: { select: { id: true, firstName: true, lastName: true, matricule: true, photoUrl: true, class: { select: { id: true, name: true, section: true } } } },
+        },
+      });
+      return NextResponse.json({ data: record }, { status: 201 });
+    }
+
     const record = await db.disciplineRecord.create({
       data: {
         studentId,
@@ -153,93 +287,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Auto-classify student after new sanction
-    let finalListType = record.listType;
-    try {
-      const classification = await classifyStudent(studentId, schoolId)
-      finalListType = classification.listType
-      if (classification.listType !== record.listType) {
-        await db.disciplineRecord.update({
-          where: { id: record.id },
-          data: { listType: classification.listType }
-        })
-      }
-    } catch (e) {
-      console.warn('[Discipline] Auto-classification failed:', e)
-    }
-
-    // Sync the list tables with the final classification: ensure exactly one
-    // entry in the matching list and remove the student from the other lists
-    const listTables: Record<string, {
-      findFirst: (args: { where: { studentId: string; schoolId: string } }) => Promise<{ id: string } | null>
-      create: (args: { data: { studentId: string; schoolId: string; reason: string; addedBy: string } }) => Promise<unknown>
-      deleteMany: (args: { where: { studentId: string; schoolId: string } }) => Promise<unknown>
-    }> = {
-      BLACKLIST: db.blacklist,
-      GREYLIST: db.greylist,
-      WHITELIST: db.whitelist,
-    }
-    for (const [listName, model] of Object.entries(listTables)) {
-      if (listName === finalListType) {
-        const existingEntry = await model.findFirst({ where: { studentId, schoolId } })
-        if (!existingEntry) {
-          await model.create({
-            data: { studentId, schoolId, reason: `${title}: ${description}`, addedBy },
-          })
-        }
-      } else {
-        await model.deleteMany({ where: { studentId, schoolId } })
-      }
-    }
-
-    // Envoyer notification WhatsApp au parent
-    try {
-      const student = await db.student.findUnique({
-        where: { id: studentId },
-        select: { parentId: true, firstName: true, lastName: true, schoolId: true, class: { select: { section: true } } },
-      });
-
-      // ── Notifications : Parent + DIRECTION_<cycle> + DISCIPLINE_<cycle>
-      //    de l'école (resolver centralisé — scellé au cycle de l'élève).
-      //    NI caissier, NI secrétaire : discipline = environnement disciplinaire. ─
-      if (student?.schoolId) {
-        await notifyEvent(
-          { type: 'DISCIPLINE_INCIDENT', schoolId: student.schoolId, studentId, actorId: user.id, section: student.class?.section ?? null },
-          {
-            title: 'Incident de discipline',
-            message: `${student.firstName} ${student.lastName} - ${title} (${severity})`,
-            parentMessage: `${student.firstName} ${student.lastName} - ${title}: ${description}`,
-            relatedId: record.id,
-          }
-        );
-      }
-
-      // WhatsApp notification
-      if (student?.parentId) {
-        const parent = await db.user.findUnique({
-          where: { id: student.parentId },
-          select: { phone: true },
-        });
-        const school = await db.school.findUnique({
-          where: { id: schoolId },
-          select: { name: true },
-        });
-        if (parent?.phone && school) {
-          await notifyDiscipline({
-            parentPhone: parent.phone,
-            studentName: `${student.firstName} ${student.lastName}`,
-            type,
-            severity,
-            title,
-            description,
-            schoolName: school.name,
-            schoolId,
-          });
-        }
-      }
-    } catch (notifError) {
-      console.error('[Discipline] Notification failed:', notifError);
-    }
+    // Classification auto + sync des listes + notifications (parents,
+    // disciplinaire) — identique à l'approbation d'une demande Conduite.
+    await finalizeConductRecord(record, user);
 
     return NextResponse.json({ data: record }, { status: 201 });
   } catch (error) {
@@ -339,6 +389,13 @@ export async function PUT(request: NextRequest) {
       } catch (e) {
         console.warn('[Discipline] Keyword learning failed:', e)
       }
+    }
+
+    // ── Approbation d'une demande « Conduite » (PENDING → CONFIRMED) ──────
+    // Le disciplinaire choisit la gravité : classification auto + sync des
+    // listes + notifications aux parents, comme à la création directe.
+    if (existing.status === 'PENDING' && updateData.status === 'CONFIRMED' && existing.createdBy) {
+      await finalizeConductRecord(updated, user);
     }
 
     return NextResponse.json({ data: updated });

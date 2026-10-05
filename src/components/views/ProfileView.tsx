@@ -466,7 +466,7 @@ export default function ProfileView() {
                 const next = e.target.checked
                 setSoundEnabled(next)
                 setNotificationSoundEnabled(next, userData?.id || null)
-                if (next) { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVol }) }
+                if (next) { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVol, force: true }) }
                 toast.success(next ? 'Son activé' : 'Son désactivé')
               }}
               className="w-9 h-5 appearance-none rounded-full relative cursor-pointer transition-colors before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-4 before:h-4 before:rounded-full before:bg-white before:transition-transform checked:before:translate-x-4"
@@ -483,7 +483,7 @@ export default function ProfileView() {
                   setSoundVol(v)
                   setNotificationSoundVolume(v, userData?.id || null)
                 }}
-                onMouseUp={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVol, type: soundT }) }}
+                onMouseUp={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVol, type: soundT, force: true }) }}
                 className="w-40"
                 style={{ accentColor: GOLD }}
                 aria-label="Volume"
@@ -500,7 +500,7 @@ export default function ProfileView() {
                 setSoundT(t)
                 setNotificationSoundType(t, userData?.id || null)
                 unlockNotificationAudio()
-                playNotificationSound({ userId: userData?.id || null, type: t, volume: soundVol })
+                playNotificationSound({ userId: userData?.id || null, type: t, volume: soundVol, force: true })
               }}
               className="px-3 py-1.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm bg-white"
               style={{ color: TEXT_PRIMARY }}
@@ -512,7 +512,7 @@ export default function ProfileView() {
             </select>
           </div>
           <button
-            onClick={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVol, type: soundT }) }}
+            onClick={() => { unlockNotificationAudio(); playNotificationSound({ userId: userData?.id || null, volume: soundVol, type: soundT, force: true }) }}
             className="edu-gold-cta px-4 py-2 rounded-xl text-sm font-semibold"
           >
             Tester le son

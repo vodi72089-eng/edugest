@@ -7,12 +7,6 @@ import {
   Clock,
   AlertCircle,
   Users,
-  BookOpenCheck,
-  CalendarDays,
-  Coffee,
-  Utensils,
-  Sun,
-  DoorOpen,
 } from 'lucide-react'
 import { GOLD, SUCCESS, WARNING, INFO, TEXT_PRIMARY, TEXT_MUTED_LUXE, BORDER } from '@/lib/constants'
 
@@ -81,20 +75,6 @@ const SECTION_TAB_LABEL: Record<ParcoursSection, string> = {
   MATERNELLE: 'Maternelle',
   PRIMAIRE: 'Primaire',
   SECONDAIRE: 'Secondaire',
-}
-
-const PERIOD_STYLES: Record<HorairePeriod['type'], { bg: string; fg: string; label: string }> = {
-  COURS: { bg: 'oklch(60% 0.15 145 / 0.12)', fg: SUCCESS, label: 'Cours' },
-  PAUSE: { bg: 'oklch(72% 0.15 65 / 0.16)', fg: 'oklch(55% 0.13 65)', label: 'Pause' },
-  DEJEUNER: { bg: 'oklch(62% 0.17 45 / 0.13)', fg: 'oklch(58% 0.16 45)', label: 'Déjeuner' },
-  ACCUEIL: { bg: 'oklch(60% 0.13 250 / 0.12)', fg: INFO, label: 'Accueil' },
-}
-
-const PERIOD_ICONS: Record<HorairePeriod['type'], typeof Sun> = {
-  COURS: BookOpenCheck,
-  PAUSE: Coffee,
-  DEJEUNER: Utensils,
-  ACCUEIL: DoorOpen,
 }
 
 // ---------------------------------------------------------------------------
@@ -381,90 +361,6 @@ export function SystemParcoursExplorer({ systemId, compact = false, className = 
                       </div>
                     </div>
                   ))}
-                </div>
-              </section>
-            )}
-
-            {/* 3. Horaire type */}
-            {activeParcours.horaire && activeParcours.horaire.periods?.length > 0 && (
-              <section>
-                <SectionTitle compact={compact}>Horaire type</SectionTitle>
-                <div className="mt-2.5 rounded-xl border border-[oklch(92%_0.01_175)] overflow-hidden">
-                  {/* En-tête : jours · plage horaire */}
-                  <div className="flex items-center gap-2 px-3 py-2 bg-[oklch(97%_0.008_175)] border-b border-[oklch(92%_0.01_175)]">
-                    <CalendarDays className="w-3.5 h-3.5" style={{ color: GOLD }} />
-                    <span className={`font-bold ${compact ? 'text-[11px]' : 'text-xs'}`} style={{ color: TEXT_PRIMARY }}>
-                      {Array.isArray(activeParcours.horaire.days)
-                        ? (activeParcours.horaire.days as unknown as string[]).join(' - ')
-                        : activeParcours.horaire.days || 'Lundi - Vendredi'}
-                      {' · '}
-                      {activeParcours.horaire.start} - {activeParcours.horaire.end}
-                    </span>
-                  </div>
-
-                  {/* Tableau desktop */}
-                  <table className="hidden md:table w-full text-left">
-                    <thead>
-                      <tr className="border-b border-[oklch(92%_0.01_175)]">
-                        <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wide" style={{ color: TEXT_MUTED_LUXE }}>Période</th>
-                        <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wide" style={{ color: TEXT_MUTED_LUXE }}>Heures</th>
-                        <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wide" style={{ color: TEXT_MUTED_LUXE }}>Type</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {activeParcours.horaire.periods.map((p, idx) => {
-                        const st = PERIOD_STYLES[p.type] ?? PERIOD_STYLES.COURS
-                        return (
-                          <tr key={`${p.label}-${idx}`} className={idx % 2 === 1 ? 'bg-[oklch(98.5%_0.004_175)]' : ''}>
-                            <td className={`px-3 py-2 font-semibold ${compact ? 'text-[11px]' : 'text-xs'}`} style={{ color: TEXT_PRIMARY }}>
-                              {p.label}
-                            </td>
-                            <td className={`px-3 py-2 font-mono ${compact ? 'text-[11px]' : 'text-xs'}`} style={{ color: TEXT_MUTED_LUXE }}>
-                              {p.start} - {p.end}
-                            </td>
-                            <td className="px-3 py-2">
-                              <span
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
-                                style={{ background: st.bg, color: st.fg }}
-                              >
-                                {st.label}
-                              </span>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-
-                  {/* Cartes empilées mobile */}
-                  <div className="md:hidden divide-y divide-[oklch(94%_0.008_175)]">
-                    {activeParcours.horaire.periods.map((p, idx) => {
-                      const st = PERIOD_STYLES[p.type] ?? PERIOD_STYLES.COURS
-                      const Icon = PERIOD_ICONS[p.type] ?? BookOpenCheck
-                      return (
-                        <div key={`${p.label}-m-${idx}`} className="flex items-center gap-3 px-3 py-2.5">
-                          <span
-                            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
-                            style={{ background: st.bg, color: st.fg }}
-                          >
-                            <Icon className="w-4 h-4" />
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-bold truncate" style={{ color: TEXT_PRIMARY }}>{p.label}</p>
-                            <p className="text-[11px] font-mono" style={{ color: TEXT_MUTED_LUXE }}>
-                              {p.start} - {p.end}
-                            </p>
-                          </div>
-                          <span
-                            className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold"
-                            style={{ background: st.bg, color: st.fg }}
-                          >
-                            {st.label}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
                 </div>
               </section>
             )}

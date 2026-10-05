@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     // Fetch current sessions to ensure we don't revoke the current one.
     const { getTokenFromRequest, listUserSessions } = await import('@/lib/auth');
     const currentToken = getTokenFromRequest(request) || undefined;
-    const sessions = listUserSessions(user.id, currentToken);
+    const sessions = await listUserSessions(user.id, currentToken);
     const target = sessions.find((s) => s.sid === sid);
     if (!target) {
       return NextResponse.json(
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const revoked = revokeSessionBySid(user.id, sid);
+    const revoked = await revokeSessionBySid(user.id, sid);
     if (!revoked) {
       return NextResponse.json(
         { error: 'Impossible de révoquer la session' },

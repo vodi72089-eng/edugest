@@ -8,6 +8,7 @@ import StudentAvatar from '@/components/ui/StudentAvatar'
 import { BarChart3, Search, TrendingUp, Wallet, CheckCircle, AlertTriangle, History, Users, Calendar, Clock, Banknote } from 'lucide-react'
 import { useCurrency } from '@/hooks/useCurrency'
 import { convertFromDisplay, getDisplaySymbol } from '@/lib/currency-display'
+import AppSelect from '@/components/ui/AppSelect'
 
 interface FinanceStudent {
   id: string
@@ -74,7 +75,7 @@ function formatTimeShort(iso: string): string {
  */
 export default function FinanceSituationView() {
   const { userData } = useEduGestStore()
-  const { format: fmt } = useCurrency()
+  const { format: fmt, displayCurrency, changeCurrency, supportedCurrencies } = useCurrency()
   const [students, setStudents] = useState<FinanceStudent[]>([])
   const [history, setHistory] = useState<FinanceHistoryItem[]>([])
   const [totals, setTotals] = useState<FinanceTotals | null>(null)
@@ -200,9 +201,20 @@ export default function FinanceSituationView() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-1">
-        <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Situation financière</h1>
+      <div className="flex items-center justify-between gap-3 mb-1 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-8 rounded-full" style={{ background: GOLD }} />
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Situation financière</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Devise</span>
+          <AppSelect
+            value={displayCurrency}
+            onChange={(val) => changeCurrency(val)}
+            options={supportedCurrencies.map(c => ({ value: c.code, label: `${c.code} — ${c.name}` }))}
+            className="w-52"
+          />
+        </div>
       </div>
       <p className="text-[13px] ml-7 mb-6" style={{ color: TEXT_MUTED_LUXE }}>
         Historique des paiements, recherche d&apos;élève et classement par montant atteint — {userData?.schoolName || ''}

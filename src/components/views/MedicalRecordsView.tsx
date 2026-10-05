@@ -8,6 +8,7 @@ import {
   Lock, X, RefreshCw, Hash, User as UserIcon, Stethoscope
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { savePdfBlob, toastPdfSaved } from '@/lib/desktop-files';
 import AppSelect from '@/components/ui/AppSelect';
 
 /**
@@ -127,15 +128,10 @@ export default function MedicalRecordsView() {
       const res = await authFetch(`/api/medical/documents/${doc.id}/pdf`);
       if (!res.ok) throw new Error();
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${doc.docCode.toLowerCase()}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success(`PDF ${doc.docCode} téléchargé`);
+      // Desktop : rangé dans Documents/EduGest/Documents médicaux ; web : téléchargé.
+      const saved = await savePdfBlob(blob, `${doc.docCode.toLowerCase()}.pdf`);
+      if (saved) toastPdfSaved(saved);
+      else toast.success(`PDF ${doc.docCode} téléchargé`);
     } catch {
       toast.error('Erreur lors du téléchargement du PDF');
     } finally {
@@ -309,7 +305,7 @@ export default function MedicalRecordsView() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center max-w-md mx-auto p-8 rounded-3xl" style={{ background: 'oklch(97% 0.01 65)', border: '1px solid oklch(88% 0.06 75)' }}>
           <Lock className="w-12 h-12 mx-auto mb-4" style={{ color: 'oklch(70% 0.13 75)' }} />
-          <h3 className="text-xl font-bold mb-2" style={{ color: 'oklch(35% 0.08 75)' }}>Module médical Premium</h3>
+          <h3 className="text-xl font-bold mb-2" style={{ color: 'oklch(35% 0.08 75)' }}>Module médical Professionnel</h3>
           <p className="text-sm mb-4" style={{ color: 'oklch(45% 0.05 75)' }}>
             La gestion des fiches médicales est disponible à partir de l&apos;offre <strong>Professionnel</strong>.
             Votre forfait actuel : <strong>{getTierLabel(tier)}</strong>.

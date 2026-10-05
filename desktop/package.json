@@ -1,6 +1,6 @@
 {
   "name": "edugest-desktop",
-  "version": "1.4.7",
+  "version": "1.4.12",
   "description": "EduGest — La plateforme de gestion scolaire (application de bureau)",
   "main": "main.js",
   "author": "EduGest",
@@ -64,6 +64,12 @@
       "icon": "icon.png",
       "signAndEditExecutable": true
     },
+    "protocols": [
+      {
+        "name": "EduGest",
+        "schemes": ["edugest"]
+      }
+    ],
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,

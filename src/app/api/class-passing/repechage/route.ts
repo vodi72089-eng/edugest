@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
 import { requireRole, verifySchoolAccess, sanitizeError } from '@/lib/auth'
 import { resolveEventVisibility } from '@/lib/platform-events'
-import { getSchoolTier } from '@/lib/subscription'
+import { getSchoolTier } from '@/lib/subscription-server'
 import { hasFeatureGrant } from '@/lib/platform-email'
 import { notify } from '@/lib/notify'
 import { notifyRepechage } from '@/lib/whatsapp-agent'

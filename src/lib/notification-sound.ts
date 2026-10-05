@@ -163,12 +163,17 @@ async function ensureRunning(ac: AudioContext): Promise<boolean> {
  * @param options.userId   compte utilisateur (préférences namespacées)
  * @param options.type     DEFAULT | SOFT | ALERT (priorité métier)
  * @param options.volume   override ponctuel du volume (0–100)
+ * @param options.force    true = ignorer la garde anti-avalanche (aperçus)
  */
 export async function playNotificationSound(options?: {
   enabled?: boolean;
   userId?: string | null;
   type?: NotificationSoundType;
   volume?: number;
+  /** Bypass la garde anti-avalanche de 2 s — réservé aux aperçus (sélecteur de
+   *  type, bouton « Tester le son »), sans quoi le changement de type est
+   *  ignoré si un son vient d'être joué. */
+  force?: boolean;
 }): Promise<void> {
   // Garde-fous : préférence, contexte disponible, anti-avalanche 2 s.
   if (options?.enabled === false) return;
@@ -176,7 +181,7 @@ export async function playNotificationSound(options?: {
   const ac = getContext();
   if (!ac) return;
   const now = Date.now();
-  if (now - lastPlayedAt < 2000) return;
+  if (!options?.force && now - lastPlayedAt < 2000) return;
   lastPlayedAt = now;
 
   const volume = Math.min(100, Math.max(0, options?.volume ?? getNotificationSoundVolume(options?.userId))) / 100;
@@ -189,8 +194,12 @@ export async function playNotificationSound(options?: {
   if (!running) return;
 
   try {
-    // 1) Fichier local (préféré) — sauf si déjà connu en échec.
-    if (!audioElFailed && typeof Audio !== 'undefined') {
+    // 1) Fichier local — UNIQUEMENT pour le type STANDARD : c'est le son
+    //    officiel EduGest. Les types DOUX / ALERTE doivent sonner
+    //    différemment : ils vont donc directement à la synthèse (étape 2).
+    //    Sans cette garde, le WAV « gagnait » systématiquement et les trois
+    //    sonneries étaient strictement identiques.
+    if (type === 'DEFAULT' && !audioElFailed && typeof Audio !== 'undefined') {
       try {
         if (!audioEl) {
           audioEl = new Audio(SOUND_FILE);

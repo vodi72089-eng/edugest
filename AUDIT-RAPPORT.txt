@@ -1,0 +1,70 @@
+AUDIT EDUGEST — TEST REEL DE L'APPLICATION
+Date : 22/09/2026 — Méthode : app installée pilotée + 100 requêtes API par rôle
+Comptes testés : 9 rôles (mot de passe test : Audit2026 / admin : admin123)
+Tél. test : 810000101 (parent) à 810000108 — Backup DB : edugest.db.avant-audit-bak
+
+=== 1. CONNEXIONS (9/9 OK) ===
+SUPER_ADMIN_GLOBAL, SCHOOL_ADMIN, SECRETARY, CASHIER, DIRECTION_MATERNELLE,
+DISCIPLINE_PRIMAIRE, TEACHER, HEAD_TEACHER, PARENT : login 200 à chaque fois.
+Session persistante au redémarrage : OK (ouvert direct sur le dashboard).
+Login direct sans landing : OK. Bannière MAJ v1.4.7 affichée : OK.
+
+=== 2. LIMITES DE ROLES (API) : TOUT EST IMPOSE COTE SERVEUR ===
+- Élèves autre école : FORCÉ à sa propre école (pas de fuite, param ignoré).
+- Paiements autre école : 403 pour tous les rôles non-globaux.
+- Approuver paiement : 403 sans permission ; 409 si montant non couvert (garde OK).
+- admin-analytics / platform-events : 403 sauf SUPER_ADMIN_GLOBAL.
+- Config passerelles : 201 pour SUPER_ADMIN, SCHOOL_ADMIN, CASHIER / 403 sinon.
+- Renouveler abonnement : 403 sauf procédure (ni admin école en direct).
+- Créer note : 403 sauf enseignants/direction.
+- FREEMIUM (école lae) : payments:create 403, gateway config 403. Limites OK.
+
+=== 3. INTERFACES VERIFIEES A L'ECRAN ===
+- Parent : dashboard + puces Notes/Bulletin/Paiements/Discipline. Clic "Paiements"
+  → Payer en ligne avec enfant PRÉ-SÉLECTIONNÉ + tranche/montant chargés. OK.
+- Parent sans passerelle : message honnête "Aucune passerelle activée". OK.
+- Secrétaire : PAS de Paiement/Convocation/Passage (ni menu ni actions). OK.
+- Caissier : que la finance. Montants affichés en EUR (devise école). OK.
+- Enseignant : que ses écrans (classes/notes/devoirs). OK.
+- Direction Maternelle : restreinte au cycle (M1/M2). OK.
+- Admin école (STANDARD) : quotas (0/1000 élèves), santé verrouillée, import DB. OK.
+
+=== 4. FAILLES / PROBLEMES TROUVES ===
+[H1] Bannière MAJ bloquée à "Téléchargement... 0%" — le téléchargement ne
+     progresse pas. À diagnostiquer (URL asset, réseau, logs desktop.log).
+[H2] Caissier > Paiements : une ligne "?? — / ABONNEMENT / 100000 / 125000"
+     = un PaymentRecord abonnement (studentId __subscription__) affiché dans
+     la liste des scolarités. À filtrer de cette vue.
+[M1] CASHIER peut créer/modifier la config des passerelles (201). Voulu ?
+     (clés API entre les mains de la caisse = risque).
+[M2] Vue Paiements : libellés "CDF" en dur alors que le dashboard convertit
+     en EUR. Incohérent pour une école en devise EUR.
+[M3] Direction Maternelle : TOTAL ÉLÈVES 0 avec 2 classes actives — vérifier
+     que le scoping de cycle n'exclut pas des élèves à tort.
+[M4] Enseignant titulaire : "MES CLASSES 15" — les compteurs semblent non
+     scopés à ses classes (cosmétique, à confirmer).
+[M5] Paiement partiel : approbation possible d'un PENDING à paidAmount=0 ?
+     Non — garde 409 active (montant insuffisant). OK, à garder.
+[L1] Pas de compte MEDICAL dans la base — rôle non testé.
+[L2] Cloche notifications : clic sans panneau visible pendant le test
+     (à re-vérifier, peut-être un clic manqué).
+
+=== 5. ABONNEMENTS ===
+- Tiers DB : ENTERPRISE (Lumière), STANDARD (imw, eds), FREEMIUM (lae, cba),
+  CORPORATE (gsk). Gates UI (quotas, santé verrouillée) + API (403) alignés.
+- Rappel d'expiration : à tester avec une date proche (aucune école < 14j).
+
+=== 6. SECTEURS PAR ROLE : RESPECTES ===
+Chaque rôle ne voit que son secteur (menus + API). Aucune élévation
+constatée. La seule zone grise est [M1] (caisse ↔ clés passerelles).
+
+=== 7. ACTIONS DEMANDEES (backup avant toute modif manuelle) ===
+Restaurer la DB d'avant audit :
+  Copy-Item "$env:APPDATA\edugest-desktop\edugest.db.avant-audit-bak" "$env:APPDATA\edugest-desktop\edugest.db" -Force
+(Ne restaurez QUE si vous voulez annuler les mots de passe/tél. de test.)
+
+=== 8. TEST ABONNEMENTS ( �cole imw, 22/09 ) ===
+STANDARD : gateway config 201, comms 201 (fonctionnalit�s pr�sentes).
+Downgrade FREEMIUM (vraie route) : gateway 403, comms 403 (retir�es).
+Upgrade (demande + approbation super admin) : 201/201 (rendues).
+Ecole restaur�e � STANDARD. CONCLUSION : oui, upgrades ajoutent et downgrades retirent, v�rifi� de bout en bout.

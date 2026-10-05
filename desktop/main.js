@@ -19,6 +19,7 @@
  */
 
 const { app, BrowserWindow, shell, dialog, ipcMain, net: electronNet, Notification } = require('electron');
+const { savePdfBuffer } = require('./pdf-store');
 const { spawn, execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -52,6 +53,52 @@ function isPortable() {
 // Réactivité maximale de l'UI (utile sur petites machines / HDD)
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
+
+// ─── Instance unique + protocole « edugest:// » (deep link) ──────────────────
+// Le site web (modal « Application desktop requise ») ouvre directement
+// l'application installée via edugest://import-db. Une deuxième instance
+// transmet la route à celle qui tourne déjà puis se ferme (jamais de double
+// serveur local).
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    const route = extractDeepLinkRoute(argv);
+    pendingDeepLink = route;
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+    if (route) mainWindow.webContents.send('edugest:deep-link', route);
+  });
+}
+
+// Enregistre edugest:// dans le registre Windows (et équivalents macOS/Linux)
+// — la page web peut alors « lancer l'exe » depuis le navigateur.
+app.setAsDefaultProtocolClient('edugest');
+
+/** Routes acceptées : un lien edugest:// arbitraire ne pilote jamais l'app. */
+const DEEP_LINK_ROUTES = new Set(['import-db']);
+
+/** Extrait la route de « edugest://import-db » dans argv (null sinon). */
+function extractDeepLinkRoute(argv) {
+  for (const arg of argv || []) {
+    const m = /^edugest:\/\/([a-z-]+)$/i.exec(String(arg));
+    if (m) return m[1].toLowerCase();
+  }
+  return null;
+}
+
+/**
+ * Route en attente, consommée UNE FOIS par le renderer dès son montage
+ * (couvre le lancement à froid, où l'événement poussé serait perdu).
+ */
+let pendingDeepLink = null;
+ipcMain.handle('edugest:deep-link:consume', () => {
+  const route = pendingDeepLink && DEEP_LINK_ROUTES.has(pendingDeepLink) ? pendingDeepLink : null;
+  pendingDeepLink = null;
+  return route;
+});
 
 // ─── Chemins ─────────────────────────────────────────────────────────────────
 
@@ -527,6 +574,41 @@ try {
       }
     });
   } catch {}
+
+// ─── Sauvegarde des PDF générés → Documents/EduGest/<Catégorie>/ ───────────
+// Chaque PDF produit par l'interface (reçu, bulletin, sommation, rapport…)
+// est rangé automatiquement dans son dossier par nom de fichier, au lieu
+// d'atterrir en vrac dans Téléchargements. La logique pure (catégories,
+// assainissement, anti-écrasement) vit dans pdf-store.js (testable).
+try {
+  ipcMain.handle('edugest:save-pdf', async (_e, payload) => {
+    try {
+      const filename = payload && payload.filename;
+      const data = payload && payload.data;
+      if (typeof data !== 'string' || !data.length) return { ok: false, error: 'données vides' };
+      const base = path.join(app.getPath('documents'), 'EduGest');
+      const saved = savePdfBuffer({ documentsDir: base, filename, buffer: Buffer.from(data, 'base64') });
+      log('PDF enregistré :', saved.path);
+      return { ok: true, ...saved };
+    } catch (e) {
+      log('Échec enregistrement PDF :', e.message);
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle('edugest:show-in-folder', (_e, p) => {
+    try {
+      const docsRoot = path.resolve(app.getPath('documents'));
+      const target = path.resolve(String(p || docsRoot));
+      // SÉCURITÉ : jamais hors du dossier Documents de l'utilisateur.
+      if (target !== docsRoot && !target.startsWith(docsRoot + path.sep)) {
+        throw new Error('chemin refusé');
+      }
+      shell.showItemInFolder(target);
+    } catch (e) {
+      log('show-in-folder refusé :', e.message);
+    }
+  });
+} catch {}
 } catch {}
 
 /** Télécharge le nouvel exe portable (suit les redirections GitHub),
@@ -903,6 +985,9 @@ app.whenReady().then(async () => {
   createSplash();
 
   try {
+    // Lancement venu d'un deep link edugest:// (app fermée) : mémorisé AVANT
+    // le chargement de l'UI — le renderer le consomme dès son montage.
+    pendingDeepLink = extractDeepLinkRoute(process.argv);
     const port = await startBackend();
     createWindow(port);
   } catch (e) {

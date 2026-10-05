@@ -6,6 +6,8 @@ import {
   nextLagosOccurrence,
 } from '@/lib/report-data';
 import { buildReportPdf } from '@/lib/report-pdf';
+import { registerDocument, qrDataUrlForDocument } from '@/lib/document-verify';
+import { getEduGestLogoBuffer, fetchSchoolLogoBuffer } from '@/lib/pdf-brand';
 import {
   getWhatsAppLiveStatus,
   getSchoolWhatsAppNumber,
@@ -23,6 +25,7 @@ interface ScheduleLike {
   schoolId: string;
   createdBy: string;
   createdByName: string;
+  reportType?: string; // activity (défaut) | cashier
   intervalDays: number;
   hour: number;
   minute: number;
@@ -54,6 +57,12 @@ export async function runSchedule(schedule: ScheduleLike): Promise<{ status: str
   }
   runningScheduleIds.add(schedule.id);
   try {
+    if (schedule.reportType === 'cashier') {
+      // Import paresseux : le chemin caisse (contenu + PDF spécifiques) n'est
+      // chargé que s'il est réellement sollicité.
+      const { runCashierSchedule } = await import('@/lib/cashier-schedule');
+      return await runCashierSchedule(schedule);
+    }
     return await runScheduleInner(schedule);
   } finally {
     runningScheduleIds.delete(schedule.id);
@@ -92,7 +101,22 @@ async function runScheduleInner(schedule: ScheduleLike): Promise<{ status: strin
         let filename = `rapport-${data.school.shortName || 'ecole'}-${data.period.to}.pdf`;
         if (schedule.sendPdf) {
           try {
-            const buf = await buildReportPdf(data, sealLabel);
+            const [schoolLogo, eduGestLogo] = await Promise.all([
+              fetchSchoolLogoBuffer(data.school.logo),
+              Promise.resolve(getEduGestLogoBuffer()),
+            ]);
+            const docRecord = await registerDocument({
+              type: 'REPORT',
+              schoolId: schedule.schoolId,
+              metadata: {
+                periodFrom: data.period.from,
+                periodTo: data.period.to,
+                days: data.period.days,
+                sealLabel,
+              },
+            });
+            const qrDataUrl = await qrDataUrlForDocument(docRecord.id);
+            const buf = await buildReportPdf(data, sealLabel, { schoolLogo, eduGestLogo, qrDataUrl });
             pdfBase64 = buf.toString('base64');
           } catch (e) {
             console.error('[Scheduler] Génération PDF échouée :', e);

@@ -275,7 +275,7 @@ export default function EventsView() {
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Événements scolaires</h1>
         <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider" style={{ background: GOLD_SOFT, color: GOLD }}>Réunions · Examens · Fêtes</span>
         <span className="text-xs hidden sm:block" style={{ color: TEXT_MUTED_LUXE }}>Scellé par école</span>
-        {canWrite && (
+        {canWrite && !(isSAG && !activeSchoolId) && (
           <button onClick={openCreate} className="edu-gold-cta ml-auto px-4 py-2 rounded-xl text-[13px] font-semibold inline-flex items-center gap-2">
             <Plus size={14} />
             Nouvel événement

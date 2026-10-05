@@ -27,14 +27,20 @@ jobs:
       - name: Generate Prisma client (moteur Windows)
         run: bunx prisma generate
 
+      - name: Generate SQLite Prisma client (app desktop)
+        run: bunx prisma generate --schema prisma/schema.sqlite.prisma
+
       - name: Create embedded template database
         shell: bash
         run: |
           # NB : Prisma résout les chemins SQLite relatifs PAR RAPPORT au
           # dossier du schema (prisma/) — d'où "../db/".
+          # Le schéma SQLite (schema.sqlite.prisma) est le miroir du schéma
+          # Postgres — il faut le préciser, sinon Prisma utilise le schéma
+          # Postgres par défaut et échoue avec une URL SQLite.
           mkdir -p db
           export DATABASE_URL="file:../db/desktop-template.db"
-          bunx prisma db push --accept-data-loss --skip-generate
+          bunx prisma db push --schema prisma/schema.sqlite.prisma --accept-data-loss --skip-generate
           ls -la db/
 
       - name: Build Next.js (standalone)

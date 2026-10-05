@@ -9,7 +9,7 @@ import {
   SUPPORTED_CURRENCIES,
   fetchExchangeRates,
   getCurrencySymbol,
-} from '@/lib/exchange-rate';
+} from '@/lib/exchange-rate-server';
 import { NextRequest, NextResponse } from 'next/server';
 
 // Roles allowed to manage currency configuration

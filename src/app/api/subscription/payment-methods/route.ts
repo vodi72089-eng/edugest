@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { requireAuth, sanitizeError } from '@/lib/auth';
-import { GATEWAY_INFO, PLATFORM_SCHOOL_ID } from '@/lib/payment-gateway';
+import { GATEWAY_INFO, PLATFORM_SCHOOL_ID, RETIRED_GATEWAY_TYPES } from '@/lib/payment-gateway';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/subscription/payment-methods
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     if ('error' in authResult) return authResult.error;
 
     const configs = await db.paymentGatewayConfig.findMany({
-      where: { schoolId: PLATFORM_SCHOOL_ID, isActive: true },
+      where: { schoolId: PLATFORM_SCHOOL_ID, isActive: true, gatewayType: { notIn: RETIRED_GATEWAY_TYPES } },
       orderBy: { updatedAt: 'desc' },
     });
 

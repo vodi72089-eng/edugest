@@ -6,9 +6,14 @@ import { VIEW_PATHS } from "./src/lib/view-paths";
 // lieu d'un 404 lors d'un rafraîchissement ou d'un lien direct. Les routes
 // filesystem (API, /find-child, /verify/…) restent prioritaires : Next les
 // évalue AVANT ces rewrites (afterFiles).
-const SPA_REWRITES = Object.values(VIEW_PATHS)
-  .filter((p) => p !== "/")
-  .map((p) => ({ source: p, destination: "/" }));
+const SPA_REWRITES = [
+  // Sous-onglets de Config. Paiements : /payment-config/transactions,
+  // /payment-config/currency… (deep links + refresh)
+  { source: "/payment-config/:tab*", destination: "/" },
+  ...Object.values(VIEW_PATHS)
+    .filter((p) => p !== "/")
+    .map((p) => ({ source: p, destination: "/" })),
+];
 
 const nextConfig: NextConfig = {
   output: "standalone",

@@ -3,23 +3,21 @@
 import { useState, useRef } from 'react'
 import { useEduGestStore, authFetch } from '@/lib/store'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, SUCCESS } from '@/lib/constants'
-import { Camera, Paperclip, X, Send, Loader2, LifeBuoy, CheckCircle2 } from 'lucide-react'
+import { Paperclip, X, Send, Loader2, LifeBuoy, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import AppSelect from '@/components/ui/AppSelect'
 
 // ─── Aide — signaler un bug ─────────────────────────────────────────────
-// Formulaire : sujet + explication + capture d'écran (capture auto via
-// html2canvas-pro, ou image jointe). Envoi = ticket TECHNIQUE vers le
-// support ; le serveur journalise TICKET_CREATED, relayé à l'agent Hermes
-// (webhook signé) quand il est configuré — sinon le ticket reste dans la
-// file du support.
+// Formulaire : sujet + explication + image jointe (optionnelle). Envoi =
+// ticket TECHNIQUE vers le support ; le serveur journalise TICKET_CREATED,
+// relayé à l'agent Hermes (webhook signé) quand il est configuré — sinon le
+// ticket reste dans la file du support.
 export default function HelpView() {
   const { userData } = useEduGestStore()
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [priority, setPriority] = useState('NORMAL')
   const [screenshotUrl, setScreenshotUrl] = useState('')
-  const [capturing, setCapturing] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [sending, setSending] = useState(false)
   const [sentRef, setSentRef] = useState('')
@@ -42,39 +40,6 @@ export default function HelpView() {
       return null
     } finally {
       setUploading(false)
-    }
-  }
-
-  // Capture d'écran de la page (sans le panneau d'aide lui-même si possible).
-  async function handleCapture() {
-    setCapturing(true)
-    try {
-      const { default: html2canvas } = await import('html2canvas-pro')
-      const canvas = await html2canvas(document.body, {
-        scale: 0.6,
-        useCORS: true,
-        allowTaint: false,
-        logging: false,
-        backgroundColor: '#0a0f0d',
-        windowWidth: document.documentElement.scrollWidth,
-      })
-      const blob = await new Promise<Blob | null>(resolve =>
-        canvas.toBlob(b => resolve(b), 'image/jpeg', 0.82)
-      )
-      if (!blob) {
-        toast.error('Capture impossible — joignez une image manuellement')
-        return
-      }
-      const url = await uploadFile(new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' }))
-      if (url) {
-        setScreenshotUrl(url)
-        toast.success('Capture d’écran jointe')
-      }
-    } catch {
-      // html2canvas peut échouer sur certains CSS (oklch…) : repli fichier.
-      toast.error('Capture automatique impossible — joignez une image manuellement')
-    } finally {
-      setCapturing(false)
     }
   }
 
@@ -127,7 +92,7 @@ export default function HelpView() {
     }
   }
 
-  const busy = capturing || uploading || sending
+  const busy = uploading || sending
   const inputCls = 'w-full px-4 py-2.5 rounded-xl text-sm outline-none border focus:border-[oklch(72%_0.15_65)] transition'
 
   return (
@@ -139,7 +104,7 @@ export default function HelpView() {
         <div>
           <h3 className="text-base font-bold" style={{ color: TEXT_PRIMARY }}>Signaler un bug</h3>
           <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>
-            Expliquez le problème, joignez une capture — transmis à notre équipe
+            Expliquez le problème, joignez une image — transmis à notre équipe
             et à l’agent Hermes{userData?.name ? ` · ${userData.name}` : ''}.
           </p>
         </div>
@@ -173,7 +138,7 @@ export default function HelpView() {
             className={`${inputCls} resize-none`} style={{ borderColor: 'oklch(90% 0.01 175)', color: TEXT_PRIMARY }} />
 
           <div>
-            <p className="text-xs font-medium mb-2" style={{ color: TEXT_MUTED_LUXE }}>Capture d’écran (recommandée)</p>
+            <p className="text-xs font-medium mb-2" style={{ color: TEXT_MUTED_LUXE }}>Image jointe (recommandée)</p>
             {screenshotUrl ? (
               <div className="relative inline-block">
                 <img src={screenshotUrl} alt="Capture jointe" className="max-h-48 rounded-xl border border-[oklch(90%_0.01_175)]" />
@@ -184,12 +149,6 @@ export default function HelpView() {
               </div>
             ) : (
               <div className="flex flex-wrap gap-2">
-                <button onClick={handleCapture} disabled={busy}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition disabled:opacity-50"
-                  style={{ borderColor: GOLD + '60', color: TEXT_PRIMARY }}>
-                  {capturing ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} style={{ color: GOLD }} />}
-                  Capturer l’écran
-                </button>
                 <button onClick={() => fileRef.current?.click()} disabled={busy}
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition disabled:opacity-50"
                   style={{ borderColor: 'oklch(90% 0.01 175)', color: TEXT_MUTED_LUXE }}>

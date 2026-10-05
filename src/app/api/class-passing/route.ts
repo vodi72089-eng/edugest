@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { requireRole, verifySchoolAccess, sanitizeError } from '@/lib/auth'
 import { getClassPassingTimeline, qualifyStudentForClassPassing, StudentDisciplineCategory } from '@/lib/class-passing'
 import { resolveEventVisibility } from '@/lib/platform-events'
-import { getSchoolTier } from '@/lib/subscription'
+import { getSchoolTier } from '@/lib/subscription-server'
 import { hasFeatureGrant } from '@/lib/platform-email'
 import { NextRequest, NextResponse } from 'next/server'
 

@@ -1,0 +1,44 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "edugest",
+  "compatibility_date": "2026-10-01",
+  // no_handle_cross_request_promise_resolution : le singleton Prisma (db.ts)
+  // met en cache une promesse de connexion créée dans le contexte de la
+  // PREMIÈRE requête de l'isolate. Depuis le défaut du 2024-10-14,
+  // workerd annule les continuations dont la requête créatrice a déjà fini →
+  // les requêtes suivantes restent pendantes (« hung » → 500) puis la
+  // reconnexion déclenche « Too many subrequests » (plafond 50/plan gratuit).
+  // Opt-out documenté, explicitement suggéré par le runtime lui-même dans
+  // son warning. Le pool WS reste éphémère par requête (aucun I/O transversal).
+  "compatibility_flags": ["nodejs_compat", "no_handle_cross_request_promise_resolution"],
+  "main": "vinext/server/app-router-entry",
+  "assets": {
+    "not_found_handling": "none"
+  },
+  // Domaines custom : une fois la zone EU.org active (ou un domaine
+  // enregistré via Cloudflare), ajouter la route ici et redéployer.
+  // Exemple pour lookschool360.eu.org une fois la zone active :
+  // "routes": [{ "pattern": "lookschool360.eu.org", "custom_domain": true }]
+  "routes": [],
+  // Hyperdrive → Neon : À REMPLIR avant usage.
+  // `"id": ""` est refusé par l'API Cloudflare (code 10021) et bloque TOUT
+  // déploiement. Le bloc est donc retiré tant que la ressource n'existe pas :
+  // créer avec `wrangler hyperdrive create edugest-neon --connection-string ...`
+  // puis remettre { "binding": "HYPERDRIVE", "id": "<id réel>" }.
+  // Le code lit actuellement process.env.DATABASE_URL directement (src/lib/db.ts).
+  // R2 buckets for sessions/uploads
+  // ⚠️ RETIRÉ temporairement : le bucket `edugest-sessions` n'existe pas sur
+  // le compte (API code 10085) et l'API token est invalide (code 9109), donc
+  // impossible de le créer. Aucun code ne lit env.SESSIONS actuellement.
+  // À remettre après : `wrangler r2 bucket create edugest-sessions`
+  // puis ré-ajouter { "binding": "SESSIONS", "bucket_name": "edugest-sessions" }.
+  // Queues for reports, emails
+  "queues": {
+    "REPORTS_QUEUE": "reports"
+  },
+  // Durable Objects for scheduler
+  "durable_objects": {
+    "SCHEDULER": "ReportScheduler",
+    "SESSIONS_DO": "ReportScheduler"
+  }
+}

@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     let body: Record<string, unknown> = {};
     try { body = await request.json(); } catch { /* empty payload is fine */ }
 
-    updateSessionDeviceData(token, body);
+    await updateSessionDeviceData(token, body);
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('[sessions/device] POST error:', error);

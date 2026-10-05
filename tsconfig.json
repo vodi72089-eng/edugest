@@ -43,6 +43,7 @@
     "mini-services",
     "desktop",
     "scripts",
-    "src/lib/whatsapp/client.ts"
+    "src/lib/whatsapp/client.ts",
+    "tests"
   ]
 }

@@ -1,0 +1,107 @@
+================================================================
+RAPPORT D'AUDIT EduGest — comptes, roles, secteurs, abonnements
+Date : 23 septembre 2026 (nuit)
+Cible : serveur dev (code recent, base dev prisma/db/custom.db)
+        + lecture base live (%APPDATA%\edugest-desktop\edugest.db)
+Methode : matrice API (283 controles), revue de code, navigateur
+          (captures dans qa-shots/), cycle d'approbation bout-en-bout
+================================================================
+
+1) COMPTES TESTES — 18/18 logins OK (mot de passe admin123)
+----------------------------------------------------------------
+SUPER_ADMIN_GLOBAL (admin@edugest.app, sans ecole rattachee)
+SCHOOL_ADMIN : admin@csl.cd (CSL), admin@lae-2.cd (LAE FREEMIUM),
+               admin@imw-2.cd (IMW)
+SECRETARY : claudine@lumiere.cd (CSL), admin@lae.cd (LAE)
+CASHIER : joseph@lumiere.cd
+DIRECTION_MATERNELLE / PRIMAIRE / SECONDAIRE (CSL)
+DISCIPLINE_MATERNELLE / PRIMAIRE / SECONDAIRE (CSL)
+TEACHER (mwepu), HEAD_TEACHER, PARENT x2 (Papa Kazadi, Maman Nsimba),
+MEDICAL (medical@lumiere.cd)
+
+ATTENTION : la base dev a ete re-generee pendant l'audit (20 a 26
+comptes selon l'heure). Les anciens comptes admin@lumiere.cd et
+medical@csl.cd N'EXISTENT PLUS (remplaces par admin@csl.cd et
+medical@lumiere.cd + comptes admin@*-2.cd). La base live contient
+encore l'ancien jeu (19 comptes). Divergence dev/live a surveiller.
+
+2) ISOLATION VERIFIEE (conforme)
+----------------------------------------------------------------
+[OK] Parent : Papa Kazadi voit ses 11 enfants uniquement (11/11 a lui).
+[OK] Eleve d'une autre ecole lu par admin LAE -> 403.
+[OK] Token absent ou faux -> 401 partout.
+[OK] PARENT/TEACHER qui tentent de creer user/eleve/classe/paiement -> 403.
+[OK] DISCIPLINE qui tente DELETE classe -> 403 (requiresApproval).
+[OK] DIRECTION qui cree/supprime classe en direct -> 403 (requiresApproval).
+[OK] SECRETARY/TEACHER qui tentent DELETE user -> 403.
+[OK] CASHIER peut verifier un paiement (404 sur id inexistant = droit OK) ;
+     TEACHER est refuse (403).
+[OK] Escalade de role par PUT /api/users bloquee (canChangeUserRole +
+     canManageUserAccount) — verifie dans le code.
+[OK] Changement d'ecole d'un compte reserve au SUPER_ADMIN_GLOBAL.
+[OK] Mot de passe : changement exige l'ancien (rate-limite), bcrypt 12,
+     sessions des autres appareils revoquees.
+[OK] Login : verrou progressif anti-bruteforce + trim des identifiants.
+
+3) SECTEURS (cycles) VERIFIES (conforme)
+----------------------------------------------------------------
+[OK] DIRECTION_MATERNELLE : 2 classes, que du 'Maternelle'.
+[OK] DIRECTION_PRIMAIRE  : 6 classes, que du 'Primaire'.
+[OK] DIRECTION_SECONDAIRE: 7 classes, que du 'Secondaire'.
+[OK] Section imposee a la creation (serveur + execution a l'approbation).
+[OK] Cycle bout-en-bout teste : demande DIR_MAT -> approbation SAG ->
+     classe creee en MATERNELLE (capa 30) -> suppression de nettoyage OK.
+[OK] Captures navigateur : modale verrouillee + toast d'approbation
+     (qa-shots/04 et 05).
+
+4) ABONNEMENTS (tiers) VERIFIES (conforme)
+----------------------------------------------------------------
+Tiers dev : CSL PREMIUM, IMW/EDS STANDARD, LAE/CBA FREEMIUM, GSK FREEMIUM.
+Tiers live : CSL STANDARD, GSK CORPORATE (differents de dev !).
+[OK] Ecole FREEMIUM : communications et devoirs bloques (403 avec
+     featureRequired), discipline lecture OK mais creation refusee,
+     users:create refuse pour l'admin (403).
+[OK] Feature gates serveur : discipline des ESSENTIEL, convocations
+     des STANDARD, jamais contournables par l'URL.
+[OK] Convocations cachees aux profs (retirees de TEACHER/HEAD_TEACHER
+     par design commente dans le code).
+
+5) PROBLEMES TROUVES ET CORRIGES
+----------------------------------------------------------------
+[CORRIGE] Base dev desynchronisee : colonne School.designPrimary
+  manquante -> 500 sur GET /api/schools. Cause : schema pousse sans
+  db push. Fix : db push applique (colonne presente, route 200).
+  Base live verifiee : colonne presente, 19 users, OK.
+
+6) POINTS D'ATTENTION (pas des bugs, decisions produit a valider)
+----------------------------------------------------------------
+a) Les DIRECTION_* n'ont PAS payments:read : une direction ne voit pas
+   les paiements mais recoit les notifications de paiement. Voulu ?
+b) Les PARENTS voient les listes classes/matieres/frais/stats (200).
+   Conforme aux permissions, a valider metier.
+c) SUPER_ADMIN_GLOBAL sans ecole -> GET /api/subscription/status
+   repond 404 "Ecole introuvable" (message trompeur, sans gravite).
+d) Ecart dev/live (tiers + comptes) : tester l'abonnement FREEMIUM
+   sur CSL-live donnerait d'autres resultats qu'en dev.
+
+7) CAPTURES (qa-shots/)
+----------------------------------------------------------------
+01-login.png, 02-dir-mat-dashboard.png, 03-dir-mat-classes.png,
+04-dir-mat-create-modal.png (section verrouillee),
+05-dir-mat-create-result.png (toast approbation),
+06-parent-dashboard.png, 07-parent-enfants.png (11 enfants).
+
+8) REMARQUES ENVIRONNEMENT
+----------------------------------------------------------------
+- Port 3000 partage avec un autre projet ; serveurs tues/reconstruits
+  pendant l'audit par une autre session (base dev re-generee 2 fois,
+  dossier .next remplace). Refaire un controle apres stabilisation.
+- Photo des MCP a installer : AUCUNE photo recue dans la conversation.
+  Renvoyez-la pour que j'installe les MCP demandes.
+
+CONCLUSION : aucune faille de securite exploitable trouvee sur le
+perimetre teste. Isolation multi-ecoles, limites de roles, secteurs
+et paliers d'abonnement sont imposes cote serveur. 1 bug
+environnemental corrige (drift schema dev). En attente de vos
+decisions sur les points 6a/6b avant toute modification produit.
+================================================================
