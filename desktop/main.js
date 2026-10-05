@@ -647,13 +647,20 @@ try {
 /** Extrait le sha512 d'un fichier depuis le contenu latest.yml (electron-builder) :
  *  les blocs « - url: <nom> » portent leur « sha512: <base64> » à suivre. */
 function extractSha512ForFile(ymlText, fileName) {
+  // Parseur ligne-par-ligne : robuste quel que soit l'ordre/agrégation des
+  // blocs du latest.yml (les regex à lookahead butaient sur l'indentation).
   try {
-    const re = /-\s*url:\s*(\S+)([\s\S]*?)(?=\n\s*-\s*url:|\n[^\n-]|$)/g;
-    let m;
-    while ((m = re.exec(String(ymlText))) !== null) {
-      if (m[1] === fileName) {
-        const sha = (m[2].match(/sha512:\s*(\S+)/) || [])[1];
-        return sha || null;
+    const lines = String(ymlText).split(/\r?\n/);
+    let inTarget = false;
+    for (const line of lines) {
+      const urlMatch = line.match(/^\s*-\s*url:\s*(\S+)\s*$/);
+      if (urlMatch) {
+        inTarget = urlMatch[1] === fileName;
+        continue;
+      }
+      if (inTarget) {
+        const sha = line.match(/^\s*sha512:\s*(\S+)\s*$/);
+        if (sha) return sha[1];
       }
     }
   } catch {}
