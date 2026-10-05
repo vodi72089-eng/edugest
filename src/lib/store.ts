@@ -27,57 +27,34 @@ function clearSession() {
   try { localStorage.removeItem(STORAGE_KEY); } catch {}
 }
 
-// ─── Auth Token Storage ─────────────────────────────────────────────────────
-
-let _authToken: string | null = null;
-
-export function setAuthToken(token: string | null) {
-  _authToken = token;
-  if (typeof window !== 'undefined') {
-    if (token) {
-      localStorage.setItem('edugest_token', token);
-    } else {
-      localStorage.removeItem('edugest_token');
-    }
-  }
-}
-
-export function getAuthToken(): string | null {
-  if (_authToken) return _authToken;
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('edugest_token');
-    if (stored) {
-      _authToken = stored;
-      return stored;
-    }
-  }
-  return null;
-}
+// ─── Session : COOKIE httpOnly uniquement ───────────────────────────────────
+// SÉCURITÉ : le token de session ne vit PLUS dans le localStorage ni dans une
+// variable JS globale — il est invisible au JavaScript (cookie httpOnly posé
+// par /api/auth, /api/auth/google/callback). authFetch n'envoie donc plus
+// d'en-tête Authorization : le navigateur attache automatiquement le cookie
+// aux requêtes same-origin. Les API acceptent encore Bearer pour les clients
+// non-navigateurs (app mobile).
 
 /**
  * Helper to make authenticated API requests
  */
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const token = getAuthToken();
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> || {}),
   };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
   if (options.body && typeof options.body === 'string') {
     headers['Content-Type'] = 'application/json';
   }
 
+  // credentials: 'same-origin' (défaut fetch) → le cookie httpOnly part avec
+  // chaque requête ; rien d'autre à faire côté client.
   const res = await fetch(url, {
     ...options,
     headers,
   });
 
   if (res.status === 401) {
-    setAuthToken(null);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('auth:unauthorized'));
     }
@@ -287,7 +264,7 @@ interface EduGestStore {
   searchQuery: string
   setSearchQuery: (q: string) => void
 
-  login: (role: UserRole, data: UserData, token?: string) => void
+  login: (role: UserRole, data: UserData) => void
   logout: () => void
 }
 
@@ -317,8 +294,6 @@ export function getActiveSchoolId(): string | null {
 export function restoreSession() {
   if (typeof window === 'undefined') return;
   const session = getStoredSession();
-  const token = localStorage.getItem('edugest_token');
-  if (token) _authToken = token;
   const store = useEduGestStore.getState();
 
   // The URL is the first-class source of truth: a deep link like /students
@@ -360,7 +335,44 @@ export function restoreSession() {
           : resolveView('home');
     applyView(view);
     syncUrl(view, 'replace');
+    // ── Amorçage via le cookie httpOnly ────────────────────────────────────
+    // Pas de session locale, mais le cookie peut exister (connexion Google,
+    // changement de machine, F5 après revocation localStorage) : on demande
+    // au serveur qui nous somme. Non bloquant, une seule fois par page.
+    void bootstrapSessionFromCookie();
   }
+}
+
+// Garde anti-doublon : /api/auth/me n'est interrogé qu'une fois par chargement.
+let cookieBootstrapDone = false;
+async function bootstrapSessionFromCookie() {
+  if (cookieBootstrapDone || typeof window === 'undefined') return;
+  cookieBootstrapDone = true;
+  try {
+    const res = await fetch('/api/auth/me'); // cookie httpOnly envoyé auto.
+    if (!res.ok) return; // anonyme ou session expirée → on reste sur la vue publique
+    const j = await res.json();
+    const user = j?.data?.user;
+    if (!user?.id) return;
+    const store = useEduGestStore.getState();
+    if (store.userRole) return; // une session locale a pris le dessus entre-temps
+    const role = user.role as UserRole;
+    const school = j.data.school;
+    store.setUserRole(role);
+    store.setUserData({
+      id: user.id,
+      name: user.name || '',
+      role,
+      schoolId: user.schoolId ?? null,
+      schoolName: school?.name || '',
+      schoolLogo: school?.logo || null,
+      initials: (user.name || '?').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
+      subscriptionTier: school?.subscriptionTier || 'FREEMIUM',
+    } as UserData);
+    // Connexion révélée par le cookie → tableau de bord (comme après login).
+    applyView('dashboard');
+    syncUrl('dashboard', 'replace');
+  } catch { /* réseau indisponible → vue publique */ }
 }
 
 // ─── Session-restore watchdog ────────────────────────────────────────────────
@@ -471,8 +483,9 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
   searchQuery: '',
   setSearchQuery: (q) => set({ searchQuery: q }),
 
-  login: (role, data, token?: string) => {
-    if (token) setAuthToken(token);
+  login: (role, data) => {
+    // SÉCURITÉ : aucun token stocké côté JS — la session vit dans le cookie
+    // httpOnly posé par l'API de connexion.
     // Vue d'entrée selon le rôle : le compte corporate arrive dans SON espace
     // (multi-écoles), le support dans sa file de tickets — pas de dashboard école
     // qui n'a aucun sens pour ces comptes hors établissement (schoolId null).
@@ -493,21 +506,15 @@ export const useEduGestStore = create<EduGestStore>((set, get) => ({
   },
 
   logout: () => {
-    // Best-effort: notify the server to revoke the session file so the token
-    // can't be reused. We don't await — the local state is cleared
-    // immediately so the UI is responsive even if the network is slow.
-    const token = getAuthToken();
-    if (token) {
-      try {
-        fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-        }).catch(() => { /* best effort */ });
-      } catch {
-        /* ignore */
-      }
+    // Best-effort: notify the server to revoke the session (le cookie httpOnly
+    // identifie la session côté serveur — l'en-tête Authorization est inutile).
+    // We don't await — the local state is cleared immediately so the UI is
+    // responsive even if the network is slow.
+    try {
+      fetch('/api/auth/logout', { method: 'POST' }).catch(() => { /* best effort */ });
+    } catch {
+      /* ignore */
     }
-    setAuthToken(null);
     clearSession();
     const homeView = resolveView('home');
     set({

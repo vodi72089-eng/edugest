@@ -17,7 +17,10 @@ import { normalizeClientIp } from './geo';
 // Store en base (modèle Session) : workerd n'a pas de système de fichiers.
 // Durée de session : 24 h sur le web. L'app desktop surcharge via
 // EDUGEST_SESSION_DAYS (ex: 30) pour rester connectée, MAJ incluses.
-const SESSION_DURATION_MS =
+// Exportée : la durée du cookie httpOnly DOIT être alignée sur celle de la
+// session en base (un cookie plus court déconnecte avant l'expiration DB ;
+// un cookie plus long envoie un token déjà révoqué/expiré).
+export const SESSION_DURATION_MS =
   (Number.parseInt(process.env.EDUGEST_SESSION_DAYS || '', 10) || 1) * 24 * 60 * 60 * 1000;
 // Throttle: only persist lastUsedAt if it's older than this, to avoid a write
 // on every single API request.
@@ -206,9 +209,23 @@ export async function revokeAllUserSessionsExcept(userId: string, exceptToken: s
 
 // Extract the bearer token from a request (for marking isCurrent in list).
 export function getTokenFromRequest(request: NextRequest): string | null {
+  return getAuthTokenFromRequest(request);
+}
+
+/**
+ * Extrait le token de session d'une requête — COOKIE httpOnly D'ABORD, puis
+ * en-tête Authorization: Bearer (compatibilité clients non-navigateurs :
+ * app mobile, scripts).
+ * SÉCURITÉ : le cookie est httpOnly → le JavaScript ne peut pas le lire ni le
+ * voler via XSS ; SameSite=Lax bloque les envois cross-site (CSRF) ; Secure
+ * en production force le chiffrement du transport.
+ */
+export function getAuthTokenFromRequest(request: NextRequest): string | null {
+  const cookieToken = request.cookies?.get('edugest_token')?.value;
+  if (cookieToken) return cookieToken;
   const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-  return authHeader.slice(7);
+  if (authHeader && authHeader.startsWith('Bearer ')) return authHeader.slice(7);
+  return null;
 }
 
 // Best-effort client IP extraction from common proxy headers.
@@ -250,11 +267,11 @@ export interface AuthUser {
 }
 
 export async function requireAuth(request: NextRequest): Promise<{ user: AuthUser } | { error: Response }> {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  // Cookie httpOnly en priorité, Authorization: Bearer en repli (clients API).
+  const token = getAuthTokenFromRequest(request);
+  if (!token) {
     return { error: Response.json({ error: 'Authentification requise' }, { status: 401 }) };
   }
-  const token = authHeader.slice(7);
   const session = await validateSession(token);
   if (!session) return { error: Response.json({ error: 'Session expirée ou invalide' }, { status: 401 }) };
   const user = await db.user.findUnique({
