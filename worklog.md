@@ -2704,3 +2704,31 @@ Work Log:
 
 Stage Summary:
 - Les professeurs ont leur propre appel quotidien (onglet « Présence profs »), visible par cycle pour les comptes DISCIPLINE_* et en entier pour l'admin d'école; chaque prof a une fiche PDF de présence (design gianelli, totaux en bas) telechargeable depuis sa ligne; l'onglet Historique filtre par date et affiche eleves + profs — prouve en API et en navigateur.
+
+---
+Task ID: audit-securite-p0-p1
+Agent: Z.ai Code (main)
+Task: Audit 14 points (P0 fonctionnel + P0 sécurité critique + P1 sécurité haute + P1 cohérence) — corrections vérifiées, commits séparés par thème.
+
+Work Log:
+- Mise à jour préalable : 50 commits distants intégrés (merge f38a398, conflit worklog.md résolu en union), client Prisma SQLite régénéré, @number-flow/react installé.
+- P0-1 DELETE /api/school-photos/[id] (gardes PATCH + unlink disque anti-traversée) ; drift schema sqlite SchoolPhoto.id corrigé. Tests : suppression 200 + fichier supprimé + 403 inter-écoles. Commit 3896920.
+- P0-2 seed : mot de passe aléatoire UNIQUE par compte (base64url 16 car.), affiché une fois dans la réponse HTTP ; role-repair : notifications PERSISTÉES sans mot de passe (redirection OTP), RoleRepairResult sans secret ; /api/seed verrouillé sauf NODE_ENV=development ; fallback admin123 supprimé du create-school frontend. Commit d63785f.
+- P0-3 reset-tokens : RESET_TOKEN_SECRET exigée au chargement (crash explicite <32 car.), repli 'edugest-reset-code-v1' supprimé. Test bun : crash sans clé / charge avec clé. Commit 2364462.
+- P0-4 SESSION = cookie httpOnly + Secure(prod) + SameSite=Lax : requireAuth lit cookie d'abord ; login ne renvoie PLUS le token au navigateur (client=mobile seulement) ; callback Google sans ?token= ; /api/auth/me (nouveau) amorce la session depuis le cookie ; authFetch sans Authorization ; setAuthToken/getAuthToken supprimés ; durée cookie ALIGNÉE sur SESSION_DURATION_MS. Tests curl + navigateur : Set-Cookie HttpOnly présent, token absent du body/localStorage, /me 401 sans cookie, API protégée OK, révocation logout 401. Fil d'Ariane restauré (perdu dans le merge). Commit 9568724.
+- P0-5 desktop/main.js setWindowOpenHandler : allowlist https:/mailto:, refuse file://, edugest://, smb://, javascript:, URL malformées (8 cas testés). Commit 3571a58.
+- P0-6 gateway-keys : encryptSecret REFUSE sans PAYMENT_KEYS_SECRET (plus de stockage en clair) ; SMS_CONFIG chiffré AES-256-GCM (SMS_SECRET_FIELDS partagés, déchiffrement en mémoire à la lecture). Tests : round-trip OK, refus sans clé, base contient enc:v1: et pas la clé en clair, masque GET OK. Drift massif du schéma sqlite corrigé (58 id + 29 updatedAt sans décorateurs → créations impossibles sur desktop). Commit 0e55509.
+- P1-7 upload : sniff magic bytes (PNG/JPEG/GIF/WEBP/PDF/SVG/texte/conteneur Office via extension), incohérence déclaré/réel → 400, PARENT images seules → 403, quota école 200 Mo (table UploadFile, synchronisée aux suppressions). Tests : vrai PNG 201, faux PNG 400, PDF parent 403, quota 403 (201/200 Mo). Commit 0eba864.
+- P1-8 rate-limit persistant : lib/rate-limit-db.ts (fenêtre fixe en base, fail-closed, purge opportuniste) ; login IP 30/15min + compte 20/15min (reset au succès) ; send-otp/verify-otp/forgot-password/verify-reset-code basculés ; import-db dédié 5/h/IP. PREUVE : 429 conservé après restart du serveur. Commit 95bc75d.
+- P1-9 IDOR tickets : POST — schoolId/corporateId du body ignorés hors SAG (corporate → adhésion base, agent → plateforme, autres → leur école) ; test live : parent postant l'école d'un autre → ticket rattaché à SA propre école (vérifié en base). Scan school-photos/whatsapp-api/school-qr-codes : déjà gardés. Commit e6d033a.
+- P1-10 MAJ portable : sha512 extrait de latest.yml (parseur ligne-par-ligne), checksum vérifié avant « ready » ET avant openPath (gate verified), fichier supprimé si mismatch, même vérif pour le fichier en cache. Commit a37191a + 6305d20.
+- P1-11 FAQ.tsx : prix réels (100 élèves, 100/250/500/1000 $, corporate sur mesure), RGPD/iOS/Android/Starter/3€/langues retirés, capacités prouvées à la place. NOTE : FAQ.tsx n'est pas encore montée sur / (HomeView actuelle sans FAQ — composants landing distants en préparation).
+- P1-12 Corporate : encodage unique -1 = sur mesure (api/pricing + landing + dashboard tarifs).
+- P1-13 lien .exe login : version résolue via latest.yml, fallback page releases.
+- P1-14 logs [DB] db.ts supprimés, alert() DettesView → toasts, purge session expirée loguée.
+- Push final : f38a398..26c4df7 poussés. tsc 0 erreur ; eslint : baseline 13 erreurs préexistantes inchangée ; serveur smoke-tested (login cookie, dashboard, breadcrumb, landing anonyme).
+
+Stage Summary:
+- 12 commits thématiques poussés ; aucune modification étrangère committée ; pas d'amend, pas de force-push, stash non touchés, .env non modifié (secrets de test passés en variables de PROCESSUS pour les vérifications).
+- Variables d'environnement maintenant REQUISES en production : RESET_TOKEN_SECRET (≥32 car.) et PAYMENT_KEYS_SECRET (≥16 car.) — openssl rand -base64 32. Sans elles : reset-password inopérant (crash explicite) et sauvegarde des clés de passerelle/SMS refusée (jamais de stockage en clair).
+- Reste : monter les composants landing (FAQ comprise) sur / ; passerelle Postgres/Neon à valider en CI (le sandbox tourne sur la branche SQLite desktop).
