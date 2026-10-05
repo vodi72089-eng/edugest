@@ -13,55 +13,53 @@ interface FAQItem {
 }
 
 const FAQ_DATA: FAQItem[] = [
+  // ⚠️ Prix et limites RÉELS (source : src/lib/subscription.ts getTierLimits
+  // et src/lib/helpers.ts getSubscriptionPrice) — aucune affirmation
+  // marketing non prouvée (RGPD, iOS/Android, support 24/7) ici.
   {
     question: 'Combien coûte EduGest ?',
     answer:
-      "EduGest propose une formule gratuite pour les petits établissements (jusqu'à 50 élèves), et des formules payantes à partir de 3€ par élève par mois. Le plan annuel offre 20% de réduction. Pour les grands groupes, un devis sur mesure est établi.",
+      "EduGest propose une formule gratuite (Freemium) pour découvrir la plateforme avec jusqu'à 100 élèves. Les formules payantes sont : Essentiel à 100 $/mois (250 élèves), Standard à 250 $/mois (1 000 élèves), Professionnel à 500 $/mois et Enterprise à 1 000 $/mois (élèves illimités). Pour les grands groupes multi-écoles, la formule Corporate est établie sur mesure.",
   },
   {
     question: 'Comment se passe la migration depuis notre ancien système ?',
     answer:
-      "Notre équipe vous accompagne gratuitement pour importer vos données existantes (élèves, notes, paiements). La migration prend généralement entre 2 et 5 jours ouvrés selon le volume. Un interlocuteur dédié vous guide à chaque étape.",
+      "L'application Windows EduGest intègre un outil d'import de base de données : vos élèves, classes et notes peuvent être importés depuis un fichier, directement depuis l'écran de configuration. L'assistant de création d'école vous guide ensuite pour l'année scolaire, les classes et les matières.",
   },
   {
     question: 'Est-ce que ça marche hors-ligne ?',
     answer:
-      "Oui, EduGest fonctionne en mode hors-ligne grâce à un système de synchronisation intelligent. Les données sont enregistrées localement et se synchronisent automatiquement dès que la connexion est rétablie, sans aucune perte d'information.",
+      "Oui. L'application de bureau EduGest (Windows) embarque une base de données locale : la saisie des notes, paiements et discipline fonctionne sans internet. Vos données restent sur votre machine, dans votre établissement.",
   },
   {
     question: 'Quels moyens de paiement sont supportés ?',
     answer:
-      "Nous supportons les paiements Mobile Money (M-Pesa, Orange Money, Wave, Airtel Money), les virements bancaires, les cartes bancaires, et les espèces via nos partenaires. Les reçus sont générés automatiquement et envoyés par WhatsApp ou SMS.",
+      "EduGest enregistre les paiements en espèces, les virements et les passerelles de paiement mobile que vous configurez (configurateur intégré réservé aux formules Standard et supérieures). Les reçus sont générés automatiquement et les notifications peuvent partir par WhatsApp.",
   },
   {
-    question: 'Y a-t-il une application mobile ?',
+    question: 'Y a-t-il une application pour l\'établissement ?',
     answer:
-      "Oui, EduGest est disponible sur iOS et Android. L'application permet aux directeurs, enseignants et parents d'accéder à toutes les fonctionnalités clés : notes, communications, paiements et suivi de la scolarité, directement depuis leur téléphone.",
+      "Oui, une application Windows est téléchargeable (installateur et version portable). Elle embarque le serveur et la base de données locaux : directeurs, secrétaires, caissiers, enseignants et service médical y travaillent en réseau local, même sans internet.",
   },
   {
-    question: 'Le support est-il disponible 24/7 ?',
+    question: 'Le support est-il inclus ?',
     answer:
-      "Le support email est disponible pour tous les plans. Les plans Pro et Enterprise bénéficient d'un support prioritaire par chat et téléphone pendant les heures ouvrées. Le plan Enterprise inclut un support dédié 24/7 avec un interlocuteur attitré.",
+      "Un module de support est intégré à l'application : ouvrez un ticket depuis l'onglet Aide, notre équipe y répond et en est notifiée en temps réel. Les formules supérieures bénéficient d'un traitement prioritaire.",
   },
   {
-    question: 'Combien de langues sont supportées ?',
+    question: 'Où sont hébergées mes données ?',
     answer:
-      "EduGest est disponible en français, anglais, espagnol et portugais. Nous ajoutons régulièrement de nouvelles langues en fonction des besoins de nos utilisateurs. L'interface s'adapte automatiquement à la langue du navigateur de l'utilisateur.",
-  },
-  {
-    question: 'Est-ce conforme au RGPD ?',
-    answer:
-      "Absolument. EduGest est entièrement conforme au RGPD et aux réglementations locales de protection des données. Vos données sont hébergées en Europe, chiffrées en transit et au repos. Vous pouvez exporter ou supprimer vos données à tout moment.",
+      "Avec l'application de bureau, vos données restent chez vous (base locale, chiffrée au niveau des secrets sensibles). Les formules Enterprise et Corporate peuvent héberger sur serveur dédié ou sur site (on-premise), selon votre choix.",
   },
   {
     question: 'Puis-je essayer avant d\'acheter ?',
     answer:
-      "Oui, vous pouvez créer un compte gratuit et utiliser EduGest sans engagement. Le plan Starter est gratuit pour toujours. Pour les plans supérieurs, une période d'essai de 14 jours est disponible, avec accès complet à toutes les fonctionnalités, sans carte bancaire requise.",
+      "Oui : la formule Freemium est gratuite et sans engagement, jusqu'à 100 élèves, sans carte bancaire. Quand votre établissement grandit, la mise à niveau vers Essentiel, Standard, Professionnel ou Enterprise se fait depuis l'écran « Mon Abonnement » de l'application.",
   },
   {
     question: 'Comment se passe l\'onboarding ?',
     answer:
-      "L'onboarding est guidé et interactif. Après inscription, un assistant vous accompagne pour configurer votre établissement en quelques minutes : année scolaire, classes, matières. Des tutoriels vidéo et une documentation complète sont disponibles à chaque étape.",
+      "La création d'école est guidée : nom, niveau d'enseignement, système éducatif, année de fondation… puis les classes et matières sont créées automatiquement. Un compte administrateur d'école est créé avec le mot de passe que vous choisissez.",
   },
 ]
 

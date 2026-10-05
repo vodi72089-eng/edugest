@@ -131,7 +131,11 @@ export async function validateSession(token: string): Promise<{ userId: string }
   const s = await db.session.findUnique({ where: { token } });
   if (!s) return null;
   if (Date.now() > s.expiresAt.getTime()) {
-    await db.session.delete({ where: { token } }).catch(() => {});
+    // Purge de la session expirée — best-effort MAIS visible : un échec
+    // répété de suppression signale un problème de base à ne pas ignorer.
+    await db.session.delete({ where: { token } }).catch((e) => {
+      console.warn('[auth] purge session expirée impossible :', (e as Error)?.message);
+    });
     return null;
   }
   // Throttled refresh of lastUsedAt — avoids a write on every request.

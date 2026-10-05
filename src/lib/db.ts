@@ -51,29 +51,7 @@ if (isSqlite) {
   // ── Branche Neon (web / Workers) ──────────────────────────────────────────
   class NeonHybridFactory extends PrismaNeonHTTP {
     async connect() {
-      // Cast any : le type SqlDriverAdapter n'expose pas performIO (méthode
-      // interne du adapter concret) — nécessaire pour le log de diagnostic.
       const conn: any = await super.connect();
-
-      // ── DIAGNOSTIC : log chaque requête SQL (durée + SQL tronqué) ────────
-      // Permet de voir quelle requête reste bloquée (START sans OK/ERR) quand
-      // workerd annule une requête « hung ». À retirer une fois le problème résolu.
-      const origPerformIO = conn.performIO.bind(conn);
-      let queryCount = 0;
-      conn.performIO = async (query: { sql?: string }) => {
-        const id = ++queryCount;
-        const start = Date.now();
-        const sql = (query.sql || '').replace(/\s+/g, ' ').slice(0, 90);
-        console.log(`[DB] #${id} START ${sql}`);
-        try {
-          const result = await origPerformIO(query);
-          console.log(`[DB] #${id} OK ${Date.now() - start}ms`);
-          return result;
-        } catch (e) {
-          console.log(`[DB] #${id} ERR ${Date.now() - start}ms ${String((e as Error)?.message).slice(0, 120)}`);
-          throw e;
-        }
-      };
 
       // Remplace uniquement startTransaction : tout le reste (queryRaw,
       // executeRaw, dispose…) reste en HTTP stateless.
