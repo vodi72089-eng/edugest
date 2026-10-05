@@ -12,6 +12,24 @@ const TOKEN_EXPIRY_MS = 15 * 60 * 1000 // 15 minutes
 // (6-digit code = 1M combinations; 5 attempts keep brute-force infeasible)
 const MAX_ATTEMPTS = 5
 
+// ── SECRET OBLIGATOIRE (fail-fast au chargement du module) ───────────────────
+// L'ancien repli « edugest-reset-code-v1 » était une clé publique (commitée) :
+// quiconque la connaissait pouvait recalculer le HMAC d'un code volé/deviné.
+// Désormais, sans RESET_TOKEN_SECRET, le module REFUSE de se charger —
+// l'application plante explicitement à l'atteinte d'un chemin qui l'importe
+// plutôt que de hacher silencieusement avec une clé connue.
+// Générer une clé :  openssl rand -base64 32
+const _resetSecretCheck = process.env.RESET_TOKEN_SECRET
+if (!_resetSecretCheck || _resetSecretCheck.length < 32) {
+  throw new Error(
+    'RESET_TOKEN_SECRET manquante ou trop courte (32 caractères min.) — ' +
+    'générez-en une avec « openssl rand -base64 32 » et définissez-la dans l\'environnement. ' +
+    'Refus de hacher les codes de réinitialisation avec une clé par défaut.'
+  )
+}
+// Après le garde : la clé existe et fait au moins 32 caractères (typage sûr).
+const RESET_SECRET: string = _resetSecretCheck
+
 /**
  * Normalise un numéro de téléphone pour la recherche en base et la clé de token.
  * Ex: " 243 867 589 04 " → "+24386758904", "0033 6 12 34 56 78" → "+33612345678"
@@ -26,14 +44,12 @@ export function normalizePhone(raw: string): string {
 }
 
 /**
- * Le code n'est JAMAIS stocké en clair : HMAC-SHA256(code). Une clé dédiée
- * peut être fournie via RESET_TOKEN_SECRET ; à défaut une clé de repli
- * stable est utilisée (le code de toute façon expire en 15 min et est
- * plafonné à MAX_ATTEMPTS essais).
+ * Le code n'est JAMAIS stocké en clair : HMAC-SHA256(code) avec
+ * RESET_TOKEN_SECRET (obligatoire — voir le garde ci-dessus). Le code expire
+ * en 15 min et est plafonné à MAX_ATTEMPTS essais.
  */
 function hashCode(phone: string, code: string): string {
-  const secret = process.env.RESET_TOKEN_SECRET || 'edugest-reset-code-v1'
-  return crypto.createHmac('sha256', secret).update(`${phone}:${code}`).digest('hex')
+  return crypto.createHmac('sha256', RESET_SECRET).update(`${phone}:${code}`).digest('hex')
 }
 
 export async function createResetToken(userId: string, phone: string): Promise<string> {
