@@ -1451,28 +1451,36 @@ function CreateSchoolView() {
       const json = await res.json()
       if (json.data?.school) {
         // OTP disabled: auto-login directly
-        const loginRes = await fetch('/api/auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: form.adminEmail, password: form.adminPassword || 'admin123' }),
-        })
-        const loginJson = await loginRes.json()
-        if (loginJson.data) {
-          const apiUser = loginJson.data
-          const role = API_ROLE_MAP[apiUser.role] || 'SCHOOL_ADMIN' // onboarding = admin d'école (jamais SAG)
-          login(role, {
-            id: apiUser.id, name: apiUser.name, role,
-            schoolId: apiUser.schoolId, schoolName: json.data.school.name,
-            schoolLogo: json.data.school.logo || null,
-            initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
-            profileImageUrl: null,
-            subscriptionTier: json.data.school.subscriptionTier || 'FREEMIUM',
-          }, loginJson.data.token)
-          toast.success('École créée avec succès ! Bienvenue !')
+        // SÉCURITÉ : plus aucun repli « admin123 » — si l'utilisateur a laissé
+        // le mot de passe vide, le serveur en a généré un aléatoire (non
+        // renvoyé) : l'auto-connexion est impossible, on passe par le login.
+        if (form.adminPassword) {
+          const loginRes = await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: form.adminEmail, password: form.adminPassword }),
+          })
+          const loginJson = await loginRes.json()
+          if (loginJson.data) {
+            const apiUser = loginJson.data
+            const role = API_ROLE_MAP[apiUser.role] || 'SCHOOL_ADMIN' // onboarding = admin d'école (jamais SAG)
+            login(role, {
+              id: apiUser.id, name: apiUser.name, role,
+              schoolId: apiUser.schoolId, schoolName: json.data.school.name,
+              schoolLogo: json.data.school.logo || null,
+              initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
+              profileImageUrl: null,
+              subscriptionTier: json.data.school.subscriptionTier || 'FREEMIUM',
+            }, loginJson.data.token)
+            toast.success('École créée avec succès ! Bienvenue !')
+            setLoading(false)
+            return
+          }
         } else {
-          toast.success('École créée ! Connectez-vous avec vos identifiants.')
-          setCurrentView('login')
+          toast.info('École créée ! Un mot de passe aléatoire a été généré — utilisez « Mot de passe oublié » (code SMS) pour le définir.')
         }
+        toast.success('École créée ! Connectez-vous avec vos identifiants.')
+        setCurrentView('login')
       } else {
         toast.error(json.error || 'Erreur lors de la création')
       }
@@ -1547,7 +1555,7 @@ function CreateSchoolView() {
                   const loginRes = await fetch('/api/auth', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: form.adminEmail, password: form.adminPassword || 'admin123' }),
+                    body: JSON.stringify({ email: form.adminEmail, password: form.adminPassword }),
                   })
                   const loginJson = await loginRes.json()
                   if (loginJson.data) {
@@ -1896,7 +1904,7 @@ function CreateSchoolView() {
                   <div className="sm:col-span-2">
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Mot de passe</label>
                     <div className="relative">
-                      <input type={showAdminPassword ? 'text' : 'password'} value={form.adminPassword} onChange={e => updateForm('adminPassword', e.target.value)} placeholder="Laissez vide pour le mot de passe par défaut" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-11 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                      <input type={showAdminPassword ? 'text' : 'password'} value={form.adminPassword} onChange={e => updateForm('adminPassword', e.target.value)} placeholder="Choisissez votre mot de passe (sinon un mot de passe aléatoire sera généré)" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-11 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                       <button type="button" onClick={() => setShowAdminPassword(!showAdminPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition p-1">
                         {showAdminPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
