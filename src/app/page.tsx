@@ -1707,19 +1707,19 @@ function CreateSchoolView() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Nom de l&apos;école *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Nom de l&apos;école</label>
                     <input value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Ex: Complexe Scolaire Lumière" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Sigle *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Sigle</label>
                     <input value={form.shortName} onChange={e => updateForm('shortName', e.target.value)} placeholder="Ex: CSL" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Email *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Email</label>
                     <input type="email" value={form.email} onChange={e => updateForm('email', e.target.value)} placeholder="contact@ecole.cd" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Téléphone *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Téléphone</label>
                     <input value={form.phone} onChange={e => updateForm('phone', e.target.value)} placeholder="+243 81 234 56 78" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
@@ -1727,15 +1727,15 @@ function CreateSchoolView() {
                     <input value={form.address} onChange={e => updateForm('address', e.target.value)} placeholder="Auto-remplie par la carte" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Ville *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Ville</label>
                     <input value={form.city} onChange={e => updateForm('city', e.target.value)} placeholder="Auto-remplie par la carte" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Province *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Province</label>
                     <input value={form.province} onChange={e => updateForm('province', e.target.value)} placeholder="Auto-remplie par la carte" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Pays *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Pays</label>
                     <input value={form.country} onChange={e => updateForm('country', e.target.value)} placeholder="Auto-remplie par la carte" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
@@ -1892,11 +1892,11 @@ function CreateSchoolView() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Nom complet *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Nom complet</label>
                     <input value={form.adminName} onChange={e => updateForm('adminName', e.target.value)} placeholder="Jean Mukendi" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Email *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Email</label>
                     <input type="email" value={form.adminEmail} onChange={e => updateForm('adminEmail', e.target.value)} placeholder="admin@ecole.cd" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
@@ -3361,6 +3361,12 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     setHighlightedId(notif.relatedId || null)
     setCurrentView(targetView)
     setShowNotifications(false)
+    // Un ticket de support : on ouvre directement le fil concerné (la vue
+    // Support écoute l'événement) — sinon « recevoir » un ticket demandait
+    // de retrouver à la main la bonne ligne dans la file.
+    if (notif.type === 'SUPPORT_TICKET' && notif.relatedId) {
+      setTimeout(() => window.dispatchEvent(new CustomEvent('edugest:open-ticket', { detail: { id: notif.relatedId } })), 60)
+    }
     if (!notif.isRead) markAsRead(notif.id)
     setTimeout(() => setHighlightedId(null), 5000)
   }
@@ -4862,7 +4868,7 @@ function ClassesView() {
             </div>
             <div className="px-6 py-4 space-y-4">
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom de la classe *</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom de la classe</label>
                 <input value={newClassName} onChange={e => setNewClassName(e.target.value)} placeholder="Ex: 6ème A" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} />
               </div>
               <div>
@@ -5801,19 +5807,19 @@ function PaymentConfigView() {
                 <h3 className="text-lg font-bold mb-4" style={{ color: TEXT_PRIMARY }}>{editingFee ? 'Modifier le frais' : 'Ajouter un frais'}</h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-500 mb-1 block">Nom du frais *</label>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Nom du frais</label>
                     <input value={feeForm.name} onChange={e => setFeeForm({ ...feeForm, name: e.target.value })} placeholder="Ex: Minerval, Inscription..." className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#f5a623]" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-500 mb-1 block">Montant ($) *</label>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Montant ($)</label>
                     <input type="number" value={feeForm.amount} onChange={e => setFeeForm({ ...feeForm, amount: e.target.value })} placeholder="0" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#f5a623]" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-500 mb-1 block">Classe *</label>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Classe</label>
                     <AppSelect value={feeForm.classId} onChange={(val) => setFeeForm({ ...feeForm, classId: val })} options={[{ value: '', label: 'Sélectionner une classe' }, ...classes.map((c: any) => ({ value: c.id, label: c.name }))]} placeholder="Sélectionner une classe" className="w-full" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-500 mb-1 block">Trimestre *</label>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Trimestre</label>
                     <AppSelect value={feeForm.trimester} onChange={(val) => setFeeForm({ ...feeForm, trimester: val })} options={['T1', 'T2', 'T3']} className="w-full" />
                   </div>
                 </div>
@@ -7698,15 +7704,15 @@ function HomeworkView() {
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Titre *</label>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Titre</label>
               <input value={hwTitle} onChange={e => setHwTitle(e.target.value)} placeholder="Ex: Exercices de calcul" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
             </div>
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Matière *</label>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Matière</label>
               <input value={hwSubject} onChange={e => setHwSubject(e.target.value)} placeholder="Ex: Mathématiques" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
             </div>
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe</label>
               <AppSelect value={hwClassId} onChange={setHwClassId} options={[{ value: '', label: 'Sélectionner une classe' }, ...(() => {
                 // Filter classes by teacher's classNames assignment (if available)
                 const myClassNames = (userData?.classNames || '').split(',').map((s: string) => s.trim()).filter(Boolean);
@@ -7722,7 +7728,7 @@ function HomeworkView() {
               )}
             </div>
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Date limite *</label>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Date limite</label>
               <input type="date" value={hwDueDate} onChange={e => setHwDueDate(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
             </div>
             <div className="sm:col-span-2">
@@ -9222,7 +9228,7 @@ function SchoolReviewsView() {
           </h3>
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-medium mb-2 block" style={{ color: TEXT_MUTED_LUXE }}>Votre note *</label>
+              <label className="text-xs font-medium mb-2 block" style={{ color: TEXT_MUTED_LUXE }}>Votre note</label>
               <div className="flex items-center gap-1">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <button
@@ -9243,7 +9249,7 @@ function SchoolReviewsView() {
               </div>
             </div>
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Votre commentaire *</label>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Votre commentaire</label>
               <textarea
                 value={comment}
                 onChange={e => setComment(e.target.value)}

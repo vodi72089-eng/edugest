@@ -312,6 +312,35 @@ export default function SupportView() {
 
   useEffect(() => { load() }, [load])
 
+  // ── Réception de la file en temps quasi-réel ───────────────────────────────
+  // • rafraîchissement automatique toutes les 30 s (cadence notifications)
+  // • rafraîchissement au retour sur l'onglet
+  // • ouverture directe d'un ticket via l'événement émis par la cloche de
+  //   notifications (clic sur « Nouveau ticket … ») ou via le lien ?ticket=<id>
+  useEffect(() => {
+    const interval = setInterval(load, 30000)
+    const onFocus = () => load()
+    const openTicket = (e: Event) => {
+      const id = (e as CustomEvent).detail?.id
+      if (typeof id === 'string' && id) setOpenTicketId(id)
+    }
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('edugest:open-ticket', openTicket)
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('edugest:open-ticket', openTicket)
+    }
+  }, [load])
+
+  // Lien profond /support?ticket=<id> (partage, notification native desktop).
+  useEffect(() => {
+    try {
+      const t = new URLSearchParams(window.location.search).get('ticket')
+      if (t) setOpenTicketId(t)
+    } catch { /* ignore */ }
+  }, [])
+
   const filtered = useMemo(() => tickets.filter(t =>
     (!statusFilter || t.status === statusFilter) &&
     (!priorityFilter || t.priority === priorityFilter) &&

@@ -192,6 +192,11 @@ function SettingsViewInner() {
           .then(j => setPendingApprovals(j.data || []))
           .catch(() => {})
       }
+    } else {
+      // Pas d'école de contexte (ex. SUPER_ADMIN_GLOBAL en vue plateforme) :
+      // on sort du « Chargement... » — la vue s'affiche (onglet Aide, sessions,
+      // sections plateforme) avec les formulaires d'école vides.
+      setLoading(false)
     }
   }, [getActiveSchoolId()])
 
@@ -614,7 +619,7 @@ function SettingsViewInner() {
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom de l&apos;école *</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom de l&apos;école</label>
                 <input value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
               </div>
               <div>
@@ -1067,23 +1072,23 @@ function SettingsViewInner() {
             </h3>
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom du frais *</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom du frais</label>
                 <input value={feeForm.name} onChange={e => setFeeForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Montant *</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Montant</label>
                 <input type="number" value={feeForm.amount} onChange={e => setFeeForm(f => ({ ...f, amount: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Devise *</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Devise</label>
                 <AppSelect value={feeForm.currency} onChange={(val) => setFeeForm(f => ({ ...f, currency: val }))} options={[{ value: 'CDF', label: 'CDF (Franc congolais)' }, { value: 'USD', label: 'USD (Dollar américain)' }, { value: 'FCFA', label: 'FCFA (Franc CFA)' }]} />
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Frais *</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Frais</label>
                 <AppSelect value={feeForm.trimester} onChange={(val) => setFeeForm(f => ({ ...f, trimester: val }))} options={[{ value: 'T1', label: 'T1 - Trimestre 1' }, { value: 'T2', label: 'T2 - Trimestre 2' }, { value: 'T3', label: 'T3 - Trimestre 3' }]} />
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe</label>
                 <AppSelect value={feeForm.classId} onChange={(val) => setFeeForm(f => ({ ...f, classId: val }))} placeholder="Choisir une classe" options={[{ value: '', label: 'Choisir une classe' }, ...classes.map(c => ({ value: c.id, label: c.name }))]} />
               </div>
             </div>
