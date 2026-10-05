@@ -583,7 +583,7 @@ export default function MedicalView() {
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Sélectionner l'Élève *</label>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Sélectionner l'Élève</label>
                 <AppSelect
                   value={visitForm.studentId}
                   onChange={(v) => setVisitForm({ ...visitForm, studentId: v })}
@@ -600,7 +600,7 @@ export default function MedicalView() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">Motif de consultation *</label>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Motif de consultation</label>
                   <MedicalDropdown
                     value={visitForm.reason}
                     onChange={(v) => setVisitForm({ ...visitForm, reason: v })}
@@ -719,7 +719,7 @@ export default function MedicalView() {
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Élève *</label>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Élève</label>
                 <AppSelect
                   value={recordForm.studentId}
                   onChange={(v) => setRecordForm({ ...recordForm, studentId: v })}
@@ -848,7 +848,7 @@ export default function MedicalView() {
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Élève *</label>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Élève</label>
                 <AppSelect
                   value={dispensationForm.studentId}
                   onChange={(v) => setDispensationForm({ ...dispensationForm, studentId: v })}
@@ -865,7 +865,7 @@ export default function MedicalView() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">Date Début *</label>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Date Début</label>
                   <input
                     type="date"
                     value={dispensationForm.startDate}
@@ -875,7 +875,7 @@ export default function MedicalView() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">Date Fin *</label>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Date Fin</label>
                   <input
                     type="date"
                     value={dispensationForm.endDate}
@@ -887,7 +887,7 @@ export default function MedicalView() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Motif de la dispense *</label>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Motif de la dispense</label>
                 <MedicalDropdown
                   value={dispensationForm.reason}
                   onChange={(v) => setDispensationForm({ ...dispensationForm, reason: v })}

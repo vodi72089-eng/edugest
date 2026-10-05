@@ -443,7 +443,7 @@ export default function DispensesView({ mode = 'EPS' }: DispensesViewProps) {
 
               <div>
                 <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>
-                  Motif <span style={{ color: DANGER }}>*</span>
+                  Motif
                 </label>
                 <input
                   type="text"

@@ -289,7 +289,7 @@ export default function GradesView() {
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe</label>
               <AppSelect value={gradeClassId} onChange={(val) => { setGradeClassId(val); setGradeStudentId(''); setGradeStudentSearchId(null) }} placeholder="Sélectionner une classe" options={[{ value: '', label: 'Sélectionner une classe' }, ...classes.map(c => ({ value: c.id, label: c.name }))]} />
             </div>
             <div>
@@ -307,17 +307,17 @@ export default function GradesView() {
                 ) : null
               ) : (
                 <>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Matière *</label>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Matière</label>
                   <AppSelect value={gradeSubjectId} onChange={setGradeSubjectId} disabled={!gradeClassId} placeholder="Sélectionner une matière" options={[{ value: '', label: gradeClassId ? 'Sélectionner une matière' : 'D\'abord choisir une classe' }, ...subjects.map(s => ({ value: s.id, label: `${s.name} (coef. ${s.coefficient})` }))]} />
                 </>
               )}
             </div>
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Trimestre *</label>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Trimestre</label>
               <AppSelect value={gradeTrimester} onChange={setGradeTrimester} options={['Trimestre 1', 'Trimestre 2', 'Trimestre 3'].map((label, i) => ({ value: `T${i + 1}`, label }))} />
             </div>
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Élève *</label>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Élève</label>
               {!gradeClassId ? (
                 <div className="px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm" style={{ color: TEXT_MUTED_LUXE }}>D'abord choisir une classe</div>
               ) : (
@@ -335,7 +335,7 @@ export default function GradesView() {
               )}
             </div>
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Note /20 *</label>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Note /20</label>
               <input type="number" min="0" max="20" step="0.5" value={gradeScore} onChange={e => setGradeScore(e.target.value)} placeholder="0-20" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
             </div>
             <div>

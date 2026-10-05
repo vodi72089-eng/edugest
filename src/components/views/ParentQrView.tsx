@@ -299,7 +299,7 @@ export default function ParentQrView() {
                 <input value={label} onChange={e => setLabel(e.target.value)} placeholder="ex. Journée portes ouvertes 2026" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
               </div>
               <div>
-                <label className="text-sm font-medium block mb-1" style={{ color: TEXT_PRIMARY }}>Durée de vie du QR code *</label>
+                <label className="text-sm font-medium block mb-1" style={{ color: TEXT_PRIMARY }}>Durée de vie du QR code</label>
                 <AppSelect
                   value={duration}
                   onChange={setDuration}

@@ -520,7 +520,7 @@ export default function MedicalRecordsView() {
               {/* Sélecteur d'élève (pas pour le registre) */}
               {createType !== 'REGISTRE_SANTE' && (
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wide mb-1.5 block" style={{ color: 'oklch(45% 0.02 175)' }}>Élève *</label>
+                  <label className="text-xs font-bold uppercase tracking-wide mb-1.5 block" style={{ color: 'oklch(45% 0.02 175)' }}>Élève</label>
                   <AppSelect
                     value={form.studentId}
                     onChange={(v) => setForm({ ...form, studentId: v })}
@@ -549,11 +549,11 @@ export default function MedicalRecordsView() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs font-bold uppercase tracking-wide mb-1.5 block" style={{ color: 'oklch(45% 0.02 175)' }}>Du *</label>
+                      <label className="text-xs font-bold uppercase tracking-wide mb-1.5 block" style={{ color: 'oklch(45% 0.02 175)' }}>Du</label>
                       <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className={inputCls} style={inputStyle} />
                     </div>
                     <div>
-                      <label className="text-xs font-bold uppercase tracking-wide mb-1.5 block" style={{ color: 'oklch(45% 0.02 175)' }}>Au *</label>
+                      <label className="text-xs font-bold uppercase tracking-wide mb-1.5 block" style={{ color: 'oklch(45% 0.02 175)' }}>Au</label>
                       <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} className={inputCls} style={inputStyle} />
                     </div>
                   </div>

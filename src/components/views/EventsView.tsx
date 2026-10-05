@@ -365,7 +365,7 @@ export default function EventsView() {
             </div>
             <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Titre *</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Titre</label>
                 <input
                   value={form.title}
                   onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
@@ -391,7 +391,7 @@ export default function EventsView() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Début *</label>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Début</label>
                   <input
                     type="datetime-local"
                     value={form.startAt}

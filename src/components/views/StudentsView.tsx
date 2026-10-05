@@ -302,7 +302,7 @@ export default function StudentsView() {
 
       <div className="flex items-center gap-3 mb-4">
         <SearchAutocomplete
-          label="Rechercher un élève *"
+          label="Rechercher un élève"
           placeholder="Tapez le nom de l'élève..."
           items={studentSuggestions}
           selectedId={selectedStudentId}
@@ -415,7 +415,7 @@ export default function StudentsView() {
                 <div><label className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>Date de naissance</label><input name="dob" type="date" className="w-full mt-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" /></div>
               </div>
               <SearchAutocomplete
-                label="Classe *"
+                label="Classe"
                 placeholder="Tapez le nom de la classe..."
                 items={classSuggestions}
                 selectedId={selectedClassSearchId}
@@ -564,8 +564,8 @@ export default function StudentsView() {
             </div>
             <div className="px-6 py-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Prénom *</label><input value={editFirstName} onChange={e => setEditFirstName(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} /></div>
-                <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom *</label><input value={editLastName} onChange={e => setEditLastName(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} /></div>
+                <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Prénom</label><input value={editFirstName} onChange={e => setEditFirstName(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} /></div>
+                <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom</label><input value={editLastName} onChange={e => setEditLastName(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} /></div>
               </div>
               <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Sexe</label><AppSelect value={editGender} onChange={setEditGender} options={[{ value: 'M', label: 'Masculin' }, { value: 'F', label: 'Féminin' }]} /></div>
               <div><label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe</label><AppSelect value={editClassId} onChange={setEditClassId} options={classes.map(c => ({ value: c.id, label: c.name }))} /></div>

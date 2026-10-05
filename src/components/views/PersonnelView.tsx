@@ -541,13 +541,13 @@ export default function PersonnelView() {
             <form onSubmit={editingUser ? handleEditUser : handleAddUser} className="flex-1 overflow-y-auto p-6 space-y-4">
               {/* Name */}
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom complet *</label>
+                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom complet</label>
                 <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Marie Tshibangu" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
               </div>
 
               {/* Role selector */}
               <div className="space-y-1.5">
-                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Rôle / Poste *</label>
+                <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Rôle / Poste</label>
                 <div className="grid grid-cols-2 gap-2">
                   {availableRoles.map(r => (
                     <button
@@ -666,7 +666,7 @@ export default function PersonnelView() {
                   {/* Titularité multi-classes : choix parmi les classes occupées */}
                   {form.isTitulaire && (
                     <div className="space-y-2 p-3 rounded-xl border border-[oklch(88%_0.01_175)] bg-white/70">
-                      <div className="text-[12px] font-semibold" style={{ color: TEXT_PRIMARY }}>Classes dont il est titulaire *</div>
+                      <div className="text-[12px] font-semibold" style={{ color: TEXT_PRIMARY }}>Classes dont il est titulaire</div>
                       {selectedClassEntries.length === 0 ? (
                         <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Sélectionnez d'abord au moins une classe dans « Classes occupées » ci-dessus.</p>
                       ) : (
@@ -766,11 +766,11 @@ export default function PersonnelView() {
                 <label className="text-[13px] font-semibold mb-3 block" style={{ color: GOLD }}>Nouvelle assignation</label>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-[12px] font-medium mb-1 block" style={{ color: TEXT_PRIMARY }}>Classe *</label>
+                    <label className="text-[12px] font-medium mb-1 block" style={{ color: TEXT_PRIMARY }}>Classe</label>
                     <AppSelect value={assignClassId} onChange={setAssignClassId} placeholder="Sélectionner une classe" options={[{ value: '', label: 'Sélectionner une classe' }, ...availableClasses.map(c => ({ value: c.id, label: c.name }))]} />
                   </div>
                   <div>
-                    <label className="text-[12px] font-medium mb-1 block" style={{ color: TEXT_PRIMARY }}>Matière *</label>
+                    <label className="text-[12px] font-medium mb-1 block" style={{ color: TEXT_PRIMARY }}>Matière</label>
                     <AppSelect value={assignSubjectId} onChange={setAssignSubjectId} disabled={!assignClassId} placeholder="Sélectionner une matière" options={[{ value: '', label: assignClassId ? 'Sélectionner une matière' : 'D\'abord choisir une classe' }, ...assignSubjects.map(s => ({ value: s.id, label: `${s.name} (coef. ${s.coefficient})` }))]} />
                   </div>
                   <button onClick={handleAddAssignment} disabled={assignLoading || !assignClassId || !assignSubjectId} className="edu-gold-cta px-5 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">

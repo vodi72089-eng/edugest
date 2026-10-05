@@ -504,7 +504,7 @@ export default function OnlinePaymentView() {
             </h3>
             <div className="space-y-4">
               <SearchAutocomplete
-                label="Élève *"
+                label="Élève"
                 placeholder="Tapez le nom de l'élève..."
                 items={studentSuggestions}
                 selectedId={selectedStudentId}
@@ -517,7 +517,7 @@ export default function OnlinePaymentView() {
               />
 
               <div>
-                <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Tranche *</label>
+                <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Tranche</label>
                 <input
                   value={tranche}
                   readOnly
@@ -528,7 +528,7 @@ export default function OnlinePaymentView() {
               </div>
 
               <div>
-                <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant à payer (CDF) *</label>
+                <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant à payer (CDF)</label>
                 <input
                   placeholder="Entrez le montant (max : reste à payer)"
                   value={amount}
@@ -565,7 +565,7 @@ export default function OnlinePaymentView() {
               </div>
 
               <div>
-                <label className="text-xs font-medium mb-2 block" style={{ color: TEXT_MUTED_LUXE }}>Méthode de paiement *</label>
+                <label className="text-xs font-medium mb-2 block" style={{ color: TEXT_MUTED_LUXE }}>Méthode de paiement</label>
                 {availableMethods !== null && visibleMethods.length === 0 ? (
                   <p className="text-[13px] px-3 py-2.5 rounded-xl" style={{ background: 'oklch(94% 0.06 65)', color: 'oklch(45% 0.13 65)' }}>
                     Aucune passerelle activée pour votre école. Contactez la direction ou payez au caissier.
@@ -595,7 +595,7 @@ export default function OnlinePaymentView() {
               </div>
 
               <div>
-                <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Numéro de téléphone *</label>
+                <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Numéro de téléphone</label>
                 <div className="flex items-center gap-2 mt-1">
                   <Smartphone size={16} style={{ color: TEXT_MUTED_LUXE }} />
                   <input

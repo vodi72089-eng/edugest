@@ -2732,3 +2732,25 @@ Stage Summary:
 - 12 commits thématiques poussés ; aucune modification étrangère committée ; pas d'amend, pas de force-push, stash non touchés, .env non modifié (secrets de test passés en variables de PROCESSUS pour les vérifications).
 - Variables d'environnement maintenant REQUISES en production : RESET_TOKEN_SECRET (≥32 car.) et PAYMENT_KEYS_SECRET (≥16 car.) — openssl rand -base64 32. Sans elles : reset-password inopérant (crash explicite) et sauvegarde des clés de passerelle/SMS refusée (jamais de stockage en clair).
 - Reste : monter les composants landing (FAQ comprise) sur / ; passerelle Postgres/Neon à valider en CI (le sandbox tourne sur la branche SQLite desktop).
+
+---
+Task ID: support-tickets-reception
+Agent: Z.ai Code (principal)
+Task: Mise à jour git + correction « ticket envoyé invisible dans Support » (admin suprême) + suppression des « * »
+
+Work Log:
+- git fetch remote : aucun nouveau commit distant ; poussé le commit local restant a63ee0f (74d67cb..a63ee0f).
+- Environnement de test reconstruit : client Prisma SQLite régénéré (bunx prisma generate --schema prisma/schema.sqlite.prisma), base db/custom.db recréée + seed /api/seed, mot de passe admin réinitialisé en base pour les tests (bcrypt).
+- Repro complet agent-browser (rôle SUPER_ADMIN_GLOBAL) : création de ticket via curl ET via UI → apparaît immédiatement ; ticket créé par un admin d'école → visible + notification SUPPORT_TICKET reçue par le SAG. Backend 100 % fonctionnel.
+- BUG REPRODUIT 2× : SettingsView reste bloqué sur « Chargement... » pour le SAG sans école active — le useEffect ne levait loading=false que si getActiveSchoolId() était truthy → onglet Aide (formulaire de signalement) inaccessible pour l'admin plateforme. Corrigé (else setLoading(false)).
+- SupportView : ajout rafraîchissement auto (30 s + focus), écoute événement edugest:open-ticket, deep-link /support?ticket=<id>.
+- page.tsx : clic sur la notification « Nouveau ticket … » → ouvre directement le fil du ticket.
+- Suppression des 81 astérisques « * » de libellés de formulaires (page.tsx, SettingsView, DispensesView, StudentsView, PersonnelView, DisciplineView, SchoolsManagementView, CorporatesAdminView, MedicalRecordsView, OnlinePaymentView, PaymentsView) via sed ciblé.
+- Vérifications : bunx tsc --noEmit = 0 erreur ; eslint fichiers modifiés = 0 ; eslint page.tsx = baseline 13 conservée ; tests navigateur OK (desktop + mobile 390px) ; version → 0.3.8.
+- Commit c3b2533 (stage sélectif de 4 fichiers : page.tsx, SettingsView.tsx, SupportView.tsx, version.ts) poussé sur main.
+
+Stage Summary:
+- Le flux ticket fonctionne de bout en bout côté web : Aide → signalement → file Support visible instantanément ; cloche → fil du ticket ouvert directement ; file auto-rafraîchie.
+- Cause racine la plus probable du bug utilisateur côté web : vue Paramètres bloquée (fix inclus) et/ou copie locale obsolète — l'utilisateur doit mettre à jour vers v0.3.8.
+- NOTE ARCHITECTURE : l'exe desktop exécute un serveur local avec sa PROPRE base (db/custom.db → %APPDATA%) — un ticket créé dans l'exe reste local, jamais transmis au cloud (aucune URL plateforme configurée dans desktop/main.js). Si l'utilisateur a envoyé depuis l'exe, le ticket n'arrive pas dans le Support web : chantier futur = transmission plateforme des tickets desktop.
+- v0.3.8 poussée ; tests effectués sur une base reseedée (les données précédentes du bac à sable ont été remplacées).

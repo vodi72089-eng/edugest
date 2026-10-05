@@ -334,7 +334,7 @@ export default function PaymentsView() {
         <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Enregistrer un paiement</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
           <SearchAutocomplete
-            label="Rechercher un élève *"
+            label="Rechercher un élève"
             placeholder="Tapez le nom de l'élève..."
             items={studentSuggestions}
             selectedId={selectedStudentId}

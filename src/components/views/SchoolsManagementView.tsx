@@ -454,19 +454,19 @@ export default function SchoolsManagementView() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom de l&apos;école *</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom de l&apos;école</label>
                   <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Complexe Scolaire Lumière" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Sigle / Abréviation *</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Sigle / Abréviation</label>
                   <input type="text" required value={form.shortName} onChange={e => setForm({ ...form, shortName: e.target.value })} placeholder="Ex: CSL" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Email professionnel *</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Email professionnel</label>
                   <input type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="contact@ecole.cd" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone *</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone</label>
                   <input type="tel" required value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+243 81 234 56 78" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
@@ -474,15 +474,15 @@ export default function SchoolsManagementView() {
                   <input type="text" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Remplie auto. par la carte" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Ville *</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Ville</label>
                   <input type="text" required value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder="Remplie auto. par la carte" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Province *</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Province</label>
                   <input type="text" required value={form.province} onChange={e => setForm({ ...form, province: e.target.value })} placeholder="Remplie auto. par la carte" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Pays *</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Pays</label>
                   <input type="text" required value={form.country} onChange={e => setForm({ ...form, country: e.target.value })} placeholder="Remplie auto. par la carte" className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)] focus:ring-[3px] focus:ring-[oklch(95%_0.05_65)]" />
                 </div>
                 <div className="space-y-1.5">
@@ -599,27 +599,27 @@ export default function SchoolsManagementView() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom de l&apos;école *</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Nom de l&apos;école</label>
                   <input type="text" required value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Sigle *</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Sigle</label>
                   <input type="text" required value={editForm.shortName} onChange={e => setEditForm({ ...editForm, shortName: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Email *</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Email</label>
                   <input type="email" required value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone *</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Téléphone</label>
                   <input type="tel" required value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Ville *</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Ville</label>
                   <input type="text" required value={editForm.city} onChange={e => setEditForm({ ...editForm, city: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Province *</label>
+                  <label className="text-[13px] font-medium" style={{ color: TEXT_PRIMARY }}>Province</label>
                   <input type="text" required value={editForm.province} onChange={e => setEditForm({ ...editForm, province: e.target.value })} className="w-full px-4 py-3 border border-[oklch(88%_0.01_175)] rounded-xl text-sm bg-white outline-none focus:border-[oklch(72%_0.15_65)]" />
                 </div>
                 <div className="space-y-1.5">

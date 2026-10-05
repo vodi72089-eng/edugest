@@ -234,7 +234,7 @@ export default function CorporatesAdminView() {
           {/* Entreprise */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: TEXT_MUTED_LUXE }}>Nom *</label>
+              <label className="block text-xs font-semibold mb-1" style={{ color: TEXT_MUTED_LUXE }}>Nom</label>
               <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex. Groupe Scolaire La Lumière" className={formInputCls} style={formInputStyle} />
             </div>
             <div>
@@ -295,19 +295,19 @@ export default function CorporatesAdminView() {
             <p className="text-xs font-bold" style={{ color: TEXT_PRIMARY }}>Compte utilisateur principal</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: TEXT_MUTED_LUXE }}>Nom *</label>
+                <label className="block text-xs font-semibold mb-1" style={{ color: TEXT_MUTED_LUXE }}>Nom</label>
                 <input value={account.name} onChange={e => setAccount(a => ({ ...a, name: e.target.value }))} placeholder="Nom du titulaire" className={formInputCls} style={formInputStyle} />
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: TEXT_MUTED_LUXE }}>Email *</label>
+                <label className="block text-xs font-semibold mb-1" style={{ color: TEXT_MUTED_LUXE }}>Email</label>
                 <input type="email" value={account.email} onChange={e => setAccount(a => ({ ...a, email: e.target.value }))} placeholder="login@entreprise.cd" className={formInputCls} style={formInputStyle} />
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: TEXT_MUTED_LUXE }}>Téléphone *</label>
+                <label className="block text-xs font-semibold mb-1" style={{ color: TEXT_MUTED_LUXE }}>Téléphone</label>
                 <input value={account.phone} onChange={e => setAccount(a => ({ ...a, phone: e.target.value }))} placeholder="+243…" className={formInputCls} style={formInputStyle} />
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1" style={{ color: TEXT_MUTED_LUXE }}>Mot de passe *</label>
+                <label className="block text-xs font-semibold mb-1" style={{ color: TEXT_MUTED_LUXE }}>Mot de passe</label>
                 <div className="flex gap-2">
                   <input value={account.password} onChange={e => setAccount(a => ({ ...a, password: e.target.value }))} placeholder="12 caractères" className={`${formInputCls} font-mono`} style={formInputStyle} />
                   <button

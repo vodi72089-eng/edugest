@@ -604,7 +604,7 @@ export default function DisciplineView() {
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex-1 min-w-[250px] max-w-sm">
               <SearchAutocomplete
-                label="Rechercher un élève *"
+                label="Rechercher un élève"
                 placeholder="Tapez le nom de l'élève..."
                 items={studentSuggestions}
                 selectedId={selectedStudentSearchId}
@@ -658,7 +658,7 @@ export default function DisciplineView() {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Élève *</label>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Élève</label>
                   {!selectedStudentId ? (
                     <SearchAutocomplete
                       placeholder="Tapez le nom de l'élève..."
@@ -677,19 +677,19 @@ export default function DisciplineView() {
                   )}
                 </div>
                 <div>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Liste *</label>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Liste</label>
                   <AppSelect value={sanctionListType} onChange={(val) => setSanctionListType(val as 'BLACKLIST' | 'GREYLIST' | 'WHITELIST')} options={[{ value: 'GREYLIST', label: 'Liste Grise (modéré)' }, { value: 'BLACKLIST', label: 'Liste Noire (grave)' }, { value: 'WHITELIST', label: 'Liste Blanche (positif)' }]} />
                 </div>
                 <div>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Type *</label>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Type</label>
                   <AppSelect value={sanctionType} onChange={setSanctionType} options={[{ value: 'RETARD', label: 'Retard' }, { value: 'ABSENCE', label: 'Absence' }, { value: 'TRICHERIE', label: 'Tricherie' }, { value: 'VIOLENCE', label: 'Violence' }, { value: 'INCIVILITE', label: 'Incivilité' }, { value: 'EXCELLENCE', label: 'Excellence' }, { value: 'MERITE', label: 'Mérite' }]} />
                 </div>
                 <div>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Gravité *</label>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Gravité</label>
                   <AppSelect value={sanctionSeverity} onChange={setSanctionSeverity} options={[{ value: 'LOW', label: 'Faible' }, { value: 'MEDIUM', label: 'Moyen' }, { value: 'HIGH', label: 'Grave' }]} />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Motif *</label>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Motif</label>
                   <input value={sanctionTitle} onChange={e => setSanctionTitle(e.target.value)} placeholder="Ex: Retard répété" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
                 </div>
                 <div className="sm:col-span-2">
@@ -720,7 +720,7 @@ export default function DisciplineView() {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Élève *</label>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Élève</label>
                   {!selectedStudentId ? (
                     <SearchAutocomplete
                       placeholder="Tapez le nom de l'élève..."
@@ -739,11 +739,11 @@ export default function DisciplineView() {
                   )}
                 </div>
                 <div>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Date de convocation *</label>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Date de convocation</label>
                   <input type="datetime-local" value={convocationDate} onChange={e => setConvocationDate(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Motif *</label>
+                  <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Motif</label>
                   <textarea value={convocationMotif} onChange={e => setConvocationMotif(e.target.value)} rows={3} placeholder="Raison de la convocation..." className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] resize-none" />
                 </div>
               </div>
