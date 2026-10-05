@@ -112,3 +112,17 @@ dev.log
 # vinext (migration vers Cloudflare Workers)
 /dist/
 .vinext/
+
+# Artefacts de build desktop (EXE — publiés sur GitHub Releases, pas dans git)
+desktop/dist/
+desktop/release/
+
+# Client Prisma SQLite généré (artefact de build)
+src/generated/
+
+# Fichiers temporaires locaux
+._tmp_*
+list_users_tmp.js
+set-token.ps1
+scripts/tmp-*
+scripts/list-users-tmp.js

@@ -8,7 +8,7 @@ const __dirname = dirname(__filename);
 
 const eslintConfig = [
   {
-    ignores: ["desktop/**", "mini-services/**", "db/**"],
+    ignores: ["desktop/**", "mini-services/**", "db/**", "src/generated/**"],
   },
   ...nextCoreWebVitals, ...nextTypescript, {
   rules: {
