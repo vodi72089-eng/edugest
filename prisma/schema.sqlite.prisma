@@ -1004,7 +1004,7 @@ model SchoolEvent {
 /// Galerie photos publique de l'école (page vitrine). Limite par forfait
 /// (getTierLimits().maxPhotos) appliquée côté serveur à l'ajout.
 model SchoolPhoto {
-  id        String   @id
+  id        String   @id @default(cuid())
   schoolId  String
   school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   url       String
