@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { AlertTriangle, Search, CreditCard, ArrowLeft, User, Phone, GraduationCap, Calendar, FileText, CheckCircle, XCircle, Clock } from 'lucide-react'
 import StudentAvatar from '@/components/ui/StudentAvatar'
 import { authFetch, useEduGestStore } from '@/lib/store'
+import { savePdfBlob, toastPdfSaved } from '@/lib/desktop-files'
 
 const COLORS = {
   bg: '#f8f9fa',
@@ -361,14 +362,9 @@ function StudentDetail({ group, onBack, onPay, schoolId }: { group: GroupedStude
         return
       }
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `sommation-${student.lastName}-${student.firstName}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      // Desktop : rangé dans Documents/EduGest/Sommations ; web : téléchargé.
+      const saved = await savePdfBlob(blob, `sommation-${student.lastName}-${student.firstName}.pdf`)
+      if (saved) toastPdfSaved(saved)
     } catch {
       alert('Erreur réseau lors de la génération de la sommation')
     } finally {

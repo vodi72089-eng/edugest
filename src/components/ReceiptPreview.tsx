@@ -5,6 +5,7 @@ import html2canvas from 'html2canvas-pro'
 import { jsPDF } from 'jspdf'
 import { X, Download, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { savePdfBlob, toastPdfSaved } from '@/lib/desktop-files'
 
 // ─── Types ────────────────────────────────────────────────────────────────
 interface ReceiptPayment {
@@ -162,9 +163,10 @@ export default function ReceiptPreview({ payment, student, school, onClose }: Re
       const finalHeight = Math.min(imgHeight, A4_H)
 
       pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, finalHeight)
-      pdf.save(`recu-${receiptNo}.pdf`)
-
-      toast.success('Reçu PDF téléchargé avec succès !')
+      // Desktop : rangé dans Documents/EduGest/Reçus de paiement ; web : téléchargé.
+      const saved = await savePdfBlob(pdf.output('blob'), `recu-${receiptNo}.pdf`)
+      if (saved) toastPdfSaved(saved)
+      else toast.success('Reçu PDF téléchargé avec succès !')
     } catch (error) {
       console.error('PDF generation error:', error)
       toast.error('Erreur lors de la génération du PDF')

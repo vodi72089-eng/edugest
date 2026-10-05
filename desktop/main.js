@@ -19,6 +19,7 @@
  */
 
 const { app, BrowserWindow, shell, dialog, ipcMain, net: electronNet, Notification } = require('electron');
+const { savePdfBuffer } = require('./pdf-store');
 const { spawn, execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -573,6 +574,41 @@ try {
       }
     });
   } catch {}
+
+// ─── Sauvegarde des PDF générés → Documents/EduGest/<Catégorie>/ ───────────
+// Chaque PDF produit par l'interface (reçu, bulletin, sommation, rapport…)
+// est rangé automatiquement dans son dossier par nom de fichier, au lieu
+// d'atterrir en vrac dans Téléchargements. La logique pure (catégories,
+// assainissement, anti-écrasement) vit dans pdf-store.js (testable).
+try {
+  ipcMain.handle('edugest:save-pdf', async (_e, payload) => {
+    try {
+      const filename = payload && payload.filename;
+      const data = payload && payload.data;
+      if (typeof data !== 'string' || !data.length) return { ok: false, error: 'données vides' };
+      const base = path.join(app.getPath('documents'), 'EduGest');
+      const saved = savePdfBuffer({ documentsDir: base, filename, buffer: Buffer.from(data, 'base64') });
+      log('PDF enregistré :', saved.path);
+      return { ok: true, ...saved };
+    } catch (e) {
+      log('Échec enregistrement PDF :', e.message);
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle('edugest:show-in-folder', (_e, p) => {
+    try {
+      const docsRoot = path.resolve(app.getPath('documents'));
+      const target = path.resolve(String(p || docsRoot));
+      // SÉCURITÉ : jamais hors du dossier Documents de l'utilisateur.
+      if (target !== docsRoot && !target.startsWith(docsRoot + path.sep)) {
+        throw new Error('chemin refusé');
+      }
+      shell.showItemInFolder(target);
+    } catch (e) {
+      log('show-in-folder refusé :', e.message);
+    }
+  });
+} catch {}
 } catch {}
 
 /** Télécharge le nouvel exe portable (suit les redirections GitHub),

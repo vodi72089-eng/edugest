@@ -20,6 +20,7 @@ import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, GOLD_SOFT, DANGER, 
 import StudentAvatar from '@/components/ui/StudentAvatar'
 import { CalendarCheck, ClipboardList, Check, Database, ShieldAlert, Clock, Users, Download } from 'lucide-react'
 import { toast } from 'sonner'
+import { savePdfBlob, toastPdfSaved } from '@/lib/desktop-files'
 import AppSelect from '@/components/ui/AppSelect'
 
 interface ClassRow { id: string; name: string; section?: string | null }
@@ -214,12 +215,9 @@ export default function AttendanceView() {
       const res = await authFetch(`/api/attendance/teachers/history/pdf?teacherId=${teacherId}&schoolId=${schoolId}`)
       if (!res.ok) { toast.error('Erreur lors du téléchargement'); return }
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `presence-prof-${teacherId}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      // Desktop : rangé dans Documents/EduGest/Présences ; web : téléchargé.
+      const saved = await savePdfBlob(blob, `presence-prof-${teacherId}.pdf`)
+      if (saved) toastPdfSaved(saved)
     } catch {
       toast.error('Erreur de connexion')
     }

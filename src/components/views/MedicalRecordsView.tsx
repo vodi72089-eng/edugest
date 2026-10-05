@@ -8,6 +8,7 @@ import {
   Lock, X, RefreshCw, Hash, User as UserIcon, Stethoscope
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { savePdfBlob, toastPdfSaved } from '@/lib/desktop-files';
 import AppSelect from '@/components/ui/AppSelect';
 
 /**
@@ -127,15 +128,10 @@ export default function MedicalRecordsView() {
       const res = await authFetch(`/api/medical/documents/${doc.id}/pdf`);
       if (!res.ok) throw new Error();
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${doc.docCode.toLowerCase()}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success(`PDF ${doc.docCode} téléchargé`);
+      // Desktop : rangé dans Documents/EduGest/Documents médicaux ; web : téléchargé.
+      const saved = await savePdfBlob(blob, `${doc.docCode.toLowerCase()}.pdf`);
+      if (saved) toastPdfSaved(saved);
+      else toast.success(`PDF ${doc.docCode} téléchargé`);
     } catch {
       toast.error('Erreur lors du téléchargement du PDF');
     } finally {

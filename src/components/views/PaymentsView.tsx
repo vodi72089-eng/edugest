@@ -8,6 +8,7 @@ import { getInitials, formatNumber, getStatusPill, getEffectiveStatus } from '@/
 import StudentAvatar from '@/components/ui/StudentAvatar'
 import { CreditCard, FileText, Download, X, ArrowRightLeft } from 'lucide-react'
 import { toast } from 'sonner'
+import { savePdfBlob, savePdfUrl, toastPdfSaved } from '@/lib/desktop-files'
 import SearchAutocomplete, { AutocompleteItem } from './SearchAutocomplete'
 import AppSelect from '@/components/ui/AppSelect'
 import { SUPPORTED_CURRENCIES } from '@/lib/exchange-rate'
@@ -47,6 +48,8 @@ export default function PaymentsView() {
   const highlightedRef = useRef<HTMLTableRowElement>(null)
   const { hasAccess, requiredTier } = useFeatureAccess('payments')
   const router = useRouter()
+  // Nom du PDF d'aperçu (avec les autres hooks : avant le `return null` du verrouillage d'accès)
+  const [pdfName, setPdfName] = useState('recu.pdf')
 
   useEffect(() => {
     if (!hasAccess) {
@@ -308,14 +311,13 @@ export default function PaymentsView() {
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       setPdfUrl(url)
-      const a = document.createElement('a')
-      a.href = url
       const payment = payments.find(p => p.id === paymentId)
       const receiptName = payment?.receiptNumber || paymentId.slice(-8)
-      a.download = `recu-${receiptName}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
+      const filename = `recu-${receiptName}.pdf`
+      setPdfName(filename)
+      // Desktop : rangé dans Documents/EduGest/Reçus de paiement ; web : téléchargé.
+      const saved = await savePdfBlob(blob, filename)
+      if (saved) toastPdfSaved(saved)
     } catch { toast.error('Erreur lors du téléchargement du reçu') }
     finally { setPdfLoading(false) }
   }
@@ -520,14 +522,18 @@ export default function PaymentsView() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <a
-                  href={pdfUrl}
-                  download
+                <button
+                  onClick={async () => {
+                    try {
+                      const saved = await savePdfUrl(pdfUrl, pdfName)
+                      if (saved) toastPdfSaved(saved)
+                    } catch { toast.error('Erreur lors du téléchargement du reçu') }
+                  }}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90"
                   style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}
                 >
                   <Download size={14} /> Télécharger
-                </a>
+                </button>
                 <button onClick={() => { URL.revokeObjectURL(pdfUrl); setPdfUrl(null) }} className="w-9 h-9 rounded-lg grid place-items-center hover:bg-gray-100 transition">
                   <X size={18} className="text-gray-500" />
                 </button>

@@ -8,6 +8,7 @@ import { playNotificationSound, unlockNotificationAudio, isNotificationSoundEnab
 import { resolveNotifView, notifSoundLevel } from '@/lib/notification-routing'
 import { viewToPath, pathToView } from '@/lib/view-paths'
 import { toast } from 'sonner'
+import { savePdfBlob, savePdfUrl, toastPdfSaved } from '@/lib/desktop-files'
 import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
 import { GATEWAY_API_INFO } from '@/lib/gateway-api-info'
 import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, DisciplineData, CommunicationData, HomeworkData } from '@/lib/types'
@@ -6048,6 +6049,7 @@ function PaymentVerificationView() {
 
   const [payments, setPayments] = useState<PaymentData[]>([])
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null)
+  const [receiptFileName, setReceiptFileName] = useState('recu.pdf')
   const [receiptLoading, setReceiptLoading] = useState(false)
   // Parent-specific: search by receipt number
   const [receiptSearch, setReceiptSearch] = useState('')
@@ -6070,6 +6072,7 @@ function PaymentVerificationView() {
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       setReceiptUrl(url)
+      setReceiptFileName(`recu-${paymentId.slice(-8)}.pdf`)
     } catch {
       toast.error('Erreur lors du chargement du reçu')
     }
@@ -6313,14 +6316,9 @@ function PaymentVerificationView() {
                               const res = await authFetch(`/api/medical/documents/${universalResult.data.id}/pdf`)
                               if (!res.ok) throw new Error()
                               const blob = await res.blob()
-                              const url = URL.createObjectURL(blob)
-                              const a = document.createElement('a')
-                              a.href = url
-                              a.download = `${(universalResult.data.docCode || 'document').toLowerCase()}.pdf`
-                              document.body.appendChild(a)
-                              a.click()
-                              document.body.removeChild(a)
-                              URL.revokeObjectURL(url)
+                              // Desktop : rangé dans Documents/EduGest/Documents médicaux ; web : téléchargé.
+                              const saved = await savePdfBlob(blob, `${(universalResult.data.docCode || 'document').toLowerCase()}.pdf`)
+                              if (saved) toastPdfSaved(saved)
                             } catch { toast.error('Erreur lors du téléchargement du PDF') }
                           }}
                           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white"
@@ -6460,9 +6458,9 @@ function PaymentVerificationView() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <a href={receiptUrl} download className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
+                  <button onClick={async () => { try { const s = await savePdfUrl(receiptUrl, receiptFileName); if (s) toastPdfSaved(s); } catch { toast.error('Erreur lors du téléchargement') } }} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
                     <Download size={14} /> Télécharger
-                  </a>
+                  </button>
                   <button onClick={() => { URL.revokeObjectURL(receiptUrl); setReceiptUrl(null) }} className="w-9 h-9 rounded-lg grid place-items-center hover:bg-gray-100 transition">
                     <X size={18} className="text-gray-500" />
                   </button>
@@ -6485,15 +6483,10 @@ function PaymentVerificationView() {
       const res = await authFetch(`/api/payments/receipt/${paymentId}`)
       if (!res.ok) throw new Error()
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
       const payment = payments.find(p => p.id === paymentId)
-      a.download = `recu-${payment?.receiptNumber || paymentId.slice(-8)}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      // Desktop : rangé dans Documents/EduGest/Reçus de paiement ; web : téléchargé.
+      const saved = await savePdfBlob(blob, `recu-${payment?.receiptNumber || paymentId.slice(-8)}.pdf`)
+      if (saved) toastPdfSaved(saved)
     } catch {
       toast.error('Erreur lors du téléchargement du reçu')
     }
@@ -6739,14 +6732,9 @@ function PaymentVerificationView() {
                           const res = await authFetch(`/api/medical/documents/${universalResult.data.id}/pdf`)
                           if (!res.ok) throw new Error()
                           const blob = await res.blob()
-                          const url = URL.createObjectURL(blob)
-                          const a = document.createElement('a')
-                          a.href = url
-                          a.download = `${(universalResult.data.docCode || 'document').toLowerCase()}.pdf`
-                          document.body.appendChild(a)
-                          a.click()
-                          document.body.removeChild(a)
-                          URL.revokeObjectURL(url)
+                          // Desktop : rangé dans Documents/EduGest/Documents médicaux ; web : téléchargé.
+                          const saved = await savePdfBlob(blob, `${(universalResult.data.docCode || 'document').toLowerCase()}.pdf`)
+                          if (saved) toastPdfSaved(saved)
                         } catch { toast.error('Erreur lors du téléchargement du PDF') }
                       }}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white"
@@ -6902,9 +6890,9 @@ function PaymentVerificationView() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <a href={receiptUrl} download className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
+                <button onClick={async () => { try { const s = await savePdfUrl(receiptUrl, receiptFileName); if (s) toastPdfSaved(s); } catch { toast.error('Erreur lors du téléchargement') } }} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90" style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
                   <Download size={14} /> Télécharger
-                </a>
+                </button>
                 <button onClick={() => { URL.revokeObjectURL(receiptUrl); setReceiptUrl(null) }} className="w-9 h-9 rounded-lg grid place-items-center hover:bg-gray-100 transition">
                   <X size={18} className="text-gray-500" />
                 </button>
@@ -8390,10 +8378,10 @@ function BulletinView() {
       const res = await authFetch(`/api/bulletins/${id}?trimester=${selectedTrimester}${getActiveSchoolId() ? `&schoolId=${getActiveSchoolId()}` : ''}`)
       if (!res.ok) { toast.error('Erreur lors du téléchargement'); return }
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a'); a.href = url; a.download = `bulletin-${lastName || 'eleve'}-${selectedTrimester}.pdf`
-      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
-      toast.success('Bulletin téléchargé !')
+      // Desktop : rangé dans Documents/EduGest/Bulletins ; web : téléchargé.
+      const saved = await savePdfBlob(blob, `bulletin-${lastName || 'eleve'}-${selectedTrimester}.pdf`)
+      if (saved) toastPdfSaved(saved)
+      else toast.success('Bulletin téléchargé !')
     } catch { toast.error('Erreur réseau') }
   }
 

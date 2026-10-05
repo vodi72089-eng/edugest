@@ -24,6 +24,7 @@ import {
   Trash2, Power, Plus, Building2, Globe,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { savePdfBlob, toastPdfSaved } from '@/lib/desktop-files'
 
 interface ReportData {
   school: { id: string; name: string; shortName: string }
@@ -468,15 +469,10 @@ export default function ReportsView() {
         return
       }
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `rapport-edugest-${report?.period.to || new Date().toISOString().slice(0, 10)}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-      toast.success('PDF téléchargé')
+      // Desktop : rangé dans Documents/EduGest/Rapports ; web : téléchargé.
+      const saved = await savePdfBlob(blob, `rapport-edugest-${report?.period.to || new Date().toISOString().slice(0, 10)}.pdf`)
+      if (saved) toastPdfSaved(saved)
+      else toast.success('PDF téléchargé')
     } catch {
       toast.error('Erreur de connexion')
     }
