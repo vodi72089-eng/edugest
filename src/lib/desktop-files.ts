@@ -59,6 +59,10 @@ function blobToBase64(blob: Blob): Promise<string> {
 /**
  * Enregistre un PDF : dossier categirisé sur desktop, téléchargement
  * navigateur sur le web.
+ *
+ * Sur desktop, l'explorateur s'ouvre en plus automatiquement sur le
+ * fichier enregistré : l'utilisateur le voit sans le chercher.
+ *
  * @returns le fichier enregistré (desktop) ou null (web : téléchargé).
  */
 export async function savePdfBlob(blob: Blob, filename: string): Promise<SavedPdf | null> {
@@ -69,7 +73,14 @@ export async function savePdfBlob(blob: Blob, filename: string): Promise<SavedPd
       const data = await blobToBase64(blob);
       const res = await bridge.savePdf({ filename: safe, data });
       if (res && res.ok && res.path) {
-        return { path: res.path, folder: res.folder || '', filename: res.filename || safe };
+        const saved: SavedPdf = { path: res.path, folder: res.folder || '', filename: res.filename || safe };
+        // Ouvre automatiquement l'explorateur sur le fichier : rien à chercher.
+        try {
+          bridge.showInFolder?.(saved.path);
+        } catch {
+          // ignoré : le toast ci-dessous garde un bouton « Ouvrir le dossier ».
+        }
+        return saved;
       }
     } catch {
       // Repli : téléchargement navigateur ci-dessous.

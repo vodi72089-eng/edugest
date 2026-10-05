@@ -24,6 +24,25 @@ les données (élèves, classes, notes, paiements) sont stockées localement.
    document — le scan ouvre une page qui confirme que le document est
    officiel et en décrit le contenu.
 
+## Où vont les PDF générés (reçus, bulletins, rapports…)
+
+Chaque PDF produit par l'application est **rangé automatiquement** dans
+`Documents\EduGest\<Catégorie>\` — **l'explorateur s'ouvre tout seul**
+sur le fichier enregistré, rien à chercher :
+
+| Fichier | Dossier |
+|---|---|
+| `recu-*.pdf`, `rec-*` | Reçus de paiement |
+| `bulletin-*`, `bul-*` | Bulletins |
+| `sommation-*` | Sommations |
+| `rapport-*` | Rapports |
+| `presence-*` | Présences |
+| `fsa-*`, `dis-*`, `reg-*` | Documents médicaux |
+| `not-*` | Notes |
+
+Doublons jamais écrasés (`nom (2).pdf`). Sur le web (navigateur), le
+téléchargement classique est conservé.
+
 ## Construire le .exe (Windows)
 
 ### Option A — Release GitHub (recommandé, zéro effort) ✅
