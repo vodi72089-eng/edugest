@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, checkRateLimit, sanitizeError } from '@/lib/auth';
 import { logAudit } from '@/lib/audit';
+import { notify } from '@/lib/notify';
 import { sendPlatformEmail } from '@/lib/platform-email';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -176,6 +177,40 @@ export async function POST(request: NextRequest) {
         screenshotAbsoluteUrl: screenshotUrl && appBase ? `${appBase}${screenshotUrl}` : null,
       },
     });
+
+    // ── Réception TEMPS RÉL pour l'équipe support ────────────────────────────
+    // Sans cela, un ticket n'était « reçu » qu'en ouvrant la vue Support puis
+    // en cliquant Rafraîchir : notify() déclenche au contraire la cloche, le
+    // son, la notification native et le Web Push (notification-routing.ts →
+    // SUPPORT_TICKET → vue `support`). Non bloquant : un échec de
+    // notification ne doit jamais faire échouer la création du ticket.
+    try {
+      const recipients = await db.user.findMany({
+        where: { isActive: true, role: { in: STAFF_HANDLE_ROLES }, id: { not: user.id } },
+        select: { id: true },
+        take: 20,
+      });
+      const scope = schoolId
+        ? await db.school.findUnique({ where: { id: schoolId }, select: { shortName: true, name: true } })
+        : null;
+      const origin = scope ? ` — ${scope.shortName || scope.name}` : '';
+      for (const recipient of recipients) {
+        await notify({
+          data: {
+            type: 'SUPPORT_TICKET',
+            title: `Nouveau ticket ${ticket.ref}`,
+            message: `${user.name} (${user.role}) a ouvert : « ${subject} »${origin}`.slice(0, 180),
+            userId: recipient.id,
+            schoolId,
+            relatedId: ticket.id,
+            linkTo: 'support',
+            linkId: ticket.id,
+          },
+        });
+      }
+    } catch (e) {
+      console.error('[Support:tickets] Notification temps réel impossible :', e);
+    }
 
     return NextResponse.json({ data: { id: ticket.id, ref: ticket.ref } }, { status: 201 });
   } catch (error) {

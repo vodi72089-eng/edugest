@@ -33,6 +33,10 @@ export const VIEW_PATHS: Record<string, string> = {
   'platform-control': '/platform-control',
   personnel: '/personnel',
   settings: '/settings',
+  // Support client : file de tickets. Sans ce chemin, un clic sur « Support »
+  // laissait l'URL à « / » → un rafraîchissement/Retour perdait la vue, et
+  // notifUrlForRole() renvoyait une URL sans rapport pour les Web Push.
+  support: '/support',
   'school-reviews': '/school-reviews',
   'payment-verification': '/payment-verification',
   'payment-config': '/payment-config',

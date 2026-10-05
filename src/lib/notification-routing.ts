@@ -35,6 +35,8 @@ const ROLE_VIEWS: Record<string, ReadonlySet<string>> = {
   MEDICAL: new Set(['dashboard', 'medical', 'medical-records', 'students', 'communications', 'reports', 'profile']),
   EPS: new Set(['dashboard', 'students', 'classes', 'grades', 'communications', 'profile']),
   ADMIN_FREEMIUM: new Set(['dashboard', 'students', 'classes', 'payments', 'payment-verification', 'payment-config', 'settings', 'profile']),
+  // Équipe support EduGest : elle ne traite que la file de tickets.
+  SUPPORT_AGENT: new Set(['support', 'dashboard', 'profile']),
   // Le super admin plateforme peut tout ouvrir.
   SUPER_ADMIN_GLOBAL: new Set(['*']),
 };
@@ -95,6 +97,9 @@ const NOTIF_BASE_VIEW: Record<string, string> = {
   SUBSCRIPTION_UPGRADE_REQUEST: 'schools',
   // Rapport d'activité programmé généré (WhatsApp envoyé ou PDF dispo in-app)
   REPORT_READY: 'reports',
+  // Nouveau ticket ouvert par un utilisateur : la file de support (cloche +
+  // Web Push de l'équipe support, cf. /api/support/tickets POST).
+  SUPPORT_TICKET: 'support',
 };
 
 /** Surcharges PAR RÔLE : le même événement n'ouvre pas la même vue selon
@@ -166,6 +171,7 @@ export function notifSoundLevel(type: string): NotifSoundLevel {
     type === 'APPROVAL_REQUESTED' ||
     type === 'SUBSCRIPTION_EXPIRING' ||
     type === 'SUBSCRIPTION_UPGRADE_REQUEST' ||
+    type === 'SUPPORT_TICKET' ||
     type.startsWith('MEDICAL')
   ) return 'HIGH';
   return 'NORMAL';
