@@ -76,6 +76,8 @@ export interface CommunicationData {
   id: string; type: string; title: string; content: string;
   targetType: string; sentToApp: boolean; sentToWhatsapp: boolean;
   sentAt: string; senderId: string; senderRole: string; schoolId: string;
+  // Nom de l'émetteur résolu par GET /api/communications (null si compte supprimé)
+  senderName?: string | null;
   status?: string; scope?: string; targetLevel?: string;
   reads?: { id: string; userId: string; readAt: string; user?: { id: string; name: string; role: string } }[];
 }

@@ -86,8 +86,21 @@ export async function GET(request: NextRequest) {
       db.user.count({ where: { schoolId, isActive: true } }),
     ]);
 
+    // ── Noms des émetteurs (l'UI affiche un NOM, plus le rôle brute) ─────────
+    // Communication.senderId n'a pas de relation Prisma (pas de clé étrangère)
+    // : on résout les expéditeurs en une seule requête supplémentaire. Si le
+    // compte a été supprimé, senderName reste null → l'UI retombe sur senderRole.
+    const senderIds = [...new Set(communications.map(c => c.senderId).filter(Boolean))];
+    const senders = senderIds.length
+      ? await db.user.findMany({ where: { id: { in: senderIds } }, select: { id: true, name: true } })
+      : [];
+    const senderNames = new Map(senders.map(s => [s.id, s.name]));
+
     return NextResponse.json({
-      data: communications,
+      data: communications.map(c => ({
+        ...c,
+        senderName: senderNames.get(c.senderId) || null,
+      })),
       totalUsers,
       pagination: {
         page,

@@ -7451,7 +7451,7 @@ function CommunicationsView() {
                       <span className={`px-1.5 py-0.5 rounded ${c.type === 'ANNOUNCEMENT' ? 'bg-[oklch(95%_0.04_175)] text-edu-accent' : 'bg-[oklch(95%_0.005_175)]'}`}>{c.type}</span>
                       {c.sentToWhatsapp && <span className="text-edu-success">WhatsApp</span>}
                       {c.sentToApp && <span className="text-edu-info">App</span>}
-                      <span className="px-1.5 py-0.5 rounded" style={{ background: `${ACCENT}15`, color: ACCENT }}>{c.senderRole}</span>
+                      <span className="px-1.5 py-0.5 rounded" style={{ background: `${ACCENT}15`, color: ACCENT }} title={`Émetteur : ${c.senderName || c.senderRole}`}>{c.senderName || c.senderRole}</span>
                       {c.status === 'PENDING' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[oklch(95%_0.04_25)] text-edu-warning">En attente</span>}
                       {c.status === 'REJECTED' && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[oklch(95%_0.02_25)] text-edu-danger">Rejetée</span>}
                     </div>
