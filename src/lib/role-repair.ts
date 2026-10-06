@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 /**
  * Réparation structurelle des rôles administratifs.
@@ -19,7 +20,15 @@ import bcrypt from 'bcryptjs';
  * de façon non bloquante pour la connexion.
  */
 
-const DEFAULT_ADMIN_PASSWORD = 'admin123'; // identique au seed de démonstration
+/**
+ * Génère un mot de passe fort UNIQUE au compte (16 caractères URL-safe).
+ * SÉCURITÉ : plus jamais « admin123 » réutilisé — un compte créé par la
+ * réparation ne doit pas être devinable, et son mot de passe n'est JAMAIS
+ * transmis dans une notification persistée (voir message ci-dessous).
+ */
+function makeRandomPassword(): string {
+  return crypto.randomBytes(12).toString('base64url');
+}
 
 /** Slug technique pour dériver un email d'admin d'école. */
 function slugify(value: string): string {
@@ -44,7 +53,10 @@ async function randomUniquePhone(): Promise<string> {
 
 export interface RoleRepairResult {
   superAdminsDetached: number;
-  adminsCreated: Array<{ schoolName: string; email: string; password: string }>;
+  // ⚠️ Volontairement SANS mot de passe : le résultat est journalisé
+  // (console.log) et consommé par des chemins non contrôlés — aucun secret
+  // en clair ne doit y transiter. L'admin utilise la réinitialisation par OTP.
+  adminsCreated: Array<{ schoolName: string; email: string }>;
 }
 
 export async function repairPlatformAdminIntegrity(): Promise<RoleRepairResult> {
@@ -66,7 +78,6 @@ export async function repairPlatformAdminIntegrity(): Promise<RoleRepairResult> 
     },
   });
 
-  const passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
   for (const school of schools) {
     if (school._count.users > 0) continue;
 
@@ -89,16 +100,22 @@ export async function repairPlatformAdminIntegrity(): Promise<RoleRepairResult> 
           name: adminName,
           email,
           phone,
-          password: passwordHash,
+          // Mot de passe ALÉATOIRE propre à ce compte (jamais partagé, jamais
+          // affiché en clair ici) : l'admin le définit via le code OTP envoyé
+          // sur son téléphone (mot de passe oublié).
+          password: await bcrypt.hash(makeRandomPassword(), 10),
           role: 'SCHOOL_ADMIN',
           schoolId: school.id,
         },
         select: { id: true, email: true },
       });
 
-      result.adminsCreated.push({ schoolName: school.name, email: created.email || email, password: DEFAULT_ADMIN_PASSWORD });
+      result.adminsCreated.push({ schoolName: school.name, email: created.email || email });
 
       // Informer les admins plateforme (ils voient la réparation faite).
+      // SÉCURITÉ : le mot de passe n'est PAS inclus — une notification est
+      // persistée en base et lisible par toute l'équipe ; elle ne doit jamais
+      // contenir un secret. Le compte se débloque par réinitialisation SMS.
       const platformAdmins = await db.user.findMany({
         where: { role: 'SUPER_ADMIN_GLOBAL', isActive: true },
         select: { id: true },
@@ -110,7 +127,7 @@ export async function repairPlatformAdminIntegrity(): Promise<RoleRepairResult> 
             schoolId: null,
             type: 'SYSTEM',
             title: 'Administrateur d\u2019école créé',
-            message: `« ${school.name} » n'avait aucun administrateur. Compte créé : ${created.email || email} — mot de passe provisoire : ${DEFAULT_ADMIN_PASSWORD} (à changer).`,
+            message: `« ${school.name} » n'avait aucun administrateur. Compte créé : ${created.email || email} — le mot de passe se définit via « Mot de passe oublié » (code envoyé au ${phone}).`,
           },
         }).catch(() => {});
       }

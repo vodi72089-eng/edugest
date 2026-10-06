@@ -2,7 +2,8 @@ import { db } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { createToken, getClientIp, getUserAgentFromRequest, checkRateLimit } from '@/lib/auth';
+import { createToken, getClientIp, getUserAgentFromRequest, SESSION_DURATION_MS } from '@/lib/auth';
+import { checkRateLimitDb } from '@/lib/rate-limit-db';
 import { normalizeClientIp } from '@/lib/geo';
 import { checkSubscription } from '@/lib/subscription-server';
 import { notify } from '@/lib/notify';
@@ -107,10 +108,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Rate Limiting ────────────────────────────────────────────────────
+    // ── Rate Limiting (PERSISTANT en base — survit aux redémarrages) ─────
     // IP-based limit: prevents distributed brute-force that rotates emails/phones
+    // + limite par compte : empêche le martelage d'UN identifiant en changeant d'IP.
     const ip = getClientIp(request) || 'unknown';
-    if (!checkRateLimit(`login_ip_${ip}`, 30, 15 * 60 * 1000)) {
+    if (!(await checkRateLimitDb(`login_ip:${ip}`, 30, 15 * 60 * 1000))) {
       return NextResponse.json(
         { error: 'Trop de tentatives. Réessayez plus tard.' },
         { status: 429 }
@@ -118,6 +120,12 @@ export async function POST(request: NextRequest) {
     }
 
     const identifier = (email || phone || '').toLowerCase();
+    if (!(await checkRateLimitDb(`login_account:${identifier}`, 20, 15 * 60 * 1000))) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives pour ce compte. Réessayez plus tard.', retryAfterSeconds: 900 },
+        { status: 429 }
+      );
+    }
     const remainingLock = getRemainingLock(identifier);
     if (remainingLock > 0) {
       return NextResponse.json(
@@ -218,6 +226,9 @@ export async function POST(request: NextRequest) {
 
     // ── Clear rate limit on success ──────────────────────────────────────
     loginAttempts.delete(identifier);
+    // Compteurs persistants : le succès réinitialise le seau du compte (l'IP
+    // garde son historique — elle peut servir à d'autres tentatives).
+    try { await db.rateLimitBucket.delete({ where: { key: `login_account:${identifier}` } }).catch(() => {}); } catch { /* ignore */ }
 
     // ── Check account verification ─────────────────────────────────────
     // OTP verification disabled: allow all users to login
@@ -293,6 +304,11 @@ export async function POST(request: NextRequest) {
     // Return user data without password + token
     const { password: _, ...userData } = user;
 
+    // SÉCURITÉ (token jamais en localStorage) : le token de session n'est PLUS
+    // renvoyé dans le corps JSON pour les navigateurs — il vit uniquement dans
+    // le cookie httpOnly posé ci-dessous. Seul le client « mobile » (application
+    // native, stockage sécurisé propre) reçoit encore le token en corps.
+
     // École : enrichissement non-bloquant — un schéma local en retard ne doit
     // jamais empêcher la connexion (le login est un chemin critique).
     const LOGIN_SCHOOL_SELECT = {
@@ -310,20 +326,23 @@ export async function POST(request: NextRequest) {
       console.error('[auth] école introuvable (non-bloquant) :', (e as Error)?.message);
     }
 
+    const isMobileClient = client === 'mobile';
     const response = NextResponse.json({
       data: {
         ...userData,
         school,
-        token,
+        ...(isMobileClient ? { token } : {}),
       },
     });
 
-    // Set HTTP-only cookie
+    // Cookie httpOnly — SEUL vecteur de session pour les navigateurs.
+    // Durée ALIGNÉE sur la session DB (SESSION_DURATION_MS) : le cookie expire
+    // exactement avec la session serveur qu'il porte.
     response.cookies.set('edugest_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24, // 24 hours
+      maxAge: Math.floor(SESSION_DURATION_MS / 1000),
       path: '/',
     });
 

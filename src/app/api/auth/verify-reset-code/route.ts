@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkResetToken, normalizePhone } from '@/lib/reset-tokens'
-import { getClientIp, checkRateLimit } from '@/lib/auth'
+import { getClientIp } from '@/lib/auth'
+import { checkRateLimitDb } from '@/lib/rate-limit-db'
 
 /**
  * POST /api/auth/verify-reset-code
@@ -25,11 +26,11 @@ export async function POST(request: NextRequest) {
 
     // ── Rate limiting (mêmes compteurs que reset-password) ────────────
     const ip = getClientIp(request) || 'unknown'
-    if (!checkRateLimit(`reset_ip_${ip}`, 10, 15 * 60 * 1000)) {
+    if (!(await checkRateLimitDb(`reset_ip:${ip}`, 10, 15 * 60 * 1000))) {
       return NextResponse.json({ error: 'Trop de tentatives. Réessayez dans 15 minutes.' }, { status: 429 })
     }
     const normalizedPhone = normalizePhone(String(phone))
-    if (!checkRateLimit(`reset_phone_${normalizedPhone}`, 5, 15 * 60 * 1000)) {
+    if (!(await checkRateLimitDb(`reset_phone:${normalizedPhone}`, 5, 15 * 60 * 1000))) {
       return NextResponse.json({ error: 'Trop de tentatives. Réessayez dans 15 minutes.' }, { status: 429 })
     }
 

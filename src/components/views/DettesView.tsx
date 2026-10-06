@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from 'sonner'
 import { useState, useEffect, useCallback } from 'react'
 import { AlertTriangle, Search, CreditCard, ArrowLeft, User, Phone, GraduationCap, Calendar, FileText, CheckCircle, XCircle, Clock } from 'lucide-react'
 import StudentAvatar from '@/components/ui/StudentAvatar'
@@ -338,7 +339,7 @@ function StudentDetail({ group, onBack, onPay, schoolId }: { group: GroupedStude
 
   const handleSommation = async () => {
     const unpaidDebts = allTranches.filter(t => t.remaining > 0)
-    if (unpaidDebts.length === 0) { alert('Aucun impayé'); return }
+    if (unpaidDebts.length === 0) { toast.info('Aucun impayé'); return }
     try {
       setSommationLoading(true)
       const res = await authFetch(`/api/sommation`, {
@@ -358,7 +359,7 @@ function StudentDetail({ group, onBack, onPay, schoolId }: { group: GroupedStude
       })
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
-        alert(j.error || 'Erreur lors de la génération')
+        toast.error(j.error || 'Erreur lors de la génération')
         return
       }
       const blob = await res.blob()
@@ -366,7 +367,7 @@ function StudentDetail({ group, onBack, onPay, schoolId }: { group: GroupedStude
       const saved = await savePdfBlob(blob, `sommation-${student.lastName}-${student.firstName}.pdf`)
       if (saved) toastPdfSaved(saved)
     } catch {
-      alert('Erreur réseau lors de la génération de la sommation')
+      toast.error('Erreur réseau lors de la génération de la sommation')
     } finally {
       setSommationLoading(false)
     }

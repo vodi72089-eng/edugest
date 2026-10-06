@@ -119,17 +119,37 @@ export async function POST(request: NextRequest) {
     if (subject.length < 4) return NextResponse.json({ error: 'Sujet trop court (4 caractères min.)' }, { status: 400 });
     if (description.length < 5) return NextResponse.json({ error: 'Décrivez votre demande (5 caractères min.)' }, { status: 400 });
 
-    // Contexte corporate / école
-    let corporateId: string | null = body.corporateId || null;
-    let schoolId: string | null = body.schoolId || user.schoolId || null;
-    if (user.role === 'CORPORATE_ADMIN' && !corporateId) {
+    // Contexte corporate / école — DÉTERMINÉ CÔTÉ SERVEUR (anti-IDOR) :
+    // l'ID d'école/corporate du body n'est JAMAIS cru pour un non-admin
+    // plateforme (un utilisateur malveillant pouvait rattacher son ticket à
+    // une autre école/corporate pour lire ou déborder leur file).
+    //  - SUPER_ADMIN_GLOBAL : peut cibler explicitement (outils support)
+    //  - CORPORATE_ADMIN : rattaché à SON corporate (adhésion en base)
+    //  - autres rôles : leur propre école (schoolId du compte), sinon null
+    //  - SUPPORT_AGENT : ticket plateforme (null/null)
+    let corporateId: string | null = null;
+    let schoolId: string | null = null;
+    if (user.role === 'SUPER_ADMIN_GLOBAL') {
+      corporateId = typeof body.corporateId === 'string' ? body.corporateId : null;
+      schoolId = typeof body.schoolId === 'string' ? body.schoolId : (user.schoolId || null);
+      if (corporateId) {
+        const corp = await db.corporate.findUnique({ where: { id: corporateId }, select: { id: true } });
+        if (!corp) corporateId = null;
+      }
+      if (schoolId) {
+        const sch = await db.school.findUnique({ where: { id: schoolId }, select: { id: true } });
+        if (!sch) schoolId = null;
+      }
+    } else if (user.role === 'CORPORATE_ADMIN') {
       const m = await db.corporateUser.findFirst({ where: { userId: user.id } });
       corporateId = m?.corporateId || null;
       schoolId = null;
-    }
-    if (corporateId) {
-      const corp = await db.corporate.findUnique({ where: { id: corporateId }, select: { id: true, name: true, contactEmail: true } });
-      if (!corp) corporateId = null;
+    } else if (user.role === 'SUPPORT_AGENT') {
+      corporateId = null;
+      schoolId = null;
+    } else {
+      schoolId = user.schoolId || null;
+      corporateId = null;
     }
 
     const ticket = await db.supportTicket.create({

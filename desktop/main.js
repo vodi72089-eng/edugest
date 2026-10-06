@@ -432,8 +432,27 @@ function createWindow(port) {
     log('Échec chargement UI :', code, desc, '→', url);
     closeSplash();
   });
+  // ── SÉCURITÉ : allowlist stricte des ouvertures de fenêtre ────────────────
+  // window.open()/target=_blank sont interceptés : seuls les schémas SÛRS sont
+  // confiés au navigateur système. Tout le reste (file://, edugest:// non
+  // routé, smb://, binaires, schémas custom arbitraires) est REFUSÉ et
+  // journalisé — un contenu compromis dans la fenêtre ne peut pas ouvrir un
+  // gestionnaire externe arbitraire (exécution de binaire, lecture de fichiers
+  // locaux via file://, etc.). Cohérent avec le handler 'update-open-page'
+  // qui n'accepte déjà que https://.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    try {
+      const parsed = new URL(url);
+      const safeProtocols = ['https:', 'mailto:'];
+      if (safeProtocols.includes(parsed.protocol)) {
+        shell.openExternal(url);
+      } else {
+        log('window-open refusé (schéma non autorisé) :', parsed.protocol, url);
+      }
+    } catch (e) {
+      // URL malformée : refus par défaut (jamais d'ouverture au doigt mouillé).
+      log('window-open refusé (URL invalide) :', String(url).slice(0, 120));
+    }
     return { action: 'deny' };
   });
   mainWindow.on('closed', () => { mainWindow = null; });
@@ -490,6 +509,15 @@ try {
   });
   ipcMain.on('update-install', () => {
     if (pendingPortableAsset) {
+      // ── SÉCURITÉ : ne JAMAIS exécuter un binaire non vérifié ────────────
+      // Le checksum sha512 (métadonnées latest.yml signées par la release) est
+      // vérifié au TÉLÉCHARGEMENT ; ici on refuse tout fichier dont la vérif
+      // n'est pas passée (pendingPortableAsset.verified !== true).
+      if (!pendingPortableAsset.verified) {
+        log('MAJ portable refusée : checksum non vérifié ou échoué.');
+        sendUpdate('error', { message: 'Intégrité du téléchargement non vérifiée — cliquez sur Réessayer.' });
+        return;
+      }
       // Fallback : si « ready » n'a pas été marqué mais que le fichier attendu
       // est présent et non vide dans Téléchargements, on l'utilise quand même.
       let f = pendingPortableAsset.file;
@@ -616,6 +644,58 @@ try {
  *  ⚠️ Un fichier partiel d'une tentative précédente ne doit JAMAIS être
  *  lancé : on compare sa taille au content-length réel (HEAD, redirections
  *  suivies) avant de déclarer « prêt », sinon openPath échoue en silence. */
+/** Extrait le sha512 d'un fichier depuis le contenu latest.yml (electron-builder) :
+ *  les blocs « - url: <nom> » portent leur « sha512: <base64> » à suivre. */
+function extractSha512ForFile(ymlText, fileName) {
+  // Parseur ligne-par-ligne : robuste quel que soit l'ordre/agrégation des
+  // blocs du latest.yml (les regex à lookahead butaient sur l'indentation).
+  try {
+    const lines = String(ymlText).split(/\r?\n/);
+    let inTarget = false;
+    for (const line of lines) {
+      const urlMatch = line.match(/^\s*-\s*url:\s*(\S+)\s*$/);
+      if (urlMatch) {
+        inTarget = urlMatch[1] === fileName;
+        continue;
+      }
+      if (inTarget) {
+        const sha = line.match(/^\s*sha512:\s*(\S+)\s*$/);
+        if (sha) return sha[1];
+      }
+    }
+  } catch {}
+  return null;
+}
+
+/** Calcule le sha512 (base64, convention electron-builder) d'un fichier local. */
+function sha512File(filePath) {
+  return new Promise((resolve, reject) => {
+    try {
+      const hash = crypto.createHash('sha512');
+      const stream = fs.createReadStream(filePath);
+      stream.on('data', (c) => hash.update(c));
+      stream.on('end', () => resolve(hash.digest('base64')));
+      stream.on('error', reject);
+    } catch (e) { reject(e); }
+  });
+}
+
+/** Vérifie le checksum du portable téléchargé contre les métadonnées.
+ *  Met asset.verified à true SEULEMENT en cas de correspondance exacte. */
+async function verifyPortableChecksum(asset) {
+  try {
+    if (!asset.sha512 || !asset.file || !fs.existsSync(asset.file)) return false;
+    const actual = await sha512File(asset.file);
+    const ok = typeof actual === 'string' && actual.length > 0 && actual === asset.sha512;
+    asset.verified = ok;
+    if (!ok) log('Checksum portable MISMATCH — binaire refusé :', asset.file);
+    return ok;
+  } catch (e) {
+    log('Échec vérification checksum :', e && e.message);
+    return false;
+  }
+}
+
 function downloadPortableUpdate(asset) {
   const dest = path.join(app.getPath('downloads'), `EduGest-Portable-${asset.version}.exe`);
   const startDownload = () => {
@@ -642,9 +722,9 @@ function downloadPortableUpdate(asset) {
         });
         res.pipe(out);
         out.on('finish', () => {
-          out.close(() => {
+          out.close(async () => {
             try {
-              // Vérification d'intégrité : taille finale === content-length.
+              // Vérification d'intégrité 1 : taille finale === content-length.
               const sz = fs.statSync(dest).size;
               if (total > 0 && sz !== total) {
                 try { fs.unlinkSync(dest); } catch {}
@@ -652,7 +732,17 @@ function downloadPortableUpdate(asset) {
                 sendUpdate('error', { message: `Téléchargement incomplet (${Math.round(sz / 1048576)} Mo sur ${Math.round(total / 1048576)} Mo) — cliquez sur Réessayer.` });
                 return;
               }
-              pendingPortableAsset.file = dest;
+              // ── Vérification d'intégrité 2 (SÉCURITÉ) : checksum sha512 des
+              // métadonnées latest.yml — le binaire n'est JAMAIS marqué prêt
+              // (ni exécutable via openPath) sans correspondance exacte.
+              asset.file = dest;
+              const checksumOk = await verifyPortableChecksum(asset);
+              if (!checksumOk) {
+                try { fs.unlinkSync(dest); } catch {}
+                pendingPortableAsset.verified = false;
+                sendUpdate('error', { message: 'Intégrité du téléchargement invalide (checksum) — cliquez sur Réessayer.' });
+                return;
+              }
               try { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setProgressBar(-1); } catch {}
               sendUpdate('ready', { version: asset.version });
             } catch (e) {
@@ -672,11 +762,17 @@ function downloadPortableUpdate(asset) {
     const localSize = fs.statSync(dest).size;
     if (localSize > 0) {
       // Fichier déjà présent : valider sa taille avant de déclarer « prêt ».
-      headContentLength(asset.url, (err, remoteSize) => {
+      headContentLength(asset.url, async (err, remoteSize) => {
         if (!err && remoteSize > 0 && remoteSize === localSize) {
           log('Portable déjà téléchargé (taille vérifiée) :', dest);
-          pendingPortableAsset.file = dest;
-          sendUpdate('ready', { version: asset.version });
+          // Même fichier déjà présent → vérifier le checksum avant « ready ».
+          asset.file = dest;
+          if (await verifyPortableChecksum(asset)) {
+            sendUpdate('ready', { version: asset.version });
+          } else {
+            try { fs.unlinkSync(dest); } catch {}
+            sendUpdate('error', { message: 'Intégrité du fichier local invalide — retéléchargement requis.' });
+          }
         } else {
           // Taille inconnue ou différente → fichier partiel/corrompu : refaire.
           try { fs.unlinkSync(dest); } catch {}
@@ -774,10 +870,19 @@ function checkPortableUpdate(manual = false) {
             pendingPortableAsset = null;
             return;
           }
+          // ── SÉCURITÉ : checksum sha512 publié par electron-builder dans
+          // latest.yml (pièce jointe de la release). Il accompagne le
+          // téléchargement et est vérifié AVANT toute exécution (openPath).
+          const sha512 = extractSha512ForFile(body, `EduGest-Portable-${latest}.exe`);
+          if (!sha512) {
+            log('latest.yml sans sha512 pour', `EduGest-Portable-${latest}.exe`, '— MAJ refusée (intégrité invérifiable).');
+            pendingPortableAsset = null;
+            return;
+          }
           // Bannière in-app (comme l'installée) : l'exe portable est
           // téléchargé directement (redirections GitHub suivies), GitHub reste
           // invisible pour l'utilisateur.
-          pendingPortableAsset = { url: `${RELEASE_LATEST_BASE}/EduGest-Portable-${latest}.exe`, version: latest, file: null };
+          pendingPortableAsset = { url: `${RELEASE_LATEST_BASE}/EduGest-Portable-${latest}.exe`, version: latest, sha512, file: null, verified: false };
           sendUpdate('available', { version: latest });
         } catch {}
       });

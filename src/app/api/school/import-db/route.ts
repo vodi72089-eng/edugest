@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, sanitizeError, type AuthUser } from '@/lib/auth';
+import { checkRateLimitDb } from '@/lib/rate-limit-db';
 import { getTierLimits } from '@/lib/subscription';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -43,6 +44,15 @@ export async function POST(request: NextRequest) {
   // Fichier temporaire à nettoyer
   let tmpPath: string | null = null;
   try {
+    // ── Rate limit DÉDIÉ PERSISTANT (base de données) : l'import est coûteux
+    // (parsing XML, écritures massives) — 5 imports/heure/IP maximum, compteur
+    // en base : un redémarrage du serveur ne remet plus le compteur à zéro.
+    const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')?.trim() || 'unknown';
+    if (!(await checkRateLimitDb(`import-db:ip:${clientIp}`, 5, 60 * 60 * 1000))) {
+      return NextResponse.json({ error: 'Trop d\'imports — réessayez dans une heure.' }, { status: 429 });
+    }
+
     // ── Authentification : Bearer OU identifiants du formulaire ────────
     let user: AuthUser | null = null;
     let authError: string | null = null;

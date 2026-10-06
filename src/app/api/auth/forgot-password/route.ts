@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { createResetToken, normalizePhone } from '@/lib/reset-tokens'
-import { checkRateLimit } from '@/lib/auth'
+import { checkRateLimitDb } from '@/lib/rate-limit-db'
 
 // POST /api/auth/forgot-password — Request a password reset code
 //
@@ -29,8 +29,8 @@ export async function POST(request: NextRequest) {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
       || request.headers.get('x-real-ip')?.trim()
       || 'unknown';
-    if (!checkRateLimit(`forgot_${normalizedPhone}`, 3, 60_000)
-      || !checkRateLimit(`forgot_ip_${ip}`, 10, 60_000)) {
+    if (!(await checkRateLimitDb(`forgot:${normalizedPhone}`, 3, 60_000))
+      || !(await checkRateLimitDb(`forgot_ip:${ip}`, 10, 60_000))) {
       return NextResponse.json({ error: 'Trop de demandes. Réessayez dans 1 minute.' }, { status: 429 })
     }
 

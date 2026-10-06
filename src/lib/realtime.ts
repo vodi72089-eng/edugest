@@ -1,6 +1,6 @@
 'use client';
 
-import { authFetch, getAuthToken } from '@/lib/store';
+import { authFetch, useEduGestStore } from '@/lib/store';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SYNCHRONISATION TEMPS RÉEL — le client interroge /api/sync/pulse toutes les
@@ -21,7 +21,8 @@ let inFlight = false;
 async function tick() {
   if (inFlight) return;
   if (typeof window === 'undefined' || document.hidden) return;
-  if (!getAuthToken()) return; // pas de requête si déconnecté
+  // Pas de requête si déconnecté (session = cookie httpOnly, pas de token JS) :
+  if (!useEduGestStore.getState().userData) return;
   inFlight = true;
   try {
     const res = await authFetch('/api/sync/pulse');

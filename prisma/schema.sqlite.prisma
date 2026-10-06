@@ -42,7 +42,6 @@ model School {
   classCount        Int      @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-
   users             User[]
   students          Student[]
   classes           Class[]
@@ -109,7 +108,6 @@ model User {
   phoneVerifiedAt DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-
   verificationTokens VerificationToken[]
 
   school          School?  @relation(fields: [schoolId], references: [id])
@@ -150,7 +148,6 @@ model Student {
   archivedAt    DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime @updatedAt
-
   class         Class     @relation(fields: [classId], references: [id])
   parent        User?     @relation("ParentChildren", fields: [parentId], references: [id])
   school        School    @relation(fields: [schoolId], references: [id])
@@ -180,7 +177,6 @@ model Class {
   headTeacherId String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime @updatedAt
-
   school        School    @relation(fields: [schoolId], references: [id])
   schoolYear    SchoolYear @relation(fields: [schoolYearId], references: [id])
   students      Student[]
@@ -221,7 +217,6 @@ model SchoolFee {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
   @@unique([classId, trimester, name])
   @@index([schoolId])
   @@index([classId])
@@ -254,7 +249,6 @@ model PushSubscription {
   auth      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   @@index([userId])
 }
 
@@ -305,7 +299,6 @@ model Grade {
   schoolYearId String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
   student      Student  @relation(fields: [studentId], references: [id])
   subject      Subject  @relation(fields: [subjectId], references: [id])
   class        Class    @relation(fields: [classId], references: [id])
@@ -346,7 +339,6 @@ model DisciplineRecord {
   reviewedAt     DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime @updatedAt
-
   student        Student   @relation(fields: [studentId], references: [id])
 }
 
@@ -423,7 +415,6 @@ model Convocation {
   rescheduledBy   String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-
   student         Student  @relation(fields: [studentId], references: [id])
   reads           ConvocationRead[]
 }
@@ -494,7 +485,6 @@ model PaymentRecord {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
-
 model Homework {
   id            String   @id @default(cuid())
   title         String
@@ -542,7 +532,6 @@ model AttendanceRecord {
   recordedBy String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
   school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
@@ -562,7 +551,6 @@ model TeacherAttendanceRecord {
   validatedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime @updatedAt
-
   teacher User   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   school  School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
@@ -656,7 +644,6 @@ model PaymentGatewayConfig {
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-
   @@unique([schoolId, gatewayType])
 }
 
@@ -722,7 +709,6 @@ model PaymentTransaction {
   completedAt    DateTime?
   updatedAt      DateTime @updatedAt
 }
-
 model SettingsApproval {
   id          String   @id @default(cuid())
   schoolId    String
@@ -736,7 +722,6 @@ model SettingsApproval {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
-
 model SubscriptionRequest {
   id              String   @id @default(cuid())
   schoolId        String
@@ -752,7 +737,6 @@ model SubscriptionRequest {
   resolvedAt      DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-
   school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@index([schoolId])
@@ -777,7 +761,6 @@ model WhatsappApiConfig {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime @updatedAt
 }
-
 // Journal des messages WhatsApp envoyés (compteur quota mensuel + audit).
 // channel = 'agent' (agent WhatsApp EduGest, compté dans le quota)
 //         | 'custom_api' (API WhatsApp du client, illimité)
@@ -826,7 +809,6 @@ model MedicalRecord {
   notes                 String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
-
   student               Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
 
@@ -846,7 +828,6 @@ model InfirmaryVisit {
   notes           String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-
   school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   recordedBy      User?    @relation("RecordedVisits", fields: [recordedById], references: [id], onDelete: SetNull)
@@ -867,7 +848,6 @@ model MedicalDispensation {
   certificateUrl String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-
   school         School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
@@ -951,7 +931,6 @@ model PlatformEvent {
   createdByName     String
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-
   @@index([key, enabled])
 }
 
@@ -975,7 +954,6 @@ model RepechageExam {
   createdByName   String
   createdAt       DateTime  @default(now())
   updatedAt       DateTime @updatedAt
-
   @@index([schoolId])
 }
 
@@ -997,7 +975,6 @@ model SchoolEvent {
   creator     User      @relation("EventCreator", fields: [createdBy], references: [id])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime @updatedAt
-
   @@index([schoolId, startAt])
 }
 
@@ -1074,7 +1051,6 @@ model Corporate {
   status       String   @default("ACTIVE") // ACTIVE | SUSPENDED
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
   schools  CorporateSchool[]
   users    CorporateUser[]
   tickets  SupportTicket[]
@@ -1124,7 +1100,6 @@ model SupportTicket {
   assigneeId     String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-
   createdBy    User          @relation("TicketCreator", fields: [createdById], references: [id])
   corporate    Corporate?    @relation(fields: [corporateId], references: [id])
   school       School?       @relation(fields: [schoolId], references: [id])
@@ -1213,9 +1188,37 @@ model ReportSchedule {
   runCount      Int       @default(0)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime @updatedAt
-
   school        School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   @@index([schoolId])
   @@index([isActive, nextRunAt])
+}
+
+// ── Suivi des fichiers uploadés (quota par école) ──────────────────────────
+// Chaque POST /api/upload enregistre une ligne : la somme des tailles d'une
+// école plafonne ses uploads (QUOTA_UPLOAD_PAR_ECOLE_OCTETS). La ligne est
+// supprimée quand le fichier l'est (ex. suppression d'une photo de galerie).
+model UploadFile {
+  id        String   @id @default(cuid())
+  fileName  String   @unique // nom réel sur disque (ex. 1780…-ab12cd.png)
+  size      Int      // octets
+  mimeType  String   // type DÉTECTÉ par magic bytes (pas le type déclaré)
+  uploaderId String  // User.id
+  schoolId  String?  // null pour les admins plateforme
+  createdAt DateTime @default(now())
+
+  @@index([schoolId])
+}
+
+// ── Rate-limiting persistant ────────────────────────────────────────────────
+// Compteurs à fenêtre fixe stockés en base (et non plus en Map mémoire) :
+// un redémarrage du serveur n'efface plus les compteurs — le brute force du
+// login/OTP ne peut plus repartir de zéro à chaque restart.
+model RateLimitBucket {
+  key       String   @id // ex. login_ip:1.2.3.4 · otp_send:+243…
+  count     Int      @default(0)
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([resetAt])
 }

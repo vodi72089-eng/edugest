@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, useSyncExternalStore } from 'react'
-import { useEduGestStore, ViewType, UserRole, UserData, authFetch, setAuthToken, restoreSession,
+import { useEduGestStore, ViewType, UserRole, UserData, authFetch, restoreSession,
 startSessionRestoreWatchdog, isDesktopApp, getActiveSchoolId, syncUrl } from '@/lib/store'
 import { startRealtimeSync } from '@/lib/realtime'
 import { playNotificationSound, unlockNotificationAudio, isNotificationSoundEnabled, setNotificationSoundEnabled, getNotificationSoundVolume, setNotificationSoundVolume, getNotificationSoundType, setNotificationSoundType, NotificationSoundType } from '@/lib/notification-sound'
@@ -19,6 +19,7 @@ import { EDUCATIONAL_SYSTEMS_LIST } from '@/lib/educational-systems'
 import StudentAvatar from '@/components/ui/StudentAvatar'
 import AppSelect from '@/components/ui/AppSelect';
 import { readUrlQuery, writeUrlQuery } from '@/lib/url-search'
+import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 import BrandLogo from '@/components/BrandLogo'
 import { FlagIcon } from '@/components/FlagIcon'
 import dynamic from 'next/dynamic'
@@ -390,7 +391,8 @@ function HomeView() {
       try {
         // Le seed ne concerne que les visiteurs anonymes (DB vide) ;
         // inutile — et bruyant (401) — pour une session déjà authentifiée.
-        if (typeof window === 'undefined' || !localStorage.getItem('edugest_token')) {
+        // (Session = cookie httpOnly : plus aucun token à lire en localStorage.)
+        if (typeof window === 'undefined' || !useEduGestStore.getState().userData) {
           await fetch('/api/seed')
         }
         const res = await fetch('/api/schools?limit=20')
@@ -1451,28 +1453,36 @@ function CreateSchoolView() {
       const json = await res.json()
       if (json.data?.school) {
         // OTP disabled: auto-login directly
-        const loginRes = await fetch('/api/auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: form.adminEmail, password: form.adminPassword || 'admin123' }),
-        })
-        const loginJson = await loginRes.json()
-        if (loginJson.data) {
-          const apiUser = loginJson.data
-          const role = API_ROLE_MAP[apiUser.role] || 'SCHOOL_ADMIN' // onboarding = admin d'école (jamais SAG)
-          login(role, {
-            id: apiUser.id, name: apiUser.name, role,
-            schoolId: apiUser.schoolId, schoolName: json.data.school.name,
-            schoolLogo: json.data.school.logo || null,
-            initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
-            profileImageUrl: null,
-            subscriptionTier: json.data.school.subscriptionTier || 'FREEMIUM',
-          }, loginJson.data.token)
-          toast.success('École créée avec succès ! Bienvenue !')
+        // SÉCURITÉ : plus aucun repli « admin123 » — si l'utilisateur a laissé
+        // le mot de passe vide, le serveur en a généré un aléatoire (non
+        // renvoyé) : l'auto-connexion est impossible, on passe par le login.
+        if (form.adminPassword) {
+          const loginRes = await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: form.adminEmail, password: form.adminPassword }),
+          })
+          const loginJson = await loginRes.json()
+          if (loginJson.data) {
+            const apiUser = loginJson.data
+            const role = API_ROLE_MAP[apiUser.role] || 'SCHOOL_ADMIN' // onboarding = admin d'école (jamais SAG)
+            login(role, {
+              id: apiUser.id, name: apiUser.name, role,
+              schoolId: apiUser.schoolId, schoolName: json.data.school.name,
+              schoolLogo: json.data.school.logo || null,
+              initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
+              profileImageUrl: null,
+              subscriptionTier: json.data.school.subscriptionTier || 'FREEMIUM',
+            })
+            toast.success('École créée avec succès ! Bienvenue !')
+            setLoading(false)
+            return
+          }
         } else {
-          toast.success('École créée ! Connectez-vous avec vos identifiants.')
-          setCurrentView('login')
+          toast.info('École créée ! Un mot de passe aléatoire a été généré — utilisez « Mot de passe oublié » (code SMS) pour le définir.')
         }
+        toast.success('École créée ! Connectez-vous avec vos identifiants.')
+        setCurrentView('login')
       } else {
         toast.error(json.error || 'Erreur lors de la création')
       }
@@ -1547,7 +1557,7 @@ function CreateSchoolView() {
                   const loginRes = await fetch('/api/auth', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: form.adminEmail, password: form.adminPassword || 'admin123' }),
+                    body: JSON.stringify({ email: form.adminEmail, password: form.adminPassword }),
                   })
                   const loginJson = await loginRes.json()
                   if (loginJson.data) {
@@ -1560,7 +1570,7 @@ function CreateSchoolView() {
                       initials: form.adminName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
                       profileImageUrl: null,
                       subscriptionTier: 'FREEMIUM',
-                    }, loginJson.data.token)
+                    })
                     toast.success('Compte vérifié et connecté !')
                     setStep(4)
                   } else {
@@ -1697,19 +1707,19 @@ function CreateSchoolView() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Nom de l&apos;école *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Nom de l&apos;école</label>
                     <input value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Ex: Complexe Scolaire Lumière" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Sigle *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Sigle</label>
                     <input value={form.shortName} onChange={e => updateForm('shortName', e.target.value)} placeholder="Ex: CSL" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Email *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Email</label>
                     <input type="email" value={form.email} onChange={e => updateForm('email', e.target.value)} placeholder="contact@ecole.cd" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Téléphone *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Téléphone</label>
                     <input value={form.phone} onChange={e => updateForm('phone', e.target.value)} placeholder="+243 81 234 56 78" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
@@ -1717,15 +1727,15 @@ function CreateSchoolView() {
                     <input value={form.address} onChange={e => updateForm('address', e.target.value)} placeholder="Auto-remplie par la carte" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Ville *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Ville</label>
                     <input value={form.city} onChange={e => updateForm('city', e.target.value)} placeholder="Auto-remplie par la carte" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Province *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Province</label>
                     <input value={form.province} onChange={e => updateForm('province', e.target.value)} placeholder="Auto-remplie par la carte" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Pays *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Pays</label>
                     <input value={form.country} onChange={e => updateForm('country', e.target.value)} placeholder="Auto-remplie par la carte" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
@@ -1882,11 +1892,11 @@ function CreateSchoolView() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Nom complet *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Nom complet</label>
                     <input value={form.adminName} onChange={e => updateForm('adminName', e.target.value)} placeholder="Jean Mukendi" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Email *</label>
+                    <label className="text-xs font-medium text-white/60 mb-1.5 block">Email</label>
                     <input type="email" value={form.adminEmail} onChange={e => updateForm('adminEmail', e.target.value)} placeholder="admin@ecole.cd" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                   </div>
                   <div>
@@ -1896,7 +1906,7 @@ function CreateSchoolView() {
                   <div className="sm:col-span-2">
                     <label className="text-xs font-medium text-white/60 mb-1.5 block">Mot de passe</label>
                     <div className="relative">
-                      <input type={showAdminPassword ? 'text' : 'password'} value={form.adminPassword} onChange={e => updateForm('adminPassword', e.target.value)} placeholder="Laissez vide pour le mot de passe par défaut" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-11 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
+                      <input type={showAdminPassword ? 'text' : 'password'} value={form.adminPassword} onChange={e => updateForm('adminPassword', e.target.value)} placeholder="Choisissez votre mot de passe (sinon un mot de passe aléatoire sera généré)" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-11 text-white text-sm outline-none focus:border-[#f5a623]/50 transition" />
                       <button type="button" onClick={() => setShowAdminPassword(!showAdminPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition p-1">
                         {showAdminPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
@@ -1975,6 +1985,26 @@ function LoginView() {
   // ── Verrou progressif (compte à rebours affiché sur le bouton) ──────────
   const [lockRemaining, setLockRemaining] = useState(0)
   const lockIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // ── Lien de téléchargement Windows : version RÉSOLUE DYNAMIQUEMENT via
+  // latest.yml (publié à chaque release par electron-builder) — plus de
+  // version en dur qui reste bloquée sur une vieille release. Fallback : la
+  // page de releases (toujours à jour, sans connaître le numéro).
+  const [setupExeUrl, setSetupExeUrl] = useState('https://github.com/vodi72089-eng/edugest/releases/latest')
+  useEffect(() => {
+    let cancelled = false
+    fetch('https://github.com/vodi72089-eng/edugest/releases/latest/download/latest.yml')
+      .then(r => (r.ok ? r.text() : ''))
+      .then(text => {
+        if (cancelled || !text) return
+        const m = text.match(/^version:\s*(.+)$/m)
+        const version = String(m ? m[1] : '').trim().replace(/^v/, '')
+        if (version) {
+          setSetupExeUrl(`https://github.com/vodi72089-eng/edugest/releases/download/v${version}/EduGest-Setup-${version}.exe`)
+        }
+      })
+      .catch(() => { /* fallback : page releases */ })
+    return () => { cancelled = true }
+  }, [])
 
   const startLockCountdown = useCallback((seconds: number) => {
     if (!seconds || seconds <= 0) return
@@ -2058,7 +2088,7 @@ function LoginView() {
             // Le compte plateforme n'a pas de forfait : undefined (jamais FREEMIUM,
             // qui déclencherait les menus/gardes freemium sur le super admin).
             subscriptionTier: role === 'SUPER_ADMIN_GLOBAL' ? undefined : (apiUser.school?.subscriptionTier || 'FREEMIUM'),
-          }, json.data.token)
+          })
         // Popup import base de données : admin créateur uniquement — DANS l'app,
         // identifiants déjà validés (jamais sur la page de connexion).
         if (role === 'SCHOOL_ADMIN') {
@@ -2216,9 +2246,9 @@ function LoginView() {
             <svg viewBox="0 0 24 24" width="18" height="18" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> Se connecter avec WhatsApp
           </button>
 
-          {/* Téléchargement de l'app desktop (EXE Windows) — Release GitHub */}
+          {/* Téléchargement de l'app desktop (EXE Windows) — Release GitHub, version résolue via latest.yml */}
           <a
-            href="https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/EduGest-Setup-1.4.12.exe"
+            href={setupExeUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="w-full py-3.5 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 transition hover:opacity-90 hover:shadow-lg"
@@ -2348,7 +2378,7 @@ function LoginView() {
                             initials: getInitials(apiUser.name),
                             profileImageUrl: apiUser.profileImageUrl || null,
                             subscriptionTier: role === 'SUPER_ADMIN_GLOBAL' ? undefined : (apiUser.school?.subscriptionTier || 'FREEMIUM'),
-                          }, json.data.token)
+                          })
                           // Popup import base de données : admin créateur uniquement
                           if (role === 'SCHOOL_ADMIN') {
                             try {
@@ -3023,8 +3053,73 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 }
 
 // ===== TOPBAR =====
+// ─── Fil d'Ariane : icône par vue ─────────────────────────────────────
+// La barre supérieure affiche en permanence OÙ l'on se trouve, comme la
+// console OrcaRouter (« Console / Catalog ») : EduGest / Vue courante / École.
+// Icônes réutilisées depuis l'import lucide-react existant (aucun nouvel import).
+const VIEW_ICONS: Partial<Record<ViewType, React.ReactNode>> = {
+  dashboard: <LayoutDashboard size={15} />,
+  students: <Users size={15} />,
+  classes: <School size={15} />,
+  grades: <BookOpen size={15} />,
+  payments: <CreditCard size={15} />,
+  finance: <Wallet size={15} />,
+  discipline: <Shield size={15} />,
+  communications: <MessageSquare size={15} />,
+  homework: <PenTool size={15} />,
+  profile: <UserCircle size={15} />,
+  pricing: <DollarSign size={15} />,
+  'class-passing': <ListChecks size={15} />,
+  convocation: <Megaphone size={15} />,
+  schools: <Building2 size={15} />,
+  bulletin: <FileText size={15} />,
+  'admin-analytics': <BarChart3 size={15} />,
+  'whatsapp-config': <MessageCircle size={15} />,
+  'platform-control': <Globe size={15} />,
+  personnel: <UsersRound size={15} />,
+  settings: <Settings size={15} />,
+  'school-reviews': <Star size={15} />,
+  'payment-verification': <CheckCircle size={15} />,
+  'payment-config': <BadgeDollarSign size={15} />,
+  'medical-records': <Stethoscope size={15} />,
+  'online-payment': <CreditCard size={15} />,
+  debts: <Landmark size={15} />,
+  'my-subscription': <Crown size={15} />,
+  medical: <HeartPulse size={15} />,
+  'parent-qr': <QrCode size={15} />,
+  parents: <Users size={15} />,
+  personalization: <Palette size={15} />,
+  attendance: <CalendarCheck size={15} />,
+  events: <Calendar size={15} />,
+  reports: <ClipboardList size={15} />,
+  corporate: <Briefcase size={15} />,
+  corporates: <Building2 size={15} />,
+  support: <Headset size={15} />,
+  docs: <LifeBuoy size={15} />,
+  'platform-emails': <Mail size={15} />,
+  'activity-logs': <ScrollText size={15} />,
+}
+
 function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; onToggleSidebar: () => void }) {
-  const { currentView, sidebarOpen, setSidebarOpen, setCurrentView, userData, userRole, setHighlightedId } = useEduGestStore()
+  const { currentView, sidebarOpen, setSidebarOpen, setCurrentView, userData, userRole, setHighlightedId, activeSchoolName } = useEduGestStore()
+  // Adresse LIVE du navigateur (ex. /students?q=jean) affichée sous le fil
+  // d'Ariane — l'utilisateur voit où il se trouve. Mise à jour via popstate
+  // (boutons Retour/Avant) + événement 'edugest:url' émis par syncUrl()/
+  // writeUrlQuery() quand la vue ou la recherche change.
+  const [urlText, setUrlText] = useState('')
+  useEffect(() => {
+    const update = () => setUrlText(window.location.pathname + window.location.search)
+    update()
+    window.addEventListener('popstate', update)
+    window.addEventListener('edugest:url', update)
+    return () => { window.removeEventListener('popstate', update); window.removeEventListener('edugest:url', update) }
+  }, [])
+  // Contexte scolaire du fil d'Ariane : pour le super admin c'est l'école
+  // active choisie dans la barre latérale ; pour tout autre rôle c'est SA
+  // propre école — d'où qu'il soit, l'écran répond « EduGest / Vue / École ».
+  const crumbSchoolName = userRole === 'SUPER_ADMIN_GLOBAL'
+    ? activeSchoolName
+    : (userData?.schoolName || null)
   const [notifications, setNotifications] = useState<any[]>([])
   const [unreadNotifCount, setUnreadNotifCount] = useState(0)
   const [pendingCommsCount, setPendingCommsCount] = useState(0)
@@ -3284,6 +3379,12 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     setHighlightedId(notif.relatedId || null)
     setCurrentView(targetView)
     setShowNotifications(false)
+    // Un ticket de support : on ouvre directement le fil concerné (la vue
+    // Support écoute l'événement) — sinon « recevoir » un ticket demandait
+    // de retrouver à la main la bonne ligne dans la file.
+    if (notif.type === 'SUPPORT_TICKET' && notif.relatedId) {
+      setTimeout(() => window.dispatchEvent(new CustomEvent('edugest:open-ticket', { detail: { id: notif.relatedId } })), 60)
+    }
     if (!notif.isRead) markAsRead(notif.id)
     setTimeout(() => setHighlightedId(null), 5000)
   }
@@ -3397,6 +3498,54 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
         >
           {sidebarVisible ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
         </button>
+        <div className="min-w-0">
+          <Breadcrumb className="min-w-0">
+            <BreadcrumbList className="flex-nowrap">
+              <BreadcrumbItem className="shrink-0">
+                <BreadcrumbLink asChild>
+                  <button
+                    onClick={() => setCurrentView('dashboard')}
+                    className="flex items-center gap-1.5 px-1.5 py-0.5 -mx-1 rounded-lg text-[13px] font-semibold tracking-tight transition-colors hover:bg-[oklch(95%_0.01_175)] cursor-pointer"
+                    style={{ color: TEXT_MUTED_LUXE }}
+                    title="Revenir au tableau de bord"
+                  >
+                    <GraduationCap size={14} />
+                    <span className="hidden sm:inline">EduGest</span>
+                  </button>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="opacity-40" />
+              <BreadcrumbItem className="min-w-0">
+                <BreadcrumbPage className="flex items-center gap-1.5 text-[15px] font-extrabold tracking-tighter edu-heading-display min-w-0" style={{ color: TEXT_PRIMARY }}>
+                  {VIEW_ICONS[currentView] ?? <LayoutDashboard size={15} />}
+                  <span className="truncate">{viewTitles[currentView] || 'Dashboard'}</span>
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+              {crumbSchoolName && (
+                <>
+                  <BreadcrumbSeparator className="opacity-40 hidden md:inline-flex" />
+                  <BreadcrumbItem className="hidden md:inline-flex min-w-0">
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold truncate max-w-[220px]"
+                      style={{ background: GOLD_SOFT, color: TEXT_PRIMARY }}
+                      title={`École active : ${crumbSchoolName}`}
+                    >
+                      <School size={11} className="shrink-0" />
+                      <span className="truncate">{crumbSchoolName}</span>
+                    </span>
+                  </BreadcrumbItem>
+                </>
+              )}
+            </BreadcrumbList>
+          </Breadcrumb>
+          <div className="text-xs hidden sm:flex items-center gap-2 font-medium" style={{ color: TEXT_MUTED_LUXE }}>
+            <span
+              className="font-mono text-[11px] bg-[oklch(96%_0.008_175)] border border-[oklch(90%_0.01_175)] rounded px-1.5 py-px truncate max-w-[240px]"
+              title="Adresse de la page où vous vous trouvez"
+            >{urlText || viewToPath(currentView)}</span>
+            <span className="shrink-0">{new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+          </div>
+        </div>
       </div>
       <div className="flex items-center gap-2 relative" ref={notifPanelRef}>
         <button
@@ -4737,7 +4886,7 @@ function ClassesView() {
             </div>
             <div className="px-6 py-4 space-y-4">
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom de la classe *</label>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Nom de la classe</label>
                 <input value={newClassName} onChange={e => setNewClassName(e.target.value)} placeholder="Ex: 6ème A" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" style={{ color: TEXT_PRIMARY }} />
               </div>
               <div>
@@ -5676,19 +5825,19 @@ function PaymentConfigView() {
                 <h3 className="text-lg font-bold mb-4" style={{ color: TEXT_PRIMARY }}>{editingFee ? 'Modifier le frais' : 'Ajouter un frais'}</h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-500 mb-1 block">Nom du frais *</label>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Nom du frais</label>
                     <input value={feeForm.name} onChange={e => setFeeForm({ ...feeForm, name: e.target.value })} placeholder="Ex: Minerval, Inscription..." className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#f5a623]" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-500 mb-1 block">Montant ($) *</label>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Montant ($)</label>
                     <input type="number" value={feeForm.amount} onChange={e => setFeeForm({ ...feeForm, amount: e.target.value })} placeholder="0" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#f5a623]" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-500 mb-1 block">Classe *</label>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Classe</label>
                     <AppSelect value={feeForm.classId} onChange={(val) => setFeeForm({ ...feeForm, classId: val })} options={[{ value: '', label: 'Sélectionner une classe' }, ...classes.map((c: any) => ({ value: c.id, label: c.name }))]} placeholder="Sélectionner une classe" className="w-full" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-500 mb-1 block">Trimestre *</label>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Trimestre</label>
                     <AppSelect value={feeForm.trimester} onChange={(val) => setFeeForm({ ...feeForm, trimester: val })} options={['T1', 'T2', 'T3']} className="w-full" />
                   </div>
                 </div>
@@ -7573,15 +7722,15 @@ function HomeworkView() {
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Titre *</label>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Titre</label>
               <input value={hwTitle} onChange={e => setHwTitle(e.target.value)} placeholder="Ex: Exercices de calcul" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
             </div>
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Matière *</label>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Matière</label>
               <input value={hwSubject} onChange={e => setHwSubject(e.target.value)} placeholder="Ex: Mathématiques" className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
             </div>
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe *</label>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Classe</label>
               <AppSelect value={hwClassId} onChange={setHwClassId} options={[{ value: '', label: 'Sélectionner une classe' }, ...(() => {
                 // Filter classes by teacher's classNames assignment (if available)
                 const myClassNames = (userData?.classNames || '').split(',').map((s: string) => s.trim()).filter(Boolean);
@@ -7597,7 +7746,7 @@ function HomeworkView() {
               )}
             </div>
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Date limite *</label>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Date limite</label>
               <input type="date" value={hwDueDate} onChange={e => setHwDueDate(e.target.value)} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
             </div>
             <div className="sm:col-span-2">
@@ -9097,7 +9246,7 @@ function SchoolReviewsView() {
           </h3>
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-medium mb-2 block" style={{ color: TEXT_MUTED_LUXE }}>Votre note *</label>
+              <label className="text-xs font-medium mb-2 block" style={{ color: TEXT_MUTED_LUXE }}>Votre note</label>
               <div className="flex items-center gap-1">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <button
@@ -9118,7 +9267,7 @@ function SchoolReviewsView() {
               </div>
             </div>
             <div>
-              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Votre commentaire *</label>
+              <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Votre commentaire</label>
               <textarea
                 value={comment}
                 onChange={e => setComment(e.target.value)}
@@ -9207,7 +9356,9 @@ function SubscriptionUpgradeView() {
     { id: 'STANDARD', name: 'Standard', price: 250, color: ACCENT, features: ['Tout Essentiel', 'Bulletins', 'Communications', 'Convocations'] },
     { id: 'PREMIUM', name: 'Professionnel', price: 500, color: WARNING, features: ['Tout Standard', 'Analytics', 'Multi-années'] },
     { id: 'ENTERPRISE', name: 'Enterprise', price: 1000, color: SUCCESS, features: ['Tout Professionnel', 'API', 'Support prioritaire', 'Branding custom'] },
-    { id: 'CORPORATE', name: 'Corporate', price: 0, color: DANGER, features: ['Tout Enterprise', 'Prix sur mesure'] },
+    // ENCODAGE UNIQUE « sur mesure » = -1 (même convention que /api/pricing et
+    // la landing) — Corporate n'utilise plus 0 qui signifierait « gratuit ».
+    { id: 'CORPORATE', name: 'Corporate', price: -1, color: DANGER, features: ['Tout Enterprise', 'Prix sur mesure'] },
   ]
 
   useEffect(() => {
@@ -9355,7 +9506,7 @@ function SubscriptionUpgradeView() {
               </div>
               <div className="mb-3">
                 <span className="text-2xl font-bold" style={{ color: TEXT_PRIMARY }}>
-                  {tier.price === 0 ? (tier.id === 'FREEMIUM' ? 'Gratuit' : 'Sur mesure') : `${tier.price}$`}
+                  {tier.price === -1 ? 'Sur mesure' : tier.price === 0 ? 'Gratuit' : `${tier.price}$`}
                 </span>
                 {tier.price > 0 && <span className="text-sm ml-1" style={{ color: TEXT_MUTED_LUXE }}>/mois</span>}
               </div>

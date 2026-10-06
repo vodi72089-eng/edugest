@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { db } from '@/lib/db';
-import { createSession, getClientIp, getUserAgentFromRequest } from '@/lib/auth';
+import { createSession, getClientIp, getUserAgentFromRequest, SESSION_DURATION_MS } from '@/lib/auth';
 
 // ─── Connexion Google — étape 2 : callback ──────────────────────────────────
 // 1. vérifie le `state` (cookie = query, comparaison à temps constant)
@@ -95,14 +95,18 @@ export async function GET(request: NextRequest) {
       ip: getClientIp(request),
     });
 
-    const successUrl = new URL('/oauth/success', origin);
-    successUrl.searchParams.set('token', token);
+    // SÉCURITÉ : le token n'est PLUS mis dans l'URL (?token=…) — une URL se
+    // retrouve dans l'historique navigateur, les logs serveur/proxy et
+    // l'en-tête Referer. La session vit uniquement dans le cookie httpOnly
+    // posé ci-dessous ; à l'arrivée le frontend détecte la session via
+    // GET /api/auth/me (cookie), jamais via un secret dans l'URL.
+    const successUrl = new URL('/', origin);
     const response = NextResponse.redirect(successUrl);
     response.cookies.set('edugest_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24, // 24 h — même durée que la connexion classique
+      maxAge: Math.floor(SESSION_DURATION_MS / 1000),
       path: '/',
     });
     // Consommation du state (usage unique)

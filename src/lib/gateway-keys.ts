@@ -1,9 +1,15 @@
 import crypto from 'crypto'
 
-// Chiffrement AES-256-GCM des secrets de passerelles de paiement au repos.
+// Chiffrement AES-256-GCM des secrets au repos (clés de passerelles de
+// paiement, tokens WhatsApp personnalisés, clés API SMS…).
 // La clé est dérivée de PAYMENT_KEYS_SECRET (variable d'environnement).
-// Sans clé configurée (développement), les valeurs sont stockées en clair
-// avec un avertissement — jamais en production.
+//
+// SÉCURITÉ (durcissement) : sans PAYMENT_KEYS_SECRET, on REFUSE désormais de
+// chiffrer — l'ancien repli « stockage en clair avec avertissement » laissait
+// des clés API d'argent et de messagerie lisibles en base par quiconque y
+// accède (dump, sauvegarde, base partagée). L'appelant reçoit une erreur
+// explicite : mieux vaut une config refusée qu'un secret en clair.
+// Générer une clé :  openssl rand -base64 32
 
 const ENCRYPTED_PREFIX = 'enc:v1:'
 
@@ -17,10 +23,11 @@ export function encryptSecret(value: string | null | undefined): string | null {
   if (!value) return value ?? null
   const key = getKey()
   if (!key) {
-    console.warn(
-      '[gateway-keys] PAYMENT_KEYS_SECRET absent — secrets stockés en clair (développement uniquement)'
+    throw new Error(
+      'PAYMENT_KEYS_SECRET absente ou trop courte (16 caractères min.) — ' +
+      'refus de stocker ce secret en clair. Générez-en une avec « openssl rand -base64 32 » ' +
+      'et définissez-la dans l\'environnement du serveur.'
     )
-    return value
   }
   const iv = crypto.randomBytes(12)
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)

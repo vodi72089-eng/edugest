@@ -1,14 +1,18 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { requireRole, sanitizeError } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
-    // Block seeding in production
-    if (process.env.NODE_ENV === 'production') {
+    // ── Verrou : le seed n'existe QUE pour le développement local ──────────
+    // Anciennement limité à NODE_ENV === 'production' : tout environnement
+    // « staging » ou build custom (NODE_ENV=test…) restait accessible. Désormais
+    // seul un serveur réellement lancé en mode dev peut seed.
+    if (process.env.NODE_ENV !== 'development') {
       return NextResponse.json(
-        { error: 'Le seed est interdit en production' },
+        { error: 'Le seed est réservé au mode développement (NODE_ENV=development)' },
         { status: 403 }
       );
     }
@@ -26,23 +30,44 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: 'Database already seeded', schoolCount: existingSchools });
     }
 
-    const passwordHash = await bcrypt.hash('admin123', 10);
+    // ── Mots de passe : UN ALÉATOIRE PAR COMPTE, jamais partagé ─────────────
+    // L'ancien seed réutilisait « admin123 » pour TOUS les comptes : une fuite
+    // de la démo compromettait la plateforme entière. Chaque compte reçoit
+    // désormais son propre mot de passe fort, rendu UNE FOIS dans la réponse
+    // HTTP (jamais persisté en clair ni envoyé dans une notification).
+    const generatedAccounts: Array<{ name: string; email: string; role: string; password: string }> = [];
+    const makePassword = () => crypto.randomBytes(12).toString('base64url'); // 16 car. URL-safe
 
     // Création tolérante aux collisions (email/phone uniques) : si la base est
     // dans un état partiel (users sans écoles), on réutilise l'utilisateur
     // existant au lieu d'échouer avec P2002 → seed idempotent et jamais 500.
-    const safeCreateUser = async (data: any): Promise<any> => {
+    // Retourne { user, created } : un compte PRÉ-EXISTANT conserve son mot de
+    // passe (le nouveau n'est ni appliqué ni affiché).
+    const safeCreateUser = async (data: any): Promise<{ user: any; created: boolean }> => {
       try {
-        return await db.user.create({ data } as any);
+        return { user: await db.user.create({ data } as any), created: true };
       } catch (e: any) {
         if (e?.code === 'P2002') {
           const existing = await db.user.findFirst({
             where: { OR: [{ email: data.email }, ...(data.phone ? [{ phone: data.phone }] : [])] },
           });
-          if (existing) return existing;
+          if (existing) return { user: existing, created: false };
         }
         throw e;
       }
+    };
+
+    /** Crée (ou réutilise) un compte avec son mot de passe aléatoire propre. */
+    const createUserWithRandomPassword = async (data: {
+      name: string; email: string; phone: string; role: string; schoolId: string | null;
+    }) => {
+      const plain = makePassword();
+      const hash = await bcrypt.hash(plain, 10);
+      const { user, created } = await safeCreateUser({ ...data, password: hash });
+      if (created) {
+        generatedAccounts.push({ name: data.name, email: data.email, role: data.role, password: plain });
+      }
+      return user;
     };
 
     const counts = {
@@ -281,11 +306,10 @@ export async function GET(request: NextRequest) {
 
     const lumiereUsers: any[] = [];
     for (const u of usersData) {
-      const createdUser = await safeCreateUser({
+      const createdUser = await createUserWithRandomPassword({
         name: u.name,
         email: u.email,
         phone: u.phone,
-        password: passwordHash,
         role: u.role,
         schoolId: lumiere.id,
       });
@@ -296,11 +320,10 @@ export async function GET(request: NextRequest) {
     // ----- Admin plateforme (HORS de toute école) -----
     // schoolId = null : le SUPER_ADMIN_GLOBAL gère toutes les écoles depuis la
     // plateforme, il n'est l'admin d'aucune d'entre elles.
-    await safeCreateUser({
+    await createUserWithRandomPassword({
       name: 'Admin Global',
       email: 'admin@edugest.app',
       phone: '+243810000001',
-      password: passwordHash,
       role: 'SUPER_ADMIN_GLOBAL',
       schoolId: null,
     });
@@ -318,11 +341,10 @@ export async function GET(request: NextRequest) {
       { name: 'Directeur Kivu', email: 'admin@kivu.cd', phone: '+243810000036', role: 'SCHOOL_ADMIN', schoolIdx: 5 },
     ];
     for (const a of schoolAdminsData) {
-      await safeCreateUser({
+      await createUserWithRandomPassword({
         name: a.name,
         email: a.email,
         phone: a.phone,
-        password: passwordHash,
         role: a.role,
         schoolId: schools[a.schoolIdx].id,
       });
@@ -641,11 +663,10 @@ export async function GET(request: NextRequest) {
         counts.classes++;
       }
 
-      await safeCreateUser({
+      await createUserWithRandomPassword({
         name: `Admin ${school.shortName}`,
         email: `admin@${school.shortName.toLowerCase()}.cd`,
         phone: `+2438100000${30 + i}`,
-        password: passwordHash,
         role: 'SECRETARY',
         schoolId: school.id,
       });
@@ -656,11 +677,10 @@ export async function GET(request: NextRequest) {
     // (école PREMIUM uniquement : Complexe Scolaire Lumière / CSL)
     const csl = schools.find((s: any) => s.shortName === 'CSL');
     if (csl) {
-      const medicalUser = await safeCreateUser({
+      const medicalUser = await createUserWithRandomPassword({
         name: 'Infirmerie CSL',
         email: 'medical@csl.cd',
         phone: '+243810000099',
-        password: passwordHash,
         role: 'MEDICAL',
         schoolId: csl.id,
       });
@@ -750,6 +770,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       message: 'Database seeded successfully!',
       counts,
+      // Mots de passe générés : affichés UNE SEULE FOIS ici (jamais persistés,
+      // jamais réenvoyés — en cas de perte, passer par la réinitialisation).
+      accounts: generatedAccounts,
     });
   } catch (error) {
     console.error('Seed error:', error);
