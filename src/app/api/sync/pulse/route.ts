@@ -20,16 +20,16 @@ export async function GET(request: NextRequest) {
     const isSuperAdmin = user.role === 'SUPER_ADMIN_GLOBAL';
     const schoolScope = isSuperAdmin ? {} : { schoolId: user.schoolId || '__none__' };
 
-    const [schools, users, students, payments, communications, notifications] = await Promise.all([
+    // Une SEULE passe de 12 requêtes en parallèle (avant : 2×6 séquentielles)
+    // → moitié moins de temps en vol par pulse = moins de chevauchement avec
+    // les autres requêtes de l'isolate (limite « hung » workerd, cf. api-limiter).
+    const [schools, users, students, payments, communications, notifications, maxSchool, maxUser, maxStudent, maxPayment, maxCommunication, maxNotification] = await Promise.all([
       isSuperAdmin ? db.school.count() : Promise.resolve(1),
       db.user.count({ where: schoolScope }),
       db.student.count({ where: schoolScope }),
       db.paymentRecord.count({ where: schoolScope }),
       db.communication.count({ where: schoolScope }),
       db.notification.count({ where: { ...schoolScope, ...(isSuperAdmin ? {} : { OR: [{ userId: user.id }, { schoolId: user.schoolId || '__none__' }] }) } }),
-    ]);
-
-    const [maxSchool, maxUser, maxStudent, maxPayment, maxCommunication, maxNotification] = await Promise.all([
       isSuperAdmin ? db.school.aggregate({ _max: { updatedAt: true } }) : Promise.resolve({ _max: { updatedAt: null } }),
       db.user.aggregate({ _max: { updatedAt: true }, where: schoolScope }),
       db.student.aggregate({ _max: { updatedAt: true }, where: schoolScope }),

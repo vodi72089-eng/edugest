@@ -1,5 +1,8 @@
 import { create } from 'zustand'
 import { viewToPath, parsePath, PUBLIC_VIEWS, PRE_AUTH_ONLY_VIEWS } from './view-paths'
+// Effet de bord : plafonne les appels /api/ à 6 en parallèle (anti « hung »
+// workerd — voir src/lib/api-limiter.ts). Chargé tôt pour couvrir authFetch.
+import './api-limiter'
 
 // ─── Persistence Keys ────────────────────────────────────────────────────────
 

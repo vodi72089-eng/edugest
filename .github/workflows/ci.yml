@@ -64,22 +64,32 @@ jobs:
       - name: Generate Prisma client
         run: bunx prisma generate
 
+      # db.ts branche sur le client SQLite dédié quand DATABASE_URL=file: —
+      # sans sa génération, le build et le serveur plantent à l'import.
+      - name: Generate SQLite Prisma client (desktop)
+        run: bunx prisma generate --schema prisma/schema.sqlite.prisma
+
       - name: Setup local SQLite database
         env:
           # Chemin ABSOLU : la résolution des chemins SQLite relatifs diffère
           # entre CLI (prisma/), dev (prisma/) et standalone (.next/standalone/)
           # — absolu = un seul et même fichier pour db push, build et serveur.
-          DATABASE_URL: file:${{ github.workspace }}/db/custom.db
-        run: bunx prisma db push --skip-generate
+          DATABASE_URL: file:${{ github.workspace }}/db/desktop-template.db
+        run: |
+          mkdir -p db
+          # Le schéma SQLite porte son URL en dur (file:../db/desktop-template.db,
+          # résolu depuis prisma/) : db push doit cibler CE schéma — le schéma par
+          # défaut est désormais postgresql et refuse un URL file:.
+          bunx prisma db push --skip-generate --schema prisma/schema.sqlite.prisma
 
       - name: Build Next.js (échoue si TypeScript invalide)
         env:
-          DATABASE_URL: file:${{ github.workspace }}/db/custom.db
+          DATABASE_URL: file:${{ github.workspace }}/db/desktop-template.db
         run: bunx next build
 
       - name: Start server
         env:
-          DATABASE_URL: file:${{ github.workspace }}/db/custom.db
+          DATABASE_URL: file:${{ github.workspace }}/db/desktop-template.db
           SUBSCRIPTION_WEBHOOK_SECRET: test-secret
           # Active la voie webhook abonnement (sinon fail-closed 503 ; le test
           # « sans signature » attend alors 401, pas 503).
@@ -100,7 +110,7 @@ jobs:
 
       - name: Seed minimal (super admin)
         env:
-          DATABASE_URL: file:${{ github.workspace }}/db/custom.db
+          DATABASE_URL: file:${{ github.workspace }}/db/desktop-template.db
         run: |
           # Seed déterministe (le /api/seed HTTP est interdit en production et
           # la résolution SQLite y est ambiguë) — idempotent.

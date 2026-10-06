@@ -9,12 +9,23 @@
  * le workflow → le même fichier que celui lu par le serveur).
  *
  * Idempotent : ré-exécutable sans erreur (upsert logique).
- * Usage : DATABASE_URL="file:/chemin/absolu/custom.db" node seed-sag.mjs
+ * Usage : DATABASE_URL="file:/chemin/absolu/desktop-template.db" node seed-sag.mjs
  */
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { createRequire } from 'node:module';
 
-const db = new PrismaClient();
+// Même branche que src/lib/db.ts : sous CI, DATABASE_URL est un file: et le
+// client Postgres par défaut le refuserait — on charge le client SQLite généré
+// depuis prisma/schema.sqlite.prisma (étape "Generate SQLite Prisma client").
+const requireC = createRequire(import.meta.url);
+const isSqlite = (process.env.DATABASE_URL || '').startsWith('file:');
+const { PrismaClient } = isSqlite
+  ? requireC('../../src/generated/sqlite-client/index.js')
+  : requireC('@prisma/client');
+
+const db = new PrismaClient(
+  isSqlite ? { datasources: { db: { url: process.env.DATABASE_URL } } } : {}
+);
 const EMAIL = 'admin@edugest.app';
 const PASSWORD = 'admin123';
 

@@ -9,7 +9,7 @@ datasource db {
 }
 
 model School {
-  id                String   @id
+  id                String   @id @default(cuid())
   name              String
   shortName         String
   email             String
@@ -41,7 +41,7 @@ model School {
   studentCount      Int      @default(0)
   classCount        Int      @default(0)
   createdAt         DateTime @default(now())
-  updatedAt         DateTime
+  updatedAt         DateTime @updatedAt
 
   users             User[]
   students          Student[]
@@ -88,7 +88,7 @@ model School {
 }
 
 model User {
-  id              String   @id
+  id              String   @id @default(cuid())
   email           String?  @unique
   phone           String   @unique
   password        String?
@@ -108,7 +108,7 @@ model User {
   emailVerifiedAt DateTime?
   phoneVerifiedAt DateTime?
   createdAt       DateTime @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime @updatedAt
 
   verificationTokens VerificationToken[]
 
@@ -132,7 +132,7 @@ model User {
 }
 
 model Student {
-  id            String    @id
+  id            String    @id @default(cuid())
   matricule     String    @unique
   firstName     String
   lastName      String
@@ -149,7 +149,7 @@ model Student {
   isArchived    Boolean   @default(false)
   archivedAt    DateTime?
   createdAt     DateTime  @default(now())
-  updatedAt     DateTime 
+  updatedAt     DateTime @updatedAt
 
   class         Class     @relation(fields: [classId], references: [id])
   parent        User?     @relation("ParentChildren", fields: [parentId], references: [id])
@@ -170,7 +170,7 @@ model Student {
 }
 
 model Class {
-  id            String    @id
+  id            String    @id @default(cuid())
   name          String
   section       String?
   level         String?
@@ -179,7 +179,7 @@ model Class {
   schoolYearId  String
   headTeacherId String?
   createdAt     DateTime  @default(now())
-  updatedAt     DateTime 
+  updatedAt     DateTime @updatedAt
 
   school        School    @relation(fields: [schoolId], references: [id])
   schoolYear    SchoolYear @relation(fields: [schoolYearId], references: [id])
@@ -195,7 +195,7 @@ model Class {
 }
 
 model TeacherAssignment {
-  id          String   @id
+  id          String   @id @default(cuid())
   teacherId   String
   classId     String
   subjectId   String
@@ -209,7 +209,7 @@ model TeacherAssignment {
 }
 
 model SchoolFee {
-  id          String   @id
+  id          String   @id @default(cuid())
   name        String
   amount      Float
   currency    String   @default("CDF")
@@ -220,7 +220,7 @@ model SchoolFee {
   school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
-  updatedAt   DateTime
+  updatedAt   DateTime @updatedAt
 
   @@unique([classId, trimester, name])
   @@index([schoolId])
@@ -228,7 +228,7 @@ model SchoolFee {
 }
 
 model Notification {
-  id          String   @id
+  id          String   @id @default(cuid())
   type        String
   title       String
   message     String
@@ -246,20 +246,20 @@ model Notification {
 
 // Web Push browser subscription (for real push notifications even when the app is closed)
 model PushSubscription {
-  id        String   @id
+  id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   endpoint  String   @unique
   p256dh    String
   auth      String
   createdAt DateTime @default(now())
-  updatedAt DateTime
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
 }
 
 model SchoolYear {
-  id        String    @id
+  id        String    @id @default(cuid())
   label     String
   startDate DateTime?
   endDate   DateTime?
@@ -275,7 +275,7 @@ model SchoolYear {
 }
 
 model Subject {
-  id           String   @id
+  id           String   @id @default(cuid())
   name         String
   code         String?
   coefficient  Int      @default(1)
@@ -294,7 +294,7 @@ model Subject {
 }
 
 model Grade {
-  id           String   @id
+  id           String   @id @default(cuid())
   docCode      String?  @unique
   studentId    String
   subjectId    String
@@ -304,7 +304,7 @@ model Grade {
   comment      String?
   schoolYearId String
   createdAt    DateTime @default(now())
-  updatedAt    DateTime
+  updatedAt    DateTime @updatedAt
 
   student      Student  @relation(fields: [studentId], references: [id])
   subject      Subject  @relation(fields: [subjectId], references: [id])
@@ -316,7 +316,7 @@ model Grade {
 }
 
 model GradeRead {
-  id        String   @id
+  id        String   @id @default(cuid())
   userId    String
   gradeId   String
   readAt    DateTime @default(now())
@@ -328,7 +328,7 @@ model GradeRead {
 }
 
 model DisciplineRecord {
-  id             String    @id
+  id             String    @id @default(cuid())
   studentId      String
   type           String
   severity       String
@@ -345,13 +345,13 @@ model DisciplineRecord {
   reviewedBy     String?
   reviewedAt     DateTime?
   createdAt      DateTime  @default(now())
-  updatedAt      DateTime 
+  updatedAt      DateTime @updatedAt
 
   student        Student   @relation(fields: [studentId], references: [id])
 }
 
 model Blacklist {
-  id        String   @id
+  id        String   @id @default(cuid())
   studentId String
   schoolId  String
   reason    String
@@ -362,7 +362,7 @@ model Blacklist {
 }
 
 model Greylist {
-  id        String   @id
+  id        String   @id @default(cuid())
   studentId String
   schoolId  String
   reason    String
@@ -373,7 +373,7 @@ model Greylist {
 }
 
 model Whitelist {
-  id        String   @id
+  id        String   @id @default(cuid())
   studentId String
   schoolId  String
   reason    String?
@@ -384,7 +384,7 @@ model Whitelist {
 }
 
 model DisciplineKeyword {
-  id          String   @id
+  id          String   @id @default(cuid())
   keyword     String
   listType    String   // BLACKLIST, GREYLIST, WHITELIST
   schoolId    String
@@ -395,7 +395,7 @@ model DisciplineKeyword {
 }
 
 model SchoolComment {
-  id          String   @id
+  id          String   @id @default(cuid())
   schoolId    String
   authorName  String
   authorEmail String?
@@ -408,7 +408,7 @@ model SchoolComment {
 }
 
 model Convocation {
-  id              String   @id
+  id              String   @id @default(cuid())
   studentId       String
   parentId        String?
   motif           String
@@ -422,14 +422,14 @@ model Convocation {
   rescheduledTo   DateTime?
   rescheduledBy   String?
   createdAt       DateTime @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime @updatedAt
 
   student         Student  @relation(fields: [studentId], references: [id])
   reads           ConvocationRead[]
 }
 
 model ConvocationRead {
-  id             String   @id
+  id             String   @id @default(cuid())
   userId         String
   convocationId  String
   readAt         DateTime @default(now())
@@ -441,7 +441,7 @@ model ConvocationRead {
 }
 
 model Communication {
-  id            String   @id
+  id            String   @id @default(cuid())
   senderId      String
   senderRole    String
   schoolId      String
@@ -463,7 +463,7 @@ model Communication {
 }
 
 model CommunicationRead {
-  id              String   @id
+  id              String   @id @default(cuid())
   userId          String
   communicationId String
   readAt          DateTime @default(now())
@@ -475,7 +475,7 @@ model CommunicationRead {
 }
 
 model PaymentRecord {
-  id             String   @id
+  id             String   @id @default(cuid())
   studentId      String
   schoolId       String
 
@@ -492,11 +492,11 @@ model PaymentRecord {
   verifiedAt     DateTime? // When it was verified
   verificationNote String? // Optional note from verifier
   createdAt      DateTime @default(now())
-  updatedAt      DateTime
+  updatedAt      DateTime @updatedAt
 }
 
 model Homework {
-  id            String   @id
+  id            String   @id @default(cuid())
   title         String
   description   String   @default("")
   subjectName   String
@@ -512,12 +512,12 @@ model Homework {
   class         Class    @relation(fields: [classId], references: [id])
   isPublished   Boolean  @default(true)
   createdAt     DateTime @default(now())
-  updatedAt     DateTime
+  updatedAt     DateTime @updatedAt
   reads         HomeworkRead[]
 }
 
 model HomeworkRead {
-  id         String   @id
+  id         String   @id @default(cuid())
   userId     String
   homeworkId String
   readAt     DateTime @default(now())
@@ -533,7 +533,7 @@ model HomeworkRead {
 // Statuts : PRESENT | ABSENT | LATE. Utilisé par les comptes DISCIPLINE_*
 // (chaque compte ne peut appeler que les classes de SON cycle).
 model AttendanceRecord {
-  id         String   @id
+  id         String   @id @default(cuid())
   studentId  String
   classId    String
   schoolId   String
@@ -541,7 +541,7 @@ model AttendanceRecord {
   status     String   // PRESENT | ABSENT | LATE
   recordedBy String?
   createdAt  DateTime @default(now())
-  updatedAt  DateTime
+  updatedAt  DateTime @updatedAt
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
@@ -552,7 +552,7 @@ model AttendanceRecord {
 }
 
 model TeacherAttendanceRecord {
-  id          String    @id
+  id          String    @id @default(cuid())
   teacherId   String
   schoolId    String
   date        String    // YYYY-MM-DD
@@ -561,7 +561,7 @@ model TeacherAttendanceRecord {
   validatedBy String?
   validatedAt DateTime?
   createdAt   DateTime  @default(now())
-  updatedAt   DateTime 
+  updatedAt   DateTime @updatedAt
 
   teacher User   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   school  School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
@@ -571,7 +571,7 @@ model TeacherAttendanceRecord {
 }
 
 model ReportCard {
-  id           String   @id
+  id           String   @id @default(cuid())
   docCode      String?  @unique
   studentId    String
   trimester    String
@@ -586,7 +586,7 @@ model ReportCard {
 }
 
 model AuditLog {
-  id         String   @id
+  id         String   @id @default(cuid())
   userId     String
   userName   String
   userRole   String
@@ -603,17 +603,17 @@ model AuditLog {
 }
 
 model GlobalApiConfig {
-  id          String   @id
+  id          String   @id @default(cuid())
   key         String   @unique
   value       String
   description String?
   updatedBy   String
-  updatedAt   DateTime
+  updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
 }
 
 model PricingPlan {
-  id          String   @id
+  id          String   @id @default(cuid())
   tier        String   @unique
   name        String
   price       Int      @default(0)
@@ -625,13 +625,13 @@ model PricingPlan {
   isPopular   Boolean  @default(false)
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0)
-  updatedAt   DateTime
+  updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
 }
 
 // Configuration des passerelles de paiement par école
 model PaymentGatewayConfig {
-  id              String   @id
+  id              String   @id @default(cuid())
   schoolId        String
   gatewayType    String    // FLUTTERWAVE, MPESA, ORANGE_MONEY, AIRTEL_MONEY, VISA, MASTERCARD, MANUAL
   isActive       Boolean   @default(false)
@@ -655,14 +655,14 @@ model PaymentGatewayConfig {
   feePercent     Float    @default(0)
 
   createdAt      DateTime @default(now())
-  updatedAt      DateTime
+  updatedAt      DateTime @updatedAt
 
   @@unique([schoolId, gatewayType])
 }
 
 // Configuration de la monnaie par école
 model SchoolCurrencyConfig {
-  id              String   @id
+  id              String   @id @default(cuid())
   schoolId        String   @unique
   baseCurrency    String   @default("USD")    // Monnaie de base de l'école
   displayCurrency String   @default("USD")    // Monnaie d'affichage
@@ -676,12 +676,12 @@ model SchoolCurrencyConfig {
   lastRateUpdate  DateTime?
 
   createdAt       DateTime @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime @updatedAt
 }
 
 // Taux de change (historique pour audit)
 model ExchangeRate {
-  id          String   @id
+  id          String   @id @default(cuid())
   base        String   // Monnaie de base (ex: USD)
   target      String   // Monnaie cible (ex: CDF)
   rate        Float    // Taux de change
@@ -693,7 +693,7 @@ model ExchangeRate {
 
 // Transactions de paiement (pour les passerelles externes)
 model PaymentTransaction {
-  id              String   @id
+  id              String   @id @default(cuid())
   schoolId        String
   paymentRecordId String?
   studentId       String?
@@ -720,11 +720,11 @@ model PaymentTransaction {
   initiatedBy    String   // ID de l'utilisateur qui a initié
   initiatedAt    DateTime @default(now())
   completedAt    DateTime?
-  updatedAt      DateTime
+  updatedAt      DateTime @updatedAt
 }
 
 model SettingsApproval {
-  id          String   @id
+  id          String   @id @default(cuid())
   schoolId    String
   requestedBy String
   changeType  String   // 'school_info', 'school_fee', 'currency'
@@ -734,11 +734,11 @@ model SettingsApproval {
   reviewedBy  String?
   reviewedAt  DateTime?
   createdAt   DateTime @default(now())
-  updatedAt   DateTime
+  updatedAt   DateTime @updatedAt
 }
 
 model SubscriptionRequest {
-  id              String   @id
+  id              String   @id @default(cuid())
   schoolId        String
   requestedTier   String
   currentTier     String
@@ -751,7 +751,7 @@ model SubscriptionRequest {
   resolvedById    String?
   resolvedAt      DateTime?
   createdAt       DateTime @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime @updatedAt
 
   school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
@@ -764,7 +764,7 @@ model SubscriptionRequest {
 // numéro/SON token Meta → plus de limite mensuelle EduGest (limité uniquement
 // par les tokens achetés auprès de Meta).
 model WhatsappApiConfig {
-  id                 String    @id
+  id                 String    @id @default(cuid())
   schoolId           String    @unique
   provider           String    @default("META_CLOUD_API") // META_CLOUD_API
   phoneNumberId      String    // Phone Number ID (Meta)
@@ -775,14 +775,14 @@ model WhatsappApiConfig {
   lastTestAt         DateTime?
   lastTestOk         Boolean?
   createdAt          DateTime  @default(now())
-  updatedAt          DateTime 
+  updatedAt          DateTime @updatedAt
 }
 
 // Journal des messages WhatsApp envoyés (compteur quota mensuel + audit).
 // channel = 'agent' (agent WhatsApp EduGest, compté dans le quota)
 //         | 'custom_api' (API WhatsApp du client, illimité)
 model WhatsappMessageLog {
-  id        String   @id
+  id        String   @id @default(cuid())
   schoolId  String
   phone     String
   type      String   @default("message") // message | document
@@ -795,7 +795,7 @@ model WhatsappMessageLog {
 }
 
 model VerificationToken {
-  id         String   @id
+  id         String   @id @default(cuid())
   userId     String
   code       String   // 6-digit OTP code
   channel    String   // "whatsapp" or "email"
@@ -813,7 +813,7 @@ model VerificationToken {
 }
 
 model MedicalRecord {
-  id                    String   @id
+  id                    String   @id @default(cuid())
   studentId             String   @unique
   bloodGroup            String?
   allergies             String?
@@ -825,13 +825,13 @@ model MedicalRecord {
   doctorPhone           String?
   notes                 String?
   createdAt             DateTime @default(now())
-  updatedAt             DateTime
+  updatedAt             DateTime @updatedAt
 
   student               Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
 
 model InfirmaryVisit {
-  id              String   @id
+  id              String   @id @default(cuid())
   schoolId        String
   studentId       String
   recordedById    String?
@@ -845,7 +845,7 @@ model InfirmaryVisit {
   parentNotifiedAt DateTime?
   notes           String?
   createdAt       DateTime @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime @updatedAt
 
   school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -856,7 +856,7 @@ model InfirmaryVisit {
 }
 
 model MedicalDispensation {
-  id             String   @id
+  id             String   @id @default(cuid())
   schoolId       String
   studentId      String
   type           String   @default("EPS") // EPS, SPORT, AUTRE
@@ -866,7 +866,7 @@ model MedicalDispensation {
   doctorName     String?
   certificateUrl String?
   createdAt      DateTime @default(now())
-  updatedAt      DateTime
+  updatedAt      DateTime @updatedAt
 
   school         School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -879,7 +879,7 @@ model MedicalDispensation {
 // Chaque document généré possède un code unique (DIS-/FSA-/REG-) et un PDF
 // au design gianelli, stocké et consultable dans « Gestion des fiches médicales ».
 model MedicalDocument {
-  id          String   @id
+  id          String   @id @default(cuid())
   docCode     String   @unique
   type        String // DISPENSE_MEDICALE | FICHE_SANTE | REGISTRE_SANTE
   title       String
@@ -901,7 +901,7 @@ model MedicalDocument {
 // QR codes parents éphémères : le parent scanne le QR (token unique), retrouve
 // son enfant (classe + nom) et crée son compte parent — durée de vie 1 h → 1 an.
 model SchoolQrCode {
-  id        String   @id
+  id        String   @id @default(cuid())
   schoolId  String
   token     String   @unique
   label     String?
@@ -920,7 +920,7 @@ model SchoolQrCode {
 // /verify/document/{id} — la page confirme que le document est officiel
 // et en décrit le contenu (élève, classe, moyenne, montant...).
 model DocumentVerification {
-  id              String   @id
+  id              String   @id @default(cuid())
   type            String   // BULLETIN | RECEIPT
   schoolId        String
   studentId       String?
@@ -938,7 +938,7 @@ model DocumentVerification {
 
 // ─── Événements plateforme (Passage de classe / Publication des bulletins) ───
 model PlatformEvent {
-  id                String   @id
+  id                String   @id @default(cuid())
   key               String
   schoolId          String?
   school            School?  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
@@ -950,14 +950,14 @@ model PlatformEvent {
   createdById       String
   createdByName     String
   createdAt         DateTime @default(now())
-  updatedAt         DateTime
+  updatedAt         DateTime @updatedAt
 
   @@index([key, enabled])
 }
 
 // ─── Examens de repêchage (Passage de classe) ───
 model RepechageExam {
-  id              String    @id
+  id              String    @id @default(cuid())
   studentId       String
   student         Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
   classId         String?
@@ -974,7 +974,7 @@ model RepechageExam {
   createdById     String
   createdByName   String
   createdAt       DateTime  @default(now())
-  updatedAt       DateTime 
+  updatedAt       DateTime @updatedAt
 
   @@index([schoolId])
 }
@@ -983,7 +983,7 @@ model RepechageExam {
 // Réunions, examens, fêtes, réunions parents-professeurs, sorties scolaires.
 // Scellé par école (schoolId) ; audience ALL / PERSONNEL / PARENTS.
 model SchoolEvent {
-  id          String    @id
+  id          String    @id @default(cuid())
   schoolId    String
   school      School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   title       String
@@ -996,7 +996,7 @@ model SchoolEvent {
   createdBy   String
   creator     User      @relation("EventCreator", fields: [createdBy], references: [id])
   createdAt   DateTime  @default(now())
-  updatedAt   DateTime 
+  updatedAt   DateTime @updatedAt
 
   @@index([schoolId, startAt])
 }
@@ -1004,7 +1004,7 @@ model SchoolEvent {
 /// Galerie photos publique de l'école (page vitrine). Limite par forfait
 /// (getTierLimits().maxPhotos) appliquée côté serveur à l'ajout.
 model SchoolPhoto {
-  id        String   @id
+  id        String   @id @default(cuid())
   schoolId  String
   school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   url       String
@@ -1019,7 +1019,7 @@ model SchoolPhoto {
 // serveur : un parent qui demande un code doit pouvoir le saisir même si
 // l'instance a redémarré entre-temps. Un seul token actif par numéro.
 model PasswordResetToken {
-  id        String   @id
+  id        String   @id @default(cuid())
   phone     String   @unique
   userId    String
   codeHash  String   // HMAC-SHA256 du code à 6 chiffres (jamais le code en clair)
@@ -1064,7 +1064,7 @@ model Session {
 // d'un compte école : schoolId = null sur l'utilisateur, rattachement via
 // CorporateSchool. Géré uniquement par le SUPER_ADMIN_GLOBAL.
 model Corporate {
-  id           String   @id
+  id           String   @id @default(cuid())
   name         String
   contactName  String?
   contactEmail String?
@@ -1073,7 +1073,7 @@ model Corporate {
   notes        String?
   status       String   @default("ACTIVE") // ACTIVE | SUSPENDED
   createdAt    DateTime @default(now())
-  updatedAt    DateTime
+  updatedAt    DateTime @updatedAt
 
   schools  CorporateSchool[]
   users    CorporateUser[]
@@ -1083,7 +1083,7 @@ model Corporate {
 }
 
 model CorporateSchool {
-  id          String   @id
+  id          String   @id @default(cuid())
   corporateId String
   schoolId    String
   assignedAt  DateTime @default(now())
@@ -1096,7 +1096,7 @@ model CorporateSchool {
 }
 
 model CorporateUser {
-  id          String   @id
+  id          String   @id @default(cuid())
   corporateId String
   userId      String   @unique
   role        String   @default("CORPORATE_ADMIN") // CORPORATE_ADMIN | CORPORATE_VIEWER
@@ -1112,7 +1112,7 @@ model CorporateUser {
 // Le support accompagne les clients (corporates + écoles). Un ticket peut être
 // créé par tout utilisateur connecté ; traité par SUPPORT_AGENT / SAG.
 model SupportTicket {
-  id             String   @id
+  id             String   @id @default(cuid())
   ref            String   @unique
   subject        String
   category       String   @default("GENERAL") // GENERAL | TECHNIQUE | FACTURATION | ONBOARDING | DONNEES
@@ -1123,7 +1123,7 @@ model SupportTicket {
   schoolId       String?
   assigneeId     String?
   createdAt      DateTime @default(now())
-  updatedAt      DateTime
+  updatedAt      DateTime @updatedAt
 
   createdBy    User          @relation("TicketCreator", fields: [createdById], references: [id])
   corporate    Corporate?    @relation(fields: [corporateId], references: [id])
@@ -1136,7 +1136,7 @@ model SupportTicket {
 }
 
 model TicketMessage {
-  id         String   @id
+  id         String   @id @default(cuid())
   ticketId   String
   userId     String
   authorRole String   @default("CLIENT") // CLIENT | SUPPORT | AGENT (IA)
@@ -1153,7 +1153,7 @@ model TicketMessage {
 // Tout email transactionnel de la plateforme passe par sendPlatformEmail()
 // qui journalise ici l'envoi (Resend quand configuré, SIMULÉ sinon en dev).
 model EmailMessage {
-  id        String   @id
+  id        String   @id @default(cuid())
   toEmail   String
   subject   String
   template  String?  // WELCOME | HANDOVER_GRANT | TICKET_REPLY | TEST | GENERIC
@@ -1173,7 +1173,7 @@ model EmailMessage {
 // SUPER_ADMIN_GLOBAL lui envoie l'activation (bouton dédié). Sans grant
 // actif, la vue et l'API sont verrouillées, quel que soit le forfait.
 model FeatureGrant {
-  id              String   @id
+  id              String   @id @default(cuid())
   feature         String   // CLASS_PASSING | BULLETINS | …
   schoolId        String
   grantedByUserId String
@@ -1195,7 +1195,7 @@ model FeatureGrant {
 // en texte WhatsApp + PDF au design EduGest, vers les numéros destinataires.
 // Le planificateur (src/instrumentation.ts) balaie les nextRunAt échus.
 model ReportSchedule {
-  id            String    @id
+  id            String    @id @default(cuid())
   schoolId      String
   createdBy     String    // userId du créateur
   createdByName String    // dénormalisé pour l'audit/l'affichage
@@ -1212,7 +1212,7 @@ model ReportSchedule {
   lastDetail    String?   // message lisible du dernier passage
   runCount      Int       @default(0)
   createdAt     DateTime  @default(now())
-  updatedAt     DateTime 
+  updatedAt     DateTime @updatedAt
 
   school        School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 

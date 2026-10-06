@@ -2011,12 +2011,30 @@ function LoginView() {
     if (lockRemaining > 0) return
     setLoading(true)
     try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, password: cleanPassword }),
-      })
-      const json = await res.json()
+      // Résistance aux 500 intermittents du Worker (« Worker threw exception »,
+      // annulation « hung » sous workerd) : si la réponse n'est pas du JSON
+      // (page d'erreur Cloudflare en HTML) ou si la requête échoue, on retente
+      // 2 fois avant d'afficher une erreur. Un JSON valide (401 identifiants
+      // incorrects, 429 verrou…) sort de la boucle sans être retenté.
+      let res: Response | undefined
+      let json: any = null
+      for (let attempt = 0; attempt < 3 && !json; attempt++) {
+        if (attempt > 0) await new Promise(r => setTimeout(r, 450 * attempt))
+        try {
+          res = await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: cleanEmail, password: cleanPassword }),
+          })
+          json = await res.json()
+        } catch {
+          json = null // HTML 500 ou coupure réseau → on retente
+        }
+      }
+      if (!json || !res) {
+        toast.error('Le serveur met trop de temps à répondre. Réessayez dans un instant.')
+        return
+      }
       if (json.data) {
         const apiUser = json.data
         const role = mapApiRole(apiUser.role)
