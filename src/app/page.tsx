@@ -1985,24 +1985,21 @@ function LoginView() {
   // ── Verrou progressif (compte à rebours affiché sur le bouton) ──────────
   const [lockRemaining, setLockRemaining] = useState(0)
   const lockIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  // ── Lien de téléchargement Windows : version RÉSOLUE DYNAMIQUEMENT via
-  // latest.yml (publié à chaque release par electron-builder) — plus de
-  // version en dur qui reste bloquée sur une vieille release. Fallback : la
-  // page de releases (toujours à jour, sans connaître le numéro).
-  const [setupExeUrl, setSetupExeUrl] = useState('https://github.com/vodi72089-eng/edugest/releases/latest')
+  // ── Lien de téléchargement Windows : URL DIRECTE (l'exe lui-même, jamais la
+  // page de releases GitHub). Version résolue dynamiquement via
+  // GET /api/version/exe (le Worker fetch latest.yml côté serveur — le
+  // navigateur ne peut pas, GitHub n'envoie aucun en-tête CORS sur ses
+  // téléchargements de release). Repli : URL directe épinglée, donc même si
+  // la résolution échoue, un clic déclenche le téléchargement immédiatement.
+  const [setupExeUrl, setSetupExeUrl] = useState('https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/EduGest-Setup-1.4.12.exe')
   useEffect(() => {
     let cancelled = false
-    fetch('https://github.com/vodi72089-eng/edugest/releases/latest/download/latest.yml')
-      .then(r => (r.ok ? r.text() : ''))
-      .then(text => {
-        if (cancelled || !text) return
-        const m = text.match(/^version:\s*(.+)$/m)
-        const version = String(m ? m[1] : '').trim().replace(/^v/, '')
-        if (version) {
-          setSetupExeUrl(`https://github.com/vodi72089-eng/edugest/releases/download/v${version}/EduGest-Setup-${version}.exe`)
-        }
+    fetch('/api/version/exe')
+      .then(r => (r.ok ? r.json() : null))
+      .then((d: { setup?: string } | null) => {
+        if (!cancelled && d?.setup) setSetupExeUrl(d.setup)
       })
-      .catch(() => { /* fallback : page releases */ })
+      .catch(() => { /* repli épinglé déjà en place */ })
     return () => { cancelled = true }
   }, [])
 
@@ -2246,10 +2243,11 @@ function LoginView() {
             <svg viewBox="0 0 24 24" width="18" height="18" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> Se connecter avec WhatsApp
           </button>
 
-          {/* Téléchargement de l'app desktop (EXE Windows) — Release GitHub, version résolue via latest.yml */}
+          {/* Téléchargement de l'app desktop (EXE Windows) — URL directe de la
+              release (Content-Disposition: attachment) : le clic déclenche le
+              téléchargement sans quitter le site, aucun onglet GitHub. */}
           <a
             href={setupExeUrl}
-            target="_blank"
             rel="noopener noreferrer"
             className="w-full py-3.5 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 transition hover:opacity-90 hover:shadow-lg"
             style={{ background: 'oklch(40% 0.15 145)', boxShadow: '0 4px 12px oklch(40% 0.15 145 / 0.2)' }}
@@ -3893,8 +3891,10 @@ function ImportDbModal({ onClose }: { onClose: () => void }) {
 // En web, l'import de base de données est impossible : un clic sur « Importer
 // une base » ouvre ce modal — explication + téléchargement de l'exe desktop.
 function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
-  const [exeUrl, setExeUrl] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  // URL DIRECTE de l'exe portable (release épinglée) → téléchargeable
+  // immédiatement au clic, mise à jour vers la dernière version par
+  // /api/version/exe — jamais la page de releases GitHub.
+  const [exeUrl, setExeUrl] = useState<string | null>('https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/EduGest-Portable-1.4.12.exe')
   const [openFailed, setOpenFailed] = useState(false)
 
   // Ouvre l'application déjà installée via le protocole edugest:// (enregistré
@@ -3912,22 +3912,17 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
     }, 2500)
   }
 
-  // Résout l'URL exacte de l'exe portable via latest.yml (publié par
-  // electron-builder à chaque release) — comme dans desktop/main.js.
+  // Résout l'URL exacte de l'exe portable via /api/version/exe (résolution
+  // SERVEUR de latest.yml — le fetch direct échoue toujours en CORS côté
+  // navigateur, GitHub n'envoie aucun en-tête Access-Control-Allow-Origin).
   useEffect(() => {
     let cancelled = false
-    fetch('https://github.com/vodi72089-eng/edugest/releases/latest/download/latest.yml')
-      .then(r => (r.ok ? r.text() : ''))
-      .then(text => {
-        if (cancelled) return
-        const m = text.match(/^version:\s*(.+)$/m)
-        const version = String(m ? m[1] : '').trim().replace(/^v/, '')
-        if (version) {
-          setExeUrl(`https://github.com/vodi72089-eng/edugest/releases/latest/download/EduGest-Portable-${version}.exe`)
-        }
+    fetch('/api/version/exe')
+      .then(r => (r.ok ? r.json() : null))
+      .then((d: { portable?: string } | null) => {
+        if (!cancelled && d?.portable) setExeUrl(d.portable)
       })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false) })
+      .catch(() => { /* repli épinglé déjà en place */ })
     return () => { cancelled = true }
   }, [])
 
@@ -3970,22 +3965,15 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
                 installée — téléchargez-la ci-dessous.
               </p>
             )}
-            {loading ? (
-              <div className="py-2 text-[12.5px] text-center" style={{ color: TEXT_MUTED_LUXE }}>
-                Recherche de la dernière version…
-              </div>
-            ) : (
-              <a
-                href={exeUrl || 'https://github.com/vodi72089-eng/edugest/releases/latest'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block text-center py-2.5 rounded-xl text-[13px] font-semibold border transition hover:bg-gray-50"
-                style={{ borderColor: BORDER, color: TEXT_PRIMARY }}
-              >
-                <Download size={14} className="inline mr-1.5 -mt-0.5" aria-hidden="true" />
-                Télécharger l&apos;application desktop
-              </a>
-            )}
+            <a
+              href={exeUrl || 'https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/EduGest-Portable-1.4.12.exe'}
+              rel="noopener noreferrer"
+              className="block text-center py-2.5 rounded-xl text-[13px] font-semibold border transition hover:bg-gray-50"
+              style={{ borderColor: BORDER, color: TEXT_PRIMARY }}
+            >
+              <Download size={14} className="inline mr-1.5 -mt-0.5" aria-hidden="true" />
+              Télécharger l&apos;application desktop
+            </a>
             <button
               onClick={onClose}
               className="w-full py-2.5 rounded-xl text-[13px] font-semibold border transition hover:bg-gray-50"

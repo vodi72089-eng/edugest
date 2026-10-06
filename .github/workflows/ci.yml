@@ -85,6 +85,13 @@ jobs:
       - name: Build Next.js (échoue si TypeScript invalide)
         env:
           DATABASE_URL: file:${{ github.workspace }}/db/desktop-template.db
+          # reset-tokens.ts a une garde fail-fast au CHARGEMENT DU MODULE —
+          # `next build` collecte les pages de données des routes (dont
+          # /api/auth/forgot-password qui importe le module) : sans ces
+          # secrets, le build s'arrête sur
+          # « RESET_TOKEN_SECRET manquante ou trop courte ».
+          RESET_TOKEN_SECRET: ci-reset-secret-0123456789abcdef0123456789abcdef
+          PAYMENT_KEYS_SECRET: ci-payment-keys-secret-abcdef0123456789
         run: bunx next build
 
       - name: Start server
