@@ -92,7 +92,11 @@ jobs:
           # « RESET_TOKEN_SECRET manquante ou trop courte ».
           RESET_TOKEN_SECRET: ci-reset-secret-0123456789abcdef0123456789abcdef
           PAYMENT_KEYS_SECRET: ci-payment-keys-secret-abcdef0123456789
-        run: bunx next build
+        run: |
+          bunx next build
+          # Assets statiques + paquets dynamiques (pdfkit, better-sqlite3)
+          # dans le standalone — sinon MODULE_NOT_FOUND au runtime.
+          node scripts/copy-standalone-assets.mjs
 
       - name: Start server
         env:

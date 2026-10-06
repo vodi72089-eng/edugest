@@ -56,8 +56,10 @@ jobs:
         run: |
           set -e
           bunx next build
-          cp -r .next/static .next/standalone/.next/
-          cp -r public .next/standalone/
+          # Assets statiques + paquets dynamiques (pdfkit → PDF, better-sqlite3
+          # → import-db) dans le standalone : sans eux, MODULE_NOT_FOUND dans
+          # l'EXE (resources/app n'a aucun node_modules parent).
+          node scripts/copy-standalone-assets.mjs
 
       - name: Build Windows executables (electron-builder)
         shell: bash
