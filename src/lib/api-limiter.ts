@@ -15,10 +15,10 @@
 // Les assets, RSC et requêtes externes ne sont pas concernés.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Seuil prudent : mesures en production = 100 % fiable ≤ 12 simultanées,
-// dégradations au-delà. À 6, on laisse de la marge pour un 2e onglet et le
-// pulse de synchronisation pendant le burst du dashboard.
-const MAX_CONCURRENT = 6;
+// Seuil prudent : à 6, le burst du dashboard (login → redirection) laissait
+// encore ~5 requêtes sur 14 renvoyer 500 (« hung » workerd) — on descend à 4
+// pour laisser une marge au 2e onglet et au pulse de synchronisation.
+const MAX_CONCURRENT = 4;
 
 let active = 0;
 const waiting: Array<() => void> = [];
