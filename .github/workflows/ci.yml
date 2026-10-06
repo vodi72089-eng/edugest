@@ -94,6 +94,11 @@ jobs:
           # Active la voie webhook abonnement (sinon fail-closed 503 ; le test
           # « sans signature » attend alors 401, pas 503).
           PLATFORM_WEBHOOK_SECRET: test-secret
+          # Secrets fail-fast de l'audit sécurité (reset-tokens.ts exige 32+
+          # caractères au CHARGEMENT du module — sans eux, le serveur refuse
+          # de démarrer si les routes de reset sont chargées en eager).
+          RESET_TOKEN_SECRET: ci-reset-secret-0123456789abcdef0123456789abcdef
+          PAYMENT_KEYS_SECRET: ci-payment-keys-secret-abcdef0123456789
           NODE_ENV: production
         run: |
           cp -r .next/static .next/standalone/.next/ || true
