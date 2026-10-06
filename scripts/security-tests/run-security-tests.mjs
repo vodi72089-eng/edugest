@@ -41,21 +41,35 @@ async function api(method, path, { token, body } = {}) {
     method,
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      // `token` contient la chaîne de cookies de session (voir login) : l'auth
+      // est désormais en cookie httpOnly (audit sécurité), rejoué ici en
+      // en-tête Cookie. L'API lit d'abord edugest_token, puis Bearer en repli.
+      ...(token ? { Cookie: token } : {}),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   let json = null;
   try { json = await res.json(); } catch { /* non-JSON */ }
-  return { status: res.status, json };
+  const setCookies = typeof res.headers.getSetCookie === 'function'
+    ? res.headers.getSetCookie()
+    : (res.headers.get('set-cookie') ? [res.headers.get('set-cookie')] : []);
+  return { status: res.status, json, setCookies };
 }
 
+// L'audit sécurité a basculé l'auth sur un cookie httpOnly : le token n'est
+// PLUS renvoyé en corps de réponse aux clients web (seul un client « mobile »
+// sous abonnement Premium le reçoit). On récupère donc le cookie posé par la
+// réponse de login et on le rejoue en en-tête Cookie sur chaque appel.
 async function login(email, password = PWD) {
   const r = await api('POST', '/api/auth', { body: { email, password } });
-  if (r.status !== 200 || !r.json?.data?.token) {
-    throw new Error(`Login impossible pour ${email} (${r.status})`);
+  const sessionCookie = (r.setCookies || [])
+    .filter(c => c.startsWith('edugest_token='))
+    .map(c => c.split(';')[0])
+    .join('; ');
+  if (r.status !== 200 || !sessionCookie) {
+    throw new Error(`Login impossible pour ${email} (${r.status}${sessionCookie ? '' : ' — cookie de session absent'})`);
   }
-  return r.json.data.token;
+  return sessionCookie;
 }
 
 console.log(`\n🔐 EduGest — Tests sécurité API sur ${BASE}\n`);

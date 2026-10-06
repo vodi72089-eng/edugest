@@ -164,6 +164,29 @@ async function getVapidKeys() {
   return keys;
 }
 
+/** Secrets de l'audit sécurité : RESET_TOKEN_SECRET (≥32 car.) et
+ *  PAYMENT_KEYS_SECRET (≥16 car.). reset-tokens.ts REFUSE de se charger sans
+ *  RESET_TOKEN_SECRET (fail-fast au chargement du module) : le serveur local
+ *  planterait au démarrage sans ces variables. Générés une fois par
+ *  installation et persistés dans userData (même pattern que les VAPID) —
+ *  les codes de réinitialisation et les secrets de passerelle chiffrés doivent
+ *  rester valides d'un lancement à l'autre. */
+function getLocalSecrets() {
+  const f = path.join(USER_DATA, 'secrets.json');
+  try {
+    const raw = JSON.parse(fs.readFileSync(f, 'utf-8'));
+    if (raw.resetTokenSecret && raw.resetTokenSecret.length >= 32 &&
+        raw.paymentKeysSecret && raw.paymentKeysSecret.length >= 16) return raw;
+  } catch {}
+  const secrets = {
+    resetTokenSecret: crypto.randomBytes(32).toString('hex'),
+    paymentKeysSecret: crypto.randomBytes(24).toString('hex'),
+  };
+  try { fs.writeFileSync(f, JSON.stringify(secrets)); } catch {}
+  log('Secrets locaux (reset / passerelle) générés pour cette installation.');
+  return secrets;
+}
+
 /** Trouve un port TCP libre à partir de `start` */
 function findFreePort(start) {
   return new Promise((resolve, reject) => {
@@ -1048,6 +1071,9 @@ async function startBackend() {
   } catch (e) {
     log('VAPID indisponible (push désactivé) :', e.message);
   }
+  // Secrets fail-fast (modules reset-tokens / gateway-keys) — générés une
+  // fois par installation, persistés dans userData.
+  const localSecrets = getLocalSecrets();
   serverProcess = spawn(process.execPath, [SERVER_JS], {
     cwd: APP_DIR,
     env: {
@@ -1058,6 +1084,10 @@ async function startBackend() {
       HOSTNAME: '127.0.0.1',
       // Base de données SQLite connectée à l'app desktop
       DATABASE_URL: `file:${DB_PATH}`,
+      // Secrets fail-fast de l'audit sécurité (reset-tokens.ts refuse de se
+      // charger sans RESET_TOKEN_SECRET → le serveur planterait au démarrage)
+      RESET_TOKEN_SECRET: localSecrets.resetTokenSecret,
+      PAYMENT_KEYS_SECRET: localSecrets.paymentKeysSecret,
       // Sessions persistantes (survivent aux MAJ et aux redémarrages)
       EDUGEST_SESSIONS_DIR: SESSIONS_DIR,
       EDUGEST_SESSION_DAYS: '30',
