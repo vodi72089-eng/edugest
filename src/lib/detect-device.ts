@@ -177,6 +177,23 @@ export function detectDevice(ua: string): DeviceInfo {
   }
 }
 
+/**
+ * VRAI uniquement sur un ORDINATEUR WINDOWS (desktop) :
+ *   • Windows 10/11 au navigateur (UA « Windows NT … »)  → true
+ *   • téléphone / tablette (Android, iOS, Windows Phone) → false
+ *   • macOS, Linux, ChromeOS                             → false
+ * Sert à n'afficher (et n'activer) le bouton « Télécharger l'app (Windows) »
+ * que là où l'EXE est réellement exécutable — côté client uniquement (UA de
+ * l'utilisateur, aucune valeur serveur).
+ */
+export function isWindowsDesktop(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  if (!ua) return false
+  const info = detectDevice(ua)
+  return info.os === 'Windows' && info.isDesktop
+}
+
 export function getDeviceIcon(device: string, deviceModel: string): string {
   if (device === 'Tablette' || deviceModel.toLowerCase().includes('ipad')) return 'tablet'
   if (device === 'Téléphone') return 'phone'

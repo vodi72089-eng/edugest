@@ -10,6 +10,7 @@ import { viewToPath, pathToView } from '@/lib/view-paths'
 import { toast } from 'sonner'
 import { savePdfBlob, savePdfUrl, toastPdfSaved } from '@/lib/desktop-files'
 import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
+import { isWindowsDesktop } from '@/lib/detect-device'
 import { GATEWAY_API_INFO } from '@/lib/gateway-api-info'
 import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, DisciplineData, CommunicationData, HomeworkData } from '@/lib/types'
 import { ACCENT, ACCENT2, ACCENT_SOFT, SUCCESS, WARNING, DANGER, INFO, MUTED, BORDER, GOLD, GOLD_SOFT, GOLD_GLOW, DARK, DARK_ALT, IVORY, IVORY_WARM, TEXT_PRIMARY, TEXT_MUTED_LUXE, SUCCESS_SOFT, SUBSCRIPTION_TIERS, PROVINCES, FILTER_CHIPS, COVER_GRADIENTS, LOGO_COLORS, ENROLLMENT_DATA, SUBSCRIPTION_DATA } from '@/lib/constants'
@@ -1958,6 +1959,12 @@ function CreateSchoolView() {
 }
 
 // ===== LOGIN VIEW =====
+// Abonnement vide pour useSyncExternalStore : la détection de plateforme
+// (Windows desktop ?) ne dépend d'aucun événement — on lit simplement le
+// user-agent au rendu. Rendu serveur → false (snapshot « server »), puis la
+// valeur réelle côté client sans mismatch d'hydratation ni setState-in-effect.
+const subscribeNoop = () => () => {}
+
 function LoginView() {
   const { setCurrentView, login } = useEduGestStore()
   const [email, setEmail] = useState('')
@@ -1992,6 +1999,30 @@ function LoginView() {
   // téléchargements de release). Repli : URL directe épinglée, donc même si
   // la résolution échoue, un clic déclenche le téléchargement immédiatement.
   const [setupExeUrl, setSetupExeUrl] = useState('https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/EduGest-Setup-1.4.12.exe')
+  // ── Le bouton n'existe que sur ORDINATEUR WINDOWS ────────────────────────
+  // L'EXE ne s'exécute ni sur téléphone ni sur tablette ni sur macOS/Linux :
+  // le bouton est donc absent de l'interface ailleurs (et handler re-vérifie
+  // la plateforme au clic, rien ne peut le contourner). false au rendu serveur,
+  // valeur réelle après hydratation.
+  const isWindowsPC = useSyncExternalStore(subscribeNoop, isWindowsDesktop, () => false)
+
+  const downloadWindowsApp = useCallback((e?: React.MouseEvent) => {
+    e?.preventDefault()
+    // Verrou plateforme : hors Windows desktop, aucun téléchargement.
+    if (!isWindowsDesktop()) return
+    try {
+      const a = document.createElement('a')
+      a.href = setupExeUrl
+      a.rel = 'noopener noreferrer'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    } catch {
+      // Repli : navigation directe sur l'exe (Content-Disposition: attachment)
+      window.location.href = setupExeUrl
+    }
+  }, [setupExeUrl])
+
   useEffect(() => {
     let cancelled = false
     fetch('/api/version/exe')
@@ -2245,15 +2276,19 @@ function LoginView() {
 
           {/* Téléchargement de l'app desktop (EXE Windows) — URL directe de la
               release (Content-Disposition: attachment) : le clic déclenche le
-              téléchargement sans quitter le site, aucun onglet GitHub. */}
-          <a
-            href={setupExeUrl}
-            rel="noopener noreferrer"
-            className="w-full py-3.5 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 transition hover:opacity-90 hover:shadow-lg"
-            style={{ background: 'oklch(40% 0.15 145)', boxShadow: '0 4px 12px oklch(40% 0.15 145 / 0.2)' }}
-          >
-            <Download size={18} /> Télécharger l'app (Windows)
-          </a>
+              téléchargement sans quitter le site, aucun onglet GitHub.
+              AFFICHÉ UNIQUEMENT sur ordinateur Windows (isWindowsPC) : sur
+              téléphone/tablette/macOS/Linux le bouton n'apparaît pas du tout. */}
+          {isWindowsPC && (
+            <button
+              type="button"
+              onClick={downloadWindowsApp}
+              className="w-full py-3.5 rounded-xl text-white font-medium text-sm flex items-center justify-center gap-2 transition hover:opacity-90 hover:shadow-lg"
+              style={{ background: 'oklch(40% 0.15 145)', boxShadow: '0 4px 12px oklch(40% 0.15 145 / 0.2)' }}
+            >
+              <Download size={18} /> Télécharger l'app (Windows)
+            </button>
+          )}
 
           <p className="text-center text-[13px] mt-5 text-white/50">
             Pas encore de compte ? <button onClick={() => setCurrentView('create-school')} className="font-medium hover:underline" style={{ color: 'oklch(72% 0.15 65 / 0.8)' }}>Créer mon école</button>
@@ -3896,6 +3931,25 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
   // /api/version/exe — jamais la page de releases GitHub.
   const [exeUrl, setExeUrl] = useState<string | null>('https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/EduGest-Portable-1.4.12.exe')
   const [openFailed, setOpenFailed] = useState(false)
+  // Bouton de téléchargement réservé aux ordinateurs Windows (l'EXE n'est pas
+  // exécutable ailleurs) — voir subscribeNoop (rendu serveur → false).
+  const isWindowsPC = useSyncExternalStore(subscribeNoop, isWindowsDesktop, () => false)
+
+  const downloadPortable = useCallback((e?: React.MouseEvent) => {
+    e?.preventDefault()
+    if (!isWindowsDesktop()) return // verrou plateforme
+    const url = exeUrl || 'https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/EduGest-Portable-1.4.12.exe'
+    try {
+      const a = document.createElement('a')
+      a.href = url
+      a.rel = 'noopener noreferrer'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    } catch {
+      window.location.href = url
+    }
+  }, [exeUrl])
 
   // Ouvre l'application déjà installée via le protocole edugest:// (enregistré
   // par main.js au démarrage). Impossible de détecter une installation locale
@@ -3959,21 +4013,28 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
               <MonitorSmartphone size={14} aria-hidden="true" />
               Ouvrir l&apos;application desktop
             </button>
-            {openFailed && (
+            {openFailed && isWindowsPC && (
               <p className="text-[12px] text-center" style={{ color: DANGER }}>
                 Rien ne s&apos;est ouvert ? L&apos;application n&apos;est peut-être pas encore
                 installée — téléchargez-la ci-dessous.
               </p>
             )}
-            <a
-              href={exeUrl || 'https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/EduGest-Portable-1.4.12.exe'}
-              rel="noopener noreferrer"
-              className="block text-center py-2.5 rounded-xl text-[13px] font-semibold border transition hover:bg-gray-50"
-              style={{ borderColor: BORDER, color: TEXT_PRIMARY }}
-            >
-              <Download size={14} className="inline mr-1.5 -mt-0.5" aria-hidden="true" />
-              Télécharger l&apos;application desktop
-            </a>
+            {isWindowsPC ? (
+              <button
+                type="button"
+                onClick={downloadPortable}
+                className="block w-full text-center py-2.5 rounded-xl text-[13px] font-semibold border transition hover:bg-gray-50"
+                style={{ borderColor: BORDER, color: TEXT_PRIMARY }}
+              >
+                <Download size={14} className="inline mr-1.5 -mt-0.5" aria-hidden="true" />
+                Télécharger l&apos;application desktop
+              </button>
+            ) : (
+              <p className="text-[12px] text-center py-2.5" style={{ color: TEXT_MUTED_LUXE }}>
+                L&apos;application desktop est disponible sur <strong>ordinateur Windows</strong> —
+                ouvrez cette page depuis un PC pour la télécharger.
+              </p>
+            )}
             <button
               onClick={onClose}
               className="w-full py-2.5 rounded-xl text-[13px] font-semibold border transition hover:bg-gray-50"
