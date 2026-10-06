@@ -16,7 +16,7 @@
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
     "dev:vinext": "vite dev",
-    "build:vinext": "vite build",
+    "build:vinext": "vite build && node scripts/copy-afm.mjs",
     "whatsapp": "cd mini-services/whatsapp-server && bun install && bun run dev",
     "whatsapp:start": "cd mini-services/whatsapp-server && bun install && bun run start",
     "start:all": "bun run whatsapp & bun run dev"

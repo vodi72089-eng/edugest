@@ -36,6 +36,14 @@
   "queues": {
     "REPORTS_QUEUE": "reports"
   },
+  // pdfkit lit ses métriques de polices (.afm) via readFileSync au chemin du
+  // chunk (/_next/static/data/*.afm sous workerd). Sans cette règle, les
+  // fichiers ne sont pas dans le bundle → « readAll '/bundle/_next/static/
+  // data/Helvetica.afm' » et TOUS les PDF sortent en 500.
+  // Globs évalués par rapport à base_dir (dossier du main = dist/server).
+  "rules": [
+    { "type": "Text", "globs": ["**/*.afm"], "fallthrough": true }
+  ],
   // Durable Objects for scheduler
   "durable_objects": {
     "SCHEDULER": "ReportScheduler",
