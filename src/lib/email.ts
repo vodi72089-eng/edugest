@@ -123,15 +123,28 @@ export async function isResendActive(): Promise<boolean> {
 }
 
 // ── Transporteur SMTP (fallback) ────────────────────────────────────────────
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+// CRITIQUE (workerd) : la création doit avoir lieu DANS un handler, jamais au
+// chargement du module. nodemailer.generate randomBytes() à la construction et
+// workerd refuse tout appel « generating random values » en portée globale :
+// l'exception levée à l'import faisait échouer TOUTES les routes important ce
+// module (support, send-otp, email-config, corporates, class-passing…) avec
+// « error code: 1101 » → toast « Erreur réseau » côté client.
+let transporter: nodemailer.Transporter | null = null;
+
+function getTransporter(): nodemailer.Transporter {
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+  }
+  return transporter;
+}
 
 /**
  * Send an OTP code via email.
@@ -186,7 +199,7 @@ export async function sendOtpEmail(
   }
 
   try {
-    await transporter.sendMail({
+    await getTransporter().sendMail({
       from: `"${schoolName}" <${process.env.SMTP_USER}>`,
       to,
       subject,
@@ -204,7 +217,7 @@ export async function sendOtpEmail(
  */
 export async function testSmtpConnection(): Promise<{ connected: boolean; error?: string }> {
   try {
-    await transporter.verify();
+    await getTransporter().verify();
     return { connected: true };
   } catch (error: any) {
     return { connected: false, error: error.message };
