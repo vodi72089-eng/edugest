@@ -1476,6 +1476,12 @@ function CreateSchoolView() {
               subscriptionTier: json.data.school.subscriptionTier || 'FREEMIUM',
             })
             toast.success('École créée avec succès ! Bienvenue !')
+            // Formule payante choisie : l'école démarre en Freemium et la
+            // demande a été transmise à l'administrateur (réponse par
+            // email/WhatsApp) — l'admin la voit aussi dans « Mon Abonnement ».
+            if (json.data.subscriptionRequest?.requestedTier) {
+              toast.info(`Votre demande de formule ${getSubscriptionLabel(json.data.subscriptionRequest.requestedTier)} a été envoyée. Vous serez prévenu par email/WhatsApp dès la réponse.`)
+            }
             setLoading(false)
             return
           }
@@ -1483,6 +1489,9 @@ function CreateSchoolView() {
           toast.info('École créée ! Un mot de passe aléatoire a été généré — utilisez « Mot de passe oublié » (code SMS) pour le définir.')
         }
         toast.success('École créée ! Connectez-vous avec vos identifiants.')
+        if (json.data.subscriptionRequest?.requestedTier) {
+          toast.info(`Votre demande de formule ${getSubscriptionLabel(json.data.subscriptionRequest.requestedTier)} a été envoyée. Vous serez prévenu par email/WhatsApp dès la réponse.`)
+        }
         setCurrentView('login')
       } else {
         toast.error(json.error || 'Erreur lors de la création')

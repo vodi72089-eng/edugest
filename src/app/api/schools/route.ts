@@ -280,7 +280,48 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ data: { school, adminUser, classesCreated, generatedPassword: adminName && (adminEmail || adminPhone) && !adminPassword ? 'A random password was generated' : undefined } }, { status: 201 });
+    // ── Demande d'abonnement auto (inscription avec formule payante) ─────
+    // L'école reste FREEMIUM (jamais d'auto-attribution payante), mais le
+    // choix payant du formulaire n'est plus jeté : il devient une demande
+    // PENDING notifiée aux super admins DANS l'app (même circuit que
+    // « Mon Abonnement »). Non bloquant : l'école est créée dans tous les cas.
+    // Réservé aux appels publics : l'admin plateforme qui choisit un forfait
+    // l'applique directement (ligne `subscriptionTier` ci-dessus).
+    let subscriptionRequest: {
+      id: string; requestedTier: string; currentTier: string; status: string;
+    } | null = null;
+    try {
+      const { PAID_TIERS, notifySuperAdminsOfRequest } = await import('@/lib/subscription-requests');
+      const wantedTier = typeof subscriptionTier === 'string' ? subscriptionTier.toUpperCase() : '';
+      if (!isPlatformAdmin && PAID_TIERS.includes(wantedTier) && adminUser?.id) {
+        const pending = await db.subscriptionRequest.findFirst({
+          where: { schoolId: school.id, status: 'PENDING' },
+        });
+        if (!pending) {
+          const created = await db.subscriptionRequest.create({
+            data: {
+              schoolId: school.id,
+              requestedTier: wantedTier,
+              currentTier: 'FREEMIUM',
+              requestedByName: adminUser.name,
+              requestedById: adminUser.id,
+              notes: 'Formule choisie à la création de l’école (inscription).',
+            },
+          });
+          await notifySuperAdminsOfRequest(created, school.name);
+          subscriptionRequest = {
+            id: created.id,
+            requestedTier: created.requestedTier,
+            currentTier: created.currentTier,
+            status: created.status,
+          };
+        }
+      }
+    } catch (e) {
+      console.error('[Schools] Demande d’abonnement auto échouée (non bloquant):', e);
+    }
+
+    return NextResponse.json({ data: { school, adminUser, classesCreated, generatedPassword: adminName && (adminEmail || adminPhone) && !adminPassword ? 'A random password was generated' : undefined, subscriptionRequest } }, { status: 201 });
   } catch (error) {
     console.error('Error creating school:', error);
     return NextResponse.json({ error: sanitizeError(error) }, { status: 500 });

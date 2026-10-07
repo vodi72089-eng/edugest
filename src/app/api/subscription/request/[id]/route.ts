@@ -89,7 +89,7 @@ export async function PATCH(
       });
     }
 
-    // Notify school users of decision
+    // Notify school users of decision (in-app)
     const schoolUsers = await db.user.findMany({
       where: { schoolId: subRequest.schoolId, isActive: true },
       select: { id: true },
@@ -110,12 +110,26 @@ export async function PATCH(
       });
     }
 
+    // ── Réponse au demandeur par email et/ou WhatsApp ───────────────────
+    // Best-effort : un canal indisponible ne fait jamais échouer la décision.
+    let notified: { email: 'SENT' | 'SIMULATED' | 'FAILED' | null; whatsapp: boolean | null } = {
+      email: null,
+      whatsapp: null,
+    };
+    try {
+      const { notifyRequesterOfDecision } = await import('@/lib/subscription-requests');
+      notified = await notifyRequesterOfDecision(subRequest);
+    } catch (e) {
+      console.error('[Subscription] Notification demandeur échouée (non bloquant):', e);
+    }
+
     return NextResponse.json({
       data: {
         id: subRequest.id,
         status,
         schoolId: subRequest.schoolId,
         requestedTier: subRequest.requestedTier,
+        notified,
       },
     });
   } catch (error) {
