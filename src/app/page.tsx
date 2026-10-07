@@ -2026,6 +2026,7 @@ function LoginView() {
         sessionStorage.removeItem('edugest:pending-import-db')
         const em = sessionStorage.getItem('edugest:pending-import-email') || ''
         sessionStorage.removeItem('edugest:pending-import-email')
+        sessionStorage.removeItem('edugest:pending-import-uid')
         if (em) setStandaloneImportEmail(em)
       } catch {}
       setShowStandaloneImport(true)
@@ -4062,10 +4063,18 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
     window.addEventListener('blur', onBlur, { once: true })
     let link = 'edugest://import-db'
     try {
-      const em = (useEduGestStore.getState().userData as { email?: unknown } | null)?.email
-      if (typeof em === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em.trim())) {
-        link += `?email=${encodeURIComponent(em.trim())}`
+      const ud = (useEduGestStore.getState().userData as { email?: unknown; id?: unknown } | null)
+      const params = new URLSearchParams()
+      if (ud && typeof ud.email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ud.email.trim())) {
+        params.set('email', ud.email.trim())
       }
+      // uid exact : l'email n'est pas toujours en session locale, l'id si —
+      // c'est lui qui détecte un AUTRE compte connecté (déconnexion forcée).
+      if (ud && typeof ud.id === 'string' && /^[a-z0-9_-]{5,64}$/i.test(ud.id)) {
+        params.set('uid', ud.id)
+      }
+      const qs = params.toString()
+      if (qs) link += `?${qs}`
     } catch { /* lien nu */ }
     window.location.href = link
     window.setTimeout(() => {
@@ -4190,16 +4199,39 @@ function DashboardLayout() {
   // Import d'autres bases de données à tout moment : les vues (ex. Paramètres)
   // ouvrent le modal adapté via l'événement global 'edugest:open-import-db'
   // — modal d'import dans l'exe, modal « desktop requis » en web.
-  // L'email du deep link (compte visé) est transmis au modal : pré-rempli,
-  // et avertissement si un AUTRE compte est connecté (mauvaise école).
+  // L'email/uid du deep link (compte visé) est transmis au modal : pré-rempli,
+  // et DÉCONNEXION FORCÉE si un AUTRE compte est connecté (l'import irait
+  // sinon dans la mauvaise école). L'uid exact prime (toujours en session),
+  // l'email sert de repli + pré-remplissage.
   const [importInitialEmail, setImportInitialEmail] = useState('')
   useEffect(() => {
     const openImportDb = () => {
+      // Deep link visant un AUTRE compte que celui connecté : déconnexion
+      // immédiate, flags conservés — LoginView rouvrira l'import AUTONOME
+      // avec le bon email (même sans session, même après un autre compte).
+      // Même compte (ou pas d'identifiant) : comportement habituel ci-dessous.
+      let em = ''
+      let uid = ''
+      try {
+        em = sessionStorage.getItem('edugest:pending-import-email') || ''
+        uid = sessionStorage.getItem('edugest:pending-import-uid') || ''
+      } catch {}
+      try {
+        const cur = (useEduGestStore.getState().userData as { email?: unknown; id?: unknown } | null)
+        const otherAccount =
+          (uid && typeof cur?.id === 'string' && cur.id !== uid) ||
+          (em && typeof cur?.email === 'string' && cur.email.toLowerCase() !== em.toLowerCase())
+        if (otherAccount) {
+          try { useEduGestStore.getState().logout() } catch {}
+          try { toast.info(`Compte précédent déconnecté — import pour ${em || 'le compte demandé'}`) } catch {}
+          return
+        }
+      } catch {}
       // Deep link consommé : ne pas ré-ouvrir l'import au prochain montage.
       try {
         sessionStorage.removeItem('edugest:pending-import-db')
-        const em = sessionStorage.getItem('edugest:pending-import-email') || ''
         sessionStorage.removeItem('edugest:pending-import-email')
+        sessionStorage.removeItem('edugest:pending-import-uid')
         setImportInitialEmail(em)
       } catch {}
       if (isDesktopApp()) setShowImportDb(true)
@@ -9877,19 +9909,23 @@ export default function Home() {
   // Deep link edugest:// reçu par l'app desktop (protocole enregistré par
   // main.js) : ouvre l'import — ou le mémorise si le bureau n'est pas encore
   // monté (écran de connexion), DashboardLayout/LoginView l'ouvre à son montage.
-  // Format : { route: 'import-db', email?: string } (objet) ou 'import-db'
-  // (chaîne historique). Sans effet sur le web (pas de bridge __edugest.deepLink).
+  // Format : { route: 'import-db', email?: string, uid?: string } (objet)
+  // ou 'import-db' (chaîne historique). Sans effet sur le web
+  // (pas de bridge __edugest.deepLink).
   useEffect(() => {
     const bridge = (window as any).__edugest?.deepLink
     if (!bridge) return
     const handle = (route: unknown) => {
-      const r = typeof route === 'string' ? { route, email: '' } : (route as { route?: unknown; email?: unknown })
+      const r = typeof route === 'string' ? { route, email: '', uid: '' } : (route as { route?: unknown; email?: unknown; uid?: unknown })
       if (r?.route !== 'import-db') return
       try {
         sessionStorage.setItem('edugest:pending-import-db', '1')
         const em = typeof r?.email === 'string' ? r.email.trim().slice(0, 120) : ''
         if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) sessionStorage.setItem('edugest:pending-import-email', em)
         else sessionStorage.removeItem('edugest:pending-import-email')
+        const id = typeof r?.uid === 'string' ? r.uid.trim().slice(0, 64) : ''
+        if (/^[a-z0-9_-]{5,64}$/i.test(id)) sessionStorage.setItem('edugest:pending-import-uid', id)
+        else sessionStorage.removeItem('edugest:pending-import-uid')
       } catch {}
       window.dispatchEvent(new Event('edugest:open-import-db'))
     }
