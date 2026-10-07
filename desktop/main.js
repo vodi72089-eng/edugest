@@ -1077,6 +1077,10 @@ async function startBackend() {
       HOSTNAME: '127.0.0.1',
       // Base de données SQLite connectée à l'app desktop
       DATABASE_URL: `file:${DB_PATH}`,
+      // Template de schéma (migration additive au démarrage, voir
+      // src/lib/sqlite-schema-upgrade.ts) — main.js dispose de fs, pas le
+      // serveur Next embarqué.
+      EDUGEST_TEMPLATE_DB: TEMPLATE_DB,
       // Secrets fail-fast de l'audit sécurité (reset-tokens.ts refuse de se
       // charger sans RESET_TOKEN_SECRET → le serveur planterait au démarrage)
       RESET_TOKEN_SECRET: localSecrets.resetTokenSecret,

@@ -33,21 +33,6 @@ type SqliteMasterRow = { name: string; type: string; sql: string | null };
 type TableColumn = { name: string; type: string; notnull: number; dflt_value: string | null; pk: number };
 type ForeignKeyRow = { table: string; from: string };
 
-type Join = (...parts: string[]) => string;
-
-/** Emplacements possibles du template selon le contexte (EXE, dev, CI). */
-function templateCandidates(join: Join): string[] {
-  const cwd = process.cwd();
-  return [
-    // EXE : spawn avec cwd = resources/app (main.js) ; copié par le tracing Next
-    join(cwd, 'db', 'desktop-template.db'),
-    // dev / lint : cwd = racine du dépôt
-    join(cwd, '..', 'db', 'desktop-template.db'),
-    // extraResources electron-builder (resources/template.db)
-    join(cwd, '..', 'template.db'),
-  ];
-}
-
 /**
  * Découpe le corps d'un `CREATE TABLE` en fragments de colonnes en respectant
  * les guillemets et les parenthèses imbriquées (contraintes de table incluses).
@@ -112,15 +97,18 @@ export async function upgradeLocalSqliteSchema(): Promise<void> {
   const url = process.env.DATABASE_URL || '';
   if (!url.startsWith('file:')) return; // site web : hors périmètre (Neon = prisma db push)
 
-  const fs = await import('node:fs');
-  const { join } = await import('node:path');
-
-  const templatePath = templateCandidates(join).find((p) => fs.existsSync(p));
+  // Template : fourni par main.js (Electron, qui dispose de fs) via
+  // EDUGEST_TEMPLATE_DB ; en dev on le construit depuis process.cwd()
+  // (racine du dépôt). AUCUN import node:fs / node:path dans ce module :
+  // le tracing standalone de Next nommerait le chunk
+  // « [externals]_node:path_….js » — le caractère « : » est invalide dans un
+  // nom de fichier Windows et fait échouer le build desktop (EINVAL copyfile).
+  const templatePath = process.env.EDUGEST_TEMPLATE_DB || `${process.cwd()}/db/desktop-template.db`;
   if (!templatePath) {
     console.warn(
-      '[schema] Template SQLite introuvable (db/desktop-template.db) — migration ' +
-        'de schéma locale NON exécutée. Base laissée en l’état : connexion et ' +
-        'planificateur peuvent échouer si le schéma est ancien.',
+      '[schema] Template SQLite introuvable — migration de schéma locale NON ' +
+        'exécutée. Base laissée en l’état : connexion et planificateur peuvent ' +
+        'échouer si le schéma est ancien.',
     );
     return;
   }
