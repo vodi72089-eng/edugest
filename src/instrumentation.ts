@@ -7,6 +7,25 @@
 // serveur 24/7). Guard globalThis anti redémarrage (HMR dev).
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
+    // ── Base SQLite locale (app desktop) : migration additive du schéma ──────
+    // AVANT le planificateur (ReportSchedule) et avant toute requête
+    // (RateLimitBucket : sans elle le login est bloqué en 429 fail-closed).
+    // Une base créée par une version antérieure de l'EXE n'est jamais migrée
+    // par main.js (le template n'est recopié que si la base est absente).
+    // Échec → message EXPLICITE ci-dessous, jamais de fallback silencieux.
+    if ((process.env.DATABASE_URL || '').startsWith('file:')) {
+      try {
+        const { upgradeLocalSqliteSchema } = await import('./lib/sqlite-schema-upgrade');
+        await upgradeLocalSqliteSchema();
+      } catch (e) {
+        console.error(
+          '[schema] Migration de la base locale IMPOSSIBLE — connexion (RateLimitBucket) ' +
+            'et planificateur (ReportSchedule) peuvent échouer sur ce schéma ancien :',
+          (e as Error)?.message,
+        );
+      }
+    }
+
     // ── Cloudflare Workers : pas de planificateur in-process ──────────────────
     // workerd n'a AUCUN processus persistant : setTimeout/setInterval ne
     // survivent pas entre deux requêtes, et une requête DB lancée HORS
