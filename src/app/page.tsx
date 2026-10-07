@@ -2305,7 +2305,7 @@ function LoginView() {
 
       {/* Footer — collé au bas de la page (mt-auto), respecte la zone sûre iOS */}
       <footer className="relative z-20 mt-auto w-full text-center text-[13px] text-white/30 py-5" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
-        © 2026 EduGest · v{APP_VERSION}
+        © 2026 EduGest
       </footer>
 
       {/* WhatsApp Login Modal */}
