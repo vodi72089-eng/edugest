@@ -19,6 +19,137 @@ const IMPORT_ADMIN_ROLES = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'DIRECTION_MAT
 interface SqliteRow { [key: string]: unknown }
 
 /**
+ * Bootstrap premier import (exe sans compte local) : le compte n'existe pas
+ * dans la base locale, mais le mot de passe est VÉRIFIÉ contre le hash
+ * contenu dans le fichier .db lui-même — preuve de propriété sans token.
+ * L'école (lue dans le fichier) et l'admin sont alors créés en local, puis
+ * l'import normal se poursuit. Aucun secret ne transite par URL/deep link.
+ */
+async function bootstrapAdminFromDbFile(
+  file: File,
+  email: string,
+  password: string,
+): Promise<{ user: AuthUser; tmpPath: string }> {
+  const fail = (status: number, error: string): never => {
+    throw Object.assign(new Error(error), { status });
+  };
+  const ext = path.extname(file.name || '').toLowerCase();
+  if (!['.db', '.sqlite', '.sqlite3', ''].includes(ext)) {
+    fail(400, 'Format non supporté : envoyez un fichier de base de données SQLite (.db)');
+  }
+  if (file.size > 30 * 1024 * 1024) {
+    fail(400, 'Fichier trop volumineux (30 Mo maximum)');
+  }
+  const tmp = path.join(os.tmpdir(), `edugest-import-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.db`);
+  fs.writeFileSync(tmp, Buffer.from(await file.arrayBuffer()));
+  let source: import('better-sqlite3').Database | null = null;
+  try {
+    let Database: typeof import('better-sqlite3').default;
+    try {
+      const mod = await import('better-sqlite3');
+      Database = (mod.default || mod) as typeof import('better-sqlite3').default;
+    } catch {
+      fail(500, 'Module de lecture SQLite indisponible sur ce serveur');
+      throw new Error('unreachable');
+    }
+    try {
+      source = new Database(tmp, { readonly: true, fileMustExist: true });
+    } catch {
+      fail(400, "Fichier illisible : ce n'est pas une base de données SQLite valide");
+      throw new Error('unreachable');
+    }
+    const hasTable = (name: string): boolean => {
+      try {
+        const row = source!.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(name) as { name: string } | undefined;
+        return !!row;
+      } catch { return false; }
+    };
+    if (!hasTable('User') || !hasTable('School')) {
+      fail(400, "Ce fichier ne contient ni compte ni école EduGest importable");
+    }
+    const fileUserRow = source!.prepare('SELECT * FROM User WHERE lower(email) = lower(?) LIMIT 1').get(email) as SqliteRow | undefined;
+    if (!fileUserRow || !fileUserRow.password) {
+      fail(401, 'Ce compte n’existe pas dans ce fichier');
+    }
+    // Figé post-garde (le fail() lève toujours, mais TS ne le propage pas ici).
+    const fileUser = fileUserRow as SqliteRow;
+    const role = String(fileUser.role || '');
+    if (!IMPORT_ADMIN_ROLES.includes(role)) {
+      fail(403, 'Seuls les administrateurs peuvent importer une base de données');
+    }
+    if (!(await bcrypt.compare(password, String(fileUser.password)))) {
+      fail(401, 'Mot de passe incorrect pour ce fichier');
+    }
+    // École du fichier : celle de l'utilisateur, sinon la première.
+    let fileSchool: SqliteRow | undefined;
+    try {
+      if (fileUser.schoolId) {
+        fileSchool = source!.prepare('SELECT * FROM School WHERE id = ? LIMIT 1').get(String(fileUser.schoolId)) as SqliteRow | undefined;
+      }
+      if (!fileSchool) {
+        fileSchool = source!.prepare('SELECT * FROM School LIMIT 1').get() as SqliteRow | undefined;
+      }
+    } catch { fileSchool = undefined; }
+    if (!fileSchool) {
+      fail(400, "Ce fichier ne contient pas d'école identifiable");
+    }
+    const str = (v: unknown, fb = ''): string => {
+      const t = String(v ?? '').trim();
+      return t || fb;
+    };
+    const school = await db.school.create({
+      data: {
+        name: str(fileSchool!.name, 'Mon école'),
+        shortName: str(fileSchool!.shortName, 'ECOLE'),
+        email: str(fileSchool!.email, email.toLowerCase()),
+        phone: str(fileSchool!.phone, '+243000000000'),
+        address: str(fileSchool!.address),
+        city: str(fileSchool!.city),
+        province: str(fileSchool!.province),
+        country: str(fileSchool!.country),
+      },
+      select: { id: true },
+    });
+    // Téléphone admin : celui du fichier s'il est libre, sinon repli unique
+    // (User.phone est @unique — même convention que POST /api/schools).
+    let adminPhone = str(fileUser.phone);
+    if (adminPhone) {
+      const taken = await db.user.findUnique({ where: { phone: adminPhone } });
+      if (taken) adminPhone = '';
+    }
+    if (!adminPhone) adminPhone = `admin-${school.id}`;
+    try {
+      const created = await db.user.create({
+        data: {
+          name: str(fileUser.name, 'Administrateur'),
+          email: email.toLowerCase(),
+          phone: adminPhone,
+          // Hash déjà vérifié ci-dessus : recopié tel quel (connexion identique).
+          password: String(fileUser.password),
+          role,
+          schoolId: school.id,
+          isActive: true,
+          isVerified: true,
+        },
+      });
+      return { user: created as AuthUser, tmpPath: tmp };
+    } catch (e: any) {
+      // Compte créé entre-temps (double-clic) : l'auth normale prendra le relais.
+      if (e?.code === 'P2002') {
+        fail(409, 'Ce compte vient d’être créé : reconnectez-vous puis réimportez');
+      }
+      throw e;
+    }
+  } catch (e: any) {
+    try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+    if (e && typeof e.status === 'number') throw e;
+    throw Object.assign(new Error('Import impossible : ' + sanitizeError(e)), { status: 500 });
+  } finally {
+    try { source?.close(); } catch { /* ignore */ }
+  }
+}
+
+/**
  * POST /api/school/import-db  (multipart/form-data)
  *
  * L'administrateur d'une école importe SA base de données (fichier SQLite
@@ -79,17 +210,40 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: authError || 'Connexion requise : fournissez un token ou vos identifiants' }, { status: 401 });
       }
       const candidate = await db.user.findUnique({ where: { email } });
-      if (!candidate || !candidate.isActive || !candidate.password) {
+      if (candidate && candidate.isActive && candidate.password) {
+        const ok = await bcrypt.compare(password, candidate.password);
+        if (!ok) {
+          return NextResponse.json({ error: 'Identifiants incorrects' }, { status: 401 });
+        }
+        if (!IMPORT_ADMIN_ROLES.includes(candidate.role)) {
+          return NextResponse.json({ error: 'Seuls les administrateurs peuvent importer une base de données' }, { status: 403 });
+        }
+        user = candidate;
+      } else if (candidate) {
+        // Compte inactif ou sans mot de passe : comme avant, refus.
         return NextResponse.json({ error: 'Identifiants incorrects' }, { status: 401 });
+      } else {
+        // ── Bootstrap premier import (exe sans ce compte en local) ─────
+        // Le mot de passe est vérifié contre le hash contenu DANS le fichier
+        // .db : l'école et l'admin sont alors créés en local, puis l'import
+        // normal se poursuit. Aucun token/secret ne transite par URL.
+        if (!file) {
+          return NextResponse.json({ error: 'Compte inconnu dans cette application : choisissez votre fichier .db pour le créer à l’import' }, { status: 401 });
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 6) {
+          return NextResponse.json({ error: 'Email invalide ou mot de passe trop court (6 caractères min)' }, { status: 400 });
+        }
+        try {
+          const boot = await bootstrapAdminFromDbFile(file, email, password);
+          user = boot.user;
+          tmpPath = boot.tmpPath;
+        } catch (e: any) {
+          if (e && typeof e.status === 'number') {
+            return NextResponse.json({ error: e.message }, { status: e.status });
+          }
+          throw e;
+        }
       }
-      const ok = await bcrypt.compare(password, candidate.password);
-      if (!ok) {
-        return NextResponse.json({ error: 'Identifiants incorrects' }, { status: 401 });
-      }
-      if (!IMPORT_ADMIN_ROLES.includes(candidate.role)) {
-        return NextResponse.json({ error: 'Seuls les administrateurs peuvent importer une base de données' }, { status: 403 });
-      }
-      user = candidate;
     } else if (!IMPORT_ADMIN_ROLES.includes(user.role)) {
       return NextResponse.json({ error: 'Seuls les administrateurs peuvent importer une base de données' }, { status: 403 });
     }
@@ -124,9 +278,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Format non supporté : envoyez un fichier de base de données SQLite (.db)' }, { status: 400 });
     }
 
-    tmpPath = path.join(os.tmpdir(), `edugest-import-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.db`);
-    const arrayBuffer = await file.arrayBuffer();
-    fs.writeFileSync(tmpPath, Buffer.from(arrayBuffer));
+    // Fichier déjà écrit par le bootstrap premier import : on le réutilise.
+    if (!tmpPath) {
+      tmpPath = path.join(os.tmpdir(), `edugest-import-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.db`);
+      const arrayBuffer = await file.arrayBuffer();
+      fs.writeFileSync(tmpPath, Buffer.from(arrayBuffer));
+    }
 
     // ── Ouverture de la base source (lecture seule) ────────────────────
     let Database: typeof import('better-sqlite3').default;

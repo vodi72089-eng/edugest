@@ -2015,6 +2015,30 @@ function LoginView() {
   // valeur réelle après hydratation.
   const isWindowsPC = useSyncExternalStore(subscribeNoop, isWindowsDesktop, () => false)
 
+  // Deep link « import-db » reçu sur l'écran de connexion (exe sans session
+  // locale, ou jamais de compte connecté) : ouvre l'import en mode autonome
+  // (email + mot de passe + fichier, sans session) avec l'email du lien.
+  const [showStandaloneImport, setShowStandaloneImport] = useState(false)
+  const [standaloneImportEmail, setStandaloneImportEmail] = useState('')
+  useEffect(() => {
+    const openStandaloneImport = () => {
+      try {
+        sessionStorage.removeItem('edugest:pending-import-db')
+        const em = sessionStorage.getItem('edugest:pending-import-email') || ''
+        sessionStorage.removeItem('edugest:pending-import-email')
+        if (em) setStandaloneImportEmail(em)
+      } catch {}
+      setShowStandaloneImport(true)
+    }
+    window.addEventListener('edugest:open-import-db', openStandaloneImport)
+    try {
+      if (sessionStorage.getItem('edugest:pending-import-db') === '1') {
+        setTimeout(openStandaloneImport, 0)
+      }
+    } catch {}
+    return () => window.removeEventListener('edugest:open-import-db', openStandaloneImport)
+  }, [])
+
   const downloadWindowsApp = useCallback((e?: React.MouseEvent) => {
     e?.preventDefault()
     // Verrou plateforme : hors Windows desktop, aucun téléchargement.
@@ -2644,6 +2668,16 @@ function LoginView() {
             )}
           </div>
         </div>
+      )}
+      {showStandaloneImport && (
+        <ImportDbModal
+          standalone
+          initialEmail={standaloneImportEmail}
+          onClose={() => {
+            setShowStandaloneImport(false)
+            try { localStorage.setItem('edugest_import_db_dismissed', '1') } catch {}
+          }}
+        />
       )}
     </div>
   )
@@ -3799,11 +3833,22 @@ function ImportDbLogo() {
   )
 }
 
-function ImportDbModal({ onClose }: { onClose: () => void }) {
+function ImportDbModal({ onClose, initialEmail, standalone }: { onClose: () => void; initialEmail?: string; standalone?: boolean }) {
   const [file, setFile] = useState<File | null>(null)
+  const [email, setEmail] = useState(initialEmail || '')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<{ students: number; classes: number; grades: number; teachers: number; subjects: number; parents: number; schoolFees: number; duplicates: number } | null>(null)
+  // Compte actuellement connecté (mode session) : si le deep link vise un
+  // AUTRE compte, on prévient — l'import irait sinon dans la mauvaise école.
+  const currentEmail = (() => {
+    try { return (useEduGestStore.getState().userData as { email?: unknown } | null)?.email } catch { return null }
+  })()
+  const emailMismatch = !standalone && !!initialEmail && typeof currentEmail === 'string' && currentEmail.toLowerCase() !== initialEmail.toLowerCase()
+
+  // L'email du deep link peut arriver après le montage : on le reprend.
+  useEffect(() => { if (initialEmail) setEmail(initialEmail) }, [initialEmail])
 
   // Pré-compile la route d'import dès l'ouverture du modal (en dev, la
   // compilation à froid peut prendre ~15 s : sans ce préchauffage, la
@@ -3816,16 +3861,35 @@ function ImportDbModal({ onClose }: { onClose: () => void }) {
   async function handleImport() {
     setError('')
     if (!file) { setError('Choisissez votre fichier de base de données (.db)'); return }
+    // Mode autonome (écran de connexion, sans session) : identifiants exigés
+    // — vérifiés contre la base locale ou, à défaut, contre le fichier .db
+    // lui-même (bootstrap premier import, côté serveur).
+    if (standalone) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || password.length < 6) {
+        setError('Indiquez votre email et votre mot de passe (6 caractères min)');
+        return
+      }
+    }
     setLoading(true)
     try {
       const fd = new FormData()
       fd.append('file', file)
+      if (standalone) {
+        fd.append('email', email.trim())
+        fd.append('password', password)
+      }
       // Garde-fou anti-blocage : 5 minutes max (grosses bases)
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), 5 * 60 * 1000)
       let res: Response
       try {
-        res = await authFetch('/api/school/import-db', { method: 'POST', body: fd, signal: controller.signal })
+        // Mode autonome : fetch SANS session (pas de Bearer) pour que ce
+        // soient les identifiants du formulaire qui authentifient — jamais
+        // la session d'un autre compte éventuellement en cache.
+        const init: RequestInit = { method: 'POST', body: fd, signal: controller.signal }
+        res = standalone
+          ? await fetch('/api/school/import-db', init)
+          : await authFetch('/api/school/import-db', init)
       } finally {
         clearTimeout(timer)
       }
@@ -3880,7 +3944,11 @@ function ImportDbModal({ onClose }: { onClose: () => void }) {
                   {result.duplicates} doublon{result.duplicates > 1 ? 's' : ''} ignoré{result.duplicates > 1 ? 's' : ''} (déjà présent{result.duplicates > 1 ? 's' : ''})
                 </p>
               )}
-              <p className="text-[11px] mt-2" style={{ color: TEXT_MUTED_LUXE }}>Vos données sont maintenant celles de votre école.</p>
+              <p className="text-[11px] mt-2" style={{ color: TEXT_MUTED_LUXE }}>
+                {standalone
+                  ? 'Votre compte et votre école existent maintenant dans l’application : fermez et connectez-vous avec votre email et mot de passe.'
+                  : 'Vos données sont maintenant celles de votre école.'}
+              </p>
               <div className="flex gap-2.5 mt-3">
                 <button
                   onClick={() => { setResult(null); setError(''); setFile(null) }}
@@ -3897,10 +3965,29 @@ function ImportDbModal({ onClose }: { onClose: () => void }) {
           ) : (
             <>
               <p className="text-[13px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
-                Vous êtes connecté en tant qu&apos;administrateur d&apos;école. Importez votre fichier de base de
+                {standalone
+                  ? <>Importez votre fichier de base de données EduGest (<strong>.db</strong>) : votre compte et votre école seront créés dans l’application à partir de ce fichier, puis vos données importées.</>
+                  : <>Vous êtes connecté en tant qu&apos;administrateur d&apos;école. Importez votre fichier de base de
                 données EduGest (<strong>.db</strong>) : élèves, classes, matières, notes et professeurs
-                deviennent directement la base de votre école.
+                deviennent directement la base de votre école.</>}
               </p>
+              {emailMismatch && initialEmail && (
+                <p className="text-[12px] leading-relaxed rounded-lg px-3 py-2" style={{ color: '#92400e', background: 'rgba(245,166,35,0.12)', border: '1px solid rgba(245,166,35,0.4)' }}>
+                  ⚠️ Ce lien vise le compte <strong>{initialEmail}</strong>, mais vous êtes connecté en tant que <strong>{String(currentEmail)}</strong> : la base serait importée dans la mauvaise école. Reconnectez-vous avec le bon compte (ou rouvrez le lien depuis le site après déconnexion).
+                </p>
+              )}
+              {standalone && (
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <label className="text-xs font-medium block mb-1" style={{ color: TEXT_MUTED_LUXE }}>Email du compte</label>
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@ecole.cd" className="w-full rounded-xl px-4 py-2.5 text-sm outline-none" style={{ border: '1px solid oklch(88% 0.06 75)', color: TEXT_PRIMARY }} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium block mb-1" style={{ color: TEXT_MUTED_LUXE }}>Mot de passe</label>
+                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Votre mot de passe habituel" className="w-full rounded-xl px-4 py-2.5 text-sm outline-none" style={{ border: '1px solid oklch(88% 0.06 75)', color: TEXT_PRIMARY }} />
+                  </div>
+                </div>
+              )}
               <p className="text-[12px] leading-relaxed rounded-lg px-3 py-2" style={{ color: TEXT_MUTED_LUXE, background: IVORY }}>
                 💡 Vous pouvez importer <strong>plusieurs bases</strong> (autre année, fichier corrigé…) :
                 les doublons sont ignorés automatiquement, réimportez sans risque.
@@ -3961,14 +4048,26 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
   }, [exeUrl])
 
   // Ouvre l'application déjà installée via le protocole edugest:// (enregistré
-  // par main.js au démarrage). Impossible de détecter une installation locale
-  // depuis le web : si le lien est accepté, la fenêtre perd le focus — sinon
-  // on invite à télécharger (« Rien ne s'est ouvert ? »).
+  // par main.js au démarrage). L'email du compte (non secret) est joint :
+  // l'exe ouvre directement l'import avec ce compte pré-rempli — même sans
+  // session locale, même avec un autre compte connecté (le modal adapte).
+  // AUCUN token/mot de passe ne transite : l'auth se fait par mot de passe,
+  // vérifié contre la base locale ou contre le fichier .db importé.
+  // Impossible de détecter une installation locale depuis le web : si le
+  // lien est accepté, la fenêtre perd le focus — sinon on invite à
+  // télécharger (« Rien ne s'est ouvert ? »).
   function openDesktopApp() {
     let accepted = false
     const onBlur = () => { accepted = true }
     window.addEventListener('blur', onBlur, { once: true })
-    window.location.href = 'edugest://import-db'
+    let link = 'edugest://import-db'
+    try {
+      const em = (useEduGestStore.getState().userData as { email?: unknown } | null)?.email
+      if (typeof em === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em.trim())) {
+        link += `?email=${encodeURIComponent(em.trim())}`
+      }
+    } catch { /* lien nu */ }
+    window.location.href = link
     window.setTimeout(() => {
       window.removeEventListener('blur', onBlur)
       if (!accepted) setOpenFailed(true)
@@ -4091,10 +4190,18 @@ function DashboardLayout() {
   // Import d'autres bases de données à tout moment : les vues (ex. Paramètres)
   // ouvrent le modal adapté via l'événement global 'edugest:open-import-db'
   // — modal d'import dans l'exe, modal « desktop requis » en web.
+  // L'email du deep link (compte visé) est transmis au modal : pré-rempli,
+  // et avertissement si un AUTRE compte est connecté (mauvaise école).
+  const [importInitialEmail, setImportInitialEmail] = useState('')
   useEffect(() => {
     const openImportDb = () => {
       // Deep link consommé : ne pas ré-ouvrir l'import au prochain montage.
-      try { sessionStorage.removeItem('edugest:pending-import-db') } catch {}
+      try {
+        sessionStorage.removeItem('edugest:pending-import-db')
+        const em = sessionStorage.getItem('edugest:pending-import-email') || ''
+        sessionStorage.removeItem('edugest:pending-import-email')
+        setImportInitialEmail(em)
+      } catch {}
       if (isDesktopApp()) setShowImportDb(true)
       else setShowDesktopOnly(true)
     }
@@ -4124,7 +4231,7 @@ function DashboardLayout() {
           <MainContent />
         </main>
       </div>
-      {showImportDb && <ImportDbModal onClose={closeImportDbPrompt} />}
+      {showImportDb && <ImportDbModal initialEmail={importInitialEmail} onClose={closeImportDbPrompt} />}
       {showDesktopOnly && <DesktopOnlyModal onClose={closeImportDbPrompt} />}
     </div>
   )
@@ -9769,14 +9876,21 @@ export default function Home() {
 
   // Deep link edugest:// reçu par l'app desktop (protocole enregistré par
   // main.js) : ouvre l'import — ou le mémorise si le bureau n'est pas encore
-  // monté (écran de connexion), DashboardLayout l'ouvre à son montage.
-  // Sans effet sur le web (pas de bridge __edugest.deepLink).
+  // monté (écran de connexion), DashboardLayout/LoginView l'ouvre à son montage.
+  // Format : { route: 'import-db', email?: string } (objet) ou 'import-db'
+  // (chaîne historique). Sans effet sur le web (pas de bridge __edugest.deepLink).
   useEffect(() => {
     const bridge = (window as any).__edugest?.deepLink
     if (!bridge) return
     const handle = (route: unknown) => {
-      if (route !== 'import-db') return
-      try { sessionStorage.setItem('edugest:pending-import-db', '1') } catch {}
+      const r = typeof route === 'string' ? { route, email: '' } : (route as { route?: unknown; email?: unknown })
+      if (r?.route !== 'import-db') return
+      try {
+        sessionStorage.setItem('edugest:pending-import-db', '1')
+        const em = typeof r?.email === 'string' ? r.email.trim().slice(0, 120) : ''
+        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) sessionStorage.setItem('edugest:pending-import-email', em)
+        else sessionStorage.removeItem('edugest:pending-import-email')
+      } catch {}
       window.dispatchEvent(new Event('edugest:open-import-db'))
     }
     try { bridge.consume?.()?.then?.(handle)?.catch?.(() => {}) } catch {}
