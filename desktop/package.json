@@ -25,6 +25,8 @@
     "files": [
       "main.js",
       "preload.js",
+      "pdf-store.js",
+      "deep-link.js",
       "icon.png",
       "splash-logo.png"
     ],

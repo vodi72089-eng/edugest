@@ -68,6 +68,26 @@ jobs:
           npm install
           npx electron-builder --win --publish never
 
+      # `build.files` est une liste BLANCHE : tout module requis par main.js
+      # et absent de cette liste n'est PAS empaqueté dans app.asar, et l'EXE
+      # installé s'ouvre alors sur une fenêtre « Error » (Cannot find module).
+      # Régression observée le 07/10 avec pdf-store.js et deep-link.js.
+      - name: Verify runtime files inside app.asar
+        shell: pwsh
+        run: |
+          $asar = Get-ChildItem desktop\dist -Recurse -Filter app.asar | Select-Object -First 1
+          if (-not $asar) { Write-Error "app.asar introuvable dans desktop/dist"; exit 1 }
+          Write-Host "Verification de $($asar.FullName)"
+          $list = node desktop\node_modules\@electron\asar\bin\asar.js list $asar.FullName
+          if ($LASTEXITCODE -ne 0) { Write-Error "lecture de app.asar impossible"; exit 1 }
+          $required = 'main.js','preload.js','package.json','icon.png','splash-logo.png','pdf-store.js','deep-link.js'
+          $missing = @()
+          foreach ($f in $required) {
+            if ($list -contains ("\{0}" -f $f)) { Write-Host "  OK    $f" }
+            else { Write-Host "  MANQUE $f"; $missing += $f }
+          }
+          if ($missing.Count -gt 0) { Write-Error ("Absent(s) de app.asar : " + ($missing -join ', ')); exit 1 }
+
       - name: Verify update metadata (latest.yml)
         shell: bash
         run: |
