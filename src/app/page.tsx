@@ -29,7 +29,6 @@ import dynamic from 'next/dynamic'
 const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
 import { AnimatedCounter, ScrollReveal, StaggerContainer, StaggerItem, GlowCard, MagneticButton, AuroraBackground, BlurText, GradientText } from '@/components/animated'
 import UpdateBanner from '@/components/UpdateBanner'
-import { APP_VERSION } from '@/lib/version'
 import SuperAdminDashboard from '@/components/dashboards/SuperAdminDashboard'
 import SchoolAdminDashboard from '@/components/dashboards/SchoolAdminDashboard'
 import SecretaryDashboard from '@/components/dashboards/SecretaryDashboard'
@@ -3011,8 +3010,6 @@ HEAD_TEACHER: [
         </div>
 
         <div className="p-3 border-t border-white/10">
-          {/* Marqueur de version : prouve que la copie locale tourne sur le dernier code */}
-          <div className="text-center text-[10px] text-white/25 mb-2 select-none" title="Version du code — si ce numéro manque ou est ancien, faites git pull puis redémarrez le serveur">v{APP_VERSION}</div>
           <div className="flex items-center gap-2.5 p-2.5 rounded-xl edu-glass">
             {userData?.profileImageUrl ? (
               <img src={userData.profileImageUrl} alt="Avatar" className="w-9 h-9 rounded-full object-cover shrink-0 border border-white/20" />

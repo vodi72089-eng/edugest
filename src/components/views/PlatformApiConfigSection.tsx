@@ -18,7 +18,6 @@ import { toast } from 'sonner'
 import AppSelect from '@/components/ui/AppSelect'
 import { authFetch } from '@/lib/store'
 import { onDbChange } from '@/lib/realtime'
-import { APP_VERSION } from '@/lib/version'
 import { GOLD, ACCENT, SUCCESS, DANGER, TEXT_PRIMARY, TEXT_MUTED_LUXE, BORDER } from '@/lib/constants'
 
 // ---------------------------------------------------------------------------
@@ -801,13 +800,6 @@ function AppUpdateCard() {
               <h3 className="text-base font-extrabold tracking-tight" style={{ color: TEXT_PRIMARY }}>
                 Mise à jour de l&apos;application
               </h3>
-              <span
-                className="text-[10px] px-2 py-0.5 rounded-full font-bold font-mono"
-                style={{ background: 'oklch(94% 0.005 250)', color: 'oklch(52% 0.015 250)' }}
-                title="Version du code en cours d'exécution"
-              >
-                v{APP_VERSION}
-              </span>
             </div>
             <p className="mt-0.5 text-xs leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
               Récupère les dernières corrections directement depuis GitHub et affiche le résultat
