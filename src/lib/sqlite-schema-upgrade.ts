@@ -19,9 +19,19 @@
  *
  *   1. `CREATE TABLE IF NOT EXISTS`  — tables absentes (ordre topologique FK)
  *   2. `ALTER TABLE … ADD COLUMN`    — colonnes absentes
+ *   2bis. Reconstruction de table   — colonnes `NOT NULL` dans la base vivante
+ *         mais NULLABLE dans le template (cas `User.schoolId` : la colonne
+ *         NOT NULL empêchait la réparation d'intégrité des rôles d'envoyer
+ *         `schoolId = null` au SUPER_ADMIN_GLOBAL → violation de contrainte à
+ *         chaque connexion). SQLite ne sait pas retirer une contrainte :
+ *         on reconstruit la table (DDL du template, INSERT des colonnes
+ *         communes, DROP + RENAME, index recréés) dans UNE transaction,
+ *         clés étrangères désactivées, avec `integrity_check` ensuite.
  *   3. `CREATE [UNIQUE] INDEX IF NOT EXISTS` — index absents
  *
- * Aucun DROP, aucune réécriture de ligne : les données sont conservées.
+ * Aucun DROP hors de cette reconstruction contrôlée, aucune perte de ligne
+ * (INSERT SELECT de toutes les colonnes communes) : les données sont
+ * conservées.
  * L'opération est idempotente (relue à chaque démarrage, reprise si un
  * tour a échoué). Tout échec est journalisé EXPLICITEMENT — jamais de
  * fallback silencieux.
@@ -122,6 +132,7 @@ export async function upgradeLocalSqliteSchema(): Promise<void> {
   let createdTables = 0;
   let addedColumns = 0;
   let createdIndexes = 0;
+  let realignedTables = 0;
   const failures: string[] = [];
 
   try {
@@ -218,6 +229,112 @@ export async function upgradeLocalSqliteSchema(): Promise<void> {
       }
     }
 
+    // ── 2bis) Colonnes NOT NULL dans la base vivante mais NULLABLE dans le
+    //         template → reconstruction de table dans UNE transaction. ──────
+    // Cas constaté : `User.schoolId` NOT NULL (ancien schéma) alors que
+    // Prisma attend `String?` — la réparation d'intégrité des rôles envoyait
+    // `schoolId: null` et se heurtait à une violation de contrainte à chaque
+    // connexion SUPER_ADMIN_GLOBAL. SQLite ne sait pas altérer une contrainte.
+    for (const table of commonTables) {
+      const tplColsNow = await queryTemplate<TableColumn>(tpl, `PRAGMA table_info("${table.name}")`);
+      const liveColsNow = await queryLocal<TableColumn>(`PRAGMA table_info("${table.name}")`);
+      const liveByName = new Map(liveColsNow.map((c) => [c.name, c]));
+      // Prisma/SQLite expose les INTEGER du PRAGMA en BigInt (1n !== 1) :
+      // toute comparaison numérique passe par Number().
+      const narrowed = tplColsNow.filter(
+        (c) =>
+          Number(c.pk) === 0 &&
+          Number(liveByName.get(c.name)?.notnull ?? 0) === 1 &&
+          Number(c.notnull) === 0,
+      );
+      if (narrowed.length === 0) continue;
+
+      const ddl = tplDdlByTable.get(table.name) || '';
+      const migName = `_mig_${table.name}`;
+      const migDdl = ddl.replace(
+        /^CREATE TABLE\s+(?:"[^"]+"|[A-Za-z_][\w]*)/,
+        `CREATE TABLE "${migName}"`,
+      );
+      if (!ddl || migDdl === ddl) {
+        failures.push(
+          `contrainte ${table.name}.${narrowed.map((c) => c.name).join(',')} : DDL template introuvable ` +
+            `— colonne laissée NOT NULL (migration manuelle requise)`,
+        );
+        continue;
+      }
+
+      const liveMasterRow = await queryLocal<SqliteMasterRow>(
+        `SELECT name, type, sql FROM sqlite_master WHERE type='table' AND name = '${table.name}'`,
+      );
+      const liveDdl = liveMasterRow[0]?.sql || '';
+      const liveFragments = columnFragments(liveDdl);
+      // Colonnes présentes uniquement dans l'ancien schéma : recréées telles
+      // quelles sur la table de travail pour ne JAMAIS perdre de données.
+      const liveOnly = liveColsNow.filter((c) => !tplColsNow.some((t) => t.name === c.name));
+      const brokenLiveOnly = liveOnly.filter((c) => /\bPRIMARY KEY\b/i.test(liveFragments.get(c.name) || ''));
+      if (brokenLiveOnly.length > 0) {
+        failures.push(
+          `contrainte ${table.name} : colonne(s) héritée(s) ${brokenLiveOnly
+            .map((c) => c.name)
+            .join(',')} en PRIMARY KEY — reconstruction impossible (migration manuelle requise)`,
+        );
+        continue;
+      }
+
+      const liveIdxSql = (
+        await queryLocal<SqliteMasterRow>(
+          `SELECT name, type, sql FROM sqlite_master WHERE type = 'index' ` +
+            `AND tbl_name = '${table.name}' AND sql IS NOT NULL`,
+        )
+      )
+        .map((r) => r.sql)
+        .filter((s): s is string => !!s);
+
+      const steps: string[] = [
+        `DROP TABLE IF EXISTS "${migName}"`,
+        migDdl,
+        ...liveOnly.map((c) => `ALTER TABLE "${migName}" ADD COLUMN ${liveFragments.get(c.name)}`),
+        (() => {
+          const cols = liveColsNow.map((c) => `"${c.name}"`).join(', ');
+          return `INSERT INTO "${migName}" (${cols}) SELECT ${cols} FROM "${table.name}"`;
+        })(),
+        `DROP TABLE "${table.name}"`,
+        `ALTER TABLE "${migName}" RENAME TO "${table.name}"`,
+        ...liveIdxSql.map((s) => s.replace(/^CREATE (UNIQUE )?INDEX /, 'CREATE $1INDEX IF NOT EXISTS ')),
+      ];
+
+      try {
+        // Clés étrangères : 16 tables peuvent référencer `User` (dont la
+        // reconstruction ci-dessus) — DROP refusé sinon. Hors transaction
+        // (pragma no-op à l'intérieur), remise à ON dans le `finally`.
+        await db.$executeRawUnsafe('PRAGMA foreign_keys = OFF');
+        await db.$transaction(steps.map((s) => db.$executeRawUnsafe(s)));
+        realignedTables++;
+
+        const integrity = await queryLocal<{ integrity_check: string }>('PRAGMA integrity_check');
+        const violations = await queryLocal<unknown>('PRAGMA foreign_key_check');
+        if (integrity[0]?.integrity_check !== 'ok' || violations.length > 0) {
+          failures.push(
+            `contrainte ${table.name} : vérification post-reconstruction échouée ` +
+              `(integrity=${integrity[0]?.integrity_check}, fk=${violations.length})`,
+          );
+        } else {
+          const aligned = (await queryLocal<TableColumn>(`PRAGMA table_info("${table.name}")`)).find(
+            (c) => c.name === narrowed[0].name,
+          );
+          if (!aligned || Number(aligned.notnull) !== 0) {
+            failures.push(`contrainte ${table.name}.${narrowed[0].name} : toujours NOT NULL après reconstruction`);
+          }
+        }
+      } catch (e) {
+        failures.push(
+          `contrainte ${table.name}.${narrowed.map((c) => c.name).join(',')} : ${(e as Error)?.message}`,
+        );
+      } finally {
+        await db.$executeRawUnsafe('PRAGMA foreign_keys = ON').catch(() => undefined);
+      }
+    }
+
     // ── 3) Index absents (tables anciennes comme nouvelles) ─────────────────
     const tplIndexes = tplMaster.filter((r) => r.type === 'index' && r.sql);
     for (const idx of tplIndexes) {
@@ -237,10 +354,12 @@ export async function upgradeLocalSqliteSchema(): Promise<void> {
     await tpl.$disconnect().catch(() => undefined);
   }
 
-  if (createdTables || addedColumns || createdIndexes) {
+  if (createdTables || addedColumns || createdIndexes || realignedTables) {
     console.log(
       `[schema] Migration additive de la base locale : ${createdTables} table(s), ` +
-        `${addedColumns} colonne(s), ${createdIndexes} index créés (template : ${templatePath}).`,
+        `${addedColumns} colonne(s), ${createdIndexes} index créés` +
+        (realignedTables ? `, ${realignedTables} table(s) reconstruite(s) pour assouplir NOT NULL` : '') +
+        ` (template : ${templatePath}).`,
     );
   }
   if (failures.length > 0) {
