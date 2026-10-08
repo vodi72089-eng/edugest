@@ -326,11 +326,29 @@ export async function POST(request: NextRequest) {
       console.error('[auth] école introuvable (non-bloquant) :', (e as Error)?.message);
     }
 
+    // Base déjà importée/connectée ? (état par ÉCOLE, pas par navigateur)
+    // Un seul import réussi (audit DATABASE_IMPORT) coupe définitivement la
+    // popup d'import pour tous les admins de l'école, sur tous les appareils.
+    // Non-bloquant : en cas d'erreur on suppose NON importé (la popup
+    // s'affichera — au pire un rappel en trop, jamais un import manqué).
+    let dbImported = false;
+    try {
+      if (school) {
+        const hit = await db.auditLog.findFirst({
+          where: { action: 'DATABASE_IMPORT', entityType: 'School', entityId: school.id },
+          select: { id: true },
+        });
+        dbImported = !!hit;
+      }
+    } catch (e) {
+      console.error('[auth] vérif import base (non-bloquant) :', (e as Error)?.message);
+    }
+
     const isMobileClient = client === 'mobile';
     const response = NextResponse.json({
       data: {
         ...userData,
-        school,
+        school: school ? { ...school, dbImported } : null,
         ...(isMobileClient ? { token } : {}),
       },
     });

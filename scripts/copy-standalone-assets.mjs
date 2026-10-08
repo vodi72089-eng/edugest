@@ -31,8 +31,33 @@ for (const [from, to] of jobs) {
     failed = true;
     continue;
   }
-  cpSync(from, to, { recursive: true });
-  console.log(`[copy-standalone-assets] ${from} -> ${to}`);
+  try {
+    cpSync(from, to, { recursive: true });
+    console.log(`[copy-standalone-assets] ${from} -> ${to}`);
+  } catch (e) {
+    // Windows EINVAL sur certains chunks Turbopack (ex. [externals]_node 0 octet)
+    // → on copie fichier par fichier en ignorant les cas spéciaux
+    console.warn(`[copy-standalone-assets] cpSync direct échoué (${e.code}), repli fichier par fichier`);
+    try {
+      const { readdirSync, statSync, mkdirSync, copyFileSync } = await import('node:fs');
+      const walk = (src, dest) => {
+        mkdirSync(dest, { recursive: true });
+        for (const ent of readdirSync(src, { withFileTypes: true })) {
+          const s = join(src, ent.name);
+          const d = join(dest, ent.name);
+          if (ent.isDirectory()) walk(s, d);
+          else {
+            try { copyFileSync(s, d); } catch { /* chunk spécial ignoré */ }
+          }
+        }
+      };
+      walk(from, to);
+      console.log(`[copy-standalone-assets] ${from} -> ${to} (repli)`);
+    } catch (e2) {
+      console.error(`[copy-standalone-assets] ÉCHEC copie ${from} : ${e2.message}`);
+      failed = true;
+    }
+  }
 }
 
 // ── pdfkit + better-sqlite3 : jamais tracés par Next dans le standalone ──────

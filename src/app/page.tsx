@@ -2153,10 +2153,12 @@ function LoginView() {
           })
         // Popup import base de données : admin créateur uniquement — DANS l'app,
         // identifiants déjà validés (jamais sur la page de connexion).
+        // Règle : UNIQUEMENT si l'école n'a JAMAIS importé/connecté de base
+        // (état serveur dbImported). « Plus tard »/× = reporté à la prochaine
+        // connexion seulement ; seul un import terminé coupe la popup.
         if (role === 'SCHOOL_ADMIN') {
           try {
-            // Popup import : plus jamais après un « Plus tard » ou un import déjà fait.
-            if (localStorage.getItem('edugest_import_db_dismissed') !== '1') {
+            if (!apiUser.school?.dbImported) {
               sessionStorage.setItem('edugest_show_import_db', '1')
             }
           } catch {}
@@ -2446,11 +2448,11 @@ function LoginView() {
                             profileImageUrl: apiUser.profileImageUrl || null,
                             subscriptionTier: role === 'SUPER_ADMIN_GLOBAL' ? undefined : (apiUser.school?.subscriptionTier || 'FREEMIUM'),
                           })
-                          // Popup import base de données : admin créateur uniquement
+                          // Popup import base de données : admin créateur uniquement,
+                          // seulement si l'école n'a jamais importé (état serveur).
                           if (role === 'SCHOOL_ADMIN') {
                             try {
-                              // Popup import : plus jamais après un « Plus tard » ou un import déjà fait.
-                              if (localStorage.getItem('edugest_import_db_dismissed') !== '1') {
+                              if (!apiUser.school?.dbImported) {
                                 sessionStorage.setItem('edugest_show_import_db', '1')
                               }
                             } catch {}
@@ -2675,8 +2677,9 @@ function LoginView() {
           standalone
           initialEmail={standaloneImportEmail}
           onClose={() => {
+            // Fermeture simple : la popup reviendra à la prochaine connexion
+            // tant que l'école n'a pas importé (état serveur dbImported).
             setShowStandaloneImport(false)
-            try { localStorage.setItem('edugest_import_db_dismissed', '1') } catch {}
           }}
         />
       )}
@@ -4246,13 +4249,12 @@ function DashboardLayout() {
     return () => window.removeEventListener('edugest:open-import-db', openImportDb)
   }, [])
   // Fermeture du popup d'import (« desktop requis » ou import direct) :
-  // mémorisée définitivement (localStorage) — plus aucune popup à la
-  // connexion suivante, que l'utilisateur ait importé sa base ou non.
+  // simple report à la prochaine connexion — seule une école ayant
+  // importé (état serveur dbImported) ne revoit plus jamais la popup.
   // Le bouton « Importer une base » de Paramètres reste accessible.
   const closeImportDbPrompt = () => {
     setShowImportDb(false)
     setShowDesktopOnly(false)
-    try { localStorage.setItem('edugest_import_db_dismissed', '1') } catch {}
   }
   return (
     <div className={`min-h-screen grid grid-cols-1 ${sidebarVisible ? 'lg:grid-cols-[240px_1fr]' : ''}`} style={{ background: IVORY }}>
