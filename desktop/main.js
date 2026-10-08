@@ -301,9 +301,10 @@ function closeSplash() {
 
 /** Affiche la fenêtre principale (une seule fois) et ferme le splash. */
 let mainShown = false;
-function showMainWindow() {
+function showMainWindow(source = '?') {
   if (mainShown) return;
   mainShown = true;
+  log('Interface peinte (' + source + ') : affichage de la fenêtre, fermeture du splash.');
   closeSplash();
   if (mainWindow && !mainWindow.isDestroyed()) {
     // Sécurité : fenêtre toujours visible et bien positionnée (jamais un
@@ -324,7 +325,7 @@ function showMainWindow() {
 // la fenêtre ne s'affiche jamais vide ou à moitié chargée.
 try {
   ipcMain.on('ui-ready', () => {
-    showMainWindow();
+    showMainWindow('ui-ready');
     // L'interface vient de monter : lui renvoyer l'état MAJ déjà connu.
     if (lastUpdateState) sendUpdate(lastUpdateState.type, lastUpdateState);
   });
@@ -434,11 +435,18 @@ function createWindow(port) {
   } catch {}
 
   mainWindow.loadURL(`http://127.0.0.1:${port}/login`);
-  // Le splash reste visible jusqu'au chargement COMPLET de la page.
-  // Ordre d'affichage : 1) signal 'ui-ready' de l'interface (peinte),
-  // 2) did-finish-load, 3) sécurité à 25 s. Jamais de fenêtre vide.
-  mainWindow.webContents.on('did-finish-load', () => showMainWindow());
-  setTimeout(() => showMainWindow(), 25000);
+  // Le splash reste visible jusqu'au vrai premier paint de l'interface.
+  // IMPORTANT : on ne ferme PAS le splash sur 'did-finish-load' — ce signal
+  // arrive AVANT l'hydratation React, alors que le HTML rendu côté serveur
+  // affiche encore la landing ('home') : la fenêtre flashait la landing une
+  // fraction de seconde puis basculait sur le login. C'est le signal
+  // 'ui-ready' (émis par le layout effect de page.tsx, donc AVANT le paint
+  // de la vue finale) qui déclenche l'affichage, avec un filet de sécurité
+  // à 25 s (jamais de fenêtre vide, jamais de splash bloqué).
+  mainWindow.webContents.on('did-finish-load', () => {
+    log('Page chargée : en attente du signal ui-ready de l\'interface.');
+  });
+  setTimeout(() => showMainWindow('sécurité 25 s'), 25000);
   mainWindow.once('ready-to-show', () => {
     setupAutoUpdate();
   });
