@@ -621,6 +621,15 @@ function SettingsViewInner() {
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Paramètres de l&apos;école</h1>
       </div>
 
+      {/* Sans école active (ex. super admin en vue plateforme) : les onglets
+          Frais scolaires et Personnalisation sont inertes (toutes les actions
+          exigent une école). On l'explique au lieu de laisser des boutons morts. */}
+      {!getActiveSchoolId() && (
+        <div className="rounded-2xl p-4 mb-6 text-sm" style={{ background: 'oklch(97% 0.02 65)', border: '1px solid oklch(88% 0.06 75)', color: TEXT_PRIMARY }}>
+          <span className="font-semibold">Aucune école active.</span> <span style={{ color: TEXT_MUTED_LUXE }}>Sélectionnez une école dans la barre latérale pour gérer ses frais, sa galerie et sa personnalisation.</span>
+        </div>
+      )}
+
       {/* Base de données : carte visible uniquement si la base n'est PAS encore
           connectée (0 élève). En web, le clic ouvre le modal « Application
           desktop requis » (import + téléchargement de l'exe) ; dans l'exe,
@@ -750,7 +759,9 @@ function SettingsViewInner() {
           </div>
           <button
             onClick={() => coverInputRef.current?.click()}
-            className="absolute top-4 right-4 px-3 py-1.5 rounded-xl bg-white/90 text-xs font-medium flex items-center gap-1.5 hover:bg-white transition shadow-sm"
+            disabled={!getActiveSchoolId()}
+            title={!getActiveSchoolId() ? 'Sélectionnez d’abord une école active' : undefined}
+            className="absolute top-4 right-4 px-3 py-1.5 rounded-xl bg-white/90 text-xs font-medium flex items-center gap-1.5 hover:bg-white transition shadow-sm disabled:opacity-50"
             style={{ color: TEXT_PRIMARY }}
           >
             {uploadingCover ? <div className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <ImagePlus size={13} />}
@@ -949,7 +960,9 @@ function SettingsViewInner() {
             </h3>
             <button
               onClick={() => { setEditingFee(null); setFeeForm({ name: '', amount: '', currency: 'CDF', trimester: 'T1', classId: '' }); setShowFeeModal(true) }}
-              className="px-4 py-2 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-1.5"
+              disabled={!getActiveSchoolId()}
+              title={!getActiveSchoolId() ? 'Sélectionnez d’abord une école active' : undefined}
+              className="px-4 py-2 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-1.5 disabled:opacity-50"
               style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}
             >
               <Plus size={14} /> Ajouter
@@ -1049,7 +1062,8 @@ function SettingsViewInner() {
                 onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(f); e.target.value = '' }} />
               <button
                 onClick={() => photoInputRef.current?.click()}
-                disabled={uploadingPhoto || photoLimitReached}
+                disabled={uploadingPhoto || photoLimitReached || !getActiveSchoolId()}
+                title={!getActiveSchoolId() ? 'Sélectionnez d’abord une école active' : undefined}
                 className="edu-gold-cta px-4 py-2 rounded-xl text-[13px] font-semibold inline-flex items-center gap-2 disabled:opacity-50"
               >
                 {uploadingPhoto ? <div className="h-3.5 w-3.5 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <ImagePlus size={14} />}

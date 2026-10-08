@@ -1,6 +1,4 @@
 import { jsPDF } from 'jspdf';
-import fs from 'fs';
-import path from 'path';
 
 /**
  * PDF médical — design « Institut Gianelli » (navy & or), identique aux reçus
@@ -232,7 +230,8 @@ export function buildMedicalDocumentPDF(
   student: MedicalStudentInfo | null,
   school: { name: string; shortName: string; email: string; phone: string; address: string; city: string; province: string; country: string; logo: string | null },
   schoolLogoBase64: string | null,
-  qrCodeDataUrl: string | null
+  qrCodeDataUrl: string | null,
+  edugestLogoBase64: string | null = null
 ): Buffer {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
@@ -295,16 +294,10 @@ export function buildMedicalDocumentPDF(
   const contactParts = sanitizeAscii([school.phone, school.email].filter(Boolean).join('  |  '));
   if (contactParts) doc.text(contactParts.slice(0, 58), mx + 30, y + 20);
 
-  // ── LOGO EDUGEST (haut droit) ──
+  // ── LOGO EDUGEST (haut droit) ── passé par la route via fetch des
+  // assets publics (jamais fs : compatible Cloudflare Workers).
   try {
-    let edugestLogo: string | null = null;
-    for (const p of [path.join(process.cwd(), 'public', 'edugest-logo-pdf.jpg'), path.join(process.cwd(), 'public', 'edugest-logo.png')]) {
-      if (fs.existsSync(p)) {
-        const buf = fs.readFileSync(p);
-        edugestLogo = `data:image/${p.endsWith('.png') ? 'png' : 'jpeg'};base64,${buf.toString('base64')}`;
-        break;
-      }
-    }
+    const edugestLogo = edugestLogoBase64;
     if (edugestLogo) {
       doc.addImage(edugestLogo, edugestLogo.startsWith('data:image/png') ? 'PNG' : 'JPEG', W - mx - 26, y - 2, 24, 24);
     }

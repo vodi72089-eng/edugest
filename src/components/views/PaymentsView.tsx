@@ -162,7 +162,23 @@ export default function PaymentsView() {
 
         // 3. Group fees by trimester (tranche name)
         const trancheNames = [...new Set(allFees.map(f => f.trimester))].sort()
-        if (trancheNames.length === 0) { setClassFees([]); setAllPaid(false); setTranche('T1'); setAmount(''); return }
+        if (trancheNames.length === 0) {
+          // AUCUN frais configuré pour cette classe : on ne peut pas calculer
+          // de reste par tranche. Repli : reste GLOBAL de l'élève (total des
+          // montants dus moins total encaissé, statuts PAID/PARTIAL) pré-rempli
+          // dans « Montant à payer » (reste modifiable à la main).
+          const totalDue = pays
+            .filter(p => (p.status === 'PAID' || p.status === 'PARTIAL') && p.amount != null)
+            .reduce((s: number, p: PaymentData) => s + (p.amount || 0), 0)
+          const totalPaid = pays
+            .filter(p => p.status === 'PAID' || p.status === 'PARTIAL')
+            .reduce((s: number, p: PaymentData) => s + (p.paidAmount || 0), 0)
+          const globalRemaining = Math.max(0, Math.round(totalDue - totalPaid))
+          setClassFees([]); setAllPaid(false); setTranche('T1')
+          setAmount(globalRemaining > 0 ? String(globalRemaining) : '')
+          setPaidAmount(''); setPayCurrency('CDF'); setPayConvertedAmount('')
+          return
+        }
 
         // 4. For each tranche, compute total fee and total paid
         const trancheStatus = trancheNames.map(name => {
@@ -349,7 +365,7 @@ export default function PaymentsView() {
           <div>
             <label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Montant à payer (CDF)</label>
             <input
-              placeholder={classFees.length > 0 ? 'Reste à payer' : 'Entrez le montant'}
+              placeholder={classFees.length > 0 ? 'Reste à payer' : (selectedStudent ? 'Reste dû calculé ou montant libre' : 'Sélectionnez d’abord un élève')}
               value={amount}
               readOnly={classFees.length > 0}
               onChange={e => setAmount(e.target.value)}

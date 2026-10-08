@@ -3,8 +3,7 @@ import { requirePermission, verifySchoolAccess, verifyParentAccess, sanitizeErro
 import { NextRequest, NextResponse } from 'next/server';
 import { jsPDF } from 'jspdf';
 import { registerDocument, qrDataUrlForDocument, documentVerifyUrl } from '@/lib/document-verify';
-import fs from 'fs';
-import path from 'path';
+import { fetchPublicLogo } from '@/lib/pdf-logo';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -113,22 +112,10 @@ function getTrimesterLabel(trimester: string): string {
   return map[trimester] || trimester;
 }
 
-/** Logo EduGest embarqué (version compacte pour PDF, lu depuis /public). */
-function getEduGestLogoBase64(): string | null {
-  try {
-    const candidates = [
-      path.join(process.cwd(), 'public', 'edugest-logo-pdf.jpg'),
-      path.join(process.cwd(), 'public', 'edugest-logo.png'),
-    ];
-    for (const p of candidates) {
-      if (fs.existsSync(p)) {
-        const buf = fs.readFileSync(p);
-        const isPng = p.endsWith('.png');
-        return `data:image/${isPng ? 'png' : 'jpeg'};base64,${buf.toString('base64')}`;
-      }
-    }
-  } catch { /* logo absent */ }
-  return null;
+/** Logo EduGest (via assets publics — compatible Node + Workers, jamais fs). */
+async function getEduGestLogoBase64(requestUrl: string): Promise<string | null> {
+  const logo = await fetchPublicLogo(requestUrl);
+  return logo ? logo.dataUrl : null;
 }
 
 // ─── PDF Builder — design « Institut Gianelli » (navy & or) ──────────────────
@@ -185,7 +172,8 @@ function buildReceiptPDF(
   student: { firstName: string; lastName: string; matricule: string; photoUrl?: string | null },
   school: { name: string; shortName: string; email: string; phone: string; address: string; city: string; province: string; country: string; logo: string | null },
   schoolLogoBase64: string | null,
-  qrCodeDataUrl: string | null
+  qrCodeDataUrl: string | null,
+  edugestLogoBase64: string | null
 ): Buffer {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
@@ -255,7 +243,7 @@ function buildReceiptPDF(
   if (contactParts) doc.text(contactParts.slice(0, 58), mx + 30, y + 20);
 
   // ── LOGO EDUGEST (haut droit) ──
-  const edugestLogo = getEduGestLogoBase64();
+  const edugestLogo = edugestLogoBase64;
   try {
     if (edugestLogo) {
       const edugestFormat = edugestLogo.startsWith('data:image/png') ? 'PNG' : 'JPEG';
@@ -608,13 +596,21 @@ export async function GET(
       }
     }
 
+    // Origin de la requête : base fiable pour les assets publics sur tous
+    // les environnements (localhost, exe 127.0.0.1:port, domaine Workers) —
+    // mieux que NEXT_PUBLIC_APP_URL figé au build.
+    let assetOrigin = '';
+    try {
+      assetOrigin = new URL(request.url).origin;
+    } catch { /* ignore */ }
+
     // Fetch school logo as base64 (if exists)
     let schoolLogoBase64: string | null = null;
     if (payment.school.logo) {
       try {
         const logoUrl = payment.school.logo.startsWith('http')
           ? payment.school.logo
-          : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${payment.school.logo}`;
+          : `${assetOrigin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${payment.school.logo}`;
         const logoRes = await fetch(logoUrl);
         if (logoRes.ok) {
           const logoBuffer = Buffer.from(await logoRes.arrayBuffer());
@@ -623,6 +619,9 @@ export async function GET(
         }
       } catch {}
     }
+
+    // Logo EduGest (assets publics — jamais fs, compatible Workers)
+    const edugestLogoBase64 = await getEduGestLogoBase64(request.url);
 
     // ── Enregistrement du document officiel + QR code unique ─────────
     const docRecord = await registerDocument({
@@ -645,7 +644,7 @@ export async function GET(
     const qrCodeDataUrl = await qrDataUrlForDocument(docRecord.id);
 
     // Build PDF (design gianelli : logos école + EduGest, QR en bas)
-    const pdfBuffer = buildReceiptPDF(payment, student, payment.school, schoolLogoBase64, qrCodeDataUrl);
+    const pdfBuffer = buildReceiptPDF(payment, student, payment.school, schoolLogoBase64, qrCodeDataUrl, edugestLogoBase64);
 
     const receiptNo = payment.receiptNumber || `REC-${payment.id.slice(-8).toUpperCase()}`;
 

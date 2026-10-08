@@ -4308,6 +4308,14 @@ function WhatsAppConfigView() {
   const [requestingPair, setRequestingPair] = useState(false)
   const [pairProgress, setPairProgress] = useState<string[]>([])
   const boundRef = useRef(false)
+  // Serveur injoignable : la route répond 200-disconnected même quand le
+  // mini-service est ABSENT (catch silencieux côté API) — le front ne peut
+  // donc pas distinguer « déconnecté » de « service éteint » via le statut.
+  // On compte les ÉCHECS RÉSEAU (fetch qui rejette) : après 4 d'affilée
+  // (~8 s de polling), on affiche un panneau diagnostic actionnable au lieu
+  // de laisser « Chargement... » tourner dans le vide. Un succès remet à zéro.
+  const [serverDown, setServerDown] = useState(false)
+  const unreachableRef = useRef(0)
   // Ref synchronisée avec connectionMode : le polling checkStatus est enregistré
   // une seule fois (useEffect []), une closure classique lirait une valeur périmée
   // et le QR ne s'afficherait jamais.
@@ -4336,6 +4344,8 @@ function WhatsAppConfigView() {
     try {
       const res = await authFetch('/api/whatsapp-status')
       if (res.ok) {
+        unreachableRef.current = 0
+        if (serverDown) setServerDown(false)
         const json = await res.json()
         setWhatsappStatus(json.data?.status || 'disconnected')
         if (connectionModeRef.current === 'qr') {
@@ -4388,8 +4398,17 @@ function WhatsAppConfigView() {
             toast.error('Le code de parrainage a expiré ou le client s\'est déconnecté. Générez un nouveau code.')
           }
         }
+      } else if (res.status !== 401 && res.status !== 403) {
+        // Réponse non-OK hors auth (ex. 503 serveur absent côté API) : compte
+        // comme un échec de joignabilité, sans toast (le polling est silencieux).
+        unreachableRef.current += 1
+        if (unreachableRef.current >= 4 && !serverDown) setServerDown(true)
       }
-    } catch {}
+    } catch {
+      // Échec réseau franc (serveur injoignable, hors-ligne...) : même compteur.
+      unreachableRef.current += 1
+      if (unreachableRef.current >= 4 && !serverDown) setServerDown(true)
+    }
     finally { setLoading(false) }
   }
 
@@ -4533,6 +4552,23 @@ function WhatsAppConfigView() {
                 <div className={`w-2.5 h-2.5 rounded-full ${st.dot} ${whatsappStatus === 'connecting' ? 'animate-pulse' : ''}`} />
                 <span className={`text-sm font-semibold ${st.text}`}>{st.label}</span>
               </div>
+              {serverDown && whatsappStatus !== 'connected' && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-2">
+                  <p className="text-sm font-semibold text-red-700">Service WhatsApp injoignable</p>
+                  <p className="text-xs leading-relaxed text-red-600">
+                    {isDesktopApp()
+                      ? "Le mini-service WhatsApp de l'application ne répond pas. Mettez l'exe à jour vers la dernière version puis redémarrez-le ; si le problème persiste, réinstallez l'application (vos données sont conservées)."
+                      : "Aucun serveur WhatsApp n'est joignable depuis ce site : vérifiez votre connexion internet. Si le problème persiste, l'administrateur de la plateforme doit démarrer le service WhatsApp."}
+                  </p>
+                  <button
+                    onClick={() => { unreachableRef.current = 0; setServerDown(false); checkStatus() }}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-white transition hover:opacity-90"
+                    style={{ background: TEAL_COLOR }}
+                  >
+                    Réessayer la connexion
+                  </button>
+                </div>
+              )}
 
               {whatsappStatus === 'connected' && (
                 <div className="text-center space-y-4">
@@ -9565,6 +9601,8 @@ function SubscriptionUpgradeView() {
   const [submitting, setSubmitting] = useState(false)
 
   const currentTier = userData?.subscriptionTier || 'FREEMIUM'
+  // Statut détaillé (fin d'abonnement, jours restants) via /api/subscription/status
+  const [subStatus, setSubStatus] = useState<{ status?: string; endDate?: string | null; daysRemaining?: number | null } | null>(null)
   // Ordre hiérarchique réel des formules (SUBSCRIPTION_TIERS est un ordre d'affichage, pas de prix)
   const TIER_ORDER = ['FREEMIUM', 'ESSENTIEL', 'STANDARD', 'PREMIUM', 'ENTERPRISE', 'CORPORATE']
   const currentTierIndex = TIER_ORDER.indexOf(currentTier)
@@ -9585,6 +9623,10 @@ function SubscriptionUpgradeView() {
       setRequests(j.data || [])
       setLoading(false)
     }).catch(() => setLoading(false))
+    // Statut d'abonnement (fin, jours restants) — affiché sous la formule
+    authFetch('/api/subscription/status').then(r => r.json()).then(j => {
+      if (j?.data) setSubStatus(j.data)
+    }).catch(() => {})
     // Vérifier si un agrégateur de paiement est VRAIMENT connecté (actif + clés renseignées)
     authFetch('/api/payment-gateways').then(r => r.json()).then(j => {
       const configured = j.data?.configured || []
@@ -9664,6 +9706,19 @@ function SubscriptionUpgradeView() {
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tighter edu-heading-display" style={{ color: TEXT_PRIMARY }}>Mon Abonnement</h1>
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>Formule actuelle : <strong>{getSubscriptionLabel(currentTier)}</strong></p>
+          {subStatus?.endDate && currentTier !== 'FREEMIUM' && (
+            <p className="text-[12px] ml-7 mt-0.5" style={{ color: (subStatus.daysRemaining ?? 99) <= 7 ? '#b91c1c' : TEXT_MUTED_LUXE }}>
+              Valide jusqu&apos;au <strong>{new Date(subStatus.endDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</strong>
+              {subStatus.daysRemaining != null && (
+                <> ({subStatus.daysRemaining === 0 ? 'expire aujourd’hui' : `plus que ${subStatus.daysRemaining} jour${subStatus.daysRemaining > 1 ? 's' : ''}`})</>
+              )}
+            </p>
+          )}
+          {subStatus?.status && subStatus.status !== 'ACTIVE' && currentTier !== 'FREEMIUM' && (
+            <p className="text-[12px] ml-7 mt-0.5 font-semibold" style={{ color: '#b91c1c' }}>
+              Statut : {subStatus.status === 'EXPIRED' ? 'expiré — renouvelez votre formule' : subStatus.status}
+            </p>
+          )}
         </div>
       </div>
 
@@ -9964,7 +10019,20 @@ export default function Home() {
     restoreSession()
     // App desktop (Electron) : prévient main.js que l'interface est peinte
     // pour afficher la fenêtre (jamais de fenêtre vide). Sans effet sur le web.
-    try { (window as any).__edugest?.ready?.() } catch {}
+    //
+    // Le signal est décalé d'un DOUBLE requestAnimationFrame : émis ici (layout
+    // effect, avant paint), il arrivait à main.js pendant que la dernière frame
+    // présentée était encore le HTML SSR de la landing — la fenêtre s'affichait
+    // donc sur la landing, puis basculait sur la vue finale : le flash « comme
+    // si j'avais rafraîchi une fenêtre ». Après 2 rAF, une frame complète de la
+    // vue finale (login / tableau de bord) a au moins été peinte et présentée :
+    // la fenêtre s'ouvre dessus, sans flash.
+    const signalReady = () => { try { (window as any).__edugest?.ready?.() } catch {} }
+    if (typeof window.requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => requestAnimationFrame(signalReady))
+    } else {
+      signalReady()
+    }
   }, [])
 
   // Watchdog : si l'hydratation échoue (chunk perdu sous charge / réseau

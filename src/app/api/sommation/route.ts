@@ -3,8 +3,7 @@ import { requirePermission, verifySchoolAccess, sanitizeError } from '@/lib/auth
 import { NextRequest, NextResponse } from 'next/server'
 import { jsPDF } from 'jspdf'
 import { registerDocument, qrDataUrlForDocument } from '@/lib/document-verify'
-import fs from 'fs'
-import path from 'path'
+import { fetchPublicLogo } from '@/lib/pdf-logo'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('fr-FR', {
@@ -77,22 +76,10 @@ function sanitizeAscii(text: string): string {
     .replace(/[^\x20-\x7E]/g, '')
 }
 
-/** Logo EduGest embarqué (version compacte pour PDF, lu depuis /public). */
-function getEduGestLogoBase64(): string | null {
-  try {
-    const candidates = [
-      path.join(process.cwd(), 'public', 'edugest-logo-pdf.jpg'),
-      path.join(process.cwd(), 'public', 'edugest-logo.png'),
-    ]
-    for (const p of candidates) {
-      if (fs.existsSync(p)) {
-        const buf = fs.readFileSync(p)
-        const isPng = p.endsWith('.png')
-        return `data:image/${isPng ? 'png' : 'jpeg'};base64,${buf.toString('base64')}`
-      }
-    }
-  } catch { /* logo absent */ }
-  return null
+/** Logo EduGest (via assets publics — compatible Node + Workers, jamais fs). */
+async function getEduGestLogoBase64(requestUrl: string): Promise<string | null> {
+  const logo = await fetchPublicLogo(requestUrl);
+  return logo ? logo.dataUrl : null;
 }
 
 // ─── PDF Builder — design « Institut Gianelli » (navy & or) ──────────────────
@@ -139,6 +126,7 @@ function buildSommationPDF(
   totalRemaining: number,
   qrCodeDataUrl: string | null,
   verifyCode: string | null,
+  edugestLogoBase64: string | null,
 ): Buffer {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const W = doc.internal.pageSize.getWidth()
@@ -210,7 +198,7 @@ function buildSommationPDF(
   if (contactParts) doc.text(contactParts.slice(0, 58), mx + 30, y + 20)
 
   // ── LOGO EDUGEST (haut droit) ──
-  const edugestLogo = getEduGestLogoBase64()
+  const edugestLogo = edugestLogoBase64
   try {
     if (edugestLogo) {
       const edugestFormat = edugestLogo.startsWith('data:image/png') ? 'PNG' : 'JPEG'
@@ -577,13 +565,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'École non trouvée' }, { status: 404 })
     }
 
-    // Fetch school logo as base64
+    // Fetch school logo as base64 (origin de la requête : fiable partout —
+    // localhost, exe 127.0.0.1:port, domaine Workers)
+    let assetOrigin = '';
+    try {
+      assetOrigin = new URL(request.url).origin;
+    } catch { /* ignore */ }
     let schoolLogoBase64: string | null = null
     if (school.logo) {
       try {
         const logoUrl = school.logo.startsWith('http')
           ? school.logo
-          : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${school.logo}`
+          : `${assetOrigin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${school.logo}`
         const logoRes = await fetch(logoUrl)
         if (logoRes.ok) {
           const logoBuffer = Buffer.from(await logoRes.arrayBuffer())
@@ -614,6 +607,9 @@ export async function POST(request: NextRequest) {
     const qrCodeDataUrl = await qrDataUrlForDocument(docRecord.id)
     const verifyCode = `SOM-${docRecord.id.slice(-8).toUpperCase()}`
 
+    // Logo EduGest (assets publics — jamais fs, compatible Workers)
+    const edugestLogoBase64 = await getEduGestLogoBase64(request.url);
+
     const pdfBuffer = buildSommationPDF(
       student,
       student.parent,
@@ -623,6 +619,7 @@ export async function POST(request: NextRequest) {
       totalRemaining,
       qrCodeDataUrl,
       verifyCode,
+      edugestLogoBase64,
     )
 
     const studentName = `${student.lastName}-${student.firstName}`.replace(/\s+/g, '_')

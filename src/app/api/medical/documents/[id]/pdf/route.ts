@@ -4,6 +4,7 @@ import { requireAuth, verifySchoolAccess } from '@/lib/auth';
 import { hasFeatureAccess } from '@/lib/subscription';
 import { registerDocument, qrDataUrlForDocument } from '@/lib/document-verify';
 import { buildMedicalDocumentPDF, MedicalPdfContent } from '@/lib/pdf-medical';
+import { fetchPublicLogo } from '@/lib/pdf-logo';
 
 /**
  * PDF d'un document médical — GET /api/medical/documents/[id]/pdf
@@ -63,13 +64,18 @@ export async function GET(
       );
     }
 
-    // Logo de l'école en base64
+    // Logo de l'école en base64 (origin de la requête : fiable partout —
+    // localhost, exe 127.0.0.1:port, domaine Workers)
     let schoolLogoBase64: string | null = null;
     if (doc.school.logo) {
       try {
+        let assetOrigin = '';
+        try {
+          assetOrigin = new URL(request.url).origin;
+        } catch { /* ignore */ }
         const logoUrl = doc.school.logo.startsWith('http')
           ? doc.school.logo
-          : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${doc.school.logo}`;
+          : `${assetOrigin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${doc.school.logo}`;
         const logoRes = await fetch(logoUrl);
         if (logoRes.ok) {
           const logoBuffer = Buffer.from(await logoRes.arrayBuffer());
@@ -99,6 +105,9 @@ export async function GET(
     let content: MedicalPdfContent = {};
     try { content = JSON.parse(doc.content || '{}') as MedicalPdfContent; } catch { content = {}; }
 
+    // Logo EduGest via assets publics (jamais fs : compatible Workers)
+    const edugestLogo = await fetchPublicLogo(request.url);
+
     const pdfBuffer = buildMedicalDocumentPDF(
       {
         docCode: doc.docCode,
@@ -110,7 +119,8 @@ export async function GET(
       doc.student,
       doc.school,
       schoolLogoBase64,
-      qrCodeDataUrl
+      qrCodeDataUrl,
+      edugestLogo ? edugestLogo.dataUrl : null
     );
 
     const filename = `${doc.docCode.toLowerCase()}-${doc.type.toLowerCase().replace(/_/g, '-')}.pdf`;
