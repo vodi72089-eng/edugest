@@ -11,7 +11,7 @@
  *
  * Usage : `node scripts/copy-standalone-assets.mjs` (après `next build`).
  */
-import { cpSync, existsSync, rmSync, readFileSync } from 'node:fs';
+import { cpSync, existsSync, rmSync, readFileSync, readdirSync, mkdirSync, copyFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +25,23 @@ const jobs = [
 ];
 
 let failed = false;
+/** Copie récursive tolérante : ignore les fichiers spéciaux/verrouillés
+ *  (chunks Turbopack `[externals]_node`, `.tmp` du moteur Prisma...). */
+function copyDirTolerant(from, to) {
+  const walk = (src, dest) => {
+    mkdirSync(dest, { recursive: true });
+    for (const ent of readdirSync(src, { withFileTypes: true })) {
+      const s = join(src, ent.name);
+      const d = join(dest, ent.name);
+      try {
+        if (ent.isDirectory()) walk(s, d);
+        else if (ent.isFile() || ent.isSymbolicLink()) copyFileSync(s, d);
+        // sockets/FIFO/autres spéciaux : ignorés
+      } catch { /* fichier verrouillé ou supprimé entre-temps : ignoré */ }
+    }
+  };
+  walk(from, to);
+}
 for (const [from, to] of jobs) {
   if (!existsSync(from)) {
     console.error(`[copy-standalone-assets] introuvable : ${from}`);
@@ -39,19 +56,7 @@ for (const [from, to] of jobs) {
     // → on copie fichier par fichier en ignorant les cas spéciaux
     console.warn(`[copy-standalone-assets] cpSync direct échoué (${e.code}), repli fichier par fichier`);
     try {
-      const { readdirSync, statSync, mkdirSync, copyFileSync } = await import('node:fs');
-      const walk = (src, dest) => {
-        mkdirSync(dest, { recursive: true });
-        for (const ent of readdirSync(src, { withFileTypes: true })) {
-          const s = join(src, ent.name);
-          const d = join(dest, ent.name);
-          if (ent.isDirectory()) walk(s, d);
-          else {
-            try { copyFileSync(s, d); } catch { /* chunk spécial ignoré */ }
-          }
-        }
-      };
-      walk(from, to);
+      copyDirTolerant(from, to);
       console.log(`[copy-standalone-assets] ${from} -> ${to} (repli)`);
     } catch (e2) {
       console.error(`[copy-standalone-assets] ÉCHEC copie ${from} : ${e2.message}`);
@@ -114,7 +119,12 @@ function copyPkgClosure(roots, destNodeModules) {
   for (const [name, dir] of seen) {
     const target = join(destNodeModules, ...name.split('/'));
     if (existsSync(target)) rmSync(target, { recursive: true, force: true });
-    cpSync(dir, target, { recursive: true });
+    try {
+      cpSync(dir, target, { recursive: true });
+    } catch {
+      // Fichiers temporaires/verrouillés (ex. query_engine-*.tmp) : repli tolérant
+      copyDirTolerant(dir, target);
+    }
   }
   return [...seen.keys()];
 }

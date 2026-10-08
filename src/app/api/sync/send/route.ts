@@ -14,9 +14,15 @@ export const dynamic = 'force-dynamic';
 // Auth double :
 //  1) LOCALE : session exe (l'utilisateur est connecté dans l'app) —
 //     détermine QUELLE école locale envoyer (ou body.localSchoolId pour SAG).
-//  2) PLATEFORME : email + mot de passe du compte plateforme (transmis en
-//     mémoire uniquement, jamais stockés) — ouvre une session Neon dont le
-//     cookie est relayé vers /api/sync/push (insert-only, jamais d'écrasement).
+//     Si body.localSchoolId est fourni par un non-SAG, il doit matcher
+//     l'école de la session (sinon 403) — l'envoi auto passe toujours
+//     l'école du couple configuré.
+//  2) PLATEFORME, au choix :
+//     a) Jeton de sync (POST /api/sync/token, stocké dans l'exe à
+//        l'activation — voie AUTOMATIQUE, aucun mot de passe manipulé) ;
+//     b) Email + mot de passe du compte plateforme, transmis en mémoire
+//        uniquement, jamais stockés (voie MANUELLE ponctuelle).
+//     Dans les deux cas le push Neon reste insert-only (jamais d'écrasement).
 //
 // Refusé hors Electron (même garde que POST /api/school/import-db).
 
@@ -60,8 +66,9 @@ export async function POST(request: NextRequest) {
     const issuer = normalizeIssuer(body?.issuerUrl);
     const email = String(body?.email || '').trim();
     const password = String(body?.password || '');
-    if (!issuer || !email || !password) {
-      return err('Adresse de la plateforme, email et mot de passe requis', 400);
+    const syncToken = String(body?.syncToken || '').trim();
+    if (!issuer || (!syncToken && (!email || !password))) {
+      return err('Adresse de la plateforme + (jeton de sync ou email et mot de passe) requis', 400);
     }
 
     let localSchoolId: string | null = null;
@@ -72,6 +79,11 @@ export async function POST(request: NextRequest) {
       localSchoolId = body.localSchoolId;
     } else if (user.schoolId) {
       localSchoolId = user.schoolId;
+      // L'école locale envoyée doit être celle de la session (anti-mélange
+      // si plusieurs écoles partagent la machine).
+      if (typeof body.localSchoolId === 'string' && body.localSchoolId && body.localSchoolId !== user.schoolId) {
+        return err('École locale refusée', 403);
+      }
     } else {
       return err('École locale non trouvée', 404);
     }
@@ -81,31 +93,38 @@ export async function POST(request: NextRequest) {
       return err('Trop d’envois — réessayez dans une heure', 429);
     }
 
-    // ── 1) Session plateforme (cookie relayé, jamais stocké) ────────────
+    // ── 1) Authentification plateforme ──────────────────────────────────
+    // Voie jeton (auto) : relayé en Bearer. Voie manuelle : session ouverte
+    // ici (cookie relayé, jamais stocké).
     let platformCookie = '';
+    let platformBearer = '';
     try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 20000);
-      let loginRes: Response;
-      try {
-        loginRes = await fetch(`${issuer}/api/auth`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-          signal: ctrl.signal,
-        });
-      } finally {
-        clearTimeout(timer);
+      if (syncToken) {
+        platformBearer = syncToken;
+      } else {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 20000);
+        let loginRes: Response;
+        try {
+          loginRes = await fetch(`${issuer}/api/auth`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+            signal: ctrl.signal,
+          });
+        } finally {
+          clearTimeout(timer);
+        }
+        if (!loginRes.ok) {
+          return err('Identifiants plateforme refusés (vérifiez email/mot de passe)', 401);
+        }
+        const rawCookies: string[] =
+          typeof (loginRes.headers as any).getSetCookie === 'function'
+            ? (loginRes.headers as any).getSetCookie()
+            : (loginRes.headers.get('set-cookie') || '').split(/,(?=[^;,]+=)/);
+        platformCookie = rawCookies.map(c => c.split(';')[0].trim()).filter(Boolean).join('; ');
+        if (!platformCookie) return err('Session plateforme illisible', 502);
       }
-      if (!loginRes.ok) {
-        return err('Identifiants plateforme refusés (vérifiez email/mot de passe)', 401);
-      }
-      const rawCookies: string[] =
-        typeof (loginRes.headers as any).getSetCookie === 'function'
-          ? (loginRes.headers as any).getSetCookie()
-          : (loginRes.headers.get('set-cookie') || '').split(/,(?=[^;,]+=)/);
-      platformCookie = rawCookies.map(c => c.split(';')[0].trim()).filter(Boolean).join('; ');
-      if (!platformCookie) return err('Session plateforme illisible', 502);
     } catch {
       return err('Plateforme injoignable — vérifiez internet et l’adresse', 502);
     }
@@ -194,7 +213,12 @@ export async function POST(request: NextRequest) {
       try {
         pushRes = await fetch(`${issuer}/api/sync/push`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Cookie: platformCookie },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(platformBearer
+              ? { Authorization: `Bearer ${platformBearer}` }
+              : { Cookie: platformCookie }),
+          },
           body: JSON.stringify({ changes }),
           signal: ctrl.signal,
         });

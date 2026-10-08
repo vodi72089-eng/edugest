@@ -13,10 +13,12 @@ export const dynamic = 'force-dynamic';
 // - seuls les rôles TEACHER/HEAD_TEACHER/PARENT sont créés côté comptes
 //   (jamais d'admin/secrétaire/caissier — pas d'élévation de privilèges).
 //
-// Auth : session SCHOOL_ADMIN (école = la sienne) ou SUPER_ADMIN_GLOBAL
-// (école = body.schoolId explicite).
-// Transport : l'exe s'authentifie avec email+mot de passe plateforme via
-// POST /api/sync/send (serveur local) qui relaye le cookie de session.
+// Auth : session SCHOOL_ADMIN (école = la sienne), SUPER_ADMIN_GLOBAL
+// (école = body.schoolId explicite), OU jeton de sync Bearer
+// (POST /api/sync/token — exe en envoi automatique, école = celle du jeton).
+// Transport : l'exe s'authentifie une fois via POST /api/sync/token puis
+// réutilise le jeton ; l'envoi manuel via POST /api/sync/send (serveur local)
+// relaye soit le cookie de session, soit ce jeton.
 
 const MAX_BODY_CHARS = 3_000_000; // ~3 Mo — envoyer par petits lots au-delà
 const MAX_ROWS_PER_TABLE = 2000;
@@ -31,9 +33,25 @@ const asArray = (v: unknown): any[] => (Array.isArray(v) ? v.slice(0, MAX_ROWS_P
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireAuth(request);
-    if ('error' in authResult) return authResult.error;
-    const { user } = authResult;
+    // 1) Jeton de sync ? ( Authorization: Bearer <jwt maison> )
+    let tokenSchoolId: string | null = null;
+    const authHeader = request.headers.get('authorization') || '';
+    if (authHeader.startsWith('Bearer ')) {
+      try {
+        const { verifySyncToken } = await import('@/lib/sync-token');
+        const v = verifySyncToken(authHeader.slice(7).trim());
+        if (v) tokenSchoolId = v.schoolId;
+      } catch {
+        // ignore : repli session ci-dessous (401 si vraiment invalide)
+      }
+    }
+
+    let user: import('@/lib/auth').AuthUser | null = null;
+    if (!tokenSchoolId) {
+      const authResult = await requireAuth(request);
+      if ('error' in authResult) return authResult.error;
+      user = authResult.user;
+    }
 
     let body: any = null;
     try {
@@ -46,9 +64,14 @@ export async function POST(request: NextRequest) {
       return err('Lot trop volumineux (3 Mo max — envoyez par petits lots)', 413);
     }
 
-    // École cible : celle de l'admin, ou schoolId explicite (SAG uniquement).
+    // École cible : celle du jeton, de l'admin, ou schoolId explicite (SAG).
     let schoolId: string | null = null;
-    if (user.role === 'SUPER_ADMIN_GLOBAL') {
+    if (tokenSchoolId) {
+      if (body.schoolId && body.schoolId !== tokenSchoolId) return err('schoolId du lot refusé', 403);
+      schoolId = tokenSchoolId;
+    } else if (!user) {
+      return err('Session requise', 401);
+    } else if (user.role === 'SUPER_ADMIN_GLOBAL') {
       if (typeof body.schoolId !== 'string' || !body.schoolId) return err('schoolId requis (SAG)', 400);
       schoolId = body.schoolId;
     } else if (user.role === 'SCHOOL_ADMIN') {
@@ -350,7 +373,10 @@ export async function POST(request: NextRequest) {
       const totalApplied = Object.values(applied).reduce((s, n) => s + n, 0);
       await db.auditLog.create({
         data: {
-          userId: user.id, userName: user.name, userRole: user.role,
+          // Voie jeton : pas d'utilisateur connecté — traçabilité via le lot.
+          userId: user?.id || `sync-token:${schoolId}`,
+          userName: user?.name || 'Synchronisation auto (jeton)',
+          userRole: user?.role || 'SYNC_TOKEN',
           action: 'SYNC_PUSH', entityType: 'School', entityId: schoolId,
           details: `Sync Neon (${school.name}) : ${totalApplied} lignes insérées — ${JSON.stringify(applied)}`,
         },

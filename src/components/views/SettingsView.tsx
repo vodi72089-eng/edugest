@@ -9,63 +9,76 @@ import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera,
 import PersonalizationView from './PersonalizationView'
 import HelpView from './HelpView'
 import { toast } from 'sonner'
+import {
+  activateAutoSync, clearSyncConfig, readSyncConfig, readSyncLast,
+  runAutoSync, DEFAULT_PLATFORM_URL,
+  type SyncAutoConfig, type SyncLastResult,
+} from '@/lib/sync-auto'
 import { detectDevice, formatDeviceTitle, formatDeviceSummary, isLoopbackIp } from '@/lib/detect-device'
 import CurrentDeviceInfo from '@/components/CurrentDeviceInfo'
 import AppSelect from '@/components/ui/AppSelect'
 import { getTierLimits } from '@/lib/subscription'
 import type { SchoolPhotoData } from '@/lib/types'
 
-/* ── Synchronisation vers Neon (exe uniquement) ───────────────────────────
-   Envoie les lignes créées hors-ligne vers la plateforme quand internet est
-   présent. INSERT-ONLY : jamais d'écrasement, doublons ignorés, comptes
-   limités aux enseignants/parents. Le mot de passe plateforme n'est ni
-   affiché ni stocké (mémoire de la requête uniquement). */
+/* ── Synchronisation automatique vers Neon (exe uniquement) ───────────────
+   Activation UNIQUE (mot de passe jamais stocké) → jeton lié à l'école.
+   Ensuite l'exe envoie tout seul dès qu'internet revient (boucle 10 min +
+   retour réseau). Insertion seule côté Neon : jamais d'écrasement. */
 function SyncNeonSection() {
-  const [issuerUrl, setIssuerUrl] = useState(() => {
-    try { return localStorage.getItem('edugest_sync_issuer') || '' } catch { return '' }
-  });
-  const [email, setEmail] = useState(() => {
-    try { return localStorage.getItem('edugest_sync_email') || '' } catch { return '' }
-  });
+  const [cfg, setCfg] = useState<SyncAutoConfig | null>(() => readSyncConfig());
+  const [issuerUrl, setIssuerUrl] = useState(DEFAULT_PLATFORM_URL);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [sending, setSending] = useState(false);
-  const [result, setResult] = useState<{ applied?: Record<string, number>; skipped?: Record<string, number>; errors?: string[] } | null>(null);
+  const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
+  const [last, setLast] = useState<SyncLastResult | null>(() => readSyncLast());
+  const [manualResult, setManualResult] = useState<string>('');
 
-  async function handleSend() {
+  async function handleActivate() {
     setError('');
-    setResult(null);
-    if (!issuerUrl.trim() || !email.trim() || !password) {
-      setError('Indiquez l’adresse de la plateforme, votre email et votre mot de passe.');
+    setManualResult('');
+    if (!email.trim() || !password) {
+      setError('Indiquez votre email et votre mot de passe.');
       return;
     }
-    setSending(true);
+    setWorking(true);
     try {
-      try {
-        localStorage.setItem('edugest_sync_issuer', issuerUrl.trim());
-        localStorage.setItem('edugest_sync_email', email.trim());
-      } catch { /* ignore */ }
-      const res = await authFetch('/api/sync/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ issuerUrl: issuerUrl.trim(), email: email.trim(), password }),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok || !j?.data) {
-        setError(j?.error || `Envoi refusé (${res.status})`);
-        return;
-      }
-      setResult(j.data);
-      toast.success('Synchronisation terminée');
-    } catch {
-      setError('Plateforme injoignable — vérifiez internet et l’adresse.');
-    } finally {
-      setSending(false);
+      const c = await activateAutoSync(issuerUrl, email, password);
+      setCfg(c);
       setPassword('');
+      toast.success(`Synchronisation activée pour ${c.neonSchoolName || 'votre école'}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Activation impossible');
+    } finally {
+      setWorking(false);
     }
   }
 
-  const totalApplied = result?.applied ? Object.values(result.applied).reduce((s, n) => s + (n || 0), 0) : 0;
+  async function handleManual() {
+    setError('');
+    setManualResult('');
+    setWorking(true);
+    try {
+      const out = await runAutoSync();
+      setLast(readSyncLast());
+      if (out.ok) {
+        setManualResult(out.message);
+        toast.success(out.message);
+      } else {
+        setError(out.message);
+      }
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  function handleDisable() {
+    clearSyncConfig();
+    setCfg(null);
+    setLast(null);
+    setManualResult('');
+    toast.success('Synchronisation automatique désactivée');
+  }
 
   return (
     <div className="rounded-2xl p-5 mb-6 border" style={{ borderColor: 'rgba(60,145,100,0.35)', background: 'linear-gradient(135deg, rgba(60,145,100,0.08), rgba(60,145,100,0.02))' }}>
@@ -74,55 +87,73 @@ function SyncNeonSection() {
           <RefreshCw size={18} style={{ color: SUCCESS }} aria-hidden="true" />
         </div>
         <div>
-          <p className="font-bold text-[15px]" style={{ color: TEXT_PRIMARY }}>Synchroniser vers Neon</p>
+          <p className="font-bold text-[15px]" style={{ color: TEXT_PRIMARY }}>Synchronisation automatique</p>
           <p className="text-[12.5px] leading-relaxed mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>
-            Quand internet est présent, envoie les lignes créées hors-ligne (années, classes,
-            matières, enseignants/parents, élèves, notes, frais) vers la plateforme.
-            Insertion seule : jamais d’écrasement, doublons ignorés.
+            {cfg
+              ? `Active pour ${cfg.neonSchoolName || 'votre école'} : l’application envoie toute seule les nouveautés dès qu’internet revient.`
+              : 'Travaillez hors-ligne normalement : dès qu’internet revient, l’application envoie toute seule les nouveautés à la plateforme.'}
           </p>
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-        <div>
-          <label className="text-xs font-medium block mb-1" style={{ color: TEXT_MUTED_LUXE }}>Adresse de la plateforme</label>
-          <input value={issuerUrl} onChange={e => setIssuerUrl(e.target.value)} placeholder="https://…" className="w-full rounded-xl px-3 py-2 text-sm outline-none bg-white" style={{ border: '1px solid oklch(88% 0.06 75)', color: TEXT_PRIMARY }} />
-        </div>
-        <div>
-          <label className="text-xs font-medium block mb-1" style={{ color: TEXT_MUTED_LUXE }}>Email (compte plateforme)</label>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@ecole.cd" className="w-full rounded-xl px-3 py-2 text-sm outline-none bg-white" style={{ border: '1px solid oklch(88% 0.06 75)', color: TEXT_PRIMARY }} />
-        </div>
-        <div>
-          <label className="text-xs font-medium block mb-1" style={{ color: TEXT_MUTED_LUXE }}>Mot de passe (non stocké)</label>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="w-full rounded-xl px-3 py-2 text-sm outline-none bg-white" style={{ border: '1px solid oklch(88% 0.06 75)', color: TEXT_PRIMARY }} />
-        </div>
-      </div>
-      {error && (
-        <div className="rounded-xl px-4 py-3 text-[13px] mb-3" style={{ background: 'rgba(186,26,26,0.08)', border: '1px solid rgba(186,26,26,0.35)', color: '#b91c1c' }}>{error}</div>
-      )}
-      {result && (
-        <div className="rounded-xl px-4 py-3 text-[13px] mb-3" style={{ background: 'rgba(60,145,100,0.1)', border: '1px solid rgba(60,145,100,0.35)', color: TEXT_PRIMARY }}>
-          <p className="font-semibold mb-1">{totalApplied} ligne{totalApplied > 1 ? 's' : ''} insérée{totalApplied > 1 ? 's' : ''} sur Neon</p>
-          <p className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>
-            Appliqué : {Object.entries(result.applied || {}).map(([k, v]) => `${k}×${v}`).join(', ') || '—'}
-            {result.skipped && Object.keys(result.skipped).length > 0 && (
-              <> · Déjà présents : {Object.entries(result.skipped).map(([k, v]) => `${k}×${v}`).join(', ')}</>
-            )}
-          </p>
-          {(result.errors || []).length > 0 && (
-            <ul className="text-[12px] mt-1 list-disc ml-4" style={{ color: '#b91c1c' }}>
-              {(result.errors || []).slice(0, 5).map((m, i) => <li key={i}>{m}</li>)}
-            </ul>
+      {!cfg ? (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+            <div>
+              <label className="text-xs font-medium block mb-1" style={{ color: TEXT_MUTED_LUXE }}>Adresse de la plateforme</label>
+              <input value={issuerUrl} onChange={e => setIssuerUrl(e.target.value)} placeholder="https://…" className="w-full rounded-xl px-3 py-2 text-sm outline-none bg-white" style={{ border: '1px solid oklch(88% 0.06 75)', color: TEXT_PRIMARY }} />
+            </div>
+            <div>
+              <label className="text-xs font-medium block mb-1" style={{ color: TEXT_MUTED_LUXE }}>Email (compte plateforme)</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@ecole.cd" className="w-full rounded-xl px-3 py-2 text-sm outline-none bg-white" style={{ border: '1px solid oklch(88% 0.06 75)', color: TEXT_PRIMARY }} />
+            </div>
+            <div>
+              <label className="text-xs font-medium block mb-1" style={{ color: TEXT_MUTED_LUXE }}>Mot de passe (demandé une seule fois)</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="w-full rounded-xl px-3 py-2 text-sm outline-none bg-white" style={{ border: '1px solid oklch(88% 0.06 75)', color: TEXT_PRIMARY }} />
+            </div>
+          </div>
+          {error && (
+            <div className="rounded-xl px-4 py-3 text-[13px] mb-3" style={{ background: 'rgba(186,26,26,0.08)', border: '1px solid rgba(186,26,26,0.35)', color: '#b91c1c' }}>{error}</div>
           )}
-        </div>
+          <button
+            onClick={handleActivate}
+            disabled={working}
+            className="px-5 py-2.5 rounded-xl text-[13px] font-semibold text-white transition disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, #2f7d4f, #3c9164)' }}
+          >
+            {working ? 'Activation…' : 'Activer la synchronisation'}
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="rounded-xl px-4 py-3 text-[13px] mb-3" style={{ background: 'rgba(60,145,100,0.1)', border: '1px solid rgba(60,145,100,0.35)', color: TEXT_PRIMARY }}>
+            <p className="font-semibold">Active{last?.ok === false ? ' — dernier envoi en échec' : ''}</p>
+            <p className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>
+              {last ? `Dernier envoi : ${new Date(last.at).toLocaleString('fr-FR')} — ${last.message}` : 'Aucun envoi pour le moment.'}
+              {manualResult ? ` · ${manualResult}` : ''}
+            </p>
+          </div>
+          {error && (
+            <div className="rounded-xl px-4 py-3 text-[13px] mb-3" style={{ background: 'rgba(186,26,26,0.08)', border: '1px solid rgba(186,26,26,0.35)', color: '#b91c1c' }}>{error}</div>
+          )}
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={handleManual}
+              disabled={working}
+              className="px-5 py-2.5 rounded-xl text-[13px] font-semibold text-white transition disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #2f7d4f, #3c9164)' }}
+            >
+              {working ? 'Envoi en cours…' : 'Synchroniser maintenant'}
+            </button>
+            <button
+              onClick={handleDisable}
+              className="px-5 py-2.5 rounded-xl text-[13px] font-semibold transition"
+              style={{ border: '1px solid oklch(88% 0.06 75)', color: TEXT_MUTED_LUXE }}
+            >
+              Désactiver
+            </button>
+          </div>
+        </>
       )}
-      <button
-        onClick={handleSend}
-        disabled={sending}
-        className="px-5 py-2.5 rounded-xl text-[13px] font-semibold text-white transition disabled:opacity-50"
-        style={{ background: 'linear-gradient(135deg, #2f7d4f, #3c9164)' }}
-      >
-        {sending ? 'Envoi en cours…' : 'Envoyer vers Neon'}
-      </button>
     </div>
   );
 }

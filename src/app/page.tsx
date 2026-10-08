@@ -9,6 +9,7 @@ import { resolveNotifView, notifSoundLevel } from '@/lib/notification-routing'
 import { viewToPath, pathToView } from '@/lib/view-paths'
 import { toast } from 'sonner'
 import { savePdfBlob, savePdfUrl, toastPdfSaved } from '@/lib/desktop-files'
+import { startAutoSyncLoop } from '@/lib/sync-auto'
 import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
 import { isWindowsDesktop } from '@/lib/detect-device'
 import { GATEWAY_API_INFO } from '@/lib/gateway-api-info'
@@ -16,6 +17,7 @@ import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, Discip
 import { ACCENT, ACCENT2, ACCENT_SOFT, SUCCESS, WARNING, DANGER, INFO, MUTED, BORDER, GOLD, GOLD_SOFT, GOLD_GLOW, DARK, DARK_ALT, IVORY, IVORY_WARM, TEXT_PRIMARY, TEXT_MUTED_LUXE, SUCCESS_SOFT, SUBSCRIPTION_TIERS, PROVINCES, FILTER_CHIPS, COVER_GRADIENTS, LOGO_COLORS, ENROLLMENT_DATA, SUBSCRIPTION_DATA } from '@/lib/constants'
 import { getInitials, formatDate, formatNumber, formatCurrency, getSchoolTypeLabel, getSubscriptionLabel, getSubscriptionPrice, getRoleLabel, getStatusPill, API_ROLE_MAP } from '@/lib/helpers'
 import { setCurrencyDisplay, subscribeCurrency, getCurrencyVersion } from '@/lib/currency-display'
+import { SUPPORTED_CURRENCIES } from '@/lib/exchange-rate'
 import { EDUCATIONAL_SYSTEMS_LIST } from '@/lib/educational-systems'
 import StudentAvatar from '@/components/ui/StudentAvatar'
 import AppSelect from '@/components/ui/AppSelect';
@@ -2313,9 +2315,10 @@ function LoginView() {
           {/* Téléchargement de l'app desktop (EXE Windows) — URL directe de la
               release (Content-Disposition: attachment) : le clic déclenche le
               téléchargement sans quitter le site, aucun onglet GitHub.
-              AFFICHÉ UNIQUEMENT sur ordinateur Windows (isWindowsPC) : sur
-              téléphone/tablette/macOS/Linux le bouton n'apparaît pas du tout. */}
-          {isWindowsPC && (
+              AFFICHÉ UNIQUEMENT sur ordinateur Windows hors exe (isWindowsPC
+              et pas isDesktopApp) : inutile dans l'exe déjà installé, et absent
+              téléphone/tablette/macOS/Linux. */}
+          {isWindowsPC && !isDesktopApp() && (
             <button
               type="button"
               onClick={downloadWindowsApp}
@@ -4256,6 +4259,18 @@ function DashboardLayout() {
     setShowImportDb(false)
     setShowDesktopOnly(false)
   }
+  // Synchronisation automatique exe → Neon : si activée dans Paramètres,
+  // envoie toute seule les nouveautés dès qu'internet revient (boucle
+  // 10 min + retour réseau). Silencieuse : le statut est visible dans
+  // Paramètres. Sans jeton configuré : rien ne part.
+  useEffect(() => {
+    let stop: (() => void) | undefined
+    try {
+      stop = startAutoSyncLoop()
+    } catch { /* sync désactivée */
+    }
+    return () => { try { stop?.() } catch {} }
+  }, [])
   return (
     <div className={`min-h-screen grid grid-cols-1 ${sidebarVisible ? 'lg:grid-cols-[240px_1fr]' : ''}`} style={{ background: IVORY }}>
       {sidebarVisible && <Sidebar />}
@@ -5567,6 +5582,9 @@ function PaymentConfigView() {
       // Vue plateforme (aucune école active) : catalog + configurations de la
       // plateforme (passerelles des abonnements EduGest). loadGateways() résout
       // le skeleton via son finally — sinon il resterait affiché indéfiniment.
+      // La liste des monnaies, elle, ne dépend d'aucune école : on la charge
+      // quand même (sinon tous les selects « Monnaie » restent vides).
+      setSupportedCurrencies(SUPPORTED_CURRENCIES)
       loadGateways()
       return
     }
@@ -6055,6 +6073,11 @@ function PaymentConfigView() {
       {/* Currency Tab */}
       {activeTab === 'currency' && (
         <div className="space-y-6">
+          {!getActiveSchoolId() && (
+            <div className="border rounded-xl p-4 bg-amber-50 text-sm text-amber-800" style={{ borderColor: '#f5d78e' }}>
+              <span className="font-semibold">Aucune école active.</span> Les monnaies s&apos;affichent, mais pour charger et sauvegarder la configuration d&apos;une école, sélectionnez d&apos;abord une école active dans la barre latérale.
+            </div>
+          )}
           {/* Currency Configuration */}
           <div className="border rounded-xl p-5 bg-white">
             <h3 className="font-semibold mb-4">Configuration des monnaies</h3>
