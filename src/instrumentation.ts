@@ -242,7 +242,13 @@ function buildPreloadList(): Promise<unknown>[] {
     import('./app/api/reset/route'),
     import('./app/api/route'),
     import('./app/api/school/design/route'),
-    import('./app/api/school/import-db/route'),
+    // EXCLUE du préchargement : cette route importe better-sqlite3 (module
+    // NATIF Node) — son évaluation ferait échouer le bundle Edge Instrumentation
+    // de la CI (« Module not found: Can't resolve (<dynamic> | 'null')" dans
+    // better-sqlite3/lib/binding.js). Sur Workers la route est de toute façon
+    // inopérante (EXE-only) : son import y est rejeté, ce qui purge __loading
+    // automatiquement — pas de risque de wedge.
+    // import('./app/api/school/import-db/route'),
     import('./app/api/school-comments/route'),
     import('./app/api/school-currency/route'),
     import('./app/api/school-fees/[id]/route'),
