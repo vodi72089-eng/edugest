@@ -63,7 +63,12 @@ export async function GET(req: NextRequest) {
     const q = searchParams.get('q')?.trim();
     const limit = Math.min(parseInt(searchParams.get('limit') || '200', 10) || 200, 500);
 
-    const whereClause: any = { schoolId: user.schoolId! };
+    // Super admin plateforme (aucune école attachée) : vue transverse — un
+    // `schoolId: null` dans un where Prisma est une erreur de validation (500
+    // constaté le 10/10/2026 sur GET sans paramètres). Les autres rôles
+    // (ALLOWED_ROLES hors SUPER_ADMIN_GLOBAL) sont tous rattachés à une école.
+    const whereClause: any =
+      user.role === 'SUPER_ADMIN_GLOBAL' ? {} : { schoolId: user.schoolId! };
     if (type && ALLOWED_TYPES.includes(type)) whereClause.type = type;
     if (studentId) whereClause.studentId = studentId;
     if (q) {
