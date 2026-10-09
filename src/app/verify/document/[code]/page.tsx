@@ -1,4 +1,4 @@
-import { getVerificationRecord } from '@/lib/document-verify';
+import { getVerificationRecord } from '@/lib/verify-record';
 import { db } from '@/lib/db';
 import { ShieldCheck, ShieldX, School, FileText, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
@@ -14,24 +14,36 @@ function formatDate(d: Date | null | undefined): string {
   return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(d));
 }
 
+// Bornes la requête : workerd annule et BLOQUE l'isolat quand une requête ne
+// produit aucune réponse (« code had hung ») — typiquement si Neon met trop de
+// temps (réveil de la base). Avec ce garde-fou, la page répond quand même
+// (« non reconnu ») au lieu de déclencher l'annulation qui empoisonne l'isolat.
+// Voir verify-record.ts pour le mécanisme complet.
+const QUERY_TIMEOUT_MS = 8000;
+async function safeQuery<T>(query: Promise<T>): Promise<T | null> {
+  try {
+    return await Promise.race([
+      query.catch(() => null),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), QUERY_TIMEOUT_MS)),
+    ]);
+  } catch {
+    return null;
+  }
+}
+
 export default async function VerifyDocumentPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  let record: Awaited<ReturnType<typeof getVerificationRecord>> = null;
-  try {
-    record = await getVerificationRecord(code);
-  } catch {
-    record = null;
-  }
+  const record = await safeQuery(getVerificationRecord(code));
 
   // enrichir l'élève si présent
   let student: { firstName: string; lastName: string; matricule: string } | null = null;
   if (record?.studentId) {
-    try {
-      student = await db.student.findUnique({
+    student = await safeQuery(
+      db.student.findUnique({
         where: { id: record.studentId },
         select: { firstName: true, lastName: true, matricule: true },
-      });
-    } catch { student = null; }
+      }),
+    );
   }
 
   interface DocMeta {

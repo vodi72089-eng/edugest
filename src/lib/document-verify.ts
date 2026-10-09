@@ -155,14 +155,6 @@ export async function qrDataUrlForDocument(code: string): Promise<string> {
   });
 }
 
-/** Lit un enregistrement de vérification par son code (utilisé par la page publique). */
-export async function getVerificationRecord(code: string) {
-  return db.documentVerification.findUnique({
-    where: { id: code },
-    include: {
-      school: {
-        select: { name: true, shortName: true, logo: true, address: true, city: true, country: true },
-      },
-    },
-  });
-}
+// getVerificationRecord a été déplacé dans @/lib/verify-record : la page publique
+// /verify/document/[code] ne doit PAS importer ce module (graphe lourd avec QRCode
+// → fenêtre d'évaluation trop longue sur Workers, voir verify-record.ts).
