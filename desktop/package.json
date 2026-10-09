@@ -1,7 +1,7 @@
-{
+﻿{
   "name": "edugest-desktop",
-  "version": "1.4.15",
-  "description": "EduGest — La plateforme de gestion scolaire (application de bureau)",
+  "version": "1.4.16",
+  "description": "EduGest â€” La plateforme de gestion scolaire (application de bureau)",
   "main": "main.js",
   "author": "EduGest",
   "license": "MIT",
@@ -17,7 +17,7 @@
   "build": {
     "appId": "cd.edugest.desktop",
     "productName": "EduGest",
-    "copyright": "Copyright © 2026 EduGest",
+    "copyright": "Copyright Â© 2026 EduGest",
     "directories": {
       "output": "dist",
       "buildResources": "."
