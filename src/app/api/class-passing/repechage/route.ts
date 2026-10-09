@@ -6,6 +6,7 @@ import { hasFeatureGrant } from '@/lib/platform-email'
 import { notify } from '@/lib/notify'
 import { notifyRepechage } from '@/lib/whatsapp-agent'
 import { notifyPassingUpdateToAdmins } from '@/lib/passing-notify'
+import { pinAfter } from '@/lib/request-pin'
 import { NextRequest, NextResponse } from 'next/server'
 
 // Repêchage réservé aux administrateurs d'école (SCHOOL_ADMIN)
@@ -307,8 +308,11 @@ export async function POST(request: NextRequest) {
       whatsappDetail = 'Envoi WhatsApp désactivé'
     }
 
-    // c) Notification admins (in-app + email) — mise à jour du passage de classe, non bloquant
-    void notifyPassingUpdateToAdmins({
+    // c) Notification admins (in-app + email) - mise à jour du passage de classe, non bloquant
+    // pinAfter OBLIGATOIRE : notifyPassingUpdateToAdmins touche Prisma en
+    // arrière-plan — sans épingle after(), workerd abandonne sa continuation
+    // quand la réponse part → poison d'isolat (toutes les requêtes DB gèlent).
+    pinAfter(notifyPassingUpdateToAdmins({
       type: 'CLASS_PASSING',
       title: 'Passage de classe — repêchage envoyé',
       message: `${student.firstName} ${student.lastName} (${student.class?.name ?? 'classe non définie'}) — examens de repêchage créés pour ${parsedSubjects.length} matière(s) et envoyés aux parents.`,
@@ -316,7 +320,7 @@ export async function POST(request: NextRequest) {
       schoolName: (await db.school.findUnique({ where: { id: student.schoolId }, select: { name: true } }))?.name ?? null,
       relatedId: repechageExam.id,
       excludeUserId: user.id,
-    });
+    }));
 
     repechageExam = await db.repechageExam.update({
       where: { id: repechageExam.id },

@@ -4,6 +4,7 @@ import { requireAuth, verifySchoolAccess, sanitizeError } from '@/lib/auth';
 import { hasFeatureAccess } from '@/lib/subscription';
 import { generateDocCode } from '@/lib/doc-codes';
 import { getMedicalDocCodePrefix } from '@/lib/pdf-medical';
+import { pinAfter } from '@/lib/request-pin';
 
 /**
  * Documents médicaux officiels (dispenses, fiches de santé, registres).
@@ -154,8 +155,11 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Notification Parent + SCHOOL_ADMIN (resolver) — non bloquant.
-    void notifyMedicalDocumentCreated(created.id, type, studentId || null, user.id, user.schoolId || studentSchoolId);
+    // Notification Parent + SCHOOL_ADMIN (resolver) - non bloquant.
+    // pinAfter OBLIGATOIRE (request-pin.ts) : notifyMedicalDocumentCreated
+    // touche Prisma en arrière-plan — sans épingle after(), workerd abandonne
+    // la continuation quand la réponse part → poison d'isolat (1101).
+    pinAfter(notifyMedicalDocumentCreated(created.id, type, studentId || null, user.id, user.schoolId || studentSchoolId));
 
     return NextResponse.json({
       data: { ...created, content: safeParse(created.content) },

@@ -14,36 +14,35 @@ function formatDate(d: Date | null | undefined): string {
   return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(d));
 }
 
-// Bornes la requête : workerd annule et BLOQUE l'isolat quand une requête ne
-// produit aucune réponse (« code had hung ») — typiquement si Neon met trop de
-// temps (réveil de la base). Avec ce garde-fou, la page répond quand même
-// (« non reconnu ») au lieu de déclencher l'annulation qui empoisonne l'isolat.
-// Voir verify-record.ts pour le mécanisme complet.
-const QUERY_TIMEOUT_MS = 8000;
-async function safeQuery<T>(query: Promise<T>): Promise<T | null> {
-  try {
-    return await Promise.race([
-      query.catch(() => null),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), QUERY_TIMEOUT_MS)),
-    ]);
-  } catch {
-    return null;
-  }
-}
+// ⚠️ Ne JAMAIS « abandonner » une requête Prisma ici (Promise.race + timeout) :
+// si la page répond avant la fin de la requête, la requête HTTP se termine
+// pendant que le fetch Neon est encore en vol → workerd abandonne la
+// continuation de résolution (drapeau no_handle_cross_request_promise_resolution)
+// → Prisma ne conclut jamais sa file de requêtes → TOUTES les requêtes DB de
+// l'isolat gèlent ensuite (1101 « code had hung » sur /api/* — constaté le
+// 09/10/2026 : chaque verify bloqué empoisonnait l'isolat entier).
+// Correctif : on attend la requête intégralement (Neon lent = page lente,
+// jamais d'isolat empoisonné) ET on l'épingle dans after() : le callback est
+// conservé par ctx.waitUntil (shim vinext unified-request-context), donc le
+// contexte de requête reste vivant même si le client se déconnecte — la
+// continuation s'exécute dans tous les cas.
+import { after } from 'next/server';
 
 export default async function VerifyDocumentPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  const record = await safeQuery(getVerificationRecord(code));
+  const recordQuery = getVerificationRecord(code);
+  after(() => recordQuery.catch(() => null));
+  const record = await recordQuery.catch(() => null);
 
   // enrichir l'élève si présent
   let student: { firstName: string; lastName: string; matricule: string } | null = null;
   if (record?.studentId) {
-    student = await safeQuery(
-      db.student.findUnique({
-        where: { id: record.studentId },
-        select: { firstName: true, lastName: true, matricule: true },
-      }),
-    );
+    const studentQuery = db.student.findUnique({
+      where: { id: record.studentId },
+      select: { firstName: true, lastName: true, matricule: true },
+    });
+    after(() => studentQuery.catch(() => null));
+    student = await studentQuery.catch(() => null);
   }
 
   interface DocMeta {

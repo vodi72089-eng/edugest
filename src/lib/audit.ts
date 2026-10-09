@@ -1,4 +1,5 @@
 import { db } from './db';
+import { pinAfter } from './request-pin';
 import crypto from 'crypto';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -112,7 +113,10 @@ export async function logAudit(entry: AuditEntry): Promise<void> {
     // Ne JAMAIS faire échouer la requête métier à cause du journal
     console.error('[AUDIT] Écriture AuditLog impossible:', e);
   }
-  void forwardToHermes({ ...entry, loggedAt });
+  // pinAfter OBLIGATOIRE (request-pin.ts) : forwardToHermes écrit en base et
+  // fetch le relais — sans épingle after(), sa continuation est abandonnée
+  // par workerd quand la réponse part → poison d'isolat (1101 « code had hung »).
+  pinAfter(forwardToHermes({ ...entry, loggedAt }));
 }
 
 // Lecture (admin plateforme + support) avec filtres simples.

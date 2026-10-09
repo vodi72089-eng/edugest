@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { sendPushToUser } from '@/lib/push';
+import { pinAfter } from '@/lib/request-pin';
 
 /**
  * Central notification helper.
@@ -41,12 +42,16 @@ export async function notify({ data }: { data: NotificationData }) {
   });
 
   // Real browser push (non-blocking, errors swallowed inside)
-  sendPushToUser(data.userId, {
+  // pinAfter OBLIGATOIRE : sendPushToUser exécute db.pushSubscription.findMany
+  // — sans épingle after(), workerd abandonne la continuation quand la réponse
+  // métier part → Prisma ne conclut jamais sa file → TOUTES les requêtes DB
+  // suivantes de l'isolat gèlent (1101 « code had hung » — constaté en prod).
+  pinAfter(sendPushToUser(data.userId, {
     title: data.title,
     body: data.message,
     tag: notification.id,
     url: '/',
-  }).catch(() => {});
+  }).catch(() => {}));
 
   return notification;
 }

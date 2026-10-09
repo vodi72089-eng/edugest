@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { notifyBulletin } from '@/lib/whatsapp-agent';
 import { notifyPassingUpdateToAdmins } from '@/lib/passing-notify';
 import { requireFeature } from '@/lib/feature-gate';
+import { pinAfter } from '@/lib/request-pin';
 
 // Rôles pouvant enregistrer une décision de passage. (Avant : rôle fantôme
 // 'ADMIN' inexistant et SCHOOL_ADMIN/DIRECTION absents.)
@@ -195,7 +196,10 @@ export async function POST(request: NextRequest) {
         // Une décision T3 = décision de passage de classe → titre dédié.
         const isPassingDecision = trimester === 'T3' && decision !== 'PENDING';
         try {
-          void notifyPassingUpdateToAdmins({
+          // pinAfter OBLIGATOIRE (request-pin.ts) : travail Prisma de fond —
+          // sans épingle after(), la continuation est abandonnée par workerd
+          // quand la réponse part → poison d'isolat (1101 « code had hung »).
+          pinAfter(notifyPassingUpdateToAdmins({
             type: isPassingDecision ? 'CLASS_PASSING' : 'BULLETIN_UPDATED',
             title: isPassingDecision ? 'Passage de classe — décision enregistrée' : 'Bulletin mis à jour',
             message: `${student.firstName} ${student.lastName} - ${trimester} - ${decisionLabel}${average ? ` - Moy: ${average}` : ''}`,
@@ -203,7 +207,7 @@ export async function POST(request: NextRequest) {
             schoolName: (await db.school.findUnique({ where: { id: student.schoolId }, select: { name: true } }))?.name ?? null,
             relatedId: reportCard.id,
             excludeUserId: user.id,
-          });
+          }));
         } catch (adminNotifyError) {
           console.error('[ReportCard] Admin notify error (non-blocking):', adminNotifyError);
         }
@@ -252,7 +256,7 @@ export async function POST(request: NextRequest) {
             } catch { /* classement best-effort */ }
 
             const finalAverage = Number(average ?? reportCard.average ?? 0);
-            void notifyBulletin({
+            pinAfter(notifyBulletin({
               parentPhone: parent.phone,
               studentName: `${student.firstName} ${student.lastName}`,
               trimester,
@@ -261,7 +265,7 @@ export async function POST(request: NextRequest) {
               totalStudents: totalClassStudents,
               schoolName: school.name,
               schoolId: student.schoolId,
-            }).catch(e => console.error('[ReportCard] WhatsApp bulletin failed:', e));
+            }).catch(e => console.error('[ReportCard] WhatsApp bulletin failed:', e)));
           }
         }
       }

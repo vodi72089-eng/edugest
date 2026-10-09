@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { pinAfter } from '@/lib/request-pin';
 
 // ─── Rate-limiting PERSISTANT (base de données) ──────────────────────────────
 // L'ancien limiteur (checkRateLimit) vivait dans une Map mémoire : chaque
@@ -24,7 +25,13 @@ export async function checkRateLimitDb(key: string, maxRequests: number, windowM
         create: { key, count: 1, resetAt: new Date(now.getTime() + windowMs) },
         update: { count: 1, resetAt: new Date(now.getTime() + windowMs) },
       });
-      void purgeExpiredBuckets();
+      // pinAfter OBLIGATOIRE (request-pin.ts) : purgeExpiredBuckets fait un
+      // deleteMany Prisma — sans épingle after(), si la réponse part avant la
+      // fin du delete, workerd abandonne la continuation et l'ISOLAT ENTIER
+      // gèle ensuite (toutes requêtes DB → 1101 « code had hung »). C'était
+      // le vecteur du login intermittent « Erreur réseau » (chaque nouveau
+      // seau de rate-limit déclenchait la purge).
+      pinAfter(purgeExpiredBuckets());
       return true;
     }
     if (bucket.count >= maxRequests) {

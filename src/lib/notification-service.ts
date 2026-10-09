@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { sendPushToUser } from '@/lib/push';
+import { pinAfter } from '@/lib/request-pin';
 import { resolveNotificationRecipients, type NotificationEvent, type ResolvedNotificationRecipient } from '@/lib/notification-recipient-resolver';
 import { notifUrlForRole } from '@/lib/notification-routing';
 
@@ -89,12 +90,15 @@ export async function notifyEvent(event: NotificationEvent, content: NotifyEvent
 
         // Canal B : Web Push — URL ouvrable selon le RÔLE du destinataire
         // (jamais une vue inexistante pour lui).
-        sendPushToUser(recipient.userId, {
+        // pinAfter OBLIGATOIRE (voir request-pin.ts) : la requête
+        // db.pushSubscription.findMany de sendPushToUser ne doit jamais
+        // survivre en vol à la fin de la requête HTTP (poison d'isolat).
+        pinAfter(sendPushToUser(recipient.userId, {
           title: content.title,
           body: message,
           tag: notification.id,
           url: notifUrlForRole(event.type, recipient.role),
-        }).catch(() => {});
+        }).catch(() => {}));
         result.pushSent++;
 
         // Canal F : Email (si demandé + adresse présente).
