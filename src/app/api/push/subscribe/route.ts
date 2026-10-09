@@ -2,6 +2,10 @@ import { requireAuth, sanitizeError } from '@/lib/auth';
 import { savePushSubscription } from '@/lib/push';
 import { NextRequest, NextResponse } from 'next/server';
 
+// Runtime NODE obligatoire : la lecture/écriture de la base (db) et web-push
+// (crypto Node) ne fonctionnent pas sur le runtime Edge par défaut.
+export const runtime = 'nodejs';
+
 // POST /api/push/subscribe
 // Body: { endpoint: string, keys: { p256dh: string, auth: string } }
 // Registers the current browser as a push recipient for the logged-in user.

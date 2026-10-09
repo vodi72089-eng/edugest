@@ -3347,7 +3347,10 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
         if (sub) { setPushStatus('subscribed'); return; }
         // Permission déjà accordée mais pas encore d'abonnement -> abonnement silencieux
         setPushStatus('granted');
-        await enablePush(reg);
+        // Ne pas tenter d'abonnement automatiquement : si les clés VAPID ne sont pas
+        // configurées, pushManager.subscribe() échoue avec "Registration failed -
+        // push service error" et affiche une erreur effrayante à l'utilisateur.
+        // L'application fonctionne normalement sans notifications push.
       } catch {
         if (!cancelled) setPushStatus('default');
       }
@@ -3382,7 +3385,15 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
       setPushStatus('subscribed');
       toast.success('Notifications push activées 🔔');
     } catch (e: any) {
-      toast.error(e?.message || 'Impossible d\u2019activer les notifications');
+      // "Registration failed - push service error" = clés VAPID absentes ou
+      // navigateur incompatible. Ce n'est PAS une erreur bloquante : l'app
+      // fonctionne sans push. On n'affiche rien à l'utilisateur.
+      const msg = String(e?.message || '');
+      if (/push service error|registration failed|not supported|vapid/i.test(msg)) {
+        setPushStatus(Notification.permission === 'granted' ? 'granted' : 'default');
+        return;
+      }
+      toast.error(msg || 'Impossible d\u2019activer les notifications');
       setPushStatus(Notification.permission === 'granted' ? 'granted' : 'default');
     } finally {
       setPushLoading(false);
