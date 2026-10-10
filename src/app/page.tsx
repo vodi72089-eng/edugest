@@ -2021,6 +2021,10 @@ function LoginView() {
   // (email + mot de passe + fichier, sans session) avec l'email du lien.
   const [showStandaloneImport, setShowStandaloneImport] = useState(false)
   const [standaloneImportEmail, setStandaloneImportEmail] = useState('')
+  // Web (téléphone ou PC) : l'import de base est RÉSERVÉ à l'exe — même
+  // écran « Application desktop requise » (avec téléchargement) que côté
+  // dashboard. Seul l'exe ouvre le vrai formulaire d'import.
+  const [showDesktopReqLogin, setShowDesktopReqLogin] = useState(false)
   useEffect(() => {
     const openStandaloneImport = () => {
       try {
@@ -2030,6 +2034,7 @@ function LoginView() {
         sessionStorage.removeItem('edugest:pending-import-uid')
         if (em) setStandaloneImportEmail(em)
       } catch {}
+      if (!isDesktopApp()) { setShowDesktopReqLogin(true); return }
       setShowStandaloneImport(true)
     }
     window.addEventListener('edugest:open-import-db', openStandaloneImport)
@@ -2684,6 +2689,9 @@ function LoginView() {
             setShowStandaloneImport(false)
           }}
         />
+      )}
+      {showDesktopReqLogin && (
+        <DesktopOnlyModal onClose={() => setShowDesktopReqLogin(false)} />
       )}
     </div>
   )
