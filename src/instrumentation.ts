@@ -49,6 +49,20 @@ export async function register() {
     (globalThis as { __edugestIso?: string }).__edugestIso = crypto
       .randomUUID()
       .slice(0, 8);
+
+    // Diagnostic wedge : journalise toute promesse rejetee non geree
+    // (vecteur d'abandon cross-request - investigation du 10/10/2026).
+    try {
+      process.on('unhandledRejection', (reason) => {
+        console.error(
+          `[${(globalThis as { __edugestIso?: string }).__edugestIso}] promesse rejetee non geree:`,
+          reason
+        );
+      });
+    } catch {
+      // process.on indisponible : silencieux, le diagnostic reste optionnel.
+    }
+
     const dbReady = await Promise.race([
       import('./lib/db')
         .then(() => true as const)

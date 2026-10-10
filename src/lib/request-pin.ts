@@ -26,7 +26,18 @@ import { after } from 'next/server';
 export function pinAfter<T>(promise: Promise<T>): Promise<T> {
   try {
     after(() => promise.catch(() => {}));
-  } catch {
+  } catch (e) {
+    // Sur Workers, echec de after() = promesse orpheline = wedge possible :
+    // on LOGUE l'appelant (stack) pour identifier le vecteur. Hors Workers
+    // (EXE Node / scheduler), c'est le cas nominal : silencieux.
+    if ((globalThis as { __edugestIso?: string }).__edugestIso) {
+      const site = new Error('pinAfter-site').stack?.split('\n').slice(1, 5).join(' | ');
+      console.warn(
+        '[pinAfter] after() indisponible - promesse NON epinglee:',
+        (e as Error)?.message,
+        site
+      );
+    }
     promise.catch(() => {});
   }
   return promise;
