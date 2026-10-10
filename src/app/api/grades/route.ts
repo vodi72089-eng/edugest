@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
     // Verify school access by checking the student's school
     const student = await db.student.findUnique({
       where: { id: studentId },
-      select: { schoolId: true },
+      select: { schoolId: true, classId: true },
     });
     if (!student) {
       return NextResponse.json({ error: 'Élève non trouvé' }, { status: 404 });
@@ -205,13 +205,24 @@ export async function POST(request: NextRequest) {
     // Verify the class and subject belong to the student's school
     const [cls, subject] = await Promise.all([
       db.class.findUnique({ where: { id: classId }, select: { schoolId: true } }),
-      db.subject.findUnique({ where: { id: subjectId }, select: { schoolId: true } }),
+      db.subject.findUnique({ where: { id: subjectId }, select: { schoolId: true, classId: true } }),
     ]);
     if (!cls || cls.schoolId !== student.schoolId) {
       return NextResponse.json({ error: 'Classe invalide pour cet élève' }, { status: 400 });
     }
     if (!subject || subject.schoolId !== student.schoolId) {
       return NextResponse.json({ error: 'Matière invalide pour cette école' }, { status: 400 });
+    }
+    // ── Cohérence interne : la note doit viser la classe DE L'ÉLÈVE et une
+    // matière rattachée à cette même classe. Sans ces contrôles, une note était
+    // enregistrée avec le classId d'une autre classe de l'école, et l'élève
+    // apparaissait ensuite dans le classement / le bulletin de la mauvaise
+    // classe (les GET filtrent sur where.classId).
+    if (student.classId !== classId) {
+      return NextResponse.json({ error: "L'élève n'appartient pas à cette classe" }, { status: 400 });
+    }
+    if (subject.classId && subject.classId !== classId) {
+      return NextResponse.json({ error: "La matière n'est pas rattachée à cette classe" }, { status: 400 });
     }
 
     // Auto-resolve active school year if not provided (fixes 'default' hardcode)

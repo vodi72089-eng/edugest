@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
       // Chaque élève doit appartenir à l'école du QR et ne pas être archivé
       const found = await tx.student.findMany({
         where: { id: { in: studentIds }, schoolId: qr.schoolId, isArchived: false },
-        select: { id: true, firstName: true, lastName: true, parentId: true },
+        select: { id: true, firstName: true, lastName: true, parentId: true, phone: true },
       });
       if (found.length !== studentIds.length) {
         throw new RegisterError(
@@ -135,6 +135,27 @@ export async function POST(request: NextRequest) {
       const taken = found.filter((s) => s.parentId);
       if (taken.length > 0) {
         throw new RegisterError(takenStudentsMessage(taken), 409);
+      }
+
+      // ── SÉCURITÉ (anti-appropriation de dossier) ──
+      // Le QR d'une école est un document public (affiche, lien transféré) : il
+      // servait donc de seul sésame pour s'attribuer n'importe quel élève non
+      // encore rattaché (notes, paiements, discipline — données d'un mineur).
+      // Si l'école a enregistré un contact (Student.phone) pour l'enfant, seul ce
+      // numéro peut se déclarer parent. Aucun contact enregistré → on laisse
+      // passer (aucune donnée sur laquelle s'appuyer, l'école reste responsable).
+      const claimedDigits = normalizedPhone.replace(/[^0-9]/g, '');
+      const mismatched = found.filter((s) => {
+        const onFile = (s.phone || '').replace(/[^0-9]/g, '');
+        return !!onFile && onFile !== claimedDigits;
+      });
+      if (mismatched.length > 0) {
+        const names = mismatched.map((s) => `« ${s.firstName} ${s.lastName} »`).join(', ');
+        throw new RegisterError(
+          `Le numéro saisi ne correspond pas au contact enregistré par l'école pour ${names}. ` +
+          'Utilisez le numéro communiqué à l\'école, ou contactez-la pour mettre à jour votre fiche.',
+          403
+        );
       }
 
       // Création du compte parent (rôle PARENT, école du QR)
@@ -165,6 +186,22 @@ export async function POST(request: NextRequest) {
 
       return { parent: created, students: found };
     });
+
+    // Traçabilité : l'auto-inscription d'un parent via QR est journalisée — une
+    // école peut ainsi détecter a posteriori une liaison abusive de dossier.
+    try {
+      await db.auditLog.create({
+        data: {
+          userId: parent.id,
+          userName: parent.name,
+          userRole: 'PARENT',
+          action: 'PARENT_SELF_REGISTER',
+          entityType: 'User',
+          entityId: parent.id,
+          details: `Liaison via QR école ${qr.schoolId} — élèves: ${students.map((s) => `${s.firstName} ${s.lastName} (${s.id})`).join(', ')}`,
+        },
+      });
+    } catch { /* non bloquant */ }
 
     return NextResponse.json({
       data: {

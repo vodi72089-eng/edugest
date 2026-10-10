@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { createToken, getClientIp, getUserAgentFromRequest, SESSION_DURATION_MS } from '@/lib/auth';
+import { createToken, getClientIp, getUserAgentFromRequest, SESSION_DURATION_MS, sanitizeError } from '@/lib/auth';
 import { checkRateLimitDb } from '@/lib/rate-limit-db';
 import { normalizeClientIp } from '@/lib/geo';
 import { checkSubscription } from '@/lib/subscription-server';

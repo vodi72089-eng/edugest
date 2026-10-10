@@ -176,7 +176,11 @@ export const FREEMIUM_DENIED = [
 // Fonctionnalité par forfait (miroir de SUBSCRIPTION_FEATURES)
 export const SUBSCRIPTION_FEATURES: Record<string, string[]> = {
   FREEMIUM: ['students', 'classes', 'grades', 'payments'],
-  ESSENTIEL: ['students', 'classes', 'grades', 'payments', 'parents', 'homework', 'discipline', 'PARENT_GRADES'],
+  // PARENT_GRADES (notes/bulletins visibles PARENTS) démarre à STANDARD :
+  // getTierLimits().reportCardsToParents vaut false en ESSENTIEL — les deux
+  // tables se contredisaient, `getMinTierForFeature('PARENT_GRADES')` conseillait
+  // donc un forfait qui ne débloque pas la fonctionnalité.
+  ESSENTIEL: ['students', 'classes', 'grades', 'payments', 'parents', 'homework', 'discipline'],
   STANDARD: ['students', 'classes', 'grades', 'payments', 'parents', 'homework', 'discipline', 'PARENT_GRADES', 'report_cards', 'communications', 'convocations'],
   PREMIUM: ['students', 'classes', 'grades', 'payments', 'parents', 'homework', 'discipline', 'PARENT_GRADES', 'report_cards', 'communications', 'convocations', 'analytics', 'multi_years', 'medical', 'priority_support', 'custom_branding'],
   ENTERPRISE: ['*'],

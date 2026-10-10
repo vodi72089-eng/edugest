@@ -75,8 +75,17 @@ export async function fetchExchangeRates(baseCurrency: string = 'USD'): Promise<
     }
   }
 
-  // Si toutes les APIs échouent, utiliser les taux de secours
-  const fallbackRates = FALLBACK_RATES[baseCurrency] || FALLBACK_RATES.USD;
+  // Si toutes les APIs échouent, utiliser les taux de secours.
+  // ⚠️ Ne JAMAIS emprunter la table USD pour une autre devise de base : le taux
+  // USD/CDF appliqué à des NGN produisait une erreur d'un facteur ~1 500, sans
+  // aucun signal. Mieux vaut une erreur explicite qu'un montant faux.
+  const fallbackRates = FALLBACK_RATES[baseCurrency];
+  if (!fallbackRates) {
+    throw new Error(
+      `Taux de change indisponibles pour la devise de base ${baseCurrency} ` +
+        '(toutes les sources en ligne ont échoué et aucune table de secours n\'existe pour cette devise).'
+    );
+  }
 
   return {
     rates: fallbackRates,

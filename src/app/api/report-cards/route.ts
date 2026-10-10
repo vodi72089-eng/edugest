@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
         where: { id: existing.id },
         data: {
           decision,
-          average: average || null,
+          average: average === undefined || average === null || average === '' ? null : Number(average),
         },
       });
     } else {
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
           trimester,
           schoolYearId: schoolYear.id,
           decision,
-          average: average || null,
+          average: average === undefined || average === null || average === '' ? null : Number(average),
         },
       });
     }
@@ -237,7 +237,7 @@ export async function POST(request: NextRequest) {
           });
           if (parent?.phone && school) {
             // Calcul du rang : moyennes des bulletins de la classe pour ce trimestre
-            let ranking = 1;
+            let ranking: number | null = null;
             let totalClassStudents = 1;
             try {
               const classmates = await db.student.findMany({
@@ -251,8 +251,12 @@ export async function POST(request: NextRequest) {
               });
               const sorted = [...cards].sort((a, b) => (b.average ?? 0) - (a.average ?? 0));
               const rank = sorted.findIndex(c => c.studentId === studentId) + 1;
-              if (rank > 0) ranking = rank;
-              totalClassStudents = Math.max(sorted.length, 1);
+              // Rang réel : l'effectif est celui de la CLASSE (classmates), pas le
+              // nombre de bulletins déjà saisis (on annonçait « 2 sur 3 » pour une
+              // classe de 45). Élève sans moyenne → aucun rang annoncé (avant,
+              // `ranking` gardait sa valeur par défaut 1 : « 1er de la classe »).
+              ranking = rank > 0 ? rank : null;
+              totalClassStudents = classmates.length || 1;
             } catch { /* classement best-effort */ }
 
             const finalAverage = Number(average ?? reportCard.average ?? 0);

@@ -62,9 +62,20 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    // Get all payments for this school
+    // Get payments for this school — bornés à l'ANNÉE SCOLAIRE ACTIVE et aux
+    // encaissements réels. PaymentRecord n'a pas de schoolYearId : sans borne de
+    // dates, les versements d'une année précédente soldaient les frais de
+    // l'année en cours (un élève redevenait « à jour » pour la tranche 1 qu'il
+    // n'avait jamais payée → jamais relancé, absent des débiteurs).
+    const paymentWhere: Record<string, unknown> = {
+      schoolId,
+      status: { in: ['PAID', 'PARTIAL'] },
+    }
+    if (activeYear?.startDate && activeYear?.endDate) {
+      paymentWhere.createdAt = { gte: activeYear.startDate, lte: activeYear.endDate }
+    }
     const payments = await db.paymentRecord.findMany({
-      where: { schoolId },
+      where: paymentWhere,
       select: { studentId: true, trimester: true, paidAmount: true },
     })
 

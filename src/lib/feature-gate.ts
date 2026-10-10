@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, AuthUser } from './auth';
 import { hasFeatureAccess, getMinTierForFeature, TierFeature } from './subscription';
-import { getSchoolTier } from './subscription-server';
+import { checkSubscription } from './subscription-server';
 
 /**
  * Middleware pour vérifier qu'un utilisateur a accès à une fonctionnalité
@@ -22,7 +22,26 @@ export async function requireFeature(
   // bypass systématique (sinon getSchoolTier(null) → FREEMIUM → 403).
   if (user.role === 'SUPER_ADMIN_GLOBAL') return { user };
 
-  const tier = await getSchoolTier(user.schoolId || '');
+  // ── Le forfait ne suffit pas : le statut et la date de fin font foi.
+  // Avant, une école PREMIUM expirée conservait bulletins, communications,
+  // convocations, devoirs, discipline, module médical et API WhatsApp perso
+  // indéfiniment (aucun middleware n'existe).
+  // Compte sans école (plateforme / corporate) : comportement précédent conservé.
+  const sub = user.schoolId
+    ? await checkSubscription(user.schoolId)
+    : { active: true, tier: 'FREEMIUM', expired: false, daysRemaining: null };
+  const tier = sub.tier;
+  if (!sub.active) {
+    return {
+      error: NextResponse.json({
+        error: `Abonnement ${sub.expired ? 'expiré' : 'inactif'} (${tier}) — renouvelez l'abonnement pour accéder à cette fonctionnalité.`,
+        featureRequired: feature,
+        tierRequired: getMinTierForFeature(feature),
+        currentTier: tier,
+        subscriptionExpired: !!sub.expired,
+      }, { status: 403 })
+    };
+  }
   if (!hasFeatureAccess(tier, feature)) {
     return {
       error: NextResponse.json({

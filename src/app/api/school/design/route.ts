@@ -15,8 +15,12 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const HEX_REGEX = /^#[0-9A-Fa-f]{6}$/;
 
-// Forfaits autorisant la personnalisation (le client l'exige strictement)
-const DESIGN_ALLOWED_TIERS = ['STANDARD', 'PREMIUM', 'ENTERPRISE', 'CORPORATE'];
+// Forfaits autorisant la personnalisation. Le client l'exige strictement
+// (page.tsx : personnalisation → PREMIUM/ENTERPRISE/CORPORATE) et
+// SUBSCRIPTION_FEATURES.STANDARD n'inclut pas 'custom_branding' : STANDARD
+// figurait ici à tort et ouvrait la fonctionnalité PREMIUM (500 $) aux écoles
+// STANDARD (250 $) via un appel API direct.
+const DESIGN_ALLOWED_TIERS = ['PREMIUM', 'ENTERPRISE', 'CORPORATE'];
 
 function isValidHex(value: unknown): value is string {
   return typeof value === 'string' && HEX_REGEX.test(value);

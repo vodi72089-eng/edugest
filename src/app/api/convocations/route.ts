@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { notifyEvent } from '@/lib/notification-service';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, classMatchesCycle } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, classMatchesCycle, classFilterForCycle } from '@/lib/auth';
 import { requireFeature } from '@/lib/feature-gate';
 import { notifyConvocation } from '@/lib/whatsapp-agent';
 import { isDirectionRole, isDisciplineCreated, disciplineCreatorNames } from '@/lib/convocation-access';
@@ -40,6 +40,18 @@ export async function GET(request: NextRequest) {
     // For PARENT role, only show convocations for their children
     if (user.role === 'PARENT') {
       where.student = { parentId: user.id };
+    }
+
+    // ── Scoping de CYCLE (le POST l'appliquait déjà, pas le GET) : un
+    // DISCIPLINE_<cycle> / DIRECTION_<cycle> ne voit que les convocations de son
+    // cycle. Sans ce filtre, un DISCIPLINE_MATERNELLE lisait les convocations du
+    // secondaire de son école.
+    const listCycle = getRoleCycle(user.role);
+    if (listCycle) {
+      where.student = {
+        ...((where.student as Record<string, unknown>) || {}),
+        class: classFilterForCycle(listCycle),
+      };
     }
 
     const [records, totalUsers] = await Promise.all([

@@ -261,19 +261,28 @@ export default function PaymentsView() {
     }
   }, [paidAmount, amount, exchangeRate, payCurrency])
 
-  if (!hasAccess) return null
-
   async function handlePayment() {
     if (!selectedStudent && !studentSearch) { toast.error('Veuillez sélectionner un élève'); return }
     if (!amount) { toast.error('Veuillez entrer le montant'); return }
     if (allPaid) { toast.error('Cet élève a déjà payé toutes ses tranches'); return }
+    // ── Garde de devise : sans taux chargé (API en échec, app desktop
+    // hors-ligne), un montant saisi en USD/EUR était enregistré tel quel comme
+    // s'il était en monnaie de base — 100 USD devenaient 100 CDF (facteur 2800).
+    // On refuse l'enregistrement plutôt que de corrompre la caisse.
+    const baseCurrency = currencyConfig?.baseCurrency || 'CDF'
+    const needsConversion = payCurrency !== baseCurrency
+    if (needsConversion && !exchangeRate) {
+      toast.error(`Taux de change ${payCurrency} → ${baseCurrency} indisponible. Rechargez la page ou saisissez le montant en ${baseCurrency}.`)
+      return
+    }
     setSubmitting(true)
     try {
-      // Amount is always in base currency (CDF). Convert paidAmount if non-CDF.
-      const amountInBase = parseInt(amount)
-      let paidAmountInBase = parseInt(paidAmount || '0')
-      if (payCurrency !== 'CDF' && exchangeRate && paidAmount) {
-        paidAmountInBase = Math.round(parseFloat(paidAmount) * exchangeRate)
+      // `amount` est toujours exprimé en monnaie de base ; `paidAmount` est saisi
+      // dans la devise de paiement choisie puis converti ici.
+      const amountInBase = Math.round(Number(amount))
+      let paidAmountInBase = Math.round(Number(paidAmount || '0'))
+      if (needsConversion && exchangeRate && paidAmount) {
+        paidAmountInBase = Math.round(Number(paidAmount) * exchangeRate)
       }
       const body: Record<string, unknown> = {
         schoolId: activeSchoolId || '',
@@ -318,6 +327,13 @@ export default function PaymentsView() {
 
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [pdfLoading, setPdfLoading] = useState(false)
+
+  // ── Garde d'accès APRÈS tous les hooks (règles React) : `hasAccess` peut
+  // basculer en cours de session (resynchro du forfait) — placé avant les hooks,
+  // le `return null` faisait lever « Rendered more/fewer hooks than during the
+  // previous render » (écran blanc). L'effet de redirection ci-dessus gère
+  // l'envoi vers /subscription-required.
+  if (!hasAccess) return null
 
   async function downloadReceipt(paymentId: string) {
     setPdfLoading(true)

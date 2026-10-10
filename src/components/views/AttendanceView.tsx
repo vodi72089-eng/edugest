@@ -82,10 +82,15 @@ export default function AttendanceView() {
     if (!schoolId && isSAG) return
     const params = new URLSearchParams({ limit: '100' })
     if (schoolId) params.set('schoolId', schoolId)
+    let cancelled = false
     authFetch(`/api/classes?${params}`)
-      .then(r => r.json())
-      .then(j => setClasses(j.data || []))
-      .catch(() => {})
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then(j => { if (!cancelled) setClasses(j.data || []) })
+      .catch(() => {
+        // Un 403/500 laissait le sélecteur de classe vide sans explication.
+        if (!cancelled) { setClasses([]); toast.error('Impossible de charger la liste des classes') }
+      })
+    return () => { cancelled = true }
   }, [canTakeAttendance, isSAG, getActiveSchoolId()])
 
   // Élèves + statuts déjà en base pour la classe/date : UN SEUL appel

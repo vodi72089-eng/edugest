@@ -89,7 +89,9 @@ export default function MedicalView() {
   const [dispensationForm, setDispensationForm] = useState({
     studentId: '',
     type: 'EPS',
-    startDate: new Date().toISOString().split('T')[0],
+    // Date LOCALE (pas toISOString = UTC) : évite de préremplir la veille quand
+    // l'agent travaille entre 00h et 01h (UTC+1 à Kinshasa).
+    startDate: new Date().toLocaleDateString('sv-SE'),
     endDate: '',
     reason: '',
     doctorName: '',

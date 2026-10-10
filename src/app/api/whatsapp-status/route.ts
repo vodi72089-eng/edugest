@@ -52,12 +52,19 @@ export async function POST(request: NextRequest) {
       const data = await waFetch('/pair', 'POST', { phone: body.phone });
       return NextResponse.json({ data });
     }
-    if (body.action === 'logout') {
-      const data = await waFetch('/logout', 'POST');
-      return NextResponse.json({ data });
-    }
-    if (body.action === 'reset') {
-      const data = await waFetch('/reset', 'POST');
+    // ── SÉCURITÉ (multi-tenant) : l'agent Baileys est UNIQUE et partagé par
+    // toutes les écoles. `logout` / `reset` détruisent la session utilisée par
+    // tout le monde : un admin d'école pouvait donc couper les envois de la
+    // plateforme entière. Ces deux actions sont réservées à la plateforme ;
+    // « start » et « pair » restent accessibles aux écoles (reconnexion).
+    if (body.action === 'logout' || body.action === 'reset') {
+      if (authResult.user.role !== 'SUPER_ADMIN_GLOBAL') {
+        return NextResponse.json(
+          { error: "La déconnexion / réinitialisation de l'agent WhatsApp est réservée à l'administration de la plateforme (agent partagé par toutes les écoles)." },
+          { status: 403 }
+        );
+      }
+      const data = await waFetch(body.action === 'logout' ? '/logout' : '/reset', 'POST');
       return NextResponse.json({ data });
     }
 

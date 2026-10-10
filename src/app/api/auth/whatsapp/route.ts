@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { checkRateLimit, createSession, getClientIp, getUserAgentFromRequest } from '@/lib/auth';
+import { checkRateLimit, createSession, getClientIp, getUserAgentFromRequest, SESSION_DURATION_MS } from '@/lib/auth';
 
 const WA_SERVER = process.env.WHATSAPP_SERVER_URL || 'http://localhost:3001';
 const WA_API_KEY = process.env.WHATSAPP_API_KEY || (process.env.NODE_ENV !== 'production' ? 'edugest-wa-dev-key' : '');
@@ -156,7 +156,22 @@ export async function POST(request: NextRequest) {
         })
       : null;
 
-    return NextResponse.json({ data: { ...userData, token: sessionToken, school } });
+    // ── Cookie httpOnly, SEUL vecteur de session navigateur (comme /api/auth).
+    // Avant : aucun cookie n'était posé et le jeton de session était renvoyé
+    // dans le JSON — que le client n'utilise pas (authFetch s'appuie sur le
+    // cookie). L'utilisateur paraissait connecté, puis TOUTES les requêtes
+    // suivantes répondaient 401 (retour immédiat à l'écran de connexion), et le
+    // jeton transitait en clair dans une réponse, contrairement au choix
+    // documenté « token jamais exposé au navigateur ».
+    const response = NextResponse.json({ data: { ...userData, school } });
+    response.cookies.set('edugest_token', sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: Math.floor(SESSION_DURATION_MS / 1000),
+      path: '/',
+    });
+    return response;
   } catch (error) {
     console.error('[WhatsApp Auth] Error:', error);
     return NextResponse.json({ error: 'Échec de l\'authentification WhatsApp' }, { status: 500 });

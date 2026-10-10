@@ -184,6 +184,28 @@ export async function isWhatsAppConnected(): Promise<boolean> {
 }
 
 /**
+ * Garde de quota mensuel pour les envois via l'AGENT PARTAGÉ (Baileys).
+ * checkWhatsappQuota renvoie ok:true pour l'API perso d'une école (illimité) et
+ * pour les forfaits à messages illimités. Une erreur de lecture du quota ne
+ * bloque jamais l'envoi (fail-open volontaire : mieux vaut un message de trop
+ * qu'une notification de paiement perdue).
+ */
+async function whatsappQuotaAllows(schoolId?: string | null): Promise<boolean> {
+  if (!schoolId) return true
+  try {
+    const quota = await checkWhatsappQuota(schoolId)
+    if (!quota.ok) {
+      console.warn(`[WhatsApp Agent] Envoi bloqué — ${quota.reason}`)
+      return false
+    }
+    return true
+  } catch (e) {
+    console.warn('[WhatsApp Agent] Vérification du quota impossible (envoi autorisé):', e)
+    return true
+  }
+}
+
+/**
  * Envoie un message WhatsApp.
  * Route automatiquement vers l'API WhatsApp personnelle de l'école (Meta Cloud API)
  * si elle est configurée et active — sinon passe par l'agent partagé EduGest (Baileys).
@@ -201,7 +223,11 @@ export async function sendWhatsAppMessage(phone: string, message: string, school
     }
   }
 
-  // 2) Agent partagé EduGest (Baileys)
+  // 2) Agent partagé EduGest (Baileys) — SOUMIS AU QUOTA MENSUEL DU FORFAIT.
+  // Le contrôle n'existait que dans les helpers notify* : un appel direct
+  // (bulletins, rapports planifiés, rapports de caisse, demandes d'abonnement)
+  // envoyait sans limite, y compris en FREEMIUM (0 message inclus).
+  if (!(await whatsappQuotaAllows(schoolId))) return false;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 28000);
@@ -254,7 +280,8 @@ export async function sendWhatsAppDocument(params: {
     }
   }
 
-  // 2) Agent partagé EduGest (Baileys)
+  // 2) Agent partagé EduGest (Baileys) — soumis au quota mensuel du forfait.
+  if (!(await whatsappQuotaAllows(params.schoolId))) return false;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 40000);
@@ -494,7 +521,8 @@ export async function notifyBulletin(params: {
   studentName: string;
   trimester: string;
   average: number;
-  ranking: number;
+  /** null = rang inconnu (élève sans moyenne) → la ligne « Rang » est omise. */
+  ranking: number | null;
   totalStudents: number;
   schoolName: string;
   schoolId: string;
@@ -516,7 +544,7 @@ export async function notifyBulletin(params: {
     `Élève : *${studentName}*\n` +
     `Trimestre : ${trimester}\n` +
     `Moyenne : ${average.toFixed(2)}/20\n` +
-    `Rang : ${ranking}/${totalStudents}\n` +
+    (ranking != null ? `Rang : ${ranking}/${totalStudents}\n` : '') +
     `École : ${schoolName}\n\n` +
     `_EduGest - ${schoolName}_`;
 

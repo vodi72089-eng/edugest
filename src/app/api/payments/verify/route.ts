@@ -91,7 +91,10 @@ export async function POST(request: NextRequest) {
           const parent = await db.user.findUnique({ where: { id: parentData.parentId }, select: { phone: true } });
           if (parent?.phone) {
             const { notifyPaymentApproved } = await import('@/lib/whatsapp-agent');
-            notifyPaymentApproved(parent.phone, `${studentData?.firstName || ''} ${studentData?.lastName || ''}`.trim(), Number(payment.amount), payment.trimester, schoolData?.name || '', payment.schoolId);
+            // await OBLIGATOIRE : sans lui, la continuation Prisma/HTTP du helper
+            // était abandonnée dès la réponse envoyée (wedge workerd) et le parent
+            // ne recevait jamais la confirmation.
+            await notifyPaymentApproved(parent.phone, `${studentData?.firstName || ''} ${studentData?.lastName || ''}`.trim(), Number(payment.amount), payment.trimester, schoolData?.name || '', payment.schoolId);
           }
         }
       } catch { /* notification failed, non-critical */ }
@@ -138,7 +141,7 @@ export async function POST(request: NextRequest) {
           const parent = await db.user.findUnique({ where: { id: parentData.parentId }, select: { phone: true } });
           if (parent?.phone) {
             const { notifyPaymentRejected } = await import('@/lib/whatsapp-agent');
-            notifyPaymentRejected(parent.phone, `${studentData?.firstName || ''} ${studentData?.lastName || ''}`.trim(), Number(payment.amount), payment.trimester, schoolData?.name || '', payment.schoolId, verificationNote || 'Paiement rejeté');
+            await notifyPaymentRejected(parent.phone, `${studentData?.firstName || ''} ${studentData?.lastName || ''}`.trim(), Number(payment.amount), payment.trimester, schoolData?.name || '', payment.schoolId, verificationNote || 'Paiement rejeté');
           }
         }
       } catch { /* notification failed, non-critical */ }

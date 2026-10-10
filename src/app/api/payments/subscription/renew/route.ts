@@ -68,6 +68,20 @@ export async function POST(request: NextRequest) {
           { status: 403 }
         );
       }
+      // ── SÉCURITÉ : la preuve de paiement est CONSOMMÉE (usage unique).
+      // Sans cela, une seule demande PAID autorisait un renouvellement gratuit
+      // chaque mois, indéfiniment, en enregistrant de fausses recettes.
+      // updateMany conditionnel = consommation atomique (anti double-clic).
+      const consumed = await db.subscriptionRequest.updateMany({
+        where: { id: paidRequest.id, status: 'PAID' },
+        data: { status: 'CONSUMED' },
+      });
+      if (consumed.count !== 1) {
+        return NextResponse.json(
+          { error: 'Ce paiement a déjà servi à un renouvellement. Créez une nouvelle demande d\'abonnement.' },
+          { status: 409 }
+        );
+      }
     }
 
     const amount = SUBSCRIPTION_PRICES[tier];

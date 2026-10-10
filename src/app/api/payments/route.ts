@@ -126,8 +126,12 @@ export async function POST(request: NextRequest) {
       const firstName = nameParts[0];
       const lastName = nameParts.slice(1).join(' ');
       
+      // ── SÉCURITÉ : la recherche par nom est SCOPÉE à l'école du paiement.
+      // Sans ce filtre, les « suggestions » renvoyées avant le contrôle
+      // d'appartenance exposaient id, nom et matricule d'élèves d'autres écoles.
       const students = await db.student.findMany({
         where: {
+          schoolId,
           OR: [
             { firstName: { contains: firstName }, lastName: { contains: lastName || firstName } },
             { firstName: { contains: lastName || firstName }, lastName: { contains: firstName } },
@@ -182,9 +186,15 @@ export async function POST(request: NextRequest) {
     // Generate receipt number if not provided
     const receiptNum = receiptNumber || `REC-${Date.now().toString(36).toUpperCase()}`;
 
-    // Auto-compute status from paidAmount vs amount
-    const paymentAmount = parseInt(amount) || 0;
-    const paymentPaidAmount = parseInt(paidAmount) || 0;
+    // Auto-compute status from paidAmount vs amount.
+    // Math.round(Number(...)) et non parseInt : les frais sont des Float
+    // (SchoolFee.amount) — parseInt(33.5) = 33 laissait un reste dû de 0,50 à vie,
+    // et parseInt("0.5") = 0 créait un enregistrement à 0.
+    const paymentAmount = Number.isFinite(Number(amount)) ? Math.round(Number(amount)) : 0;
+    const paymentPaidAmount = Number.isFinite(Number(paidAmount)) ? Math.round(Number(paidAmount)) : 0;
+    if (paymentAmount < 0 || paymentPaidAmount < 0) {
+      return NextResponse.json({ error: 'Les montants ne peuvent pas être négatifs' }, { status: 400 });
+    }
     let computedStatus = 'PENDING';
     if (paymentPaidAmount >= paymentAmount && paymentAmount > 0) {
       computedStatus = 'PAID';
@@ -203,7 +213,10 @@ export async function POST(request: NextRequest) {
         referenceNumber: referenceNumber || null,
         status: computedStatus,
         receiptNumber: receiptNum,
-        paidAt: computedStatus === 'PAID' ? new Date() : null,
+        // Un paiement PARTIAL a bien ete encaisse : sans paidAt, le filtre
+        // `paidAt >= from` de la caisse et des rapports l'excluait totalement
+        // (« Total encaisse : 0 » alors que l'argent est en caisse).
+        paidAt: computedStatus === 'PENDING' ? null : new Date(),
       },
     });
 

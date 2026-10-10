@@ -39,7 +39,7 @@ function sanitizeGatewayConfig(config: any) {
     merchantId: config.merchantId || null,
     apiKey: maskSensitive(config.apiKey),
     secretKey: maskSensitive(config.secretKey),
-    publicKey: config.publicKey || null,
+    publicKey: maskSensitive(config.publicKey),
     webhookSecret: maskSensitive(config.webhookSecret),
     phoneNumber: config.phoneNumber || null,
     accountEmail: config.accountEmail || null,
@@ -199,7 +199,6 @@ export async function POST(request: NextRequest) {
       isActive: Boolean(isActive),
       isTestMode: isTestMode !== undefined ? Boolean(isTestMode) : true,
       merchantId: merchantId ?? null,
-      publicKey: publicKey ?? null,
       phoneNumber: phoneNumber ?? null,
       accountEmail: accountEmail ?? null,
       currency: currency || 'USD',
@@ -217,7 +216,9 @@ export async function POST(request: NextRequest) {
     const isMaskedValue = (v: unknown) =>
       typeof v === 'string' && /^\*+.{0,4}$/.test(v);
 
-    const setSecretField = (field: 'apiKey' | 'secretKey' | 'webhookSecret', value: unknown) => {
+    // `publicKey` est le PASSKEY Lipa Na M-Pesa (il sert à fabriquer le mot de
+    // passe STK) : c'est un secret opérateur, traité comme tel ici.
+    const setSecretField = (field: 'apiKey' | 'secretKey' | 'webhookSecret' | 'publicKey', value: unknown) => {
       if (value === undefined || value === null || value === '') return; // champ non fourni → inchangé
       if (isMaskedValue(value)) return; // valeur masquée renvoyée par l'UI → inchangé
       data[field] = encryptSecret(String(value));
@@ -226,6 +227,7 @@ export async function POST(request: NextRequest) {
     setSecretField('apiKey', apiKey);
     setSecretField('secretKey', secretKey);
     setSecretField('webhookSecret', webhookSecret);
+    setSecretField('publicKey', publicKey);
 
     const config = await db.paymentGatewayConfig.upsert({
       where: {

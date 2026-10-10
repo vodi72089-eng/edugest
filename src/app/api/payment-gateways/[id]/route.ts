@@ -30,7 +30,7 @@ function sanitizeGatewayConfig(config: any) {
     merchantId: config.merchantId || null,
     apiKey: maskSensitive(config.apiKey),
     secretKey: maskSensitive(config.secretKey),
-    publicKey: config.publicKey || null,
+    publicKey: maskSensitive(config.publicKey),
     webhookSecret: maskSensitive(config.webhookSecret),
     phoneNumber: config.phoneNumber || null,
     accountEmail: config.accountEmail || null,
@@ -140,7 +140,6 @@ export async function PUT(
     if (isActive !== undefined) updateData.isActive = Boolean(isActive);
     if (isTestMode !== undefined) updateData.isTestMode = Boolean(isTestMode);
     if (merchantId !== undefined) updateData.merchantId = merchantId || null;
-    if (publicKey !== undefined) updateData.publicKey = publicKey || null;
     if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber || null;
     if (accountEmail !== undefined) updateData.accountEmail = accountEmail || null;
     if (currency !== undefined) updateData.currency = currency;
@@ -165,6 +164,11 @@ export async function PUT(
       !/^\*+.{0,4}$/.test(webhookSecret)
     ) {
       updateData.webhookSecret = encryptSecret(webhookSecret);
+    }
+    // Passkey Lipa Na M-Pesa : secret opérateur (mot de passe STK) — chiffré au
+    // repos et jamais écrasé par la valeur masquée renvoyée par l'UI.
+    if (publicKey && publicKey !== '' && !/^\*+.{0,4}$/.test(publicKey)) {
+      updateData.publicKey = encryptSecret(publicKey);
     }
 
     const config = await db.paymentGatewayConfig.update({

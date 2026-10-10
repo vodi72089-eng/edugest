@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, requireRole, sanitizeError } from '@/lib/auth';
+import { checkRateLimitDb } from '@/lib/rate-limit-db';
 
 // GET - No auth required (public viewing of approved comments)
 export async function GET(request: NextRequest) {
@@ -43,6 +44,15 @@ export async function GET(request: NextRequest) {
 // POST - No auth required (anyone can submit a review, but it starts as isApproved: false)
 export async function POST(request: NextRequest) {
   try {
+    // ── Anti-spam (avis publics, sans compte) : sans limite, un script
+    // remplissait la table et la file de modération (P2 signalé le 26/09,
+    // toujours ouvert). Valeur de la DERNIÈRE entrée X-Forwarded-For : la
+    // première est fournie par le client (falsifiable).
+    const ip = request.headers.get('x-forwarded-for')?.split(',').pop()?.trim() || 'unknown';
+    if (!(await checkRateLimitDb(`school-comments:${ip}`, 5, 60 * 60 * 1000))) {
+      return NextResponse.json({ error: 'Trop de commentaires envoyés. Réessayez plus tard.' }, { status: 429 });
+    }
+
     const body = await request.json();
     const { schoolId, authorName, authorEmail, rating, comment } = body;
 
@@ -51,6 +61,13 @@ export async function POST(request: NextRequest) {
         { error: 'Missing required fields: schoolId, authorName, rating, comment' },
         { status: 400 }
       );
+    }
+
+    // L'école doit exister : sinon Prisma renvoyait un 500 opaque (contrainte de
+    // clé étrangère) au lieu d'un 400 explicite.
+    const schoolExists = await db.school.findUnique({ where: { id: schoolId }, select: { id: true } });
+    if (!schoolExists) {
+      return NextResponse.json({ error: 'École introuvable' }, { status: 404 });
     }
 
     if (rating < 1 || rating > 5) {

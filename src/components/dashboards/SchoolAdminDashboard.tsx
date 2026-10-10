@@ -73,7 +73,10 @@ export default function SchoolAdminDashboard() {
         if (medicalRes?.ok) {
           const medJson = await medicalRes.json();
           if (Array.isArray(medJson.data)) {
-            const today = new Date().toISOString().split('T')[0];
+            // Date LOCALE (pas toISOString = UTC) : à Kinshasa (UTC+1), entre 00h
+            // et 01h, « aujourd'hui » en UTC désigne la veille — les visites de la
+            // veille étaient comptées comme visites du jour.
+            const today = new Date().toLocaleDateString('sv-SE')
             const todayVisits = medJson.data.filter((v: any) => v.visitDate?.startsWith(today));
             setStats((prev: any) => ({ ...prev, todayVisitsCount: todayVisits.length }));
           }

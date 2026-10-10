@@ -87,9 +87,16 @@ export default function StudentsView() {
     async function load() {
       try {
         const res = await authFetch(`/api/students?limit=50${activeSchoolId ? `&schoolId=${activeSchoolId}` : ''}`)
+        // Sans ce contrôle, un 403/500 affichait « Aucun élève » (json.data
+        // undefined) au lieu d'une erreur : faux négatif silencieux.
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const json = await res.json()
         setStudents(json.data || [])
-      } catch (e) { console.error(e) }
+      } catch (e) {
+        console.error(e)
+        setStudents([])
+        toast.error('Impossible de charger la liste des élèves')
+      }
       finally { setLoading(false) }
     }
     load()
@@ -104,9 +111,16 @@ export default function StudentsView() {
     async function reload() {
       try {
         const res = await authFetch(`/api/students?limit=50${activeSchoolId ? `&schoolId=${activeSchoolId}` : ''}`)
+        // Sans ce contrôle, un 403/500 affichait « Aucun élève » (json.data
+        // undefined) au lieu d'une erreur : faux négatif silencieux.
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const json = await res.json()
         setStudents(json.data || [])
-      } catch (e) { console.error(e) }
+      } catch (e) {
+        console.error(e)
+        setStudents([])
+        toast.error('Impossible de charger la liste des élèves')
+      }
     }
     reload()
   }, [dbPulse, activeSchoolId])

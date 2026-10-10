@@ -11,7 +11,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await requirePermission(request, 'school:update');
+    const authResult = await requirePermission(request, 'school-fees:manage');
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
 
@@ -48,7 +48,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await requirePermission(request, 'school:update');
+    const authResult = await requirePermission(request, 'school-fees:manage');
     if ('error' in authResult) return authResult.error;
     const { user } = authResult;
 

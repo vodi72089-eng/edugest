@@ -136,10 +136,30 @@ export async function POST(request: NextRequest) {
     if (isNaN(start.getTime())) {
       return NextResponse.json({ error: 'startDate invalide (date ISO attendue)' }, { status: 400 });
     }
-    // endDate est requis dans MedicalDispensation : par défaut, même jour.
-    const end = endDate ? new Date(endDate) : start;
-    if (endDate && isNaN(end.getTime())) {
-      return NextResponse.json({ error: 'endDate invalide (date ISO attendue)' }, { status: 400 });
+    // endDate est requis dans MedicalDispensation : par défaut, FIN de la journée
+    // de start. Avant : `end = start` (ou la date ISO à 00:00:00Z), donc une
+    // dispense créée « pour aujourd'hui » était EXPIRED dès la première seconde
+    // (`endDate >= new Date()` faux) — l'élève dispensé d'EPS n'apparaissait plus
+    // dans la liste active.
+    const endOfDay = (d: Date) => {
+      const e = new Date(d);
+      e.setHours(23, 59, 59, 999);
+      return e;
+    };
+    let end: Date;
+    if (endDate) {
+      const parsed = new Date(endDate);
+      if (isNaN(parsed.getTime())) {
+        return NextResponse.json({ error: 'endDate invalide (date ISO attendue)' }, { status: 400 });
+      }
+      // Une date seule (AAAA-MM-JJ) vaut fin de journée ; un datetime explicite
+      // est respecté tel quel.
+      end = /^\d{4}-\d{2}-\d{2}$/.test(String(endDate)) ? endOfDay(parsed) : parsed;
+    } else {
+      end = endOfDay(start);
+    }
+    if (end.getTime() < start.getTime()) {
+      return NextResponse.json({ error: 'endDate doit être postérieure ou égale à startDate' }, { status: 400 });
     }
 
     const dispense = await db.medicalDispensation.create({

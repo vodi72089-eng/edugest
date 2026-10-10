@@ -115,7 +115,13 @@ export async function POST(request: NextRequest) {
     if (!classId || !date || !Array.isArray(entries) || entries.length === 0) {
       return NextResponse.json({ error: 'classId, date et entries requis' }, { status: 400 });
     }
-    const safeDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : todayLocalISO();
+    // Date invalide : on REFUSE (avant, elle était remplacée en silence par la
+    // date du jour — un appel pour une journée passée était enregistré au
+    // mauvais jour, et le client recevait « 201 enregistré au 29/09 »).
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return NextResponse.json({ error: 'Date invalide (format attendu AAAA-MM-JJ)' }, { status: 400 });
+    }
+    const safeDate = date;
 
     const access = await assertClassAccess(user, classId);
     if (!access.ok) {
@@ -130,17 +136,20 @@ export async function POST(request: NextRequest) {
     });
     const validIds = new Set(classStudents.map(s => s.id));
 
-    let saved = 0;
-    for (const entry of entries) {
-      if (!entry?.studentId || !validIds.has(entry.studentId)) continue;
-      const status = VALID_STATUSES.includes(entry.status) ? entry.status : 'PRESENT';
-      await db.attendanceRecord.upsert({
-        where: { studentId_date: { studentId: entry.studentId, date: safeDate } },
-        update: { status, recordedBy: user.name, classId },
-        create: { studentId: entry.studentId, classId, schoolId: access.classRecord.schoolId, date: safeDate, status, recordedBy: user.name },
-      });
-      saved += 1;
-    }
+    // Écriture ATOMIQUE (avant : N upserts séquentiels = N allers-retours et un
+    // enregistrement partiel si la fonction était coupée en cours de route).
+    const toSave = entries.filter((entry) => entry?.studentId && validIds.has(entry.studentId));
+    await db.$transaction(
+      toSave.map((entry) => {
+        const status = VALID_STATUSES.includes(entry.status) ? entry.status : 'PRESENT';
+        return db.attendanceRecord.upsert({
+          where: { studentId_date: { studentId: entry.studentId, date: safeDate } },
+          update: { status, recordedBy: user.name, classId },
+          create: { studentId: entry.studentId, classId, schoolId: access.classRecord.schoolId, date: safeDate, status, recordedBy: user.name },
+        });
+      })
+    );
+    const saved = toSave.length;
 
     return NextResponse.json({ data: { saved, date: safeDate, classId } }, { status: 201 });
   } catch (error) {

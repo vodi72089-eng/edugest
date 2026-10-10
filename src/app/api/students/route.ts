@@ -220,34 +220,57 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate matricule: SHORTNAME-YYYY-NNN
+    // ── « count + 1 » n'est PAS atomique : deux inscriptions simultanées
+    // calculaient le même matricule et la seconde échouait en 500
+    // (« Unique constraint failed on matricule »). On réessaie avec un rang
+    // incrémental sur collision P2002 au lieu de renvoyer une erreur.
     const year = new Date().getFullYear();
-    const existingCount = await db.student.count({
-      where: {
-        schoolId,
-        matricule: { startsWith: `${school.shortName}-${year}` },
-      },
-    });
-    const matricule = `${school.shortName}-${year}-${String(existingCount + 1).padStart(3, '0')}`;
+    const matriculePrefix = `${school.shortName}-${year}`;
 
-    const student = await db.student.create({
-      data: {
-        matricule,
-        firstName,
-        lastName,
-        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
-        gender: gender || null,
-        address: address || null,
-        phone: phone || null,
-        classId,
-        parentId: resolvedParentId,
-        schoolId,
-        schoolYearId,
-      },
-      include: {
-        class: true,
-        parent: { select: { id: true, name: true, email: true } },
-      },
-    });
+    const createStudent = async (extra: number) => {
+      const existingCount = await db.student.count({
+        where: {
+          schoolId,
+          matricule: { startsWith: matriculePrefix },
+        },
+      });
+      const matricule = `${matriculePrefix}-${String(existingCount + 1 + extra).padStart(3, '0')}`;
+      return db.student.create({
+        data: {
+          matricule,
+          firstName,
+          lastName,
+          dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+          gender: gender || null,
+          address: address || null,
+          phone: phone || null,
+          classId,
+          parentId: resolvedParentId,
+          schoolId,
+          schoolYearId,
+        },
+        include: {
+          class: true,
+          parent: { select: { id: true, name: true, email: true } },
+        },
+      });
+    };
+
+    let student: Awaited<ReturnType<typeof createStudent>> | null = null;
+    for (let attempt = 0; attempt < 5 && !student; attempt++) {
+      try {
+        student = await createStudent(attempt);
+      } catch (e) {
+        if ((e as { code?: string })?.code === 'P2002' && attempt < 4) continue;
+        throw e;
+      }
+    }
+    if (!student) {
+      return NextResponse.json(
+        { error: 'Impossible de générer un matricule unique pour cet élève — réessayez.' },
+        { status: 409 }
+      );
+    }
 
     // Update school student count
     await db.school.update({
@@ -262,7 +285,7 @@ export async function POST(request: NextRequest) {
         { type: 'STUDENT_ENROLLED', schoolId, studentId: student.id, classId, actorId: user.id, section: student.class?.section ?? null },
         {
           title: 'Nouvel élève inscrit',
-          message: `${firstName} ${lastName} - ${student.class?.name || ''} - Matricule: ${matricule}`,
+          message: `${firstName} ${lastName} - ${student.class?.name || ''} - Matricule: ${student.matricule}`,
           relatedId: student.id,
         }
       );

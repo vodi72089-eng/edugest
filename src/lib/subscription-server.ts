@@ -96,8 +96,12 @@ export async function checkCanCreateUser(schoolId: string | null | undefined, ro
       return { ok: false, error: `Limite d'admins atteinte (${limits.maxAdmins} max pour ${tier}).`, limit: limits.maxAdmins, current };
     }
   }
-  if (TEACHER_ROLES.includes(role)) {
-    const current = await db.user.count({ where: { schoolId, role: { in: TEACHER_ROLES } } });
+  if (TEACHER_ROLES.includes(role) || role === 'EPS') {
+    // EPS est traité comme un professeur partout ailleurs (matières/classes,
+    // rapports) : il doit donc compter dans le quota, sinon un forfait
+    // FREEMIUM (maxTeachers: 0) créait des professeurs illimités via ce rôle.
+    const teacherLikeRoles = [...TEACHER_ROLES, 'EPS'];
+    const current = await db.user.count({ where: { schoolId, role: { in: teacherLikeRoles } } });
     if (current >= limits.maxTeachers) {
       return { ok: false, error: `Limite de professeurs atteinte (${limits.maxTeachers} max pour ${tier}).`, limit: limits.maxTeachers, current };
     }

@@ -4326,6 +4326,11 @@ function WhatsAppConfigView() {
   // (~8 s de polling), on affiche un panneau diagnostic actionnable au lieu
   // de laisser « Chargement... » tourner dans le vide. Un succès remet à zéro.
   const [serverDown, setServerDown] = useState(false)
+  // Ref synchronisée avec `serverDown` : `checkStatus` est enregistré par un
+  // intervalle créé UNE SEULE FOIS (useEffect []), donc une lecture directe de
+  // l'état y reste figée à sa valeur du premier rendu (false) — la bannière
+  // « Service WhatsApp injoignable » ne se retirait jamais automatiquement.
+  const serverDownRef = useRef(false)
   const unreachableRef = useRef(0)
   // Ref synchronisée avec connectionMode : le polling checkStatus est enregistré
   // une seule fois (useEffect []), une closure classique lirait une valeur périmée
@@ -4356,7 +4361,7 @@ function WhatsAppConfigView() {
       const res = await authFetch('/api/whatsapp-status')
       if (res.ok) {
         unreachableRef.current = 0
-        if (serverDown) setServerDown(false)
+        if (serverDownRef.current) { serverDownRef.current = false; setServerDown(false) }
         const json = await res.json()
         setWhatsappStatus(json.data?.status || 'disconnected')
         if (connectionModeRef.current === 'qr') {
@@ -4413,7 +4418,7 @@ function WhatsAppConfigView() {
         // Réponse non-OK hors auth (ex. 503 serveur absent côté API) : compte
         // comme un échec de joignabilité, sans toast (le polling est silencieux).
         unreachableRef.current += 1
-        if (unreachableRef.current >= 4 && !serverDown) setServerDown(true)
+        if (unreachableRef.current >= 4 && !serverDownRef.current) { serverDownRef.current = true; setServerDown(true) }
       }
     } catch {
       // Échec réseau franc (serveur injoignable, hors-ligne...) : même compteur.
@@ -4447,7 +4452,10 @@ function WhatsAppConfigView() {
       'Chargement de WhatsApp Web...',
       'Génération du code de parrainage...',
     ]
-    steps.forEach((s, i) => setTimeout(() => setPairProgress(p => [...p, s]), i * 3000))
+    // Timers mémorisés : sans annulation, un échec rapide (setPairProgress([]))
+    // laissait les étapes restantes se réinjecter dans la liste vidée → spinners
+    // de progression bloqués à l'infini alors qu'aucune requête n'est en cours.
+    const stepTimers = steps.map((s, i) => setTimeout(() => setPairProgress(p => [...p, s]), i * 3000))
 
     const controller = new AbortController()
     // Le serveur peut effectuer jusqu'à cinq essais avec backoff. On lui laisse
@@ -4473,7 +4481,7 @@ function WhatsAppConfigView() {
       if (e.name === 'AbortError') toast.error('La génération prend plus de temps que prévu. Le code s’affichera dès qu’il sera prêt.')
       else toast.error('Erreur de connexion au serveur WhatsApp')
       setPairProgress([])
-    } finally { clearTimeout(timeoutId); setRequestingPair(false) }
+    } finally { clearTimeout(timeoutId); stepTimers.forEach(t => clearTimeout(t)); setRequestingPair(false) }
   }
 
   async function handleDisconnect() {
@@ -4490,6 +4498,9 @@ function WhatsAppConfigView() {
         setPairCode(null)
         setConnectionMode(null)
         setPairProgress([])
+      } else {
+        // Ex. 403 : la déconnexion de l'agent partagé est réservée à la plateforme.
+        toast.error(json.error || 'Action refusée')
       }
     } catch { toast.error('Erreur lors de la déconnexion') }
   }
@@ -7473,8 +7484,6 @@ function CommunicationsView() {
     } catch { toast.error('Erreur réseau', { duration: 8000 }) } finally { setTestingEmail(false) }
   }
 
-  if (!hasAccess) return null
-
   useEffect(() => {
     const superAdminRoles = ['SUPER_ADMIN_GLOBAL', 'ADMIN']
     const mineParam = superAdminRoles.includes(userRole as string) ? '&mine=true' : ''
@@ -7490,6 +7499,14 @@ function CommunicationsView() {
       }
     }).catch(() => setLoading(false))
   }, [getActiveSchoolId() ?? null, userData?.id, canCreate])
+
+  // ── Garde d'accès APRÈS tous les hooks (règles React) : le forfait peut
+  // changer en cours de session (resynchro du profil) et inverser `hasAccess`
+  // entre deux rendus — un `return null` placé avant les hooks faisait lever
+  // « Rendered more/fewer hooks than during the previous render » (écran blanc,
+  // aucun error boundary dans l'app). L'effet de redirection ci-dessus gère
+  // déjà l'envoi vers /subscription-required.
+  if (!hasAccess) return null
 
   async function handleSend() {
     if (!title || !content) return toast.error('Titre et contenu requis')
@@ -9001,7 +9018,6 @@ function ConvocationView() {
   const [loadingConvocations, setLoadingConvocations] = useState(true)
   const [totalUsers, setTotalUsers] = useState(0)
 
-  if (!hasAccess) return null
   const [expandedConvocation, setExpandedConvocation] = useState<string | null>(null)
   const [responseModal, setResponseModal] = useState<{ convocationId: string; motif: string } | null>(null)
   const [responseType, setResponseType] = useState<'PRESENT' | 'ABSENT' | 'CUSTOM'>('PRESENT')
@@ -9051,6 +9067,14 @@ function ConvocationView() {
       queueMicrotask(() => setLoadingConvocations(false))
     }
   }, [getActiveSchoolId() ?? null, isParent, userData?.id])
+
+  // ── Garde d'accès APRÈS tous les hooks (règles React) : le forfait peut
+  // changer en cours de session (resynchro du profil) et inverser `hasAccess`
+  // entre deux rendus — un `return null` placé avant les hooks faisait lever
+  // « Rendered more/fewer hooks than during the previous render » (écran blanc,
+  // aucun error boundary dans l'app). L'effet de redirection ci-dessus gère
+  // déjà l'envoi vers /subscription-required.
+  if (!hasAccess) return null
 
   async function handleSendConvocation() {
     if (!selectedStudentId) { toast.error('Veuillez sélectionner un élève'); return }

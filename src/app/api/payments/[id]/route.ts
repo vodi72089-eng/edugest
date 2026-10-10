@@ -51,14 +51,19 @@ export async function PUT(
         }
       }
 
-      // Auto-compute status from effective paidAmount/amount
-      const newAmount = body.amount !== undefined ? body.amount : existing.amount;
+      // Auto-compute status from effective paidAmount/amount.
+      // `body.amount` n'est ni un champ régulier ni un champ restreint : il n'est
+      // JAMAIS persisté. Calculer le statut sur cette valeur non enregistrée
+      // permettait de passer un record en PAID avec { amount: 1, paidAmount: 1 }
+      // alors que le montant dû stocké restait 1000 (trace comptable fausse).
+      const newAmount = existing.amount;
       const newPaidAmount = body.paidAmount !== undefined ? body.paidAmount : existing.paidAmount;
       const computedStatus = getEffectiveStatus(newAmount, newPaidAmount, body.status || existing.status);
       updateData.status = computedStatus;
 
-      // If status changed to PAID, set paidAt
-      if (computedStatus === 'PAID' && existing.status !== 'PAID') {
+      // paidAt dès qu'un encaissement existe (PARTIAL inclus) : sans lui, le
+      // paiement était exclu de la caisse et des rapports (filtre paidAt >= from).
+      if (computedStatus !== 'PENDING' && !existing.paidAt) {
         updateData.paidAt = new Date();
       }
     } else {

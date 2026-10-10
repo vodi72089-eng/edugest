@@ -239,8 +239,14 @@ export function getClientIp(request: NextRequest): string {
   // LAN « ::ffff:192.168.x » passait le garde-fou d'IP privée côté géoloc.
   const xff = request.headers.get('x-forwarded-for');
   if (xff) {
-    const first = normalizeClientIp(xff);
-    if (first) return first;
+    // X-Forwarded-For = « client, proxy1, proxy2 » : la PREMIÈRE valeur est
+    // fournie par le client et donc falsifiable — il suffisait de la faire
+    // tourner pour contourner tous les rate-limits par IP (login, reset,
+    // création d'école…). On retient la DERNIÈRE, ajoutée par le proxy de
+    // confiance le plus proche.
+    const last = xff.split(',').map((s) => s.trim()).filter(Boolean).pop();
+    const ip = last ? normalizeClientIp(last) : '';
+    if (ip) return ip;
   }
   const xreal = request.headers.get('x-real-ip');
   if (xreal) return normalizeClientIp(xreal);
@@ -381,6 +387,15 @@ export function directionRolesForSection(section: string | null | undefined): st
 }
 
 // ─── Permission-based auth ─────────────────────────────────────────────────
+// Rôles autorisés à configurer la grille tarifaire (frais scolaires) : la
+// permission 'school-fees:manage' leur est attribuée de façon dérivée dans
+// getEffectivePermissions (elle n'apparaît donc pas dans ROLE_PERMISSIONS).
+export const SCHOOL_FEES_ROLES = [
+  'SCHOOL_ADMIN', 'ADMIN_FREEMIUM', 'DIRECTION',
+  'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE',
+  'SECRETARY',
+]
+
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPER_ADMIN_GLOBAL: ['*'],
   DIRECTION: [
@@ -609,7 +624,15 @@ const FREEMIUM_DENIED = [
 const FREEMIUM_ADMIN_ROLES = ['DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE']
 
 async function getEffectivePermissions(role: string, schoolId: string | null): Promise<string[]> {
-  const base = ROLE_PERMISSIONS[role] || []
+  const base = [...(ROLE_PERMISSIONS[role] || [])]
+  // ── Permission dérivée : grille tarifaire de l'école (frais scolaires).
+  // Les routes /api/school-fees exigeaient 'school:update', qui n'existe dans
+  // AUCUNE liste de base (seulement dans les listes de retrait de forfait et
+  // dans le bonus DIRECTION_* d'une école FREEMIUM) : le SCHOOL_ADMIN recevait
+  // donc 403 en Standard/Premium, et les DIRECTION_* 403 hors Freemium.
+  if (SCHOOL_FEES_ROLES.includes(role)) {
+    if (!base.includes('school-fees:manage')) base.push('school-fees:manage')
+  }
   if (!schoolId) return base
 
   const school = await db.school.findUnique({ where: { id: schoolId }, select: { subscriptionTier: true } })

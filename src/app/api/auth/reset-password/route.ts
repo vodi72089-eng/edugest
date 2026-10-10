@@ -2,7 +2,8 @@ import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { verifyResetToken, normalizePhone } from '@/lib/reset-tokens'
-import { revokeAllUserSessionsExcept, getClientIp, checkRateLimit } from '@/lib/auth'
+import { revokeAllUserSessionsExcept, getClientIp } from '@/lib/auth'
+import { checkRateLimitDb } from '@/lib/rate-limit-db'
 
 // POST /api/auth/reset-password — Reset password with code
 export async function POST(request: NextRequest) {
@@ -41,8 +42,12 @@ export async function POST(request: NextRequest) {
     // ── Rate limiting ──────────────────────────────────────────────
     // Par IP : limite large (10 essais / 15 min) pour ne pas bloquer
     // plusieurs utilisateurs derrière un même NAT.
+    // Limiteur PERSISTANT et MÊMES clés que /api/auth/verify-reset-code : le
+    // limiteur en mémoire (clés `reset_ip_…`) repartait de zéro à chaque
+    // redémarrage / isolat, et ne partageait rien avec l'étape précédente du
+    // parcours « mot de passe oublié ».
     const ip = getClientIp(request) || 'unknown'
-    if (!checkRateLimit(`reset_ip_${ip}`, 10, 15 * 60 * 1000)) {
+    if (!(await checkRateLimitDb(`reset_ip:${ip}`, 10, 15 * 60 * 1000))) {
       return NextResponse.json(
         { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
         { status: 429 }
@@ -54,7 +59,7 @@ export async function POST(request: NextRequest) {
     // Même normalisation que forgot-password, sinon un numéro tapé sans
     // « + » ne retrouverait jamais son token.
     const trimmedPhone = normalizePhone(String(phone))
-    if (!checkRateLimit(`reset_phone_${trimmedPhone}`, 5, 15 * 60 * 1000)) {
+    if (!(await checkRateLimitDb(`reset_phone:${trimmedPhone}`, 5, 15 * 60 * 1000))) {
       return NextResponse.json(
         { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
         { status: 429 }

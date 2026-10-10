@@ -37,7 +37,6 @@ export default function GradesView() {
     }
   }, [parentBlocked, router]);
 
-  if (!hasAccess || parentBlocked) return null;
   const highlightedRef = useRef<HTMLTableRowElement>(null)
   useEffect(() => {
     if (highlightedId && highlightedRef.current) {
@@ -259,6 +258,15 @@ export default function GradesView() {
     if (classSearch.length < 1) return classes.map(c => ({ id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves` }))
     return classes.filter(c => c.name.toLowerCase().includes(classSearch.toLowerCase())).map(c => ({ id: c.id, label: c.name, sublabel: `${c._count?.students || 0} élèves` }))
   }, [classSearch, classes, isParent])
+
+  // ── Garde d'accès APRÈS tous les hooks (règles React) : `hasAccess` et
+  // `parentBlocked` dépendent du forfait, resynchronisé en cours de session —
+  // un `return null` placé avant les hooks faisait lever « Rendered more/fewer
+  // hooks than during the previous render » (écran blanc : aucun error boundary
+  // dans l'application). Les effets de redirection ci-dessus envoient déjà vers
+  // /subscription-required.
+  if (!hasAccess || parentBlocked) return null
+
   const gradesByStudent = isParent ? Object.entries(
     grades.reduce((acc, g) => {
       const key = g.studentId

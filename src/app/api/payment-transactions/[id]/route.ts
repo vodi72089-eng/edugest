@@ -133,6 +133,16 @@ export async function PUT(
           { status: 400 }
         );
       }
+      // ── SÉCURITÉ : le passage MANUEL à SUCCESS est une preuve d'encaissement.
+      // Un caissier (permission payments:verify) pouvait fabriquer un paiement
+      // reçu sans argent — y compris un paiement d'abonnement. Seul le super
+      // admin plateforme peut forcer ce statut (correction manuelle/incident).
+      if (status === 'SUCCESS' && existing.status !== 'SUCCESS' && user.role !== 'SUPER_ADMIN_GLOBAL') {
+        return NextResponse.json(
+          { error: "Le statut SUCCESS ne peut pas être posé manuellement : il provient du webhook de la passerelle (ou d'un super administrateur plateforme)." },
+          { status: 403 }
+        );
+      }
       updateData.status = status;
 
       // Set completedAt when transitioning to SUCCESS

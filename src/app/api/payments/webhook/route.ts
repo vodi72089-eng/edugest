@@ -163,17 +163,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true, duplicate: true })
     }
 
+    // ── Idempotence étendue (chemin « sous-paiement ») ──
+    // Le sous-paiement laisse la transaction en AMOUNT_MISMATCH (≠ SUCCESS) tout
+    // en créditant paidAmount : sans ce marqueur, un rejeu de la passerelle
+    // (M-Pesa réessaie les callbacks non acquittés) recréditait le montant et
+    // soldait la dette à tort.
+    const alreadyCredited = (() => {
+      try {
+        const parsed = transaction.gatewayResponse ? JSON.parse(transaction.gatewayResponse) : null
+        return !!(parsed && typeof parsed === 'object' && (parsed as { credited?: unknown }).credited)
+      } catch {
+        return false
+      }
+    })()
+    if (alreadyCredited) {
+      console.log(`[Webhook] ${gateway} — transaction déjà créditée, rejeu ignoré (idempotent)`)
+      return NextResponse.json({ received: true, duplicate: true })
+    }
+
     // ── Montant / devise ──
     if (event.status === 'SUCCESS') {
       const expectedAmount = Number(transaction.amount)
       const expectedCurrency = (transaction.currency || '').toUpperCase()
-      if (event.amount != null && Number.isFinite(event.amount)) {
-        if (Math.abs(Number(event.amount) - expectedAmount) >= EPSILON && Number(event.amount) < expectedAmount - EPSILON) {
-          // Sous-paiement : géré en PARTIAL plus bas si rattaché, sinon AMOUNT_MISMATCH.
-        } else if (Math.abs(Number(event.amount) - expectedAmount) >= EPSILON && Number(event.amount) > expectedAmount + EPSILON) {
-          // Sur-paiement : accepté (PAID), écart tracé en audit.
-        }
+      const incomingRaw = event.amount != null && Number.isFinite(Number(event.amount)) ? Number(event.amount) : null
+
+      // Sous-paiement SANS PaymentRecord rattaché : aucun cumul possible (il n'y
+      // a pas de record à créditer) → AMOUNT_MISMATCH + audit, JAMAIS SUCCESS.
+      // Avant, ces deux branches étaient vides (code mort) : la transaction
+      // d'abonnement passait SUCCESS avec un montant inférieur.
+      if (!transaction.paymentRecordId && incomingRaw != null && incomingRaw < expectedAmount - EPSILON) {
+        await db.paymentTransaction.update({
+          where: { id: transaction.id },
+          data: {
+            status: 'AMOUNT_MISMATCH',
+            gatewayTransactionId: event.gatewayTransactionId || transaction.gatewayTransactionId,
+            gatewayResponse: JSON.stringify({ verified: true, mismatch: 'amount', expected: expectedAmount, received: incomingRaw }),
+          },
+        })
+        await db.auditLog.create({
+          data: {
+            userId: 'webhook', userName: `webhook:${gateway}`, userRole: 'SYSTEM',
+            action: 'WEBHOOK_AMOUNT_MISMATCH', entityType: 'PaymentTransaction', entityId: transaction.id,
+            details: `Sous-paiement sans PaymentRecord: reçu ${incomingRaw} ${expectedCurrency || '?'} pour ${expectedAmount} attendus`,
+          },
+        })
+        console.warn(`[Webhook] ${gateway} — sous-paiement sans PaymentRecord (${incomingRaw} < ${expectedAmount}) → AMOUNT_MISMATCH`)
+        return NextResponse.json({ received: true, mismatch: 'amount' }, { status: 422 })
       }
+      // Sur-paiement : accepté (PAID), écart tracé dans l'audit du record.
       if (event.currency && expectedCurrency && event.currency.toUpperCase() !== expectedCurrency) {
         await db.paymentTransaction.update({
           where: { id: transaction.id },
@@ -216,8 +253,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true, duplicate: true })
       }
 
-      // Cumul : le webhook apporte event.amount (ou le montant transaction).
-      const incoming = event.amount != null && Number.isFinite(Number(event.amount)) ? Number(event.amount) : Number(transaction.amount)
+      // Cumul en MONNAIE DE BASE. La passerelle exprime event.amount dans SA
+      // devise (KES, USD…) : crediter ce nombre tel quel dans paidAmount (base)
+      // soldait une dette de 100 CDF avec 100 USD (facteur ≈ 2 500).
+      // PaymentTransaction.convertedAmount est le montant converti en base par
+      // payment-gateway.ts — il fait foi quand il est present.
+      const converted = transaction.convertedAmount != null && Number.isFinite(Number(transaction.convertedAmount))
+        ? Number(transaction.convertedAmount)
+        : null
+      const incoming = converted ?? (event.amount != null && Number.isFinite(Number(event.amount)) ? Number(event.amount) : Number(transaction.amount))
       const alreadyPaid = Number(record.paidAmount)
       const newPaid = alreadyPaid + incoming
       const due = Number(record.amount)
@@ -228,7 +272,17 @@ export async function POST(request: NextRequest) {
         // PARTIAL côté record, jamais PAID. Les versements suivants
         // s'accumulent normalement en PARTIAL (paiements fractionnés).
         await db.$transaction([
-          db.paymentTransaction.update({ where: { id: transaction.id }, data: { status: 'AMOUNT_MISMATCH' } }),
+          db.paymentTransaction.update({
+            where: { id: transaction.id },
+            data: {
+              status: 'AMOUNT_MISMATCH',
+              // ── Marqueur d'idempotence (BUG-2) : le statut AMOUNT_MISMATCH
+              // échappe à la garde « déjà SUCCESS » alors que le montant VIENT
+              // d'être crédité. Sans ce marqueur, un rejeu de la passerelle
+              // recréditait paidAmount (constaté en test : 400 → 800).
+              gatewayResponse: JSON.stringify({ verified: true, status: 'AMOUNT_MISMATCH', credited: Math.round(newPaid) }),
+            },
+          }),
           db.paymentRecord.update({ where: { id: record.id }, data: { status: 'PARTIAL', paidAmount: Math.round(newPaid) } }),
           db.auditLog.create({
             data: {

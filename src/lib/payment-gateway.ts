@@ -210,6 +210,9 @@ export async function initiatePayment(
     apiKey: decryptSecret(config.apiKey),
     secretKey: decryptSecret(config.secretKey),
     webhookSecret: decryptSecret(config.webhookSecret),
+    // Passkey Lipa Na M-Pesa : secret opérateur, chiffré au repos comme les
+    // autres (decryptSecret tolère les valeurs historiques en clair).
+    publicKey: decryptSecret(config.publicKey),
   } as any;
 
   const currencyConfig = await db.schoolCurrencyConfig.findUnique({

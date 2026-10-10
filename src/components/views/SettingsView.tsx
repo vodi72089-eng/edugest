@@ -345,8 +345,17 @@ function SettingsViewInner() {
 
   useEffect(() => {
     if (getActiveSchoolId()) {
-      authFetch(`/api/school-fees?schoolId=${getActiveSchoolId()}`).then(r => r.json()).then(j => setFees(j.data || []))
-      authFetch(`/api/classes?schoolId=${getActiveSchoolId()}`).then(r => r.json()).then(j => setClasses(j.data || []))
+      // res.ok + .catch : sans eux, un 403/500 (ou une coupure réseau) laissait
+      // la grille tarifaire et la liste des classes VIDES, sans aucun message —
+      // l'utilisateur croyait que l'école n'avait aucun frais configuré.
+      authFetch(`/api/school-fees?schoolId=${getActiveSchoolId()}`)
+        .then(r => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+        .then(j => setFees(j.data || []))
+        .catch(() => { setFees([]); toast.error('Impossible de charger les frais scolaires') })
+      authFetch(`/api/classes?schoolId=${getActiveSchoolId()}`)
+        .then(r => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+        .then(j => setClasses(j.data || []))
+        .catch(() => { setClasses([]); toast.error('Impossible de charger la liste des classes') })
     }
   }, [getActiveSchoolId()])
 

@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { notify } from '@/lib/notify';
 import { SUBSCRIPTION_PRICES } from '@/lib/subscription';
+import { convertCurrency } from '@/lib/exchange-rate-server';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 
@@ -91,17 +92,45 @@ export async function POST(request: NextRequest) {
         { status: 422 }
       );
     }
+    // ── La preuve doit venir de la MÊME école que la demande, et le montant
+    // doit être comparé dans la devise du prix : sans ces deux contrôles, la
+    // transaction SUCCESS d'une autre école — ou 500 CDF (≈ 0,18 $) pour une
+    // formule à 500 $ — validait la demande d'abonnement.
+    if (transaction.schoolId !== subRequest.schoolId) {
+      console.warn(`[Webhook:subscription] transaction ${transaction.id} d'une autre école (${transaction.schoolId} ≠ ${subRequest.schoolId})`)
+      return NextResponse.json({ error: 'Transaction rattachée à une autre école' }, { status: 403 });
+    }
     const price = SUBSCRIPTION_PRICES[subRequest.requestedTier] ?? null;
-    if (price !== null && price > 0 && Number(transaction.amount) + 0.01 < price) {
-      await db.auditLog.create({
-        data: {
-          userId: 'webhook', userName: 'webhook:subscription', userRole: 'SYSTEM',
-          action: 'WEBHOOK_SUBSCRIPTION_AMOUNT_MISMATCH', entityType: 'SubscriptionRequest', entityId: subRequest.id,
-          details: `Transaction ${transaction.id}: ${transaction.amount} ${transaction.currency} < prix ${price} (${subRequest.requestedTier})`,
-        },
-      });
-      console.warn(`[Webhook:subscription] montant insuffisant (${transaction.amount} < ${price})`);
-      return NextResponse.json({ received: true, mismatch: 'amount' }, { status: 422 });
+    if (price !== null && price > 0) {
+      const paidCurrency = (transaction.currency || 'USD').toUpperCase();
+      let amountInPriceCurrency = Number(transaction.amount);
+      if (paidCurrency !== 'USD') {
+        if ((transaction.baseCurrency || '').toUpperCase() === 'USD' && transaction.convertedAmount != null) {
+          // Le montant converti en monnaie de base (USD) fait foi.
+          amountInPriceCurrency = Number(transaction.convertedAmount);
+        } else {
+          try {
+            const conv = await convertCurrency(Number(transaction.amount), paidCurrency, 'USD');
+            amountInPriceCurrency = conv.convertedAmount;
+          } catch {
+            return NextResponse.json(
+              { error: 'Conversion de devise indisponible — impossible de vérifier le montant de l\'abonnement' },
+              { status: 503 }
+            );
+          }
+        }
+      }
+      if (amountInPriceCurrency + 0.01 < price) {
+        await db.auditLog.create({
+          data: {
+            userId: 'webhook', userName: 'webhook:subscription', userRole: 'SYSTEM',
+            action: 'WEBHOOK_SUBSCRIPTION_AMOUNT_MISMATCH', entityType: 'SubscriptionRequest', entityId: subRequest.id,
+            details: `Transaction ${transaction.id}: ${transaction.amount} ${paidCurrency} (= ${amountInPriceCurrency} USD) < prix ${price} USD (${subRequest.requestedTier})`,
+          },
+        });
+        console.warn(`[Webhook:subscription] montant insuffisant (${amountInPriceCurrency} USD < ${price} USD)`);
+        return NextResponse.json({ received: true, mismatch: 'amount' }, { status: 422 });
+      }
     }
 
     await db.$transaction([

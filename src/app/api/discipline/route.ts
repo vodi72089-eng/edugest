@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { notifyEvent } from '@/lib/notification-service';
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription } from '@/lib/auth';
+import { requirePermission, verifySchoolAccess, safeParseInt, sanitizeError, requireActiveSubscription, getRoleCycle, classMatchesCycle, classFilterForCycle } from '@/lib/auth';
 import { requireFeature } from '@/lib/feature-gate';
 import { notifyDiscipline } from '@/lib/whatsapp-agent';
 import { classifyStudent, learnKeywordsFromRecord } from '@/lib/discipline-classifier';
@@ -151,6 +151,19 @@ export async function GET(request: NextRequest) {
       where.student = { parentId: user.id };
     }
 
+    // ── Scoping de CYCLE (comme convocations, classes, élèves, devoirs, notes) :
+    // un rôle DISCIPLINE_<cycle> / DIRECTION_<cycle> ne voit que les sanctions de
+    // SON cycle. Sans ce filtre, un DISCIPLINE_PRIMAIRE lisait les incidents de
+    // tous les cycles de l'école (le code d'auth.ts annonçait pourtant ce
+    // scoping comme corrigé).
+    const viewerCycle = getRoleCycle(user.role);
+    if (viewerCycle) {
+      where.student = {
+        ...((where.student as Record<string, unknown>) || {}),
+        class: classFilterForCycle(viewerCycle),
+      };
+    }
+
     const [records, total] = await Promise.all([
       db.disciplineRecord.findMany({
         where,
@@ -222,7 +235,7 @@ export async function POST(request: NextRequest) {
     // Verify the student belongs to the target school
     const targetStudent = await db.student.findUnique({
       where: { id: studentId },
-      select: { schoolId: true },
+      select: { schoolId: true, class: { select: { name: true, section: true } } },
     });
     if (!targetStudent) {
       return NextResponse.json({ error: 'Élève non trouvé' }, { status: 404 });
@@ -237,6 +250,15 @@ export async function POST(request: NextRequest) {
     // Verify school access
     if (!verifySchoolAccess(user, schoolId)) {
       return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
+    }
+
+    // ── Scoping de CYCLE : un disciplinaire ne sanctionne que les élèves de son
+    // cycle (même garde serveur que /api/convocations POST). Sans lui, un
+    // DISCIPLINE_PRIMAIRE créait une sanction au secondaire — avec notification
+    // WhatsApp aux parents de l'élève.
+    const targetCycle = getRoleCycle(user.role);
+    if (targetCycle && !classMatchesCycle(targetStudent.class?.section, targetStudent.class?.name, targetCycle)) {
+      return NextResponse.json({ error: 'Cet élève ne relève pas de votre cycle' }, { status: 403 });
     }
 
     // CRITICAL: Use authenticated user's name for 'addedBy' field instead of hardcoded 'System'
@@ -314,7 +336,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Discipline record ID required' }, { status: 400 });
     }
 
-    const existing = await db.disciplineRecord.findUnique({ where: { id } });
+    const existing = await db.disciplineRecord.findUnique({
+      where: { id },
+      include: { student: { select: { class: { select: { name: true, section: true } } } } },
+    });
     if (!existing) {
       return NextResponse.json({ error: 'Discipline record not found' }, { status: 404 });
     }
@@ -327,6 +352,16 @@ export async function PUT(request: NextRequest) {
     // Verify school access
     if (!verifySchoolAccess(user, existing.schoolId)) {
       return NextResponse.json({ error: 'Accès à cette école non autorisé' }, { status: 403 });
+    }
+
+    // ── Scoping de CYCLE (PUT) : un disciplinaire n'approuve/modifie que les
+    // sanctions de son cycle.
+    const existingCycle = getRoleCycle(user.role);
+    if (
+      existingCycle &&
+      !classMatchesCycle(existing.student?.class?.section, existing.student?.class?.name, existingCycle)
+    ) {
+      return NextResponse.json({ error: 'Cet incident ne relève pas de votre cycle' }, { status: 403 });
     }
 
     const updateData: Record<string, unknown> = {};

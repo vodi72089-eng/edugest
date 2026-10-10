@@ -3,6 +3,8 @@ import { requireAuth, verifySchoolAccess, verifyParentAccess, sanitizeError } fr
 import { NextRequest, NextResponse } from 'next/server';
 import { generateBulletinPDF, BulletinError } from '@/lib/bulletin';
 import { sendWhatsAppDocument, getSchoolWhatsAppNumber, getWhatsAppLiveStatus } from '@/lib/whatsapp-agent';
+import { getSchoolTier } from '@/lib/subscription-server';
+import { hasFeatureAccess, tierAllowsParentGrades } from '@/lib/subscription';
 
 // Rôles autorisés à envoyer le bulletin d'un élève aux parents via WhatsApp
 const STAFF_ROLES = [
@@ -42,6 +44,28 @@ export async function POST(
     // Verify school access
     if (!verifySchoolAccess(user, schoolId)) {
       return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });
+    }
+
+    // ── Forfait : MÊMES règles que la route GET jumelle (bulletins/[studentId]).
+    // Cette route n'avait aucun contrôle de forfait : une école ESSENTIEL
+    // produisait ET envoyait des bulletins officiels (STANDARD+) aux parents.
+    if (user.role !== 'PARENT' && user.role !== 'SUPER_ADMIN_GLOBAL') {
+      const tier = await getSchoolTier(user.schoolId || schoolId);
+      if (!hasFeatureAccess(tier, 'report_cards')) {
+        return NextResponse.json(
+          { error: `Le forfait ${tier} de votre école n'inclut pas les bulletins officiels. Passez au forfait Standard ou supérieur.`, featureRequired: 'report_cards', currentTier: tier },
+          { status: 403 }
+        );
+      }
+    }
+    if (user.role === 'PARENT') {
+      const schoolTier = await db.school.findUnique({ where: { id: schoolId }, select: { subscriptionTier: true } });
+      if (!tierAllowsParentGrades(schoolTier?.subscriptionTier || 'FREEMIUM')) {
+        return NextResponse.json(
+          { error: `Le forfait ${schoolTier?.subscriptionTier || 'FREEMIUM'} de votre école n'inclut pas les bulletins pour les parents.` },
+          { status: 403 }
+        );
+      }
     }
 
     const isStaff = STAFF_ROLES.includes(user.role);

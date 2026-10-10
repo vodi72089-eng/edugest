@@ -41,18 +41,30 @@ export async function GET(request: NextRequest) {
       corporateIds = memberships.map(m => m.corporateId);
     }
 
-    const where = {
+    // ── Cloisonnement et recherche combinés en AND (avant, la clé `OR` du
+    // cloisonnement ÉCRASAIT celle de la recherche : `q` était silencieusement
+    // ignoré pour tout non-support) ; un PARENT ne voit QUE ses propres tickets
+    // (le commentaire l'annonçait, mais `schoolId` lui ouvrait ceux de l'école).
+    const scope = isHandler
+      ? {}
+      : user.role === 'CORPORATE_ADMIN'
+        ? { corporateId: { in: corporateIds } }
+        : user.role === 'PARENT'
+          ? { createdById: user.id }
+          : user.schoolId
+            ? { OR: [{ createdById: user.id }, { schoolId: user.schoolId }] }
+            : { createdById: user.id };
+    const search = q ? { OR: [{ ref: { contains: q } }, { subject: { contains: q } }] } : {};
+
+    const where: Record<string, unknown> = {
       ...(status ? { status } : {}),
       ...(priority ? { priority } : {}),
-      ...(q ? { OR: [{ ref: { contains: q } }, { subject: { contains: q } }] } : {}),
-      // Cloisonnement : le support/SAG voit TOUT ; corporate → ses tickets ;
-      // école → ceux créés par elle (créateur ou même école) ; parent → les siens.
-      ...(isHandler ? {} : user.role === 'CORPORATE_ADMIN'
-        ? { corporateId: { in: corporateIds } }
-        : user.schoolId
-          ? { OR: [{ createdById: user.id }, { schoolId: user.schoolId }] }
-          : { createdById: user.id }),
     };
+    if (Object.keys(search).length > 0 && Object.keys(scope).length > 0) {
+      where.AND = [search, scope];
+    } else {
+      Object.assign(where, search, scope);
+    }
 
     const tickets = await db.supportTicket.findMany({
       where,
