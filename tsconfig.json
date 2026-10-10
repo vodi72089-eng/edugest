@@ -42,6 +42,7 @@
     "skills",
     "mini-services",
     "desktop",
+    "mobile-expo",
     "scripts",
     "src/lib/whatsapp/client.ts",
     "tests"

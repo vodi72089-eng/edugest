@@ -1,18 +1,18 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useEduGestStore, authFetch, getActiveSchoolId, isDesktopApp } from '@/lib/store'
 import type { SchoolData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
-import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera, ImagePlus, Plus, Edit, GraduationCap, Monitor, Smartphone, LogOut, Tablet, Globe, Fingerprint, Palette, HardDriveDownload, LifeBuoy, RefreshCw } from 'lucide-react'
+import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera, ImagePlus, Plus, Edit, GraduationCap, Monitor, Smartphone, LogOut, Tablet, Globe, Fingerprint, Palette, HardDriveDownload, LifeBuoy, RefreshCw, WifiOff, CheckCircle2, AlertTriangle } from 'lucide-react'
 import PersonalizationView from './PersonalizationView'
 import HelpView from './HelpView'
 import { toast } from 'sonner'
 import {
   activateAutoSync, clearSyncConfig, readSyncConfig, readSyncLast,
-  runAutoSync, DEFAULT_PLATFORM_URL,
-  type SyncAutoConfig, type SyncLastResult,
+  runAutoSync, fetchSyncStatus, readSyncHistory, DEFAULT_PLATFORM_URL,
+  type SyncAutoConfig, type SyncLastResult, type SyncStatusResult,
 } from '@/lib/sync-auto'
 import { detectDevice, formatDeviceTitle, formatDeviceSummary, isLoopbackIp } from '@/lib/detect-device'
 import CurrentDeviceInfo from '@/components/CurrentDeviceInfo'
@@ -20,10 +20,25 @@ import AppSelect from '@/components/ui/AppSelect'
 import { getTierLimits } from '@/lib/subscription'
 import type { SchoolPhotoData } from '@/lib/types'
 
-/* ── Synchronisation automatique vers Neon (exe uniquement) ───────────────
+/* ⚙️ Synchronisation automatique vers Neon (exe uniquement) ─────────
    Activation UNIQUE (mot de passe jamais stocké) → jeton lié à l'école.
-   Ensuite l'exe envoie tout seul dès qu'internet revient (boucle 10 min +
-   retour réseau). Insertion seule côté Neon : jamais d'écrasement. */
+   MODE HORS-LIGNE : tout reste enregistré localement dans SQLite ; une
+   sonde locale (90 s) compte les modifications en attente et l'envoi part
+   automatiquement dès que le réseau répond (ainsi qu'à chaque retour
+   réseau). INTERFACE DE STATUT : modifications en attente par type,
+   extraits des dernières modifications, dernier envoi, historique.
+   Insert + mise à jour « dernière écriture gagne » côté Neon ;
+   les suppressions locales ne sont jamais propagées. */
+function syncRelTime(isoStr: string): string {
+  const t = new Date(isoStr).getTime();
+  if (!isFinite(t)) return '';
+  const diff = Date.now() - t;
+  if (diff < 60_000) return "à l'instant";
+  if (diff < 3_600_000) return `il y a ${Math.max(1, Math.floor(diff / 60_000))} min`;
+  if (diff < 86_400_000) return `il y a ${Math.floor(diff / 3_600_000)} h`;
+  return new Date(isoStr).toLocaleDateString('fr-FR');
+}
+
 function SyncNeonSection() {
   const [cfg, setCfg] = useState<SyncAutoConfig | null>(() => readSyncConfig());
   const [issuerUrl, setIssuerUrl] = useState(DEFAULT_PLATFORM_URL);
@@ -32,11 +47,35 @@ function SyncNeonSection() {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
   const [last, setLast] = useState<SyncLastResult | null>(() => readSyncLast());
-  const [manualResult, setManualResult] = useState<string>('');
+  const [status, setStatus] = useState<SyncStatusResult | null>(null);
+  const [history, setHistory] = useState<SyncLastResult[]>(() => readSyncHistory());
+  const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
+
+  const refresh = useCallback(async () => {
+    setStatus(await fetchSyncStatus());
+    setHistory(readSyncHistory());
+    setLast(readSyncLast());
+  }, []);
+
+  useEffect(() => {
+    if (!cfg) return;
+    void refresh();
+    const iv = window.setInterval(() => { if (!document.hidden) void refresh(); }, 20000);
+    const onFocus = () => { void refresh(); };
+    const onNet = () => setOnline(typeof navigator === 'undefined' ? true : navigator.onLine);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onNet);
+    window.addEventListener('offline', onNet);
+    return () => {
+      window.clearInterval(iv);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onNet);
+      window.removeEventListener('offline', onNet);
+    };
+  }, [cfg, refresh]);
 
   async function handleActivate() {
     setError('');
-    setManualResult('');
     if (!email.trim() || !password) {
       setError('Indiquez votre email et votre mot de passe.');
       return;
@@ -47,6 +86,7 @@ function SyncNeonSection() {
       setCfg(c);
       setPassword('');
       toast.success(`Synchronisation activée pour ${c.neonSchoolName || 'votre école'}`);
+      void refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Activation impossible');
     } finally {
@@ -56,19 +96,18 @@ function SyncNeonSection() {
 
   async function handleManual() {
     setError('');
-    setManualResult('');
     setWorking(true);
     try {
       const out = await runAutoSync();
-      setLast(readSyncLast());
       if (out.ok) {
-        setManualResult(out.message);
         toast.success(out.message);
       } else {
         setError(out.message);
       }
     } finally {
+      setLast(readSyncLast());
       setWorking(false);
+      void refresh();
     }
   }
 
@@ -76,9 +115,53 @@ function SyncNeonSection() {
     clearSyncConfig();
     setCfg(null);
     setLast(null);
-    setManualResult('');
+    setStatus(null);
+    setHistory([]);
     toast.success('Synchronisation automatique désactivée');
   }
+
+  const pendingTotal = status?.pendingTotal ?? 0;
+  const lastFailed = last?.ok === false;
+  const state = !online
+    ? {
+        icon: <WifiOff size={15} aria-hidden="true" />,
+        title: 'Hors ligne',
+        text: "Aucune connexion : vos modifications sont enregistrées localement et partiront automatiquement au retour du réseau.",
+        bg: 'rgba(180,83,9,0.08)', border: 'rgba(180,83,9,0.35)', fg: '#b45309',
+      }
+    : pendingTotal > 0
+      ? {
+          icon: <RefreshCw size={15} aria-hidden="true" />,
+          title: `${pendingTotal} modification${pendingTotal > 1 ? 's' : ''} en attente d'envoi`,
+          text: "L'application envoie ces modifications automatiquement (toutes les 90 secondes environ).",
+          bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.3)', fg: '#1d4ed8',
+        }
+      : lastFailed
+        ? {
+            icon: <AlertTriangle size={15} aria-hidden="true" />,
+            title: 'Dernier envoi en échec',
+            text: last?.message || "La plateforme n'a pas répondu. La prochaine tentative partira automatiquement.",
+            bg: 'rgba(186,26,26,0.08)', border: 'rgba(186,26,26,0.35)', fg: '#b91c1c',
+          }
+        : {
+            icon: <CheckCircle2 size={15} aria-hidden="true" />,
+            title: 'À jour',
+            text: last
+              ? `Toutes vos modifications ont été envoyées ${syncRelTime(last.at)}.`
+              : 'Toutes vos modifications sont envoyées.',
+            bg: 'rgba(60,145,100,0.1)', border: 'rgba(60,145,100,0.35)', fg: '#2f7d4f',
+          };
+
+  const chips: { label: string; n: number }[] = status ? [
+    { label: 'Élèves', n: status.pending.students },
+    { label: 'Notes', n: status.pending.grades },
+    { label: 'Paiements', n: status.pending.paymentRecords },
+    { label: 'Frais', n: status.pending.schoolFees },
+    { label: 'Classes', n: status.pending.classes },
+    { label: 'Comptes', n: status.pending.fullAdded.users },
+    { label: 'Matières', n: status.pending.fullAdded.subjects },
+    { label: 'Années', n: status.pending.fullAdded.schoolYears },
+  ].filter(c => c.n > 0) : [];
 
   return (
     <div className="rounded-2xl p-5 mb-6 border" style={{ borderColor: 'rgba(60,145,100,0.35)', background: 'linear-gradient(135deg, rgba(60,145,100,0.08), rgba(60,145,100,0.02))' }}>
@@ -87,11 +170,11 @@ function SyncNeonSection() {
           <RefreshCw size={18} style={{ color: SUCCESS }} aria-hidden="true" />
         </div>
         <div>
-          <p className="font-bold text-[15px]" style={{ color: TEXT_PRIMARY }}>Synchronisation automatique</p>
+          <p className="font-bold text-[15px]" style={{ color: TEXT_PRIMARY }}>Synchronisation avec la plateforme</p>
           <p className="text-[12.5px] leading-relaxed mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>
             {cfg
-              ? `Active pour ${cfg.neonSchoolName || 'votre école'} : l’application envoie toute seule les nouveautés dès qu’internet revient.`
-              : 'Travaillez hors-ligne normalement : dès qu’internet revient, l’application envoie toute seule les nouveautés à la plateforme.'}
+              ? `Active pour ${cfg.neonSchoolName || 'votre école'} : vous pouvez travailler hors ligne, les modifications partent seules dès que le réseau revient.`
+              : "Mode hors-ligne : travaillez normalement sans internet. Une fois la synchronisation activée, vos modifications sont envoyées automatiquement dès que la connexion revient, et vous voyez ici leur état d'envoi."}
           </p>
         </div>
       </div>
@@ -100,7 +183,7 @@ function SyncNeonSection() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
             <div>
               <label className="text-xs font-medium block mb-1" style={{ color: TEXT_MUTED_LUXE }}>Adresse de la plateforme</label>
-              <input value={issuerUrl} onChange={e => setIssuerUrl(e.target.value)} placeholder="https://…" className="w-full rounded-xl px-3 py-2 text-sm outline-none bg-white" style={{ border: '1px solid oklch(88% 0.06 75)', color: TEXT_PRIMARY }} />
+              <input value={issuerUrl} onChange={e => setIssuerUrl(e.target.value)} placeholder="https://." className="w-full rounded-xl px-3 py-2 text-sm outline-none bg-white" style={{ border: '1px solid oklch(88% 0.06 75)', color: TEXT_PRIMARY }} />
             </div>
             <div>
               <label className="text-xs font-medium block mb-1" style={{ color: TEXT_MUTED_LUXE }}>Email (compte plateforme)</label>
@@ -108,7 +191,7 @@ function SyncNeonSection() {
             </div>
             <div>
               <label className="text-xs font-medium block mb-1" style={{ color: TEXT_MUTED_LUXE }}>Mot de passe (demandé une seule fois)</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="w-full rounded-xl px-3 py-2 text-sm outline-none bg-white" style={{ border: '1px solid oklch(88% 0.06 75)', color: TEXT_PRIMARY }} />
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="" className="w-full rounded-xl px-3 py-2 text-sm outline-none bg-white" style={{ border: '1px solid oklch(88% 0.06 75)', color: TEXT_PRIMARY }} />
             </div>
           </div>
           {error && (
@@ -125,24 +208,55 @@ function SyncNeonSection() {
         </>
       ) : (
         <>
-          <div className="rounded-xl px-4 py-3 text-[13px] mb-3" style={{ background: 'rgba(60,145,100,0.1)', border: '1px solid rgba(60,145,100,0.35)', color: TEXT_PRIMARY }}>
-            <p className="font-semibold">Active{last?.ok === false ? ' — dernier envoi en échec' : ''}</p>
-            <p className="text-[12px]" style={{ color: TEXT_MUTED_LUXE }}>
-              {last ? `Dernier envoi : ${new Date(last.at).toLocaleString('fr-FR')} — ${last.message}` : 'Aucun envoi pour le moment.'}
-              {manualResult ? ` · ${manualResult}` : ''}
-            </p>
+          {/* ?? Bandeau d'état (en ligne / hors ligne / en attente / échec) */}
+          <div className="rounded-xl px-4 py-3 mb-3 flex items-start gap-2.5" style={{ background: state.bg, border: `1px solid ${state.border}` }}>
+            <span style={{ color: state.fg, marginTop: 1 }}>{state.icon}</span>
+            <div>
+              <p className="font-semibold text-[13px]" style={{ color: state.fg }}>{state.title}</p>
+              <p className="text-[12px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>{state.text}</p>
+            </div>
           </div>
+
+          {/* ?? Détail par type + dernières modifications ?????????????? */}
+          {chips.length > 0 && (
+            <div className="flex gap-2 flex-wrap mb-3">
+              {chips.map(c => (
+                <span key={c.label} className="text-[12px] font-semibold px-2.5 py-1 rounded-full" style={{ background: 'rgba(37,99,235,0.1)', color: '#1d4ed8', border: '1px solid rgba(37,99,235,0.25)' }}>
+                  {c.label} : {c.n}
+                </span>
+              ))}
+            </div>
+          )}
+          {status && status.samples.length > 0 && (
+            <div className="rounded-xl px-4 py-3 mb-3" style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid oklch(92% 0.04 75)' }}>
+              <p className="text-[12px] font-semibold mb-1.5" style={{ color: TEXT_PRIMARY }}>Dernières modifications en attente</p>
+              <ul className="space-y-1">
+                {status.samples.slice(0, 6).map((s, i) => (
+                  <li key={i} className="flex items-center justify-between gap-3 text-[12px]">
+                    <span style={{ color: TEXT_PRIMARY }}>
+                      <span className="font-semibold" style={{ color: TEXT_MUTED_LUXE }}>{s.type} · </span>
+                      {s.label}
+                    </span>
+                    <span className="shrink-0" style={{ color: TEXT_MUTED_LUXE }}>{syncRelTime(s.at)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {error && (
             <div className="rounded-xl px-4 py-3 text-[13px] mb-3" style={{ background: 'rgba(186,26,26,0.08)', border: '1px solid rgba(186,26,26,0.35)', color: '#b91c1c' }}>{error}</div>
           )}
-          <div className="flex gap-2 flex-wrap">
+
+          {/* ?? Actions ????????????????????????????????????????????????? */}
+          <div className="flex gap-2 flex-wrap mb-3">
             <button
               onClick={handleManual}
               disabled={working}
               className="px-5 py-2.5 rounded-xl text-[13px] font-semibold text-white transition disabled:opacity-50"
               style={{ background: 'linear-gradient(135deg, #2f7d4f, #3c9164)' }}
             >
-              {working ? 'Envoi en cours…' : 'Synchroniser maintenant'}
+              {working ? 'Envoi en cours…' : online ? 'Envoyer maintenant' : 'Hors ligne - réessayer'}
             </button>
             <button
               onClick={handleDisable}
@@ -152,6 +266,23 @@ function SyncNeonSection() {
               Désactiver
             </button>
           </div>
+
+          {/* ?? Historique des envois ???????????????????????????????????? */}
+          {history.length > 0 && (
+            <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(255,255,255,0.5)', border: '1px solid oklch(92% 0.04 75)' }}>
+              <p className="text-[12px] font-semibold mb-1.5" style={{ color: TEXT_PRIMARY }}>Historique des envois</p>
+              <ul className="space-y-1">
+                {history.slice(0, 5).map((h, i) => (
+                  <li key={i} className="flex items-center justify-between gap-3 text-[12px]">
+                    <span style={{ color: h.ok ? TEXT_PRIMARY : '#b91c1c' }}>
+                      {h.ok ? '✓' : '✗'} {h.message}
+                    </span>
+                    <span className="shrink-0" style={{ color: TEXT_MUTED_LUXE }}>{new Date(h.at).toLocaleString('fr-FR')}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </>
       )}
     </div>

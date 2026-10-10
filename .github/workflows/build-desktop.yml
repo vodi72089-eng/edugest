@@ -118,6 +118,9 @@ jobs:
             - ✅ **Démarrage éclair** : splash instantané avec le vrai logo + étapes de chargement en temps réel (base → serveur → interface)
             - ✅ **Localisation automatique de l'école** : détection GPS puis par IP (fonctionne dans l'app desktop) + bouton « Me localiser » réparé
             - ✅ Application **100 % hors ligne** — base de données SQLite locale connectée (`%APPDATA%\EduGest\edugest.db`)
+            - ✅ **Mode hors ligne complet** : travaillez sans internet ; les changements (élèves, notes, frais, paiements, comptes) partent **automatiquement** vers la plateforme au retour du réseau
+            - ✅ **Interface « Synchronisation » dans les Réglages** : état en direct (en attente / synchronisé), dernières modifications en attente et historique des envois
+            - ✅ Envoi par paquets successifs avec reprise propre après coupure (aucune donnée perdue ni dupliquée)
             - ✅ **« Trouver mon école »** à la connexion + import de la base de données de l'école (`.db`) en popup après connexion
             - ✅ **QR codes parents** avec durée de vie paramétrable (1 h → 1 an) — le parent scanne, retrouve son enfant et crée son compte
             - ✅ **Bulletins & reçus** au design premium (gianelli) avec **QR code unique** — le scan confirme que le document est **officiel**

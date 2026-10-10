@@ -261,7 +261,10 @@ export async function POST(request: NextRequest) {
       try {
         student = await createStudent(attempt);
       } catch (e) {
-        if ((e as { code?: string })?.code === 'P2002' && attempt < 4) continue;
+        // P2002 (engine classique) ou 23505 (SQLSTATE driver adapter Neon) :
+        // même violation d'unicité sur le matricule → on regénère une autre clé.
+        const code = (e as { code?: string })?.code;
+        if ((code === 'P2002' || code === '23505') && attempt < 4) continue;
         throw e;
       }
     }
