@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useKelasi 360Store, authFetch, getActiveSchoolId } from '@/lib/store'
+import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
 import type { UserData } from '@/lib/store'
 import {
   ACCENT,
@@ -107,7 +107,7 @@ function shadeBand(hex: string): string[] {
 // ─── Vue « Personnalisation » ───────────────────────────────────────────────
 
 export default function PersonalizationView() {
-  const { userData } = useKelasi 360Store()
+  const { userData } = useEduGestStore()
 
   const isSuperAdmin = userData?.role === 'SUPER_ADMIN_GLOBAL'
   const isSchoolAdmin = userData?.role === 'SCHOOL_ADMIN'
@@ -185,7 +185,7 @@ function PersonalizationViewInner({
   userData: UserData | null
   isSuperAdmin: boolean
 }) {
-  const { setUserData } = useKelasi 360Store()
+  const { setUserData } = useEduGestStore()
 
   // `colors` : toujours des hex valides (aperçu + picker) — `drafts` : texte brut des champs hex
   const [colors, setColors] = useState<DesignColors>({ ...DEFAULTS })
