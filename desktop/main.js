@@ -726,7 +726,7 @@ function downloadPortableUpdate(asset) {
     log('Téléchargement portable :', dest);
     sendUpdate('downloading', { percent: 0, version: asset.version });
     const get = (url, redirects) => {
-      https.get(url, { headers: { 'User-Agent': 'EduGest-Desktop', Accept: 'application/octet-stream' } }, (res) => {
+      https.get(url, { headers: { 'User-Agent': 'Kelasi360-Desktop', Accept: 'application/octet-stream' } }, (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects > 0) {
           res.resume();
           get(res.headers.location, redirects - 1);
@@ -814,7 +814,7 @@ function downloadPortableUpdate(asset) {
  *  (null en cas d'erreur réseau : l'appelant retélécharge alors prudemment). */
 function headContentLength(url, cb, redirects = 5) {
   if (redirects <= 0) { cb(new Error('too many redirects'), 0); return; }
-  const req = https.request(url, { method: 'HEAD', headers: { 'User-Agent': 'EduGest-Desktop' }, timeout: 15000 }, (res) => {
+  const req = https.request(url, { method: 'HEAD', headers: { 'User-Agent': 'Kelasi360-Desktop' }, timeout: 15000 }, (res) => {
     res.resume();
     if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
       try { headContentLength(new URL(res.headers.location, url).toString(), cb, redirects - 1); } catch { cb(new Error('bad redirect'), 0); }
@@ -870,7 +870,7 @@ function checkPortableUpdate(manual = false) {
   const get = (url, redirects) => {
     if (redirects <= 0) { checkDone(); return; }
     const req = https.get(url, {
-      headers: { 'User-Agent': 'EduGest-Desktop' },
+      headers: { 'User-Agent': 'Kelasi360-Desktop' },
     }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume(); // vide le flux de la réponse de redirection
@@ -1133,7 +1133,7 @@ app.whenReady().then(async () => {
   } catch (e) {
     log('ERREUR FATALE :', e.message);
     closeSplash();
-    dialog.showErrorBox('EduGest', 'Impossible de démarrer le serveur local Kelasi 360.\n\n' + e.message);
+    dialog.showErrorBox('Kelasi 360', 'Impossible de démarrer le serveur local Kelasi 360.\n\n' + e.message);
     app.quit();
   }
 
