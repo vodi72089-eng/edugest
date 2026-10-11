@@ -168,10 +168,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Compte admin local : hash recopié tel quel → même mot de passe.
-    const adminRow = (payload.users || []).find(u => ADMIN_ROLES.includes(str(u.role)));
+    // Le compte à créer est celui qui a été SAISI (email) — on prend SON hash
+    // dans l'export ; jamais le hash d'un autre compte (école à plusieurs
+    // admins : le bon mot de passe doit correspondre au bon compte).
+    const typedRow = (payload.users || []).find(u => str(u.email).toLowerCase() === email);
     let admin = await db.user.findUnique({ where: { email } });
     if (!admin) {
-      let adminPhone = str(adminRow?.phone);
+      let adminPhone = str(typedRow?.phone);
       if (adminPhone) {
         const taken = await db.user.findUnique({ where: { phone: adminPhone } });
         if (taken) adminPhone = '';
@@ -179,11 +182,11 @@ export async function POST(request: NextRequest) {
       if (!adminPhone) adminPhone = `admin-${school.id}`;
       admin = await db.user.create({
         data: {
-          name: str(adminRow?.name, 'Administrateur'),
+          name: str(typedRow?.name, 'Administrateur'),
           email,
           phone: adminPhone,
-          password: str(adminRow?.password) || null,
-          role: ADMIN_ROLES.includes(str(adminRow?.role)) ? str(adminRow?.role) : 'SCHOOL_ADMIN',
+          password: str(typedRow?.password) || null,
+          role: ADMIN_ROLES.includes(str(typedRow?.role)) ? str(typedRow?.role) : (typedRow ? str(typedRow.role) : 'SCHOOL_ADMIN'),
           schoolId: school.id,
           isActive: true,
           isVerified: true,
@@ -195,8 +198,8 @@ export async function POST(request: NextRequest) {
         where: { id: admin.id },
         data: {
           schoolId: school.id,
-          role: ADMIN_ROLES.includes(str(adminRow?.role)) ? str(adminRow?.role) : admin.role,
-          password: str(adminRow?.password) || admin.password,
+          role: ADMIN_ROLES.includes(str(typedRow?.role)) ? str(typedRow?.role) : admin.role,
+          password: str(typedRow?.password) || admin.password,
         },
       });
     }
