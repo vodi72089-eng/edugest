@@ -3,7 +3,7 @@ import { jsPDF } from 'jspdf';
 /**
  * PDF médical — design « Institut Gianelli » (navy & or), identique aux reçus
  * et bulletins : double bordure décorative, logo école encadré d'or, logo
- * EduGest en haut à droite, lignes pointillées, sections or, QR de
+ * Kelasi 360 en haut à droite, lignes pointillées, sections or, QR de
  * vérification en bas et marqueur caché pour l'import dans « Vérification ».
  *
  * Types supportés :
