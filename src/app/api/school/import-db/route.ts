@@ -171,6 +171,13 @@ export async function POST(request: NextRequest) {
   if (!isElectron) {
     return NextResponse.json({ error: 'L\'import de base de données n\'est disponible que dans l\'application desktop.' }, { status: 403 });
   }
+  // DOUBLE VERROU : l'exe sert l'app sur 127.0.0.1 — un import qui arrive
+  // sur la plateforme publique (Workers) ne vient pas de l'exe, même avec
+  // un user-agent Electron (navigateurs tiers bátis sur Electron).
+  const host = (request.nextUrl.hostname || request.headers.get('host') || '').split(':')[0];
+  if (!/^(127\.0\.0\.1|localhost|\[::1\])$/i.test(host)) {
+    return NextResponse.json({ error: "Import réservé à l'application de bureau EduGest (locale)." }, { status: 403 });
+  }
 
   // Fichier temporaire à nettoyer
   let tmpPath: string | null = null;

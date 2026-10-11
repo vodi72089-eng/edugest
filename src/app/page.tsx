@@ -4277,7 +4277,7 @@ function DashboardLayout() {
   }
   // Synchronisation automatique exe → Neon : si activée dans Paramètres,
   // envoie toute seule les nouveautés dès qu'internet revient (boucle
-  // 10 min + retour réseau). Silencieuse : le statut est visible dans
+  // 10 s + retour réseau). Silencieuse : le statut est visible dans
   // Paramètres. Sans jeton configuré : rien ne part.
   useEffect(() => {
     let stop: (() => void) | undefined

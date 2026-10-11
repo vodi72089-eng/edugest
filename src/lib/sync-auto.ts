@@ -3,7 +3,7 @@
 // L'admin active UNE FOIS (email + mot de passe plateforme) : le serveur
 // Neon renvoie un jeton lié à l'école, stocké localement (mot de passe
 // jamais stocké). Ensuite l'exe envoie tout seul dès qu'internet revient :
-//   - une sonde locale (toutes les 90 s) interroge /api/sync/status qui
+//   - une sonde locale (toutes les 10 s) interroge /api/sync/status qui
 //     compte les modifications en attente DANS SQLite - si total > 0 et que
 //     le réseau répond, un envoi est lancé ;
 //   - l'événement `online` déclenche un envoi immédiat ;
@@ -24,7 +24,7 @@ import { authFetch, getActiveSchoolId, isDesktopApp } from '@/lib/store';
 export const SYNC_CONFIG_KEY = 'edugest_sync_auto';
 export const SYNC_LAST_KEY = 'edugest_sync_last';
 export const SYNC_HISTORY_KEY = 'edugest_sync_history';
-export const SYNC_PROBE_MS = 90 * 1000; // sonde de détection des modifications
+export const SYNC_PROBE_MS = 10 * 1000; // sonde de détection des modifications
 export const DEFAULT_PLATFORM_URL = 'https://edugest.eluymas82.workers.dev';
 export const SYNC_HISTORY_MAX = 20;
 
@@ -125,6 +125,17 @@ function pushHistory(r: SyncLastResult): void {
     localStorage.setItem(SYNC_HISTORY_KEY, JSON.stringify(hist));
   } catch { /* ignore */
   }
+}
+
+// Anti-inondation (sonde 10 s) : un échec répété (hors-ligne) n'ajoute une
+// entrée d'historique que si le dernier échec identique a plus de 60 s.
+function pushHistoryThrottled(r: SyncLastResult): void {
+  const last = readSyncHistory()[0];
+  if (
+    last && !last.ok && !r.ok && last.message === r.message &&
+    Date.now() - new Date(last.at).getTime() < 60_000
+  ) return;
+  pushHistory(r);
 }
 
 function countApplied(applied: Record<string, number> | undefined): number {
@@ -238,14 +249,14 @@ export async function runAutoSync(): Promise<RunSyncOutcome> {
       if (res.status === 401) clearSyncConfig();
       const out = { ok: false, appliedTotal: 0, message };
       saveSyncLast({ at: new Date().toISOString(), ...out });
-      pushHistory({ at: new Date().toISOString(), ...out });
+      pushHistoryThrottled({ at: new Date().toISOString(), ...out });
       return out;
     }
     if (j.data.nothingPending) {
       // Rien à envoyer : on ne touche ni à la baseline ni au point de départ.
       const out = { ok: true, appliedTotal: 0, message: 'À jour - rien à envoyer' };
       saveSyncLast({ at: new Date().toISOString(), ...out });
-      // Pas d'entrée d'historique pour un tour vide (évite le bruit 90 s).
+      // Pas d'entrée d'historique pour un tour vide (évite le bruit).
       return out;
     }
     const appliedTotal = countApplied(j.data.applied) + countApplied(j.data.updated);
@@ -276,7 +287,7 @@ export async function runAutoSync(): Promise<RunSyncOutcome> {
   } catch {
     const out = { ok: false, appliedTotal: 0, message: 'Plateforme injoignable (hors ligne ?)' };
     saveSyncLast({ at: new Date().toISOString(), ...out });
-    pushHistory({ at: new Date().toISOString(), ...out });
+    pushHistoryThrottled({ at: new Date().toISOString(), ...out });
     return out;
   }
 }
@@ -286,11 +297,11 @@ let autoSyncStarted = false;
 
 /**
  * Démarre la boucle hors-ligne → en ligne :
- *   - sonde LOCALE toutes les 90 s (combien de modifications en attente ?) ;
+ *   - sonde LOCALE toutes les 10 s (combien de modifications en attente ?) ;
  *     si total > 0, un envoi est lancé (silencieux si injoignable, on
  *     réessaiera au prochain tour) ;
  *   - envoi immédiat à chaque retour réseau (`online`) ;
- *   - délai de démarrage de 30 s (laisse l'app se stabiliser).
+ *   - délai de démarrage de 10 s (laisse l'app se stabiliser).
  * Idempotent.
  */
 export function startAutoSyncLoop(): () => void {
@@ -315,7 +326,7 @@ export function startAutoSyncLoop(): () => void {
       running = false;
     }
   };
-  const boot = window.setTimeout(() => { void tick(false); }, 30000);
+  const boot = window.setTimeout(() => { void tick(false); }, 10000);
   const timer = window.setInterval(() => { void tick(false); }, SYNC_PROBE_MS);
   const onOnline = () => { void tick(true); };
   window.addEventListener('online', onOnline);

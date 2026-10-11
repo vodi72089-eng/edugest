@@ -85,7 +85,14 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
 // Toute navigation vers 'home' (landing) est rabattue sur 'login'.
 export function isDesktopApp(): boolean {
   if (typeof navigator === 'undefined') return false;
-  return /electron/i.test(navigator.userAgent || '');
+  // DOUBLE critère : user-agent Electron + hôte local. L'exe EduGest sert
+  // l'app sur http://127.0.0.1 — vérifier l'hôte exclut les navigateurs
+  // tiers bátis sur Electron (leur UA contient aussi « Electron/… ») :
+  // l'import de base et la synchro restent réservés au VRAI exe.
+  return (
+    /electron/i.test(navigator.userAgent || '') &&
+    /^(127\.0\.0\.1|localhost|\[::1\])$/i.test(window.location.hostname)
+  );
 }
 
 function resolveView(view: ViewType): ViewType {

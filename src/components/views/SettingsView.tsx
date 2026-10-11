@@ -23,7 +23,7 @@ import type { SchoolPhotoData } from '@/lib/types'
 /* ⚙️ Synchronisation automatique vers Neon (exe uniquement) ─────────
    Activation UNIQUE (mot de passe jamais stocké) → jeton lié à l'école.
    MODE HORS-LIGNE : tout reste enregistré localement dans SQLite ; une
-   sonde locale (90 s) compte les modifications en attente et l'envoi part
+   sonde locale (10 s) compte les modifications en attente et l'envoi part
    automatiquement dès que le réseau répond (ainsi qu'à chaque retour
    réseau). INTERFACE DE STATUT : modifications en attente par type,
    extraits des dernières modifications, dernier envoi, historique.
@@ -60,7 +60,7 @@ function SyncNeonSection() {
   useEffect(() => {
     if (!cfg) return;
     void refresh();
-    const iv = window.setInterval(() => { if (!document.hidden) void refresh(); }, 20000);
+    const iv = window.setInterval(() => { if (!document.hidden) void refresh(); }, 10000);
     const onFocus = () => { void refresh(); };
     const onNet = () => setOnline(typeof navigator === 'undefined' ? true : navigator.onLine);
     window.addEventListener('focus', onFocus);
@@ -133,7 +133,7 @@ function SyncNeonSection() {
       ? {
           icon: <RefreshCw size={15} aria-hidden="true" />,
           title: `${pendingTotal} modification${pendingTotal > 1 ? 's' : ''} en attente d'envoi`,
-          text: "L'application envoie ces modifications automatiquement (toutes les 90 secondes environ).",
+          text: "L'application envoie ces modifications automatiquement (toutes les 10 secondes environ).",
           bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.3)', fg: '#1d4ed8',
         }
       : lastFailed
