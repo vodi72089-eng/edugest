@@ -182,11 +182,20 @@ export async function activateAutoSync(
   if (!email.trim() || !password) throw new Error('Email et mot de passe requis');
   const localSchoolId = getActiveSchoolId();
   if (!localSchoolId) throw new Error("École locale introuvable - connectez-vous d'abord");
-  const res = await fetch(`${issuer}/api/sync/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: email.trim(), password }),
-  });
+  // Exe : la requête cross-origin vers la plateforme est bloquée par le
+  // navigateur (pas de CORS) → « Failed to fetch ». On passe par le proxy
+  // LOCAL /api/sync/activate (serveur→serveur, mêmes verrous Electron+hôte).
+  const res = isDesktopApp()
+    ? await fetch('/api/sync/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ issuerUrl: issuer, email: email.trim(), password }),
+      })
+    : await fetch(`${issuer}/api/sync/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
   const j = await res.json().catch(() => ({}));
   if (!res.ok || !j?.data?.token || !j?.data?.schoolId) {
     throw new Error(j?.error || `Activation refusée (${res.status})`);

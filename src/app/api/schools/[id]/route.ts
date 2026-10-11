@@ -137,10 +137,32 @@ export async function PUT(
       }
     }
 
-    // SCHOOL_ADMIN : seuls logo/coverImage de sa propre école sont modifiables
+    // SCHOOL_ADMIN (sa propre école) : infos de base modifiables (nom, email,
+    // adresse…) — le PUT renvoyait avant un succès trompeur en supprimant tout
+    // sauf logo/coverImage : impossible de changer l'email de l'école.
+    // RESTENT interdits à l'admin d'école : forfait (subscription*), activation
+    // (isActive) — réservés au SUPER_ADMIN_GLOBAL.
+    const SCHOOL_ADMIN_EDITABLE = [
+      'name', 'shortName', 'email', 'phone', 'address', 'city', 'province',
+      'country', 'description', 'history', 'mission', 'establishmentYear',
+      'schoolType', 'schoolCategory', 'maxStudents', 'schoolLevel',
+      'logo', 'coverImage',
+    ];
     if (isSchoolAdminSelf) {
       for (const key of Object.keys(updateData)) {
-        if (key !== 'logo' && key !== 'coverImage') delete updateData[key];
+        if (!SCHOOL_ADMIN_EDITABLE.includes(key)) delete updateData[key];
+      }
+      // Email : format valide + unicité (message clair au lieu d'un 500 P2002).
+      if (typeof updateData.email === 'string') {
+        const email = updateData.email.trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          return NextResponse.json({ error: 'Adresse email invalide.' }, { status: 400 });
+        }
+        const clash = await db.school.findFirst({ where: { email, NOT: { id } } });
+        if (clash) {
+          return NextResponse.json({ error: 'Une école utilise déjà cette adresse email.' }, { status: 409 });
+        }
+        updateData.email = email;
       }
     }
 
