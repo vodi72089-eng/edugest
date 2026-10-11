@@ -153,7 +153,7 @@ function getTransporter(): nodemailer.Transporter {
 export async function sendOtpEmail(
   to: string,
   code: string,
-  schoolName: string = 'EduGest'
+  schoolName: string = 'Kelasi 360'
 ): Promise<EmailResult> {
   const html = `
     <!DOCTYPE html>
