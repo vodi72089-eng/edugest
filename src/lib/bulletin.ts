@@ -620,11 +620,16 @@ export async function generateBulletinPDF(
   let schoolLogoBase64: string | null = null;
   if (school.logo) {
     try {
-      const logoUrl = school.logo.startsWith('http') ? school.logo : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${school.logo}`;
-      const logoRes = await fetch(logoUrl);
-      if (logoRes.ok) {
-        const buf = Buffer.from(await logoRes.arrayBuffer());
-        schoolLogoBase64 = `data:image/jpeg;base64,${buf.toString('base64')}`;
+      if (school.logo.startsWith('data:')) {
+        // Data URI (upload sans stockage externe) : déjà en base64, aucun fetch.
+        schoolLogoBase64 = school.logo;
+      } else {
+        const logoUrl = school.logo.startsWith('http') ? school.logo : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${school.logo}`;
+        const logoRes = await fetch(logoUrl);
+        if (logoRes.ok) {
+          const buf = Buffer.from(await logoRes.arrayBuffer());
+          schoolLogoBase64 = `data:image/jpeg;base64,${buf.toString('base64')}`;
+        }
       }
     } catch {}
   }
@@ -633,11 +638,16 @@ export async function generateBulletinPDF(
   let studentPhotoBase64: string | null = null;
   if (student.photoUrl) {
     try {
-      const photoUrl = student.photoUrl.startsWith('http') ? student.photoUrl : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${student.photoUrl}`;
-      const photoRes = await fetch(photoUrl);
-      if (photoRes.ok) {
-        const buf = Buffer.from(await photoRes.arrayBuffer());
-        studentPhotoBase64 = `data:image/jpeg;base64,${buf.toString('base64')}`;
+      if (student.photoUrl.startsWith('data:')) {
+        // Data URI (upload sans stockage externe) : déjà en base64, aucun fetch.
+        studentPhotoBase64 = student.photoUrl;
+      } else {
+        const photoUrl = student.photoUrl.startsWith('http') ? student.photoUrl : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${student.photoUrl}`;
+        const photoRes = await fetch(photoUrl);
+        if (photoRes.ok) {
+          const buf = Buffer.from(await photoRes.arrayBuffer());
+          studentPhotoBase64 = `data:image/jpeg;base64,${buf.toString('base64')}`;
+        }
       }
     } catch {}
   }

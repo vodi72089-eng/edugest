@@ -7,6 +7,7 @@ import type { StudentData } from '@/lib/types'
 import { Users, Shield, PenTool, BookOpen, FileText, CreditCard, Edit, Check, Camera, Bell, Calendar, IdCard } from 'lucide-react'
 import { ACCENT, GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, WARNING, DANGER, INFO } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
+import { compressImage } from '@/lib/image-compress'
 import { tierAllowsParentGrades } from '@/lib/subscription'
 import StudentAvatar from '@/components/ui/StudentAvatar'
 import StudentCardModal from '@/components/views/StudentCardModal'
@@ -106,8 +107,9 @@ export default function ParentDashboard() {
     setUploadingPhoto(true)
     setEditingPhotoForChild(childId)
     try {
+      const uploadFile = await compressImage(file)
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', uploadFile)
       formData.append('category', 'students')
       const uploadRes = await authFetch('/api/upload', { method: 'POST', body: formData })
       const uploadJson = await uploadRes.json()

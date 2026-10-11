@@ -121,12 +121,24 @@ export async function POST(request: NextRequest) {
     const description = String(body.body || '').trim();
     const category = CATEGORIES.includes(body.category) ? body.category : 'GENERAL';
     const priority = PRIORITIES.includes(body.priority) ? body.priority : 'NORMAL';
-    // Capture d'écran du signalement (onglet Aide) : URL /api/upload/…
-    const screenshotUrl = typeof body.screenshotUrl === 'string' && body.screenshotUrl.startsWith('/api/upload/')
-      ? body.screenshotUrl.slice(0, 300)
-      : '';
-    const firstMessage = screenshotUrl
-      ? `${description}\n\nCapture d'écran : ${screenshotUrl}`
+    // Capture d'écran du signalement (onglet Aide) : URL /api/upload/… ou
+    // data URI autoportant (≤ 400 Ko — au-delà, le fil de discussion serait
+    // noyé sous le base64).
+    const rawScreenshot = typeof body.screenshotUrl === 'string' ? body.screenshotUrl : '';
+    const screenshotUrl = rawScreenshot.startsWith('/api/upload/')
+      ? rawScreenshot.slice(0, 300)
+      : /^data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+$/.test(rawScreenshot) && rawScreenshot.length <= 400_000
+        ? rawScreenshot
+        : '';
+    // Dans le message, seule la référence COURTE est écrite (un data URI
+    // complet resterait invisible dans une discussion texte).
+    const screenshotRef = screenshotUrl.startsWith('/api/upload/')
+      ? screenshotUrl
+      : screenshotUrl
+        ? 'capture jointe (voir la pièce jointe du ticket)'
+        : '';
+    const firstMessage = screenshotRef
+      ? `${description}\n\nCapture d'écran : ${screenshotRef}`
       : description;
     if (subject.length < 4) return NextResponse.json({ error: 'Sujet trop court (4 caractères min.)' }, { status: 400 });
     if (description.length < 5) return NextResponse.json({ error: 'Décrivez votre demande (5 caractères min.)' }, { status: 400 });
@@ -206,7 +218,9 @@ export async function POST(request: NextRequest) {
       meta: {
         ref: ticket.ref, category, priority, corporate: ticket.corporate?.name || null,
         screenshotUrl: screenshotUrl || null,
-        screenshotAbsoluteUrl: screenshotUrl && appBase ? `${appBase}${screenshotUrl}` : null,
+        // URL absolue uniquement pour les chemins relatifs (/api/upload/…) :
+        // préfixer un data URI produirait une URL corrompue.
+        screenshotAbsoluteUrl: screenshotUrl.startsWith('/') && appBase ? `${appBase}${screenshotUrl}` : null,
       },
     });
 

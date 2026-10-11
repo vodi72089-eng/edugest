@@ -5,6 +5,7 @@ import { useEduGestStore, authFetch, getActiveSchoolId, isDesktopApp } from '@/l
 import type { SchoolData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
+import { compressImage } from '@/lib/image-compress'
 import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera, ImagePlus, Plus, Edit, GraduationCap, Monitor, Smartphone, LogOut, Tablet, Globe, Fingerprint, Palette, HardDriveDownload, LifeBuoy, RefreshCw, WifiOff, CheckCircle2, AlertTriangle } from 'lucide-react'
 import PersonalizationView from './PersonalizationView'
 import HelpView from './HelpView'
@@ -568,8 +569,9 @@ function SettingsViewInner() {
     if (file.size > 10 * 1024 * 1024) { toast.error('Image trop lourde (max 10 Mo)'); return }
     setUploadingPhoto(true)
     try {
+      const uploadFile = await compressImage(file)
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', uploadFile)
       const upRes = await authFetch('/api/upload', { method: 'POST', body: formData })
       const upJson = await upRes.json().catch(() => ({}))
       if (!upRes.ok || !upJson.url) { toast.error(upJson.error || "Envoi de l'image impossible"); return }
@@ -646,8 +648,9 @@ function SettingsViewInner() {
   async function handleImageUpload(file: File, type: 'logo' | 'coverImage') {    if (type === 'logo') setUploadingLogo(true)
     else setUploadingCover(true)
     try {
+      const uploadFile = await compressImage(file)
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', uploadFile)
       formData.append('category', 'schools')
       const uploadRes = await authFetch('/api/upload', { method: 'POST', body: formData })
       if (uploadRes.ok) {

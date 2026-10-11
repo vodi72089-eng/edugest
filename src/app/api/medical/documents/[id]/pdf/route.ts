@@ -69,18 +69,23 @@ export async function GET(
     let schoolLogoBase64: string | null = null;
     if (doc.school.logo) {
       try {
-        let assetOrigin = '';
-        try {
-          assetOrigin = new URL(request.url).origin;
-        } catch { /* ignore */ }
-        const logoUrl = doc.school.logo.startsWith('http')
-          ? doc.school.logo
-          : `${assetOrigin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${doc.school.logo}`;
-        const logoRes = await fetch(logoUrl);
-        if (logoRes.ok) {
-          const logoBuffer = Buffer.from(await logoRes.arrayBuffer());
-          const mimeType = logoUrl.endsWith('.png') ? 'image/png' : 'image/jpeg';
-          schoolLogoBase64 = `data:${mimeType};base64,${logoBuffer.toString('base64')}`;
+        if (doc.school.logo.startsWith('data:')) {
+          // Data URI (upload sans stockage externe) : déjà en base64.
+          schoolLogoBase64 = doc.school.logo;
+        } else {
+          let assetOrigin = '';
+          try {
+            assetOrigin = new URL(request.url).origin;
+          } catch { /* ignore */ }
+          const logoUrl = doc.school.logo.startsWith('http')
+            ? doc.school.logo
+            : `${assetOrigin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${doc.school.logo}`;
+          const logoRes = await fetch(logoUrl);
+          if (logoRes.ok) {
+            const logoBuffer = Buffer.from(await logoRes.arrayBuffer());
+            const mimeType = logoUrl.endsWith('.png') ? 'image/png' : 'image/jpeg';
+            schoolLogoBase64 = `data:${mimeType};base64,${logoBuffer.toString('base64')}`;
+          }
         }
       } catch { /* logo ignoré */ }
     }

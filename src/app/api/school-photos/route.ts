@@ -31,7 +31,14 @@ export async function POST(request: NextRequest) {
     if (!schoolId || !url) {
       return NextResponse.json({ error: 'schoolId et url requis' }, { status: 400 });
     }
-    if (!url.startsWith('/api/upload/')) {
+    // URL acceptée : fichier servi par /api/upload (R2/disque) OU data URI
+    // autoportant (≤ 4 Mo, upload sans stockage externe). Plafond de
+    // sécurité : un admin ne peut pas injecter n'importe quel blob dans la
+    // base en contournant POST /api/upload.
+    const isUploadPath = url.startsWith('/api/upload/');
+    const isDataImage =
+      /^data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+$/.test(url) && url.length <= 5_600_000;
+    if (!isUploadPath && !isDataImage) {
       return NextResponse.json({ error: 'URL de fichier invalide' }, { status: 400 });
     }
 

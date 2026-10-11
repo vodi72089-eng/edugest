@@ -5,6 +5,7 @@ import { useEduGestStore, authFetch } from '@/lib/store'
 import type { StudentData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials, getRoleLabel } from '@/lib/helpers'
+import { compressImage } from '@/lib/image-compress'
 import StudentAvatar from '@/components/ui/StudentAvatar'
 import { Edit, Check, Camera, Lock, Phone, Monitor, LogOut, Shield, Building2, Smartphone, Globe, Tablet, Fingerprint, MapPin, BellRing, Volume2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -153,8 +154,9 @@ export default function ProfileView() {
 
     setUploading(true)
     try {
+      const uploadFile = await compressImage(file)
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', uploadFile)
       formData.append('category', 'profiles')
       const res = await authFetch('/api/upload', { method: 'POST', body: formData })
       const json = await res.json()
@@ -325,8 +327,9 @@ export default function ProfileView() {
     setUploadingChildPhoto(true)
     setEditingPhotoChildId(childId)
     try {
+      const uploadFile = await compressImage(file)
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', uploadFile)
       formData.append('category', 'students')
       const uploadRes = await authFetch('/api/upload', { method: 'POST', body: formData })
       const uploadJson = await uploadRes.json()

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useEduGestStore, authFetch, getActiveSchoolId } from '@/lib/store'
+import { compressImage } from '@/lib/image-compress'
 import type { UserData } from '@/lib/store'
 import {
   ACCENT,
@@ -380,8 +381,9 @@ function PersonalizationViewInner({
     if (!file) return
     setUploadingLogo(true)
     try {
+      const uploadFile = await compressImage(file)
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', uploadFile)
       formData.append('category', 'schools')
       const uploadRes = await authFetch('/api/upload', { method: 'POST', body: formData })
       if (uploadRes.ok) {

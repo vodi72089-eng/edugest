@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useEduGestStore, authFetch } from '@/lib/store'
+import { compressImage } from '@/lib/image-compress'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, SUCCESS } from '@/lib/constants'
 import { Paperclip, X, Send, Loader2, LifeBuoy, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -26,8 +27,9 @@ export default function HelpView() {
   async function uploadFile(file: File): Promise<string | null> {
     setUploading(true)
     try {
+      const uploadable = await compressImage(file)
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', uploadable)
       const res = await authFetch('/api/upload', { method: 'POST', body: formData })
       const j = await res.json().catch(() => ({}))
       if (!res.ok || !j.url) {

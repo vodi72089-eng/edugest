@@ -5,6 +5,7 @@ import { authFetch } from '@/lib/store'
 import type { SchoolData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, IVORY, SUCCESS } from '@/lib/constants'
 import { getSubscriptionLabel, getSubscriptionPrice, formatNumber, getStatusPill } from '@/lib/helpers'
+import { compressImage } from '@/lib/image-compress'
 import { Plus, Check, X, Eye, Edit, Building2, DollarSign, AlertCircle, CreditCard, Upload, Camera, ImagePlus } from 'lucide-react'
 import { toast } from 'sonner'
 import dynamic from 'next/dynamic'
@@ -131,8 +132,9 @@ export default function SchoolsManagementView() {
     // Upload to server
     setUploadingLogo(true)
     try {
+      const uploadFile = await compressImage(file)
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', uploadFile)
       formData.append('category', 'schools')
       const res = await authFetch('/api/upload', { method: 'POST', body: formData })
       if (res.ok) {
@@ -231,8 +233,9 @@ export default function SchoolsManagementView() {
     reader.readAsDataURL(file)
     setUploadingEditLogo(true)
     try {
+      const uploadFile = await compressImage(file)
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', uploadFile)
       formData.append('category', 'schools')
       const res = await authFetch('/api/upload', { method: 'POST', body: formData })
       if (res.ok) {

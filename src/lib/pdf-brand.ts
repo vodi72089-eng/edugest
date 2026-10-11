@@ -19,6 +19,9 @@ export function getEduGestLogoBuffer(): Buffer | null {
 export async function fetchSchoolLogoBuffer(logo: string | null): Promise<Buffer | null> {
   if (!logo) return null;
   try {
+    // Data URI (upload sans stockage externe) : décodé directement, sans fetch.
+    const dataUri = /^data:[^;,]+;base64,([A-Za-z0-9+/=]+)$/.exec(logo);
+    if (dataUri) return Buffer.from(dataUri[1], 'base64');
     const url = logo.startsWith('http')
       ? logo
       : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${logo}`;
