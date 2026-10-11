@@ -25,7 +25,7 @@ export const SYNC_CONFIG_KEY = 'edugest_sync_auto';
 export const SYNC_LAST_KEY = 'edugest_sync_last';
 export const SYNC_HISTORY_KEY = 'edugest_sync_history';
 export const SYNC_PROBE_MS = 10 * 1000; // sonde de détection des modifications
-export const DEFAULT_PLATFORM_URL = 'https://edugest.eluymas82.workers.dev';
+export const DEFAULT_PLATFORM_URL = 'https://kelasi360.eluymas82.workers.dev';
 export const SYNC_HISTORY_MAX = 20;
 
 export interface SyncAutoConfig {

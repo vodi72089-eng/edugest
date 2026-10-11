@@ -6,7 +6,7 @@ Kelasi 360 existe en deux versions qui partagent la **même base de données** :
 
 | Version | Base de données | Usage |
 |---------|-----------------|-------|
-| **Web** (`edugest.eluymas82.workers.dev`) | **Neon** (cloud, PostgreSQL) | Navigateur, tout le monde |
+| **Web** (`kelasi360.eluymas82.workers.dev`) | **Neon** (cloud, PostgreSQL) | Navigateur, tout le monde |
 | **Desktop** (EXE Windows) | **SQLite locale** (hors-ligne) → synchronisation Neon (phase B) | Ordinateur, fonctionne sans internet |
 
 Le code est **commun** (`src/lib/db.ts`) : une branche détecte le type de base

@@ -23,7 +23,7 @@ export const dynamic = 'force-dynamic';
 // (HTTPS) et n'est jamais stocké ; aucune écriture n'a lieu avant le succès
 // de l'authentification ; même double verrou que l'import .db (user-agent
 // Electron + hôte local) pour qu'aucun navigateur public n'y accède.
-const PLATFORM_BASE = (process.env.PLATFORM_BASE_URL || 'https://edugest.eluymas82.workers.dev').replace(/\/+$/, '');
+const PLATFORM_BASE = (process.env.PLATFORM_BASE_URL || 'https://kelasi360.eluymas82.workers.dev').replace(/\/+$/, '');
 const ADMIN_ROLES = ['SUPER_ADMIN_GLOBAL', 'SCHOOL_ADMIN', 'DIRECTION_MATERNELLE', 'DIRECTION_PRIMAIRE', 'DIRECTION_SECONDAIRE'];
 
 interface Row { [key: string]: unknown }

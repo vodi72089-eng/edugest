@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "edugest",
+  "name": "kelasi360",
   "compatibility_date": "2026-10-01",
   // no_handle_cross_request_promise_resolution : le singleton Prisma (db.ts)
   // met en cache une promesse de connexion créée dans le contexte de la
