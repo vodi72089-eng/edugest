@@ -46,28 +46,29 @@ export async function GET(request: NextRequest) {
     });
 
     // ── Recherche d'enfants (classe + nom), données minimales ──────────
+    // Filtre côté applicatif (insensible à la casse) — portable SQLite/PostgreSQL,
+    // contrairement à `contains` + mode:'insensitive' (Postgres uniquement).
     let students: { id: string; firstName: string; lastName: string; className: string }[] = [];
-    if (classId && q.length >= 2) {
+    if (classId) {
       // sécurité : la classe doit appartenir à l'école du QR
       const cls = await db.class.findFirst({
         where: { id: classId, schoolId: qr.schoolId },
         select: { id: true },
       });
       if (cls) {
-        const found = await db.student.findMany({
-          where: {
-            classId,
-            isArchived: false,
-            OR: [
-              { firstName: { contains: q } },
-              { lastName: { contains: q } },
-            ],
-          },
+        const classStudents = await db.student.findMany({
+          where: { classId, isArchived: false, isExcluded: false },
           select: { id: true, firstName: true, lastName: true, class: { select: { name: true } } },
-          take: 10,
+          take: 50,
           orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
         });
-        students = found.map(s => ({
+        const qLower = q.trim().toLowerCase();
+        const filtered = qLower.length === 0
+          ? classStudents
+          : classStudents.filter(s =>
+              s.firstName.toLowerCase().includes(qLower) ||
+              s.lastName.toLowerCase().includes(qLower));
+        students = filtered.slice(0, 10).map(s => ({
           id: s.id,
           firstName: s.firstName,
           lastName: s.lastName,

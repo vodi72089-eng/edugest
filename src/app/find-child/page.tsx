@@ -88,7 +88,7 @@ export default function FindChildPage() {
   }, [step]);
 
   const searchStudents = useCallback(async () => {
-    if (!token || !classId || q.trim().length < 2) return;
+    if (!token || !classId) return;
     setSearching(true);
     try {
       const r = await fetch(`/api/public/find-child?token=${encodeURIComponent(token)}&classId=${encodeURIComponent(classId)}&q=${encodeURIComponent(q.trim())}`);
@@ -101,6 +101,12 @@ export default function FindChildPage() {
     } catch { /* ignore */ }
     finally { setSearching(false); }
   }, [token, classId, q]);
+
+  // Recherche automatique dès que la classe est choisie (liste complète des élèves)
+  useEffect(() => {
+    if (classId && token) searchStudents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classId]);
 
   function resetSearch() {
     setClassId('');
@@ -390,7 +396,7 @@ export default function FindChildPage() {
                       />
                       <button
                         onClick={searchStudents}
-                        disabled={searching || !classId || q.trim().length < 2}
+                        disabled={searching || !classId}
                         className="px-5 rounded-xl font-semibold text-sm disabled:opacity-40 flex items-center gap-2 shrink-0"
                         style={{ background: 'oklch(55% 0.15 175)', color: 'oklch(97% 0.005 175)' }}
                       >
