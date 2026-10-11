@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { MessageCircle, Zap, Infinity as InfinityIcon, AlertTriangle, RotateCcw } from 'lucide-react'
 import { GOLD, GOLD_SOFT, SUCCESS, WARNING, DANGER, TEXT_PRIMARY, TEXT_MUTED_LUXE } from '@/lib/constants'
-import { useEduGestStore, authFetch } from '@/lib/store'
+import { useKelasi 360Store, authFetch } from '@/lib/store'
 
 interface WhatsappUsageData {
   tier: string
@@ -18,12 +18,12 @@ interface WhatsappUsageData {
 
 /**
  * Carte de suivi en TEMPS RÉEL des messages WhatsApp de l'école.
- * - Agent EduGest : quota mensuel du forfait (consommé / limite / restant)
- * - API WhatsApp perso du client : illimité côté EduGest (tokens Meta)
+ * - Agent Kelasi 360 : quota mensuel du forfait (consommé / limite / restant)
+ * - API WhatsApp perso du client : illimité côté Kelasi 360 (tokens Meta)
  * Rafraîchit toutes les 10 s + quand la fenêtre redevient visible.
  */
 export default function WhatsappUsageCard({ compact = false }: { compact?: boolean }) {
-  const { userData } = useEduGestStore()
+  const { userData } = useKelasi 360Store()
   const [usage, setUsage] = useState<WhatsappUsageData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -101,7 +101,7 @@ export default function WhatsappUsageCard({ compact = false }: { compact?: boole
 
       {usage.usingCustomApi ? (
         <p className="text-xs leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
-          Vos notifications partent via <strong>votre propre API WhatsApp</strong> : aucune limite EduGest.
+          Vos notifications partent via <strong>votre propre API WhatsApp</strong> : aucune limite Kelasi 360.
           Vous êtes uniquement limité par les tokens achetés auprès de Meta.
           {usage.used > 0 && <> — {usage.used} message{usage.used > 1 ? 's' : ''} envoyé{usage.used > 1 ? 's' : ''} ce mois.</>}
         </p>
@@ -132,7 +132,7 @@ export default function WhatsappUsageCard({ compact = false }: { compact?: boole
           </div>
           {atLimit && (
             <p className="text-[11px] mt-2 p-2 rounded-lg" style={{ background: 'oklch(97% 0.02 25)', color: DANGER }}>
-              Les envois via l&apos;agent EduGest sont suspendus jusqu&apos;à la réinitialisation
+              Les envois via l&apos;agent Kelasi 360 sont suspendus jusqu&apos;à la réinitialisation
               {usage.canUseCustomApi && <> — ou connectez votre propre API WhatsApp dans <strong>Config. Paiements → API WhatsApp</strong> pour des envois illimités</>}
               {usage.tier === 'FREEMIUM' && <> — passez à un forfait supérieur pour débloquer les envois</>}.
             </p>
