@@ -1,4 +1,4 @@
-# EduGest — Documentation Technique de Production
+# Kelasi 360 — Documentation Technique de Production
 
 > **Version** : 1.4.0 | **Dernière mise à jour** : Septembre 2026
 > **Statut** : Prêt pour la mise en production
@@ -23,7 +23,7 @@
 
 ## 1. Vue d'ensemble
 
-**EduGest** est une plateforme de gestion scolaire complète conçue pour les écoles africaines. Elle gère l'intégralité du cycle éducatif — des inscriptions aux bulletins, des paiements à la discipline — avec une intégration WhatsApp native.
+**Kelasi 360** est une plateforme de gestion scolaire complète conçue pour les écoles africaines. Elle gère l'intégralité du cycle éducatif — des inscriptions aux bulletins, des paiements à la discipline — avec une intégration WhatsApp native.
 
 ### Métriques du projet
 
@@ -232,7 +232,7 @@ La sécurité est **imposée côté API** (`src/lib/auth.ts`, `src/lib/feature-g
 - **Abonnements** : montée de forfait réservée au SUPER_ADMIN_GLOBAL (validation du paiement) ; un SCHOOL_ADMIN ne peut que rétrograder (`/api/subscription/downgrade`) ; l'activation (`/api/payments/subscription/renew`) exige une demande d'abonnement PAYÉE ; les webhooks de paiement/abonnement exigent une signature HMAC (`x-webhook-signature`, secret obligatoire en production).
 - **Anti-énumération** : login/OTP/forgot-password renvoient des messages génériques ; OTP limité par IP et par compte.
 - **Tests** : `node scripts/security-tests/run-security-tests.mjs <baseUrl>` — 31 vérifications (auth, escalade, isolation, IDOR parent, abonnement) ; exécutées par `.github/workflows/ci.yml`.
-- **Desktop** : le serveur Next standalone embarqué exécute exactement le même code (aucun RBAC dupliqué) ; sessions dans `%APPDATA%/EduGest/.sessions` (EDUGEST_SESSIONS_DIR), SQLite par installation (`template.db` vierge généré par CI), agent WhatsApp lié à 127.0.0.1 avec clé aléatoire par installation.
+- **Desktop** : le serveur Next standalone embarqué exécute exactement le même code (aucun RBAC dupliqué) ; sessions dans `%APPDATA%/Kelasi 360/.sessions` (EDUGEST_SESSIONS_DIR), SQLite par installation (`template.db` vierge généré par CI), agent WhatsApp lié à 127.0.0.1 avec clé aléatoire par installation.
 
 ### Variables d'environnement critiques
 
@@ -419,7 +419,7 @@ WHATSAPP_CORS_ORIGINS=http://localhost:3000
 
 ### WhatsApp
 
-**Option 1 : Agent WhatsApp EduGest** (recommandé pour le dev)
+**Option 1 : Agent WhatsApp Kelasi 360** (recommandé pour le dev)
 - Serveur Baileys sur port 3001
 - Scan QR code pour connecter
 - Quota mensuel configurable
@@ -427,7 +427,7 @@ WHATSAPP_CORS_ORIGINS=http://localhost:3000
 **Option 2 : API WhatsApp Meta Cloud** (recommandé pour la prod)
 - Configuration par école (Phone Number ID, Access Token)
 - Messages via le numéro de l'école
-- Pas de limite mensuelle EduGest
+- Pas de limite mensuelle Kelasi 360
 
 ### Passerelles de paiement
 
@@ -515,8 +515,8 @@ NODE_ENV=production node .next/standalone/server.js
 cd desktop
 npm install
 npm run dist
-# → desktop/dist/EduGest-Setup-x.x.x.exe
-# → desktop/dist/EduGest-Portable-x.x.x.exe
+# → desktop/dist/Kelasi 360-Setup-x.x.x.exe
+# → desktop/dist/Kelasi 360-Portable-x.x.x.exe
 ```
 
 ### Docker
