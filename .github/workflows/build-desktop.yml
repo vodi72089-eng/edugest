@@ -104,9 +104,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
-          name: EduGest Desktop v${{ steps.version.outputs.version }}
+          name: Kelasi 360 Desktop v${{ steps.version.outputs.version }}
           body: |
-            ## 🖥️ EduGest Desktop — application de bureau Windows
+            ## 🖥️ Kelasi 360 Desktop — application de bureau Windows
 
             **Téléchargez et installez :**
             - **`EduGest-Setup-${{ steps.version.outputs.version }}.exe`** — installateur Windows (recommandé, démarrage rapide)
@@ -114,7 +114,7 @@ jobs:
 
             ## Inclus dans cette version
 
-            - ✅ **Logo officiel EduGest partout** : écran de démarrage, page de connexion, icône de l'app, favicon, reçus et bulletins PDF
+            - ✅ **Logo officiel inchangé partout** : écran de démarrage, page de connexion, icône de l'app, favicon, reçus et bulletins PDF
             - ✅ **Démarrage éclair** : splash instantané avec le vrai logo + étapes de chargement en temps réel (base → serveur → interface)
             - ✅ **Localisation automatique de l'école** : détection GPS puis par IP (fonctionne dans l'app desktop) + bouton « Me localiser » réparé
             - ✅ Application **100 % hors ligne** — base de données SQLite locale connectée (`%APPDATA%\EduGest\edugest.db`)
@@ -130,7 +130,7 @@ jobs:
 
             ## Notes
 
-            - ✅ **Mise à jour intégrée** : l'application installée propose la nouvelle version toute seule (bannière dans l'app), sans quitter EduGest — les données sont conservées.
+            - ✅ **Mise à jour intégrée** : l'application installée propose la nouvelle version toute seule (bannière dans l'app), sans quitter Kelasi 360 — les données sont conservées.
             - La désinstallation ne supprime **pas** les données (`%APPDATA%\EduGest\`).
             - L'administrateur peut importer/mettre à jour sa base à tout moment depuis l'app.
             - Au tout premier lancement, l'ouverture peut prendre quelques instants (analyse antivirus Windows) — le splash affiche la progression.
