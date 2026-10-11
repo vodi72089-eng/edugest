@@ -355,31 +355,12 @@ function SchoolsOverviewMap({ schools }: { schools: SchoolData[] }) {
     return <div className="h-[400px] bg-edu-surface2 animate-pulse rounded-xl" />
   }
 
-  const { MapContainer, TileLayer, Marker, Popup, useMap } = RL
+  const { MapContainer, TileLayer, Marker, Popup } = RL
   const schoolsWithCoords = schools.filter(s => s.latitude && s.longitude)
-  // Une seule école (fiche école) → centrage ZOOMÉ sur elle ; plusieurs →
-  // cadrage automatique sur toutes (au lieu d'un zoom fixe 5 sur tout le pays).
-  const single = schoolsWithCoords.length === 1 ? schoolsWithCoords[0] : null
-  const center: [number, number] = single
-    ? [single.latitude!, single.longitude!]
-    : [-4.3, 15.3]
-
-  function FitBounds() {
-    const map = useMap()
-    useEffect(() => {
-      if (!L || schoolsWithCoords.length < 2) return
-      const bounds = L.latLngBounds(
-        schoolsWithCoords.map(s => [s.latitude!, s.longitude!] as [number, number])
-      )
-      map.fitBounds(bounds.pad(0.2))
-    }, [map])
-    return null
-  }
 
   return (
-    <MapContainer center={center} zoom={single ? 15 : 5} style={{ height: 400, borderRadius: 12 }} className="z-0">
+    <MapContainer center={[-4.3, 15.3]} zoom={5} style={{ height: 400, borderRadius: 12 }} className="z-0">
       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap" />
-      {!single && schoolsWithCoords.length > 1 && <FitBounds />}
       {schoolsWithCoords.map(s => (
         <Marker key={s.id} position={[s.latitude!, s.longitude!]}>
           <Popup>
@@ -388,103 +369,6 @@ function SchoolsOverviewMap({ schools }: { schools: SchoolData[] }) {
         </Marker>
       ))}
     </MapContainer>
-  )
-}
-
-// ===== ITINÉRAIRE ÉCOLE (distance + durée depuis la position du visiteur) =====
-// Voiture : profil voiture OSRM · Moto : profil deux-roues (approximation) ·
-// À pied : profil piéton. Services publics OpenStreetMap (aucune clé).
-const OSRM_MODES = [
-  { key: 'car', icon: '🚗', label: 'Voiture', url: 'https://router.project-osrm.org/route/v1/driving' },
-  { key: 'moto', icon: '🛵', label: 'Moto', url: 'https://routing.openstreetmap.de/routed-bike/route/v1/bike' },
-  { key: 'foot', icon: '🚶', label: 'À pied', url: 'https://routing.openstreetmap.de/routed-foot/route/v1/foot' },
-] as const
-
-function formatDistance(m: number): string {
-  return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`
-}
-
-function formatDuration(s: number): string {
-  const min = Math.round(s / 60)
-  if (min < 60) return `${min} min`
-  const h = Math.floor(min / 60)
-  const rest = min % 60
-  return rest ? `${h} h ${String(rest).padStart(2, '0')}` : `${h} h`
-}
-
-function SchoolItinerary({ lat, lng }: { lat: number; lng: number }) {
-  const [phase, setPhase] = useState<'idle' | 'locating' | 'loading' | 'done' | 'error'>('idle')
-  const [message, setMessage] = useState('')
-  const [results, setResults] = useState<{ key: string; icon: string; label: string; distance: number; duration: number }[]>([])
-
-  function calc() {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setPhase('error'); setMessage("La géolocalisation n'est pas disponible sur cet appareil."); return
-    }
-    setPhase('locating')
-    navigator.geolocation.getCurrentPosition(async pos => {
-      setPhase('loading')
-      const { latitude, longitude } = pos.coords
-      const found: { key: string; icon: string; label: string; distance: number; duration: number }[] = []
-      await Promise.all(OSRM_MODES.map(async mode => {
-        try {
-          const res = await fetch(`${mode.url}/${longitude},${latitude};${lng},${lat}?overview=false`)
-          const j = await res.json()
-          const route = j?.routes?.[0]
-          if (route && typeof route.distance === 'number' && typeof route.duration === 'number') {
-            found.push({ key: mode.key, icon: mode.icon, label: mode.label, distance: route.distance, duration: route.duration })
-          }
-        } catch { /* mode indisponible : les autres restent affichés */ }
-      }))
-      if (found.length === 0) {
-        setPhase('error'); setMessage("Calcul d'itinéraire indisponible pour le moment (connexion instable)."); return
-      }
-      setResults(OSRM_MODES.flatMap(m => found.filter(f => f.key === m.key)))
-      setPhase('done')
-    }, err => {
-      setPhase('error')
-      setMessage(err.code === err.PERMISSION_DENIED
-        ? "Position non autorisée — autorisez la géolocalisation pour connaître la distance jusqu'à cette école."
-        : "Position introuvable — réessayez à l'extérieur.")
-    }, { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 })
-  }
-
-  return (
-    <div className="rounded-2xl p-5 mt-4" style={{ background: IVORY }}>
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h4 className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>Venir à cette école</h4>
-          <p className="text-[12px] mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>Distance et temps de trajet depuis votre position</p>
-        </div>
-        {(phase === 'idle' || phase === 'error') && (
-          <button onClick={calc} className="edu-gold-cta px-4 py-2 rounded-xl text-[13px] font-semibold">
-            {phase === 'idle' ? 'Calculer depuis ma position' : 'Réessayer'}
-          </button>
-        )}
-      </div>
-      {(phase === 'locating' || phase === 'loading') && (
-        <p className="text-[13px] mt-3 flex items-center gap-2" style={{ color: TEXT_MUTED_LUXE }}>
-          <span className="inline-block h-3.5 w-3.5 border-2 border-edu-accent border-t-transparent rounded-full animate-spin" />
-          {phase === 'locating' ? 'Localisation en cours…' : "Calcul des itinéraires…"}
-        </p>
-      )}
-      {phase === 'error' && <p className="text-[13px] mt-3" style={{ color: '#b91c1c' }}>{message}</p>}
-      {phase === 'done' && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-          {results.map(r => (
-            <div key={r.key} className="bg-white rounded-xl px-4 py-3 text-center border border-[oklch(88%_0.01_175)]">
-              <div className="text-xl">{r.icon}</div>
-              <div className="text-[11px] font-semibold uppercase tracking-wider mt-1" style={{ color: TEXT_MUTED_LUXE }}>{r.label}</div>
-              <div className="text-lg font-bold mt-1" style={{ color: TEXT_PRIMARY }}>{formatDistance(r.distance)}</div>
-              <div className="text-[13px] font-medium" style={{ color: 'oklch(55% 0.12 150)' }}>≈ {formatDuration(r.duration)}</div>
-            </div>
-          ))}
-          <p className="sm:col-span-3 text-[11px] mt-1" style={{ color: TEXT_MUTED_LUXE }}>
-            Estimations itinéraires OpenStreetMap (sans trafic en temps réel) · moto : profil deux-roues.
-          </p>
-        </div>
-      )}
-    </div>
   )
 }
 
@@ -503,46 +387,28 @@ function HomeView() {
   const [typewriterActiveLine, setTypewriterActiveLine] = useState<1 | 2 | null>(1)
   // Compteurs réels de la plateforme (jamais de chiffres marketing en dur)
   const [platformStats, setPlatformStats] = useState({ schools: 0, students: 0, families: 0 })
-  // Échec du chargement de la liste (Worker en panne / hors ligne) : au lieu
-  // d'afficher un trompeur « 0 écoles », on propose de réessayer.
-  const [loadError, setLoadError] = useState(false)
-  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
-    let cancelled = false
     async function loadData() {
-      // Le seed ne concerne que les visiteurs anonymes (DB vide) ; il ne doit
-      // JAMAIS bloquer ni faire échouer le chargement de la liste : en prod il
-      // répond 403, et un « await » ici annulait tout le chargement quand la
-      // requête échouait (réseau froid) → liste vide « qui apparaît et
-      // disparaît ». Désormais non bloquant (fire-and-forget).
-      if (typeof window !== 'undefined' && !useEduGestStore.getState().userData) {
-        fetch('/api/seed').catch(() => {})
+      try {
+        // Le seed ne concerne que les visiteurs anonymes (DB vide) ;
+        // inutile — et bruyant (401) — pour une session déjà authentifiée.
+        // (Session = cookie httpOnly : plus aucun token à lire en localStorage.)
+        if (typeof window === 'undefined' || !useEduGestStore.getState().userData) {
+          await fetch('/api/seed')
+        }
+        const res = await fetch('/api/schools?limit=20')
+        const json = await res.json()
+        setSchools(json.data || [])
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setLoading(false)
       }
-      // Résistance aux 500 intermittents du Worker (cold start) : 3 essais,
-      // et une panne n'efface plus la liste déjà affichée.
-      let loaded = false
-      for (let attempt = 0; attempt < 3 && !loaded; attempt++) {
-        if (attempt > 0) await new Promise(r => setTimeout(r, 600 * attempt))
-        try {
-          const res = await fetch('/api/schools?limit=20')
-          if (!res.ok) continue
-          const json = await res.json()
-          if (cancelled) return
-          if (Array.isArray(json.data)) {
-            setSchools(json.data)
-            setLoadError(false)
-            loaded = true
-          }
-        } catch { /* réseau : on retente */ }
-      }
-      if (cancelled) return
-      setLoading(false)
-      if (!loaded) setLoadError(true)
       try {
         const statsRes = await fetch('/api/public/stats')
         const statsJson = await statsRes.json()
-        if (!cancelled && statsJson.data) setPlatformStats({
+        if (statsJson.data) setPlatformStats({
           schools: statsJson.data.schools ?? 0,
           students: statsJson.data.students ?? 0,
           families: statsJson.data.families ?? 0,
@@ -552,8 +418,7 @@ function HomeView() {
       }
     }
     loadData()
-    return () => { cancelled = true }
-  }, [reloadKey])
+  }, [])
 
   // Typewriter animation
   useEffect(() => {
@@ -904,17 +769,6 @@ function HomeView() {
                 </div>
               ))}
             </div>
-          ) : loadError && schools.length === 0 ? (
-            <div className="bg-white border border-[oklch(88%_0.01_175)] rounded-2xl p-10 text-center">
-              <p className="text-sm mb-1 font-medium" style={{ color: TEXT_PRIMARY }}>Impossible de charger la liste des écoles</p>
-              <p className="text-[13px] mb-5" style={{ color: TEXT_MUTED_LUXE }}>La plateforme ne répond pas pour le moment (connexion instable ?). Vos écoles ne sont pas perdues.</p>
-              <button
-                onClick={() => { setLoadError(false); setLoading(true); setReloadKey(k => k + 1) }}
-                className="edu-gold-cta px-6 py-2.5 rounded-xl text-[13px] font-semibold"
-              >
-                Réessayer
-              </button>
-            </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
               {filteredSchools.map((school, idx) => (
@@ -1225,7 +1079,6 @@ function SchoolDetailView() {
               <div className="mt-8">
                 <h3 className="font-semibold mb-3" style={{ color: TEXT_PRIMARY }}>Localisation</h3>
                 <div className="rounded-2xl overflow-hidden shadow-sm"><SchoolsOverviewMap schools={[school]} /></div>
-                <SchoolItinerary lat={school.latitude} lng={school.longitude} />
               </div>
             )}
 
@@ -2922,6 +2775,7 @@ function Sidebar() {
       { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
       { icon: <Users size={16} />, label: 'Gestion des Parents', view: 'parents' as ViewType },
       { icon: <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>, label: 'Connexion WhatsApp', view: 'whatsapp-config' as ViewType },
+      { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
     SCHOOL_ADMIN: [
@@ -2947,6 +2801,7 @@ function Sidebar() {
       { icon: <QrCode size={16} />, label: 'QR Parents', view: 'parent-qr' as ViewType },
       { icon: <Users size={16} />, label: 'Gestion des Parents', view: 'parents' as ViewType },
       { icon: <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>, label: 'Connexion WhatsApp', view: 'whatsapp-config' as ViewType },
+      { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
       { icon: <UserCircle size={16} />, label: 'Mon profil', view: 'profile' },
     ],
     SECRETARY: [
@@ -3094,6 +2949,7 @@ HEAD_TEACHER: [
       // l'école dès la création) — les deux fonctionnalités publiques du forfait.
       menuItems.push(
         { icon: <Calendar size={16} />, label: 'Événements', view: 'events' as ViewType },
+        { icon: <Settings size={16} />, label: 'Paramètres', view: 'settings' as ViewType },
         { icon: <Crown size={16} />, label: 'Mon Abonnement', view: 'my-subscription' as ViewType },
       )
     }
@@ -3230,17 +3086,17 @@ const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   PARENT: ['dashboard', 'grades', 'bulletin', 'online-payment', 'payment-verification', 'discipline', 'homework', 'communications', 'school-reviews', 'profile', 'convocation'],
   TEACHER: ['dashboard', 'classes', 'grades', 'conduct', 'homework', 'communications', 'reports', 'profile'],
   HEAD_TEACHER: ['dashboard', 'classes', 'grades', 'conduct', 'homework', 'bulletin', 'communications', 'reports', 'profile'],
-  SECRETARY: ['dashboard', 'students', 'classes', 'convocation', 'discipline', 'payments', 'communications', 'payment-verification', 'class-passing', 'parent-qr', 'events', 'reports', 'my-subscription', 'profile'],
+  SECRETARY: ['dashboard', 'students', 'classes', 'convocation', 'discipline', 'payments', 'communications', 'payment-verification', 'class-passing', 'parent-qr', 'events', 'reports', 'my-subscription', 'settings', 'profile'],
   CASHIER: ['dashboard', 'payments', 'finance', 'payment-verification', 'debts', 'communications', 'reports', 'profile'],
-  DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'events', 'reports', 'profile'],
-  DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'events', 'reports', 'profile'],
-  DIRECTION_SECONDAIRE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'events', 'reports', 'profile'],
+  DIRECTION_MATERNELLE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'events', 'reports', 'settings', 'profile'],
+  DIRECTION_PRIMAIRE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'events', 'reports', 'settings', 'profile'],
+  DIRECTION_SECONDAIRE: ['dashboard', 'students', 'classes', 'discipline', 'payment-verification', 'convocation', 'communications', 'events', 'reports', 'settings', 'profile'],
   DISCIPLINE_MATERNELLE: ['dashboard', 'discipline', 'attendance', 'communications', 'reports', 'profile'],
   DISCIPLINE_PRIMAIRE: ['dashboard', 'discipline', 'attendance', 'communications', 'reports', 'profile'],
   DISCIPLINE_SECONDAIRE: ['dashboard', 'discipline', 'attendance', 'communications', 'reports', 'profile'],
-  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'discipline', 'attendance', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'medical-records', 'events', 'reports', 'my-subscription', 'parent-qr', 'parents', 'personalization', 'whatsapp-config', 'profile'],
+  SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'discipline', 'attendance', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'medical-records', 'events', 'reports', 'my-subscription', 'parent-qr', 'parents', 'personalization', 'whatsapp-config', 'settings', 'profile'],
   MEDICAL: ['dashboard', 'medical', 'medical-records', 'students', 'communications', 'reports', 'profile'],
-  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'pricing', 'platform-control', 'attendance', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'medical', 'medical-records', 'events', 'reports', 'parent-qr', 'parents', 'personalization', 'profile'],
+  SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'pricing', 'platform-control', 'attendance', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'medical', 'medical-records', 'events', 'reports', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
   // Comptes hors école : corporate (multi-écoles) + support client EduGest
   CORPORATE_ADMIN: ['corporate', 'reports', 'support', 'profile'],
   SUPPORT_AGENT: ['support', 'profile'],
@@ -3256,7 +3112,7 @@ for (const roleKey of Object.keys(VIEWS_BY_ROLE) as (keyof typeof VIEWS_BY_ROLE)
 // Administration plateforme : gestion des entreprises clientes, emails officiels, journal d'activité
 VIEWS_BY_ROLE.SUPER_ADMIN_GLOBAL.push('corporates', 'platform-emails', 'activity-logs')
 
-const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment-verification', 'payment-config', 'my-subscription', 'profile']
+const FREEMIUM_VIEWS = ['dashboard', 'students', 'classes', 'payments', 'payment-verification', 'payment-config', 'my-subscription', 'settings', 'profile']
 
 function canAccessView(role: string | null, view: ViewType, subscriptionTier?: string): boolean {
   if (!role) return false

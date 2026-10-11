@@ -6,7 +6,7 @@ import type { StudentData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials, getRoleLabel } from '@/lib/helpers'
 import StudentAvatar from '@/components/ui/StudentAvatar'
-import { Edit, Check, Camera, Lock, Phone, Monitor, LogOut, Shield, Smartphone, Globe, Tablet, Fingerprint, MapPin, BellRing, Volume2 } from 'lucide-react'
+import { Edit, Check, Camera, Lock, Phone, Monitor, LogOut, Shield, Building2, Smartphone, Globe, Tablet, Fingerprint, MapPin, BellRing, Volume2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { detectDevice, formatDeviceTitle, formatDeviceSummary, isLoopbackIp } from '@/lib/detect-device'
 import CurrentDeviceInfo from '@/components/CurrentDeviceInfo'
@@ -64,6 +64,7 @@ export default function ProfileView() {
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const isParent = userRole === 'PARENT'
+  const canManageSchool = userRole === 'SUPER_ADMIN_GLOBAL' || userRole === 'SECRETARY'
 
   // ── Password change state ──
   const [currentPw, setCurrentPw] = useState('')
@@ -403,7 +404,19 @@ export default function ProfileView() {
             Sauvegarder le nom
           </button>
 
-          {/* Bouton « Paramètres de l'école » retiré du frontend (demande produit) */}
+          {/* Admin shortcut to school settings */}
+          {canManageSchool && (
+            <div className="mt-4 pt-4 border-t border-[oklch(90%_0.01_175)]">
+              <button
+                onClick={() => setCurrentView('settings')}
+                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition"
+                style={{ color: TEXT_PRIMARY }}
+              >
+                <Building2 size={14} style={{ color: GOLD }} />
+                Paramètres de l&apos;école
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

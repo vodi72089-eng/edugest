@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -6,7 +6,7 @@ import { useEduGestStore } from '@/lib/store';
 import { authFetch } from '@/lib/store';
 import { getTierLimits, getMinTierForFeature, TierLimits } from '@/lib/subscription';
 import {
-  Users, GraduationCap, School, CreditCard, MessageSquare,
+  Users, GraduationCap, School, CreditCard, MessageSquare, Shield,
   Activity, AlertTriangle, CheckCircle, ArrowUpRight, TrendingUp,
   Clock, HeartPulse
 } from 'lucide-react';
@@ -43,8 +43,8 @@ export default function SchoolAdminDashboard() {
     async function loadDashboardData() {
       try {
         setLoading(true);
-        // Stats Ã©cole â€” la carte Â« visites du jour Â» n'a de sens que si le
-        // forfait inclut le module mÃ©dical (sinon 403 inutile dans la console).
+        // Stats école — la carte « visites du jour » n'a de sens que si le
+        // forfait inclut le module médical (sinon 403 inutile dans la console).
         const [statsRes, waRes, medicalRes] = await Promise.all([
           authFetch(`/api/stats?schoolId=${userData?.schoolId}`).catch(() => null),
           authFetch(`/api/whatsapp-config/custom?schoolId=${userData?.schoolId}`).catch(() => null),
@@ -73,16 +73,16 @@ export default function SchoolAdminDashboard() {
         if (medicalRes?.ok) {
           const medJson = await medicalRes.json();
           if (Array.isArray(medJson.data)) {
-            // Date LOCALE (pas toISOString = UTC) : Ã  Kinshasa (UTC+1), entre 00h
-            // et 01h, Â« aujourd'hui Â» en UTC dÃ©signe la veille â€” les visites de la
-            // veille Ã©taient comptÃ©es comme visites du jour.
+            // Date LOCALE (pas toISOString = UTC) : à Kinshasa (UTC+1), entre 00h
+            // et 01h, « aujourd'hui » en UTC désigne la veille — les visites de la
+            // veille étaient comptées comme visites du jour.
             const today = new Date().toLocaleDateString('sv-SE')
             const todayVisits = medJson.data.filter((v: any) => v.visitDate?.startsWith(today));
             setStats((prev: any) => ({ ...prev, todayVisitsCount: todayVisits.length }));
           }
         }
       } catch (err) {
-        console.error('Erreur chargement dashboard admin Ã©cole:', err);
+        console.error('Erreur chargement dashboard admin école:', err);
       } finally {
         setLoading(false);
       }
@@ -97,7 +97,7 @@ export default function SchoolAdminDashboard() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6">
-      {/* En-tÃªte simple, mÃªme design que l'interface admin globale */}
+      {/* En-tête simple, même design que l'interface admin globale */}
       <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
         <div>
           <div className="flex items-center gap-3 mb-1">
@@ -107,7 +107,7 @@ export default function SchoolAdminDashboard() {
             </h1>
           </div>
           <p className="text-[13px] ml-7" style={{ color: TEXT_MUTED_LUXE }}>
-            Direction Principale â€¢ {userData?.schoolName || 'Mon Ã‰tablissement'}
+            Direction Principale • {userData?.schoolName || 'Mon Établissement'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -123,22 +123,22 @@ export default function SchoolAdminDashboard() {
             onClick={() => setCurrentView('students')}
             className="edu-gold-cta px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5"
           >
-            + Inscrire un Ã©lÃ¨ve
+            + Inscrire un élève
           </button>
         </div>
       </div>
 
       {/* Cartes de Quotas & Limites de l'Abonnement */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Jauge Ã‰lÃ¨ves */}
+        {/* Jauge Élèves */}
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-5 shadow-sm">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <Users size={15} className="text-amber-600" />
-              Effectif Ã‰lÃ¨ves ({tier})
+              Effectif Élèves ({tier})
             </span>
             <span className="text-xs font-bold text-slate-700">
-              {stats.studentsCount} / {limits.maxStudents >= 99999 ? 'IllimitÃ©' : limits.maxStudents}
+              {stats.studentsCount} / {limits.maxStudents >= 99999 ? 'Illimité' : limits.maxStudents}
             </span>
           </div>
           <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden my-2">
@@ -154,7 +154,7 @@ export default function SchoolAdminDashboard() {
               ? `Il vous reste ${limits.maxStudents - stats.studentsCount} places disponibles sur ce forfait.`
               : limits.maxStudents >= 99999
               ? 'Aucune limite sur ce palier.'
-              : 'Limite atteinte. Mettez Ã  niveau pour inscrire plus d\'Ã©lÃ¨ves.'}
+              : 'Limite atteinte. Mettez à niveau pour inscrire plus d\'élèves.'}
           </p>
         </div>
 
@@ -167,8 +167,8 @@ export default function SchoolAdminDashboard() {
             </span>
             <span className="text-xs font-bold text-slate-700">
               {isCustomWa
-                ? 'Propre API (IllimitÃ©)'
-                : `${waQuota?.used || 0} / ${limits.whatsappMonthly >= 999999 ? 'IllimitÃ©' : limits.whatsappMonthly}`}
+                ? 'Propre API (Illimité)'
+                : `${waQuota?.used || 0} / ${limits.whatsappMonthly >= 999999 ? 'Illimité' : limits.whatsappMonthly}`}
             </span>
           </div>
           <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden my-2">
@@ -188,20 +188,20 @@ export default function SchoolAdminDashboard() {
           <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
             <span>
               {isCustomWa
-                ? 'ðŸš€ ConnectÃ© avec votre propre passerelle WhatsApp'
+                ? '🚀 Connecté avec votre propre passerelle WhatsApp'
                 : `Restant : ${waQuota?.remaining ?? '0'} message(s)`}
             </span>
             <button
               onClick={() => hasGatewayAccess ? setCurrentView('payment-config') : requestFeature('WhatsApp API & passerelle de paiement', 'STANDARD')}
               className="text-amber-700 hover:underline font-medium text-[11px]"
             >
-              GÃ©rer WhatsApp API â†’
+              Gérer WhatsApp API →
             </button>
           </div>
         </div>
       </div>
 
-      {/* Cartes MÃ©triques ClÃ©s */}
+      {/* Cartes Métriques Clés */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-4 shadow-sm">
           <div className="flex items-center justify-between text-slate-400 mb-1">
@@ -218,7 +218,7 @@ export default function SchoolAdminDashboard() {
             <GraduationCap size={16} className="text-amber-500" />
           </div>
           <div className="text-2xl font-bold text-slate-900">
-            {stats.teachersCount} / {limits.maxTeachers >= 999 ? 'IllimitÃ©' : limits.maxTeachers}
+            {stats.teachersCount} / {limits.maxTeachers >= 999 ? 'Illimité' : limits.maxTeachers}
           </div>
           <span className="text-[11px] text-slate-500">Corps professoral</span>
         </div>
@@ -233,12 +233,12 @@ export default function SchoolAdminDashboard() {
           </div>
           <span className="text-[11px] text-emerald-700 flex items-center gap-1">
             <CheckCircle size={11} />
-            Total encaissÃ©
+            Total encaissé
           </span>
         </div>
 
         <div
-          onClick={() => limits.medicalAccess ? setCurrentView('medical') : requestFeature('Service mÃ©dical (infirmerie & santÃ©)', getMinTierForFeature('medical'))}
+          onClick={() => limits.medicalAccess ? setCurrentView('medical') : requestFeature('Service médical (infirmerie & santé)', getMinTierForFeature('medical'))}
           className={`border rounded-2xl p-4 shadow-sm transition cursor-pointer ${
             limits.medicalAccess
               ? 'bg-rose-50/50 border-rose-200 hover:border-rose-400'
@@ -248,7 +248,7 @@ export default function SchoolAdminDashboard() {
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-medium uppercase tracking-wider text-rose-800 flex items-center gap-1">
               <HeartPulse size={15} className="text-rose-600" />
-              SantÃ© Scolaire
+              Santé Scolaire
             </span>
             {!limits.medicalAccess && (
               <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">
@@ -257,10 +257,10 @@ export default function SchoolAdminDashboard() {
             )}
           </div>
           <div className="text-2xl font-bold text-slate-900">
-            {limits.medicalAccess ? stats.todayVisitsCount : 'VerrouillÃ©'}
+            {limits.medicalAccess ? stats.todayVisitsCount : 'Verrouillé'}
           </div>
           <span className="text-[11px] text-slate-500">
-            {limits.medicalAccess ? 'Visites infirmerie aujourd\'hui' : 'Disponible dÃ¨s Professionnel'}
+            {limits.medicalAccess ? 'Visites infirmerie aujourd\'hui' : 'Disponible dès Professionnel'}
           </span>
         </div>
       </div>
@@ -276,7 +276,7 @@ export default function SchoolAdminDashboard() {
             className="p-3.5 rounded-xl border border-slate-200 hover:border-amber-400 hover:bg-amber-50/40 transition text-left group"
           >
             <Users size={18} className="text-amber-600 mb-2 group-hover:scale-110 transition-transform" />
-            <div className="text-xs font-bold text-slate-800">Gestion Ã‰lÃ¨ves</div>
+            <div className="text-xs font-bold text-slate-800">Gestion Élèves</div>
             <div className="text-[10px] text-slate-500">Inscriptions & Fiches</div>
           </button>
 
@@ -295,7 +295,7 @@ export default function SchoolAdminDashboard() {
           >
             <CreditCard size={18} className="text-emerald-600 mb-2 group-hover:scale-110 transition-transform" />
             <div className="text-xs font-bold text-slate-800">Finances</div>
-            <div className="text-[10px] text-slate-500">Caisse & ReÃ§us</div>
+            <div className="text-[10px] text-slate-500">Caisse & Reçus</div>
           </button>
 
           <button
@@ -310,16 +310,24 @@ export default function SchoolAdminDashboard() {
           </button>
 
           <button
-            onClick={() => limits.medicalAccess ? setCurrentView('medical') : requestFeature('Service mÃ©dical (infirmerie & santÃ©)', getMinTierForFeature('medical'))}
+            onClick={() => limits.medicalAccess ? setCurrentView('medical') : requestFeature('Service médical (infirmerie & santé)', getMinTierForFeature('medical'))}
             className="p-3.5 rounded-xl border border-slate-200 hover:border-rose-400 hover:bg-rose-50/40 transition text-left group"
           >
             <HeartPulse size={18} className="text-rose-600 mb-2 group-hover:scale-110 transition-transform" />
-            <div className="text-xs font-bold text-slate-800">Service MÃ©dical</div>
+            <div className="text-xs font-bold text-slate-800">Service Médical</div>
             <div className="text-[10px] text-slate-500">
-              {limits.medicalAccess ? 'Infirmerie & SantÃ©' : 'Offre Pro'}
+              {limits.medicalAccess ? 'Infirmerie & Santé' : 'Offre Pro'}
             </div>
           </button>
 
+          <button
+            onClick={() => setCurrentView('settings')}
+            className="p-3.5 rounded-xl border border-slate-200 hover:border-amber-400 hover:bg-amber-50/40 transition text-left group"
+          >
+            <Shield size={18} className="text-slate-600 mb-2 group-hover:scale-110 transition-transform" />
+            <div className="text-xs font-bold text-slate-800">Paramètres</div>
+            <div className="text-[10px] text-slate-500">École & Année</div>
+          </button>
         </div>
       </div>
     </div>
