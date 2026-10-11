@@ -1,4 +1,4 @@
-# EduGest — Documentation Complète de l'Application
+# Kelasi 360 — Documentation Complète de l'Application
 
 ---
 
@@ -29,7 +29,7 @@
 
 ## 1. Présentation Générale
 
-**EduGest** est une plateforme de gestion scolaire complète, conçue pour les écoles africaines. Elle gère l'ensemble du cycle éducatif : des inscriptions aux bulletins, des paiements à la discipline, avec une intégration WhatsApp native pour les notifications.
+**Kelasi 360** est une plateforme de gestion scolaire complète, conçue pour les écoles africaines. Elle gère l'ensemble du cycle éducatif : des inscriptions aux bulletins, des paiements à la discipline, avec une intégration WhatsApp native pour les notifications.
 
 ### Caractéristiques Principales
 
@@ -669,7 +669,7 @@ Le système apprend automatiquement les mots-clés de discipline à partir des e
 - Notes colorisées (vert ≥10, rouge <10)
 - Section Moyenne & Décision
 - Mentions : Bien (≥16), Assez Bien (≥14), Passable (≥12), Admis (≥10)
-- Pied de page "Généré par EduGest"
+- Pied de page "Généré par Kelasi 360"
 
 ### PDF2 : Reçu de Paiement
 
@@ -829,4 +829,4 @@ node start-all.js
 ---
 
 *Document généré le 17 août 2026*
-*EduGest — Gestion Solaire Africaine*
+*Kelasi 360 — Gestion Solaire Africaine*
