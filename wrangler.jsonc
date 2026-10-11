@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "edugest",
+  "name": "kelasi360",
   "compatibility_date": "2026-10-01",
   // no_handle_cross_request_promise_resolution : le singleton Prisma (db.ts)
   // met en cache une promesse de connexion créée dans le contexte de la
@@ -17,8 +17,8 @@
   },
   // Domaines custom : une fois la zone EU.org active (ou un domaine
   // enregistré via Cloudflare), ajouter la route ici et redéployer.
-  // Exemple pour lookschool360.eu.org une fois la zone active :
-  // "routes": [{ "pattern": "lookschool360.eu.org", "custom_domain": true }]
+  // Exemple pour kelasi360.cd une fois la zone active :
+  // "routes": [{ "pattern": "kelasi360.cd", "custom_domain": true }]
   "routes": [],
   // Hyperdrive → Neon : À REMPLIR avant usage.
   // `"id": ""` est refusé par l'API Cloudflare (code 10021) et bloque TOUT
