@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { MessageCircle, Zap, Infinity as InfinityIcon, AlertTriangle, RotateCcw } from 'lucide-react'
 import { GOLD, GOLD_SOFT, SUCCESS, WARNING, DANGER, TEXT_PRIMARY, TEXT_MUTED_LUXE } from '@/lib/constants'
-import { useKelasi 360Store, authFetch } from '@/lib/store'
+import { useEduGestStore, authFetch } from '@/lib/store'
 
 interface WhatsappUsageData {
   tier: string
@@ -23,7 +23,7 @@ interface WhatsappUsageData {
  * Rafraîchit toutes les 10 s + quand la fenêtre redevient visible.
  */
 export default function WhatsappUsageCard({ compact = false }: { compact?: boolean }) {
-  const { userData } = useKelasi 360Store()
+  const { userData } = useEduGestStore()
   const [usage, setUsage] = useState<WhatsappUsageData | null>(null)
   const [loading, setLoading] = useState(true)
 
