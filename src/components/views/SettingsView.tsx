@@ -378,7 +378,11 @@ function SettingsViewInner() {
   const [revokingSid, setRevokingSid] = useState<string | null>(null)
   const [revokingAll, setRevokingAll] = useState(false)
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([])
-  const isAdmin = userRole === 'SUPER_ADMIN_GLOBAL'
+  // Enregistrement direct (PUT) : super admin partout + admin d'école sur SA
+  // propre école (miroir de la règle `isSchoolAdminSelf` de PUT /api/schools/[id]).
+  // Les autres rôles passent par le flux d'approbation.
+  const isAdmin = userRole === 'SUPER_ADMIN_GLOBAL' ||
+    (userRole === 'SCHOOL_ADMIN' && !!userData?.schoolId && userData.schoolId === getActiveSchoolId())
 
   function loadSessions() {
     setLoadingSessions(true)
