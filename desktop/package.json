@@ -1,9 +1,9 @@
 {
   "name": "edugest-desktop",
   "version": "1.4.21",
-  "description": "EduGest — La plateforme de gestion scolaire (application de bureau)",
+  "description": "Kelasi 360 — La plateforme de gestion scolaire (application de bureau)",
   "main": "main.js",
-  "author": "EduGest",
+  "author": "Kelasi 360",
   "license": "MIT",
   "scripts": {
     "start": "electron .",
@@ -16,8 +16,8 @@
   },
   "build": {
     "appId": "cd.edugest.desktop",
-    "productName": "EduGest",
-    "copyright": "Copyright © 2026 EduGest",
+    "productName": "Kelasi 360",
+    "copyright": "Copyright © 2026 Kelasi 360",
     "directories": {
       "output": "dist",
       "buildResources": "."
@@ -68,7 +68,7 @@
     },
     "protocols": [
       {
-        "name": "EduGest",
+        "name": "Kelasi 360",
         "schemes": [
           "edugest"
         ]
@@ -83,7 +83,7 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "artifactName": "EduGest-Setup-${version}.exe",
-      "shortcutName": "EduGest",
+      "shortcutName": "Kelasi 360",
       "installerIcon": "icon.ico",
       "uninstallerIcon": "icon.ico",
       "installerHeaderIcon": "icon.ico",

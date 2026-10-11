@@ -892,7 +892,7 @@ export default function DemoInteractive() {
               <div className="flex-1 flex justify-center">
                 <div className="flex items-center gap-2 px-4 py-1 rounded-md bg-white/[0.04] border border-white/[0.06] text-[11px] text-[#6B7280] max-w-xs w-full justify-center">
                   <Lock size={10} />
-                  app.edugest.africa/dashboard
+                  kelasi360.example/dashboard
                 </div>
               </div>
               <div className="w-16" />

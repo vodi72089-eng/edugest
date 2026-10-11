@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * BrandLogo - LE logo officiel EduGest, centralisé (source unique).
+ * BrandLogo - LE logo officiel Kelasi 360, centralisé (source unique).
  *
  * Deux variantes dérivées du logo officiel :
  *  - 'full' → emblème haute définition (/edugest-logo-new.png, 1200x849) —
@@ -28,7 +28,7 @@ export default function BrandLogo({
   return (
     <img
       src={src}
-      alt="EduGest — logo officiel"
+      alt="Kelasi 360 — logo officiel"
       className={`object-contain ${className}`}
       style={{ height, width: 'auto', ...style }}
     />

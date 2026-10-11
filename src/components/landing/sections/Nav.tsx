@@ -18,11 +18,11 @@ const NAV_ITEMS = [
   { label: 'Démo', id: 'demo' },
 ]
 
-function EduGestLogo({ className = '' }: { className?: string }) {
+function Kelasi360Logo({ className = '' }: { className?: string }) {
   return (
     <img
       src="/edugest-logo-new.png"
-      alt="EduGest"
+      alt="Kelasi 360"
       width="32"
       height="32"
       className={className}
@@ -127,14 +127,14 @@ export default function Nav({ onLogin, onNavigate }: NavProps) {
             <button
               onClick={() => handleNavClick('hero')}
               className="flex items-center gap-2.5 group"
-              aria-label="EduGest Home"
+              aria-label="Kelasi 360 Home"
             >
-              <EduGestLogo className="transition-transform duration-300 group-hover:scale-110" />
+              <Kelasi360Logo className="transition-transform duration-300 group-hover:scale-110" />
               <span
                 className="text-[18px] font-semibold tracking-tight"
                 style={{ color: '#FAFAFA', fontFamily: 'var(--font-geist-sans)' }}
               >
-                EduGest
+                Kelasi 360
               </span>
             </button>
 
@@ -236,12 +236,12 @@ export default function Nav({ onLogin, onNavigate }: NavProps) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1, duration: 0.4 }}
               >
-                <EduGestLogo />
+                <Kelasi360Logo />
                 <span
                   className="text-lg font-semibold tracking-tight"
                   style={{ color: '#FAFAFA' }}
                 >
-                  EduGest
+                  Kelasi 360
                 </span>
               </motion.div>
 

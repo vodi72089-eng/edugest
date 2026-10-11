@@ -17,24 +17,24 @@ const FAQ_DATA: FAQItem[] = [
   // et src/lib/helpers.ts getSubscriptionPrice) — aucune affirmation
   // marketing non prouvée (RGPD, iOS/Android, support 24/7) ici.
   {
-    question: 'Combien coûte EduGest ?',
+    question: 'Combien coûte Kelasi 360 ?',
     answer:
-      "EduGest propose une formule gratuite (Freemium) pour découvrir la plateforme avec jusqu'à 100 élèves. Les formules payantes sont : Essentiel à 100 $/mois (250 élèves), Standard à 250 $/mois (1 000 élèves), Professionnel à 500 $/mois et Enterprise à 1 000 $/mois (élèves illimités). Pour les grands groupes multi-écoles, la formule Corporate est établie sur mesure.",
+      "Kelasi 360 propose une formule gratuite (Freemium) pour découvrir la plateforme avec jusqu'à 100 élèves. Les formules payantes sont : Essentiel à 100 $/mois (250 élèves), Standard à 250 $/mois (1 000 élèves), Professionnel à 500 $/mois et Enterprise à 1 000 $/mois (élèves illimités). Pour les grands groupes multi-écoles, la formule Corporate est établie sur mesure.",
   },
   {
     question: 'Comment se passe la migration depuis notre ancien système ?',
     answer:
-      "L'application Windows EduGest intègre un outil d'import de base de données : vos élèves, classes et notes peuvent être importés depuis un fichier, directement depuis l'écran de configuration. L'assistant de création d'école vous guide ensuite pour l'année scolaire, les classes et les matières.",
+      "L'application Windows Kelasi 360 intègre un outil d'import de base de données : vos élèves, classes et notes peuvent être importés depuis un fichier, directement depuis l'écran de configuration. L'assistant de création d'école vous guide ensuite pour l'année scolaire, les classes et les matières.",
   },
   {
     question: 'Est-ce que ça marche hors-ligne ?',
     answer:
-      "Oui. L'application de bureau EduGest (Windows) embarque une base de données locale : la saisie des notes, paiements et discipline fonctionne sans internet. Vos données restent sur votre machine, dans votre établissement.",
+      "Oui. L'application de bureau Kelasi 360 (Windows) embarque une base de données locale : la saisie des notes, paiements et discipline fonctionne sans internet. Vos données restent sur votre machine, dans votre établissement.",
   },
   {
     question: 'Quels moyens de paiement sont supportés ?',
     answer:
-      "EduGest enregistre les paiements en espèces, les virements et les passerelles de paiement mobile que vous configurez (configurateur intégré réservé aux formules Standard et supérieures). Les reçus sont générés automatiquement et les notifications peuvent partir par WhatsApp.",
+      "Kelasi 360 enregistre les paiements en espèces, les virements et les passerelles de paiement mobile que vous configurez (configurateur intégré réservé aux formules Standard et supérieures). Les reçus sont générés automatiquement et les notifications peuvent partir par WhatsApp.",
   },
   {
     question: 'Y a-t-il une application pour l\'établissement ?',
@@ -169,7 +169,7 @@ export default function FAQ() {
               </span>
             </h2>
             <p className="text-[#9CA3AF] text-base sm:text-lg">
-              Tout ce que vous devez savoir sur EduGest.
+              Tout ce que vous devez savoir sur Kelasi 360.
             </p>
           </div>
         </ScrollReveal>

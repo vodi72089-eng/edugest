@@ -1,5 +1,5 @@
 /**
- * EduGest Desktop — Application de bureau (Windows / macOS / Linux)
+ * Kelasi 360 Desktop — Application de bureau (Windows / macOS / Linux)
  *
  * Architecture :
  *  1. Au premier lancement, la base de données SQLite locale est copiée dans
@@ -259,8 +259,8 @@ function createSplash() {
     } catch { return ''; }
   })();
   const logoHtml = logoUri
-    ? `<img src="${logoUri}" alt="EduGest" draggable="false" style="width:140px;height:auto;display:block;filter:drop-shadow(0 8px 28px rgba(0,0,0,.5))">`
-    : `<div class="fallback">EduGest</div>`;
+    ? `<img src="${logoUri}" alt="Kelasi 360" draggable="false" style="width:140px;height:auto;display:block;filter:drop-shadow(0 8px 28px rgba(0,0,0,.5))">`
+    : `<div class="fallback">Kelasi 360</div>`;
   splashWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
   *{box-sizing:border-box}
@@ -275,11 +275,11 @@ function createSplash() {
   .ver{position:absolute;bottom:10px;left:0;right:0;text-align:center;color:rgba(255,255,255,.25);font-size:10px;letter-spacing:.3px}
 </style></head><body>
   ${logoHtml}
-  <h1>EduGest</h1>
+  <h1>Kelasi 360</h1>
   <p class="sub">Édition bureau</p>
   <div class="bar"><span></span></div>
   <p id="stage">Préparation de votre espace…</p>
-  <div class="ver">EduGest Desktop ${APP_VERSION ? 'v' + APP_VERSION : ''}</div>
+  <div class="ver">Kelasi 360 Desktop ${APP_VERSION ? 'v' + APP_VERSION : ''}</div>
   <script>
     window.__setStage = function(t){
       var el = document.getElementById('stage');
@@ -399,7 +399,7 @@ function createWindow(port) {
     minHeight: 640,
     show: false,
     center: true,
-    title: 'EduGest',
+    title: 'Kelasi 360',
     icon: ICON_PATH,
     backgroundColor: '#0a0f0d',
     autoHideMenuBar: true,
@@ -559,7 +559,7 @@ try {
           if (err) {
             log('Lancement MAJ bloqué par Windows :', err);
             try { shell.showItemInFolder(f); } catch {}
-            sendUpdate('error', { message: "Windows a bloqué le lancement — double-cliquez sur le fichier mis en surbrillance dans vos Téléchargements, puis rouvrez EduGest." });
+            sendUpdate('error', { message: "Windows a bloqué le lancement — double-cliquez sur le fichier mis en surbrillance dans vos Téléchargements, puis rouvrez Kelasi 360." });
           } else {
             app.quit();
           }
@@ -597,7 +597,7 @@ try {
         if (!Notification.isSupported()) { _e.reply('edugest:notify:result', false); return; }
         const p = payload || {};
         const notif = new Notification({
-          title: String(p.title || 'EduGest').slice(0, 120),
+          title: String(p.title || 'Kelasi 360').slice(0, 120),
           body: String(p.body || '').slice(0, 300),
           icon: ICON_PATH,
           silent: p.silent === true,
@@ -726,7 +726,7 @@ function downloadPortableUpdate(asset) {
     log('Téléchargement portable :', dest);
     sendUpdate('downloading', { percent: 0, version: asset.version });
     const get = (url, redirects) => {
-      https.get(url, { headers: { 'User-Agent': 'EduGest-Desktop', Accept: 'application/octet-stream' } }, (res) => {
+      https.get(url, { headers: { 'User-Agent': 'Kelasi360-Desktop', Accept: 'application/octet-stream' } }, (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects > 0) {
           res.resume();
           get(res.headers.location, redirects - 1);
@@ -814,7 +814,7 @@ function downloadPortableUpdate(asset) {
  *  (null en cas d'erreur réseau : l'appelant retélécharge alors prudemment). */
 function headContentLength(url, cb, redirects = 5) {
   if (redirects <= 0) { cb(new Error('too many redirects'), 0); return; }
-  const req = https.request(url, { method: 'HEAD', headers: { 'User-Agent': 'EduGest-Desktop' }, timeout: 15000 }, (res) => {
+  const req = https.request(url, { method: 'HEAD', headers: { 'User-Agent': 'Kelasi360-Desktop' }, timeout: 15000 }, (res) => {
     res.resume();
     if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
       try { headContentLength(new URL(res.headers.location, url).toString(), cb, redirects - 1); } catch { cb(new Error('bad redirect'), 0); }
@@ -870,7 +870,7 @@ function checkPortableUpdate(manual = false) {
   const get = (url, redirects) => {
     if (redirects <= 0) { checkDone(); return; }
     const req = https.get(url, {
-      headers: { 'User-Agent': 'EduGest-Desktop' },
+      headers: { 'User-Agent': 'Kelasi360-Desktop' },
     }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume(); // vide le flux de la réponse de redirection
@@ -982,7 +982,7 @@ function setupAutoUpdate() {
     sendUpdate('ready', { version: info.version });
   });
 
-  autoUpdater.on('update-not-available', () => log('EduGest est à jour.'));
+  autoUpdater.on('update-not-available', () => log('Kelasi 360 est à jour.'));
   autoUpdater.on('error', (e) => log('Erreur vérification MAJ (ignorée) :', e.message));
 
   const doCheck = () => {
@@ -1020,7 +1020,7 @@ async function startBackend() {
   // 2) Ports locaux libres (interface + agent WhatsApp)
   const port = await findFreePort(3927);
   currentPort = port;
-  log('Démarrage du serveur EduGest sur le port', port);
+  log('Démarrage du serveur Kelasi 360 sur le port', port);
 
   // 2b) Agent WhatsApp embarqué (Baileys, bundlé — même Node qu'Electron).
   //     Démarre avec l'app, session dans userData (survit aux MAJ).
@@ -1133,7 +1133,7 @@ app.whenReady().then(async () => {
   } catch (e) {
     log('ERREUR FATALE :', e.message);
     closeSplash();
-    dialog.showErrorBox('EduGest', 'Impossible de démarrer le serveur local EduGest.\n\n' + e.message);
+    dialog.showErrorBox('Kelasi 360', 'Impossible de démarrer le serveur local Kelasi 360.\n\n' + e.message);
     app.quit();
   }
 

@@ -1,8 +1,8 @@
-# Application Desktop EduGest (EXE Windows)
+# Application Desktop Kelasi 360 (EXE Windows)
 
 ## Vue d'ensemble
 
-EduGest existe en deux versions qui partagent la **même base de données** :
+Kelasi 360 existe en deux versions qui partagent la **même base de données** :
 
 | Version | Base de données | Usage |
 |---------|-----------------|-------|
@@ -18,17 +18,17 @@ Un bouton **« Télécharger l'app (Windows) »** est présent sur la **page de 
 (`src/app/page.tsx`). Il pointe vers la dernière **Release GitHub** :
 
 ```
-https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/EduGest-Setup-1.4.12.exe
+https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/Kelasi 360-Setup-1.4.12.exe
 ```
 
-- **`EduGest-Setup-<version>.exe`** — installateur Windows (recommandé).
-- **`EduGest-Portable-<version>.exe`** — version portable (sans installation).
+- **`Kelasi 360-Setup-<version>.exe`** — installateur Windows (recommandé).
+- **`Kelasi 360-Portable-<version>.exe`** — version portable (sans installation).
 
 ## Mise à jour automatique
 
 L'EXE intègre **electron-updater** (provider GitHub). À chaque démarrage, il
 vérifie la dernière Release GitHub via `latest.yml` et propose la mise à jour
-dans l'app (bannière), sans quitter EduGest. Les données sont conservées.
+dans l'app (bannière), sans quitter Kelasi 360. Les données sont conservées.
 
 ## Architecture technique
 
@@ -39,7 +39,7 @@ dans l'app (bannière), sans quitter EduGest. Les données sont conservées.
 │  │   └─ src/lib/db.ts                                       │
 │  │       ├─ DATABASE_URL=file:… → client SQLite (local)     │
 │  │       └─ DATABASE_URL=postgresql://… → adaptateur Neon    │
-│  ├─ Base SQLite locale : %APPDATA%/EduGest/edugest.db       │
+│  ├─ Base SQLite locale : %APPDATA%/Kelasi 360/edugest.db       │
 │  └─ Agent WhatsApp embarqué (Baileys)                       │
 └─────────────────────────────────────────────────────────────┘
 ```

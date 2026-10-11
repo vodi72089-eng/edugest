@@ -85,7 +85,7 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
 // Toute navigation vers 'home' (landing) est rabattue sur 'login'.
 export function isDesktopApp(): boolean {
   if (typeof navigator === 'undefined') return false;
-  // DOUBLE critère : user-agent Electron + hôte local. L'exe EduGest sert
+  // DOUBLE critère : user-agent Electron + hôte local. L'exe Kelasi 360 sert
   // l'app sur http://127.0.0.1 — vérifier l'hôte exclut les navigateurs
   // tiers bátis sur Electron (leur UA contient aussi « Electron/… ») :
   // l'import de base et la synchro restent réservés au VRAI exe.
@@ -241,7 +241,7 @@ interface EduGestStore {
   activeSchoolId: string | null
   // Nom de l'école active (parallèle à activeSchoolId) : affiché dans le fil
   // d'Ariane de la barre supérieure — l'utilisateur voit toujours OÙ il se
-  // trouve (« EduGest / Élèves / La Réussite ») sans deviner par l'ID.
+  // trouve (« Kelasi 360 / Élèves / La Réussite ») sans deviner par l'ID.
   activeSchoolName: string | null
   setActiveSchoolId: (id: string | null, name?: string | null) => void
 

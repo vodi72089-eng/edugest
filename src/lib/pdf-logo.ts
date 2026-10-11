@@ -1,5 +1,5 @@
 /**
- * Logo EduGest pour les PDF — 100 % compatible Node (local/exe) ET
+ * Logo Kelasi 360 pour les PDF — 100 % compatible Node (local/exe) ET
  * Cloudflare Workers (aucun `fs`/`path` : `import fs` en tête de module fait
  * échouer TOUTE la route sur Workers, même avec un try/catch autour de
  * l'usage — d'où les 500 sur tous les PDF du site).

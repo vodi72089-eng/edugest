@@ -465,7 +465,7 @@ export default function Hero({ onLogin, onDemo }: HeroProps) {
                       <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#34D399' }} />
                     </div>
                     <span className="text-[11px] ml-2" style={{ color: '#4B5563' }}>
-                      app.edugest.io/dashboard
+                      kelasi360.example/dashboard
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
