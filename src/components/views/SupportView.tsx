@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useKelasi 360Store, authFetch } from '@/lib/store'
+import { useEduGestStore, authFetch } from '@/lib/store'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, SUCCESS, WARNING, DANGER } from '@/lib/constants'
 import { formatDate } from '@/lib/helpers'
 import AppSelect from '@/components/ui/AppSelect'
@@ -287,7 +287,7 @@ function TicketThread({ ticketId, canHandle, onBack }: { ticketId: string; canHa
 
 // ─── Vue principale ─────────────────────────────────────────────────────────
 export default function SupportView() {
-  const { userRole, userData } = useKelasi 360Store()
+  const { userRole, userData } = useEduGestStore()
   const canHandle = userRole === 'SUPPORT_AGENT' || userRole === 'SUPER_ADMIN_GLOBAL'
   const [tab, setTab] = useState<'tickets' | 'agent'>('tickets')
   const [tickets, setTickets] = useState<TicketItem[]>([])
