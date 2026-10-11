@@ -43,10 +43,10 @@ const playfairDisplay = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "EduGest — Gestion Scolaire Premium",
+  title: "Kelasi 360 — Gestion Scolaire",
   description: "La plateforme de gestion scolaire multi-écoles qui simplifie la vie des directions, enseignants et parents.",
   manifest: '/manifest.webmanifest',
-  appleWebApp: { capable: true, title: 'EduGest' },
+  appleWebApp: { capable: true, title: 'Kelasi 360' },
   icons: {
     icon: "/edugest-logo-mark.png",
   },
