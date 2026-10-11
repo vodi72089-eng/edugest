@@ -311,7 +311,7 @@ function Footer() {
         </div>
       </div>
       <div className="container-premium pt-6 border-t border-white/10 flex flex-col sm:flex-row justify-between text-xs text-white/40 pb-8">
-        <span>© 2026 EduGest · Tous droits réservés</span>
+        <span>© 2026 Kelasi 360 · Tous droits réservés</span>
         <span className="mt-2 sm:mt-0">Conditions · Confidentialité · Cookies</span>
       </div>
     </footer>
@@ -880,7 +880,7 @@ function HomeView() {
             <span style={{ color: GOLD }}>►</span>
           </div>
           <h2 className="text-[26px] sm:text-[36px] font-extrabold tracking-tight mb-3" style={{ color: TEXT_PRIMARY }}>
-            Pourquoi choisir <GradientText className="inline-block" colors={['#f5a623', '#e8962d', '#d4860f']}>EduGest</GradientText>
+            Pourquoi choisir <GradientText className="inline-block" colors={['#f5a623', '#e8962d', '#d4860f']}>Kelasi 360</GradientText>
           </h2>
           <p className="text-base max-w-[500px] mx-auto mb-12" style={{ color: TEXT_MUTED_LUXE }}>
             Une plateforme conçue pour les réalités africaines, avec les outils qu&apos;il vous faut.
@@ -2012,7 +2012,7 @@ function LoginView() {
   // navigateur ne peut pas, GitHub n'envoie aucun en-tête CORS sur ses
   // téléchargements de release). Repli : URL directe épinglée, donc même si
   // la résolution échoue, un clic déclenche le téléchargement immédiatement.
-  const [setupExeUrl, setSetupExeUrl] = useState('https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/EduGest-Setup-1.4.12.exe')
+  const [setupExeUrl, setSetupExeUrl] = useState('https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/__KEEP_TECH_4__')
   // ── Le bouton n'existe que sur ORDINATEUR WINDOWS ────────────────────────
   // L'EXE ne s'exécute ni sur téléphone ni sur tablette ni sur macOS/Linux :
   // le bouton est donc absent de l'interface ailleurs (et handler re-vérifie
@@ -2150,7 +2150,7 @@ function LoginView() {
             name: apiUser.name,
             role,
             schoolId: apiUser.schoolId ?? null,
-            schoolName: apiUser.school?.name || (role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'EduGest'),
+            schoolName: apiUser.school?.name || (role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'Kelasi 360'),
             schoolLogo: apiUser.school?.logo || null,
             initials: getInitials(apiUser.name),
             profileImageUrl: apiUser.profileImageUrl || null,
@@ -2366,7 +2366,7 @@ function LoginView() {
 
       {/* Footer — collé au bas de la page (mt-auto), respecte la zone sûre iOS */}
       <footer className="relative z-20 mt-auto w-full text-center text-[13px] text-white/30 py-5" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}>
-        © 2026 EduGest
+        © 2026 Kelasi 360
       </footer>
 
       {/* Première connexion exe : récupération de l'école depuis la plateforme */}
@@ -2480,7 +2480,7 @@ function LoginView() {
                             name: apiUser.name,
                             role,
                             schoolId: apiUser.schoolId ?? null,
-                            schoolName: apiUser.school?.name || (role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'EduGest'),
+                            schoolName: apiUser.school?.name || (role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'Kelasi 360'),
                             schoolLogo: apiUser.school?.logo || null,
                             initials: getInitials(apiUser.name),
                             profileImageUrl: apiUser.profileImageUrl || null,
@@ -2890,7 +2890,7 @@ HEAD_TEACHER: [
     { icon: <Building2 size={16} />, label: 'Espace Corporate', view: 'corporate' as ViewType },
     { icon: <ClipboardList size={16} />, label: 'Rapports', view: 'reports' as ViewType },
   ]
-  // Support client EduGest : file de tickets + agent IA (accomplit les tâches avec les corporates).
+  // Support client Kelasi 360 : file de tickets + agent IA (accomplit les tâches avec les corporates).
   menus.SUPPORT_AGENT = [
     { icon: <Headset size={16} />, label: 'Support client', view: 'support' },
   ]
@@ -3097,7 +3097,7 @@ const VIEWS_BY_ROLE: Record<string, ViewType[]> = {
   SCHOOL_ADMIN: ['dashboard', 'students', 'classes', 'personnel', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'discipline', 'attendance', 'convocation', 'communications', 'homework', 'class-passing', 'bulletin', 'medical', 'medical-records', 'events', 'reports', 'my-subscription', 'parent-qr', 'parents', 'personalization', 'whatsapp-config', 'settings', 'profile'],
   MEDICAL: ['dashboard', 'medical', 'medical-records', 'students', 'communications', 'reports', 'profile'],
   SUPER_ADMIN_GLOBAL: ['dashboard', 'schools', 'personnel', 'students', 'classes', 'grades', 'payments', 'finance', 'payment-verification', 'payment-config', 'pricing', 'platform-control', 'attendance', 'communications', 'homework', 'class-passing', 'bulletin', 'convocation', 'whatsapp-config', 'medical', 'medical-records', 'events', 'reports', 'parent-qr', 'parents', 'personalization', 'settings', 'profile'],
-  // Comptes hors école : corporate (multi-écoles) + support client EduGest
+  // Comptes hors école : corporate (multi-écoles) + support client Kelasi 360
   CORPORATE_ADMIN: ['corporate', 'reports', 'support', 'profile'],
   SUPPORT_AGENT: ['support', 'profile'],
 }
@@ -3174,7 +3174,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 // ===== TOPBAR =====
 // ─── Fil d'Ariane : icône par vue ─────────────────────────────────────
 // La barre supérieure affiche en permanence OÙ l'on se trouve, comme la
-// console OrcaRouter (« Console / Catalog ») : EduGest / Vue courante / École.
+// console OrcaRouter (« Console / Catalog ») : Kelasi 360 / Vue courante / École.
 // Icônes réutilisées depuis l'import lucide-react existant (aucun nouvel import).
 const VIEW_ICONS: Partial<Record<ViewType, React.ReactNode>> = {
   dashboard: <LayoutDashboard size={15} />,
@@ -3235,7 +3235,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   }, [])
   // Contexte scolaire du fil d'Ariane : pour le super admin c'est l'école
   // active choisie dans la barre latérale ; pour tout autre rôle c'est SA
-  // propre école — d'où qu'il soit, l'écran répond « EduGest / Vue / École ».
+  // propre école — d'où qu'il soit, l'écran répond « Kelasi 360 / Vue / École ».
   const crumbSchoolName = userRole === 'SUPER_ADMIN_GLOBAL'
     ? activeSchoolName
     : (userData?.schoolName || null)
@@ -3331,7 +3331,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
       if (!bridge?.show) return; // navigateur web : rien (Web Push gère)
       if (document.hasFocus()) return; // premier plan : le son in-app suffit
       bridge.show({
-        title: notif.title || 'EduGest',
+        title: notif.title || 'Kelasi 360',
         body: notif.message || '',
         tag: notif.id,
         url: viewToPath(notifTypeToView(notif.type, userRole)),
@@ -3640,7 +3640,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
                     title="Revenir au tableau de bord"
                   >
                     <GraduationCap size={14} />
-                    <span className="hidden sm:inline">EduGest</span>
+                    <span className="hidden sm:inline">Kelasi 360</span>
                   </button>
                 </BreadcrumbLink>
               </BreadcrumbItem>
@@ -4020,9 +4020,9 @@ function ImportDbModal({ onClose, initialEmail, standalone }: { onClose: () => v
             <>
               <p className="text-[13px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
                 {standalone
-                  ? <>Importez votre fichier de base de données EduGest (<strong>.db</strong>) : votre compte et votre école seront créés dans l’application à partir de ce fichier, puis vos données importées.</>
+                  ? <>Importez votre fichier de base de données Kelasi 360 (<strong>.db</strong>) : votre compte et votre école seront créés dans l’application à partir de ce fichier, puis vos données importées.</>
                   : <>Vous êtes connecté en tant qu&apos;administrateur d&apos;école. Importez votre fichier de base de
-                données EduGest (<strong>.db</strong>) : élèves, classes, matières, notes et professeurs
+                données Kelasi 360 (<strong>.db</strong>) : élèves, classes, matières, notes et professeurs
                 deviennent directement la base de votre école.</>}
               </p>
               {emailMismatch && initialEmail && (
@@ -4079,7 +4079,7 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
   // URL DIRECTE de l'exe portable (release épinglée) → téléchargeable
   // immédiatement au clic, mise à jour vers la dernière version par
   // /api/version/exe — jamais la page de releases GitHub.
-  const [exeUrl, setExeUrl] = useState<string | null>('https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/EduGest-Portable-1.4.12.exe')
+  const [exeUrl, setExeUrl] = useState<string | null>('https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/__KEEP_TECH_5__')
   const [openFailed, setOpenFailed] = useState(false)
   // Bouton de téléchargement réservé aux ordinateurs Windows (l'EXE n'est pas
   // exécutable ailleurs) — voir subscribeNoop (rendu serveur → false).
@@ -4088,7 +4088,7 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
   const downloadPortable = useCallback((e?: React.MouseEvent) => {
     e?.preventDefault()
     if (!isWindowsDesktop()) return // verrou plateforme
-    const url = exeUrl || 'https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/EduGest-Portable-1.4.12.exe'
+    const url = exeUrl || 'https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/__KEEP_TECH_6__'
     try {
       const a = document.createElement('a')
       a.href = url
@@ -4169,7 +4169,7 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
           <p className="text-[13px] leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
             L&apos;importation de base de données (<strong>.db</strong> : élèves, classes, matières,
             notes et professeurs) est disponible <strong>uniquement dans l&apos;application desktop
-            EduGest</strong> (Windows).
+            Kelasi 360</strong> (Windows).
             <strong> Vous l&apos;avez déjà ? Ouvrez-la directement</strong> (bouton ci-dessous) —
             sinon téléchargez-la, ouvrez-la, puis importez votre fichier : vos données deviendront
             directement la base de votre école.
@@ -5590,7 +5590,7 @@ function WhatsAppApiQuotasSection() {
                 <span>Consommation du mois</span>
                 <span>
                   {waConfig?.customEnabled
-                    ? 'Illimité (Non bridé par EduGest)'
+                    ? 'Illimité (Non bridé par Kelasi 360)'
                     : `${waConfig?.used || 0} / ${waConfig?.monthlyLimit >= 999999 ? 'Illimité' : waConfig?.monthlyLimit} messages`}
                 </span>
               </div>
@@ -5612,7 +5612,7 @@ function WhatsAppApiQuotasSection() {
 
             {waConfig?.customEnabled ? (
               <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900">
-                🎉 <strong>Mode Propre API activé</strong> : Vos envois transitent directement par vos identifiants Meta Cloud API ou passerelle dédiée. <strong>Aucune limitation de volume ou blocage n'est appliqué par EduGest.</strong>
+                🎉 <strong>Mode Propre API activé</strong> : Vos envois transitent directement par vos identifiants Meta Cloud API ou passerelle dédiée. <strong>Aucune limitation de volume ou blocage n'est appliqué par Kelasi 360.</strong>
               </div>
             ) : (waConfig?.percentUsed || 0) > 80 ? (
               <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 flex items-center justify-between">
@@ -5640,7 +5640,7 @@ function WhatsAppApiQuotasSection() {
               Connecter votre propre API WhatsApp (BYO)
             </h3>
             <p className="text-xs text-slate-500 mb-5">
-              Si vous disposez d'un compte WhatsApp Business API (Meta Cloud API) ou d'un serveur dédié, renseignez vos identifiants ci-dessous. EduGest lèvera toutes les restrictions de volume.
+              Si vous disposez d'un compte WhatsApp Business API (Meta Cloud API) ou d'un serveur dédié, renseignez vos identifiants ci-dessous. Kelasi 360 lèvera toutes les restrictions de volume.
             </p>
 
             <form onSubmit={saveWaConfig} className="space-y-4">
@@ -5653,7 +5653,7 @@ function WhatsAppApiQuotasSection() {
                   className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
                 />
                 <label htmlFor="customWaSwitch" className="text-sm font-bold text-slate-800 cursor-pointer">
-                  Activer ma propre API WhatsApp (Supprimer la limite de messages EduGest)
+                  Activer ma propre API WhatsApp (Supprimer la limite de messages Kelasi 360)
                 </label>
               </div>
 
@@ -5815,7 +5815,7 @@ function PaymentConfigView() {
   useEffect(() => {
     if (!getActiveSchoolId()) {
       // Vue plateforme (aucune école active) : catalog + configurations de la
-      // plateforme (passerelles des abonnements EduGest). loadGateways() résout
+      // plateforme (passerelles des abonnements Kelasi 360). loadGateways() résout
       // le skeleton via son finally — sinon il resterait affiché indéfiniment.
       // La liste des monnaies, elle, ne dépend d'aucune école : on la charge
       // quand même (sinon tous les selects « Monnaie » restent vides).
@@ -7776,7 +7776,7 @@ function CommunicationsView() {
                   Configuration de l&apos;API email Resend
                 </h3>
                 <p className="text-xs mt-1" style={{ color: TEXT_MUTED_LUXE }}>
-                  Les emails EduGest (codes de vérification de compte, notifications) seront envoyés via Resend.
+                  Les emails Kelasi 360 (codes de vérification de compte, notifications) seront envoyés via Resend.
                   Obtenez votre clé API sur <span className="font-semibold">resend.com</span> puis validez votre domaine expéditeur.
                 </p>
               </div>
@@ -7824,7 +7824,7 @@ function CommunicationsView() {
                     type="text"
                     value={emailForm.fromName}
                     onChange={e => setEmailForm(f => ({ ...f, fromName: e.target.value }))}
-                    placeholder="EduGest"
+                    placeholder="Kelasi 360"
                     className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]"
                     style={{ color: TEXT_PRIMARY }}
                   />
@@ -8156,7 +8156,7 @@ function HomeworkView() {
             </div>
           )}
           <div>
-            <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{schoolData.name || 'EduGest'}</h2>
+            <h2 className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>{schoolData.name || 'Kelasi 360'}</h2>
             <p className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Devoirs assignés</p>
           </div>
         </div>
@@ -8360,7 +8360,7 @@ function HomeworkView() {
                 </div>
               )}
               <div className="flex-1">
-                <h3 className="font-bold text-sm" style={{ color: TEXT_PRIMARY }}>{schoolData?.name || 'EduGest'}</h3>
+                <h3 className="font-bold text-sm" style={{ color: TEXT_PRIMARY }}>{schoolData?.name || 'Kelasi 360'}</h3>
                 <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Pièce jointe du devoir</p>
               </div>
               <button onClick={() => setPreviewAttachment(null)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[oklch(95%_0.01_175)] transition" style={{ color: TEXT_MUTED_LUXE }}>
@@ -9885,7 +9885,7 @@ function SubscriptionUpgradeView() {
           schoolId: getActiveSchoolId() ?? null,
           gatewayType: selectedGateway,
           amount: tier.price,
-          description: `Abonnement ${tier.name} - ${userData?.schoolName || 'EduGest'}`,
+          description: `Abonnement ${tier.name} - ${userData?.schoolName || 'Kelasi 360'}`,
           customerPhone: customerPhone || undefined,
         }),
       })
@@ -10288,7 +10288,7 @@ export default function Home() {
         if (!current || current.id !== p.id) return // session changée entre-temps
         const patch: Partial<UserData> = {
           schoolId: p.schoolId ?? null,
-          schoolName: p.school?.name || (current.role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'EduGest'),
+          schoolName: p.school?.name || (current.role === 'SUPER_ADMIN_GLOBAL' ? 'Administration plateforme' : 'Kelasi 360'),
           schoolLogo: p.school?.logo ?? null,
           profileImageUrl: p.profileImageUrl ?? null,
         }
