@@ -252,7 +252,7 @@ function buildReceiptPDF(
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
       setT(doc, GOLD);
-      doc.text('EduGest', W - mx - 4, y + 8, { align: 'right' });
+      doc.text('Kelasi 360', W - mx - 4, y + 8, { align: 'right' });
     }
   } catch { /* logo ignoré */ }
 
@@ -509,7 +509,7 @@ function buildReceiptPDF(
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   setT(doc, GRAY);
-  centerText(doc, 'Genere par EduGest - La plateforme de gestion scolaire', footerY + 9, W);
+  centerText(doc, 'Genere par Kelasi 360 - La plateforme de gestion scolaire', footerY + 9, W);
 
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(6.5);
