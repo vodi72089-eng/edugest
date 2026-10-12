@@ -20,8 +20,9 @@ export const dynamic = 'force-dynamic';
 
 const REPO = 'vodi72089-eng/edugest';
 // Repli épinglé : release connue la plus récente. Jamais la page de releases.
-const FALLBACK_VERSION = '1.4.23';
-const CACHE_TTL_MS = 10 * 60 * 1000;
+const FALLBACK_VERSION = '1.4.24';
+const CACHE_TTL_MS = 2 * 60 * 1000;
+const VERSION_PATTERN = /^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/;
 
 type ExeUrls = {
   version: string;
@@ -34,11 +35,13 @@ type ExeUrls = {
 };
 
 function directUrls(version: string, latest: boolean): ExeUrls {
-  const base = `https://github.com/${REPO}/releases/download/v${version}`;
+  // Same-origin endpoint streams the asset as an attachment; the browser
+  // never opens GitHub and the download can resume through byte ranges.
+  const encodedVersion = encodeURIComponent(version);
   return {
     version,
-    setup: `${base}/Kelasi360-Setup-${version}.exe`,
-    portable: `${base}/Kelasi360-Portable-${version}.exe`,
+    setup: `/api/version/exe/download?type=setup&version=${encodedVersion}`,
+    portable: `/api/version/exe/download?type=portable&version=${encodedVersion}`,
     latest,
   };
 }
@@ -58,7 +61,7 @@ async function resolveExeUrls(): Promise<ExeUrls> {
       const text = await res.text();
       const m = text.match(/^version:\s*(.+)$/m);
       const version = String(m ? m[1] : '').trim().replace(/^v/, '');
-      if (version) {
+      if (VERSION_PATTERN.test(version)) {
         const value = directUrls(version, true);
         cache = { ts: Date.now(), value };
         return value;
@@ -74,6 +77,6 @@ async function resolveExeUrls(): Promise<ExeUrls> {
 export async function GET() {
   const value = await resolveExeUrls();
   return NextResponse.json(value, {
-    headers: { 'Cache-Control': 'public, max-age=600' },
+    headers: { 'Cache-Control': 'no-store' },
   });
 }
