@@ -9,7 +9,7 @@ import { resolveNotifView, notifSoundLevel } from '@/lib/notification-routing'
 import { viewToPath, pathToView } from '@/lib/view-paths'
 import { toast } from 'sonner'
 import { savePdfBlob, savePdfUrl, toastPdfSaved } from '@/lib/desktop-files'
-import { startAutoSyncLoop } from '@/lib/sync-auto'
+import { startAutoSyncLoop, runAutoSync } from '@/lib/sync-auto'
 import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
 import { isWindowsDesktop } from '@/lib/detect-device'
 import { GATEWAY_API_INFO } from '@/lib/gateway-api-info'
@@ -23,7 +23,7 @@ import StudentAvatar from '@/components/ui/StudentAvatar'
 import AppSelect from '@/components/ui/AppSelect';
 import { readUrlQuery, writeUrlQuery } from '@/lib/url-search'
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
-import BrandLogo from '@/components/BrandLogo'
+import BrandLogo, { BrandLogoPlate } from '@/components/BrandLogo'
 import { FlagIcon } from '@/components/FlagIcon'
 import dynamic from 'next/dynamic'
 const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
@@ -3394,6 +3394,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   const notifPanelRef = useRef<HTMLDivElement>(null)
   const [pushStatus, setPushStatus] = useState<'unsupported' | 'default' | 'granted' | 'denied' | 'subscribed'>('default')
   const [pushLoading, setPushLoading] = useState(false)
+  const [showNotifHelp, setShowNotifHelp] = useState(false)
   const [notifSoundOn, setNotifSoundOn] = useState(true)
   // IDs déjà vus (lastSeenNotificationIds) : évite le « ding » au premier
   // chargement et ne sonne QUE pour les vraies nouveautés — jamais deux fois
@@ -3579,9 +3580,20 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
     try {
       setPushLoading(true);
       if (typeof Notification === 'undefined' || !('serviceWorker' in navigator)) { setPushStatus('unsupported'); return; }
-      const reg = registration || await navigator.serviceWorker.ready;
+      // ⚠️ La permission doit être demandée DANS le geste (le clic) et AVANT
+      // tout await : passé le geste utilisateur, Chrome/Firefox n'ouvrent plus
+      // l'invite native — la demande se résout silencieusement sans rien
+      // afficher (« ça ne me demande jamais rien »). D'où requestPermission()
+      // tout de suite, avant serviceWorker.ready et l'appel serveur.
       const perm = await Notification.requestPermission();
-      if (perm !== 'granted') { setPushStatus(perm === 'denied' ? 'denied' : 'default'); return; }
+      if (perm !== 'granted') {
+        setPushStatus(perm === 'denied' ? 'denied' : 'default');
+        // Déjà refusé auparavant : aucune invite possible → on guide
+        // directement l'utilisateur jusqu'aux paramètres du navigateur.
+        if (perm === 'denied') setShowNotifHelp(true);
+        return;
+      }
+      const reg = registration || await navigator.serviceWorker.ready;
       const keyRes = await authFetch('/api/push/vapid');
       if (!keyRes.ok) { toast.error('Notifications non configurées sur le serveur'); setPushStatus('granted'); return; }
       const { publicKey } = await keyRes.json();
@@ -3920,9 +3932,44 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
               </div>
             )}
             {pushStatus === 'denied' && (
-              <div className="px-4 py-2 flex items-center gap-2 border-b text-[10px]" style={{ borderColor: `oklch(92% 0.005 250)`, color: TEXT_MUTED_LUXE }}>
-                <BellRing size={11} className="shrink-0 opacity-50" />
-                <span>Notifications bloquées — autorisez-les dans les paramètres du navigateur</span>
+              <button
+                onClick={() => setShowNotifHelp(true)}
+                className="px-4 py-2 flex items-center gap-2 border-b text-[10px] w-full text-left hover:bg-white/70 transition"
+                style={{ borderColor: `oklch(92% 0.005 250)`, color: '#b45309' }}
+              >
+                <BellRing size={11} className="shrink-0" />
+                <span className="font-semibold">Notifications bloquées — cliquez ici pour les autoriser →</span>
+              </button>
+            )}
+            {showNotifHelp && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                style={{ background: 'rgba(0,0,0,0.45)' }}
+                onClick={() => setShowNotifHelp(false)}
+              >
+                <div
+                  className="w-full max-w-[420px] rounded-2xl shadow-2xl border p-5"
+                  style={{ background: '#fff', borderColor: `oklch(88% 0.01 175)` }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <p className="text-[15px] font-bold mb-1" style={{ color: TEXT_PRIMARY }}>Autoriser les notifications</p>
+                  <p className="text-[12px] mb-3" style={{ color: TEXT_MUTED_LUXE }}>
+                    Le navigateur bloque les notifications de ce site. Deux cas de figure :
+                  </p>
+                  <ol className="space-y-2 text-[13px] mb-4" style={{ color: TEXT_PRIMARY }}>
+                    <li><b>1.</b> Cliquez sur l&apos;icône 🔒 ou ℹ️ à gauche de l&apos;adresse du site (sinon : clic droit sur la barre d&apos;adresse → « Paramètres du site »).</li>
+                    <li><b>2.</b> Ouvrez « Paramètres du site » puis « Notifications ».</li>
+                    <li><b>3.</b> Choisissez « <b>Autoriser</b> » (et non « Bloquer »).</li>
+                    <li><b>4.</b> Revenez ici, rouvrez la cloche puis cliquez sur « <b>Activer</b> » : le navigateur affichera alors son invite directement.</li>
+                  </ol>
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => setShowNotifHelp(false)}
+                      className="px-4 py-2 rounded-xl text-[13px] font-semibold"
+                      style={{ background: ACCENT, color: '#fff' }}
+                    >J&apos;ai compris</button>
+                  </div>
+                </div>
               </div>
             )}
             {/* ── Réglages du son (persistés par utilisateur) ─────────────────── */}
@@ -7897,6 +7944,14 @@ function CommunicationsView() {
         const json = await (await authFetch(`/api/communications?limit=20&schoolId=${sid}`)).json()
         setComms(json.data || [])
         setTotalUsers(json.totalUsers || 0)
+        // Exe : la communication vient d'être écrite en SQLite. Si la
+        // connexion est là, on l'envoie IMMÉDIatement à la plateforme (sinon
+        // la boucle automatique la prendra au prochain tour, ≤ 10 s).
+        if (isDesktopApp()) {
+          void runAutoSync().then(o => {
+            if (o.ok && o.appliedTotal > 0) toast.success('Synchronisé avec la plateforme ✓')
+          }).catch(() => { /* hors ligne : la boucle réessaie toute seule */ })
+        }
       } else {
         const err = await res.json().catch(() => ({} as any))
         toast.error(err.error || "Erreur lors de l'envoi")
@@ -10366,6 +10421,26 @@ function PricingDashboard() {
   return <PricingView />
 }
 
+// ─── Écran de démarrage (HTML SSR + pré-hydratation) ───────────────────────
+// C'est CE que l'on voit pendant le chargement du JS : c'était la landing,
+// d'où son « flash » sur F5 et au démarrage de l'app desktop (l'exe garde
+// sa fenêtre cachée jusqu'au signal ui-ready, mais le HTML sous-jacent
+// affichait quand même la landing). Écran neutre aux couleurs officielles :
+// fond sombre, logo, barre de progression — jamais la landing.
+function BootSplash() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center" style={{ background: '#0b0f0e' }}>
+      <style>{`@keyframes edu-boot-slide{0%{transform:translateX(-110%)}100%{transform:translateX(320%)}}`}</style>
+      <BrandLogoPlate height={96} />
+      <h1 className="text-white text-xl font-bold mt-6 tracking-tight">Kelasi 360</h1>
+      <p className="text-white/45 text-sm mt-1 mb-7">Chargement de votre espace…</p>
+      <div style={{ width: 160, height: 3, background: 'rgba(255,255,255,.1)', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: '40%', background: '#f5a623', borderRadius: 2, animation: 'edu-boot-slide 1.1s ease-in-out infinite' }} />
+      </div>
+    </div>
+  )
+}
+
 // ===== MAIN HOME COMPONENT =====
 export default function Home() {
   const { currentView, userRole, logout, setCurrentView, userData, setUserData } = useEduGestStore()
@@ -10589,14 +10664,18 @@ export default function Home() {
   if (!userRole) {
     let view: React.ReactNode
     switch (currentView) {
-      case 'home': view = <HomeView />; break
+      // 'home' = écran de démarrage AVANT restauration de session (c'est le
+      // HTML servi par le serveur). La landing (HomeView) n'est plus jamais
+      // rendue : voir resolveView() dans store.ts — '/' → connexion.
+      case 'home': view = <BootSplash />; break
       case 'login': view = <LoginView />; break
       case 'create-school': view = <CreateSchoolView />; break
       case 'pricing': view = <PricingView />; break
       case 'docs': view = isDesktopApp() ? <LoginView /> : <PublicDocsView />; break
       case 'school-detail': view = <SchoolDetailView />; break
-      // Landing restaurée à la demande : « Gestion Scolaire Intégrale » est de
-      // retour sur la page d'accueil publique (connexion toujours unifiée sur /login)
+      // Page d'accueil = connexion : la landing n'est plus présentée nulle
+      // part (rafraîchissement, exe, déconnexion) — atterrissage direct sur
+      // l'application.
       default: view = <LoginView />; break
     }
     return <>{view}<UpdateBanner /></>

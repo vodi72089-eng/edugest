@@ -44,9 +44,15 @@ export async function POST(
     }
 
     const newStatus = action === 'approve' ? 'APPROVED' : 'REJECTED';
+    // sentAt = « envoi réel » : pour une demande PENDING, l'envoi a lieu ICI
+    // (voir plus bas). Re-bouger sentAt rend l'approbation VISIBLE pour la
+    // synchro exe→Neon (delta sur sentAt) — sans cela, une communication
+    // approuvée dans l'exe restait PENDING sur la plateforme pour toujours.
     const updated = await db.communication.update({
       where: { id },
-      data: { status: newStatus },
+      data: newStatus === 'APPROVED'
+        ? { status: newStatus, sentAt: new Date() }
+        : { status: newStatus },
     });
 
     await notify({

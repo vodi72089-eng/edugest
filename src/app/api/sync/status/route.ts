@@ -73,14 +73,20 @@ export async function POST(request: NextRequest) {
     }
     const deltaWhere = sinceDate ? { updatedAt: { gte: sinceDate } } : {};
     const baseline = body.fullBaseline && typeof body.fullBaseline === 'object' ? body.fullBaseline : null;
+    // Communication : table INSERT-ONLY (aucune colonne updatedAt) — le delta
+    // se fait sur createdAt (+ sentAt qui est rebougé à l'approbation).
+    const createdWhere = sinceDate
+      ? { OR: [{ createdAt: { gte: sinceDate } }, { sentAt: { gte: sinceDate } }] }
+      : {};
 
     // ?? Compteurs (tables versionnées en delta, tables sans version vs baseline)
-    const [classesN, studentsN, gradesN, feesN, paymentsN, yearsAll, subjectsAll, usersAll] = await Promise.all([
+    const [classesN, studentsN, gradesN, feesN, paymentsN, commsN, yearsAll, subjectsAll, usersAll] = await Promise.all([
       db.class.count({ where: { schoolId: localSchoolId, ...deltaWhere } }),
       db.student.count({ where: { schoolId: localSchoolId, isArchived: false, ...deltaWhere } }),
       db.grade.count({ where: { student: { schoolId: localSchoolId }, ...deltaWhere } }),
       db.schoolFee.count({ where: { schoolId: localSchoolId, ...deltaWhere } }),
       db.paymentRecord.count({ where: { schoolId: localSchoolId, studentId: { not: SUBSCRIPTION_STUDENT_ID }, ...deltaWhere } }).catch(() => 0),
+      db.communication.count({ where: { schoolId: localSchoolId, ...createdWhere } }).catch(() => 0),
       db.schoolYear.count({ where: { schoolId: localSchoolId } }),
       db.subject.count({ where: { schoolId: localSchoolId } }),
       db.user.count({ where: { schoolId: localSchoolId, role: { in: ['TEACHER', 'HEAD_TEACHER', 'PARENT'] }, isActive: true } }),
@@ -102,7 +108,7 @@ export async function POST(request: NextRequest) {
     // ?? Extraits récents (alimente la liste « modifications » de l'UI) ??
     const samples: { type: string; label: string; at: string }[] = [];
     try {
-      const [stRows, grRows, payRows, feeRows, clRows] = await Promise.all([
+      const [stRows, grRows, payRows, feeRows, clRows, comRows] = await Promise.all([
         db.student.findMany({
           where: { schoolId: localSchoolId, isArchived: false, ...deltaWhere },
           select: { firstName: true, lastName: true, updatedAt: true },
@@ -128,6 +134,11 @@ export async function POST(request: NextRequest) {
           select: { name: true, updatedAt: true },
           orderBy: { updatedAt: 'desc' }, take: 2,
         }),
+        db.communication.findMany({
+          where: { schoolId: localSchoolId, ...createdWhere },
+          select: { title: true, sentAt: true },
+          orderBy: { sentAt: 'desc' }, take: 2,
+        }).catch(() => [] as any[]),
       ]);
       // PaymentRecord : studentId nu (pas de relation Prisma) -> jointure manuelle.
       const payIds = [...new Set(payRows.map((r: any) => String(r.studentId)).filter(Boolean))];
@@ -141,6 +152,7 @@ export async function POST(request: NextRequest) {
       payRows.forEach((r: any) => samples.push({ type: 'Paiement', label: `${payNameById.get(String(r.studentId)) || '?'} - ${r.paidAmount}${r.receiptNumber ? ` (${r.receiptNumber})` : ''}`, at: r.updatedAt.toISOString() }));
       feeRows.forEach(r => samples.push({ type: 'Frais', label: `${r.name} - ${r.amount}`, at: r.updatedAt.toISOString() }));
       clRows.forEach(r => samples.push({ type: 'Classe', label: r.name, at: r.updatedAt.toISOString() }));
+      comRows.forEach((r: any) => samples.push({ type: 'Communication', label: r.title, at: r.sentAt.toISOString() }));
     } catch { /* extraits best-effort */ }
 
     samples.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
@@ -150,10 +162,11 @@ export async function POST(request: NextRequest) {
       grades: gradesN,
       schoolFees: feesN,
       paymentRecords: paymentsN,
+      communications: commsN,
       fullAdded,
     };
     const pendingTotal =
-      classesN + studentsN + gradesN + feesN + paymentsN +
+      classesN + studentsN + gradesN + feesN + paymentsN + commsN +
       fullAdded.schoolYears + fullAdded.subjects + fullAdded.users;
 
     return NextResponse.json({

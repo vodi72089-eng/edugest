@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ?? 1) Lecture locale (jamais d'écriture ici) ???????????????????????
-    const [classes, students, grades, fees, payments, years, subjects, users] = await Promise.all([
+    const [classes, students, grades, fees, payments, years, subjects, users, comms] = await Promise.all([
       db.class.findMany({
         where: { schoolId: localSchoolId, ...deltaWhere },
         select: { name: true, section: true, level: true, capacity: true, updatedAt: true, schoolYear: { select: { label: true } } },
@@ -197,6 +197,24 @@ export async function POST(request: NextRequest) {
             select: { name: true, phone: true, email: true, password: true, role: true, subjectName: true },
           })
         : Promise.resolve([] as any[]),
+      // Communications : table INSERT-ONLY (pas de updatedAt). Le delta couvre
+      // les CRÉATIONS (createdAt) et les APPROBATIONS (sentAt rebougé par
+      // approve()) depuis la dernière synchro réussie.
+      db.communication.findMany({
+        where: {
+          schoolId: localSchoolId,
+          ...(sinceDate
+            ? { OR: [{ createdAt: { gte: sinceDate } }, { sentAt: { gte: sinceDate } }] }
+            : {}),
+        },
+        select: {
+          id: true, senderId: true, senderRole: true, type: true, title: true,
+          content: true, targetType: true, targetId: true, sentToApp: true,
+          sentToWhatsapp: true, status: true, scope: true, targetLevel: true,
+          sentAt: true, createdAt: true,
+        },
+        take: 2000,
+      }).catch(() => [] as any[]),
     ]);
 
     // PaymentRecord n'a pas de relation Prisma vers Student (studentId nu) :
@@ -250,6 +268,37 @@ export async function POST(request: NextRequest) {
       updatedAt: iso(p.updatedAt),
     }));
 
+    // Communication : expéditeur local → tel/email de résolution (le push
+    // plateforme rebascule sur le vrai compte ; senderId local n'a aucune
+    // clé étrangère côté Neon, l'UI retombe sinon sur senderRole).
+    const commSenderIds = [...new Set(comms.map((c: any) => String(c.senderId)).filter(Boolean))];
+    const commSenders = commSenderIds.length
+      ? await db.user.findMany({ where: { id: { in: commSenderIds } }, select: { id: true, phone: true, email: true } })
+      : [];
+    const commSenderById = new Map(commSenders.map((u: any) => [u.id, u]));
+    const commRows = comms.map((c: any) => {
+      const s: any = commSenderById.get(String(c.senderId)) || null;
+      return {
+        id: c.id,
+        senderId: c.senderId,
+        senderRole: c.senderRole,
+        senderPhone: s?.phone || null,
+        senderEmail: s?.email || null,
+        type: c.type,
+        title: c.title,
+        content: c.content,
+        targetType: c.targetType,
+        targetId: c.targetId,
+        sentToApp: c.sentToApp,
+        sentToWhatsapp: c.sentToWhatsapp,
+        status: c.status,
+        scope: c.scope,
+        targetLevel: c.targetLevel,
+        sentAt: iso(c.sentAt),
+        createdAt: iso(c.createdAt),
+      };
+    });
+
     const rounds: any[] = [];
     const head: any = {};
     if (includeFull && years.length) head.schoolYears = years.map(y => ({ label: y.label }));
@@ -262,6 +311,9 @@ export async function POST(request: NextRequest) {
       name: u.name, phone: u.phone, email: u.email,
       passwordHash: u.password, role: u.role, subjectName: u.subjectName,
     }));
+    // Communications dans le round de tête : elles ne dépendent que de
+    // l'école (identique des deux côtés via le jeton de sync).
+    if (commRows.length) head.communications = commRows;
     if (Object.keys(head).length) rounds.push(head);
     // Enfants par paquets, dans l'ordre des dépendances :
     // élèves → notes ; classes (round 1) → frais ; élèves → paiements.

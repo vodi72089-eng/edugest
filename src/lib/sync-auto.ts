@@ -55,6 +55,8 @@ export interface SyncStatusPending {
   grades: number;
   schoolFees: number;
   paymentRecords: number;
+  /** Communications créées (ou approuvées) depuis la dernière synchro. */
+  communications?: number;
   fullAdded: { schoolYears: number; subjects: number; users: number };
 }
 

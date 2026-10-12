@@ -159,6 +159,7 @@ function SyncNeonSection() {
     { label: 'Paiements', n: status.pending.paymentRecords },
     { label: 'Frais', n: status.pending.schoolFees },
     { label: 'Classes', n: status.pending.classes },
+    { label: 'Communications', n: status.pending.communications || 0 },
     { label: 'Comptes', n: status.pending.fullAdded.users },
     { label: 'Matières', n: status.pending.fullAdded.subjects },
     { label: 'Années', n: status.pending.fullAdded.schoolYears },
@@ -251,14 +252,20 @@ function SyncNeonSection() {
 
           {/* ?? Actions ????????????????????????????????????????????????? */}
           <div className="flex gap-2 flex-wrap mb-3">
-            <button
-              onClick={handleManual}
-              disabled={working}
-              className="px-5 py-2.5 rounded-xl text-[13px] font-semibold text-white transition disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #2f7d4f, #3c9164)' }}
-            >
-              {working ? 'Envoi en cours…' : online ? 'Envoyer maintenant' : 'Hors ligne - réessayer'}
-            </button>
+            {/* « Envoyer maintenant » ne s'affiche QUE s'il y a quelque chose
+                en attente (crée hors ligne ou pas encore remonté), en cas
+                d'échec, ou si l'état est inconnu — sinon le bandeau « À jour »
+                suffit. La boucle automatique envoie de toute façon tout seul. */}
+            {(pendingTotal > 0 || !status || lastFailed) && (
+              <button
+                onClick={handleManual}
+                disabled={working}
+                className="px-5 py-2.5 rounded-xl text-[13px] font-semibold text-white transition disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #2f7d4f, #3c9164)' }}
+              >
+                {working ? 'Envoi en cours…' : online ? 'Envoyer maintenant' : 'Hors ligne - réessayer'}
+              </button>
+            )}
             <button
               onClick={handleDisable}
               className="px-5 py-2.5 rounded-xl text-[13px] font-semibold transition"

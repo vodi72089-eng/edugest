@@ -1,6 +1,8 @@
 import { db } from '@/lib/db';
 import { requireAuth, sanitizeError } from '@/lib/auth';
 import { checkRateLimitDb } from '@/lib/rate-limit-db';
+import { notifyEvent } from '@/lib/notification-service';
+import { notifyCommunication } from '@/lib/whatsapp-agent';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -331,6 +333,158 @@ export async function POST(request: NextRequest) {
       // Libère les réservations vides (aucun insert créé).
       for (const [k, v] of userPhoneToId) if (v === '') userPhoneToId.delete(k);
       for (const [k, v] of userEmailToId) if (v === '') userEmailToId.delete(k);
+    }
+
+    // 💬 Communications (insert-only + montée de statut) : clé = id (cuid
+    // conservé de l'exe). Les créations partent telles quelles ; une
+    // approbation faite dans l'exe APRÈS l'envoi ne fait que monter le statut
+    // (jamais de retour en arrière : l'état le plus avancé gagne).
+    {
+      for (const cm of asArray(c.communications)) {
+        const id = str(cm?.id);
+        const title = str(cm?.title);
+        const content = str(cm?.content);
+        if (!id || !title || !content) { bump(skipped, 'communications'); continue; }
+        const status = ['PENDING', 'APPROVED', 'REJECTED'].includes(str(cm?.status))
+          ? str(cm.status)
+          : 'APPROVED';
+
+        // Expéditeur : résolu par tel/email local (les ids utilisateur ne sont
+        // PAS partagés exe↔plateforme) ; à défaut on garde l'id brut, l'UI
+        // retombe sur senderRole faute de nom.
+        let senderId = str(cm?.senderId);
+        const sPhone = str(cm?.senderPhone);
+        const sEmail = str(cm?.senderEmail).toLowerCase();
+        if (sPhone || sEmail) {
+          const found = await db.user.findFirst({
+            where: {
+              OR: [...(sPhone ? [{ phone: sPhone }] : []), ...(sEmail ? [{ email: sEmail }] : [])],
+            },
+            select: { id: true },
+          });
+          if (found) senderId = found.id;
+        }
+        if (!senderId) { bump(skipped, 'communications'); continue; }
+
+        // Notification plateforme (miroir de POST /api/communications et de
+        // /approve) : les comptes exe↔plateforme sont distincts, aucun doublon.
+        const notifyAudience = async (excludeActor: boolean) => {
+          try {
+            if (cm?.sentToApp !== false) {
+              await notifyEvent(
+                {
+                  type: 'COMMUNICATION',
+                  schoolId,
+                  actorId: senderId,
+                  ...(excludeActor ? { excludeUserIds: [senderId] } : {}),
+                  targetType: str(cm?.targetType) || 'ALL',
+                  classId: str(cm?.targetId) || null,
+                  section: str(cm?.scope) || null,
+                },
+                {
+                  title,
+                  message: content.length > 200 ? content.slice(0, 197) + '…' : content,
+                  relatedId: id,
+                },
+              );
+            }
+          } catch (e) {
+            console.error('[sync-push] notifyEvent communication', e);
+          }
+          if (status === 'APPROVED' && cm?.sentToWhatsapp !== false) {
+            void (async () => {
+              try {
+                const schoolRow = await db.school.findUnique({ where: { id: schoolId }, select: { name: true } });
+                await notifyCommunication({
+                  schoolId,
+                  schoolName: schoolRow?.name || '',
+                  title,
+                  content,
+                  type: str(cm?.type),
+                  targetType: str(cm?.targetType) || 'ALL',
+                  targetId: str(cm?.targetId) || null,
+                  scope: str(cm?.scope) || null,
+                });
+              } catch (e) {
+                console.error('[sync-push] WhatsApp communication', e);
+              }
+            })();
+          }
+        };
+
+        const existing = await db.communication.findUnique({
+          where: { id },
+          select: { id: true, status: true },
+        });
+        if (existing) {
+          const promote = existing.status === 'PENDING' && status !== 'PENDING';
+          if (promote) {
+            try {
+              await db.communication.update({
+                where: { id },
+                data: {
+                  status,
+                  ...(status === 'APPROVED' ? { sentAt: asDate(cm?.sentAt) || new Date() } : {}),
+                },
+              });
+              bump(updated, 'communications');
+              if (status === 'APPROVED') await notifyAudience(true);
+            } catch (e: any) {
+              pushErr(`Communication « ${title} » : échec (${e?.code || 'inconnu'})`);
+            }
+          } else {
+            bump(skipped, 'communications');
+          }
+          continue;
+        }
+
+        try {
+          await db.communication.create({
+            data: {
+              id,
+              senderId,
+              senderRole: str(cm?.senderRole) || 'SCHOOL_ADMIN',
+              schoolId,
+              type: str(cm?.type),
+              title,
+              content,
+              targetType: str(cm?.targetType) || 'ALL',
+              targetId: str(cm?.targetId) || null,
+              sentToApp: cm?.sentToApp !== false,
+              sentToWhatsapp: cm?.sentToWhatsapp !== false,
+              status,
+              scope: str(cm?.scope) || null,
+              targetLevel: str(cm?.targetLevel) || null,
+              sentAt: asDate(cm?.sentAt) || new Date(),
+              createdAt: asDate(cm?.createdAt) || new Date(),
+            },
+          });
+          bump(applied, 'communications');
+          if (status === 'APPROVED') {
+            await notifyAudience(false);
+          } else if (status === 'PENDING') {
+            // Demande (direction/secrétaire) : les approbateurs plateforme
+            // doivent la voir (miroir de POST /api/communications).
+            try {
+              await notifyEvent(
+                { type: 'COMMUNICATION_PENDING', schoolId, actorId: senderId },
+                {
+                  title: 'Communication en attente',
+                  message: `Communication "${title}" synchronisée depuis l'application desktop, en attente d'approbation.`,
+                },
+              );
+            } catch (e) {
+              console.error('[sync-push] notifyEvent pending communication', e);
+            }
+          }
+        } catch (e) {
+          if (isUniqueViolation(e)) bump(skipped, 'communications');
+          else {
+            bump(skipped, 'communications');
+            pushErr(`Communication « ${title} » : échec (${(e as any)?.code || 'inconnu'})`);
+          }
+        }
+      }
     }
 
     // ?? Élèves (clé : matricule global, sinon nom+classe) - insert + LWW ���
