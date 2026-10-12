@@ -16,6 +16,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Les assets d'une release publiée sont IMMUTABLES : remplacer un .exe
+      # tout en conservant le même tag peut désynchroniser latest.yml (sha512)
+      # du binaire réellement téléchargé. Chaque publication doit donc utiliser
+      # une nouvelle version dans desktop/package.json et package-lock.json.
+      - name: Refuse to overwrite a published desktop release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('desktop/package.json', 'utf8'));
+            const tag = `v${pkg.version}`;
+            try {
+              const { data: release } = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag
+              });
+              if (release.assets && release.assets.length > 0) {
+                core.setFailed(
+                  `La release ${tag} contient déjà des assets publiés. ` +
+                  'Refus de remplacer le binaire sous le même tag : augmentez ' +
+                  'desktop/package.json et desktop/package-lock.json avant de publier.'
+                );
+              }
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              core.info(`Aucune release publiée pour ${tag} : la publication peut continuer.`);
+            }
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -144,8 +173,8 @@ jobs:
           draft: false
           prerelease: false
           make_latest: true
-          allowUpdates: true
-          replaces_artifacts: true
+          fail_on_unmatched_files: true
+          overwrite_files: false
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
