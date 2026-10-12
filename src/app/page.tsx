@@ -23,7 +23,7 @@ import StudentAvatar from '@/components/ui/StudentAvatar'
 import AppSelect from '@/components/ui/AppSelect';
 import { readUrlQuery, writeUrlQuery } from '@/lib/url-search'
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
-import BrandLogo, { BrandLogoPlate } from '@/components/BrandLogo'
+import BrandLogo from '@/components/BrandLogo'
 import { FlagIcon } from '@/components/FlagIcon'
 import dynamic from 'next/dynamic'
 const SchoolMap = dynamic(() => import('@/components/SchoolMap'), { ssr: false })
@@ -230,7 +230,7 @@ function SearchAutocomplete({
 }
 
 // ===== BRAND Mark ===== (délègue au logo officiel centralisé — symbole seul,
-// lisible sur fond sombre ; le logo complet est affiché via BrandLogoPlate)
+// lisible sur fond sombre ; le logo complet est affiché via BrandLogo)
 function BrandMark({ height = 36, className = '' }: { height?: number; className?: string }) {
   return <BrandLogo height={height} variant="mark" className={className} />
 }
@@ -10446,26 +10446,6 @@ function PricingDashboard() {
   return <PricingView />
 }
 
-// ─── Écran de démarrage (HTML SSR + pré-hydratation) ───────────────────────
-// C'est CE que l'on voit pendant le chargement du JS : c'était la landing,
-// d'où son « flash » sur F5 et au démarrage de l'app desktop (l'exe garde
-// sa fenêtre cachée jusqu'au signal ui-ready, mais le HTML sous-jacent
-// affichait quand même la landing). Écran neutre aux couleurs officielles :
-// fond sombre, logo, barre de progression — jamais la landing.
-function BootSplash() {
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center" style={{ background: '#0b0f0e' }}>
-      <style>{`@keyframes edu-boot-slide{0%{transform:translateX(-110%)}100%{transform:translateX(320%)}}`}</style>
-      <BrandLogoPlate height={96} />
-      <h1 className="text-white text-xl font-bold mt-6 tracking-tight">Kelasi 360</h1>
-      <p className="text-white/45 text-sm mt-1 mb-7">Chargement de votre espace…</p>
-      <div style={{ width: 160, height: 3, background: 'rgba(255,255,255,.1)', borderRadius: 2, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: '40%', background: '#f5a623', borderRadius: 2, animation: 'edu-boot-slide 1.1s ease-in-out infinite' }} />
-      </div>
-    </div>
-  )
-}
-
 // ===== MAIN HOME COMPONENT =====
 export default function Home() {
   const { currentView, userRole, logout, setCurrentView, userData, setUserData } = useEduGestStore()
@@ -10689,10 +10669,10 @@ export default function Home() {
   if (!userRole) {
     let view: React.ReactNode
     switch (currentView) {
-      // 'home' = écran de démarrage AVANT restauration de session (c'est le
-      // HTML servi par le serveur). La landing (HomeView) n'est plus jamais
-      // rendue : voir resolveView() dans store.ts — '/' → connexion.
-      case 'home': view = <BootSplash />; break
+      // 'home' = landing publique à la racine du site web (aussi l'écran peint
+      // avant restauration de session). Dans l'exe, resolveView() rabat
+      // 'home' sur 'login' — voir store.ts.
+      case 'home': view = <HomeView />; break
       case 'login': view = <LoginView />; break
       case 'create-school': view = <CreateSchoolView />; break
       case 'pricing': view = <PricingView />; break

@@ -78,13 +78,11 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   return res;
 }
 
-// ─── Landing masquée : atterrissage direct sur l'application ───────────────
-// La landing marketing n'est PLUS présentée nulle part (rafraîchissement,
-// démarrage de l'app desktop, déconnexion, bouton Retour) : toute
-// navigation vers 'home' est rabattue sur l'écran de connexion.
-// L'état INITIAL reste 'home' mais il ne sert plus qu'à l'écran de
-// démarrage <BootSplash/> — le HTML peint AVANT l'hydratation (F5 web et
-// démarrage de l'exe) est donc cet écran neutre, JAMAIS la landing.
+// ─── Desktop app (Electron) : pas de landing page ──────────────────────────
+// L'application de bureau démarre directement sur l'écran de connexion ;
+// le SITE WEB, lui, affiche la landing publique à la racine (et après
+// déconnexion). Toute navigation vers 'home' (landing) est donc rabattue
+// sur 'login' UNIQUEMENT dans l'exe — voir resolveView() ci-dessous.
 //
 // isDesktopApp : détection au runtime via le user-agent Electron (les
 // variables NEXT_PUBLIC_* sont figées au build et ne peuvent pas servir ici).
@@ -101,8 +99,9 @@ export function isDesktopApp(): boolean {
 }
 
 function resolveView(view: ViewType): ViewType {
-  // 'home' (landing) → connexion : TOUJOURS, web comme desktop.
-  if (view === 'home') return 'login';
+  // 'home' (landing) → connexion : UNIQUEMENT dans l'exe (l'app de bureau
+  // démarre sur l'écran de connexion). Le site web garde la landing.
+  if (view === 'home' && isDesktopApp()) return 'login';
   return view;
 }
 
@@ -289,9 +288,6 @@ interface EduGestStore {
 function getInitialState() {
   // Always return 'home' (landing publique restaurée) on both server and client
   // to avoid hydration mismatch. Session is restored in a useEffect after mount.
-  // 'home' n'est pas la landing (supprimée du flux) mais l'écran de
-  // démarrage <BootSplash/> peint pendant le chargement du JS — le HTML
-  // SSR n'est donc JAMAIS la landing, ni sur F5 ni dans l'app desktop.
   return { currentView: 'home' as ViewType, userRole: null as UserRole | null, userData: null as UserData | null, sidebarOpen: false };
 }
 
@@ -344,8 +340,9 @@ export function restoreSession() {
     syncUrl(view, 'replace', true);
   } else {
     // Non authentifié : l'écran public demandé (docs, tarifs, école…) reste
-    // accessible, mais SANS deep link on n'atterrit PLUS sur la landing :
-    // resolveView rabat 'home' sur 'login' → atterrissage direct sur l'app.
+    // accessible ; SANS deep link on atterrit sur la landing publique
+    // (rabattue sur 'login' uniquement dans l'exe — voir resolveView) ;
+    // un deep link auth-only ou inconnu retombe sur le formulaire de connexion.
     const view: ViewType =
       urlView && (PUBLIC_VIEWS as readonly string[]).includes(urlView)
         ? (urlView as ViewType)

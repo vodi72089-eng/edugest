@@ -4,7 +4,7 @@
   "description": "Kelasi 360 — La plateforme de gestion scolaire (application de bureau)",
   "main": "main.js",
   "author": "Kelasi 360",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win",
