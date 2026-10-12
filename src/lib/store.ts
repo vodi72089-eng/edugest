@@ -78,11 +78,16 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   return res;
 }
 
-// ─── Desktop app (Electron) : pas de landing page ──────────────────────────
-// L'application de bureau démarre directement sur l'écran de connexion.
-// Détection au runtime via le user-agent Electron (les variables
-// NEXT_PUBLIC_* sont figées au build et ne peuvent pas servir ici).
-// Toute navigation vers 'home' (landing) est rabattue sur 'login'.
+// ─── Landing masquée : atterrissage direct sur l'application ───────────────
+// La landing marketing n'est PLUS présentée nulle part (rafraîchissement,
+// démarrage de l'app desktop, déconnexion, bouton Retour) : toute
+// navigation vers 'home' est rabattue sur l'écran de connexion.
+// L'état INITIAL reste 'home' mais il ne sert plus qu'à l'écran de
+// démarrage <BootSplash/> — le HTML peint AVANT l'hydratation (F5 web et
+// démarrage de l'exe) est donc cet écran neutre, JAMAIS la landing.
+//
+// isDesktopApp : détection au runtime via le user-agent Electron (les
+// variables NEXT_PUBLIC_* sont figées au build et ne peuvent pas servir ici).
 export function isDesktopApp(): boolean {
   if (typeof navigator === 'undefined') return false;
   // DOUBLE critère : user-agent Electron + hôte local. L'exe Kelasi 360 sert
@@ -96,7 +101,8 @@ export function isDesktopApp(): boolean {
 }
 
 function resolveView(view: ViewType): ViewType {
-  if (view === 'home' && isDesktopApp()) return 'login';
+  // 'home' (landing) → connexion : TOUJOURS, web comme desktop.
+  if (view === 'home') return 'login';
   return view;
 }
 
@@ -283,6 +289,9 @@ interface EduGestStore {
 function getInitialState() {
   // Always return 'home' (landing publique restaurée) on both server and client
   // to avoid hydration mismatch. Session is restored in a useEffect after mount.
+  // 'home' n'est pas la landing (supprimée du flux) mais l'écran de
+  // démarrage <BootSplash/> peint pendant le chargement du JS — le HTML
+  // SSR n'est donc JAMAIS la landing, ni sur F5 ni dans l'app desktop.
   return { currentView: 'home' as ViewType, userRole: null as UserRole | null, userData: null as UserData | null, sidebarOpen: false };
 }
 
@@ -334,17 +343,18 @@ export function restoreSession() {
     applyView(view);
     syncUrl(view, 'replace', true);
   } else {
-    // Not authenticated: public screens can be shown. With no deep link we
-    // land on the public landing (restored at user request); auth-only or
-    // unknown deep links still fall back to the login form.
+    // Non authentifié : l'écran public demandé (docs, tarifs, école…) reste
+    // accessible, mais SANS deep link on n'atterrit PLUS sur la landing :
+    // resolveView rabat 'home' sur 'login' → atterrissage direct sur l'app.
     const view: ViewType =
       urlView && (PUBLIC_VIEWS as readonly string[]).includes(urlView)
         ? (urlView as ViewType)
         : urlView
           ? 'login'
           : resolveView('home');
-    applyView(view);
-    syncUrl(view, 'replace');
+    const resolved = resolveView(view);
+    applyView(resolved);
+    syncUrl(resolved, 'replace');
     // ── Amorçage via le cookie httpOnly ────────────────────────────────────
     // Pas de session locale, mais le cookie peut exister (connexion Google,
     // changement de machine, F5 après revocation localStorage) : on demande

@@ -7,7 +7,7 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "NODE_OPTIONS=--max-old-space-size=1200 next dev -p 3000 --webpack",
+    "dev": "next dev -p 3000",
     "build": "next build && node scripts/copy-standalone-assets.mjs",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",

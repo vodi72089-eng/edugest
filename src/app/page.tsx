@@ -3690,6 +3690,31 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   const handleBellClick = () => {
     unlockNotificationAudio(); // autorise le son (politique autoplay) pour les prochains polls
     setShowNotifications(!showNotifications)
+    // 📲 Clic sur la cloche = geste utilisateur → c'est LE moment où le
+    // navigateur accepte d'ouvrir sa popup native « Autoriser les
+    // notifications pour ce site ? ». Seulement si aucune décision n'est
+    // encore prise (« default ») : passé le geste (ou après un await),
+    // Chrome/Firefox n'affichent plus jamais l'invite — d'où cet appel ICI,
+    // immédiat et synchrone dans le handler du clic.
+    if (
+      !isDesktopApp() &&
+      typeof Notification !== 'undefined' &&
+      Notification.permission === 'default' &&
+      'serviceWorker' in navigator
+    ) {
+      try {
+        void Promise.resolve(Notification.requestPermission()).then(perm => {
+          if (perm === 'granted') {
+            setPushStatus(prev => (prev === 'subscribed' ? prev : 'granted'));
+            // Accordé : on complète tout de suite l'abonnement push (SW +
+            // clé VAPID) — un seul geste = notifications pleinement actives.
+            void enablePush();
+          } else if (perm === 'denied') {
+            setPushStatus('denied'); // bandeau « bloquées » + guide de déblocage
+          }
+        });
+      } catch { /* navigateur sans API : le panneau reste utilisable */ }
+    }
   }
 
   const toggleNotifSound = () => {
