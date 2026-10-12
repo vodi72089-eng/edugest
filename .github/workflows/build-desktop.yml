@@ -9,18 +9,21 @@ on:
 permissions:
   contents: write
 
+# Évite deux publications desktop simultanées sur la même branche/tag.
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  check_release:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      # Les assets d'une release publiée sont IMMUTABLES : remplacer un .exe
-      # tout en conservant le même tag peut désynchroniser latest.yml (sha512)
-      # du binaire réellement téléchargé. Chaque publication doit donc utiliser
-      # une nouvelle version dans desktop/package.json et package-lock.json.
-      - name: Refuse to overwrite a published desktop release
+      - name: Check whether this desktop version is already published
+        id: check
         uses: actions/github-script@v7
         with:
           script: |
@@ -34,17 +37,24 @@ jobs:
                 tag
               });
               if (!release.draft) {
-                core.setFailed(
-                  `La release ${tag} est déjà publiée. Refus de remplacer ses assets : ` +
-                  'augmentez desktop/package.json et desktop/package-lock.json avant de publier.'
-                );
-              } else {
-                core.info(`La release ${tag} est encore en brouillon : réutilisation sûre autorisée.`);
+                core.info(`Release ${tag} déjà publiée : on ne reconstruit pas sous le même tag.`);
+                core.setOutput('should_build', 'false');
+                return;
               }
+              core.info(`Release ${tag} en brouillon : on reprend la publication.`);
             } catch (error) {
               if (error.status !== 404) throw error;
-              core.info(`Aucune release publiée pour ${tag} : la publication peut continuer.`);
+              core.info(`Nouvelle release ${tag} : la publication peut continuer.`);
             }
+            core.setOutput('should_build', 'true');
+
+  build-windows:
+    needs: check_release
+    if: needs.check_release.outputs.should_build == 'true'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -128,6 +138,33 @@ jobs:
         id: version
         shell: bash
         run: echo "version=$(node -p "require('./desktop/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Vérifie une seconde fois après la compilation : une autre exécution
+      # ne doit pas avoir publié ce tag entre le pré-contrôle et l'upload.
+      - name: Ensure release tag is still unpublished
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('desktop/package.json', 'utf8'));
+            const tag = `v${pkg.version}`;
+            try {
+              const { data: release } = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag
+              });
+              if (!release.draft) {
+                throw new Error(`La release ${tag} vient d'être publiée; upload annulé pour protéger ses checksums.`);
+              }
+              core.info(`La release ${tag} est encore en brouillon; upload autorisé.`);
+            } catch (error) {
+              if (error.status === 404) {
+                core.info(`La release ${tag} n'existe pas encore; création autorisée.`);
+              } else {
+                throw error;
+              }
+            }
 
       # ─── L'exe est publié DIRECTEMENT dans une Release GitHub ───
       - name: Publish exe to GitHub Release
