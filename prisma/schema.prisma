@@ -221,10 +221,26 @@ model SchoolFee {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  tranches    FeeTranche[]
 
   @@unique([classId, trimester, name])
   @@index([schoolId])
   @@index([classId])
+}
+
+// Sous-lignes d'un frais (ex. Minerval → Tranche 1, Tranche 2, Cantine…).
+// isOptional = facultatif : affiché au paiement mais non exigé.
+model FeeTranche {
+  id         String    @id @default(cuid())
+  feeId      String
+  fee        SchoolFee @relation(fields: [feeId], references: [id], onDelete: Cascade)
+  name       String
+  amount     Float
+  isOptional Boolean   @default(false)
+  position   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([feeId])
 }
 
 model Notification {

@@ -152,17 +152,22 @@ export async function PUT(
       for (const key of Object.keys(updateData)) {
         if (!SCHOOL_ADMIN_EDITABLE.includes(key)) delete updateData[key];
       }
-      // Email : format valide + unicité (message clair au lieu d'un 500 P2002).
+      // Email : vide autorisé (école sans email) ; sinon format + unicité
+      // (message clair au lieu d'un 500 P2002).
       if (typeof updateData.email === 'string') {
         const email = updateData.email.trim();
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          return NextResponse.json({ error: 'Adresse email invalide.' }, { status: 400 });
+        if (!email) {
+          updateData.email = '';
+        } else {
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return NextResponse.json({ error: 'Adresse email invalide.' }, { status: 400 });
+          }
+          const clash = await db.school.findFirst({ where: { email, NOT: { id } } });
+          if (clash) {
+            return NextResponse.json({ error: 'Une école utilise déjà cette adresse email.' }, { status: 409 });
+          }
+          updateData.email = email;
         }
-        const clash = await db.school.findFirst({ where: { email, NOT: { id } } });
-        if (clash) {
-          return NextResponse.json({ error: 'Une école utilise déjà cette adresse email.' }, { status: 409 });
-        }
-        updateData.email = email;
       }
     }
 

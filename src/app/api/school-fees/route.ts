@@ -29,7 +29,10 @@ export async function GET(request: NextRequest) {
 
     const fees = await db.schoolFee.findMany({
       where,
-      include: { class: { select: { id: true, name: true } } },
+      include: {
+        class: { select: { id: true, name: true } },
+        tranches: { orderBy: { position: 'asc' } },
+      },
       orderBy: [{ class: { name: 'asc' } }, { trimester: 'asc' }],
     });
 
@@ -47,9 +50,25 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { name, amount, trimester, classId, schoolId } = body;
+    // Tranches optionnelles : [{ name, amount, isOptional? }] — le montant du
+    // frais devient la somme des tranches quand elles sont fournies.
+    const rawTranches = Array.isArray(body.tranches) ? body.tranches : [];
+    const tranches = rawTranches
+      .filter((t: { name?: unknown; amount?: unknown }) =>
+        typeof t?.name === 'string' && t.name.trim() && Number.isFinite(Number(t?.amount)) && Number(t.amount) >= 0)
+      .slice(0, 20)
+      .map((t: { name: string; amount: number | string; isOptional?: unknown }, i: number) => ({
+        name: t.name.trim().slice(0, 80),
+        amount: Number(t.amount),
+        isOptional: !!t.isOptional,
+        position: i,
+      }));
 
-    if (!name || !amount || !trimester || !classId || !schoolId) {
-      return NextResponse.json({ error: 'Tous les champs sont requis' }, { status: 400 });
+    if (!name || !trimester || !classId || !schoolId) {
+      return NextResponse.json({ error: 'Nom, trimestre, classe et école requis' }, { status: 400 });
+    }
+    if (tranches.length === 0 && !Number.isFinite(Number(amount))) {
+      return NextResponse.json({ error: 'Montant requis (ou définissez des tranches)' }, { status: 400 });
     }
 
     // ── SÉCURITÉ (cross-tenant P1) : avant, un DIRECTION_* FREEMIUM (qui
@@ -76,9 +95,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Ce frais existe déjà pour cette classe et ce trimestre' }, { status: 409 });
     }
 
+    const totalAmount = tranches.length > 0
+      ? tranches.reduce((s: number, t: { amount: number }) => s + t.amount, 0)
+      : parseFloat(amount);
     const fee = await db.schoolFee.create({
-      data: { name, amount: parseFloat(amount), trimester, classId, schoolId },
-      include: { class: { select: { id: true, name: true } } },
+      data: {
+        name,
+        amount: totalAmount,
+        trimester,
+        classId,
+        schoolId,
+        ...(tranches.length > 0 ? { tranches: { create: tranches } } : {}),
+      },
+      include: {
+        class: { select: { id: true, name: true } },
+        tranches: { orderBy: { position: 'asc' } },
+      },
     });
 
     return NextResponse.json({ data: fee }, { status: 201 });

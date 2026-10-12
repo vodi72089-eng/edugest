@@ -219,6 +219,17 @@ export default function PaymentsView() {
     load()
   }, [selectedStudent?.classId, selectedStudent?.id, activeSchoolId])
 
+  // Garde prix des frais : sans AUCUN frais configuré pour l'école, le
+  // paiement est impossible (l'admin doit d'abord créer les prix).
+  const [schoolHasFees, setSchoolHasFees] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (!activeSchoolId) { setSchoolHasFees(null); return }
+    authFetch(`/api/school-fees?schoolId=${activeSchoolId}`)
+      .then(r => r.json())
+      .then(j => setSchoolHasFees(Array.isArray(j.data) && j.data.length > 0))
+      .catch(() => setSchoolHasFees(null))
+  }, [activeSchoolId])
+
   // Fetch school currency config
   useEffect(() => {
     if (activeSchoolId) {
@@ -263,6 +274,7 @@ export default function PaymentsView() {
 
   async function handlePayment() {
     if (!selectedStudent && !studentSearch) { toast.error('Veuillez sélectionner un élève'); return }
+    if (schoolHasFees === false) { toast.error('Paiement impossible : aucun prix de frais configuré. Créez d’abord les frais dans les Paramètres de l’école.'); return }
     if (!amount) { toast.error('Veuillez entrer le montant'); return }
     if (allPaid) { toast.error('Cet élève a déjà payé toutes ses tranches'); return }
     // ── Garde de devise : sans taux chargé (API en échec, app desktop
@@ -364,6 +376,11 @@ export default function PaymentsView() {
       {userRole !== 'PARENT' && (
       <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl p-6 mb-6 shadow-sm" style={{ borderLeft: `4px solid ${GOLD}` }}>
         <h3 className="font-semibold mb-4" style={{ color: TEXT_PRIMARY }}>Enregistrer un paiement</h3>
+        {schoolHasFees === false && (
+          <div className="mb-4 px-4 py-3 rounded-xl text-[13px] font-medium" style={{ background: 'oklch(97% 0.02 25)', color: 'oklch(45% 0.19 25)', border: '1px solid oklch(90% 0.05 25)' }}>
+            Paiement impossible : aucun prix de frais n’est configuré pour cette école. L’admin doit d’abord créer les frais (Paramètres → Frais scolaires).
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
           <SearchAutocomplete
             label="Rechercher un élève"
@@ -396,8 +413,24 @@ export default function PaymentsView() {
               </div>
             )}
             {classFees.length > 0 && (
-              <div className="mt-1 text-[11px] px-3 py-2 rounded-lg" style={{ background: `${ACCENT}10`, color: TEXT_MUTED_LUXE }}>
-                {classFees.map((f: any) => `${f.name}: ${formatNumber(f.amount)}`).join(' + ')} = {formatNumber(classFees.reduce((s: number, f: any) => s + f.amount, 0))} CDF total
+              <div className="mt-1 text-[11px] px-3 py-2 rounded-lg space-y-1" style={{ background: `${ACCENT}10`, color: TEXT_MUTED_LUXE }}>
+                <div>
+                  {classFees.map((f: any) => `${f.name}: ${formatNumber(f.amount)}`).join(' + ')} = {formatNumber(classFees.reduce((s: number, f: any) => s + f.amount, 0))} CDF total
+                </div>
+                {classFees.some((f: any) => Array.isArray(f.tranches) && f.tranches.length > 0) && (
+                  <div className="pt-1 space-y-0.5" style={{ borderTop: '1px dashed oklch(85% 0.02 175)' }}>
+                    {classFees.filter((f: any) => Array.isArray(f.tranches) && f.tranches.length > 0).map((f: any) => (
+                      <div key={f.id}>
+                        <span className="font-semibold">{f.name} : </span>
+                        {(f.tranches as { name: string; amount: number; isOptional?: boolean }[]).map((t, ti: number) => (
+                          <span key={ti}>
+                            {ti > 0 && ' + '}{t.name} {formatNumber(t.amount)}{t.isOptional ? ' (facultatif)' : ''}
+                          </span>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             {allPaid && (
@@ -441,7 +474,7 @@ export default function PaymentsView() {
           <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Statut</label><div className="mt-1"><AppSelect value={status} onChange={setStatus} options={[{ value: 'PAID', label: 'Payé' }, { value: 'PARTIAL', label: 'Partiel' }, { value: 'PENDING', label: 'En attente' }, { value: 'OVERDUE', label: 'En retard' }]} /></div></div>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={handlePayment} disabled={submitting || allPaid} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+          <button onClick={handlePayment} disabled={submitting || allPaid || schoolHasFees === false} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
             {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <CreditCard size={14} />}
             Enregistrer le paiement
           </button>
@@ -615,9 +648,18 @@ export default function PaymentsView() {
               </div>
               {modalStudent.remaining > 0 ? (
                 <button
-                  onClick={() => {
+                  onClick={async () => {
+                    // La classe est INDISPENSABLE : sans elle, le chargement des
+                    // frais se vide et le formulaire reste sur « Sélectionnez un
+                    // élève » (bug signalé). On la recharge comme la recherche.
+                    let classId: string | undefined
+                    try {
+                      const r = await authFetch(`/api/students/${modalStudent.id}`)
+                      const j = await r.json()
+                      if (j.data?.classId) classId = j.data.classId
+                    } catch { /* ignore */ }
                     setSelectedStudentId(modalStudent.id)
-                    setSelectedStudent({ id: modalStudent.id, firstName: modalStudent.firstName, lastName: modalStudent.lastName, matricule: modalStudent.matricule, classId: undefined })
+                    setSelectedStudent({ id: modalStudent.id, firstName: modalStudent.firstName, lastName: modalStudent.lastName, matricule: modalStudent.matricule, classId })
                     setStudentSuggestions([{ id: modalStudent.id, label: `${modalStudent.firstName} ${modalStudent.lastName}`, sublabel: modalStudent.matricule }])
                     setStudentSearch('')
                     setTranche(modalStudent.tranche)

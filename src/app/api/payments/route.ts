@@ -119,6 +119,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Accès non autorisé à cette école' }, { status: 403 });
     }
 
+    // ── Garde prix des frais : sans AUCUN frais configuré pour l'école, un
+    // paiement élève est impossible (montants inventés en caisse). Exempté :
+    // les paiements d'ABONNEMENT plateforme (routes dédiées /api/payments/
+    // subscription*, pas de frais scolaires requis).
+    if (trimester !== 'ABONNEMENT') {
+      const feeCount = await db.schoolFee.count({ where: { schoolId, isActive: true } });
+      if (feeCount === 0) {
+        return NextResponse.json(
+          { error: 'Paiement impossible : aucun prix de frais configuré pour cette école. L’admin doit d’abord créer les frais (Paramètres → Frais scolaires).' },
+          { status: 422 }
+        );
+      }
+    }
+
     // If studentName is provided instead of studentId, try to find the student by name
     let resolvedStudentId = studentId;
     if (!resolvedStudentId && studentName) {

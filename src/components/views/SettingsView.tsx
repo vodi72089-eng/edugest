@@ -6,7 +6,7 @@ import type { SchoolData } from '@/lib/types'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, ACCENT, GOLD_SOFT, SUCCESS, DANGER } from '@/lib/constants'
 import { getInitials } from '@/lib/helpers'
 import { compressImage } from '@/lib/image-compress'
-import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera, ImagePlus, Plus, Edit, GraduationCap, Monitor, Smartphone, LogOut, Tablet, Globe, Fingerprint, Palette, HardDriveDownload, LifeBuoy, RefreshCw, WifiOff, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Building2, MapPin, FileText, Save, Star, MessageCircle, Trash2, Camera, ImagePlus, Plus, Edit, X, GraduationCap, Monitor, Smartphone, LogOut, Tablet, Globe, Fingerprint, Palette, HardDriveDownload, LifeBuoy, RefreshCw, WifiOff, CheckCircle2, AlertTriangle } from 'lucide-react'
 import PersonalizationView from './PersonalizationView'
 import HelpView from './HelpView'
 import { toast } from 'sonner'
@@ -351,7 +351,7 @@ function SettingsViewInner() {
   const [savingCaptionId, setSavingCaptionId] = useState<string | null>(null)
   const photoInputRef = useRef<HTMLInputElement | null>(null)
   const [showFeeModal, setShowFeeModal] = useState(false)
-  const [feeForm, setFeeForm] = useState({ name: '', amount: '', currency: 'CDF', trimester: 'T1', classId: '' })
+  const [feeForm, setFeeForm] = useState({ name: '', amount: '', currency: 'CDF', trimester: 'T1', classId: '', tranches: [] as { name: string; amount: string; isOptional: boolean }[] })
   const [editingFee, setEditingFee] = useState<any>(null)
   const [selectedFeeClass, setSelectedFeeClass] = useState<string | null>(null)
 
@@ -543,7 +543,8 @@ function SettingsViewInner() {
           setSchool(j.data)
           toast.success('Paramètres mis à jour avec succès !')
         } else {
-          toast.error('Erreur lors de la mise à jour')
+          const j = await res.json().catch(() => ({}))
+          toast.error(j.error || 'Erreur lors de la mise à jour')
         }
       }
     } catch {
@@ -1106,7 +1107,7 @@ function SettingsViewInner() {
               <GraduationCap size={16} style={{ color: GOLD }} /> Frais scolaires
             </h3>
             <button
-              onClick={() => { setEditingFee(null); setFeeForm({ name: '', amount: '', currency: 'CDF', trimester: 'T1', classId: '' }); setShowFeeModal(true) }}
+              onClick={() => { setEditingFee(null); setFeeForm({ name: '', amount: '', currency: 'CDF', trimester: 'T1', classId: '', tranches: [] }); setShowFeeModal(true) }}
               disabled={!getActiveSchoolId()}
               title={!getActiveSchoolId() ? 'Sélectionnez d’abord une école active' : undefined}
               className="px-4 py-2 rounded-xl text-sm font-semibold text-white inline-flex items-center gap-1.5 disabled:opacity-50"
@@ -1150,7 +1151,18 @@ function SettingsViewInner() {
                 <tbody>
                   {fees.filter(f => !selectedFeeClass || f.classId === selectedFeeClass).map(fee => (
                     <tr key={fee.id} className="border-b border-[oklch(92%_0.008_175)] last:border-0">
-                      <td className="py-3 px-2 font-medium" style={{ color: TEXT_PRIMARY }}>{fee.name}</td>
+                      <td className="py-3 px-2 font-medium" style={{ color: TEXT_PRIMARY }}>
+                        {fee.name}
+                        {Array.isArray(fee.tranches) && fee.tranches.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {fee.tranches.map((t: { name: string; amount: number; isOptional?: boolean }, ti: number) => (
+                              <span key={ti} className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold" style={{ background: GOLD_SOFT, color: GOLD }} title={`${Number(t.amount).toLocaleString()} ${fee.currency || 'CDF'}${t.isOptional ? ' — facultatif' : ''}`}>
+                                {t.name}{t.isOptional ? ' (fac.)' : ''}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </td>
                       <td className="py-3 px-2" style={{ color: TEXT_PRIMARY }}>{Number(fee.amount).toLocaleString()} {fee.currency || 'CDF'}</td>
                       <td className="py-3 px-2">
                         <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: GOLD_SOFT, color: GOLD }}>{fee.trimester === 'T1' ? 'Trimestre 1' : fee.trimester === 'T2' ? 'Trimestre 2' : fee.trimester === 'T3' ? 'Trimestre 3' : fee.trimester}</span>
@@ -1163,7 +1175,7 @@ function SettingsViewInner() {
                       <td className="py-3 px-2 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => { setEditingFee(fee); setFeeForm({ name: fee.name, amount: String(fee.amount), currency: fee.currency || 'CDF', trimester: fee.trimester || 'T1', classId: fee.classId || '' }); setShowFeeModal(true) }}
+                            onClick={() => { setEditingFee(fee); setFeeForm({ name: fee.name, amount: String(fee.amount), currency: fee.currency || 'CDF', trimester: fee.trimester || 'T1', classId: fee.classId || '', tranches: Array.isArray(fee.tranches) ? fee.tranches.map((t: { name: string; amount: number; isOptional?: boolean }) => ({ name: t.name, amount: String(t.amount), isOptional: !!t.isOptional })) : [] }); setShowFeeModal(true) }}
                             className="p-1.5 rounded-lg border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition"
                             style={{ color: ACCENT }}
                           >
@@ -1389,8 +1401,33 @@ function SettingsViewInner() {
                 <input value={feeForm.name} onChange={e => setFeeForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
               </div>
               <div>
-                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Montant</label>
-                <input type="number" value={feeForm.amount} onChange={e => setFeeForm(f => ({ ...f, amount: e.target.value }))} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Montant{feeForm.tranches.length > 0 && ' (somme des tranches)'}</label>
+                <input type="number" value={feeForm.tranches.length > 0 ? feeForm.tranches.reduce((s, t) => s + (Number(t.amount) || 0), 0) : feeForm.amount} onChange={e => setFeeForm(f => ({ ...f, amount: e.target.value }))} disabled={feeForm.tranches.length > 0} className="w-full px-3 py-2.5 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] disabled:opacity-60" />
+              </div>
+              <div>
+                <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Tranches (facultatives ou non)</label>
+                {feeForm.tranches.length === 0 ? (
+                  <p className="text-[12px] mb-2" style={{ color: TEXT_MUTED_LUXE }}>Montant unique, ou découpez en tranches ci-dessous.</p>
+                ) : (
+                  <div className="space-y-2 mb-2">
+                    {feeForm.tranches.map((t, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <input value={t.name} onChange={e => setFeeForm(f => ({ ...f, tranches: f.tranches.map((x, k) => k === i ? { ...x, name: e.target.value } : x) }))} placeholder={`Tranche ${i + 1}`} className="flex-1 min-w-0 px-2.5 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+                        <input type="number" value={t.amount} onChange={e => setFeeForm(f => ({ ...f, tranches: f.tranches.map((x, k) => k === i ? { ...x, amount: e.target.value } : x) }))} placeholder="Montant" className="w-24 px-2.5 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)]" />
+                        <label className="flex items-center gap-1 text-[11px] shrink-0" style={{ color: TEXT_MUTED_LUXE }} title="Tranche facultative : affichée au paiement mais non exigée">
+                          <input type="checkbox" checked={t.isOptional} onChange={e => setFeeForm(f => ({ ...f, tranches: f.tranches.map((x, k) => k === i ? { ...x, isOptional: e.target.checked } : x) }))} className="w-3.5 h-3.5 accent-[oklch(72%_0.15_65)]" />
+                          Facult.
+                        </label>
+                        <button type="button" onClick={() => setFeeForm(f => ({ ...f, tranches: f.tranches.filter((_, k) => k !== i) }))} aria-label="Retirer la tranche" className="w-8 h-8 rounded-lg grid place-items-center border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition shrink-0" style={{ color: DANGER }}>
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button type="button" onClick={() => setFeeForm(f => ({ ...f, tranches: [...f.tranches, { name: '', amount: '', isOptional: false }] }))} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-[oklch(90%_0.01_175)] hover:bg-[oklch(97%_0.005_175)] transition" style={{ color: ACCENT }}>
+                  <Plus size={13} /> Ajouter une tranche
+                </button>
               </div>
               <div>
                 <label className="text-xs font-medium mb-1 block" style={{ color: TEXT_MUTED_LUXE }}>Devise</label>
@@ -1409,9 +1446,14 @@ function SettingsViewInner() {
               <button onClick={() => setShowFeeModal(false)} className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-[oklch(90%_0.01_175)]" style={{ color: TEXT_MUTED_LUXE }}>Annuler</button>
               <button
                 onClick={async () => {
-                  if (!feeForm.name || !feeForm.amount) { toast.error('Nom et montant requis'); return }
+                  const tranches = feeForm.tranches
+                    .filter(t => t.name.trim() && t.amount !== '')
+                    .map(t => ({ name: t.name.trim(), amount: Number(t.amount), isOptional: t.isOptional }))
+                  if (!feeForm.name) { toast.error('Nom du frais requis'); return }
+                  if (tranches.length === 0 && !feeForm.amount) { toast.error('Montant ou tranches requis'); return }
+                  if (tranches.some(t => !Number.isFinite(t.amount) || t.amount < 0)) { toast.error('Montants de tranches invalides'); return }
                   if (!feeForm.classId) { toast.error('Veuillez choisir une classe'); return }
-                  const body = { name: feeForm.name, amount: Number(feeForm.amount), currency: feeForm.currency, trimester: feeForm.trimester, classId: feeForm.classId, schoolId: getActiveSchoolId() }
+                  const body = { name: feeForm.name, amount: tranches.length > 0 ? tranches.reduce((s, t) => s + t.amount, 0) : Number(feeForm.amount), currency: feeForm.currency, trimester: feeForm.trimester, classId: feeForm.classId, schoolId: getActiveSchoolId(), tranches }
                   let res
                   if (editingFee) {
                     res = await authFetch(`/api/school-fees/${editingFee.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
