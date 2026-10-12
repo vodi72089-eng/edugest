@@ -13,10 +13,12 @@ import {
   RefreshCw,
   CircleCheck,
   DownloadCloud,
+  Bot,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import AppSelect from '@/components/ui/AppSelect'
 import { authFetch } from '@/lib/store'
+import { getTierLimits } from '@/lib/subscription'
 import { onDbChange } from '@/lib/realtime'
 import { GOLD, ACCENT, SUCCESS, DANGER, TEXT_PRIMARY, TEXT_MUTED_LUXE, BORDER } from '@/lib/constants'
 
@@ -847,6 +849,273 @@ function AppUpdateCard() {
 }
 
 // ---------------------------------------------------------------------------
+// Carte Assistant IA — fournisseur LLM + quotas par forfait
+// (super administrateur uniquement, via /api/ai-config)
+// ---------------------------------------------------------------------------
+
+interface AiPreset {
+  value: string
+  label: string
+  baseUrl: string
+  defaultModel: string
+  keyHint: string
+}
+
+const AGENT_TIERS = ['FREEMIUM', 'ESSENTIEL', 'STANDARD', 'PREMIUM', 'ENTERPRISE', 'CORPORATE']
+
+function AiAssistantConfigCard() {
+  const [loaded, setLoaded] = useState(false)
+  const [cfg, setCfg] = useState<{ configured: boolean; provider: string } | null>(null)
+  const [presets, setPresets] = useState<AiPreset[]>([])
+  const [form, setForm] = useState({ provider: 'zai', apiKey: '', model: '', baseUrl: '' })
+  const [maskedKey, setMaskedKey] = useState('')
+  const [testQuestion, setTestQuestion] = useState('')
+  const [testReply, setTestReply] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
+
+  const preset = presets.find(p => p.value === form.provider)
+
+  useEffect(() => {
+    authFetch('/api/ai-config')
+      .then(r => r.json())
+      .then(j => {
+        if (j.data) {
+          if (Array.isArray(j.data.presets)) setPresets(j.data.presets)
+          setCfg({ configured: !!j.data.configured, provider: j.data.provider || 'zai' })
+          setMaskedKey(j.data.apiKeyMasked || '')
+          setForm({
+            provider: j.data.provider || 'zai',
+            apiKey: '',
+            model: j.data.model || '',
+            baseUrl: j.data.baseUrl || '',
+          })
+        }
+        setLoaded(true)
+      })
+      .catch(() => setLoaded(true))
+  }, [])
+
+  // Quand le fournisseur change : pré-remplit modèle + URL du préréglage.
+  function pickProvider(val: string) {
+    const p = presets.find(x => x.value === val)
+    setForm(f => ({
+      ...f,
+      provider: val,
+      model: p?.defaultModel || '',
+      baseUrl: p?.baseUrl || '',
+    }))
+  }
+
+  async function save(): Promise<boolean> {
+    setSaving(true)
+    try {
+      const res = await authFetch('/api/ai-config', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'save', ...form }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success(json.message || 'Fournisseur IA enregistré')
+        setCfg({ configured: !!json.data?.configured, provider: json.data?.provider || form.provider })
+        if (json.data?.apiKeyMasked !== undefined) setMaskedKey(json.data.apiKeyMasked || '')
+        setForm(f => ({ ...f, apiKey: '' }))
+        return true
+      }
+      toast.error(json.error || 'Erreur de sauvegarde', { duration: 8000 })
+      return false
+    } catch {
+      toast.error('Erreur réseau — vérifiez que le serveur est démarré', { duration: 8000 })
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function sendTest() {
+    if (!testQuestion.trim()) {
+      toast.error('Écrivez une question de test')
+      return
+    }
+    setTesting(true)
+    setTestReply('')
+    try {
+      // Teste AVEC les identifiants saisis SANS les enregistrer.
+      const res = await authFetch('/api/ai-config', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'test', question: testQuestion, ...form }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error || 'Échec du test — la configuration enregistrée est inchangée', { duration: 12000 })
+        return
+      }
+      setTestReply(`[${json.data?.provider || form.provider} · ${json.data?.model || ''}] ${json.data?.reply || ''}`)
+      await save()
+      toast.success('Fournisseur validé et enregistré')
+    } catch {
+      toast.error('Erreur réseau', { duration: 8000 })
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  return (
+    <div className="bg-white border border-[oklch(90%_0.01_175)] rounded-2xl shadow-sm p-4 sm:p-6">
+      <div className="flex items-start gap-3">
+        <span
+          className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
+          style={{ background: 'oklch(95% 0.05 65)', color: 'oklch(45% 0.13 65)' }}
+        >
+          <Bot className="w-5 h-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-base font-extrabold tracking-tight" style={{ color: TEXT_PRIMARY }}>
+              Assistant IA — Agent Kelasi 360
+            </h3>
+            {loaded && (
+              <span
+                className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                style={cfg?.configured
+                  ? { background: 'oklch(94% 0.05 145)', color: 'oklch(40% 0.13 145)' }
+                  : { background: 'oklch(94% 0.005 250)', color: 'oklch(52% 0.015 250)' }}
+              >
+                {cfg?.configured ? 'Fournisseur externe actif' : 'ZAI intégré (défaut)'}
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-xs leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
+            Choisissez le fournisseur LLM de l’Agent IA (OpenAI, DeepSeek, OpenRouter, Mistral, Groq,
+            Gemini ou autre API compatible OpenAI). Sans clé : le SDK ZAI intégré répond.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>Fournisseur</label>
+            <AppSelect
+              value={form.provider}
+              onChange={pickProvider}
+              options={presets.map(p => ({ value: p.value, label: p.label }))}
+              disabled={!loaded}
+            />
+          </div>
+          <div>
+            <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>Modèle</label>
+            <input
+              type="text"
+              value={form.model}
+              onChange={e => setForm(f => ({ ...f, model: e.target.value }))}
+              placeholder={preset?.defaultModel || 'ex. gpt-4o-mini'}
+              autoComplete="off"
+              className={`${inputClass} font-mono`}
+              disabled={form.provider === 'zai'}
+            />
+          </div>
+          <div>
+            <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>
+              Clé API {maskedKey && <span className="font-normal normal-case">— vide = conservée</span>}
+            </label>
+            <input
+              type="password"
+              value={form.apiKey}
+              onChange={e => setForm(f => ({ ...f, apiKey: e.target.value }))}
+              placeholder={preset?.keyHint || '—inutile avec ZAI —'}
+              autoComplete="new-password"
+              className={`${inputClass} font-mono`}
+              disabled={form.provider === 'zai'}
+            />
+            {maskedKey && (
+              <p className="mt-1 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
+                Enregistrée : <span className="font-mono font-semibold">{maskedKey}</span>
+              </p>
+            )}
+          </div>
+          <div>
+            <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>URL de base (personnalisé)</label>
+            <input
+              type="text"
+              value={form.baseUrl}
+              onChange={e => setForm(f => ({ ...f, baseUrl: e.target.value }))}
+              placeholder="https://api.exemple.com/v1"
+              autoComplete="off"
+              className={`${inputClass} font-mono`}
+              disabled={form.provider !== 'custom'}
+            />
+          </div>
+        </div>
+
+        <div className="flex items-end">
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-60 w-full sm:w-auto"
+            style={{ background: 'oklch(15% 0.02 250)' }}
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {saving ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        </div>
+
+        <div className="pt-3 border-t" style={{ borderColor: BORDER }}>
+          <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>Tester le fournisseur</label>
+          <div className="flex gap-2 max-w-md">
+            <input
+              type="text"
+              value={testQuestion}
+              onChange={e => setTestQuestion(e.target.value)}
+              placeholder="Ex. Comment inscrire un élève ?"
+              autoComplete="off"
+              className={inputClass}
+            />
+            <button
+              type="button"
+              onClick={sendTest}
+              disabled={testing || saving}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white transition hover:opacity-90 disabled:opacity-60 shrink-0"
+              style={{ background: 'oklch(55% 0.15 175)' }}
+            >
+              {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+              Envoyer
+            </button>
+          </div>
+          {testReply && (
+            <p className="mt-2 text-xs leading-relaxed rounded-xl px-3 py-2.5" style={{ background: 'oklch(97% 0.02 145)', color: TEXT_PRIMARY }}>
+              {testReply}
+            </p>
+          )}
+        </div>
+
+        <div className="pt-3 border-t" style={{ borderColor: BORDER }}>
+          <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>Quotas — questions/jour/compte</label>
+          <div className="flex flex-wrap gap-2">
+            {AGENT_TIERS.map(t => (
+              <span
+                key={t}
+                className="px-3 py-1.5 rounded-full text-[11px] font-bold font-mono"
+                style={{ background: 'oklch(95% 0.01 175)', color: TEXT_PRIMARY }}
+              >
+                {t} : {getTierLimits(t).agentDaily}/j
+              </span>
+            ))}
+            <span
+              className="px-3 py-1.5 rounded-full text-[11px] font-bold"
+              style={{ background: 'oklch(95% 0.05 145)', color: 'oklch(40% 0.13 145)' }}
+            >
+              Plateforme : illimité
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Section complète
 // ---------------------------------------------------------------------------
 
@@ -865,6 +1134,16 @@ export default function PlatformApiConfigSection() {
         <EmailConfigCard />
         <SmsConfigCard />
       </div>
+
+      <div className="flex items-center gap-2.5">
+        <div className="w-1 h-6 rounded-full" style={{ background: GOLD }} />
+        <h3 className="text-lg font-extrabold tracking-tight" style={{ color: TEXT_PRIMARY }}>
+          Assistant IA
+        </h3>
+        <div className="h-px flex-1" style={{ background: BORDER }} />
+      </div>
+
+      <AiAssistantConfigCard />
 
       <DatabaseStatusCard />
 

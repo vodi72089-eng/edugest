@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import ZAI from 'z-ai-web-dev-sdk';
 import { db } from '@/lib/db';
 import { requireAuth, checkRateLimit, sanitizeError } from '@/lib/auth';
 import { logAudit } from '@/lib/audit';
 import { notify } from '@/lib/notify';
+import { getTierLimits } from '@/lib/subscription';
+import { chatWithAi } from '@/lib/ai-providers';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AGENT IA SUPPORT (« notre agent pour répondre aux clients »)
@@ -58,17 +59,48 @@ export async function POST(request: NextRequest) {
           .map((m: ChatMessage) => ({ role: m.role, content: String(m.content).slice(0, 1500) }))
       : [];
 
-    const zai = await ZAI.create();
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: 'assistant', content: SYSTEM_PROMPT },
+    // ── Quota journalier par compte selon le forfait de l'école ─────────────
+    // FREEMIUM 3, ESSENTIEL 10, STANDARD 20, PREMIUM 30, ENTERPRISE 50,
+    // CORPORATE 100. Comptes plateforme (super admin, support) : illimité.
+    // Corporates : forfait CORPORATE. Compteur = échanges AGENT_CHAT du jour.
+    const isPlatformStaff = user.role === 'SUPER_ADMIN_GLOBAL' || user.role === 'SUPPORT_AGENT';
+    let agentDaily = 3;
+    if (!isPlatformStaff) {
+      let tier = 'FREEMIUM';
+      if (user.role === 'CORPORATE_ADMIN') {
+        tier = 'CORPORATE';
+      } else if (user.schoolId) {
+        const school = await db.school.findUnique({
+          where: { id: user.schoolId },
+          select: { subscriptionTier: true },
+        });
+        tier = school?.subscriptionTier || 'FREEMIUM';
+      }
+      agentDaily = getTierLimits(tier).agentDaily;
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const usedToday = await db.auditLog.count({
+        where: { action: 'AGENT_CHAT', userId: user.id, createdAt: { gte: startOfDay } },
+      });
+      if (usedToday >= agentDaily) {
+        return NextResponse.json(
+          { error: `Quota Agent IA atteint (${agentDaily} questions/jour en forfait ${tier}). Il se recharge demain — ou passez au forfait supérieur depuis Mon Abonnement.` },
+          { status: 429 }
+        );
+      }
+    }
+
+    let reply = '';
+    try {
+      const out = await chatWithAi([
+        { role: 'system', content: SYSTEM_PROMPT },
         ...history,
         { role: 'user', content: message },
-      ],
-      thinking: { type: 'disabled' },
-    });
-
-    const reply = completion.choices[0]?.message?.content || '';
+      ]);
+      reply = out.reply;
+    } catch (e) {
+      console.error('[Support:agent] Provider error:', e instanceof Error ? e.message : e);
+    }
     if (!reply.trim()) {
       return NextResponse.json({ error: 'L\u2019agent n\u2019a pas pu générer de réponse — reformulez ou ouvrez un ticket.' }, { status: 502 });
     }
