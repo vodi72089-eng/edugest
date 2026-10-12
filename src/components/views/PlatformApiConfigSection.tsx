@@ -987,7 +987,7 @@ function AiAssistantConfigCard() {
           </div>
           <p className="mt-0.5 text-xs leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
             Choisissez le fournisseur LLM de l’Agent IA (OpenAI, DeepSeek, OpenRouter, Mistral, Groq,
-            Gemini ou autre API compatible OpenAI). Sans clé : le SDK ZAI intégré répond.
+            Gemini, NVIDIA, Ollama local ou autre API compatible OpenAI). Sans clé : le SDK ZAI intégré répond.
           </p>
         </div>
       </div>

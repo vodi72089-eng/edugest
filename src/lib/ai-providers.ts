@@ -17,6 +17,8 @@ export type AiProviderKey =
   | 'mistral'
   | 'groq'
   | 'gemini'
+  | 'nvidia'
+  | 'ollama'
   | 'custom';
 
 export interface AiProviderPreset {
@@ -35,6 +37,8 @@ export const AI_PROVIDERS: AiProviderPreset[] = [
   { value: 'mistral', label: 'Mistral AI', baseUrl: 'https://api.mistral.ai/v1', defaultModel: 'mistral-small-latest', keyHint: '…' },
   { value: 'groq', label: 'Groq', baseUrl: 'https://api.groq.com/openai/v1', defaultModel: 'llama-3.3-70b-versatile', keyHint: 'gsk_…' },
   { value: 'gemini', label: 'Google Gemini (endpoint compatible OpenAI)', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/', defaultModel: 'gemini-2.0-flash', keyHint: 'AIza…' },
+  { value: 'nvidia', label: 'NVIDIA NIM (build.nvidia.com, crédits gratuits)', baseUrl: 'https://integrate.api.nvidia.com/v1', defaultModel: 'meta/llama-3.3-70b-instruct', keyHint: 'nvapi-…' },
+  { value: 'ollama', label: 'Ollama — modèles locaux (sans clé)', baseUrl: 'http://localhost:11434/v1', defaultModel: 'llama3.1', keyHint: 'aucune clé requise' },
   { value: 'custom', label: 'Personnalisé (toute API compatible OpenAI)', baseUrl: '', defaultModel: '', keyHint: '…' },
 ];
 
@@ -111,7 +115,8 @@ export async function chatWithAi(
   const apiKey = (cfg?.apiKey || '').trim();
   if (!baseUrl) throw new Error(`Fournisseur « ${provider} » : URL de base manquante.`);
   if (!model) throw new Error(`Fournisseur « ${provider} » : modèle manquant.`);
-  if (!apiKey) throw new Error(`Fournisseur « ${provider} » : clé API manquante.`);
+  // Ollama local : aucune clé requise (les autres : clé obligatoire).
+  if (!apiKey && provider !== 'ollama') throw new Error(`Fournisseur « ${provider} » : clé API manquante.`);
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -120,7 +125,7 @@ export async function chatWithAi(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
       },
       body: JSON.stringify({ model, messages }),
       signal: controller.signal,

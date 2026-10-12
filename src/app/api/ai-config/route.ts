@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const preset = AI_PROVIDERS.find(p => p.value === cfg?.provider);
     return NextResponse.json({
       data: {
-        configured: !!(cfg && cfg.provider !== 'zai' && cfg.apiKey),
+        configured: !!(cfg && cfg.provider !== 'zai' && (cfg.provider === 'ollama' || cfg.apiKey)),
         provider: cfg?.provider || 'zai',
         model: cfg?.model || preset?.defaultModel || '',
         baseUrl: cfg?.baseUrl || preset?.baseUrl || '',
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     };
 
     if (action === 'test') {
-      if (provider !== 'zai' && !candidate.apiKey) {
+      if (provider !== 'zai' && provider !== 'ollama' && !candidate.apiKey) {
         return NextResponse.json({ error: 'Clé API manquante pour tester ce fournisseur' }, { status: 400 });
       }
       try {
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── action: save ──
-    if (provider !== 'zai' && !candidate.apiKey) {
+    if (provider !== 'zai' && provider !== 'ollama' && !candidate.apiKey) {
       return NextResponse.json({ error: 'Clé API requise pour ce fournisseur (laissez vide pour conserver l’existante)' }, { status: 400 });
     }
     if (provider === 'custom' && !candidate.baseUrl) {
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
         model: candidate.model,
         baseUrl: candidate.baseUrl,
         apiKeyMasked: maskAiKey(candidate.apiKey),
-        configured: provider !== 'zai' && !!candidate.apiKey,
+        configured: provider !== 'zai' && (provider === 'ollama' || !!candidate.apiKey),
       },
       message: 'Fournisseur IA enregistré',
     });
