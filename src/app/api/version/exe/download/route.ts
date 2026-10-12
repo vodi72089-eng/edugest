@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 const REPO = 'vodi72089-eng/edugest';
-const FALLBACK_VERSION = '1.4.24';
+const FALLBACK_VERSION = '1.4.26';
 const VERSION_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
 type ExeKind = 'setup' | 'portable';

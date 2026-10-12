@@ -2159,7 +2159,7 @@ function LoginView() {
   // navigateur ne peut pas, GitHub n'envoie aucun en-tête CORS sur ses
   // téléchargements de release). Repli : URL directe épinglée, donc même si
   // la résolution échoue, un clic déclenche le téléchargement immédiatement.
-  const [setupExeUrl, setSetupExeUrl] = useState('/api/version/exe/download?type=setup&version=1.4.24')
+  const [setupExeUrl, setSetupExeUrl] = useState('/api/version/exe/download?type=setup&version=1.4.26')
   // ── Le bouton n'existe que sur ORDINATEUR WINDOWS ────────────────────────
   // L'EXE ne s'exécute ni sur téléphone ni sur tablette ni sur macOS/Linux :
   // le bouton est donc absent de l'interface ailleurs (et handler re-vérifie
@@ -4357,7 +4357,7 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
   // URL DIRECTE de l'exe portable (release épinglée) → téléchargeable
   // immédiatement au clic, mise à jour vers la dernière version par
   // /api/version/exe — jamais la page de releases GitHub.
-  const [exeUrl, setExeUrl] = useState<string | null>('/api/version/exe/download?type=portable&version=1.4.24')
+  const [exeUrl, setExeUrl] = useState<string | null>('/api/version/exe/download?type=portable&version=1.4.26')
   const [openFailed, setOpenFailed] = useState(false)
   // Bouton de téléchargement réservé aux ordinateurs Windows (l'EXE n'est pas
   // exécutable ailleurs) — voir subscribeNoop (rendu serveur → false).
@@ -4366,7 +4366,7 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
   const downloadPortable = useCallback((e?: React.MouseEvent) => {
     e?.preventDefault()
     if (!isWindowsDesktop()) return // verrou plateforme
-    const url = exeUrl || '/api/version/exe/download?type=portable&version=1.4.24'
+    const url = exeUrl || '/api/version/exe/download?type=portable&version=1.4.26'
     try {
       const a = document.createElement('a')
       a.href = url
