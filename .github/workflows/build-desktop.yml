@@ -109,8 +109,8 @@ jobs:
             ## 🖥️ Kelasi 360 Desktop — application de bureau Windows
 
             **Téléchargez et installez :**
-            - **`EduGest-Setup-${{ steps.version.outputs.version }}.exe`** — installateur Windows (recommandé, démarrage rapide)
-            - **`EduGest-Portable-${{ steps.version.outputs.version }}.exe`** — version portable (décompression à chaque lancement, plus lente)
+            - **`Kelasi360-Setup-${{ steps.version.outputs.version }}.exe`** — installateur Windows (recommandé, démarrage rapide)
+            - **`Kelasi360-Portable-${{ steps.version.outputs.version }}.exe`** — version portable (décompression à chaque lancement, plus lente)
 
             ## Inclus dans cette version
 

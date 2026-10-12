@@ -20,7 +20,7 @@ export const dynamic = 'force-dynamic';
 
 const REPO = 'vodi72089-eng/edugest';
 // Repli épinglé : release connue la plus récente. Jamais la page de releases.
-const FALLBACK_VERSION = '1.4.12';
+const FALLBACK_VERSION = '1.4.23';
 const CACHE_TTL_MS = 10 * 60 * 1000;
 
 type ExeUrls = {
@@ -37,8 +37,8 @@ function directUrls(version: string, latest: boolean): ExeUrls {
   const base = `https://github.com/${REPO}/releases/download/v${version}`;
   return {
     version,
-    setup: `${base}/EduGest-Setup-${version}.exe`,
-    portable: `${base}/EduGest-Portable-${version}.exe`,
+    setup: `${base}/Kelasi360-Setup-${version}.exe`,
+    portable: `${base}/Kelasi360-Portable-${version}.exe`,
     latest,
   };
 }

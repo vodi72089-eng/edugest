@@ -2159,7 +2159,7 @@ function LoginView() {
   // navigateur ne peut pas, GitHub n'envoie aucun en-tête CORS sur ses
   // téléchargements de release). Repli : URL directe épinglée, donc même si
   // la résolution échoue, un clic déclenche le téléchargement immédiatement.
-  const [setupExeUrl, setSetupExeUrl] = useState('https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/__KEEP_TECH_4__')
+  const [setupExeUrl, setSetupExeUrl] = useState('https://github.com/vodi72089-eng/edugest/releases/download/v1.4.23/Kelasi360-Setup-1.4.23.exe')
   // ── Le bouton n'existe que sur ORDINATEUR WINDOWS ────────────────────────
   // L'EXE ne s'exécute ni sur téléphone ni sur tablette ni sur macOS/Linux :
   // le bouton est donc absent de l'interface ailleurs (et handler re-vérifie
@@ -2366,7 +2366,18 @@ function LoginView() {
       {/* Top nav bar */}
       <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-4 w-full shrink-0">
         <div className="flex items-center shrink-0 min-w-max">
-          <BrandMark height={40} className="brightness-110" />
+          {/* Logo cliquable : retour à la landing publique (dans l'exe,
+              resolveView rabat 'home' sur 'login' — voir store.ts) */}
+          <button
+            type="button"
+            onClick={() => setCurrentView('home')}
+            aria-label="Retour à l'accueil"
+            title="Retour à l'accueil"
+            className="flex items-center gap-2 cursor-pointer"
+            style={{ background: 'none', border: 'none', padding: 0 }}
+          >
+            <BrandMark height={40} className="brightness-110" />
+          </button>
         </div>
       </nav>
 
@@ -4335,7 +4346,7 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
   // URL DIRECTE de l'exe portable (release épinglée) → téléchargeable
   // immédiatement au clic, mise à jour vers la dernière version par
   // /api/version/exe — jamais la page de releases GitHub.
-  const [exeUrl, setExeUrl] = useState<string | null>('https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/__KEEP_TECH_5__')
+  const [exeUrl, setExeUrl] = useState<string | null>('https://github.com/vodi72089-eng/edugest/releases/download/v1.4.23/Kelasi360-Portable-1.4.23.exe')
   const [openFailed, setOpenFailed] = useState(false)
   // Bouton de téléchargement réservé aux ordinateurs Windows (l'EXE n'est pas
   // exécutable ailleurs) — voir subscribeNoop (rendu serveur → false).
@@ -4344,7 +4355,7 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
   const downloadPortable = useCallback((e?: React.MouseEvent) => {
     e?.preventDefault()
     if (!isWindowsDesktop()) return // verrou plateforme
-    const url = exeUrl || 'https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/__KEEP_TECH_6__'
+    const url = exeUrl || 'https://github.com/vodi72089-eng/edugest/releases/download/v1.4.23/Kelasi360-Portable-1.4.23.exe'
     try {
       const a = document.createElement('a')
       a.href = url
