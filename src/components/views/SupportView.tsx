@@ -8,7 +8,7 @@ import AppSelect from '@/components/ui/AppSelect'
 import { toast } from 'sonner'
 import {
   LifeBuoy, Plus, Send, Bot, User, Ticket as TicketIcon, RefreshCw, Search,
-  ChevronLeft, MessageSquare, CircleDot, CheckCircle2, XCircle, Clock, Headset,
+  ChevronLeft, MessageSquare, CircleDot, CheckCircle2, XCircle, Clock, Headset, Bug,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -114,6 +114,41 @@ function AgentChatPanel() {
     }
   }
 
+  // Rapport de bug : la description (champ en cours ou dernier message client)
+  // + toute la conversation partent en ticket TECHNIQUE prioritaire, notifié
+  // en temps réel à l'équipe. Anti-spam côté serveur (3/heure).
+  const [reporting, setReporting] = useState(false)
+  async function reportBug() {
+    if (sending || reporting) return
+    const desc = input.trim() || [...messages].reverse().find(m => m.role === 'user')?.content || ''
+    if (!desc) {
+      toast.error('Décrivez d’abord le problème (message ou question ci-dessus), puis cliquez « Signaler un bug ».')
+      return
+    }
+    setReporting(true)
+    try {
+      const res = await authFetch('/api/support/agent', {
+        method: 'POST',
+        body: JSON.stringify({ message: desc, history: messages.slice(-10), reportBug: true }),
+      })
+      const j = await res.json()
+      if (res.ok && j.data?.bugTicketRef) {
+        setInput('')
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `Rapport envoyé (${j.data.bugTicketRef}) — merci ! Notre équipe examine le problème et vous recontactera. En attendant, je reste disponible pour vos autres questions.`,
+        }])
+        toast.success(`Bug signalé : ${j.data.bugTicketRef}`)
+      } else {
+        toast.error(j.error || j.data?.error || 'Envoi impossible — ouvrez un ticket.')
+      }
+    } catch {
+      toast.error('Erreur réseau — réessayez.')
+    } finally {
+      setReporting(false)
+    }
+  }
+
   return (
     <div className="rounded-2xl border overflow-hidden flex flex-col" style={{ borderColor: 'oklch(92% 0.01 175)', background: 'white', height: 'calc(100vh - 220px)', minHeight: 420 }}>
       <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: 'oklch(93% 0.01 175)' }}>
@@ -166,6 +201,15 @@ function AgentChatPanel() {
           aria-label="Envoyer au agent"
         >
           <Send size={16} color="#0a0f0d" />
+        </button>
+        <button
+          onClick={reportBug} disabled={sending || reporting}
+          className="px-3 rounded-xl inline-flex items-center gap-1.5 text-xs font-semibold transition disabled:opacity-40 border"
+          style={{ borderColor: 'oklch(90% 0.01 175)', color: TEXT_MUTED_LUXE }}
+          title="Envoyer un rapport de bug à l'équipe (avec la conversation)"
+        >
+          <Bug size={14} />
+          <span className="hidden sm:inline">{reporting ? 'Envoi…' : 'Signaler un bug'}</span>
         </button>
       </div>
     </div>
