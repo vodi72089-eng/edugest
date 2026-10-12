@@ -1,13 +1,12 @@
 import { db } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
 import { createToken, getClientIp, getUserAgentFromRequest, SESSION_DURATION_MS, sanitizeError } from '@/lib/auth';
 import { checkRateLimitDb } from '@/lib/rate-limit-db';
 import { normalizeClientIp } from '@/lib/geo';
 import { checkSubscription } from '@/lib/subscription-server';
 import { notify } from '@/lib/notify';
-import { repairPlatformAdminIntegrity } from '@/lib/role-repair';
+import { verifyPasswordPostgres } from '@/lib/auth-db';
 
 const MOBILE_ELIGIBLE_TIERS = new Set(['PREMIUM', 'ENTERPRISE', 'CORPORATE']);
 
@@ -137,18 +136,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Find User ────────────────────────────────────────────────────────
+    // ── Find User + Verify Password (côté Postgres) ──────────────────────
     // Le champ « email » peut contenir un email OU un numéro WhatsApp
     // (connexion parent par téléphone) — fallback phone si l'email est inconnu.
-    let user: Awaited<ReturnType<typeof db.user.findUnique>> = null;
-    if (email) {
-      user = await db.user.findUnique({ where: { email } });
-      if (!user) {
-        user = await db.user.findUnique({ where: { phone: email } });
-      }
-    } else if (phone) {
-      user = await db.user.findUnique({ where: { phone } });
-    }
+    // On délègue la vérification bcrypt à Postgres (pgcrypto) pour économiser
+    // le CPU du Worker (bcrypt.compare en JS pur ≈ 80ms, limite Free = 10ms).
+    // Recherche case-insensitive sur l'email (bug : 'Admin@x.cd' → 401).
+    const { ok, user } = await verifyPasswordPostgres(email || phone || '', password);
 
     if (!user) {
       // Échec : incrémente le compteur et déclenche éventuellement un verrou progressif
@@ -165,7 +159,6 @@ export async function POST(request: NextRequest) {
     // exactement comme un mauvais identifiant — impossible de deviner l'état
     // d'un compte de l'extérieur. Le frontend traduit ce message.
     if (!user.isActive || !user.password) {
-      // Anti-énumération : même traitement qu'un mauvais mot de passe
       const lock = registerFailure(identifier);
       const payload: Record<string, unknown> = { error: 'Invalid credentials' };
       if (lock) {
@@ -175,9 +168,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(payload, { status: 401 });
     }
 
-    // ── Verify Password ──────────────────────────────────────────────────
-    const passwordMatch = await bcrypt.compare(password, user.password);
-    if (!passwordMatch) {
+    if (!ok) {
       const lock = registerFailure(identifier);
       const payload: Record<string, unknown> = { error: 'Invalid credentials' };
       if (lock) {
@@ -187,21 +178,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(payload, { status: 401 });
     }
 
-    // ── Integrity repair : roles administratifs ─────────────────────────
-    // Le SUPER_ADMIN_GLOBAL est l'admin de la PLATEFORME : il ne doit être
-    // rattaché à aucune école (bug historique des anciens seeds — il passait
-    // pour l'admin de la 1re école). Réparation idempotente + garantie que
-    // chaque école dispose d'un admin d'école (SCHOOL_ADMIN). Non bloquant.
-    if (user.role === 'SUPER_ADMIN_GLOBAL') {
-      try {
-        await repairPlatformAdminIntegrity();
-        // Relecture : schoolId (et compte) peuvent avoir été corrigés juste au-dessus.
-        const fresh = await db.user.findUnique({ where: { id: user.id } });
-        if (fresh) user = fresh;
-      } catch (e) {
-        console.error('[auth] réparation rôles (non bloquante) :', (e as Error)?.message);
-      }
-    }
+    // ── Integrity repair : rôles administratifs ─────────────────────────
+    // Déplacé hors du hot-path (2 requêtes + bcrypt.hash ≈ 80ms CPU en plus
+    // à chaque login SUPER_ADMIN_GLOBAL — hors limite Workers Free de 10ms).
+    // L'appeler via POST /api/admin/repair-roles (endpoint dédié, voir
+    // src/app/api/admin/repair-roles/route.ts) ou un cron trigger.
 
     // L'application mobile est une offre Premium : cette règle est appliquée
     // côté serveur afin qu'elle ne puisse pas être contournée par l'interface.
