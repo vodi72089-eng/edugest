@@ -33,12 +33,13 @@ jobs:
                 repo: context.repo.repo,
                 tag
               });
-              if (release.assets && release.assets.length > 0) {
+              if (!release.draft) {
                 core.setFailed(
-                  `La release ${tag} contient déjà des assets publiés. ` +
-                  'Refus de remplacer le binaire sous le même tag : augmentez ' +
-                  'desktop/package.json et desktop/package-lock.json avant de publier.'
+                  `La release ${tag} est déjà publiée. Refus de remplacer ses assets : ` +
+                  'augmentez desktop/package.json et desktop/package-lock.json avant de publier.'
                 );
+              } else {
+                core.info(`La release ${tag} est encore en brouillon : réutilisation sûre autorisée.`);
               }
             } catch (error) {
               if (error.status !== 404) throw error;
@@ -170,11 +171,46 @@ jobs:
             desktop/dist/*.exe
             desktop/dist/latest.yml
             desktop/dist/*.blockmap
-          draft: false
+          draft: true
           prerelease: false
           make_latest: true
           fail_on_unmatched_files: true
-          overwrite_files: false
+          overwrite_files: true
+
+      # Le release tag reste invisible sous /releases/latest tant que les
+      # exécutables ET latest.yml ne sont pas tous uploadés. On publie seulement
+      # après avoir vérifié les noms d'assets requis — aucun client ne peut lire
+      # un nouveau checksum pendant que le .exe est encore en train de changer.
+      - name: Publish release after all assets are uploaded
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pkg = require('./desktop/package.json');
+            const tag = `v${pkg.version}`;
+            const { data: release } = await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag
+            });
+            const names = new Set((release.assets || []).map(asset => asset.name));
+            const required = [
+              `Kelasi360-Setup-${pkg.version}.exe`,
+              `Kelasi360-Portable-${pkg.version}.exe`,
+              'latest.yml'
+            ];
+            const missing = required.filter(name => !names.has(name));
+            if (missing.length) {
+              throw new Error(`Release ${tag} incomplète. Assets manquants : ${missing.join(', ')}`);
+            }
+            const published = await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.id,
+              draft: false,
+              prerelease: false,
+              make_latest: 'true'
+            });
+            core.info(`Release ${tag} publiée avec ${required.length} assets vérifiés.`);
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
