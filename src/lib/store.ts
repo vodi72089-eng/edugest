@@ -286,9 +286,20 @@ interface EduGestStore {
 // ─── Initial State from localStorage ─────────────────────────────────────────
 
 function getInitialState() {
-  // Always return 'home' (landing publique restaurée) on both server and client
-  // to avoid hydration mismatch. Session is restored in a useEffect after mount.
-  return { currentView: 'home' as ViewType, userRole: null as UserRole | null, userData: null as UserData | null, sidebarOpen: false };
+  // SSR : "home" garantit un état déterministe côté serveur. Côté navigateur,
+  // lire immédiatement le chemin demandé évite qu'une restauration asynchrone
+  // fasse apparaître la landing pendant quelques millisecondes sur /login,
+  // /events ou une autre route. Home() garde l'écran neutre jusqu'à la fin de
+  // restoreSession(), donc cette différence server/client ne fuit pas à l'écran.
+  const pathname = typeof window === 'undefined' ? null : window.location.pathname;
+  const urlView = pathname ? parsePath(pathname).view : null;
+  const initialView = resolveView((urlView || 'home') as ViewType);
+  return {
+    currentView: initialView,
+    userRole: null as UserRole | null,
+    userData: null as UserData | null,
+    sidebarOpen: false,
+  };
 }
 
 /**

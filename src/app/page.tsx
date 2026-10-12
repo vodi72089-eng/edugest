@@ -2159,7 +2159,7 @@ function LoginView() {
   // navigateur ne peut pas, GitHub n'envoie aucun en-tête CORS sur ses
   // téléchargements de release). Repli : URL directe épinglée, donc même si
   // la résolution échoue, un clic déclenche le téléchargement immédiatement.
-  const [setupExeUrl, setSetupExeUrl] = useState('https://github.com/vodi72089-eng/edugest/releases/download/v1.4.23/Kelasi360-Setup-1.4.23.exe')
+  const [setupExeUrl, setSetupExeUrl] = useState('/api/version/exe/download?type=setup&version=1.4.26')
   // ── Le bouton n'existe que sur ORDINATEUR WINDOWS ────────────────────────
   // L'EXE ne s'exécute ni sur téléphone ni sur tablette ni sur macOS/Linux :
   // le bouton est donc absent de l'interface ailleurs (et handler re-vérifie
@@ -2379,12 +2379,34 @@ function LoginView() {
             <BrandMark height={40} className="brightness-110" />
           </button>
         </div>
+        {!isDesktopApp() && (
+          <button
+            type="button"
+            onClick={() => setCurrentView('home')}
+            className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-3.5 py-2 text-sm font-semibold text-white/75 transition hover:border-white/30 hover:bg-white/5 hover:text-white"
+            aria-label="Retour à la page d’accueil"
+          >
+            <ArrowLeft size={16} />
+            Retour à l’accueil
+          </button>
+        )}
       </nav>
 
       {/* Main content: animated book + login card — défilement NATUREL de la page
           (min-h-screen, pas de overflow-hidden) : le pied de page reste au bas de l'écran
           quand le contenu est court et est poussé vers le bas quand il dépasse */}
       <main className="relative z-20 flex-1 w-full flex flex-col items-center justify-center px-4 sm:px-6 py-6 gap-5">
+        {!isDesktopApp() && (
+          <button
+            type="button"
+            onClick={() => setCurrentView('home')}
+            aria-label="Retour à la page d'accueil"
+            className="absolute left-4 sm:left-6 top-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs sm:text-sm font-medium text-white/55 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
+          >
+            <ArrowLeft size={15} aria-hidden="true" />
+            Retour à l’accueil
+          </button>
+        )}
         {/* Animated Book + Brand */}
         <div className="text-center flex flex-col items-center gap-3 shrink-0">
           <div className="edu-book mx-auto" style={{ transform: 'scale(0.9)' }}>
@@ -4346,7 +4368,7 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
   // URL DIRECTE de l'exe portable (release épinglée) → téléchargeable
   // immédiatement au clic, mise à jour vers la dernière version par
   // /api/version/exe — jamais la page de releases GitHub.
-  const [exeUrl, setExeUrl] = useState<string | null>('https://github.com/vodi72089-eng/edugest/releases/download/v1.4.23/Kelasi360-Portable-1.4.23.exe')
+  const [exeUrl, setExeUrl] = useState<string | null>('/api/version/exe/download?type=portable&version=1.4.26')
   const [openFailed, setOpenFailed] = useState(false)
   // Bouton de téléchargement réservé aux ordinateurs Windows (l'EXE n'est pas
   // exécutable ailleurs) — voir subscribeNoop (rendu serveur → false).
@@ -4355,7 +4377,7 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
   const downloadPortable = useCallback((e?: React.MouseEvent) => {
     e?.preventDefault()
     if (!isWindowsDesktop()) return // verrou plateforme
-    const url = exeUrl || 'https://github.com/vodi72089-eng/edugest/releases/download/v1.4.23/Kelasi360-Portable-1.4.23.exe'
+    const url = exeUrl || '/api/version/exe/download?type=portable&version=1.4.26'
     try {
       const a = document.createElement('a')
       a.href = url
@@ -10460,6 +10482,7 @@ function PricingDashboard() {
 // ===== MAIN HOME COMPONENT =====
 export default function Home() {
   const { currentView, userRole, logout, setCurrentView, userData, setUserData } = useEduGestStore()
+  const [appInitialized, setAppInitialized] = useState(false)
   const [subscriptionRequired, setSubscriptionRequired] = useState<{ tier: string; expired: boolean } | null>(null)
 
   // Réactivité devise : re-rend l'app dès que la config monnaie change
@@ -10507,6 +10530,11 @@ export default function Home() {
   const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
   useIsomorphicLayoutEffect(() => {
     restoreSession()
+    // Ne rendre la vue qu'après restauration synchrone de l'URL et de la
+    // session : l'état initial du store vaut volontairement "home" pour éviter
+    // un mismatch d'hydratation, mais ne doit jamais être peint sur /login,
+    // /events ou une autre route après un rafraîchissement.
+    setAppInitialized(true)
     // App desktop (Electron) : prévient main.js que l'interface est peinte
     // pour afficher la fenêtre (jamais de fenêtre vide). Sans effet sur le web.
     //
@@ -10631,6 +10659,25 @@ export default function Home() {
     window.addEventListener('subscription:required', handler)
     return () => window.removeEventListener('subscription:required', handler)
   }, [])
+
+  // Shell neutre pendant la toute première restauration. Le serveur et la
+  // première hydratation affichent le même écran, jamais la landing de secours.
+  if (!appInitialized) {
+    return (
+      <main
+        className="min-h-screen grid place-items-center"
+        style={{ background: '#0a0f0d' }}
+        role="status"
+        aria-busy="true"
+        aria-label="Chargement de Kelasi 360"
+      >
+        <div className="flex items-center gap-3 text-white/55 text-sm">
+          <span className="h-2.5 w-2.5 rounded-full animate-pulse" style={{ background: '#f5a623' }} />
+          Chargement de Kelasi 360…
+        </div>
+      </main>
+    )
+  }
 
   // Subscription wall
   if (subscriptionRequired && userRole) {
