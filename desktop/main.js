@@ -906,7 +906,13 @@ function checkPortableUpdate(manual = false) {
           // Bannière in-app (comme l'installée) : l'exe portable est
           // téléchargé directement (redirections GitHub suivies), GitHub reste
           // invisible pour l'utilisateur.
-          pendingPortableAsset = { url: `${RELEASE_LATEST_BASE}/Kelasi360-Portable-${latest}.exe`, version: latest, sha512, file: null, verified: false };
+          // CRITICAL : l'alias /releases/latest/download est mutable. Si une
+          // nouvelle release est publiée entre la lecture de latest.yml et le
+          // téléchargement du .exe, GitHub peut servir le binaire d'une autre
+          // version et provoquer un sha512 mismatch. L'URL du binaire doit être
+          // épinglée au tag exact correspondant au checksum extrait.
+          const pinnedAssetUrl = `https://github.com/vodi72089-eng/edugest/releases/download/v${latest}/Kelasi360-Portable-${latest}.exe`;
+          pendingPortableAsset = { url: pinnedAssetUrl, version: latest, sha512, file: null, verified: false };
           sendUpdate('available', { version: latest });
         } catch {}
       });
