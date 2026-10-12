@@ -253,7 +253,7 @@ export default function StudentCardModal({ student, onClose }: StudentCardModalP
               </div>
             </div>
             <div className="text-right">
-              <div className="text-white font-black tracking-tight text-base">Edu<span style={{ color: GOLD }}>Gest</span></div>
+              <div className="text-white font-black tracking-tight text-base">Kelasi<span style={{ color: GOLD }}>360</span></div>
               <div className="text-white/40 text-[9px] uppercase tracking-widest">Plateforme officielle</div>
             </div>
           </div>

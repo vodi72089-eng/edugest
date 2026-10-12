@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, sanitizeError } from '@/lib/auth';
 import { logAudit } from '@/lib/audit';
 import { sendPlatformEmail } from '@/lib/platform-email';
+import { notify } from '@/lib/notify';
 
 // ─── /api/support/tickets/[id] — fil de discussion + traitement ────────────
 // GET  : ticket + messages (accès : auteur, école, corporate, support, SAG)
@@ -108,8 +109,53 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         fromKey: 'support',
         template: 'TICKET_REPLY',
         subject: `[${ticket.ref}] Nouvelle réponse du support`,
-        html: `<p>Bonjour ${ticket.createdBy.name},</p><p>Le support a répondu à votre ticket <b>${ticket.ref}</b> :</p><blockquote>${text.slice(0, 500)}</blockquote><p>Connectez-vous à EduGest pour voir le fil complet.</p><p>L'équipe support EduGest</p>`,
+        html: `<p>Bonjour ${ticket.createdBy.name},</p><p>Le support a répondu à votre ticket <b>${ticket.ref}</b> :</p><blockquote>${text.slice(0, 500)}</blockquote><p>Connectez-vous à Kelasi 360 pour voir le fil complet.</p><p>L'équipe support Kelasi 360</p>`,
       });
+    }
+
+    // ── Notification TEMPS RÉEL à l'autre partie ─────────────────────────────
+    // Cloche in-app + son + Web Push (notify() gère les deux). Auparavant,
+    // seule la CRÉATION du ticket notifiait : les RÉPONSES partaient dans le
+    // vide côté destinataire (ni cloche, ni push) — non bloquant.
+    try {
+      if (canHandle) {
+        // Support → client : l'auteur du ticket reçoit la réponse
+        await notify({
+          data: {
+            type: 'SUPPORT_TICKET',
+            title: `Réponse du support — ${ticket.ref}`,
+            message: text.slice(0, 180),
+            userId: ticket.createdById,
+            schoolId: ticket.schoolId,
+            relatedId: ticket.id,
+            linkTo: 'support',
+            linkId: ticket.id,
+          },
+        });
+      } else {
+        // Client → équipe support (miroir de la création du ticket)
+        const recipients = await db.user.findMany({
+          where: { isActive: true, role: { in: HANDLE_ROLES }, id: { not: user.id } },
+          select: { id: true },
+          take: 20,
+        });
+        for (const recipient of recipients) {
+          await notify({
+            data: {
+              type: 'SUPPORT_TICKET',
+              title: `Nouveau message — ${ticket.ref}`,
+              message: `${user.name} a répondu : « ${text.slice(0, 120)} »`,
+              userId: recipient.id,
+              schoolId: ticket.schoolId,
+              relatedId: ticket.id,
+              linkTo: 'support',
+              linkId: ticket.id,
+            },
+          });
+        }
+      }
+    } catch (e) {
+      console.error('[Support:ticket] Notification temps réel impossible :', e);
     }
 
     await logAudit({

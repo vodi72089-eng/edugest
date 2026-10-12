@@ -12,11 +12,16 @@ export async function verifyPasswordPostgres(
   identifier: string,
   password: string
 ): Promise<{ ok: boolean; user: any | null }> {
+  // ⚠️ Colonnes QUOTÉES (camelCase) : Prisma crée les colonnes comme `schoolId`
+  // (identifiants entre guillemets, casse préservée). Sans guillemets, Postgres
+  // plie en minuscules (schoolid) → « column u.schoolid does not exist » et
+  // TOUTE connexion email/mdp renvoie 500 (constaté en prod sur la base Neon
+  // camelCase après le changement de worker).
   const rows = await db.$queryRaw<Array<any>>`
-    SELECT u.id, u.email, u.phone, u.password, u.name, u.role, u.schoolId, u.isActive, u.lastLoginAt, u.profileImageUrl, u.subjectName, u.classNames, u.isTitulaire, u.isVerified, u.emailVerifiedAt, u.phoneVerifiedAt, u.createdAt, u.updatedAt,
-           public.crypt(${password}, replace(u.password, '$2b$', '$2a$')) = replace(u.password, '$2b$', '$2a$') AS ok
+    SELECT u."id", u."email", u."phone", u."password", u."name", u."role", u."schoolId", u."isActive", u."lastLoginAt", u."profileImageUrl", u."subjectName", u."classNames", u."isTitulaire", u."isVerified", u."emailVerifiedAt", u."phoneVerifiedAt", u."createdAt", u."updatedAt",
+           public.crypt(${password}, replace(u."password", '$2b$', '$2a$')) = replace(u."password", '$2b$', '$2a$') AS ok
     FROM "User" u
-    WHERE lower(u.email) = lower(${identifier}) OR u.phone = ${identifier}
+    WHERE lower(u."email") = lower(${identifier}) OR u."phone" = ${identifier}
     LIMIT 1
   `;
   if (rows.length === 0) return { ok: false, user: null };

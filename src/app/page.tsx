@@ -3529,14 +3529,44 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
         if (cancelled) return;
         const perm = Notification.permission;
         if (perm !== 'granted') { setPushStatus(perm === 'denied' ? 'denied' : 'default'); return; }
+        // Abonnement existant : vérifier qu'il utilise la clé VAPID COURANTE.
+        // Après une rotation des clés côté serveur, l'ancien abonnement est
+        // rejeté en 403 SILENCIEUSEMENT par le service de push → on se
+        // ré-abonne avec la clé courante (pushManager.subscribe remplace).
         const sub = await reg.pushManager.getSubscription();
-        if (sub) { setPushStatus('subscribed'); return; }
-        // Permission déjà accordée mais pas encore d'abonnement -> abonnement silencieux
-        setPushStatus('granted');
-        // Ne pas tenter d'abonnement automatiquement : si les clés VAPID ne sont pas
-        // configurées, pushManager.subscribe() échoue avec "Registration failed -
-        // push service error" et affiche une erreur effrayante à l'utilisateur.
-        // L'application fonctionne normalement sans notifications push.
+        if (!sub) {
+          // Permission déjà accordée mais pas encore d'abonnement : pas
+          // d'abonnement automatique (bouton dédié) — si les clés VAPID ne
+          // sont pas configurées, pushManager.subscribe() échouerait avec
+          // « Registration failed - push service error ».
+          setPushStatus('granted');
+          return;
+        }
+        const keyRes = await authFetch('/api/push/vapid').catch(() => null);
+        const serverKey = keyRes?.ok
+          ? ((await keyRes.json().catch(() => ({})))?.publicKey ?? null)
+          : null;
+        const storedKey = localStorage.getItem('k360-vapid-key');
+        if (!serverKey || storedKey === serverKey) {
+          setPushStatus('subscribed');
+          return;
+        }
+        // Clé inconnue à l'abonnement (anciens abonnements, aucune trace de la
+        // clé utilisée) ou clé changée : ré-abonnement silencieux.
+        try {
+          const fresh = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(serverKey),
+          });
+          const freshJson = fresh.toJSON();
+          const res = await authFetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: freshJson.endpoint, keys: freshJson.keys }),
+          });
+          if (res.ok) localStorage.setItem('k360-vapid-key', serverKey);
+        } catch { /* on conserve l'abonnement existant */ }
+        setPushStatus('subscribed');
       } catch {
         if (!cancelled) setPushStatus('default');
       }
@@ -3557,10 +3587,16 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
       const { publicKey } = await keyRes.json();
       if (!publicKey) { toast.error('Clé push indisponible'); return; }
       const existing = await reg.pushManager.getSubscription();
-      const sub = existing || await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
-      });
+      const storedKey = localStorage.getItem('k360-vapid-key');
+      // Abonnement existant MAIS fait avec une autre clé VAPID (rotation des
+      // clés côté serveur) : pushManager.subscribe() avec la clé courante
+      // remplace l'abonnement — sinon le push serait rejeté en 403 en silence.
+      const sub = (existing && storedKey === publicKey)
+        ? existing
+        : await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey),
+          });
       const subJson = sub.toJSON();
       const res = await authFetch('/api/push/subscribe', {
         method: 'POST',
@@ -3568,6 +3604,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
         body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
       });
       if (!res.ok) throw new Error('Enregistrement impossible');
+      localStorage.setItem('k360-vapid-key', publicKey);
       setPushStatus('subscribed');
       toast.success('Notifications push activées 🔔');
     } catch (e: any) {

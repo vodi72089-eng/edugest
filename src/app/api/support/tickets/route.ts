@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
         fromKey: 'support',
         template: 'TICKET_CREATED',
         subject: `[${ticket.ref}] Accusé de réception — ${subject.slice(0, 60)}`,
-        html: `<p>Bonjour ${user.name},</p><p>Votre demande <b>${ticket.ref}</b> a bien été enregistrée : « ${subject} ».</p><p>Notre support client la traite dans les meilleurs délais.</p><p>L'équipe support EduGest</p>`,
+        html: `<p>Bonjour ${user.name},</p><p>Votre demande <b>${ticket.ref}</b> a bien été enregistrée : « ${subject} ».</p><p>Notre support client la traite dans les meilleurs délais.</p><p>L'équipe support Kelasi 360</p>`,
       });
     }
 

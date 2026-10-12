@@ -73,7 +73,7 @@ export default async function VerifyDocumentPage({ params }: { params: Promise<{
         <div className="flex items-center gap-2.5">
           <img src="/edugest-logo-mark.png" alt="Logo Kelasi 360" className="w-10 h-10 object-contain" />
           <div>
-            <div className="text-white font-bold tracking-tight text-lg">Edu<span style={{ color: 'oklch(72% 0.15 65)' }}>Gest</span></div>
+            <div className="text-white font-bold tracking-tight text-lg">Kelasi<span style={{ color: 'oklch(72% 0.15 65)' }}>360</span></div>
             <div className="text-white/40 text-[11px]">Vérification de documents officiels</div>
           </div>
         </div>
