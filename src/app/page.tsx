@@ -2159,7 +2159,7 @@ function LoginView() {
   // navigateur ne peut pas, GitHub n'envoie aucun en-tête CORS sur ses
   // téléchargements de release). Repli : URL directe épinglée, donc même si
   // la résolution échoue, un clic déclenche le téléchargement immédiatement.
-  const [setupExeUrl, setSetupExeUrl] = useState('https://github.com/vodi72089-eng/edugest/releases/download/v1.4.23/Kelasi360-Setup-1.4.23.exe')
+  const [setupExeUrl, setSetupExeUrl] = useState('/api/version/exe/download?type=setup&version=1.4.24')
   // ── Le bouton n'existe que sur ORDINATEUR WINDOWS ────────────────────────
   // L'EXE ne s'exécute ni sur téléphone ni sur tablette ni sur macOS/Linux :
   // le bouton est donc absent de l'interface ailleurs (et handler re-vérifie
@@ -2385,6 +2385,17 @@ function LoginView() {
           (min-h-screen, pas de overflow-hidden) : le pied de page reste au bas de l'écran
           quand le contenu est court et est poussé vers le bas quand il dépasse */}
       <main className="relative z-20 flex-1 w-full flex flex-col items-center justify-center px-4 sm:px-6 py-6 gap-5">
+        {!isDesktopApp() && (
+          <button
+            type="button"
+            onClick={() => setCurrentView('home')}
+            aria-label="Retour à la page d'accueil"
+            className="absolute left-4 sm:left-6 top-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs sm:text-sm font-medium text-white/55 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
+          >
+            <ArrowLeft size={15} aria-hidden="true" />
+            Retour à l’accueil
+          </button>
+        )}
         {/* Animated Book + Brand */}
         <div className="text-center flex flex-col items-center gap-3 shrink-0">
           <div className="edu-book mx-auto" style={{ transform: 'scale(0.9)' }}>
@@ -4346,7 +4357,7 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
   // URL DIRECTE de l'exe portable (release épinglée) → téléchargeable
   // immédiatement au clic, mise à jour vers la dernière version par
   // /api/version/exe — jamais la page de releases GitHub.
-  const [exeUrl, setExeUrl] = useState<string | null>('https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/__KEEP_TECH_5__')
+  const [exeUrl, setExeUrl] = useState<string | null>('/api/version/exe/download?type=portable&version=1.4.24')
   const [openFailed, setOpenFailed] = useState(false)
   // Bouton de téléchargement réservé aux ordinateurs Windows (l'EXE n'est pas
   // exécutable ailleurs) — voir subscribeNoop (rendu serveur → false).
@@ -4355,7 +4366,7 @@ function DesktopOnlyModal({ onClose }: { onClose: () => void }) {
   const downloadPortable = useCallback((e?: React.MouseEvent) => {
     e?.preventDefault()
     if (!isWindowsDesktop()) return // verrou plateforme
-    const url = exeUrl || 'https://github.com/vodi72089-eng/edugest/releases/download/v1.4.12/__KEEP_TECH_6__'
+    const url = exeUrl || '/api/version/exe/download?type=portable&version=1.4.24'
     try {
       const a = document.createElement('a')
       a.href = url
