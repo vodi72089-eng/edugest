@@ -306,7 +306,7 @@ function Footer() {
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-4">Contact</h4>
           <ul className="space-y-3 text-sm text-white/50">
-            <li><Link001 href="mailto:support@edugest.app" className="hover:text-[oklch(72%_0.15_65)] transition-colors">support@edugest.app</Link001></li><li>+243 81 234 56 78</li>
+            <li><Link001 href="mailto:support@edugest.app" className="hover:text-[oklch(72%_0.15_65)] transition-colors">support@edugest.app</Link001></li>
           </ul>
         </div>
       </div>

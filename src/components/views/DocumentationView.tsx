@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { GOLD, TEXT_PRIMARY, TEXT_MUTED_LUXE, SUCCESS, DANGER, WARNING } from '@/lib/constants'
 import {
   BookOpen, Search, Rocket, Building2, ArrowRightLeft, ShieldAlert, CreditCard,
-  Mail, LifeBuoy, type LucideIcon,
+  Mail, LifeBuoy, MessageCircleQuestion, type LucideIcon,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -58,6 +58,30 @@ const SECTIONS: DocSection[] = [
           'Enseignant — notes, matières et présences de ses classes.',
           'EPS — activités sportives et évaluations physiques.',
           'Médical — infirmerie, visites et dossiers de santé.',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'faq',
+    title: 'Questions fréquentes',
+    icon: MessageCircleQuestion,
+    summary: 'Ce que les visiteurs demandent avant de se lancer',
+    keywords: ['faq', 'questions', 'prix', 'gratuit', 'whatsapp', 'hors-ligne', 'offline', 'sécurité', 'données', 'parents', 'inscription'],
+    blocks: [
+      { kind: 'p', text: 'Kelasi 360 est la plateforme de gestion scolaire multi-écoles pour l’Afrique francophone : élèves, notes, paiements, discipline, communications WhatsApp et bulletins — en ligne et hors-ligne.' },
+      {
+        kind: 'list',
+        items: [
+          'Combien ça coûte ? Le forfait FREEMIUM est gratuit pour découvrir. Ensuite ESSENTIEL, STANDARD, PREMIUM (Professionnel), ENTERPRISE et CORPORATE selon la taille de l’école — voir la page Tarifs, sans engagement caché.',
+          'Comment créer mon école ? Depuis la page d’accueil, cliquez « Créer mon école », renseignez les informations, puis suivez l’onboarding : classes, élèves, personnel, frais scolaires.',
+          'Comment les parents se connectent-ils ? Avec leur numéro de téléphone : ils scannent le QR code de l’école (vue QR Parents), retrouvent leur enfant par classe + nom, puis créent leur compte. Ils ne voient que leurs propres enfants.',
+          'Les notifications WhatsApp sont-elles automatiques ? Oui : notes, devoirs, convocations, paiements et bulletins partent via l’agent WhatsApp de l’école, sans action manuelle.',
+          'Et sans internet ? L’application Desktop (Windows) fonctionne hors-ligne avec sa base locale et synchronise vers le cloud dès que la connexion revient.',
+          'Qui peut faire quoi ? Chaque compte a un rôle strict : admin école, secrétaire, caisse, directions par cycle, discipline, enseignants, médical, parents. Personne ne voit plus que son périmètre.',
+          'Puis-je gérer plusieurs écoles ? Oui, avec un compte corporate : totaux agrégés de toutes vos écoles dans l’Espace Corporate. Écrivez à contact@edugest.app pour l’ouverture.',
+          'Mes données sont-elles en sécurité ? Sessions chiffrées, mots de passe hachés, cloisonnement strict par école : une école ne voit jamais les données d’une autre.',
+          'Une question restante ? L’Agent IA répond 24/7 dans l’onglet Support, ou ouvrez un ticket — notre équipe prend le relais.',
         ],
       },
     ],
@@ -256,7 +280,7 @@ export default function DocumentationView() {
           Documentation
         </h1>
         <p className="text-sm mt-0.5" style={{ color: TEXT_MUTED_LUXE }}>
-          Tout savoir sur Kelasi 360 : démarrage, corporates, passage de classe, paiements et support.
+          Tout savoir sur Kelasi 360 : démarrage, questions fréquentes, corporates, passage de classe, paiements et support.
         </p>
       </div>
 
