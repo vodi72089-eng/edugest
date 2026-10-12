@@ -11,7 +11,7 @@
  *
  * Usage : `node scripts/copy-standalone-assets.mjs` (après `next build`).
  */
-import { cpSync, existsSync, rmSync, readFileSync, readdirSync, mkdirSync, copyFileSync } from 'node:fs';
+import { cpSync, existsSync, rmSync, readFileSync, writeFileSync, readdirSync, mkdirSync, copyFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -146,6 +146,28 @@ for (const junk of ['desktop']) {
   if (existsSync(p)) {
     rmSync(p, { recursive: true, force: true });
     console.log(`[copy-standalone-assets] élagué : ${p}`);
+  }
+}
+
+// ── package.json standalone : jamais "type": "module" ────────────────────────
+// Le server.js généré par Next est CommonJS (require) : s'il hérite de
+// « type: "module" » du package.json racine, Node (et Electron dans l'EXE)
+// refuse de le charger — « ReferenceError: require is not defined in ES
+// module scope » — et le serveur ne démarre JAMAIS (suite de sécurité CI
+// en échec sur tous les appels HTTP, EXE sans interface). Inoffensif si la
+// clé est déjà absente.
+const pkgPath = join(standalone, 'package.json');
+if (existsSync(pkgPath)) {
+  try {
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+    if (pkg.type === 'module') {
+      delete pkg.type;
+      writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+      console.log('[copy-standalone-assets] package.json standalone : "type: module" retiré (server.js est CommonJS)');
+    }
+  } catch (e) {
+    console.error(`[copy-standalone-assets] package.json standalone illisible : ${e.message}`);
+    failed = true;
   }
 }
 

@@ -1,14 +1,50 @@
 import { db } from '@/lib/db';
+import bcrypt from 'bcryptjs';
 
 /**
- * Vérifie un mot de passe côté Postgres (pgcrypto) pour économiser le CPU
- * du Worker. bcrypt.compare en JS pur coûte ~80ms (coût 10) — au-dessus de
- * la limite de 10ms du plan Workers Free.
+ * Vérification du mot de passe — DEUX dialectes :
  *
- * Note : pgcrypto ne reconnaît pas le préfixe $2b$ (bcryptjs) → on le
- * recode en $2a$ (algorithme identique pour les mots de passe ≤ 72 octets).
+ * - Postgres/Neon (web, Workers) → pgcrypto côté base. bcrypt.compare en JS
+ *   pur coûte ~80 ms (coût 10) — au-dessus de la limite de 10 ms du plan
+ *   Workers Free, d'où le délestage dans SQL.
+ * - SQLite (app desktop EXE + CI) → ni schéma `public`, ni fonction `crypt()` :
+ *   la requête pgcrypto y provoquerait une erreur SQL à CHAQUE connexion
+ *   (régression constatée : suite de sécurité CI en échec + login EXE cassé).
+ *   On revient à bcryptjs en JS — CPU non contraint hors Workers.
+ *
+ * Note pgcrypto : ne reconnaît pas le préfixe $2b$ (bcryptjs) — on le recode
+ * en $2a$ (algorithme identique pour les mots de passe ≤ 72 octets).
  */
-export async function verifyPasswordPostgres(
+const isSqlite = (process.env.DATABASE_URL || '').startsWith('file:');
+
+export async function verifyPassword(
+  identifier: string,
+  password: string
+): Promise<{ ok: boolean; user: any | null }> {
+  if (!isSqlite) return verifyPasswordPostgres(identifier, password);
+
+  // Chemin SQLite (identique à l'implémentation d'avant pgcrypto, plus la
+  // tolérance casse sur l'email pour rester aligné avec lower() pg) :
+  // email exact, email en minuscules, puis téléphone.
+  const user = await db.user
+    .findFirst({
+      where: {
+        OR: [{ email: identifier }, { email: identifier.toLowerCase() }, { phone: identifier }],
+      },
+    })
+    .catch(() => null);
+  if (!user) return { ok: false, user: null };
+  try {
+    const ok = !!user.password && (await bcrypt.compare(password, user.password));
+    return { ok, user };
+  } catch {
+    // Hash absent/corrompu → traitement identique à un mot de passe faux.
+    return { ok: false, user };
+  }
+}
+
+/** Vérification côté Postgres (pgcrypto) — voir commentaire de module. */
+async function verifyPasswordPostgres(
   identifier: string,
   password: string
 ): Promise<{ ok: boolean; user: any | null }> {

@@ -6,7 +6,7 @@ import { checkRateLimitDb } from '@/lib/rate-limit-db';
 import { normalizeClientIp } from '@/lib/geo';
 import { checkSubscription } from '@/lib/subscription-server';
 import { notify } from '@/lib/notify';
-import { verifyPasswordPostgres } from '@/lib/auth-db';
+import { verifyPassword } from '@/lib/auth-db';
 
 const MOBILE_ELIGIBLE_TIERS = new Set(['PREMIUM', 'ENTERPRISE', 'CORPORATE']);
 
@@ -136,13 +136,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Find User + Verify Password (côté Postgres) ──────────────────────
+    // ── Find User + Verify Password (Postgres vs SQLite) ───────────────────
     // Le champ « email » peut contenir un email OU un numéro WhatsApp
     // (connexion parent par téléphone) — fallback phone si l'email est inconnu.
-    // On délègue la vérification bcrypt à Postgres (pgcrypto) pour économiser
-    // le CPU du Worker (bcrypt.compare en JS pur ≈ 80ms, limite Free = 10ms).
+    // Postgres/Neon : vérification bcrypt déléguée à pgcrypto (économie CPU
+    // Worker — bcrypt.compare en JS pur ≈ 80ms, limite Free = 10ms).
+    // SQLite (EXE/CI) : bcryptjs en JS (pgcrypto introuvable sur SQLite).
     // Recherche case-insensitive sur l'email (bug : 'Admin@x.cd' → 401).
-    const { ok, user } = await verifyPasswordPostgres(email || phone || '', password);
+    const { ok, user } = await verifyPassword(email || phone || '', password);
 
     if (!user) {
       // Échec : incrémente le compteur et déclenche éventuellement un verrou progressif
