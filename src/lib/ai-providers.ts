@@ -37,7 +37,7 @@ export const AI_PROVIDERS: AiProviderPreset[] = [
   { value: 'mistral', label: 'Mistral AI', baseUrl: 'https://api.mistral.ai/v1', defaultModel: 'mistral-small-latest', keyHint: '…' },
   { value: 'groq', label: 'Groq', baseUrl: 'https://api.groq.com/openai/v1', defaultModel: 'llama-3.3-70b-versatile', keyHint: 'gsk_…' },
   { value: 'gemini', label: 'Google Gemini (endpoint compatible OpenAI)', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/', defaultModel: 'gemini-2.0-flash', keyHint: 'AIza…' },
-  { value: 'nvidia', label: 'NVIDIA NIM (build.nvidia.com, crédits gratuits)', baseUrl: 'https://integrate.api.nvidia.com/v1', defaultModel: 'meta/llama-3.3-70b-instruct', keyHint: 'nvapi-…' },
+  { value: 'nvidia', label: 'NVIDIA NIM (build.nvidia.com, crédits gratuits)', baseUrl: 'https://integrate.api.nvidia.com/v1', defaultModel: 'nvidia/llama-3.1-nemotron-70b-instruct', keyHint: 'nvapi-…' },
   { value: 'ollama', label: 'Ollama — modèles locaux (sans clé)', baseUrl: 'http://localhost:11434/v1', defaultModel: 'llama3.1', keyHint: 'aucune clé requise' },
   { value: 'custom', label: 'Personnalisé (toute API compatible OpenAI)', baseUrl: '', defaultModel: '', keyHint: '…' },
 ];

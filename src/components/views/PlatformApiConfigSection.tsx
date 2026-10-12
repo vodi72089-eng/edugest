@@ -874,6 +874,63 @@ interface AiSlot {
   detecting: boolean
   testing: boolean
   testReply: string
+  modelSearch: string
+  modelStatus: Record<string, 'ok' | 'ko'>
+  verifying: string | null
+}
+
+// Sélecteur de modèle avec recherche + pastille actif/inactif.
+// La vérification (ping « OK ») part à la sélection et marque le modèle.
+function ModelPicker({ slot, onPick, onSearch }: {
+  slot: AiSlot
+  onPick: (model: string) => void
+  onSearch: (q: string) => void
+}) {
+  const q = slot.modelSearch.trim().toLowerCase()
+  const filtered = q ? slot.models.filter(m => m.toLowerCase().includes(q)) : slot.models
+  return (
+    <div>
+      <input
+        type="text"
+        value={slot.modelSearch}
+        onChange={e => onSearch(e.target.value)}
+        placeholder={`Rechercher parmi ${slot.models.length} modèles…`}
+        autoComplete="off"
+        className={`${inputClass} font-mono mb-1.5`}
+      />
+      <div className="max-h-44 overflow-y-auto rounded-xl border" style={{ borderColor: 'oklch(90% 0.01 175)' }}>
+        {filtered.length === 0 && (
+          <p className="px-3 py-2.5 text-xs" style={{ color: TEXT_MUTED_LUXE }}>Aucun modèle ne correspond.</p>
+        )}
+        {filtered.slice(0, 60).map(m => {
+          const st = slot.modelStatus[m]
+          const active = slot.model === m
+          return (
+            <button
+              key={m}
+              type="button"
+              onClick={() => onPick(m)}
+              className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-mono transition hover:bg-[oklch(96% 0.008 175)]"
+              style={{ background: active ? 'oklch(95% 0.05 65)' : 'transparent' }}
+              title={m}
+            >
+              <span className="flex-1 truncate" style={{ color: TEXT_PRIMARY }}>{m}</span>
+              {slot.verifying === m && <Loader2 className="w-3 h-3 animate-spin shrink-0" style={{ color: TEXT_MUTED_LUXE }} />}
+              {slot.verifying !== m && st === 'ok' && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0" style={{ background: 'oklch(94% 0.05 145)', color: 'oklch(40% 0.13 145)' }}>actif</span>
+              )}
+              {slot.verifying !== m && st === 'ko' && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0" style={{ background: 'oklch(94% 0.05 25)', color: 'oklch(45% 0.18 25)' }}>inactif</span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+      {filtered.length > 60 && (
+        <p className="mt-1 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>Affichés : 60/{filtered.length} — affinez la recherche.</p>
+      )}
+    </div>
+  )
 }
 
 interface AiUsage {
@@ -884,7 +941,7 @@ interface AiUsage {
 }
 
 function emptySlot(): AiSlot {
-  return { provider: '', apiKey: '', apiKeyMasked: '', model: '', baseUrl: '', models: [], detecting: false, testing: false, testReply: '' }
+  return { provider: '', apiKey: '', apiKeyMasked: '', model: '', baseUrl: '', models: [], detecting: false, testing: false, testReply: '', modelSearch: '', modelStatus: {}, verifying: null }
 }
 
 function AiAssistantConfigCard() {
@@ -927,6 +984,27 @@ function AiAssistantConfigCard() {
   function pickProvider(i: number, val: string) {
     const p = presets.find(x => x.value === val)
     setSlot(i, { provider: val, model: p?.defaultModel || '', baseUrl: p?.baseUrl || '', models: [] })
+  }
+
+  // Vérifie qu'un modèle répond vraiment (ping « OK ») et marque actif/inactif.
+  async function verifyModel(i: number, model: string) {
+    const s = slots[i]
+    setSlot(i, { model, verifying: model })
+    try {
+      const res = await authFetch('/api/ai-config', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'models-check', provider: s.provider, apiKey: s.apiKey, baseUrl: s.baseUrl, model }),
+      })
+      const json = await res.json()
+      const ok = !!json.data?.ok
+      setSlot(i, {
+        verifying: null,
+        modelStatus: { ...slots[i].modelStatus, [model]: ok ? 'ok' : 'ko' },
+      })
+      if (!ok) toast.error(json.data?.error || 'Modèle inactif (fin de vie, quota ou erreur).', { duration: 8000 })
+    } catch {
+      setSlot(i, { verifying: null, modelStatus: { ...slots[i].modelStatus, [model]: 'ko' } })
+    }
   }
 
   // Détecte les modèles réellement exposés par la clé (bouton par membre).
@@ -1107,14 +1185,17 @@ function AiAssistantConfigCard() {
                   )}
                 </div>
                 <div>
-                  <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>Modèle de l’équipe</label>
+                  <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>
+                    Modèle de l’équipe{s.model ? ` — ${s.model}` : ''}
+                    {s.model && s.modelStatus[s.model] === 'ok' && (
+                      <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'oklch(94% 0.05 145)', color: 'oklch(40% 0.13 145)' }}>actif ✓</span>
+                    )}
+                    {s.model && s.modelStatus[s.model] === 'ko' && (
+                      <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'oklch(94% 0.05 25)', color: 'oklch(45% 0.18 25)' }}>inactif</span>
+                    )}
+                  </label>
                   {s.models.length > 0 ? (
-                    <AppSelect
-                      value={s.model}
-                      onChange={val => setSlot(i, { model: val })}
-                      options={s.models.map(m => ({ value: m, label: m }))}
-                      disabled={!s.provider}
-                    />
+                    <ModelPicker slot={s} onPick={m => verifyModel(i, m)} onSearch={q => setSlot(i, { modelSearch: q })} />
                   ) : (
                     <input
                       type="text"

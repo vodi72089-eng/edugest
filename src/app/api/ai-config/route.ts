@@ -94,6 +94,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ data: { models, provider } });
     }
 
+    // ── action: models-check — le modèle répond-il vraiment ? (ping « OK »)
+    // Distingue les modèles ACTIFS des modèles en fin de vie (ex. NVIDIA 410).
+    if (action === 'models-check') {
+      const model = (typeof body.model === 'string' && body.model.trim()).slice(0, 200);
+      if (!model) return NextResponse.json({ error: 'Modèle manquant.' }, { status: 400 });
+      const candidate: AiProviderConfig = {
+        provider,
+        apiKey: apiKeyRaw,
+        model,
+        baseUrl: (typeof body.baseUrl === 'string' && body.baseUrl.trim()) || preset.baseUrl,
+      };
+      try {
+        const { reply } = await chatWithAi(
+          [
+            { role: 'system', content: 'Réponds uniquement : OK' },
+            { role: 'user', content: 'OK ?' },
+          ],
+          candidate,
+          25_000
+        );
+        if (!reply.trim()) return NextResponse.json({ data: { ok: false, model, error: 'Réponse vide.' } });
+        return NextResponse.json({ data: { ok: true, model } });
+      } catch (e) {
+        return NextResponse.json({ data: { ok: false, model, error: e instanceof Error ? e.message.slice(0, 200) : 'Échec' } });
+      }
+    }
+
     if (action === 'test') {
       if (provider !== 'zai' && provider !== 'ollama' && !candidate.apiKey) {
         return NextResponse.json({ error: 'Clé API manquante pour tester ce fournisseur' }, { status: 400 });
