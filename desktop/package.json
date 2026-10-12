@@ -1,5 +1,5 @@
 {
-  "name": "edugest-desktop",
+  "name": "kelasi360-desktop",
   "version": "1.4.22",
   "description": "Kelasi 360 — La plateforme de gestion scolaire (application de bureau)",
   "main": "main.js",
@@ -15,7 +15,7 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "cd.edugest.desktop",
+    "appId": "cd.kelasi360.desktop",
     "productName": "Kelasi 360",
     "copyright": "Copyright © 2026 Kelasi 360",
     "directories": {
@@ -82,7 +82,7 @@
       "runAfterFinish": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "artifactName": "EduGest-Setup-${version}.exe",
+      "artifactName": "Kelasi360-Setup-${version}.exe",
       "shortcutName": "Kelasi 360",
       "installerIcon": "icon.ico",
       "uninstallerIcon": "icon.ico",
@@ -90,7 +90,7 @@
       "include": "installer.nsh"
     },
     "portable": {
-      "artifactName": "EduGest-Portable-${version}.exe"
+      "artifactName": "Kelasi360-Portable-${version}.exe"
     },
     "publish": [
       {

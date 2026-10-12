@@ -2,13 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireRole, sanitizeError } from '@/lib/auth';
 import {
+  AI_CHAIN_MAX,
   AI_PROVIDERS,
+  AiChainMember,
   AiProviderConfig,
   AiProviderKey,
   chatWithAi,
+  getAiChain,
   getAiProviderConfig,
+  getAiUsageStats,
   invalidateAiProviderConfigCache,
+  listProviderModels,
   maskAiKey,
+  saveAiChain,
 } from '@/lib/ai-providers';
 
 const AI_CONFIG_KEY = 'AI_ASSISTANT_CONFIG';
@@ -23,6 +29,8 @@ export async function GET(request: NextRequest) {
 
     const cfg = await getAiProviderConfig(true);
     const preset = AI_PROVIDERS.find(p => p.value === cfg?.provider);
+    const chain = await getAiChain();
+    const usage = await getAiUsageStats();
     return NextResponse.json({
       data: {
         configured: !!(cfg && cfg.provider !== 'zai' && (cfg.provider === 'ollama' || cfg.apiKey)),
@@ -31,6 +39,16 @@ export async function GET(request: NextRequest) {
         baseUrl: cfg?.baseUrl || preset?.baseUrl || '',
         apiKeyMasked: cfg?.apiKey ? maskAiKey(cfg.apiKey) : '',
         presets: AI_PROVIDERS,
+        chainMax: AI_CHAIN_MAX,
+        // Équipe : clés jamais renvoyées (masque seul, vide = conservée).
+        chain: chain.map(m => ({
+          provider: m.provider,
+          apiKey: '',
+          apiKeyMasked: m.apiKey ? maskAiKey(m.apiKey) : '',
+          model: m.model,
+          baseUrl: m.baseUrl,
+        })),
+        usage,
       },
     });
   } catch (error) {
@@ -66,6 +84,16 @@ export async function POST(request: NextRequest) {
       baseUrl: (typeof body.baseUrl === 'string' && body.baseUrl.trim()) || preset.baseUrl,
     };
 
+    // ── action: models — liste les modèles exposés par la clé ──────────
+    if (action === 'models') {
+      const models = await listProviderModels(
+        provider,
+        apiKeyRaw,
+        (typeof body.baseUrl === 'string' && body.baseUrl.trim()) || preset.baseUrl
+      );
+      return NextResponse.json({ data: { models, provider } });
+    }
+
     if (action === 'test') {
       if (provider !== 'zai' && provider !== 'ollama' && !candidate.apiKey) {
         return NextResponse.json({ error: 'Clé API manquante pour tester ce fournisseur' }, { status: 400 });
@@ -86,6 +114,47 @@ export async function POST(request: NextRequest) {
       } catch (e) {
         return NextResponse.json({ error: e instanceof Error ? e.message : 'Échec du test' }, { status: 502 });
       }
+    }
+
+    // ── action: save-chain — enregistre l'équipe (ordre de bascule) ────
+    if (action === 'save-chain') {
+      const savedChain = await getAiChain();
+      const rawMembers = Array.isArray(body.members) ? body.members.slice(0, AI_CHAIN_MAX) : [];
+      const members: AiChainMember[] = [];
+      for (let i = 0; i < rawMembers.length; i++) {
+        const raw = rawMembers[i] || {};
+        const p: AiProviderKey = VALID_PROVIDERS.includes(raw.provider) ? raw.provider : 'zai';
+        const pr = AI_PROVIDERS.find(x => x.value === p)!;
+        const keyRaw = typeof raw.apiKey === 'string' ? raw.apiKey.trim() : '';
+        // Vide ou masque = conserve la clé enregistrée au même rang.
+        const key = (keyRaw && !keyRaw.includes('•')) ? keyRaw : (savedChain[i]?.provider === p ? savedChain[i].apiKey : '');
+        if (p !== 'zai' && p !== 'ollama' && !key) {
+          return NextResponse.json({ error: `Membre ${i + 1} (${p}) : clé API manquante.` }, { status: 400 });
+        }
+        members.push({
+          provider: p,
+          apiKey: key,
+          model: (typeof raw.model === 'string' && raw.model.trim()) || pr.defaultModel,
+          baseUrl: (typeof raw.baseUrl === 'string' && raw.baseUrl.trim()) || pr.baseUrl,
+        });
+      }
+      if (members.length === 0) {
+        return NextResponse.json({ error: 'Équipe vide : ajoutez au moins un fournisseur.' }, { status: 400 });
+      }
+      await saveAiChain(members);
+      invalidateAiProviderConfigCache();
+      return NextResponse.json({
+        data: {
+          chain: members.map(m => ({
+            provider: m.provider,
+            apiKey: '',
+            apiKeyMasked: m.apiKey ? maskAiKey(m.apiKey) : '',
+            model: m.model,
+            baseUrl: m.baseUrl,
+          })),
+        },
+        message: `Équipe enregistrée (${members.length} fournisseur${members.length > 1 ? 's' : ''} en bascule).`,
+      });
     }
 
     // ── action: save ──

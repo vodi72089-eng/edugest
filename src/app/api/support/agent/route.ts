@@ -4,7 +4,7 @@ import { requireAuth, checkRateLimit, sanitizeError } from '@/lib/auth';
 import { logAudit } from '@/lib/audit';
 import { notify } from '@/lib/notify';
 import { getTierLimits } from '@/lib/subscription';
-import { chatWithAi } from '@/lib/ai-providers';
+import { chatWithAiChain } from '@/lib/ai-providers';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AGENT IA SUPPORT (« notre agent pour répondre aux clients »)
@@ -92,12 +92,16 @@ export async function POST(request: NextRequest) {
 
     let reply = '';
     try {
-      const out = await chatWithAi([
+      // Équipe configurée (bascule auto) ou config unique historique.
+      const out = await chatWithAiChain([
         { role: 'system', content: SYSTEM_PROMPT },
         ...history,
         { role: 'user', content: message },
       ]);
       reply = out.reply;
+      if (out.failovers.length > 0) {
+        console.warn(`[Support:agent] Bascule IA : ${out.failovers.map(f => f.from).join(' → ')} → ${out.provider}`);
+      }
     } catch (e) {
       console.error('[Support:agent] Provider error:', e instanceof Error ? e.message : e);
     }

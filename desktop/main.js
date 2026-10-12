@@ -546,7 +546,7 @@ try {
       // est présent et non vide dans Téléchargements, on l'utilise quand même.
       let f = pendingPortableAsset.file;
       if (!f || !fs.existsSync(f)) {
-        const expected = path.join(app.getPath('downloads'), `EduGest-Portable-${pendingPortableAsset.version}.exe`);
+        const expected = path.join(app.getPath('downloads'), `Kelasi360-Portable-${pendingPortableAsset.version}.exe`);
         if (fs.existsSync(expected) && fs.statSync(expected).size > 0) f = expected;
       }
       if (f && fs.existsSync(f)) {
@@ -721,7 +721,7 @@ async function verifyPortableChecksum(asset) {
 }
 
 function downloadPortableUpdate(asset) {
-  const dest = path.join(app.getPath('downloads'), `EduGest-Portable-${asset.version}.exe`);
+  const dest = path.join(app.getPath('downloads'), `Kelasi360-Portable-${asset.version}.exe`);
   const startDownload = () => {
     log('Téléchargement portable :', dest);
     sendUpdate('downloading', { percent: 0, version: asset.version });
@@ -897,16 +897,16 @@ function checkPortableUpdate(manual = false) {
           // ── SÉCURITÉ : checksum sha512 publié par electron-builder dans
           // latest.yml (pièce jointe de la release). Il accompagne le
           // téléchargement et est vérifié AVANT toute exécution (openPath).
-          const sha512 = extractSha512ForFile(body, `EduGest-Portable-${latest}.exe`);
+          const sha512 = extractSha512ForFile(body, `Kelasi360-Portable-${latest}.exe`);
           if (!sha512) {
-            log('latest.yml sans sha512 pour', `EduGest-Portable-${latest}.exe`, '— MAJ refusée (intégrité invérifiable).');
+            log('latest.yml sans sha512 pour', `Kelasi360-Portable-${latest}.exe`, '— MAJ refusée (intégrité invérifiable).');
             pendingPortableAsset = null;
             return;
           }
           // Bannière in-app (comme l'installée) : l'exe portable est
           // téléchargé directement (redirections GitHub suivies), GitHub reste
           // invisible pour l'utilisateur.
-          pendingPortableAsset = { url: `${RELEASE_LATEST_BASE}/EduGest-Portable-${latest}.exe`, version: latest, sha512, file: null, verified: false };
+          pendingPortableAsset = { url: `${RELEASE_LATEST_BASE}/Kelasi360-Portable-${latest}.exe`, version: latest, sha512, file: null, verified: false };
           sendUpdate('available', { version: latest });
         } catch {}
       });

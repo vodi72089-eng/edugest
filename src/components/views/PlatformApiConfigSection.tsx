@@ -14,6 +14,7 @@ import {
   CircleCheck,
   DownloadCloud,
   Bot,
+  Search,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import AppSelect from '@/components/ui/AppSelect'
@@ -863,18 +864,37 @@ interface AiPreset {
 
 const AGENT_TIERS = ['FREEMIUM', 'ESSENTIEL', 'STANDARD', 'PREMIUM', 'ENTERPRISE', 'CORPORATE']
 
+interface AiSlot {
+  provider: string
+  apiKey: string
+  apiKeyMasked: string
+  model: string
+  baseUrl: string
+  models: string[]
+  detecting: boolean
+  testing: boolean
+  testReply: string
+}
+
+interface AiUsage {
+  date: string
+  stats: Record<string, { calls: number; fails: number }>
+  lastActive: string | null
+  lastFailover: { at: string; from: string; to: string; error: string } | null
+}
+
+function emptySlot(): AiSlot {
+  return { provider: '', apiKey: '', apiKeyMasked: '', model: '', baseUrl: '', models: [], detecting: false, testing: false, testReply: '' }
+}
+
 function AiAssistantConfigCard() {
   const [loaded, setLoaded] = useState(false)
-  const [cfg, setCfg] = useState<{ configured: boolean; provider: string } | null>(null)
+  const [chainActive, setChainActive] = useState(false)
   const [presets, setPresets] = useState<AiPreset[]>([])
-  const [form, setForm] = useState({ provider: 'zai', apiKey: '', model: '', baseUrl: '' })
-  const [maskedKey, setMaskedKey] = useState('')
+  const [slots, setSlots] = useState<AiSlot[]>([emptySlot(), emptySlot(), emptySlot()])
+  const [usage, setUsage] = useState<AiUsage | null>(null)
   const [testQuestion, setTestQuestion] = useState('')
-  const [testReply, setTestReply] = useState('')
   const [saving, setSaving] = useState(false)
-  const [testing, setTesting] = useState(false)
-
-  const preset = presets.find(p => p.value === form.provider)
 
   useEffect(() => {
     authFetch('/api/ai-config')
@@ -882,44 +902,89 @@ function AiAssistantConfigCard() {
       .then(j => {
         if (j.data) {
           if (Array.isArray(j.data.presets)) setPresets(j.data.presets)
-          setCfg({ configured: !!j.data.configured, provider: j.data.provider || 'zai' })
-          setMaskedKey(j.data.apiKeyMasked || '')
-          setForm({
-            provider: j.data.provider || 'zai',
-            apiKey: '',
-            model: j.data.model || '',
-            baseUrl: j.data.baseUrl || '',
-          })
+          const saved: { provider: string; apiKeyMasked: string; model: string; baseUrl: string }[] =
+            Array.isArray(j.data.chain) ? j.data.chain : []
+          setChainActive(saved.length > 0)
+          setSlots([0, 1, 2].map(i => ({
+            ...emptySlot(),
+            provider: saved[i]?.provider || '',
+            apiKeyMasked: saved[i]?.apiKeyMasked || '',
+            model: saved[i]?.model || '',
+            baseUrl: saved[i]?.baseUrl || '',
+          })))
+          if (j.data.usage) setUsage(j.data.usage)
         }
         setLoaded(true)
       })
       .catch(() => setLoaded(true))
   }, [])
 
-  // Quand le fournisseur change : pré-remplit modèle + URL du préréglage.
-  function pickProvider(val: string) {
-    const p = presets.find(x => x.value === val)
-    setForm(f => ({
-      ...f,
-      provider: val,
-      model: p?.defaultModel || '',
-      baseUrl: p?.baseUrl || '',
-    }))
+  function setSlot(i: number, patch: Partial<AiSlot>) {
+    setSlots(prev => prev.map((s, k) => (k === i ? { ...s, ...patch } : s)))
   }
 
-  async function save(): Promise<boolean> {
+  // Quand le fournisseur change : pré-remplit modèle + URL du préréglage.
+  function pickProvider(i: number, val: string) {
+    const p = presets.find(x => x.value === val)
+    setSlot(i, { provider: val, model: p?.defaultModel || '', baseUrl: p?.baseUrl || '', models: [] })
+  }
+
+  // Détecte les modèles réellement exposés par la clé (bouton par membre).
+  async function detectModels(i: number) {
+    const s = slots[i]
+    if (!s.provider) {
+      toast.error('Choisissez d’abord un fournisseur')
+      return
+    }
+    setSlot(i, { detecting: true })
+    try {
+      const res = await authFetch('/api/ai-config', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'models', provider: s.provider, apiKey: s.apiKey, baseUrl: s.baseUrl }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error || 'Détection impossible — vérifiez la clé', { duration: 10000 })
+        return
+      }
+      const models: string[] = json.data?.models || []
+      setSlot(i, { models, model: models.includes(s.model) ? s.model : (models[0] || s.model) })
+      toast.success(`${models.length} modèle${models.length > 1 ? 's' : ''} détecté${models.length > 1 ? 's' : ''} chez ${s.provider}`)
+    } catch {
+      toast.error('Erreur réseau', { duration: 8000 })
+    } finally {
+      setSlot(i, { detecting: false })
+    }
+  }
+
+  async function saveChain(): Promise<boolean> {
+    const members = slots.filter(s => s.provider)
+    if (members.length === 0) {
+      toast.error('Ajoutez au moins un fournisseur à l’équipe')
+      return false
+    }
     setSaving(true)
     try {
       const res = await authFetch('/api/ai-config', {
         method: 'POST',
-        body: JSON.stringify({ action: 'save', ...form }),
+        body: JSON.stringify({
+          action: 'save-chain',
+          members: members.map(s => ({ provider: s.provider, apiKey: s.apiKey, model: s.model, baseUrl: s.baseUrl })),
+        }),
       })
       const json = await res.json()
       if (res.ok) {
-        toast.success(json.message || 'Fournisseur IA enregistré')
-        setCfg({ configured: !!json.data?.configured, provider: json.data?.provider || form.provider })
-        if (json.data?.apiKeyMasked !== undefined) setMaskedKey(json.data.apiKeyMasked || '')
-        setForm(f => ({ ...f, apiKey: '' }))
+        toast.success(json.message || 'Équipe enregistrée')
+        setChainActive(true)
+        const saved = Array.isArray(json.data?.chain) ? json.data.chain : []
+        setSlots([0, 1, 2].map(k => ({
+          ...emptySlot(),
+          provider: saved[k]?.provider || slots[k]?.provider || '',
+          apiKeyMasked: saved[k]?.apiKeyMasked || slots[k]?.apiKeyMasked || '',
+          model: saved[k]?.model || slots[k]?.model || '',
+          baseUrl: saved[k]?.baseUrl || slots[k]?.baseUrl || '',
+          models: slots[k]?.models || [],
+        })))
         return true
       }
       toast.error(json.error || 'Erreur de sauvegarde', { duration: 8000 })
@@ -932,31 +997,37 @@ function AiAssistantConfigCard() {
     }
   }
 
-  async function sendTest() {
-    if (!testQuestion.trim()) {
-      toast.error('Écrivez une question de test')
+  async function testSlot(i: number) {
+    const s = slots[i]
+    if (!s.provider) {
+      toast.error('Choisissez d’abord un fournisseur')
       return
     }
-    setTesting(true)
-    setTestReply('')
+    if (!testQuestion.trim()) {
+      toast.error('Écrivez une question de test ci-dessous')
+      return
+    }
+    setSlot(i, { testing: true, testReply: '' })
     try {
       // Teste AVEC les identifiants saisis SANS les enregistrer.
       const res = await authFetch('/api/ai-config', {
         method: 'POST',
-        body: JSON.stringify({ action: 'test', question: testQuestion, ...form }),
+        body: JSON.stringify({
+          action: 'test', question: testQuestion,
+          provider: s.provider, apiKey: s.apiKey, model: s.model, baseUrl: s.baseUrl,
+        }),
       })
       const json = await res.json()
       if (!res.ok) {
-        toast.error(json.error || 'Échec du test — la configuration enregistrée est inchangée', { duration: 12000 })
+        toast.error(json.error || 'Échec du test', { duration: 12000 })
         return
       }
-      setTestReply(`[${json.data?.provider || form.provider} · ${json.data?.model || ''}] ${json.data?.reply || ''}`)
-      await save()
-      toast.success('Fournisseur validé et enregistré')
+      setSlot(i, { testReply: `[${json.data?.model || s.model}] ${json.data?.reply || ''}` })
+      toast.success('Ce membre répond — pensez à Enregistrer l’équipe')
     } catch {
       toast.error('Erreur réseau', { duration: 8000 })
     } finally {
-      setTesting(false)
+      setSlot(i, { testing: false })
     }
   }
 
@@ -977,93 +1048,152 @@ function AiAssistantConfigCard() {
             {loaded && (
               <span
                 className="text-[10px] px-2 py-0.5 rounded-full font-bold"
-                style={cfg?.configured
+                style={chainActive
                   ? { background: 'oklch(94% 0.05 145)', color: 'oklch(40% 0.13 145)' }
                   : { background: 'oklch(94% 0.005 250)', color: 'oklch(52% 0.015 250)' }}
               >
-                {cfg?.configured ? 'Fournisseur externe actif' : 'ZAI intégré (défaut)'}
+                {chainActive ? 'Équipe active (bascule auto)' : 'ZAI intégré (défaut)'}
               </span>
             )}
           </div>
           <p className="mt-0.5 text-xs leading-relaxed" style={{ color: TEXT_MUTED_LUXE }}>
-            Choisissez le fournisseur LLM de l’Agent IA (OpenAI, DeepSeek, OpenRouter, Mistral, Groq,
-            Gemini, NVIDIA, Ollama local ou autre API compatible OpenAI). Sans clé : le SDK ZAI intégré répond.
+            L’équipe répond dans l’ordre : si le quota du n°1 est fini (ou en panne), ça passe
+            directement au n°2, puis au n°3. Sans équipe : le SDK ZAI intégré répond.
           </p>
         </div>
       </div>
 
       <div className="mt-4 space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>Fournisseur</label>
-            <AppSelect
-              value={form.provider}
-              onChange={pickProvider}
-              options={presets.map(p => ({ value: p.value, label: p.label }))}
-              disabled={!loaded}
-            />
-          </div>
-          <div>
-            <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>Modèle</label>
-            <input
-              type="text"
-              value={form.model}
-              onChange={e => setForm(f => ({ ...f, model: e.target.value }))}
-              placeholder={preset?.defaultModel || 'ex. gpt-4o-mini'}
-              autoComplete="off"
-              className={`${inputClass} font-mono`}
-              disabled={form.provider === 'zai'}
-            />
-          </div>
-          <div>
-            <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>
-              Clé API {maskedKey && <span className="font-normal normal-case">— vide = conservée</span>}
-            </label>
-            <input
-              type="password"
-              value={form.apiKey}
-              onChange={e => setForm(f => ({ ...f, apiKey: e.target.value }))}
-              placeholder={preset?.keyHint || '—inutile avec ZAI —'}
-              autoComplete="new-password"
-              className={`${inputClass} font-mono`}
-              disabled={form.provider === 'zai'}
-            />
-            {maskedKey && (
-              <p className="mt-1 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
-                Enregistrée : <span className="font-mono font-semibold">{maskedKey}</span>
-              </p>
-            )}
-          </div>
-          <div>
-            <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>URL de base (personnalisé)</label>
-            <input
-              type="text"
-              value={form.baseUrl}
-              onChange={e => setForm(f => ({ ...f, baseUrl: e.target.value }))}
-              placeholder="https://api.exemple.com/v1"
-              autoComplete="off"
-              className={`${inputClass} font-mono`}
-              disabled={form.provider !== 'custom'}
-            />
-          </div>
-        </div>
+        {slots.map((s, i) => {
+          const preset = presets.find(p => p.value === s.provider)
+          const noKey = s.provider === 'zai' || s.provider === 'ollama'
+          return (
+            <div key={i} className="rounded-xl border p-3 space-y-3" style={{ borderColor: 'oklch(92% 0.01 175)', background: 'oklch(98% 0.004 175)' }}>
+              <div className="flex items-center gap-2">
+                <span className="grid place-items-center w-6 h-6 rounded-lg text-xs font-extrabold shrink-0" style={{ background: 'oklch(95% 0.05 65)', color: 'oklch(55% 0.14 65)' }}>
+                  {i + 1}
+                </span>
+                <p className="text-[13px] font-bold" style={{ color: TEXT_PRIMARY }}>
+                  {i === 0 ? 'Principal' : `Secours ${i}`} {i > 0 && <span className="font-normal" style={{ color: TEXT_MUTED_LUXE }}>— prend le relais si le précédent échoue</span>}
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>Fournisseur</label>
+                  <AppSelect
+                    value={s.provider}
+                    onChange={val => pickProvider(i, val)}
+                    options={[{ value: '', label: '— Aucun —' }, ...presets.map(p => ({ value: p.value, label: p.label }))]}
+                    disabled={!loaded}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>
+                    Clé API {s.apiKeyMasked && <span className="font-normal normal-case">— vide = conservée</span>}
+                  </label>
+                  <input
+                    type="password"
+                    value={s.apiKey}
+                    onChange={e => setSlot(i, { apiKey: e.target.value })}
+                    placeholder={preset?.keyHint || (noKey ? '— inutile —' : 'Collez la clé')}
+                    autoComplete="new-password"
+                    className={`${inputClass} font-mono`}
+                    disabled={!s.provider || noKey}
+                  />
+                  {s.apiKeyMasked && (
+                    <p className="mt-1 text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
+                      Enregistrée : <span className="font-mono font-semibold">{s.apiKeyMasked}</span>
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>Modèle de l’équipe</label>
+                  {s.models.length > 0 ? (
+                    <AppSelect
+                      value={s.model}
+                      onChange={val => setSlot(i, { model: val })}
+                      options={s.models.map(m => ({ value: m, label: m }))}
+                      disabled={!s.provider}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={s.model}
+                      onChange={e => setSlot(i, { model: e.target.value })}
+                      placeholder={preset?.defaultModel || 'ex. gpt-4o-mini'}
+                      autoComplete="off"
+                      className={`${inputClass} font-mono`}
+                      disabled={!s.provider || s.provider === 'zai'}
+                    />
+                  )}
+                </div>
+                <div>
+                  <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>URL de base (personnalisé)</label>
+                  <input
+                    type="text"
+                    value={s.baseUrl}
+                    onChange={e => setSlot(i, { baseUrl: e.target.value })}
+                    placeholder="https://api.exemple.com/v1"
+                    autoComplete="off"
+                    className={`${inputClass} font-mono`}
+                    disabled={s.provider !== 'custom'}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => detectModels(i)}
+                  disabled={s.detecting || !s.provider || s.provider === 'zai'}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition disabled:opacity-40 border"
+                  style={{ borderColor: 'oklch(90% 0.01 175)', color: TEXT_PRIMARY }}
+                  title="Liste les modèles réellement exposés par cette clé"
+                >
+                  {s.detecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                  {s.detecting ? 'Détection…' : 'Détecter les modèles'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => testSlot(i)}
+                  disabled={s.testing || saving || !s.provider}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+                  style={{ background: 'oklch(55% 0.15 175)' }}
+                  title="Teste ce membre avec la question ci-dessous, sans enregistrer"
+                >
+                  {s.testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  {s.testing ? 'Test…' : 'Tester ce membre'}
+                </button>
+                {s.models.length > 0 && (
+                  <span className="inline-flex items-center text-[11px] font-semibold" style={{ color: TEXT_MUTED_LUXE }}>
+                    {s.models.length} modèle{s.models.length > 1 ? 's' : ''} détecté{s.models.length > 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+              {s.testReply && (
+                <p className="text-xs leading-relaxed rounded-xl px-3 py-2.5" style={{ background: 'oklch(97% 0.02 145)', color: TEXT_PRIMARY }}>
+                  {s.testReply}
+                </p>
+              )}
+            </div>
+          )
+        })}
 
         <div className="flex items-end">
           <button
             type="button"
-            onClick={save}
+            onClick={saveChain}
             disabled={saving}
             className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-60 w-full sm:w-auto"
             style={{ background: 'oklch(15% 0.02 250)' }}
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {saving ? 'Enregistrement…' : 'Enregistrer'}
+            {saving ? 'Enregistrement…' : 'Enregistrer l’équipe'}
           </button>
         </div>
 
         <div className="pt-3 border-t" style={{ borderColor: BORDER }}>
-          <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>Tester le fournisseur</label>
-          <div className="flex gap-2 max-w-md">
+          <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>Question de test (pour « Tester ce membre »)</label>
+          <div className="max-w-md">
             <input
               type="text"
               value={testQuestion}
@@ -1072,23 +1202,37 @@ function AiAssistantConfigCard() {
               autoComplete="off"
               className={inputClass}
             />
-            <button
-              type="button"
-              onClick={sendTest}
-              disabled={testing || saving}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white transition hover:opacity-90 disabled:opacity-60 shrink-0"
-              style={{ background: 'oklch(55% 0.15 175)' }}
-            >
-              {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-              Envoyer
-            </button>
           </div>
-          {testReply && (
-            <p className="mt-2 text-xs leading-relaxed rounded-xl px-3 py-2.5" style={{ background: 'oklch(97% 0.02 145)', color: TEXT_PRIMARY }}>
-              {testReply}
-            </p>
-          )}
         </div>
+
+        {usage && (
+          <div className="pt-3 border-t space-y-2" style={{ borderColor: BORDER }}>
+            <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>Suivi des quotas — aujourd’hui ({usage.date})</label>
+            <div className="flex flex-wrap gap-2">
+              {Object.keys(usage.stats).length === 0 && (
+                <span className="text-xs" style={{ color: TEXT_MUTED_LUXE }}>Aucun appel aujourd’hui.</span>
+              )}
+              {Object.entries(usage.stats).map(([p, st]) => (
+                <span
+                  key={p}
+                  className="px-3 py-1.5 rounded-full text-[11px] font-bold font-mono"
+                  style={st.fails > 0
+                    ? { background: 'oklch(95% 0.02 25)', color: 'oklch(45% 0.18 25)' }
+                    : { background: 'oklch(95% 0.01 175)', color: TEXT_PRIMARY }}
+                  title={`${st.fails} échec(s)`}
+                >
+                  {p} : {st.calls} appel{st.calls > 1 ? 's' : ''}{st.fails > 0 ? ` (${st.fails} éch.)` : ''}{usage.lastActive === p ? ' ● actif' : ''}
+                </span>
+              ))}
+            </div>
+            {usage.lastFailover && (
+              <p className="text-[11px]" style={{ color: TEXT_MUTED_LUXE }}>
+                Dernière bascule : <strong>{usage.lastFailover.from} → {usage.lastFailover.to}</strong>
+                {' '}({usage.lastFailover.error.slice(0, 120)})
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="pt-3 border-t" style={{ borderColor: BORDER }}>
           <label className={labelClass} style={{ color: TEXT_MUTED_LUXE }}>Quotas — questions/jour/compte</label>
