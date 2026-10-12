@@ -20,7 +20,7 @@ const REPO = 'vodi72089-eng/edugest';
 // Repli épinglé : release connue la plus récente. Jamais la page de releases.
 const FALLBACK_VERSION = '1.4.24';
 const CACHE_TTL_MS = 2 * 60 * 1000;
-const VERSION_PATTERN = /^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/;
+const VERSION_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
 type ExeUrls = {
   version: string;
