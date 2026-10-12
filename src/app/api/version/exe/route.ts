@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 
 // GET /api/version/exe
-// Résolution SERVEUR des URLs directes de téléchargement de la dernière
-// release GitHub (exe Setup + exe Portable).
+// Résolution serveur de la version de l'EXE courant (Setup + Portable).
 //
 // Pourquoi cet endpoint existe : le navigateur ne PEUT PAS lire
 // `releases/latest/download/latest.yml` lui-même — GitHub n'envoie aucun
@@ -13,8 +12,7 @@ import { NextResponse } from 'next/server';
 // GitHub au lieu de télécharger). Ici le Worker fetch GitHub côté serveur
 // (pas de CORS), avec cache mémoire 10 min ; en cas d'échec il renvoie
 // l'URL DIRECTE épinglée de la dernière release connue — jamais la page
-// GitHub. Un clic déclenche donc toujours un téléchargement immédiat
-// (Content-Disposition: attachment côté GitHub).
+// GitHub. Le clic utilise ensuite le proxy de téléchargement sur ce domaine.
 
 export const dynamic = 'force-dynamic';
 
@@ -46,8 +44,7 @@ function directUrls(version: string, latest: boolean): ExeUrls {
   };
 }
 
-// Cache mémoire par isolate : au plus quelques requêtes GitHub toutes les
-// 10 minutes, même pour un burst de visiteurs.
+// Cache mémoire par isolate pendant 2 minutes pour limiter les requêtes GitHub.
 let cache: { ts: number; value: ExeUrls } | null = null;
 
 async function resolveExeUrls(): Promise<ExeUrls> {
