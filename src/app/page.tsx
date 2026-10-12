@@ -2386,7 +2386,7 @@ function LoginView() {
           </div>
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-1">
-              Edu<span style={{ color: 'oklch(72% 0.15 65)', textShadow: '0 0 20px oklch(72% 0.15 65 / 0.4)' }}>Gest</span>
+              Kelasi<span style={{ color: 'oklch(72% 0.15 65)', textShadow: '0 0 20px oklch(72% 0.15 65 / 0.4)' }}>360</span>
             </h1>
             <p className="text-white/50 text-sm font-medium">
               La plateforme de gestion scolaire
