@@ -119,7 +119,7 @@ export default function Footer({ onLogin, onNavigate }: FooterProps) {
           <div className="pt-16 sm:pt-20 pb-12 sm:pb-16 text-center sm:text-left">
             <div className="flex items-center justify-center sm:justify-start gap-3 mb-3">
               <img
-                src="/edugest-logo-new.png"
+                src="/edugest-logo.png"
                 alt="Kelasi 360"
                 width="32"
                 height="32"

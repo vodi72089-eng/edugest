@@ -3,10 +3,10 @@
 /**
  * BrandLogo - LE logo officiel Kelasi 360, centralisé (source unique).
  *
- * Deux variantes dérivées du logo officiel :
- *  - 'full' → emblème haute définition (/edugest-logo-new.png, 1200x849) —
- *    l'ancien /edugest-logo.png (1000x884, avec le lettrage « EDUC GEST »)
- *    était illisible à 36 px de haut : le texte dégénéré en bouillie.
+ * Deux variantes :
+ *  - 'full' → logo complet classique (/edugest-logo.png, emblème + lettrage) —
+ *    rétabli à la demande du propriétaire (l'emblème seul /edugest-logo-new.png
+ *    avait brièvement remplacé le logo complet en octobre 2026).
  *  - 'mark' → symbole seul, couronne + livre (/edugest-logo-mark.png, 512²),
  *    utilisé pour les petites tailles (favicon, avatars, en-têtes compacts).
  *
@@ -24,7 +24,7 @@ export default function BrandLogo({
   className?: string
   style?: React.CSSProperties
 }) {
-  const src = variant === 'mark' ? '/edugest-logo-mark.png' : '/edugest-logo-new.png'
+  const src = variant === 'mark' ? '/edugest-logo-mark.png' : '/edugest-logo.png'
   return (
     <img
       src={src}

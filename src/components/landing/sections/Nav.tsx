@@ -21,7 +21,7 @@ const NAV_ITEMS = [
 function Kelasi360Logo({ className = '' }: { className?: string }) {
   return (
     <img
-      src="/edugest-logo-new.png"
+      src="/edugest-logo.png"
       alt="Kelasi 360"
       width="32"
       height="32"
