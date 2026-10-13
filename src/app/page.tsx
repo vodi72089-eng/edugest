@@ -412,19 +412,44 @@ function formatDuration(s: number): string {
   return rest ? `${h} h ${String(rest).padStart(2, '0')}` : `${h} h`
 }
 
+// Distance à vol d'oiseau (Haversine, en mètres) — sert à détecter « sur
+// place » AVANT d'appeler le routage : OSRM ancre chaque point au nœud du
+// réseau routier le plus proche, ce qui ajoute toujours quelques mètres même
+// quand la position du visiteur coïncide avec celle de l'école (d'où un
+// « 9 m » persistant là où l'utilisateur est déjà sur place).
+function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLng = ((lng2 - lng1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(a))
+}
+
+// Seuil « sur place » (mètres) : en deçà, le trajet est nul (l'utilisateur est
+// déjà à l'école). 50 m absorbe la précision GPS + l'ancrage au réseau routier.
+const SEUIL_SUR_PLACE = 50
+
 function SchoolItinerary({ lat, lng }: { lat: number; lng: number }) {
   const [phase, setPhase] = useState<'idle' | 'locating' | 'loading' | 'done' | 'error'>('idle')
   const [message, setMessage] = useState('')
   const [results, setResults] = useState<{ key: string; icon: string; label: string; distance: number; duration: number }[]>([])
+  const [surPlace, setSurPlace] = useState(false)
 
   function calc() {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       setPhase('error'); setMessage("La géolocalisation n'est pas disponible sur cet appareil."); return
     }
-    setPhase('locating')
+    setPhase('locating'); setSurPlace(false)
     navigator.geolocation.getCurrentPosition(async pos => {
       setPhase('loading')
       const { latitude, longitude } = pos.coords
+      // Sur place ? On court-circuite le routage (l'ancrage au réseau routier
+      // renverrait quelques mètres même à position identique) : trajet nul.
+      if (haversine(latitude, longitude, lat, lng) < SEUIL_SUR_PLACE) {
+        setSurPlace(true); setResults([]); setPhase('done'); return
+      }
       const found: { key: string; icon: string; label: string; distance: number; duration: number }[] = []
       await Promise.all(OSRM_MODES.map(async mode => {
         try {
@@ -469,7 +494,12 @@ function SchoolItinerary({ lat, lng }: { lat: number; lng: number }) {
         </p>
       )}
       {phase === 'error' && <p className="text-[13px] mt-3" style={{ color: '#b91c1c' }}>{message}</p>}
-      {phase === 'done' && (
+      {phase === 'done' && surPlace && (
+        <p className="text-[13px] mt-4 font-medium" style={{ color: TEXT_PRIMARY }}>
+          📍 Vous êtes sur place — cette école est juste à côté.
+        </p>
+      )}
+      {phase === 'done' && !surPlace && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
           {results.map(r => (
             <div key={r.key} className="bg-white rounded-xl px-4 py-3 text-center border border-[oklch(88%_0.01_175)]">
