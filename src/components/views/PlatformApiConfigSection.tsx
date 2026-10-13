@@ -964,7 +964,7 @@ function AiAssistantConfigCard() {
           setChainActive(saved.length > 0)
           setSlots([0, 1, 2].map(i => ({
             ...emptySlot(),
-            provider: saved[i]?.provider || '',
+            provider: saved[i]?.provider || (i === 0 ? 'nvidia' : ''),
             apiKeyMasked: saved[i]?.apiKeyMasked || '',
             model: saved[i]?.model || '',
             baseUrl: saved[i]?.baseUrl || '',
@@ -1008,17 +1008,17 @@ function AiAssistantConfigCard() {
   }
 
   // Détecte les modèles réellement exposés par la clé (bouton par membre).
+  // Sans fournisseur choisi : utilise le préréglage du champ (ex. NVIDIA) —
+  // l'utilisateur n'a qu'à coller sa clé. La saisie manuelle reste toujours
+  // disponible si la liste est vide.
   async function detectModels(i: number) {
     const s = slots[i]
-    if (!s.provider) {
-      toast.error('Choisissez d’abord un fournisseur')
-      return
-    }
+    const provider = s.provider || 'zai'
     setSlot(i, { detecting: true })
     try {
       const res = await authFetch('/api/ai-config', {
         method: 'POST',
-        body: JSON.stringify({ action: 'models', provider: s.provider, apiKey: s.apiKey, baseUrl: s.baseUrl }),
+        body: JSON.stringify({ action: 'models', provider, apiKey: s.apiKey, baseUrl: s.baseUrl }),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -1026,8 +1026,13 @@ function AiAssistantConfigCard() {
         return
       }
       const models: string[] = json.data?.models || []
-      setSlot(i, { models, model: models.includes(s.model) ? s.model : (models[0] || s.model) })
-      toast.success(`${models.length} modèle${models.length > 1 ? 's' : ''} détecté${models.length > 1 ? 's' : ''} chez ${s.provider}`)
+      setSlot(i, {
+        models,
+        model: models.includes(s.model) ? s.model : (models[0] || s.model),
+        // Pré-sélectionne le fournisseur si « Aucun » et la clé a donné des modèles
+        provider: s.provider || provider,
+      })
+      toast.success(`${models.length} modèle${models.length > 1 ? 's' : ''} détecté${models.length > 1 ? 's' : ''} chez ${provider}`)
     } catch {
       toast.error('Erreur réseau', { duration: 8000 })
     } finally {
@@ -1057,7 +1062,7 @@ function AiAssistantConfigCard() {
         const saved = Array.isArray(json.data?.chain) ? json.data.chain : []
         setSlots([0, 1, 2].map(k => ({
           ...emptySlot(),
-          provider: saved[k]?.provider || slots[k]?.provider || '',
+          provider: saved[k]?.provider || slots[k]?.provider || (k === 0 ? 'nvidia' : ''),
           apiKeyMasked: saved[k]?.apiKeyMasked || slots[k]?.apiKeyMasked || '',
           model: saved[k]?.model || slots[k]?.model || '',
           baseUrl: saved[k]?.baseUrl || slots[k]?.baseUrl || '',
@@ -1225,7 +1230,7 @@ function AiAssistantConfigCard() {
                 <button
                   type="button"
                   onClick={() => detectModels(i)}
-                  disabled={s.detecting || !s.provider || s.provider === 'zai'}
+                  disabled={s.detecting || !s.apiKey.trim()}
                   className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition disabled:opacity-40 border"
                   style={{ borderColor: 'oklch(90% 0.01 175)', color: TEXT_PRIMARY }}
                   title="Liste les modèles réellement exposés par cette clé"
