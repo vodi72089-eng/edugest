@@ -1106,7 +1106,7 @@ function AiAssistantConfigCard() {
         return
       }
       setSlot(i, { testReply: `[${json.data?.model || s.model}] ${json.data?.reply || ''}` })
-      toast.success('Ce membre répond — pensez à Enregistrer l’équipe')
+      toast.success('Ce membre répond — Enregistrez l’équipe pour l’activer')
     } catch {
       toast.error('Erreur réseau', { duration: 8000 })
     } finally {

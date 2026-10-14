@@ -106,7 +106,10 @@ export async function POST(request: NextRequest) {
       console.error('[Support:agent] Provider error:', e instanceof Error ? e.message : e);
     }
     if (!reply.trim()) {
-      return NextResponse.json({ error: 'L\u2019agent n\u2019a pas pu générer de réponse — reformulez ou ouvrez un ticket.' }, { status: 502 });
+      return NextResponse.json({
+        error: 'L\u2019agent n\u2019a pas pu générer de réponse — reformulez ou ouvrez un ticket.',
+        hint: 'Si le problème persiste : aucun fournisseur IA n\u2019est actif. Le super admin doit configurer l\u2019équipe IA (Contrôle plateforme → Assistant IA → Enregistrer l\u2019équipe).',
+      }, { status: 502 });
     }
 
     await logAudit({
