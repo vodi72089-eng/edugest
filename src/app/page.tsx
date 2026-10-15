@@ -10681,9 +10681,20 @@ export default function Home() {
         aria-busy="true"
         aria-label="Chargement de Kelasi 360"
       >
-        <div className="flex items-center gap-3 text-white/55 text-sm">
-          <span className="h-2.5 w-2.5 rounded-full animate-pulse" style={{ background: '#f5a623' }} />
-          Chargement de Kelasi 360…
+        <div className="flex flex-col items-center gap-7">
+          {/* Livre animé (même CSS que la page de connexion — globals.css) */}
+          <div className="edu-book mx-auto" style={{ transform: 'scale(1.15)' }}>
+            <div className="edu-book__pg-shadow"></div>
+            <div className="edu-book__pg"></div>
+            <div className="edu-book__pg edu-book__pg--2"></div>
+            <div className="edu-book__pg edu-book__pg--3"></div>
+            <div className="edu-book__pg edu-book__pg--4"></div>
+            <div className="edu-book__pg edu-book__pg--5"></div>
+          </div>
+          <div className="flex items-center gap-3 text-white/55 text-sm">
+            <span className="h-2.5 w-2.5 rounded-full animate-pulse" style={{ background: '#f5a623' }} />
+            Chargement de Kelasi 360…
+          </div>
         </div>
       </main>
     )
