@@ -2396,18 +2396,9 @@ function LoginView() {
       {/* Top nav bar */}
       <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-4 w-full shrink-0">
         <div className="flex items-center shrink-0 min-w-max">
-          {/* Logo cliquable : retour à la landing publique (dans l'exe,
-              resolveView rabat 'home' sur 'login' — voir store.ts) */}
-          <button
-            type="button"
-            onClick={() => setCurrentView('home')}
-            aria-label="Retour à l'accueil"
-            title="Retour à l'accueil"
-            className="flex items-center gap-2 cursor-pointer"
-            style={{ background: 'none', border: 'none', padding: 0 }}
-          >
-            <BrandMark height={40} className="brightness-110" />
-          </button>
+          {/* Logo : simple marque visuelle. Le retour à l'accueil se fait via
+              le bouton en haut à droite — un seul contrôle, pas de doublon. */}
+          <BrandMark height={40} className="brightness-110" />
         </div>
         {!isDesktopApp() && (
           <button
@@ -2426,17 +2417,6 @@ function LoginView() {
           (min-h-screen, pas de overflow-hidden) : le pied de page reste au bas de l'écran
           quand le contenu est court et est poussé vers le bas quand il dépasse */}
       <main className="relative z-20 flex-1 w-full flex flex-col items-center justify-center px-4 sm:px-6 py-6 gap-5">
-        {!isDesktopApp() && (
-          <button
-            type="button"
-            onClick={() => setCurrentView('home')}
-            aria-label="Retour à la page d'accueil"
-            className="absolute left-4 sm:left-6 top-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs sm:text-sm font-medium text-white/55 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
-          >
-            <ArrowLeft size={15} aria-hidden="true" />
-            Retour à l’accueil
-          </button>
-        )}
         {/* Animated Book + Brand */}
         <div className="text-center flex flex-col items-center gap-3 shrink-0">
           <div className="edu-book mx-auto" style={{ transform: 'scale(0.9)' }}>
