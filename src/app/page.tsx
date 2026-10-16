@@ -4133,7 +4133,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
         {showNotifications && (
           <>
           <div className="fixed inset-0 z-30" style={{ background: 'rgba(0,0,0,0.15)' }} onClick={() => setShowNotifications(false)} />
-          <div className="absolute right-0 top-full mt-2 w-[360px] max-h-[480px] rounded-2xl shadow-2xl border overflow-hidden z-40" style={{ background: '#fff', borderColor: `oklch(88% 0.01 175)` }}>
+          <div className="absolute right-0 top-full mt-2 w-[calc(100vw-3rem)] max-w-[360px] max-h-[480px] rounded-2xl shadow-2xl border overflow-hidden z-40" style={{ background: '#fff', borderColor: `oklch(88% 0.01 175)` }}>
             <div className="px-4 py-3 flex items-center justify-between border-b" style={{ borderColor: `oklch(88% 0.01 175)` }}>
               <div className="flex items-center gap-2">
                 <Bell size={15} style={{ color: TEXT_PRIMARY }} />
