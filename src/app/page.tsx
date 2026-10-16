@@ -4841,7 +4841,12 @@ function DashboardLayout() {
   // le menu d'un ordinateur par la navigation mobile.
   const [isMobileDevice, setIsMobileDevice] = useState(false)
   useEffect(() => {
-    setIsMobileDevice(isMobilePhone())
+    // iPhone/iPad/iPod, Android (téléphone ou tablette) et iPadOS en mode bureau.
+    // Un navigateur d'ordinateur étroit reste toujours dans l'interface desktop.
+    const ua = navigator.userAgent || ''
+    const isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)
+    const isAndroid = /Android/i.test(ua)
+    setIsMobileDevice(isIOS || isAndroid)
   }, [])
   // Popup d'import : affichée une fois, juste après la connexion d'un admin
   // d'école (les identifiants ont été validés par l'API d'authenthentication).
