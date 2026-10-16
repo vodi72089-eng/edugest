@@ -802,10 +802,10 @@ function HomeView() {
         </nav>
 
         {/* Main hero content */}
-        <main className="relative z-10 flex flex-col items-center justify-center flex-grow px-4 text-center mt-[-40px]">
+        <main className="relative z-10 flex flex-col items-center justify-center flex-grow px-4 text-center mt-0 sm:mt-[-40px]">
           {/* Typewriter title */}
           <div className="mb-10 sm:mb-14 flex flex-col items-center relative">
-            <h1 className="text-5xl sm:text-6xl md:text-[6.5rem] font-black text-white leading-[1.05] tracking-tighter mb-6 sm:mb-8 relative inline-block mx-auto select-none" style={{ minHeight: '140px' }}>
+            <h1 className="text-5xl sm:text-6xl md:text-[6.5rem] font-black text-white leading-[1.05] tracking-tighter mb-6 sm:mb-8 relative inline-block mx-auto select-none min-h-[132px] sm:min-h-[170px] md:min-h-[260px]">
               <span id="typewriter-line-1" className="inline-block relative">{typewriterLine1}{typewriterActiveLine === 1 && <span className="animate-pulse">|</span>}</span>
               <br />
               <span className="italic font-playfair inline-block relative" style={{ color: '#f5a623', textShadow: '0 0 25px rgba(245, 166, 35, 0.5), 0 0 50px rgba(245, 166, 35, 0.2)' }}>{typewriterLine2}{typewriterActiveLine === 2 && <span className="animate-pulse">|</span>}</span>
@@ -818,20 +818,20 @@ function HomeView() {
           {/* Glass morphism search bar */}
           <div className="w-full max-w-4xl mb-16 sm:mb-24 relative z-20">
             <div className="p-2 rounded-2xl flex flex-col md:flex-row items-center gap-3 shadow-2xl border-white/10" style={{ background: 'rgba(26, 37, 32, 0.4)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)' }}>
-              <div className="flex items-center flex-grow w-full px-4 sm:px-6 gap-4">
+              <div className="flex items-center flex-grow w-full min-w-0 px-4 sm:px-6 gap-4">
                 <Search size={20} className="text-gray-400 shrink-0" />
                 <input
                   type="text" placeholder="Rechercher une école par nom..."
                   value={search} onChange={e => setSearch(e.target.value)}
-                  className="w-full bg-transparent border-none text-white py-4 text-base sm:text-lg font-medium placeholder-gray-500 tracking-tight outline-none"
+                  className="w-full min-w-0 bg-transparent border-none text-white py-4 text-base sm:text-lg font-medium placeholder-gray-500 tracking-tight outline-none"
                 />
               </div>
               <div className="hidden md:block h-10 w-px bg-white/10 mx-1" />
-              <div className="flex items-center w-full md:w-auto gap-3 px-2 md:px-0">
-                <div className="relative flex-grow md:flex-grow-0">
+              <div className="flex items-center w-full md:w-auto min-w-0 gap-3 px-2 md:px-0">
+                <div className="relative flex-grow md:flex-grow-0 min-w-0">
                   <AppSelect dark value={province} onChange={setProvince} options={PROVINCES} className="w-full md:w-48" />
                 </div>
-                <button className="w-full md:w-auto bg-[#f5a623] text-[#0a0f0d] px-10 py-4 rounded-xl font-extrabold text-sm uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)] whitespace-nowrap cursor-pointer">
+                <button className="shrink-0 bg-[#f5a623] text-[#0a0f0d] px-6 sm:px-10 py-4 rounded-xl font-extrabold text-sm uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-[0_10px_20px_rgba(245,166,35,0.2)] whitespace-nowrap cursor-pointer">
                   Rechercher
                 </button>
               </div>
