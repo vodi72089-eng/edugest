@@ -1006,3 +1006,47 @@
    media query 640px rétrécissait uniquement la caisse et cassait les
    proportions internes (ombre, perspective et motifs restaient en em
    plein format). */
+
+
+/* ===== KELASI 360 MOBILE BOTTOM NAVIGATION ===== */
+/* Safe-area spacing is applied inline on the fixed nav shell; these styles
+   compact the controls in phone landscape without changing the desktop sidebar. */
+.kelasi-mobile-bottom-bar {
+  width: 100%;
+  padding-left: max(0.25rem, env(safe-area-inset-left));
+  padding-right: max(0.25rem, env(safe-area-inset-right));
+}
+
+.kelasi-mobile-bottom-bar nav {
+  width: 100%;
+}
+
+.kelasi-mobile-bottom-bar .mobile-nav-button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 1023px) and (orientation: landscape) and (max-height: 500px) {
+  .kelasi-mobile-bottom-bar nav {
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  .kelasi-mobile-bottom-bar .mobile-nav-button {
+    min-height: 44px;
+    flex-direction: row;
+    gap: 0.35rem;
+    padding-top: 0.2rem;
+    padding-bottom: 0.2rem;
+  }
+
+  .kelasi-mobile-bottom-bar .mobile-nav-button > span:last-child {
+    font-size: 0.625rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kelasi-mobile-bottom-bar .mobile-nav-button {
+    transition: none;
+  }
+}

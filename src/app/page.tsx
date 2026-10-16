@@ -2920,8 +2920,36 @@ function LoginView() {
 }
 
 // ===== SIDEBAR =====
-function Sidebar() {
-  const { userRole, userData, currentView, setCurrentView, logout, sidebarOpen, setSidebarOpen, setDisciplineTab, activeSchoolId, setActiveSchoolId } = useEduGestStore()
+function Sidebar({ desktopVisible = true }: { desktopVisible?: boolean }) {
+  const { userRole, userData, currentView, setCurrentView, logout, setDisciplineTab, activeSchoolId, setActiveSchoolId } = useEduGestStore()
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
+  const [mobileKeyboardOpen, setMobileKeyboardOpen] = useState(false)
+
+  useEffect(() => {
+    const viewport = window.visualViewport
+    if (!viewport) return
+    const updateKeyboardState = () => {
+      setMobileKeyboardOpen(window.innerHeight - viewport.height > 150)
+    }
+    updateKeyboardState()
+    viewport.addEventListener('resize', updateKeyboardState)
+    viewport.addEventListener('scroll', updateKeyboardState)
+    window.addEventListener('resize', updateKeyboardState)
+    return () => {
+      viewport.removeEventListener('resize', updateKeyboardState)
+      viewport.removeEventListener('scroll', updateKeyboardState)
+      window.removeEventListener('resize', updateKeyboardState)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!mobileMoreOpen) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileMoreOpen(false)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [mobileMoreOpen])
 
   // Admin plateforme : sélecteur d'« école active » — l'admin plateforme
   // n'est rattaché à aucune école ; il choisit ici le contexte scolaire
@@ -3174,11 +3202,65 @@ HEAD_TEACHER: [
     ]
   }
 
+  // Navigation mobile construite à partir de la liste déjà filtrée pour le rôle
+  // et le forfait (y compris les exceptions parents, médical et freemium).
+  // Aucune route ni permission parallèle n'est créée pour les petits écrans.
+  const preferredMobileSlots: Array<{ views: ViewType[]; label: string; icon: React.ReactNode }> = [
+    { views: ['dashboard'], label: 'Accueil', icon: <LayoutDashboard size={19} /> },
+    { views: ['students'], label: 'Élèves', icon: <Users size={19} /> },
+    { views: ['payments', 'online-payment'], label: 'Paiements', icon: <CreditCard size={19} /> },
+    { views: ['attendance'], label: 'Présences', icon: <CalendarCheck size={19} /> },
+  ]
+  const mobilePrimaryItems: MenuItem[] = []
+  const mobilePrimaryViews = new Set<ViewType>()
+
+  for (const slot of preferredMobileSlots) {
+    const found = menuItems.find(item => slot.views.includes(item.view) && !mobilePrimaryViews.has(item.view))
+    if (found) {
+      mobilePrimaryItems.push({ ...found, label: slot.label, icon: slot.icon })
+      mobilePrimaryViews.add(found.view)
+    }
+  }
+
+  // Certains rôles (ex. enseignant, parent, support) n'ont pas accès à toutes
+  // les rubriques prioritaires. Compléter avec leurs premières destinations
+  // visibles dans le menu existant, sans jamais dupliquer une route.
+  if (mobilePrimaryItems.length === 0 && menuItems[0]) {
+    const first = menuItems[0]
+    mobilePrimaryItems.push({ ...first, label: 'Accueil', icon: <LayoutDashboard size={19} /> })
+    mobilePrimaryViews.add(first.view)
+  }
+  // Ne pas remplir les emplacements avec des rubriques arbitraires :
+  // chaque onglet principal n'existe que si le menu du rôle/forfait autorise
+  // réellement cette destination. Les autres rubriques restent dans « Plus ».
+
+  const mobileMoreItems = menuItems.filter(item => !mobilePrimaryViews.has(item.view))
+  const mobileMoreIsActive = mobileMoreItems.some(item => item.view === currentView)
+
+  const shortMobileLabel = (label: string) => ({
+    'Dashboard Médical': 'Accueil',
+    'Mes enfants': 'Mes enfants',
+    'Espace Corporate': 'Espace',
+    'Enregistrer paiement': 'Paiements',
+    'Payer en ligne': 'Paiements',
+    'Liste de présence': 'Présences',
+    'Config. Paiements': 'Config. paiement',
+    'Situation financière': 'Finances',
+    'Gestion des Parents': 'Parents',
+    'Connexion WhatsApp': 'WhatsApp',
+    'Contrôle plateforme': 'Plateforme',
+    'Journal d’activité': 'Journal',
+    'Fiches Médicales': 'Fiches méd.',
+    'Service Médical': 'Médical',
+    'Passage de classe': 'Passage',
+    'Mon Abonnement': 'Abonnement',
+    'Administration plateforme': 'Plateforme',
+  } as Record<string, string>)[label] || label
+
   return (
     <>
-      {/* Mobile overlay */}
-      {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
-      <aside className={`fixed lg:sticky top-0 left-0 z-50 lg:z-auto h-screen w-[240px] flex flex-col transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} style={{ background: DARK, boxShadow: '4px 0 24px oklch(10% 0.02 250 / 0.3)' }}>
+      {/* Menu latéral inchangé sur ordinateur ; navigation dédiée sur téléphone. */}
+      <aside className={`hidden lg:sticky top-0 left-0 z-auto h-screen w-[240px] flex-col transition-transform duration-200 ${desktopVisible ? 'lg:flex' : 'lg:hidden'}`} style={{ background: DARK, boxShadow: '4px 0 24px oklch(10% 0.02 250 / 0.3)' }}>
         <div className="p-[18px] flex items-center gap-2.5 border-b border-white/10">
           {userData?.schoolLogo ? (
             <img src={userData.schoolLogo} alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
@@ -3223,7 +3305,7 @@ HEAD_TEACHER: [
             {menuItems.map(item => (
               <button
                 key={item.label}
-                onClick={() => { if (item.tab) setDisciplineTab(item.tab); setCurrentView(item.view); setSidebarOpen(false) }}
+                onClick={() => { if (item.tab) setDisciplineTab(item.tab); setCurrentView(item.view) }}
                 className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13.5px] font-medium transition-all duration-200 ${
                   currentView === item.view
                     ? 'text-[oklch(72%_0.15_65)] font-semibold'
@@ -3258,6 +3340,101 @@ HEAD_TEACHER: [
           </div>
         </div>
       </aside>
+
+      {/* Barre inférieure mobile : les destinations proviennent du menu autorisé du rôle. */}
+      <div className={`kelasi-mobile-bottom-bar fixed inset-x-0 bottom-0 z-[60] lg:hidden ${mobileKeyboardOpen ? 'hidden' : ''}`} style={{ background: 'rgba(10, 15, 13, 0.96)', borderTop: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <nav
+          aria-label="Navigation principale"
+          className="grid gap-1 px-1.5 pt-1.5 pb-1"
+          style={{ gridTemplateColumns: `repeat(${mobilePrimaryItems.length + 1}, minmax(0, 1fr))` }}
+        >
+          {mobilePrimaryItems.map(item => (
+            <button
+              key={item.view}
+              type="button"
+              onClick={() => { if (item.tab) setDisciplineTab(item.tab); setCurrentView(item.view); setMobileMoreOpen(false) }}
+              aria-label={item.label}
+              aria-current={currentView === item.view ? 'page' : undefined}
+              title={item.label}
+              className="mobile-nav-button flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-medium leading-tight transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-amber-400"
+              style={currentView === item.view
+                ? { color: '#f5a623', background: 'rgba(245,166,35,0.13)' }
+                : { color: 'rgba(255,255,255,0.68)' }}
+            >
+              <span aria-hidden="true" className="flex items-center justify-center">{item.icon}</span>
+              <span className="block max-w-full truncate">{shortMobileLabel(item.label)}</span>
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setMobileMoreOpen(open => !open)}
+            aria-label="Plus de rubriques"
+            aria-expanded={mobileMoreOpen}
+            aria-haspopup="dialog"
+            className="mobile-nav-button flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-medium leading-tight transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-amber-400"
+            style={mobileMoreOpen || mobileMoreIsActive
+              ? { color: '#f5a623', background: 'rgba(245,166,35,0.13)' }
+              : { color: 'rgba(255,255,255,0.68)' }}
+          >
+            <MoreVertical size={19} aria-hidden="true" />
+            <span>Plus</span>
+          </button>
+        </nav>
+      </div>
+
+      {mobileMoreOpen && (
+        <div className="fixed inset-0 z-[70] lg:hidden">
+          <button
+            type="button"
+            aria-label="Fermer le menu Plus"
+            className="absolute inset-0 h-full w-full bg-black/50"
+            onClick={() => setMobileMoreOpen(false)}
+          />
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="kelasi-mobile-more-title"
+            className="fixed inset-x-3 max-h-[min(68dvh,560px)] overflow-y-auto overscroll-contain rounded-2xl border border-white/10 p-4 shadow-2xl"
+            style={{ bottom: 'calc(4.75rem + env(safe-area-inset-bottom))', background: DARK }}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h2 id="kelasi-mobile-more-title" className="text-base font-bold text-white">Autres rubriques</h2>
+                <p className="mt-0.5 text-xs text-white/50">Accès selon votre rôle et votre abonnement</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Fermer"
+                onClick={() => setMobileMoreOpen(false)}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white/75 transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"
+              >
+                <X size={20} aria-hidden="true" />
+              </button>
+            </div>
+            {mobileMoreItems.length > 0 ? (
+              <nav aria-label="Autres sections" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {mobileMoreItems.map(item => (
+                  <button
+                    key={item.view}
+                    type="button"
+                    onClick={() => { if (item.tab) setDisciplineTab(item.tab); setCurrentView(item.view); setMobileMoreOpen(false) }}
+                    aria-current={currentView === item.view ? 'page' : undefined}
+                    className="flex min-h-12 min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-amber-400"
+                    style={currentView === item.view
+                      ? { color: '#f5a623', background: 'rgba(245,166,35,0.13)', borderColor: 'rgba(245,166,35,0.45)' }
+                      : { color: 'rgba(255,255,255,0.82)', background: 'rgba(255,255,255,0.035)', borderColor: 'rgba(255,255,255,0.09)' }}
+                  >
+                    <span aria-hidden="true" className="shrink-0">{item.icon}</span>
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                  </button>
+                ))}
+              </nav>
+            ) : (
+              <p className="rounded-xl border border-white/10 px-3 py-4 text-sm text-white/60">Aucune autre rubrique n’est disponible pour ce rôle.</p>
+            )}
+          </section>
+        </div>
+      )}
     </>
   )
 }
@@ -3411,7 +3588,7 @@ const VIEW_ICONS: Partial<Record<ViewType, React.ReactNode>> = {
 }
 
 function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; onToggleSidebar: () => void }) {
-  const { currentView, sidebarOpen, setSidebarOpen, setCurrentView, userData, userRole, setHighlightedId, activeSchoolName } = useEduGestStore()
+  const { currentView, setCurrentView, userData, userRole, setHighlightedId, activeSchoolName } = useEduGestStore()
   // Adresse LIVE du navigateur (ex. /students?q=jean) affichée sous le fil
   // d'Ariane — l'utilisateur voit où il se trouve. Mise à jour via popstate
   // (boutons Retour/Avant) + événement 'edugest:url' émis par syncUrl()/
@@ -3883,9 +4060,6 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
   return (
     <header className="sticky top-0 z-20 h-16 flex items-center justify-between px-4 sm:px-6" style={{ background: 'rgba(252, 251, 249, 0.85)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '1px solid oklch(90% 0.005 175 / 0.5)' }}>
       <div className="flex items-center gap-4">
-        <button className="lg:hidden p-2 rounded-xl hover:bg-white/80 transition-all duration-200" onClick={() => setSidebarOpen(!sidebarOpen)}>
-          {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
-        </button>
         <button
           onClick={onToggleSidebar}
           className="hidden lg:flex p-2 rounded-xl hover:bg-white/80 transition-all duration-200 items-center gap-1.5"
@@ -4768,10 +4942,10 @@ function DashboardLayout() {
   }, [])
   return (
     <div className={`min-h-screen grid grid-cols-1 ${sidebarVisible ? 'lg:grid-cols-[240px_1fr]' : ''}`} style={{ background: IVORY }}>
-      {sidebarVisible && <Sidebar />}
-      <div className="flex flex-col min-w-0">
+      <Sidebar desktopVisible={sidebarVisible} />
+      <div className="flex min-w-0 flex-col overflow-x-clip lg:overflow-x-visible">
         <Topbar sidebarVisible={sidebarVisible} onToggleSidebar={() => setSidebarVisible(v => !v)} />
-        <main className="flex-1 p-6 sm:p-8 overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-[calc(6.5rem+env(safe-area-inset-bottom))] lg:pb-8 overflow-y-auto">
           <MainContent />
         </main>
       </div>
