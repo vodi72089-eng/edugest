@@ -282,6 +282,7 @@ jobs:
           files: |
             desktop/dist/*.exe
             desktop/dist/latest.yml
+            ${{ steps.version.outputs.version != '1.4.29' && 'desktop/dist/*.blockmap' || '' }}
           draft: true
           prerelease: false
           fail_on_unmatched_files: true
