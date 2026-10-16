@@ -475,45 +475,45 @@ function PersonalizationViewInner({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-4">
-              {userData?.schoolLogo ? (
-                <img
-                  src={userData.schoolLogo}
-                  alt="Photo de l'école"
-                  className="h-20 w-20 rounded-2xl border-4 border-white object-cover shadow-lg"
-                />
-              ) : (
-                <div
-                  className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl border-4 border-white text-2xl font-bold text-white shadow-lg"
-                  style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}
-                >
-                  {brandInitial}
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-sm" style={{ color: TEXT_MUTED_LUXE }}>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-4">
+                {userData?.schoolLogo ? (
+                  <img
+                    src={userData.schoolLogo}
+                    alt="Photo de l'école"
+                    className="h-20 w-20 shrink-0 rounded-2xl border-4 border-white object-cover shadow-lg"
+                  />
+                ) : (
+                  <div
+                    className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl border-4 border-white text-2xl font-bold text-white shadow-lg"
+                    style={{ background: `linear-gradient(135deg, ${ACCENT}, ${GOLD})` }}
+                  >
+                    {brandInitial}
+                  </div>
+                )}
+                <p className="min-w-0 flex-1 text-sm" style={{ color: TEXT_MUTED_LUXE }}>
                   {userData?.schoolLogo
                     ? 'Votre photo est visible sur tous les documents et dans l’app.'
                     : 'Aucune photo pour le moment — ajoutez celle de votre établissement.'}
                 </p>
-                <div className="mt-3">
-                  <Button
-                    type="button"
-                    onClick={() => logoInputRef.current?.click()}
-                    disabled={uploadingLogo}
-                    className="h-10 rounded-xl px-4 font-semibold text-white"
-                    style={{ backgroundColor: colors.accent }}
-                  >
-                    {uploadingLogo ? (
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                    ) : (
-                      <Camera className="h-4 w-4" aria-hidden="true" />
-                    )}
-                    {uploadingLogo ? 'Import…' : userData?.schoolLogo ? 'Changer la photo' : 'Ajouter la photo'}
-                  </Button>
-                </div>
-                <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleUploadLogo} />
               </div>
+              <div>
+                <Button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  disabled={uploadingLogo}
+                  className="h-10 w-full rounded-xl px-4 font-semibold text-white sm:w-auto"
+                  style={{ backgroundColor: colors.accent }}
+                >
+                  {uploadingLogo ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Camera className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  {uploadingLogo ? 'Import…' : userData?.schoolLogo ? 'Changer la photo' : 'Ajouter la photo'}
+                </Button>
+              </div>
+              <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleUploadLogo} />
             </div>
           </CardContent>
         </Card>
@@ -529,10 +529,10 @@ function PersonalizationViewInner({
               <Palette className="h-5 w-5 text-white" aria-hidden="true" />
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="truncate text-base font-bold text-white sm:text-lg">
+              <h2 className="text-base font-bold leading-snug text-white sm:text-lg">
                 Personnalisation de l&apos;App
               </h2>
-              <p className="truncate text-xs text-white/75">
+              <p className="text-xs leading-relaxed text-white/75">
                 Adaptez l&apos;identité visuelle de votre école —{' '}
                 <span className="font-mono">
                   {colors.primary} · {colors.accent} · {colors.gold}

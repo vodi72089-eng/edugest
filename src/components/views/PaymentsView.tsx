@@ -448,7 +448,7 @@ export default function PaymentsView() {
                 onChange={e => setPaidAmount(e.target.value)}
                 type="number"
                 disabled={allPaid}
-                className="flex-1 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 min-w-0 px-3 py-2 border border-[oklch(90%_0.01_175)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[oklch(72%_0.15_65_/_0.3)] focus:border-[oklch(72%_0.15_65_/_0.5)] disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <AppSelect value={payCurrency} onChange={setPayCurrency} disabled={allPaid} className="w-20" options={SUPPORTED_CURRENCIES.map(c => ({ value: c.code, label: c.code }))} />
             </div>
@@ -474,7 +474,7 @@ export default function PaymentsView() {
           <div><label className="text-xs font-medium" style={{ color: TEXT_MUTED_LUXE }}>Statut</label><div className="mt-1"><AppSelect value={status} onChange={setStatus} options={[{ value: 'PAID', label: 'Payé' }, { value: 'PARTIAL', label: 'Partiel' }, { value: 'PENDING', label: 'En attente' }, { value: 'OVERDUE', label: 'En retard' }]} /></div></div>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={handlePayment} disabled={submitting || allPaid || schoolHasFees === false} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-50">
+          <button onClick={handlePayment} disabled={submitting || allPaid || schoolHasFees === false} className="edu-gold-cta px-6 py-2.5 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50">
             {submitting ? <div className="h-4 w-4 border-2 border-[oklch(15%_0.02_250)] border-t-transparent rounded-full animate-spin" /> : <CreditCard size={14} />}
             Enregistrer le paiement
           </button>

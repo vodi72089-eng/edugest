@@ -251,7 +251,7 @@ export default function SchoolAdminDashboard() {
               Santé Scolaire
             </span>
             {!limits.medicalAccess && (
-              <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">
+              <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold whitespace-nowrap shrink-0">
                 PRO requis
               </span>
             )}
