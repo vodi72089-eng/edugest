@@ -2392,7 +2392,7 @@ function LoginView() {
       {/* Gradient overlays */}
       <div className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-[#0a0f0d] via-[#0b1613]/50 to-transparent pointer-events-none z-10" />
       <div className="absolute top-0 right-0 w-[500px] h-[500px] opacity-15 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, oklch(72% 0.15 65 / 0.3), transparent 70%)' }} />
-      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] opacity-10 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, oklch(60% 0.15 145 / 0.2), transparent 70%)' }} />
+      <div className="absolute bottom-0 left-0 w-[min(400px,100vw)] h-[400px] opacity-10 pointer-events-none z-0" style={{ background: 'radial-gradient(circle, oklch(60% 0.15 145 / 0.2), transparent 70%)' }} />
 
       {/* Top nav bar */}
       <nav className="relative z-50 flex items-center justify-between px-6 sm:px-8 md:px-16 py-4 w-full shrink-0">

@@ -759,6 +759,12 @@
   animation: edu-book-cover 5s ease-in-out infinite;
 }
 .edu-book {
+  /* Taille continue selon la largeur d'écran (remplace l'ancienne media
+     query 640px qui ne redimensionnait QUE la caisse) : ~12px sur mobile
+     360px → 16px dès 640px. Tout le livre étant composé en `em`, ce seul
+     font-size fait varier proportionnellement caisse, pages, ombre,
+     perspective (37.5em) et motifs — proportions 8×6em toujours exactes. */
+  font-size: clamp(0.75rem, 0.425rem + 1.43vw, 1rem);
   background-color: oklch(55% 0.15 175);
   border-radius: 0.25em;
   box-shadow:
@@ -994,10 +1000,9 @@
   }
 }
 
-/* Responsive book size */
-@media (max-width: 640px) {
-  .edu-book {
-    width: 6em;
-    height: 4.5em;
-  }
-}
+/* Responsive book size → géré EN CONTINU par le font-size clamp() de
+   `.edu-book` ci-dessus : la caisse reste 8×6em, c'est l'échelle (donc
+   tout le livre, en em) qui varie avec la largeur d'écran. L'ancienne
+   media query 640px rétrécissait uniquement la caisse et cassait les
+   proportions internes (ombre, perspective et motifs restaient en em
+   plein format). */
