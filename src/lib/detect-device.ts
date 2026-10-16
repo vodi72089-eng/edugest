@@ -194,6 +194,19 @@ export function isWindowsDesktop(): boolean {
   return info.os === 'Windows' && info.isDesktop
 }
 
+/**
+ * VRAI uniquement sur un TÉLÉPHONE (Android mobile, iPhone…) :
+ * les tablettes sont exclues (isMobile vaut false pour elles).
+ * Sert à ne JAMAIS afficher la popup « Application desktop requise »
+ * sur téléphone — côté client uniquement.
+ */
+export function isMobilePhone(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  if (!ua) return false
+  return detectDevice(ua).isMobile
+}
+
 export function getDeviceIcon(device: string, deviceModel: string): string {
   if (device === 'Tablette' || deviceModel.toLowerCase().includes('ipad')) return 'tablet'
   if (device === 'Téléphone') return 'phone'

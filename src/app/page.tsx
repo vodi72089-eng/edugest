@@ -11,7 +11,7 @@ import { toast } from 'sonner'
 import { savePdfBlob, savePdfUrl, toastPdfSaved } from '@/lib/desktop-files'
 import { startAutoSyncLoop, runAutoSync } from '@/lib/sync-auto'
 import { reportDeviceFingerprint } from '@/lib/device-fingerprint'
-import { isWindowsDesktop } from '@/lib/detect-device'
+import { isWindowsDesktop, isMobilePhone } from '@/lib/detect-device'
 import { GATEWAY_API_INFO } from '@/lib/gateway-api-info'
 import type { SchoolData, StudentData, ClassData, GradeData, PaymentData, DisciplineData, CommunicationData, HomeworkData } from '@/lib/types'
 import { ACCENT, ACCENT2, ACCENT_SOFT, SUCCESS, WARNING, DANGER, INFO, MUTED, BORDER, GOLD, GOLD_SOFT, GOLD_GLOW, DARK, DARK_ALT, IVORY, IVORY_WARM, TEXT_PRIMARY, TEXT_MUTED_LUXE, SUCCESS_SOFT, SUBSCRIPTION_TIERS, PROVINCES, FILTER_CHIPS, COVER_GRADIENTS, LOGO_COLORS, ENROLLMENT_DATA, SUBSCRIPTION_DATA } from '@/lib/constants'
@@ -2215,6 +2215,7 @@ function LoginView() {
         sessionStorage.removeItem('edugest:pending-import-uid')
         if (em) setStandaloneImportEmail(em)
       } catch {}
+      if (isMobilePhone()) return
       if (!isDesktopApp()) { setShowDesktopReqLogin(true); return }
       setShowStandaloneImport(true)
     }
@@ -4678,12 +4679,15 @@ function DashboardLayout() {
   })
   // Modal « desktop uniquement » (version web) : proposé après la connexion
   // quand le flag d'import est posé — l'utilisateur comprend pourquoi l'import
-  // est inaccessible et peut télécharger l'exe.
+  // est inaccessible et peut télécharger l'exe. JAMAIS sur téléphone : l'exe
+  // Windows n'y est ni installable ni pertinent (le flag est consommé en
+  // silence pour ne pas réapparaître à la prochaine connexion).
   const [showDesktopOnly, setShowDesktopOnly] = useState(() => {
     if (typeof window === 'undefined' || isDesktopApp()) return false
     try {
       if (sessionStorage.getItem('edugest_show_import_db') === '1') {
         sessionStorage.removeItem('edugest_show_import_db')
+        if (isMobilePhone()) return false
         return true
       }
     } catch {}
@@ -4728,6 +4732,10 @@ function DashboardLayout() {
         setImportInitialEmail(em)
       } catch {}
       if (isDesktopApp()) setShowImportDb(true)
+      else if (isMobilePhone()) {
+        // Téléphone : jamais de popup « desktop requis » — simple explication.
+        try { toast.info('Import réservé à l’application Windows (Kelasi 360 Desktop).') } catch {}
+      }
       else setShowDesktopOnly(true)
     }
     window.addEventListener('edugest:open-import-db', openImportDb)
