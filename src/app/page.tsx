@@ -3260,7 +3260,10 @@ HEAD_TEACHER: [
   return (
     <>
       {/* Menu latéral inchangé sur ordinateur ; navigation dédiée sur téléphone. */}
-      <aside className={`hidden lg:sticky top-0 left-0 z-auto h-screen w-[240px] flex-col transition-transform duration-200 ${isMobileDevice ? 'lg:hidden' : desktopVisible ? 'lg:flex' : 'lg:hidden'}`} style={{ background: DARK, boxShadow: '4px 0 24px oklch(10% 0.02 250 / 0.3)' }}>
+      {/* Desktop : barre latérale en colonne ≥ lg, en tiroir fixe couvrant en
+          dessous de lg (la fenêtre étroite garde sa navigation au lieu de tout
+          perdre) ; mobile : jamais visible (barre inférieure dediée). */}
+      <aside className={`${isMobileDevice ? 'hidden' : desktopVisible ? 'flex max-lg:fixed max-lg:z-[65] lg:sticky' : 'hidden'} top-0 left-0 z-auto h-screen w-[240px] flex-col transition-transform duration-200`} style={{ background: DARK, boxShadow: '4px 0 24px oklch(10% 0.02 250 / 0.3)' }}>
         <div className="p-[18px] flex items-center gap-2.5 border-b border-white/10">
           {userData?.schoolLogo ? (
             <img src={userData.schoolLogo} alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
@@ -4062,7 +4065,7 @@ function Topbar({ sidebarVisible, onToggleSidebar, isMobileDevice = false }: { s
       <div className="flex items-center gap-4">
         <button
           onClick={onToggleSidebar}
-          className={`${isMobileDevice ? 'hidden' : 'hidden lg:flex'} p-2 rounded-xl hover:bg-white/80 transition-all duration-200 items-center gap-1.5`}
+          className={`${isMobileDevice ? 'hidden' : 'flex'} p-2 rounded-xl hover:bg-white/80 transition-all duration-200 items-center gap-1.5`}
           title={sidebarVisible ? 'Masquer le menu' : 'Afficher le menu'}
         >
           {sidebarVisible ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
