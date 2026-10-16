@@ -2920,8 +2920,26 @@ function LoginView() {
 
 // ===== SIDEBAR =====
 function Sidebar({ desktopVisible = true }: { desktopVisible?: boolean }) {
-  const { userRole, userData, currentView, setCurrentView, logout, setSidebarOpen, setDisciplineTab, activeSchoolId, setActiveSchoolId } = useEduGestStore()
+  const { userRole, userData, currentView, setCurrentView, logout, setDisciplineTab, activeSchoolId, setActiveSchoolId } = useEduGestStore()
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
+  const [mobileKeyboardOpen, setMobileKeyboardOpen] = useState(false)
+
+  useEffect(() => {
+    const viewport = window.visualViewport
+    if (!viewport) return
+    const updateKeyboardState = () => {
+      setMobileKeyboardOpen(window.innerHeight - viewport.height > 150)
+    }
+    updateKeyboardState()
+    viewport.addEventListener('resize', updateKeyboardState)
+    viewport.addEventListener('scroll', updateKeyboardState)
+    window.addEventListener('resize', updateKeyboardState)
+    return () => {
+      viewport.removeEventListener('resize', updateKeyboardState)
+      viewport.removeEventListener('scroll', updateKeyboardState)
+      window.removeEventListener('resize', updateKeyboardState)
+    }
+  }, [])
 
   useEffect(() => {
     if (!mobileMoreOpen) return
@@ -3189,7 +3207,7 @@ HEAD_TEACHER: [
   const preferredMobileSlots: Array<{ views: ViewType[]; label: string; icon: React.ReactNode }> = [
     { views: ['dashboard'], label: 'Accueil', icon: <LayoutDashboard size={19} /> },
     { views: ['students'], label: 'Élèves', icon: <Users size={19} /> },
-    { views: ['payments', 'online-payment', 'payment-verification'], label: 'Paiements', icon: <CreditCard size={19} /> },
+    { views: ['payments', 'online-payment'], label: 'Paiements', icon: <CreditCard size={19} /> },
     { views: ['attendance'], label: 'Présences', icon: <CalendarCheck size={19} /> },
   ]
   const mobilePrimaryItems: MenuItem[] = []
@@ -3289,7 +3307,7 @@ HEAD_TEACHER: [
             {menuItems.map(item => (
               <button
                 key={item.label}
-                onClick={() => { if (item.tab) setDisciplineTab(item.tab); setCurrentView(item.view); setSidebarOpen(false) }}
+                onClick={() => { if (item.tab) setDisciplineTab(item.tab); setCurrentView(item.view) }}
                 className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13.5px] font-medium transition-all duration-200 ${
                   currentView === item.view
                     ? 'text-[oklch(72%_0.15_65)] font-semibold'
@@ -3326,7 +3344,7 @@ HEAD_TEACHER: [
       </aside>
 
       {/* Barre inférieure mobile : les destinations proviennent du menu autorisé du rôle. */}
-      <div className="fixed inset-x-0 bottom-0 z-[60] lg:hidden" style={{ background: 'rgba(10, 15, 13, 0.96)', borderTop: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <div className={`kelasi-mobile-bottom-bar fixed inset-x-0 bottom-0 z-[60] lg:hidden ${mobileKeyboardOpen ? 'hidden' : ''}`} style={{ background: 'rgba(10, 15, 13, 0.96)', borderTop: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <nav
           aria-label="Navigation principale"
           className="grid gap-1 px-1.5 pt-1.5 pb-1"
@@ -3336,11 +3354,11 @@ HEAD_TEACHER: [
             <button
               key={item.view}
               type="button"
-              onClick={() => { if (item.tab) setDisciplineTab(item.tab); setCurrentView(item.view); setMobileMoreOpen(false); setSidebarOpen(false) }}
+              onClick={() => { if (item.tab) setDisciplineTab(item.tab); setCurrentView(item.view); setMobileMoreOpen(false) }}
               aria-label={item.label}
               aria-current={currentView === item.view ? 'page' : undefined}
               title={item.label}
-              className="flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-medium leading-tight transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-amber-400"
+              className="mobile-nav-button flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-medium leading-tight transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-amber-400"
               style={currentView === item.view
                 ? { color: '#f5a623', background: 'rgba(245,166,35,0.13)' }
                 : { color: 'rgba(255,255,255,0.68)' }}
@@ -3355,7 +3373,7 @@ HEAD_TEACHER: [
             aria-label="Plus de rubriques"
             aria-expanded={mobileMoreOpen}
             aria-haspopup="dialog"
-            className="flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-medium leading-tight transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-amber-400"
+            className="mobile-nav-button flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-medium leading-tight transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-amber-400"
             style={mobileMoreOpen || mobileMoreIsActive
               ? { color: '#f5a623', background: 'rgba(245,166,35,0.13)' }
               : { color: 'rgba(255,255,255,0.68)' }}
@@ -3401,7 +3419,7 @@ HEAD_TEACHER: [
                   <button
                     key={item.view}
                     type="button"
-                    onClick={() => { if (item.tab) setDisciplineTab(item.tab); setCurrentView(item.view); setMobileMoreOpen(false); setSidebarOpen(false) }}
+                    onClick={() => { if (item.tab) setDisciplineTab(item.tab); setCurrentView(item.view); setMobileMoreOpen(false) }}
                     aria-current={currentView === item.view ? 'page' : undefined}
                     className="flex min-h-12 min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-amber-400"
                     style={currentView === item.view
