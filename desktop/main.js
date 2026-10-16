@@ -950,10 +950,6 @@ function setupAutoUpdate() {
   }
 
   // — Version installée : détection + téléchargement, annonce en bannière —
-  // Désactive les mises à jour différentielles pour éviter qu'un blockmap
-  // périmé ou incohérent en cache ne produise un sha512 checksum mismatch.
-  // Chaque mise à jour est téléchargée intégralement, puis vérifiée par SHA-512.
-  autoUpdater.disableDifferentialDownload = true;
   autoUpdater.autoDownload = false;
   // Même si l'utilisateur ignore la bannière, la MAJ déjà téléchargée est
   // appliquée automatiquement à la prochaine fermeture de l'application.
