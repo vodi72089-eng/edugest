@@ -2920,7 +2920,7 @@ function LoginView() {
 }
 
 // ===== SIDEBAR =====
-function Sidebar({ desktopVisible = true }: { desktopVisible?: boolean }) {
+function Sidebar({ desktopVisible = true, isMobileDevice = false }: { desktopVisible?: boolean; isMobileDevice?: boolean }) {
   const { userRole, userData, currentView, setCurrentView, logout, setDisciplineTab, activeSchoolId, setActiveSchoolId } = useEduGestStore()
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
   const [mobileKeyboardOpen, setMobileKeyboardOpen] = useState(false)
@@ -3260,7 +3260,7 @@ HEAD_TEACHER: [
   return (
     <>
       {/* Menu latéral inchangé sur ordinateur ; navigation dédiée sur téléphone. */}
-      <aside className={`hidden lg:sticky top-0 left-0 z-auto h-screen w-[240px] flex-col transition-transform duration-200 ${desktopVisible ? 'lg:flex' : 'lg:hidden'}`} style={{ background: DARK, boxShadow: '4px 0 24px oklch(10% 0.02 250 / 0.3)' }}>
+      <aside className={`sticky top-0 left-0 z-auto h-screen w-[240px] flex-col transition-transform duration-200 ${isMobileDevice ? 'hidden' : desktopVisible ? 'flex' : 'hidden'}`} style={{ background: DARK, boxShadow: '4px 0 24px oklch(10% 0.02 250 / 0.3)' }}>
         <div className="p-[18px] flex items-center gap-2.5 border-b border-white/10">
           {userData?.schoolLogo ? (
             <img src={userData.schoolLogo} alt="Logo" className="w-8 h-8 rounded-lg object-cover" />
@@ -3342,7 +3342,7 @@ HEAD_TEACHER: [
       </aside>
 
       {/* Barre inférieure mobile : les destinations proviennent du menu autorisé du rôle. */}
-      <div className={`kelasi-mobile-bottom-bar fixed inset-x-0 bottom-0 z-[60] lg:hidden ${mobileKeyboardOpen ? 'hidden' : ''}`} style={{ background: 'rgba(10, 15, 13, 0.96)', borderTop: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      {isMobileDevice && <div className={`kelasi-mobile-bottom-bar fixed inset-x-0 bottom-0 z-[60] ${mobileKeyboardOpen ? 'hidden' : ''}`} style={{ background: 'rgba(10, 15, 13, 0.96)', borderTop: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <nav
           aria-label="Navigation principale"
           className="grid gap-1 px-1.5 pt-1.5 pb-1"
@@ -3383,7 +3383,7 @@ HEAD_TEACHER: [
       </div>
 
       {mobileMoreOpen && (
-        <div className="fixed inset-0 z-[70] lg:hidden">
+        <div className="fixed inset-0 z-[70]">
           <button
             type="button"
             aria-label="Fermer le menu Plus"
@@ -3435,6 +3435,7 @@ HEAD_TEACHER: [
           </section>
         </div>
       )}
+      </div>}
     </>
   )
 }
@@ -3587,7 +3588,7 @@ const VIEW_ICONS: Partial<Record<ViewType, React.ReactNode>> = {
   'activity-logs': <ScrollText size={15} />,
 }
 
-function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; onToggleSidebar: () => void }) {
+function Topbar({ sidebarVisible, onToggleSidebar, isMobileDevice = false }: { sidebarVisible: boolean; onToggleSidebar: () => void; isMobileDevice?: boolean }) {
   const { currentView, setCurrentView, userData, userRole, setHighlightedId, activeSchoolName } = useEduGestStore()
   // Adresse LIVE du navigateur (ex. /students?q=jean) affichée sous le fil
   // d'Ariane — l'utilisateur voit où il se trouve. Mise à jour via popstate
@@ -4062,7 +4063,7 @@ function Topbar({ sidebarVisible, onToggleSidebar }: { sidebarVisible: boolean; 
       <div className="flex items-center gap-4">
         <button
           onClick={onToggleSidebar}
-          className="hidden lg:flex p-2 rounded-xl hover:bg-white/80 transition-all duration-200 items-center gap-1.5"
+          className={`${isMobileDevice ? 'hidden' : 'flex'} p-2 rounded-xl hover:bg-white/80 transition-all duration-200 items-center gap-1.5` }
           title={sidebarVisible ? 'Masquer le menu' : 'Afficher le menu'}
         >
           {sidebarVisible ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
@@ -4836,6 +4837,12 @@ function PlatformPullModal({ onClose, onConnected }: { onClose: () => void; onCo
 
 function DashboardLayout() {
   const [sidebarVisible, setSidebarVisible] = useState(true)
+  // Détection explicite du téléphone : la largeur seule ne doit jamais remplacer
+  // le menu d'un ordinateur par la navigation mobile.
+  const [isMobileDevice, setIsMobileDevice] = useState(false)
+  useEffect(() => {
+    setIsMobileDevice(isMobilePhone())
+  }, [])
   // Popup d'import : affichée une fois, juste après la connexion d'un admin
   // d'école (les identifiants ont été validés par l'API d'authenthentication).
   // Lazy init : consomme le flag posé à la connexion (client uniquement —
@@ -4941,11 +4948,11 @@ function DashboardLayout() {
     return () => { try { stop?.() } catch {} }
   }, [])
   return (
-    <div className={`min-h-screen grid grid-cols-1 ${sidebarVisible ? 'lg:grid-cols-[240px_1fr]' : ''}`} style={{ background: IVORY }}>
-      <Sidebar desktopVisible={sidebarVisible} />
+    <div className={`min-h-screen grid grid-cols-1 ${!isMobileDevice && sidebarVisible ? 'grid-cols-[240px_1fr]' : ''}`} style={{ background: IVORY }}>
+      <Sidebar desktopVisible={sidebarVisible} isMobileDevice={isMobileDevice} />
       <div className="flex min-w-0 flex-col overflow-x-clip lg:overflow-x-visible">
-        <Topbar sidebarVisible={sidebarVisible} onToggleSidebar={() => setSidebarVisible(v => !v)} />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-[calc(6.5rem+env(safe-area-inset-bottom))] lg:pb-8 overflow-y-auto">
+        <Topbar sidebarVisible={sidebarVisible} onToggleSidebar={() => setSidebarVisible(v => !v)} isMobileDevice={isMobileDevice} />
+        <main className={`flex-1 p-4 sm:p-6 lg:p-8 ${isMobileDevice ? 'pb-[calc(6.5rem+env(safe-area-inset-bottom))]' : 'pb-8'} overflow-y-auto`}>
           <MainContent />
         </main>
       </div>
