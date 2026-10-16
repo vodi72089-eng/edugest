@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
@@ -41,6 +41,13 @@ const playfairDisplay = localFont({
   variable: "--font-playfair",
   display: "swap",
 });
+
+// Active les insets de sécurité iOS pour la barre inférieure fixe.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   title: "Kelasi 360 — Gestion Scolaire",
