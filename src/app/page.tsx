@@ -3229,12 +3229,9 @@ HEAD_TEACHER: [
     mobilePrimaryItems.push({ ...first, label: 'Accueil', icon: <LayoutDashboard size={19} /> })
     mobilePrimaryViews.add(first.view)
   }
-  for (const item of menuItems) {
-    if (mobilePrimaryItems.length >= 4) break
-    if (mobilePrimaryViews.has(item.view)) continue
-    mobilePrimaryItems.push(item)
-    mobilePrimaryViews.add(item.view)
-  }
+  // Ne pas remplir les emplacements avec des rubriques arbitraires :
+  // chaque onglet principal n'existe que si le menu du rôle/forfait autorise
+  // réellement cette destination. Les autres rubriques restent dans « Plus ».
 
   const mobileMoreItems = menuItems.filter(item => !mobilePrimaryViews.has(item.view))
   const mobileMoreIsActive = mobileMoreItems.some(item => item.view === currentView)
@@ -4938,9 +4935,9 @@ function DashboardLayout() {
   return (
     <div className={`min-h-screen grid grid-cols-1 ${sidebarVisible ? 'lg:grid-cols-[240px_1fr]' : ''}`} style={{ background: IVORY }}>
       <Sidebar desktopVisible={sidebarVisible} />
-      <div className="flex min-w-0 flex-col overflow-x-clip">
+      <div className="flex min-w-0 flex-col overflow-x-clip lg:overflow-x-visible">
         <Topbar sidebarVisible={sidebarVisible} onToggleSidebar={() => setSidebarVisible(v => !v)} />
-        <main className="min-w-0 max-w-full flex-1 p-4 sm:p-6 lg:p-8 pb-[calc(6.5rem+env(safe-area-inset-bottom))] lg:pb-8 overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-[calc(6.5rem+env(safe-area-inset-bottom))] lg:pb-8 overflow-y-auto">
           <MainContent />
         </main>
       </div>
