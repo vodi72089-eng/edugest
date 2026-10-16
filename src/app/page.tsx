@@ -3380,9 +3380,9 @@ HEAD_TEACHER: [
             <span>Plus</span>
           </button>
         </nav>
-      </div>
+      </div>}
 
-      {mobileMoreOpen && (
+      {isMobileDevice && mobileMoreOpen && (
         <div className="fixed inset-0 z-[70]">
           <button
             type="button"
@@ -3435,7 +3435,6 @@ HEAD_TEACHER: [
           </section>
         </div>
       )}
-      </div>}
     </>
   )
 }
